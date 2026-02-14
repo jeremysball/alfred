@@ -102,11 +102,25 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    # Telegram
     telegram_bot_token: str
+    
+    # Paths
     workspace_dir: Path = Path("./workspace")
     threads_dir: Path = Path("./threads")
+    
+    # Logging
     log_level: str = "INFO"
+    
+    # Pi agent
     pi_timeout: int = 300  # seconds
+    
+    # LLM Provider (passed to pi)
+    llm_provider: str = "zai"  # zai, moonshot
+    llm_api_key: str = ""
+    llm_model: str = ""  # Optional override
+    
+    # Limits
     max_threads: int = 50
     
     class Config:
@@ -123,11 +137,33 @@ settings = Settings()
 logger.setLevel(getattr(logging, settings.log_level.upper()))
 ```
 
-**Step 3: Commit**
+**Step 3: Update .env.example**
 
 ```bash
-git add dispatcher/config.py dispatcher/main.py
-git commit -m "feat(dispatcher): configuration with pydantic-settings"
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+
+# Paths
+WORKSPACE_DIR=./workspace
+THREADS_DIR=./threads
+LOG_LEVEL=INFO
+
+# Pi agent
+PI_TIMEOUT=300
+
+# LLM Provider (passed to pi)
+LLM_PROVIDER=zai
+LLM_API_KEY=your_api_key
+LLM_MODEL=
+
+# Limits
+MAX_THREADS=50
+```
+
+**Step 4: Commit**
+
+```bash
+git add dispatcher/config.py dispatcher/main.py .env.example
+git commit -m "feat(dispatcher): configuration with LLM provider settings"
 ```
 
 ---
@@ -243,17 +279,20 @@ git commit -m "feat(dispatcher): thread model and JSON storage"
 
 ---
 
-## Task 4: Pi Subprocess Manager
+## Task 4: Pi Agent Manager
 
 **Files:**
 - Create: `dispatcher/pi_manager.py`
 - Create: `tests/test_pi_manager.py`
+
+**Context:** Dispatcher talks to pi (agent with tools/context). pi internally uses LLM provider (ZAI/Moonshot). Config passed to pi via environment.
 
 **Step 1: Write pi_manager.py**
 
 ```python
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -263,21 +302,44 @@ logger = logging.getLogger(__name__)
 class PiSubprocess:
     """Manages a single pi subprocess for a thread."""
     
-    def __init__(self, thread_id: str, workspace: Path, timeout: int = 300):
+    def __init__(
+        self,
+        thread_id: str,
+        workspace: Path,
+        timeout: int = 300,
+        llm_provider: str = "zai",
+        llm_api_key: str = "",
+        llm_model: str = ""
+    ):
         self.thread_id = thread_id
         self.workspace = workspace
         self.timeout = timeout
+        self.llm_provider = llm_provider
+        self.llm_api_key = llm_api_key
+        self.llm_model = llm_model
         self.process: Optional[asyncio.subprocess.Process] = None
-        self._lock = asyncio.Lock()
     
     async def start(self):
-        """Start the pi subprocess."""
+        """Start the pi subprocess with LLM config."""
+        env = os.environ.copy()
+        
+        # Set LLM provider config for pi
+        if self.llm_provider == "zai":
+            env["ZAI_API_KEY"] = self.llm_api_key
+            if self.llm_model:
+                env["ZAI_MODEL"] = self.llm_model
+        elif self.llm_provider == "moonshot":
+            env["MOONSHOT_API_KEY"] = self.llm_api_key
+            if self.llm_model:
+                env["MOONSHOT_MODEL"] = self.llm_model
+        
         self.process = await asyncio.create_subprocess_exec(
             "pi",
             "--workspace", str(self.workspace),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env
         )
         logger.info(f"Started pi for thread {self.thread_id} (PID: {self.process.pid})")
     
@@ -323,8 +385,17 @@ class PiSubprocess:
 class PiManager:
     """Manages all pi subprocesses."""
     
-    def __init__(self, timeout: int = 300):
+    def __init__(
+        self,
+        timeout: int = 300,
+        llm_provider: str = "zai",
+        llm_api_key: str = "",
+        llm_model: str = ""
+    ):
         self.timeout = timeout
+        self.llm_provider = llm_provider
+        self.llm_api_key = llm_api_key
+        self.llm_model = llm_model
         self._processes: dict[str, PiSubprocess] = {}
     
     async def get_or_create(self, thread_id: str, workspace: Path) -> PiSubprocess:
@@ -337,7 +408,14 @@ class PiManager:
             del self._processes[thread_id]
         
         # Create new
-        pi = PiSubprocess(thread_id, workspace, self.timeout)
+        pi = PiSubprocess(
+            thread_id,
+            workspace,
+            self.timeout,
+            self.llm_provider,
+            self.llm_api_key,
+            self.llm_model
+        )
         await pi.start()
         self._processes[thread_id] = pi
         return pi
@@ -359,15 +437,14 @@ class PiManager:
 
 ```python
 import pytest
+import shutil
 from pathlib import Path
 from dispatcher.pi_manager import PiManager, PiSubprocess
 
 
 @pytest.mark.asyncio
 async def test_pi_subprocess_lifecycle(tmp_path):
-    # This requires pi to be installed
-    # Skip if not available
-    import shutil
+    # Skip if pi not installed
     if not shutil.which("pi"):
         pytest.skip("pi not installed")
     
@@ -387,7 +464,7 @@ async def test_pi_subprocess_lifecycle(tmp_path):
 
 ```bash
 git add dispatcher/pi_manager.py tests/test_pi_manager.py
-git commit -m "feat(dispatcher): pi subprocess manager with timeout handling"
+git commit -m "feat(dispatcher): pi agent manager with LLM provider config"
 ```
 
 ---
@@ -419,13 +496,11 @@ class Dispatcher:
         self,
         workspace_dir: Path,
         threads_dir: Path,
-        pi_timeout: int = 300,
-        max_threads: int = 50
+        pi_manager: PiManager
     ):
         self.workspace_dir = workspace_dir
         self.storage = ThreadStorage(threads_dir)
-        self.pi_manager = PiManager(pi_timeout)
-        self.max_threads = max_threads
+        self.pi_manager = pi_manager
     
     async def handle_message(
         self,
@@ -448,8 +523,8 @@ class Dispatcher:
         # Add user message
         thread.add_message("user", message)
         
-        # Get or create pi subprocess for this thread
         try:
+            # Get or create pi subprocess for this thread
             pi = await self.pi_manager.get_or_create(
                 thread_id,
                 self.workspace_dir
@@ -473,6 +548,57 @@ class Dispatcher:
         except Exception as e:
             logger.exception(f"Error in thread {thread_id}")
             return f"❌ Error: {str(e)}"
+    
+    async def handle_message_streaming(
+        self,
+        chat_id: int,
+        thread_id: str,
+        message: str
+    ) -> AsyncGenerator[str, None]:
+        """Handle incoming message, yield response chunks."""
+        logger.info(f"Handling streaming message for thread {thread_id}")
+        
+        # Check dispatcher commands (non-streaming)
+        if message.startswith("/"):
+            response = await self._handle_command(thread_id, message)
+            yield response
+            return
+        
+        # Load or create thread
+        thread = await self.storage.load(thread_id)
+        if not thread:
+            thread = Thread(thread_id=thread_id, chat_id=chat_id)
+        
+        # Add user message
+        thread.add_message("user", message)
+        
+        try:
+            # Get pi subprocess
+            pi = await self.pi_manager.get_or_create(thread_id, self.workspace_dir)
+            
+            # Get full response (pi doesn't support true streaming yet)
+            full_response = await pi.send_message(message)
+            
+            # Stream word by word for visual effect
+            words = full_response.split()
+            current = ""
+            for i, word in enumerate(words):
+                current += word + " "
+                if i % 5 == 0 or i == len(words) - 1:
+                    yield current
+                    await asyncio.sleep(0.05)
+            
+            # Add assistant message
+            thread.add_message("assistant", full_response)
+            await self.storage.save(thread)
+            
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout in thread {thread_id}")
+            await self.pi_manager.kill_thread(thread_id)
+            yield "⏱️ Request timed out. Process killed. Try again."
+        except Exception as e:
+            logger.exception(f"Error in thread {thread_id}")
+            yield f"❌ Error: {str(e)}"
     
     async def _handle_command(self, thread_id: str, command: str) -> str:
         """Handle dispatcher commands."""
@@ -500,21 +626,10 @@ class Dispatcher:
         
         return f"Unknown command: {cmd}"
     
-    async def spawn_subagent(
-        self,
-        parent_thread_id: str,
-        task: str,
-        timeout: int = 300
-    ) -> str:
-        """Spawn a sub-agent for a task."""
-        # Create isolated workspace for subagent
-        subagent_id = f"{parent_thread_id}_sub_{asyncio.get_event_loop().time()}"
-        # TODO: Implement subagent spawning
-        return f"Sub-agent {subagent_id} spawned for: {task}"
-    
     async def shutdown(self):
         """Clean shutdown."""
         await self.pi_manager.cleanup()
+```
 ```
 
 **Step 2: Write test**
@@ -523,6 +638,7 @@ class Dispatcher:
 import pytest
 from pathlib import Path
 from dispatcher.dispatcher import Dispatcher
+from dispatcher.pi_manager import PiManager
 
 
 @pytest.mark.asyncio
@@ -532,11 +648,18 @@ async def test_dispatcher_commands(tmp_path):
     workspace.mkdir()
     threads.mkdir()
     
-    dispatcher = Dispatcher(workspace, threads)
+    pi_manager = PiManager(timeout=5)
+    dispatcher = Dispatcher(workspace, threads, pi_manager)
     
     # Test /threads command
     response = await dispatcher.handle_message(123, "main", "/threads")
     assert "Threads:" in response
+    
+    # Test /status command
+    response = await dispatcher.handle_message(123, "main", "/status")
+    assert "Active threads" in response
+    
+    await dispatcher.shutdown()
 ```
 
 **Step 3: Commit**
@@ -711,72 +834,69 @@ class TelegramBot:
             await self.app.shutdown()
 ```
 
-**Step 2: Update dispatcher.py to add streaming method**
-
-Add import at top:
-```python
-from collections.abc import AsyncGenerator
-```
-
-Add this method to the Dispatcher class:
+**Step 2: Update main.py**
 
 ```python
-async def handle_message_streaming(
-    self,
-    chat_id: int,
-    thread_id: str,
-    message: str
-) -> AsyncGenerator[str, None]:
-    """Handle incoming message, yield response chunks."""
-    logger.info(f"Handling streaming message for thread {thread_id}")
+import asyncio
+import logging
+import signal
+
+from dispatcher.config import Settings
+from dispatcher.dispatcher import Dispatcher
+from dispatcher.telegram_bot import TelegramBot
+from dispatcher.pi_manager import PiManager
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+async def main():
+    settings = Settings()
+    logging.getLogger().setLevel(getattr(logging, settings.log_level.upper()))
     
-    # Check dispatcher commands (non-streaming for simplicity)
-    if message.startswith("/"):
-        response = await self._handle_command(thread_id, message)
-        yield response
-        return
+    # Create pi manager with LLM provider config
+    pi_manager = PiManager(
+        timeout=settings.pi_timeout,
+        llm_provider=settings.llm_provider,
+        llm_api_key=settings.llm_api_key,
+        llm_model=settings.llm_model
+    )
     
-    # Load or create thread
-    thread = await self.storage.load(thread_id)
-    if not thread:
-        thread = Thread(thread_id=thread_id, chat_id=chat_id)
+    # Create dispatcher
+    dispatcher = Dispatcher(
+        workspace_dir=settings.workspace_dir,
+        threads_dir=settings.threads_dir,
+        pi_manager=pi_manager
+    )
     
-    # Add user message
-    thread.add_message("user", message)
+    # Create bot
+    bot = TelegramBot(settings.telegram_bot_token, dispatcher)
     
-    # Get or create pi subprocess for this thread
+    # Handle shutdown gracefully
+    def signal_handler(sig, frame):
+        logger.info("Shutdown signal received")
+        raise asyncio.CancelledError()
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     try:
-        pi = await self.pi_manager.get_or_create(
-            thread_id,
-            self.workspace_dir
-        )
-        
-        # For now, collect full response then stream word by word
-        # (True streaming from pi requires pi to support it)
-        full_response = await pi.send_message(message)
-        
-        # Stream word by word
-        words = full_response.split()
-        current = ""
-        for i, word in enumerate(words):
-            current += word + " "
-            if i % 5 == 0 or i == len(words) - 1:  # Yield every 5 words
-                yield current
-                await asyncio.sleep(0.05)  # Small delay for visual effect
-        
-        # Add assistant message
-        thread.add_message("assistant", full_response)
-        
-        # Save thread state
-        await self.storage.save(thread)
-        
-    except asyncio.TimeoutError:
-        logger.error(f"Timeout in thread {thread_id}")
-        await self.pi_manager.kill_thread(thread_id)
-        yield "⏱️ Request timed out. Process killed. Try again."
-    except Exception as e:
-        logger.exception(f"Error in thread {thread_id}")
-        yield f"❌ Error: {str(e)}"
+        await bot.run()
+    except asyncio.CancelledError:
+        logger.info("Shutting down...")
+    finally:
+        await dispatcher.shutdown()
+        logger.info("Shutdown complete")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
 ```
 
 **Step 2: Update main.py**
@@ -846,11 +966,11 @@ git commit -m "feat(dispatcher): Telegram bot with thread routing"
 
 ---
 
-## Task 7: First-Class Sub-Agents
+## Task 7: Sub-Agent Support
 
 **Files:**
-- Modify: `dispatcher/dispatcher.py` (add spawn_subagent)
 - Create: `dispatcher/subagent.py`
+- Modify: `dispatcher/dispatcher.py` (add spawn_subagent)
 
 **Step 1: Write subagent.py**
 
@@ -866,7 +986,7 @@ logger = logging.getLogger(__name__)
 
 
 class SubAgent:
-    """A first-class sub-agent with isolated context."""
+    """A sub-agent with isolated context for specific tasks."""
     
     def __init__(
         self,
@@ -874,19 +994,24 @@ class SubAgent:
         parent_thread_id: str,
         task: str,
         workspace_dir: Path,
+        llm_provider: str = "zai",
+        llm_api_key: str = "",
+        llm_model: str = "",
         timeout: int = 300
     ):
         self.subagent_id = subagent_id
         self.parent_thread_id = parent_thread_id
         self.task = task
-        self.timeout = timeout
         self.workspace_dir = workspace_dir
+        self.llm_provider = llm_provider
+        self.llm_api_key = llm_api_key
+        self.llm_model = llm_model
+        self.timeout = timeout
         self.temp_dir: Path | None = None
         self.pi: PiSubprocess | None = None
     
     async def setup(self):
         """Create isolated workspace for subagent."""
-        # Copy parent workspace to temp dir
         self.temp_dir = Path(tempfile.mkdtemp(prefix=f"subagent_{self.subagent_id}_"))
         
         # Copy workspace files
@@ -907,14 +1032,19 @@ class SubAgent:
         self.pi = PiSubprocess(
             self.subagent_id,
             self.temp_dir,
-            self.timeout
+            self.timeout,
+            self.llm_provider,
+            self.llm_api_key,
+            self.llm_model
         )
-        await self.pi.start()
         
         try:
+            await self.pi.start()
             result = await self.pi.send_message(self.task)
+            logger.info(f"Sub-agent {self.subagent_id} completed")
             return result
         except asyncio.TimeoutError:
+            logger.error(f"Sub-agent {self.subagent_id} timed out")
             return f"⏱️ Sub-agent {self.subagent_id} timed out"
         finally:
             await self.cleanup()
@@ -929,11 +1059,10 @@ class SubAgent:
             logger.info(f"Cleaned up sub-agent {self.subagent_id}")
 ```
 
-**Step 2: Update dispatcher.py spawn_subagent**
+**Step 2: Update dispatcher.py to add spawn_subagent**
 
 ```python
-# In Dispatcher class, replace spawn_subagent with:
-
+# Add to Dispatcher class
 from dispatcher.subagent import SubAgent
 
 async def spawn_subagent(
@@ -951,6 +1080,9 @@ async def spawn_subagent(
         parent_thread_id=parent_thread_id,
         task=task,
         workspace_dir=self.workspace_dir,
+        llm_provider=self.pi_manager.llm_provider,
+        llm_api_key=self.pi_manager.llm_api_key,
+        llm_model=self.pi_manager.llm_model,
         timeout=timeout
     )
     
@@ -963,14 +1095,14 @@ async def _run_subagent(self, subagent: SubAgent):
     """Run subagent and handle result."""
     result = await subagent.run()
     # TODO: Report back to parent thread
-    logger.info(f"Sub-agent {subagent.subagent_id} completed")
+    logger.info(f"Sub-agent {subagent.subagent_id} result: {result[:100]}...")
 ```
 
 **Step 3: Commit**
 
 ```bash
 git add dispatcher/subagent.py dispatcher/dispatcher.py
-git commit -m "feat(dispatcher): first-class sub-agents with isolated workspaces"
+git commit -m "feat(dispatcher): sub-agent support with isolated workspaces"
 ```
 
 ---
@@ -984,9 +1116,9 @@ git commit -m "feat(dispatcher): first-class sub-agents with isolated workspaces
 
 ```python
 import pytest
-import asyncio
 from pathlib import Path
 from dispatcher.dispatcher import Dispatcher
+from dispatcher.pi_manager import PiManager
 
 
 @pytest.mark.asyncio
@@ -997,7 +1129,8 @@ async def test_dispatcher_command_flow(tmp_path):
     workspace.mkdir()
     threads.mkdir()
     
-    dispatcher = Dispatcher(workspace, threads, pi_timeout=5)
+    pi_manager = PiManager(timeout=5)
+    dispatcher = Dispatcher(workspace, threads, pi_manager)
     
     # Test /status
     response = await dispatcher.handle_message(123, "test_chat", "/status")
@@ -1121,11 +1254,19 @@ This creates a fully functional dispatcher:
 
 - ✅ Python asyncio single process
 - ✅ JSON file storage per thread
-- ✅ Telegram bot with thread routing
-- ✅ Pi subprocesses with timeout handling
-- ✅ First-class sub-agents with isolated workspaces
+- ✅ Telegram bot with streaming + typing indicator
+- ✅ Pi agent subprocesses with timeout handling
+- ✅ LLM provider config (ZAI, Moonshot) passed to pi
+- ✅ Sub-agents with isolated workspaces
 - ✅ Fault isolation (timeouts, killable processes)
 - ✅ Dispatcher commands (/status, /kill, /threads, /cleanup)
+
+**Architecture:**
+```
+Telegram → Dispatcher → pi subprocess → LLM Provider (ZAI/Moonshot)
+                           ↓
+                     Sub-agents (isolated)
+```
 
 **Next steps after this plan:**
 1. Add memory search (semantic or grep-based)
