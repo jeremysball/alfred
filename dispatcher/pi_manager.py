@@ -46,23 +46,20 @@ class PiSubprocess:
         if self.llm_provider == "zai":
             env["OPENAI_API_KEY"] = self.llm_api_key
             env["OPENAI_BASE_URL"] = "https://api.z.ai/api/coding/paas/v4"
-            provider = "openai"
-            model = self.llm_model or "glm-4.7"
+            # Use model prefix to tell pi to use openai provider with this model
+            model = f"openai/{self.llm_model or 'glm-4.7'}"
         elif self.llm_provider == "moonshot":
             env["OPENAI_API_KEY"] = self.llm_api_key
             env["OPENAI_BASE_URL"] = "https://api.moonshot.cn/v1"
-            provider = "openai"
-            model = self.llm_model or "moonshot-v1-8k"
+            model = f"openai/{self.llm_model or 'moonshot-v1-8k'}"
         else:
-            provider = self.llm_provider
             model = self.llm_model or "gpt-4"
         
-        # Run pi in --print mode with the message
+        # Run pi in --print mode with the message (no --provider, use model prefix)
         self.process = await asyncio.create_subprocess_exec(
             str(self.pi_path),
             "--print",
             "--workspace", str(self.workspace),
-            "--provider", provider,
             "--model", model,
             message,
             stdin=asyncio.subprocess.PIPE,
