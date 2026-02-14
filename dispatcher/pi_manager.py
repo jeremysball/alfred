@@ -7,6 +7,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Default pi path - can be overridden via environment
+DEFAULT_PI_PATH = Path(__file__).parent.parent / "node_modules" / ".bin" / "pi"
+
 
 class PiSubprocess:
     """Manages a single pi subprocess for a thread."""
@@ -18,7 +21,8 @@ class PiSubprocess:
         timeout: int = 300,
         llm_provider: str = "zai",
         llm_api_key: str = "",
-        llm_model: str = ""
+        llm_model: str = "",
+        pi_path: Path | None = None
     ):
         self.thread_id = thread_id
         self.workspace = workspace
@@ -26,6 +30,7 @@ class PiSubprocess:
         self.llm_provider = llm_provider
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
+        self.pi_path = pi_path or DEFAULT_PI_PATH
         self.process: Optional[asyncio.subprocess.Process] = None
     
     async def start(self) -> None:
@@ -43,7 +48,7 @@ class PiSubprocess:
                 env["MOONSHOT_MODEL"] = self.llm_model
         
         self.process = await asyncio.create_subprocess_exec(
-            "pi",
+            str(self.pi_path),
             "--workspace", str(self.workspace),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
@@ -99,12 +104,14 @@ class PiManager:
         timeout: int = 300,
         llm_provider: str = "zai",
         llm_api_key: str = "",
-        llm_model: str = ""
+        llm_model: str = "",
+        pi_path: Path | None = None
     ):
         self.timeout = timeout
         self.llm_provider = llm_provider
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
+        self.pi_path = pi_path or DEFAULT_PI_PATH
         self._processes: dict[str, PiSubprocess] = {}
     
     async def get_or_create(self, thread_id: str, workspace: Path) -> PiSubprocess:
@@ -123,7 +130,8 @@ class PiManager:
             self.timeout,
             self.llm_provider,
             self.llm_api_key,
-            self.llm_model
+            self.llm_model,
+            self.pi_path
         )
         await pi.start()
         self._processes[thread_id] = pi
