@@ -1,11 +1,13 @@
 """Core dispatcher that routes messages and manages threads."""
 import asyncio
 import logging
+import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from dispatcher.models import Thread
 from dispatcher.storage import ThreadStorage
 from dispatcher.pi_manager import PiManager
+from dispatcher.subagent import SubAgent
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +149,37 @@ class Dispatcher:
             return "Cleaned up all processes"
         
         return f"Unknown command: {cmd}"
+    
+    async def spawn_subagent(
+        self,
+        parent_thread_id: str,
+        task: str,
+        timeout: int = 300
+    ) -> str:
+        """Spawn a sub-agent for a task."""
+        subagent_id = f"{parent_thread_id}_sub_{int(time.time())}"
+        
+        subagent = SubAgent(
+            subagent_id=subagent_id,
+            parent_thread_id=parent_thread_id,
+            task=task,
+            workspace_dir=self.workspace_dir,
+            llm_provider=self.pi_manager.llm_provider,
+            llm_api_key=self.pi_manager.llm_api_key,
+            llm_model=self.pi_manager.llm_model,
+            timeout=timeout
+        )
+        
+        # Run in background (don't await)
+        asyncio.create_task(self._run_subagent(subagent))
+        
+        return f"🔄 Sub-agent {subagent_id} spawned. Will report back when done."
+    
+    async def _run_subagent(self, subagent: SubAgent) -> None:
+        """Run subagent and handle result."""
+        result = await subagent.run()
+        # TODO: Report back to parent thread via Telegram
+        logger.info(f"Sub-agent {subagent.subagent_id} result: {result[:100]}...")
     
     async def shutdown(self) -> None:
         """Clean shutdown."""
