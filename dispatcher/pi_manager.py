@@ -35,6 +35,11 @@ class PiSubprocess:
     
     async def start(self) -> None:
         """Start the pi subprocess with LLM config."""
+        # Note: pi is started per-message in --print mode, not as persistent subprocess
+        pass
+    
+    async def send_message(self, message: str) -> str:
+        """Send message to pi in --print mode, get response."""
         env = os.environ.copy()
         
         # Set LLM provider config for pi
@@ -47,24 +52,19 @@ class PiSubprocess:
             if self.llm_model:
                 env["MOONSHOT_MODEL"] = self.llm_model
         
+        # Run pi in --print mode with the message
         self.process = await asyncio.create_subprocess_exec(
             str(self.pi_path),
+            "--print",
             "--workspace", str(self.workspace),
+            "--provider", self.llm_provider,
+            message,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env
         )
         logger.info(f"Started pi for thread {self.thread_id} (PID: {self.process.pid})")
-    
-    async def send_message(self, message: str) -> str:
-        """Send message to pi, get response with timeout."""
-        if not self.process or self.process.returncode is not None:
-            raise RuntimeError("Pi process not running")
-        
-        # Send message + newline
-        self.process.stdin.write(f"{message}\n".encode())
-        await self.process.stdin.drain()
         
         # Read response with timeout
         try:
@@ -76,7 +76,7 @@ class PiSubprocess:
             if stderr:
                 logger.warning(f"Pi stderr: {stderr.decode()}")
             
-            return stdout.decode()
+            return stdout.decode().strip()
         except asyncio.TimeoutError:
             logger.error(f"Pi timeout for thread {self.thread_id}")
             self.process.kill()
@@ -115,16 +115,10 @@ class PiManager:
         self._processes: dict[str, PiSubprocess] = {}
     
     async def get_or_create(self, thread_id: str, workspace: Path) -> PiSubprocess:
-        """Get existing or create new pi subprocess."""
-        if thread_id in self._processes:
-            pi = self._processes[thread_id]
-            if await pi.is_alive():
-                return pi
-            # Dead process, clean up
-            del self._processes[thread_id]
-        
-        # Create new
-        pi = PiSubprocess(
+        """Get or create a pi subprocess configuration."""
+        # Pi is now run per-message in --print mode, not as persistent subprocess
+        # Just return a configured PiSubprocess that can be used to send messages
+        return PiSubprocess(
             thread_id,
             workspace,
             self.timeout,
@@ -133,9 +127,6 @@ class PiManager:
             self.llm_model,
             self.pi_path
         )
-        await pi.start()
-        self._processes[thread_id] = pi
-        return pi
     
     async def kill_thread(self, thread_id: str) -> bool:
         """Kill a specific thread's pi process."""
