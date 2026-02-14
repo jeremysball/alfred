@@ -42,22 +42,28 @@ class PiSubprocess:
         """Send message to pi in --print mode, get response."""
         env = os.environ.copy()
         
-        # Set LLM provider config for pi
+        # Wire ZAI as OpenAI-compatible endpoint
         if self.llm_provider == "zai":
-            env["ZAI_API_KEY"] = self.llm_api_key
-            if self.llm_model:
-                env["ZAI_MODEL"] = self.llm_model
+            env["OPENAI_API_KEY"] = self.llm_api_key
+            env["OPENAI_BASE_URL"] = "https://api.z.ai/api/coding/paas/v4"
+            provider = "openai"
+            model = self.llm_model or "glm-4.7"
         elif self.llm_provider == "moonshot":
-            env["MOONSHOT_API_KEY"] = self.llm_api_key
-            if self.llm_model:
-                env["MOONSHOT_MODEL"] = self.llm_model
+            env["OPENAI_API_KEY"] = self.llm_api_key
+            env["OPENAI_BASE_URL"] = "https://api.moonshot.cn/v1"
+            provider = "openai"
+            model = self.llm_model or "moonshot-v1-8k"
+        else:
+            provider = self.llm_provider
+            model = self.llm_model or "gpt-4"
         
         # Run pi in --print mode with the message
         self.process = await asyncio.create_subprocess_exec(
             str(self.pi_path),
             "--print",
             "--workspace", str(self.workspace),
-            "--provider", self.llm_provider,
+            "--provider", provider,
+            "--model", model,
             message,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,

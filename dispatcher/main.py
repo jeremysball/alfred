@@ -6,6 +6,7 @@ import signal
 from dispatcher.config import Settings
 from dispatcher.dispatcher import Dispatcher
 from dispatcher.telegram_bot import TelegramBot
+from dispatcher.pi_manager import PiManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,14 +20,19 @@ async def main() -> None:
     settings = Settings()
     logging.getLogger().setLevel(getattr(logging, settings.log_level.upper()))
     
-    # Create dispatcher with LLM config
+    # Create pi manager with LLM provider config
+    pi_manager = PiManager(
+        timeout=settings.pi_timeout,
+        llm_provider=settings.llm_provider,
+        llm_api_key=settings.llm_api_key,
+        llm_model=settings.llm_model
+    )
+    
+    # Create dispatcher
     dispatcher = Dispatcher(
         workspace_dir=settings.workspace_dir,
         threads_dir=settings.threads_dir,
-        llm_provider=settings.llm_provider,
-        llm_api_key=settings.llm_api_key,
-        llm_model=settings.llm_model,
-        timeout=settings.pi_timeout
+        pi_manager=pi_manager
     )
     
     # Create bot

@@ -19,7 +19,7 @@ class LLMApi:
     ) -> str:
         """Complete a conversation and return the response."""
         if provider == "zai":
-            return await LLMApi._zai_complete(api_key, model or "glm-4", messages, timeout)
+            return await LLMApi._zai_complete(api_key, model or "glm-4.7", messages, timeout)
         elif provider == "moonshot":
             return await LLMApi._moonshot_complete(api_key, model or "moonshot-v1-8k", messages, timeout)
         else:
@@ -32,8 +32,8 @@ class LLMApi:
         messages: list[dict],
         timeout: int
     ) -> str:
-        """Call ZAI API."""
-        url = "https://api.z.ai/v1/chat/completions"
+        """Call ZAI Coding Plan API."""
+        url = "https://api.z.ai/api/coding/paas/v4/chat/completions"
         
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             headers = {
