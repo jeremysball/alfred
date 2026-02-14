@@ -86,14 +86,16 @@ class TelegramBot:
                 message=message
             ):
                 response_text += chunk
+                logger.debug(f"Received chunk: {chunk[:50]}...")
                 
-                # Update message every 100 chars or on completion
-                if len(response_text) - last_update_len > 100 or chunk == "":
+                # Always send on first chunk, then every 100 chars
+                if sent_message is None or len(response_text) - last_update_len > 100:
                     if sent_message is None:
                         # First chunk - send new message
                         sent_message = await update.message.reply_text(
                             response_text[:4096]  # Telegram max length
                         )
+                        logger.info(f"Sent initial message to thread {thread_id}")
                     else:
                         # Update existing message
                         try:
