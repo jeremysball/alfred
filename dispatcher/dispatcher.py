@@ -102,14 +102,8 @@ class Dispatcher:
             # Get full response (pi doesn't support true streaming yet)
             full_response = await pi.send_message(message)
             
-            # Stream word by word for visual effect
-            words = full_response.split()
-            current = ""
-            for i, word in enumerate(words):
-                current += word + " "
-                if i % 5 == 0 or i == len(words) - 1:
-                    yield current
-                    await asyncio.sleep(0.05)
+            # Yield the full response at once (no fake streaming for now)
+            yield full_response
             
             # Add assistant message
             thread.add_message("assistant", full_response)

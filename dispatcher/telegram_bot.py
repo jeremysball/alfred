@@ -77,39 +77,20 @@ class TelegramBot:
         try:
             # Stream response from dispatcher
             response_text = ""
-            sent_message = None
-            last_update_len = 0
             
             async for chunk in self.dispatcher.handle_message_streaming(
                 chat_id=chat_id,
                 thread_id=thread_id,
                 message=message
             ):
-                response_text += chunk
-                logger.debug(f"Received chunk: {chunk[:50]}...")
-                
-                # Always send on first chunk, then every 100 chars
-                if sent_message is None or len(response_text) - last_update_len > 100:
-                    if sent_message is None:
-                        # First chunk - send new message
-                        sent_message = await update.message.reply_text(
-                            response_text[:4096]  # Telegram max length
-                        )
-                        logger.info(f"Sent initial message to thread {thread_id}")
-                    else:
-                        # Update existing message
-                        try:
-                            await sent_message.edit_text(response_text[:4096])
-                        except Exception as e:
-                            # Ignore "message not modified" errors
-                            if "message is not modified" not in str(e).lower():
-                                logger.warning(f"Failed to edit message: {e}")
-                    
-                    last_update_len = len(response_text)
+                response_text = chunk  # Just use the latest chunk (full response)
             
-            # Final update if truncated
-            if len(response_text) > 4096 and sent_message:
-                await sent_message.reply_text("... (truncated)")
+            # Send the complete response
+            if response_text:
+                await update.message.reply_text(response_text[:4096])
+                if len(response_text) > 4096:
+                    await update.message.reply_text("... (truncated)")
+                logger.info(f"Sent response to thread {thread_id}")
                 
         except Exception as e:
             logger.exception(f"Error handling message: {e}")
