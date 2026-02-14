@@ -39,51 +39,39 @@ class PiSubprocess:
         pass
     
     async def send_message(self, message: str) -> str:
-        """Send message to pi in --print mode, get response."""
-        env = os.environ.copy()
+        """Send message via direct API call (pi doesn't support custom endpoints)."""
+        import aiohttp
         
-        # Wire ZAI as OpenAI-compatible endpoint
+        # Use direct API call
         if self.llm_provider == "zai":
-            env["OPENAI_API_KEY"] = self.llm_api_key
-            env["OPENAI_BASE_URL"] = "https://api.z.ai/api/coding/paas/v4"
-            # Use model prefix to tell pi to use openai provider with this model
-            model = f"openai/{self.llm_model or 'glm-4.7'}"
+            url = "https://api.z.ai/api/coding/paas/v4/chat/completions"
+            model = self.llm_model or "glm-4.7"
         elif self.llm_provider == "moonshot":
-            env["OPENAI_API_KEY"] = self.llm_api_key
-            env["OPENAI_BASE_URL"] = "https://api.moonshot.cn/v1"
-            model = f"openai/{self.llm_model or 'moonshot-v1-8k'}"
+            url = "https://api.moonshot.cn/v1/chat/completions"
+            model = self.llm_model or "moonshot-v1-8k"
         else:
-            model = self.llm_model or "gpt-4"
+            raise ValueError(f"Unknown provider: {self.llm_provider}")
         
-        # Run pi in --print mode with the message (no --provider, use model prefix)
-        self.process = await asyncio.create_subprocess_exec(
-            str(self.pi_path),
-            "--print",
-            "--workspace", str(self.workspace),
-            "--model", model,
-            message,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env
-        )
-        logger.info(f"Started pi for thread {self.thread_id} (PID: {self.process.pid})")
+        logger.info(f"Calling {self.llm_provider} API for thread {self.thread_id}")
         
-        # Read response with timeout
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                self.process.communicate(),
-                timeout=self.timeout
-            )
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+            headers = {
+                "Authorization": f"Bearer {self.llm_api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": message}],
+                "max_tokens": 4096
+            }
             
-            if stderr:
-                logger.warning(f"Pi stderr: {stderr.decode()}")
-            
-            return stdout.decode().strip()
-        except asyncio.TimeoutError:
-            logger.error(f"Pi timeout for thread {self.thread_id}")
-            self.process.kill()
-            raise
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    raise RuntimeError(f"API error {resp.status}: {text}")
+                
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
     
     async def kill(self) -> None:
         """Kill the subprocess."""
