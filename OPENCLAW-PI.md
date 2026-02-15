@@ -1,99 +1,69 @@
 # OpenClaw Pi — Model Documentation
 
-Telegram bot dispatcher for Pi coding agent. Multi-thread, persistent conversations.
+Telegram bot dispatcher for Pi coding agent. Persistent Pi processes per thread.
 
 ## Architecture
 
 ```
-Telegram Bot → Dispatcher → Pi Manager → Pi Subprocess
-                    ↓
-            Thread Storage (JSON)
+Telegram Bot → Dispatcher → Pi Manager → Pi Subprocess (persistent)
+                    ↓                         ↓
+            Thread Storage (JSON)      Sub-agents (background)
 ```
 
 | File | Purpose |
 |------|---------|
-| `telegram_bot.py` | Telegram handlers |
-| `dispatcher.py` | Message routing |
-| `pi_manager.py` | Pi subprocess lifecycle |
-| `storage.py` | Thread persistence |
+| `telegram_bot.py` | Telegram handlers + CommandHandler |
+| `dispatcher.py` | Message routing, sub-agent spawning |
+| `pi_manager.py` | Persistent Pi process lifecycle |
+| `storage.py` | Thread persistence (JSON) |
 | `config.py` | Settings (pydantic) |
-| `models.py` | Pydantic models |
 
-## File Locations
+## Key Concept: Stored vs Active Threads
 
-**Source:**
-```
-openclaw_pi/
-├── config.py, dispatcher.py, pi_manager.py
-├── telegram_bot.py, storage.py, models.py
-├── llm_api.py, subagent.py
-├── main.py (CLI entry), __main__.py (module entry)
-└── __init__.py
-```
-
-**Config:** `.env`, `pyproject.toml`
-
-**Runtime (gitignored):**
-```
-workspace/           # User context
-├── AGENTS.md, SOUL.md, USER.md
-└── skills/
-
-threads/             # Thread JSON files
-memory/              # Daily notes (optional)
-```
-
-**Templates:** `templates/` — Bootstrap files
-
-## Configuration
-
-```python
-from openclaw_pi.config import Settings
-settings = Settings()
-```
-
-**Required:** `TELEGRAM_BOT_TOKEN`, `LLM_API_KEY`
-
-**Optional:** `WORKSPACE_DIR`, `THREADS_DIR`, `LOG_LEVEL`, `PI_TIMEOUT`, `LLM_PROVIDER`, `LLM_MODEL`, `MAX_THREADS`
+- **Stored threads** = JSON files in `threads/` (persisted history)
+- **Active threads** = Running Pi processes (spawned lazily)
 
 ## Thread Lifecycle
 
-1. Extract `thread_id` (`{chat_id}_{thread_id}` or `chat_id`)
-2. Load thread from storage (or create)
-3. Get `PiSubprocess` from `PiManager`
-4. Send to Pi, get response
-5. Save thread state
-6. Return response
+1. Extract `thread_id`
+2. Load/create thread JSON
+3. **Lazy spawn:** `PiManager.get_or_create()` starts Pi if not running
+4. Send message via stdin, read response via stdout
+5. Save thread JSON
+
+## Persistent Pi Process
+
+Pi runs as persistent subprocess per thread:
+
+```
+pi --provider zai --session <file> --model <model>
+```
+
+Protocol:
+- Send: `message + "\n\n__END__\n"`
+- Read: lines until `__END__`
 
 ## Commands
 
-Dispatcher handles: `/status`, `/threads`, `/kill <id>`, `/cleanup`, `/help`
+Telegram CommandHandler commands:
 
-Add commands in `dispatcher.py::_handle_command()`:
+| Command | Description |
+|---------|-------------|
+| `/status` | Active processes + stored threads |
+| `/threads` | List all threads (🟢 active, ⚪ stored) |
+| `/kill <id>` | Kill thread's Pi process |
+| `/cleanup` | Kill all Pi processes |
+| `/subagent <task>` | Spawn background sub-agent |
 
-```python
-elif cmd == "/mycommand":
-    return f"Result: {do_something()}"
-```
+## Sub-agents
 
-## Pi Subprocess
+Background tasks spawned via `/subagent <task>`:
 
-Pi runs in `--print` mode per message:
-
-```bash
-pi --print --provider zai --session <file> --model <model> <message>
-```
-
-## Add Config Option
-
-```python
-# config.py
-MY_SETTING: str = "default"
-
-@property
-def my_setting(self) -> str:
-    return self.MY_SETTING
-```
+1. Create isolated workspace: `workspace/subagents/<subagent_id>/`
+2. Spawn new Pi process
+3. Run task, save result
+4. Update parent thread
+5. Cleanup process
 
 ## Development
 
@@ -101,14 +71,12 @@ def my_setting(self) -> str:
 uv pip install -e ".[dev]"
 uv run pytest
 uv run mypy openclaw_pi/
-uv run ruff check . && uv run ruff format .
-openclaw-pi  # or: python -m openclaw_pi
+openclaw-pi
 ```
 
 ## Key Points
 
-- Workspace gitignored — never commit user files
-- Threads are JSON — human-readable
-- Pi runs per-message — not persistent per thread
-- Pi session files != thread storage files
-- SIGINT/SIGTERM shuts down gracefully
+- One Pi process per thread (persistent, not one-shot)
+- Lazy spawn on first message
+- Sub-agents are separate Pi processes in isolated workspaces
+- SIGINT/SIGTERM shuts down all processes gracefully
