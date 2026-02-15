@@ -152,3 +152,103 @@
 - Standard pyproject.toml format
 - Easy publishing to PyPI
 - Good IDE support
+
+## Why Parse Token Usage from Pi Sessions?
+
+**Decision:** Parse actual token usage from Pi's JSONL session files instead of estimating.
+
+**Context:** Need accurate token tracking for cost monitoring.
+
+**Options Considered:**
+1. **Character estimation** - 1 token ≈ 4 characters
+   - *Rejected:* Wildly inaccurate for different languages/models
+2. **Pi's session files** - Parse usage from JSONL entries
+   - *Chosen:* Exact token counts, includes cache info, real cost data
+3. **Provider API** - Query usage separately
+   - *Rejected:* No unified API, extra network calls
+
+**Consequences:**
+- Accurate token counts per request
+- Cache hit/miss tracking
+- Real cost data from provider
+- Requires parsing JSONL files
+
+## Why Verbose Logging to Telegram?
+
+**Decision:** Add `/verbose` command to send DEBUG logs to Telegram chat.
+
+**Context:** Hard to debug production issues without log access.
+
+**Options Considered:**
+1. **File logs only** - Write to disk, user ssh's in
+   - *Rejected:* User doesn't have server access
+2. **Webhook logging** - External logging service
+   - *Rejected:* External dependency, privacy concerns
+3. **Telegram messages** - Send logs as chat messages
+   - *Chosen:* Immediate, no extra setup, user already in chat
+
+**Consequences:**
+- Real-time debugging in chat
+- Can get spammy with DEBUG level
+- Must truncate long messages (>4000 chars)
+- Per-chat enable/disable
+
+## Why LLM-Based Memory Compaction?
+
+**Decision:** Use LLM to compact daily memories into MEMORY.md summary.
+
+**Context:** Raw daily notes are too verbose for long-term storage.
+
+**Options Considered:**
+1. **Rule-based extraction** - Parse headers and bullet points
+   - *Rejected:* Misses context, can't synthesize across days
+2. **LLM summarization** - Send memories to LLM, get summary
+   - *Chosen:* Intelligent synthesis, natural language output
+3. **No compaction** - Keep all daily files forever
+   - *Rejected:* Too many files, hard to find important info
+
+**Consequences:**
+- Intelligent summaries that capture what's important
+- Configurable via custom prompts
+- Costs API tokens to run
+- Archives original files after compaction
+
+## Why Simplified `/compact` Interface?
+
+**Decision:** `/compact [optional prompt]` instead of strategy/days parameters.
+
+**Context:** Original design had `/compact <strategy> <days>` - too complex.
+
+**Options Considered:**
+1. **Multi-parameter** - Strategy, days, provider, model
+   - *Rejected:* Too many options, confusing UX
+2. **Prompt-based** - Just optional custom prompt
+   - *Chosen:* Natural language, flexible, simple
+3. **Interactive** - Bot asks questions
+   - *Rejected:* Slow, interrupts workflow
+
+**Consequences:**
+- Simple: `/compact` just works
+- Powerful: Custom prompt controls behavior
+- Compacts ALL memories (not just recent days)
+- No need to remember strategy names
+
+## Why Shared Workspace?
+
+**Decision:** Add shared workspace accessible across all threads.
+
+**Context:** Threads are isolated - need way to share data between them.
+
+**Options Considered:**
+1. **Thread merging** - Allow threads to access each other's data
+   - *Rejected:* Breaks isolation model
+2. **Database** - Shared SQL database
+   - *Rejected:* External dependency
+3. **File-based shared workspace** - `shared/notes/`, `shared/data/`
+   - *Chosen:* Simple, works with existing file tools
+
+**Consequences:**
+- Cross-thread collaboration possible
+- Notes and data files persist across conversations
+- User can organize shared content
+- Requires careful naming to avoid conflicts
