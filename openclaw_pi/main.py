@@ -25,7 +25,8 @@ async def main() -> None:
         timeout=settings.pi_timeout,
         llm_provider=settings.llm_provider,
         llm_api_key=settings.llm_api_key,
-        llm_model=settings.llm_model
+        llm_model=settings.llm_model,
+        pi_path=settings.pi_path
     )
     
     # Create dispatcher

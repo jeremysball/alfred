@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Default to workspace in the current working directory
 DEFAULT_WORKSPACE = Path.cwd() / "workspace"
 DEFAULT_THREADS = Path.cwd() / "threads"
+DEFAULT_PI_PATH = Path.cwd() / "node_modules" / ".bin" / "pi"
 
 
 class Settings(BaseSettings):
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     # Paths - default to ./workspace and ./threads in current directory
     WORKSPACE_DIR: Path = DEFAULT_WORKSPACE
     THREADS_DIR: Path = DEFAULT_THREADS
+    PI_PATH: Path = DEFAULT_PI_PATH
     
     # Logging
     LOG_LEVEL: str = "INFO"
@@ -53,6 +55,10 @@ class Settings(BaseSettings):
     @property
     def threads_dir(self) -> Path:
         return self.THREADS_DIR
+    
+    @property
+    def pi_path(self) -> Path:
+        return self.PI_PATH
     
     @property
     def log_level(self) -> str:

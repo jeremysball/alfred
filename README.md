@@ -17,18 +17,50 @@
 
 ## Quick Start
 
+### Prerequisites
+
+1. **Node.js 18+** — Required for the Pi coding agent
+2. **Python 3.11+** — Required for the dispatcher
+3. **uv** (recommended) or **pip** — Python package manager
+
 ### Installation
+
+#### 1. Install Pi Coding Agent
+
+```bash
+# Install globally via npm
+npm install -g @mariozechner/pi-coding-agent
+
+# Verify installation
+pi --version
+```
+
+#### 2. Clone and Install OpenClaw Pi
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd openclaw-pi
 
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
 # Install with uv (recommended)
 uv pip install -e ".[dev]"
 
 # Or with pip
 pip install -e ".[dev]"
+```
+
+#### 3. Set Up Workspace
+
+```bash
+# Copy templates to workspace
+cp -r templates/* workspace/
+
+# Customize your agent context
+# Edit: workspace/AGENTS.md, workspace/SOUL.md, workspace/USER.md
 ```
 
 ### Configuration
@@ -175,6 +207,7 @@ The `workspace/` directory contains user-specific context files:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TELEGRAM_BOT_TOKEN` | — | **Required.** Telegram Bot API token |
+| `PI_PATH` | `./node_modules/.bin/pi` | Path to Pi executable |
 | `WORKSPACE_DIR` | `./workspace` | Path to workspace directory |
 | `THREADS_DIR` | `./threads` | Path to thread storage |
 | `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
