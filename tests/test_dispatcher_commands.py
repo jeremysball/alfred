@@ -18,8 +18,9 @@ async def test_handle_command_status_empty(tmp_path: Path):
     
     response = await dispatcher.handle_command("any_thread", "/status")
     
-    assert "Active processes: 0" in response
-    assert "Stored threads: 0" in response
+    assert "Active: 0" in response
+    assert "Stored: 0" in response
+    assert "OpenClaw Pi Status" in response
     
     await dispatcher.shutdown()
 

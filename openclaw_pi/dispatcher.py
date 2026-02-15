@@ -82,14 +82,7 @@ class Dispatcher:
         cmd = parts[0].lower()
         
         if cmd == "/status":
-            active = await self.pi_manager.list_active()
-            stored = await self.storage.list_threads()
-            return (
-                f"🤖 Status\n\n"
-                f"Active processes: {len(active)}\n"
-                f"Stored threads: {len(stored)}\n\n"
-                f"Active: {', '.join(active) or 'None'}"
-            )
+            return await self._get_full_status()
         
         elif cmd == "/threads":
             stored = await self.storage.list_threads()
@@ -194,6 +187,62 @@ class Dispatcher:
             # Cleanup
             await self.pi_manager.kill_thread(subagent_id)
     
+    async def _get_full_status(self) -> str:
+        """Get comprehensive system status."""
+        from datetime import datetime
+        import os
+
+        lines = ["🤖 OpenClaw Pi Status\n"]
+
+        # Bot info
+        lines.append("📦 Bot")
+        lines.append(f"  Version: 0.1.0")
+        lines.append(f"  Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("")
+
+        # Threads stats
+        active = await self.pi_manager.list_active()
+        stored = await self.storage.list_threads()
+        total_messages = 0
+        for tid in stored:
+            thread = await self.storage.load(tid)
+            if thread:
+                total_messages += len(thread.messages)
+
+        lines.append("💬 Threads")
+        lines.append(f"  Active: {len(active)}")
+        lines.append(f"  Stored: {len(stored)}")
+        lines.append(f"  Total messages: {total_messages}")
+        if active:
+            lines.append(f"  Processing: {', '.join(active[:3])}{'...' if len(active) > 3 else ''}")
+        lines.append("")
+
+        # Workspace info
+        memory_files = list(self.workspace_dir.glob("memory/*.md")) if (self.workspace_dir / "memory").exists() else []
+        skills_count = len(list((self.workspace_dir / "skills").glob("*/SKILL.md"))) if (self.workspace_dir / "skills").exists() else 0
+
+        lines.append("📁 Workspace")
+        lines.append(f"  Path: {self.workspace_dir}")
+        lines.append(f"  Memory files: {len(memory_files)}")
+        lines.append(f"  Skills loaded: {skills_count}")
+        lines.append("")
+
+        # Configuration
+        lines.append("⚙️ Configuration")
+        lines.append(f"  Provider: {self.pi_manager.llm_provider}")
+        lines.append(f"  Model: {self.pi_manager.llm_model or 'default'}")
+        lines.append(f"  Timeout: {self.pi_manager.timeout}s")
+        lines.append("")
+
+        # Features
+        lines.append("🔧 Features")
+        embeddings_available = "✅" if os.getenv("OPENAI_API_KEY") else "❌"
+        lines.append(f"  Embeddings: {embeddings_available}")
+        lines.append("")
+
+        lines.append("Use /threads for detailed thread list")
+        return "\n".join(lines)
+
     async def shutdown(self) -> None:
         """Clean shutdown."""
         await self.pi_manager.cleanup()
