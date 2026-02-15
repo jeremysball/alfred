@@ -7,6 +7,7 @@ from openclaw_pi.models import Thread
 from openclaw_pi.storage import ThreadStorage
 from openclaw_pi.pi_manager import PiManager
 from openclaw_pi.token_tracker import TokenTracker
+from openclaw_pi.memory import MemoryManager, MemoryCompactor
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,11 @@ class Dispatcher:
         
         elif cmd == "/tokens":
             return await self._get_token_stats()
+        
+        elif cmd == "/compact":
+            strategy = parts[1] if len(parts) > 1 else "summarize"
+            days = int(parts[2]) if len(parts) > 2 else 7
+            return await self._compact_memories(strategy, days)
         
         return f"Unknown command: {cmd}"
     
@@ -261,12 +267,12 @@ class Dispatcher:
         lines.append(f"📝 Total tokens: {stats['total_tokens']:,}")
         lines.append(f"   Input: {stats['input_tokens']:,}")
         lines.append(f"   Output: {stats['output_tokens']:,}")
-        lines.append(f"💵 Cost: ${stats['cost_usd']:.6f}")
+        lines.append(f"   Cache: {stats.get('cache_read', 0):,}")
         
         if stats['by_provider']:
             lines.append("\n🏢 By Provider:")
             for provider, data in stats['by_provider'].items():
-                lines.append(f"  {provider}: {data['tokens']:,} tokens (${data['cost']:.4f})")
+                lines.append(f"  {provider}: {data['tokens']:,} tokens ({data['requests']} reqs)")
         
         if stats['by_thread']:
             lines.append("\n💬 Top Threads:")
@@ -279,6 +285,41 @@ class Dispatcher:
                 lines.append(f"  {tid[:20]}...: {data['tokens']:,} tokens")
         
         return "\n".join(lines)
+    
+    async def _compact_memories(self, strategy: str, days: int) -> str:
+        """Compact daily memories into long-term storage."""
+        try:
+            memory_manager = MemoryManager(self.workspace_dir)
+            compactor = MemoryCompactor(memory_manager)
+            
+            result = await compactor.compact(days=days, strategy=strategy)
+            
+            if result["compacted"] == 0:
+                flushed_msg = f" (flushed {result.get('flushed', 0)} pending)" if result.get('flushed', 0) > 0 else ""
+                return f"📭 No memories to compact (last {days} days){flushed_msg}"
+            
+            lines = [f"✅ Compacted {result['compacted']} days using '{strategy}' strategy"]
+            if result.get('flushed', 0) > 0:
+                lines.append(f" (flushed {result['flushed']} pending memories)")
+            lines.append("")
+            
+            if result["strategy"] == "archive":
+                lines.append(f"📁 {result['result']}")
+            else:
+                lines.append("📝 Summary:")
+                # Add summary preview (first 500 chars)
+                summary = result["result"][:500]
+                lines.append(summary)
+                if len(result["result"]) > 500:
+                    lines.append("... (truncated)")
+            
+            return "\n".join(lines)
+            
+        except ValueError as e:
+            return f"❌ {str(e)}\n\nAvailable strategies: summarize, extract_key_decisions, archive"
+        except Exception as e:
+            logger.exception(f"Error compacting memories: {e}")
+            return f"❌ Error: {str(e)}"
 
     async def shutdown(self) -> None:
         """Clean shutdown."""

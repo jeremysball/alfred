@@ -71,6 +71,28 @@ class MemoryCompactor:
     
     def __init__(self, memory_manager: MemoryManager):
         self.memory_manager = memory_manager
+        self._pending_memories: list[dict] = []
+    
+    async def append_pending(self, content: str, section: str = "Notes") -> None:
+        """Queue a memory to be written before next compaction."""
+        self._pending_memories.append({"content": content, "section": section})
+        logger.info(f"[MEMORY] Queued pending memory: {content[:50]}...")
+    
+    async def _flush_pending(self) -> int:
+        """Write all pending memories to disk."""
+        count = 0
+        for memory in self._pending_memories:
+            await self.memory_manager.append_to_daily(
+                memory["content"],
+                section=memory["section"]
+            )
+            count += 1
+        
+        if count > 0:
+            logger.info(f"[MEMORY] Flushed {count} pending memories to disk")
+        
+        self._pending_memories.clear()
+        return count
     
     async def compact(
         self,
@@ -86,10 +108,13 @@ class MemoryCompactor:
         Returns:
             Dict with compaction results
         """
+        # First, flush any pending memories to disk
+        flushed = await self._flush_pending()
+        
         paths = self.memory_manager.get_recent_memories(days)
         
         if not paths:
-            return {"compacted": 0, "strategy": strategy, "message": "No memories to compact"}
+            return {"compacted": 0, "strategy": strategy, "message": "No memories to compact", "flushed": flushed}
         
         # Read all daily memories
         daily_contents = []
@@ -113,7 +138,8 @@ class MemoryCompactor:
         return {
             "compacted": len(paths),
             "strategy": strategy,
-            "result": result
+            "result": result,
+            "flushed": flushed
         }
     
     async def _summarize_strategy(self, content: str, paths: list[Path]) -> str:

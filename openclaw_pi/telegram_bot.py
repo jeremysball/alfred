@@ -113,6 +113,18 @@ class TelegramBot:
         )
         await update.message.reply_text(response)
 
+    async def _handle_compact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /compact command."""
+        args = context.args
+        strategy = args[0] if args else "summarize"
+        days = args[1] if len(args) > 1 else "7"
+        
+        response = await self.dispatcher.handle_command(
+            self._get_thread_id(update),
+            f"/compact {strategy} {days}"
+        )
+        await update.message.reply_text(response)
+
     async def _handle_subagent(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /subagent command."""
         args = context.args
@@ -191,6 +203,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("kill", self._handle_kill))
         self.app.add_handler(CommandHandler("cleanup", self._handle_cleanup))
         self.app.add_handler(CommandHandler("tokens", self._handle_tokens))
+        self.app.add_handler(CommandHandler("compact", self._handle_compact))
         self.app.add_handler(CommandHandler("subagent", self._handle_subagent))
         
         # Message handler (non-command text)
