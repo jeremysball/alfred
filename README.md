@@ -13,6 +13,7 @@ Chat with Pi on Telegram. AI coding help in your group chats.
 - **Multi-thread** — Isolated conversation history per Telegram thread
 - **Persistent memory** — Thread history survives restarts (JSON storage)
 - **Typing indicator** — Real-time feedback while processing
+- **Table rendering** — Markdown tables sent as images (auto-setup)
 - **Multi-provider** — Z.AI, Moonshot, others
 
 ## Quick Start

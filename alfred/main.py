@@ -8,6 +8,7 @@ from alfred.dispatcher import Dispatcher
 from alfred.telegram_bot import TelegramBot
 from alfred.pi_manager import PiManager
 from alfred.token_tracker import TokenTracker
+from alfred.table_renderer import ensure_playwright_installed
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,6 +21,12 @@ async def main() -> None:
     """Main entry point."""
     settings = Settings()
     logging.getLogger().setLevel(getattr(logging, settings.log_level.upper()))
+    
+    # Auto-install Playwright browsers if needed
+    logger.info("[INIT] Checking Playwright installation...")
+    playwright_ready = await ensure_playwright_installed()
+    if not playwright_ready:
+        logger.warning("[INIT] Table rendering unavailable. Install manually: uv run playwright install chromium")
     
     # Create token tracker
     token_tracker = TokenTracker(settings.workspace_dir / "logs")

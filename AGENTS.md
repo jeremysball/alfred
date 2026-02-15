@@ -40,44 +40,45 @@ docs(readme): update feature list
 - Bad: "Fix bugs and add features"
 - Good: "fix(storage): handle missing json file" + "feat(bot): add status command"
 
-## Table Rendering Plan
+## Table Rendering
 
-### Goal
-Send tables as images, not text blocks.
+### Automatic Setup
 
-### Approach
+Playwright browsers install **automatically** on first run. No manual steps.
+
+If auto-install fails:
+```bash
+uv run playwright install chromium
+```
+
+### How It Works
 
 **Phase 1: Markdown → HTML → Image**
-- Use `markdown` library to convert table markdown to HTML
-- Use `playwright` or `imgkit` (wkhtmltoimage) to render HTML to PNG
-- Alternative: `selenium` with headless Chrome
+- `markdown` library converts table markdown to HTML
+- `playwright` renders HTML to PNG via headless Chromium
+- Result: Clean, styled table images
 
 **Phase 2: Multi-Part Messages**
-If table + context exceeds limits:
+If message + table exceeds limits:
 1. Send introductory text
 2. Send table as image
 3. Send follow-up text
 
-**Implementation Sketch**
+### Implementation
+
 ```python
-# Pseudocode
-async def send_table(update, table_md: str, caption: str = ""):
-    html = markdown.markdown(table_md, extensions=['tables'])
-    styled = f"<style>table{{border-collapse:collapse}}...</style>{html}"
-    
-    # Render to image
-    image = await render_html_to_png(styled)
-    
-    # Send
-    await update.message.reply_photo(photo=image, caption=caption)
+from alfred.table_renderer import TableRenderer
+
+renderer = TableRenderer()
+image = await renderer.render_table("| Name | Value |\n|------|-------|\n| A | 1 |")
+await update.message.reply_photo(photo=image)
 ```
 
-**Tools to Evaluate**
-- `imgkit` + `wkhtmltoimage` — Simple, requires binary
-- `playwright` — Modern, renders accurately, heavier
-- `weasyprint` — Pure Python, CSS support
+### Dependencies
 
-**Decision**: Start with `playwright` for accuracy. Fallback to `imgkit` if size matters.
+Already in `pyproject.toml`:
+- `markdown>=3.5`
+- `playwright>=1.40`
 
 ### No Streaming Support
 
