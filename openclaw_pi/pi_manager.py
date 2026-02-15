@@ -33,6 +33,10 @@ class PiSubprocess:
         self.pi_path = pi_path or DEFAULT_PI_PATH
         self.session_file = workspace / f"{thread_id}.json"
     
+    async def is_alive(self) -> bool:
+        """Always returns False for one-shot subprocess."""
+        return False
+    
     async def send_message(self, message: str) -> str:
         """Send message to Pi via subprocess."""
         start_time = time.time()

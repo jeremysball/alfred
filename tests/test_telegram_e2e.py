@@ -40,19 +40,16 @@ async def test_e2e_message_flow(tmp_path: Path):
     workspace.mkdir()
     threads.mkdir()
     
-    # Mock Pi to return a simple response
     pi_manager = PiManager(timeout=5)
     
-    # Patch the PiSubprocess.send_message to avoid actual Pi calls
-    with patch.object(
-        pi_manager, 'send_message', 
-        new=lambda thread_id, workspace, message: asyncio.create_task(
-            asyncio.sleep(0.1)  # Simulate processing time
-        ).__class__(asyncio.coroutine(lambda: f"Echo: {message}"))()
-    ):
+    # Proper async mock for send_message
+    async def mock_send(thread_id, workspace, message):
+        await asyncio.sleep(0.01)
+        return f"Echo: {message}"
+    
+    with patch.object(pi_manager, 'send_message', side_effect=mock_send):
         dispatcher = Dispatcher(workspace, threads, pi_manager)
         
-        # Simulate receiving a message
         response = await dispatcher.handle_message(
             chat_id=123,
             thread_id="123",
