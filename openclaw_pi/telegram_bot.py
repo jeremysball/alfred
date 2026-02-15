@@ -1,4 +1,4 @@
-"""Telegram bot with streaming and typing indicator support."""
+"""Telegram bot with commands and persistent Pi processes per thread."""
 import asyncio
 import logging
 from telegram import Update
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramBot:
-    """Telegram bot that routes to dispatcher with streaming support."""
+    """Telegram bot with persistent Pi processes per thread."""
     
     def __init__(self, token: str, dispatcher: Dispatcher):
         self.token = token
@@ -27,7 +27,6 @@ class TelegramBot:
         """Extract thread identifier from update."""
         chat_id = update.effective_chat.id
         
-        # Use message_thread_id if in a thread, otherwise use chat_id
         if update.message and update.message.message_thread_id:
             return f"{chat_id}_{update.message.message_thread_id}"
         return str(chat_id)
@@ -53,12 +52,79 @@ class TelegramBot:
             except asyncio.TimeoutError:
                 continue
     
-    async def _handle_message(
-        self,
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """Route message to dispatcher with streaming and typing indicator."""
+    async def _handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /start command."""
+        await update.message.reply_text(
+            "🤖 OpenClaw Pi\n\n"
+            "Persistent Pi agent per thread.\n"
+            "Each thread gets its own long-running Pi process.\n\n"
+            "Commands:\n"
+            "/status — Active and stored threads\n"
+            "/threads — List threads\n"
+            "/kill <id> — Kill thread process\n"
+            "/cleanup — Kill all processes\n"
+            "/subagent <task> — Spawn background sub-agent"
+        )
+    
+    async def _handle_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /status command."""
+        response = await self.dispatcher.handle_command(
+            self._get_thread_id(update),
+            "/status"
+        )
+        await update.message.reply_text(response)
+    
+    async def _handle_threads(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /threads command."""
+        response = await self.dispatcher.handle_command(
+            self._get_thread_id(update),
+            "/threads"
+        )
+        await update.message.reply_text(response)
+    
+    async def _handle_kill(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /kill command."""
+        args = context.args
+        if not args:
+            await update.message.reply_text("Usage: /kill <thread_id>")
+            return
+        
+        response = await self.dispatcher.handle_command(
+            self._get_thread_id(update),
+            f"/kill {args[0]}"
+        )
+        await update.message.reply_text(response)
+    
+    async def _handle_cleanup(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /cleanup command."""
+        response = await self.dispatcher.handle_command(
+            self._get_thread_id(update),
+            "/cleanup"
+        )
+        await update.message.reply_text(response)
+    
+    async def _handle_subagent(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /subagent command."""
+        args = context.args
+        if not args:
+            await update.message.reply_text("Usage: /subagent <task description>")
+            return
+        
+        task = " ".join(args)
+        thread_id = self._get_thread_id(update)
+        chat_id = update.effective_chat.id
+        
+        await update.message.reply_text(f"🔄 Spawning sub-agent: {task[:50]}...")
+        
+        response = await self.dispatcher.spawn_subagent(
+            chat_id=chat_id,
+            thread_id=thread_id,
+            task=task
+        )
+        await update.message.reply_text(response)
+    
+    async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Route message to dispatcher with typing indicator."""
         if not update.message or not update.message.text:
             return
         
@@ -68,65 +134,45 @@ class TelegramBot:
         
         logger.info(f"Message in thread {thread_id}: {message[:50]}...")
         
-        # Start typing indicator
         stop_typing = asyncio.Event()
         typing_task = asyncio.create_task(
             self._typing_indicator(context, chat_id, stop_typing)
         )
         
         try:
-            # Stream response from dispatcher
-            response_text = ""
-            
-            async for chunk in self.dispatcher.handle_message_streaming(
+            response = await self.dispatcher.handle_message(
                 chat_id=chat_id,
                 thread_id=thread_id,
                 message=message
-            ):
-                response_text = chunk  # Just use the latest chunk (full response)
+            )
             
-            # Send the complete response
-            if response_text:
-                await update.message.reply_text(response_text[:4096])
-                if len(response_text) > 4096:
+            if response:
+                await update.message.reply_text(response[:4096])
+                if len(response) > 4096:
                     await update.message.reply_text("... (truncated)")
-                logger.info(f"Sent response to thread {thread_id}")
-                
+                    
         except Exception as e:
             logger.exception(f"Error handling message: {e}")
             await update.message.reply_text(f"❌ Error: {str(e)}")
         finally:
-            # Stop typing indicator
             stop_typing.set()
             await typing_task
     
-    async def _handle_start(
-        self,
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """Handle /start command."""
-        await update.message.reply_text(
-            "🤖 OpenClaw Dispatcher ready.\n\n"
-            "Commands:\n"
-            "/status — Show active threads\n"
-            "/threads — List all threads\n"
-            "/kill <thread_id> — Kill a thread's process\n"
-            "/cleanup — Kill all processes"
-        )
-    
     def setup(self) -> Application:
-        """Set up the bot application."""
+        """Set up the bot application with command handlers."""
         self.app = Application.builder().token(self.token).build()
         
-        # Handlers
+        # Command handlers
         self.app.add_handler(CommandHandler("start", self._handle_start))
+        self.app.add_handler(CommandHandler("status", self._handle_status))
+        self.app.add_handler(CommandHandler("threads", self._handle_threads))
+        self.app.add_handler(CommandHandler("kill", self._handle_kill))
+        self.app.add_handler(CommandHandler("cleanup", self._handle_cleanup))
+        self.app.add_handler(CommandHandler("subagent", self._handle_subagent))
+        
+        # Message handler (non-command text)
         self.app.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message)
-        )
-        # Commands are handled by dispatcher via text handler
-        self.app.add_handler(
-            MessageHandler(filters.COMMAND, self._handle_message)
         )
         
         return self.app
@@ -142,7 +188,6 @@ class TelegramBot:
         
         logger.info("Telegram bot started")
         
-        # Run forever
         try:
             while True:
                 await asyncio.sleep(1)

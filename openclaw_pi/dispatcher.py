@@ -1,7 +1,6 @@
 """Core dispatcher that routes messages and manages threads."""
 import asyncio
 import logging
-from collections.abc import AsyncGenerator
 from pathlib import Path
 from openclaw_pi.models import Thread
 from openclaw_pi.storage import ThreadStorage
@@ -30,105 +29,158 @@ class Dispatcher:
         message: str
     ) -> str:
         """Handle incoming message, return response."""
-        logger.info(f"[DISPATCHER] Handling message for thread {thread_id}")
-        logger.info(f"[DISPATCHER] Chat ID: {chat_id}, Message length: {len(message)} chars")
-        logger.debug(f"[DISPATCHER] Message content: {message[:200]}...")
-        
-        # Check dispatcher commands
-        if message.startswith("/"):
-            logger.info(f"[DISPATCHER] Processing command: {message}")
-            return await self._handle_command(thread_id, message)
+        logger.info(f"[DISPATCHER] Message thread={thread_id}")
         
         # Load or create thread
-        logger.debug(f"[DISPATCHER] Loading thread {thread_id} from storage...")
         thread = await self.storage.load(thread_id)
         if not thread:
-            logger.info(f"[DISPATCHER] Creating new thread {thread_id}")
             thread = Thread(thread_id=thread_id, chat_id=chat_id)
-        else:
-            logger.info(f"[DISPATCHER] Loaded existing thread {thread_id} with {len(thread.messages)} messages")
+            logger.info(f"[DISPATCHER] Created thread {thread_id}")
         
         # Add user message
         thread.add_message("user", message)
         
         try:
-            # Get pi subprocess for this thread
-            logger.debug(f"[DISPATCHER] Getting PiSubprocess for thread {thread_id}...")
+            # Get or start Pi process for this thread
             pi = await self.pi_manager.get_or_create(thread_id, self.workspace_dir)
-            logger.info(f"[DISPATCHER] Got PiSubprocess, sending message to pi...")
             
-            # Send to pi and get response
+            # Send to Pi and get response
             response = await pi.send_message(message)
             
             # Add assistant message
             thread.add_message("assistant", response)
-            
-            # Save thread state
-            logger.debug(f"[DISPATCHER] Saving thread {thread_id} state...")
             await self.storage.save(thread)
-            logger.info(f"[DISPATCHER] Thread {thread_id} saved successfully")
             
             return response
             
         except asyncio.TimeoutError:
-            logger.error(f"[DISPATCHER] Timeout in thread {thread_id}")
-            return "⏱️ Request timed out. Try again."
+            logger.error(f"[DISPATCHER] Timeout thread={thread_id}")
+            return "⏱️ Timeout. Try again."
         except Exception as e:
-            logger.exception(f"[DISPATCHER] Error in thread {thread_id}: {e}")
+            logger.exception(f"[DISPATCHER] Error thread={thread_id}: {e}")
             return f"❌ Error: {str(e)}"
     
-    async def handle_message_streaming(
-        self,
-        chat_id: int,
-        thread_id: str,
-        message: str
-    ) -> AsyncGenerator[str, None]:
-        """Handle incoming message, yield response."""
-        # Just use non-streaming for now
-        response = await self.handle_message(chat_id, thread_id, message)
-        yield response
-    
-    async def _handle_command(self, thread_id: str, command: str) -> str:
-        """Handle dispatcher commands."""
+    async def handle_command(self, thread_id: str, command: str) -> str:
+        """Handle slash commands."""
         parts = command.split()
         cmd = parts[0].lower()
         
         if cmd == "/status":
             active = await self.pi_manager.list_active()
             stored = await self.storage.list_threads()
-            return f"Active threads: {len(active)} | Stored threads: {len(stored)}"
+            return (
+                f"🤖 Status\n\n"
+                f"Active processes: {len(active)}\n"
+                f"Stored threads: {len(stored)}\n\n"
+                f"Active: {', '.join(active) or 'None'}"
+            )
         
         elif cmd == "/threads":
-            threads = await self.storage.list_threads()
-            return f"Threads: {', '.join(threads) or 'None'}"
+            stored = await self.storage.list_threads()
+            active = await self.pi_manager.list_active()
+            
+            lines = ["📋 Threads\n"]
+            for tid in stored:
+                status = "🟢" if tid in active else "⚪"
+                lines.append(f"{status} {tid}")
+            
+            return "\n".join(lines) if stored else "No threads stored."
         
         elif cmd == "/kill":
             if len(parts) < 2:
                 return "Usage: /kill <thread_id>"
-            target_thread = parts[1]
-            killed = await self.pi_manager.kill_thread(target_thread)
+            
+            target = parts[1]
+            killed = await self.pi_manager.kill_thread(target)
+            
             if killed:
-                return f"✅ Killed thread: {target_thread}"
-            return f"❌ Thread not found: {target_thread}"
+                return f"✅ Killed {target}"
+            return f"❌ {target} not active"
         
         elif cmd == "/cleanup":
+            active = await self.pi_manager.list_active()
             await self.pi_manager.cleanup()
-            return "✅ Cleaned up all active threads"
-        
-        elif cmd == "/help":
-            return (
-                "🤖 OpenClaw Dispatcher\n\n"
-                "Commands:\n"
-                "/status — Show active and stored threads\n"
-                "/threads — List all stored threads\n"
-                "/kill <id> — Kill a thread's process\n"
-                "/cleanup — Kill all active processes\n"
-                "/help — This message"
-            )
+            return f"✅ Killed {len(active)} processes"
         
         return f"Unknown command: {cmd}"
+    
+    async def spawn_subagent(
+        self,
+        chat_id: int,
+        thread_id: str,
+        task: str
+    ) -> str:
+        """Spawn a background sub-agent for a task."""
+        logger.info(f"[DISPATCHER] Spawning sub-agent for thread={thread_id}")
+        
+        # Load parent thread
+        parent = await self.storage.load(thread_id)
+        if not parent:
+            return "❌ Parent thread not found"
+        
+        # Create sub-agent thread ID
+        subagent_id = f"{thread_id}_sub_{asyncio.get_event_loop().time()}"
+        
+        # Mark parent as having active subagent
+        parent.active_subagent = subagent_id
+        await self.storage.save(parent)
+        
+        # Start background task
+        asyncio.create_task(
+            self._run_subagent(chat_id, thread_id, subagent_id, task)
+        )
+        
+        return f"🔄 Sub-agent {subagent_id} started"
+    
+    async def _run_subagent(
+        self,
+        chat_id: int,
+        parent_thread_id: str,
+        subagent_id: str,
+        task: str
+    ) -> None:
+        """Run sub-agent in background."""
+        logger.info(f"[SUBAGENT] {subagent_id} starting: {task[:50]}...")
+        
+        # Create sub-agent workspace
+        subagent_workspace = self.workspace_dir / "subagents" / subagent_id
+        subagent_workspace.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            # Get Pi process for sub-agent
+            pi = await self.pi_manager.get_or_create(subagent_id, subagent_workspace)
+            
+            # Run task
+            result = await pi.send_message(
+                f"You are a sub-agent. Complete this task:\n\n{task}\n\n"
+                f"Report results concisely."
+            )
+            
+            # Save sub-agent thread
+            subagent_thread = Thread(
+                thread_id=subagent_id,
+                chat_id=chat_id
+            )
+            subagent_thread.add_message("system", f"Task: {task}")
+            subagent_thread.add_message("assistant", result)
+            await self.storage.save(subagent_thread)
+            
+            logger.info(f"[SUBAGENT] {subagent_id} complete")
+            
+            # Update parent thread with result
+            parent = await self.storage.load(parent_thread_id)
+            if parent:
+                parent.add_message("system", f"Sub-agent {subagent_id} result:\n{result}")
+                parent.active_subagent = None
+                await self.storage.save(parent)
+                
+        except Exception as e:
+            logger.exception(f"[SUBAGENT] {subagent_id} failed: {e}")
+        finally:
+            # Cleanup
+            await self.pi_manager.kill_thread(subagent_id)
     
     async def shutdown(self) -> None:
         """Clean shutdown."""
         await self.pi_manager.cleanup()
-        logger.info("Dispatcher shutdown complete")
+        logger.info("[DISPATCHER] Shutdown")
