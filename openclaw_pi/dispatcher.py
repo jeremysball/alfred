@@ -6,6 +6,7 @@ from pathlib import Path
 from openclaw_pi.models import Thread
 from openclaw_pi.storage import ThreadStorage
 from openclaw_pi.pi_manager import PiManager
+from openclaw_pi.token_tracker import TokenTracker
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +18,13 @@ class Dispatcher:
         self,
         workspace_dir: Path,
         threads_dir: Path,
-        pi_manager: PiManager
+        pi_manager: PiManager,
+        token_tracker: TokenTracker | None = None
     ):
         self.workspace_dir = workspace_dir
         self.storage = ThreadStorage(threads_dir)
         self.pi_manager = pi_manager
+        self.token_tracker = token_tracker
     
     async def handle_message(
         self,
@@ -110,6 +113,9 @@ class Dispatcher:
             active = await self.pi_manager.list_active()
             await self.pi_manager.cleanup()
             return f"✅ Killed {len(active)} processes"
+        
+        elif cmd == "/tokens":
+            return await self._get_token_stats()
         
         return f"Unknown command: {cmd}"
     
@@ -241,6 +247,37 @@ class Dispatcher:
         lines.append("")
 
         lines.append("Use /threads for detailed thread list")
+        return "\n".join(lines)
+    
+    async def _get_token_stats(self) -> str:
+        """Get token usage statistics."""
+        if not self.token_tracker:
+            return "❌ Token tracking not enabled"
+        
+        stats = self.token_tracker.get_daily_stats()
+        
+        lines = ["💰 Token Usage Today\n"]
+        lines.append(f"📊 Requests: {stats['requests']}")
+        lines.append(f"📝 Total tokens: {stats['total_tokens']:,}")
+        lines.append(f"   Input: {stats['input_tokens']:,}")
+        lines.append(f"   Output: {stats['output_tokens']:,}")
+        lines.append(f"💵 Cost: ${stats['cost_usd']:.6f}")
+        
+        if stats['by_provider']:
+            lines.append("\n🏢 By Provider:")
+            for provider, data in stats['by_provider'].items():
+                lines.append(f"  {provider}: {data['tokens']:,} tokens (${data['cost']:.4f})")
+        
+        if stats['by_thread']:
+            lines.append("\n💬 Top Threads:")
+            sorted_threads = sorted(
+                stats['by_thread'].items(),
+                key=lambda x: x[1]['tokens'],
+                reverse=True
+            )[:5]
+            for tid, data in sorted_threads:
+                lines.append(f"  {tid[:20]}...: {data['tokens']:,} tokens")
+        
         return "\n".join(lines)
 
     async def shutdown(self) -> None:

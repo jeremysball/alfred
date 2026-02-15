@@ -64,6 +64,7 @@ class TelegramBot:
             "/threads — List threads\n"
             "/kill <id> — Kill thread process\n"
             "/cleanup — Kill all processes\n"
+            "/tokens — Token usage stats\n"
             "/subagent <task> — Spawn background sub-agent"
         )
     
@@ -103,7 +104,15 @@ class TelegramBot:
             "/cleanup"
         )
         await update.message.reply_text(response)
-    
+
+    async def _handle_tokens(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /tokens command."""
+        response = await self.dispatcher.handle_command(
+            self._get_thread_id(update),
+            "/tokens"
+        )
+        await update.message.reply_text(response)
+
     async def _handle_subagent(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /subagent command."""
         args = context.args
@@ -181,6 +190,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("threads", self._handle_threads))
         self.app.add_handler(CommandHandler("kill", self._handle_kill))
         self.app.add_handler(CommandHandler("cleanup", self._handle_cleanup))
+        self.app.add_handler(CommandHandler("tokens", self._handle_tokens))
         self.app.add_handler(CommandHandler("subagent", self._handle_subagent))
         
         # Message handler (non-command text)

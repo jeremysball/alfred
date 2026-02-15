@@ -7,6 +7,7 @@ from openclaw_pi.config import Settings
 from openclaw_pi.dispatcher import Dispatcher
 from openclaw_pi.telegram_bot import TelegramBot
 from openclaw_pi.pi_manager import PiManager
+from openclaw_pi.token_tracker import TokenTracker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,20 +21,25 @@ async def main() -> None:
     settings = Settings()
     logging.getLogger().setLevel(getattr(logging, settings.log_level.upper()))
     
+    # Create token tracker
+    token_tracker = TokenTracker(settings.workspace_dir / "logs")
+    
     # Create pi manager with LLM provider config
     pi_manager = PiManager(
         timeout=settings.pi_timeout,
         llm_provider=settings.llm_provider,
         llm_api_key=settings.llm_api_key,
         llm_model=settings.llm_model,
-        pi_path=settings.pi_path
+        pi_path=settings.pi_path,
+        token_tracker=token_tracker
     )
     
     # Create dispatcher
     dispatcher = Dispatcher(
         workspace_dir=settings.workspace_dir,
         threads_dir=settings.threads_dir,
-        pi_manager=pi_manager
+        pi_manager=pi_manager,
+        token_tracker=token_tracker
     )
     
     # Create bot

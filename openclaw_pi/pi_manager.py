@@ -6,6 +6,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from openclaw_pi.token_tracker import TokenTracker
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PI_PATH = Path(__file__).parent.parent / "node_modules" / ".bin" / "pi"
@@ -118,7 +120,8 @@ class PiManager:
         llm_provider: str = "zai",
         llm_api_key: str = "",
         llm_model: str = "",
-        pi_path: Path | None = None
+        pi_path: Path | None = None,
+        token_tracker: TokenTracker | None = None
     ):
         self.timeout = timeout
         self.llm_provider = llm_provider
@@ -126,6 +129,7 @@ class PiManager:
         self.llm_model = llm_model
         self.pi_path = pi_path or DEFAULT_PI_PATH
         self._active_threads: set[str] = set()
+        self.token_tracker = token_tracker
     
     async def send_message(self, thread_id: str, workspace: Path, message: str) -> str:
         """Send message to Pi for a thread."""
@@ -141,7 +145,15 @@ class PiManager:
                 self.llm_model,
                 self.pi_path
             )
-            return await pi.send_message(message)
+            response = await pi.send_message(message)
+            
+            # Sync token usage from session file
+            if self.token_tracker:
+                count = self.token_tracker.sync_from_session(pi.session_file)
+                if count > 0:
+                    logger.info(f"[TOKENS] Synced {count} token usage entries from {thread_id}")
+            
+            return response
         finally:
             self._active_threads.discard(thread_id)
     
