@@ -8,12 +8,12 @@ Chat with Pi on Telegram. AI coding help in your group chats.
 
 ## Features
 
-- **One-shot** — Fresh Pi process for every message (no persistent daemons)
+- **Persistent daemon** — Alfred runs continuously, ready to respond
+- **One-shot Pi** — Fresh AI process for every message
 - **Multi-thread** — Isolated conversation history per Telegram thread
-- **Persistent** — Thread history survives restarts (JSON storage)
-- **Typing indicators** — Real-time feedback while processing
+- **Persistent memory** — Thread history survives restarts (JSON storage)
+- **Typing indicator** — Real-time feedback while processing
 - **Multi-provider** — Z.AI, Moonshot, others
-- **Commands** — List, kill, cleanup threads
 
 ## Quick Start
 
