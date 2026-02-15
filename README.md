@@ -221,6 +221,32 @@ The `workspace/` directory contains user-specific context files:
 
 MIT License — see [LICENSE](LICENSE) for details.
 
+## Troubleshooting
+
+### Debug Logging
+
+Set `LOG_LEVEL=DEBUG` in your `.env` file to see detailed logs of:
+- Telegram message handling
+- LLM API calls (command, provider, model)
+- Pi subprocess execution
+- Thread state changes
+
+### Common Issues
+
+**Pi executable not found:**
+```
+[LLM CALL] Pi executable not found at: /path/to/pi
+```
+- Install Pi: `npm install -g @mariozechner/pi-coding-agent`
+- Or set `PI_PATH` to your Pi installation
+
+**API key errors:**
+```
+[LLM CALL] No API key provided for provider: zai
+```
+- Set `LLM_API_KEY` in your `.env` file
+- Or set provider-specific key: `ZAI_API_KEY` or `MOONSHOT_API_KEY`
+
 ## Acknowledgments
 
 - [Pi](https://github.com/mariozechner/pi) by Mario Zechner — The underlying coding agent
