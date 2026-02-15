@@ -136,6 +136,7 @@ E2E tests send real Telegram messages and make real LLM API calls. Use for final
 | `PI_PATH` | `./node_modules/.bin/pi` | Pi executable path |
 | `WORKSPACE_DIR` | `./workspace` | Workspace path |
 | `THREADS_DIR` | `./threads` | Thread storage |
+| `SKILLS_DIRS` | — | Comma-separated skill directories for Pi |
 | `LOG_LEVEL` | `INFO` | Log level |
 | `LLM_PROVIDER` | `zai` | Provider (zai, moonshot) |
 | `LLM_MODEL` | — | Model name |
