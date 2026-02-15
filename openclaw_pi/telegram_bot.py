@@ -1,6 +1,7 @@
 """Telegram bot with commands and persistent Pi processes per thread."""
 import asyncio
 import logging
+import time
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import (
@@ -128,11 +129,12 @@ class TelegramBot:
         if not update.message or not update.message.text:
             return
         
+        start_time = time.time()
         thread_id = self._get_thread_id(update)
         chat_id = update.effective_chat.id
         message = update.message.text
         
-        logger.info(f"Message in thread {thread_id}: {message[:50]}...")
+        logger.info(f"[TG] Message received thread={thread_id}, len={len(message)}")
         
         stop_typing = asyncio.Event()
         typing_task = asyncio.create_task(
@@ -140,21 +142,32 @@ class TelegramBot:
         )
         
         try:
+            t0 = time.time()
             response = await self.dispatcher.handle_message(
                 chat_id=chat_id,
                 thread_id=thread_id,
                 message=message
             )
+            dispatch_time = time.time() - t0
+            logger.info(f"[TG] Dispatcher returned in {dispatch_time:.2f}s")
             
             if response:
+                t0 = time.time()
                 await update.message.reply_text(response[:4096])
+                send_time = time.time() - t0
+                logger.info(f"[TG] Reply sent in {send_time:.2f}s")
+                
                 if len(response) > 4096:
                     await update.message.reply_text("... (truncated)")
+            else:
+                logger.warning(f"[TG] Empty response for thread={thread_id}")
                     
         except Exception as e:
-            logger.exception(f"Error handling message: {e}")
+            logger.exception(f"[TG] Error handling message: {e}")
             await update.message.reply_text(f"❌ Error: {str(e)}")
         finally:
+            total_time = time.time() - start_time
+            logger.info(f"[TG] Total handle_message time: {total_time:.2f}s")
             stop_typing.set()
             await typing_task
     

@@ -1,6 +1,7 @@
 """Core dispatcher that routes messages and manages threads."""
 import asyncio
 import logging
+import time
 from pathlib import Path
 from openclaw_pi.models import Thread
 from openclaw_pi.storage import ThreadStorage
@@ -29,36 +30,54 @@ class Dispatcher:
         message: str
     ) -> str:
         """Handle incoming message, return response."""
-        logger.info(f"[DISPATCHER] Message thread={thread_id}")
+        start_time = time.time()
+        logger.info(f"[DISPATCHER] Message thread={thread_id}, len={len(message)}")
         
         # Load or create thread
+        t0 = time.time()
         thread = await self.storage.load(thread_id)
         if not thread:
             thread = Thread(thread_id=thread_id, chat_id=chat_id)
             logger.info(f"[DISPATCHER] Created thread {thread_id}")
+        else:
+            logger.info(f"[DISPATCHER] Loaded thread {thread_id} ({len(thread.messages)} messages)")
+        logger.debug(f"[DISPATCHER] Thread load took {time.time() - t0:.2f}s")
         
         # Add user message
         thread.add_message("user", message)
         
         try:
             # Get or start Pi process for this thread
+            t0 = time.time()
             pi = await self.pi_manager.get_or_create(thread_id, self.workspace_dir)
+            logger.debug(f"[DISPATCHER] Pi get/create took {time.time() - t0:.2f}s")
             
             # Send to Pi and get response
+            t0 = time.time()
             response = await pi.send_message(message)
+            pi_time = time.time() - t0
+            logger.info(f"[DISPATCHER] Pi send_message took {pi_time:.2f}s")
             
             # Add assistant message
             thread.add_message("assistant", response)
+            
+            t0 = time.time()
             await self.storage.save(thread)
+            logger.debug(f"[DISPATCHER] Thread save took {time.time() - t0:.2f}s")
+            
+            total_time = time.time() - start_time
+            logger.info(f"[DISPATCHER] Total request time: {total_time:.2f}s")
             
             return response
             
         except asyncio.TimeoutError:
-            logger.error(f"[DISPATCHER] Timeout thread={thread_id}")
-            return "⏱️ Timeout. Try again."
+            total_time = time.time() - start_time
+            logger.error(f"[DISPATCHER] Timeout after {total_time:.2f}s thread={thread_id}")
+            return f"⏱️ Timeout after {total_time:.1f}s. Try again."
         except Exception as e:
-            logger.exception(f"[DISPATCHER] Error thread={thread_id}: {e}")
-            return f"❌ Error: {str(e)}"
+            total_time = time.time() - start_time
+            logger.exception(f"[DISPATCHER] Error after {total_time:.2f}s thread={thread_id}: {e}")
+            return f"❌ Error after {total_time:.1f}s: {str(e)}"
     
     async def handle_command(self, thread_id: str, command: str) -> str:
         """Handle slash commands."""

@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -83,43 +84,121 @@ class PiSubprocess:
     
     async def send_message(self, message: str) -> str:
         """Send message to Pi and get response."""
+        start_time = time.time()
         await self.start()
         
         async with self._lock:
+            logger.info(f"[PI SEND] Thread {self.thread_id}: Starting send_message")
+            logger.info(f"[PI SEND] Thread {self.thread_id}: Message length={len(message)}")
+            logger.info(f"[PI SEND] Thread {self.thread_id}: Process alive={await self.is_alive()}, PID={self.process.pid if self.process else 'None'}")
+            
             try:
                 # Send message with delimiter
                 msg = message.strip() + "\n\n__END__\n"
-                logger.debug(f"[PI SEND] Thread {self.thread_id}: {message[:100]}...")
+                msg_bytes = msg.encode()
                 
-                self._stdin_writer.write(msg.encode())
+                logger.info(f"[PI SEND] Thread {self.thread_id}: Writing {len(msg_bytes)} bytes to stdin...")
+                self._stdin_writer.write(msg_bytes)
                 await self._stdin_writer.drain()
+                logger.info(f"[PI SEND] Thread {self.thread_id}: Write complete ({time.time() - start_time:.2f}s)")
                 
                 # Read response until delimiter
                 response_lines = []
+                line_count = 0
+                last_log_time = time.time()
+                
+                logger.info(f"[PI RECV] Thread {self.thread_id}: Starting read loop (timeout={self.timeout}s)...")
+                
                 while True:
-                    line = await asyncio.wait_for(
-                        self._stdout_reader.readline(),
-                        timeout=self.timeout
-                    )
+                    try:
+                        line = await asyncio.wait_for(
+                            self._stdout_reader.readline(),
+                            timeout=5.0  # Shorter timeout for logging
+                        )
+                    except asyncio.TimeoutError:
+                        # No data for 5 seconds, log progress
+                        elapsed = time.time() - start_time
+                        logger.info(f"[PI RECV] Thread {self.thread_id}: Still waiting... ({elapsed:.1f}s elapsed, {line_count} lines so far)")
+                        
+                        # Check if process is still alive
+                        if not await self.is_alive():
+                            logger.error(f"[PI RECV] Thread {self.thread_id}: Process died!")
+                            # Read any remaining stderr
+                            stderr_data = await self._read_stderr()
+                            logger.error(f"[PI RECV] Thread {self.thread_id}: stderr: {stderr_data[:500]}")
+                            raise RuntimeError("Pi process died while waiting for response")
+                        continue
+                    
                     if not line:
+                        logger.warning(f"[PI RECV] Thread {self.thread_id}: EOF reached (empty line)")
                         break
-                    line_str = line.decode().strip()
+                    
+                    line_str = line.decode().rstrip()  # Keep trailing spaces, strip newline
+                    line_count += 1
+                    
                     if line_str == "__END__":
+                        elapsed = time.time() - start_time
+                        logger.info(f"[PI RECV] Thread {self.thread_id}: Found delimiter at line {line_count} ({elapsed:.2f}s)")
                         break
+                    
                     response_lines.append(line_str)
+                    
+                    # Log first few lines for debugging
+                    if line_count <= 3:
+                        logger.info(f"[PI RECV] Thread {self.thread_id}: Line {line_count}: {line_str[:100]}...")
                 
                 response = "\n".join(response_lines).strip()
-                logger.info(f"[PI RECV] Thread {self.thread_id}: {len(response)} chars")
+                total_time = time.time() - start_time
+                
+                logger.info(f"[PI RECV] Thread {self.thread_id}: Complete in {total_time:.2f}s")
+                logger.info(f"[PI RECV] Thread {self.thread_id}: {len(response)} chars, {line_count} lines")
+                
+                if not response:
+                    logger.warning(f"[PI RECV] Thread {self.thread_id}: Empty response!")
+                    # Try to read stderr for debugging
+                    stderr_data = await self._read_stderr()
+                    if stderr_data:
+                        logger.warning(f"[PI RECV] Thread {self.thread_id}: stderr: {stderr_data[:500]}")
+                
                 return response
                 
             except asyncio.TimeoutError:
-                logger.error(f"[PI TIMEOUT] Thread {self.thread_id}")
+                total_time = time.time() - start_time
+                logger.error(f"[PI TIMEOUT] Thread {self.thread_id}: Timeout after {total_time:.2f}s")
+                # Try to get stderr before restart
+                try:
+                    stderr_data = await self._read_stderr()
+                    logger.error(f"[PI TIMEOUT] Thread {self.thread_id}: stderr: {stderr_data[:1000]}")
+                except Exception as e:
+                    logger.error(f"[PI TIMEOUT] Thread {self.thread_id}: Could not read stderr: {e}")
                 await self.restart()
-                raise asyncio.TimeoutError(f"Pi timeout after {self.timeout}s")
+                raise asyncio.TimeoutError(f"Pi timeout after {total_time:.1f}s")
+                
             except Exception as e:
-                logger.exception(f"[PI ERROR] Thread {self.thread_id}: {e}")
+                total_time = time.time() - start_time
+                logger.exception(f"[PI ERROR] Thread {self.thread_id}: {e} (after {total_time:.2f}s)")
                 await self.restart()
                 raise
+    
+    async def _read_stderr(self) -> str:
+        """Read available data from stderr without blocking."""
+        if not self.process or not self.process.stderr:
+            return ""
+        
+        stderr_data = []
+        try:
+            # Try to read with short timeout
+            while True:
+                line = await asyncio.wait_for(self.process.stderr.readline(), timeout=0.5)
+                if not line:
+                    break
+                stderr_data.append(line.decode())
+        except asyncio.TimeoutError:
+            pass  # No more data available
+        except Exception as e:
+            logger.debug(f"[PI STDERR] Thread {self.thread_id}: Error reading: {e}")
+        
+        return "".join(stderr_data)
     
     async def restart(self) -> None:
         """Restart the Pi process."""
