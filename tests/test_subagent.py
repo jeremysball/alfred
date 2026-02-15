@@ -1,10 +1,10 @@
 """Tests for sub-agent spawning functionality."""
 import pytest
 from pathlib import Path
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.pi_manager import PiManager
-from openclaw_pi.storage import ThreadStorage
-from openclaw_pi.models import Thread
+from alfred.dispatcher import Dispatcher
+from alfred.pi_manager import PiManager
+from alfred.storage import ThreadStorage
+from alfred.models import Thread
 
 
 @pytest.mark.asyncio

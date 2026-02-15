@@ -2,7 +2,7 @@
 import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
-from openclaw_pi.token_tracker import TokenTracker, TokenUsage
+from alfred.token_tracker import TokenTracker, TokenUsage
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """Tests for embedding providers and memory retrieval."""
 import pytest
 import numpy as np
-from openclaw_pi.embeddings import (
+from alfred.embeddings import (
     SimpleEmbeddingProvider,
     MemoryRetriever,
 )
@@ -200,7 +200,7 @@ async def test_memory_retriever_top_k_limits():
 async def test_openai_embedding_provider():
     """Test OpenAI embedding provider (requires API key)."""
     import os
-    from openclaw_pi.embeddings import OpenAIEmbeddingProvider
+    from alfred.embeddings import OpenAIEmbeddingProvider
     
     provider = OpenAIEmbeddingProvider(api_key=os.getenv("OPENAI_API_KEY"))
     

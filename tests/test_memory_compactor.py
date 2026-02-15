@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime
 
-from openclaw_pi.memory import MemoryManager, MemoryCompactor
+from alfred.memory import MemoryManager, MemoryCompactor
 
 
 @pytest.fixture

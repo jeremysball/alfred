@@ -1,7 +1,7 @@
 [project]
-name = "openclaw-pi"
+name = "alfred"
 version = "0.1.0"
-description = "Telegram bot dispatcher for OpenClaw Pi with multi-thread support"
+description = "Chat with Pi on Telegram. AI coding help in your group chats."
 requires-python = ">=3.11"
 dependencies = [
     "python-telegram-bot>=20.0",
@@ -19,14 +19,14 @@ dev = [
 ]
 
 [project.scripts]
-openclaw-pi = "openclaw_pi.main:cli"
+alfred = "alfred.main:cli"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["openclaw_pi"]
+packages = ["alfred"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

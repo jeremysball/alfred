@@ -2,7 +2,7 @@
 import aiofiles
 import logging
 from pathlib import Path
-from openclaw_pi.models import Thread
+from alfred.models import Thread
 
 logger = logging.getLogger(__name__)
 

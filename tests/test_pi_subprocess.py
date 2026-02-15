@@ -2,7 +2,7 @@
 import pytest
 import asyncio
 from pathlib import Path
-from openclaw_pi.pi_manager import PiSubprocess, PiManager
+from alfred.pi_manager import PiSubprocess, PiManager
 
 
 @pytest.mark.asyncio

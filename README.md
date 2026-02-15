@@ -1,6 +1,6 @@
-# OpenClaw Pi
+# Alfred
 
-Telegram bot dispatcher for [Pi](https://github.com/mariozechner/pi). Multi-thread, persistent conversations.
+Chat with Pi on Telegram. AI coding help in your group chats.
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -8,8 +8,9 @@ Telegram bot dispatcher for [Pi](https://github.com/mariozechner/pi). Multi-thre
 
 ## Features
 
-- **Multi-thread** — Each Telegram thread runs its own Pi session
-- **Persistent** — Thread history survives restarts
+- **One-shot** — Fresh Pi process for every message (no persistent daemons)
+- **Multi-thread** — Isolated conversation history per Telegram thread
+- **Persistent** — Thread history survives restarts (JSON storage)
 - **Typing indicators** — Real-time feedback while processing
 - **Multi-provider** — Z.AI, Moonshot, others
 - **Commands** — List, kill, cleanup threads
@@ -26,7 +27,7 @@ npm install -g @mariozechner/pi-coding-agent
 
 # Clone repo
 git clone <url>
-cd openclaw-pi
+cd alfred
 
 # Install package
 python3 -m venv .venv
@@ -49,15 +50,15 @@ LLM_API_KEY=your_key
 **Run:**
 
 ```bash
-openclaw-pi
+alfred
 # or
-python -m openclaw_pi
+python -m alfred
 ```
 
 ## Architecture
 
 ```
-Telegram Bot → Dispatcher → Pi Manager (subprocess)
+Telegram Bot → Dispatcher → Pi Manager → Pi Subprocess (one-shot)
                     ↓
             Thread Storage (JSON)
 ```
@@ -66,7 +67,7 @@ Telegram Bot → Dispatcher → Pi Manager (subprocess)
 |------|---------|
 | `telegram_bot.py` | Telegram handlers |
 | `dispatcher.py` | Message routing |
-| `pi_manager.py` | Pi subprocess management |
+| `pi_manager.py` | One-shot Pi subprocess management |
 | `storage.py` | Thread persistence |
 | `config.py` | Environment config |
 
@@ -83,7 +84,7 @@ Telegram Bot → Dispatcher → Pi Manager (subprocess)
 ## Project Structure
 
 ```
-openclaw_pi/       # Main package
+alfred/            # Main package
 ├── telegram_bot.py
 ├── dispatcher.py
 ├── pi_manager.py
@@ -101,7 +102,7 @@ workspace/         # User context (gitignored)
 uv run pytest tests/test_dispatcher_commands.py -v
 
 # Type check
-uv run mypy openclaw_pi/
+uv run mypy alfred/
 
 # Lint
 uv run ruff check .

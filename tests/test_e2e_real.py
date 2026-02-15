@@ -14,9 +14,9 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.pi_manager import PiManager
-from openclaw_pi.telegram_bot import TelegramBot
+from alfred.dispatcher import Dispatcher
+from alfred.pi_manager import PiManager
+from alfred.telegram_bot import TelegramBot
 
 
 # Skip all tests if env vars not set
@@ -79,7 +79,7 @@ async def test_e2e_real_pi_response(test_dirs, pi_manager):
         assert "working" in response.lower() or "pi" in response.lower()
         
         # Verify thread was saved
-        from openclaw_pi.storage import ThreadStorage
+        from alfred.storage import ThreadStorage
         storage = ThreadStorage(threads)
         thread = await storage.load(thread_id)
         assert thread is not None

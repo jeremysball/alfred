@@ -3,7 +3,7 @@ import pytest
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from openclaw_pi.verbose_logger import TelegramVerboseHandler, VerboseLoggerManager
+from alfred.verbose_logger import TelegramVerboseHandler, VerboseLoggerManager
 
 
 @pytest.mark.asyncio

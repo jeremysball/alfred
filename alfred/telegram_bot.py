@@ -11,8 +11,8 @@ from telegram.ext import (
     filters,
     ContextTypes
 )
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.verbose_logger import VerboseLoggerManager
+from alfred.dispatcher import Dispatcher
+from alfred.verbose_logger import VerboseLoggerManager
 
 logger = logging.getLogger(__name__)
 

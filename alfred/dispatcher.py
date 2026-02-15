@@ -3,11 +3,11 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from openclaw_pi.models import Thread
-from openclaw_pi.storage import ThreadStorage
-from openclaw_pi.pi_manager import PiManager
-from openclaw_pi.token_tracker import TokenTracker
-from openclaw_pi.memory import MemoryManager, MemoryCompactor
+from alfred.models import Thread
+from alfred.storage import ThreadStorage
+from alfred.pi_manager import PiManager
+from alfred.token_tracker import TokenTracker
+from alfred.memory import MemoryManager, MemoryCompactor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -290,7 +290,7 @@ class Dispatcher:
     async def _compact_memories(self, custom_prompt: Optional[str] = None) -> str:
         """Compact daily memories into long-term storage."""
         try:
-            from openclaw_pi.config import Settings
+            from alfred.config import Settings
             settings = Settings()
             
             memory_manager = MemoryManager(self.workspace_dir)

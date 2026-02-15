@@ -2,8 +2,8 @@
 import pytest
 from pathlib import Path
 
-from openclaw_pi.config import parse_skills_dirs, Settings
-from openclaw_pi.pi_manager import PiManager, PiSubprocess
+from alfred.config import parse_skills_dirs, Settings
+from alfred.pi_manager import PiManager, PiSubprocess
 
 
 @pytest.mark.asyncio

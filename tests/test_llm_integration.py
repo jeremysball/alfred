@@ -8,7 +8,7 @@ import os
 import pytest
 from pathlib import Path
 
-from openclaw_pi.memory import MemoryManager, MemoryCompactor
+from alfred.memory import MemoryManager, MemoryCompactor
 
 
 pytestmark = [

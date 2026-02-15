@@ -4,7 +4,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from openclaw_pi.pi_manager import PiSubprocess
+from alfred.pi_manager import PiSubprocess
 
 logger = logging.getLogger(__name__)
 

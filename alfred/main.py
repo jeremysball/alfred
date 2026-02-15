@@ -3,11 +3,11 @@ import asyncio
 import logging
 import signal
 
-from openclaw_pi.config import Settings
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.telegram_bot import TelegramBot
-from openclaw_pi.pi_manager import PiManager
-from openclaw_pi.token_tracker import TokenTracker
+from alfred.config import Settings
+from alfred.dispatcher import Dispatcher
+from alfred.telegram_bot import TelegramBot
+from alfred.pi_manager import PiManager
+from alfred.token_tracker import TokenTracker
 
 logging.basicConfig(
     level=logging.INFO,
