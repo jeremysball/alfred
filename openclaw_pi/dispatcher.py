@@ -47,14 +47,11 @@ class Dispatcher:
         thread.add_message("user", message)
         
         try:
-            # Get or start Pi process for this thread
-            t0 = time.time()
-            pi = await self.pi_manager.get_or_create(thread_id, self.workspace_dir)
-            logger.debug(f"[DISPATCHER] Pi get/create took {time.time() - t0:.2f}s")
-            
             # Send to Pi and get response
             t0 = time.time()
-            response = await pi.send_message(message)
+            response = await self.pi_manager.send_message(
+                thread_id, self.workspace_dir, message
+            )
             pi_time = time.time() - t0
             logger.info(f"[DISPATCHER] Pi send_message took {pi_time:.2f}s")
             
@@ -166,11 +163,9 @@ class Dispatcher:
         subagent_workspace.mkdir(parents=True, exist_ok=True)
         
         try:
-            # Get Pi process for sub-agent
-            pi = await self.pi_manager.get_or_create(subagent_id, subagent_workspace)
-            
             # Run task
-            result = await pi.send_message(
+            result = await self.pi_manager.send_message(
+                subagent_id, subagent_workspace,
                 f"You are a sub-agent. Complete this task:\n\n{task}\n\n"
                 f"Report results concisely."
             )
