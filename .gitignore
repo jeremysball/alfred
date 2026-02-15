@@ -39,3 +39,6 @@ venv/
 # Build
 dist/
 build/
+
+# Workspace (user context files)
+workspace/
