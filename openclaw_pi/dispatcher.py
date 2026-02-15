@@ -30,23 +30,32 @@ class Dispatcher:
         message: str
     ) -> str:
         """Handle incoming message, return response."""
-        logger.info(f"Handling message for thread {thread_id}")
+        logger.info(f"[DISPATCHER] Handling message for thread {thread_id}")
+        logger.info(f"[DISPATCHER] Chat ID: {chat_id}, Message length: {len(message)} chars")
+        logger.debug(f"[DISPATCHER] Message content: {message[:200]}...")
         
         # Check dispatcher commands
         if message.startswith("/"):
+            logger.info(f"[DISPATCHER] Processing command: {message}")
             return await self._handle_command(thread_id, message)
         
         # Load or create thread
+        logger.debug(f"[DISPATCHER] Loading thread {thread_id} from storage...")
         thread = await self.storage.load(thread_id)
         if not thread:
+            logger.info(f"[DISPATCHER] Creating new thread {thread_id}")
             thread = Thread(thread_id=thread_id, chat_id=chat_id)
+        else:
+            logger.info(f"[DISPATCHER] Loaded existing thread {thread_id} with {len(thread.messages)} messages")
         
         # Add user message
         thread.add_message("user", message)
         
         try:
             # Get pi subprocess for this thread
+            logger.debug(f"[DISPATCHER] Getting PiSubprocess for thread {thread_id}...")
             pi = await self.pi_manager.get_or_create(thread_id, self.workspace_dir)
+            logger.info(f"[DISPATCHER] Got PiSubprocess, sending message to pi...")
             
             # Send to pi and get response
             response = await pi.send_message(message)
@@ -55,15 +64,17 @@ class Dispatcher:
             thread.add_message("assistant", response)
             
             # Save thread state
+            logger.debug(f"[DISPATCHER] Saving thread {thread_id} state...")
             await self.storage.save(thread)
+            logger.info(f"[DISPATCHER] Thread {thread_id} saved successfully")
             
             return response
             
         except asyncio.TimeoutError:
-            logger.error(f"Timeout in thread {thread_id}")
+            logger.error(f"[DISPATCHER] Timeout in thread {thread_id}")
             return "⏱️ Request timed out. Try again."
         except Exception as e:
-            logger.exception(f"Error in thread {thread_id}")
+            logger.exception(f"[DISPATCHER] Error in thread {thread_id}: {e}")
             return f"❌ Error: {str(e)}"
     
     async def handle_message_streaming(

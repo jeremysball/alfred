@@ -54,21 +54,36 @@ class PiSubprocess:
         # Add the message
         cmd.append(message)
         
-        logger.info(f"Running pi for thread {self.thread_id}: {' '.join(cmd[:6])}...")
+        # Log full command for debugging
+        logger.info(f"[LLM CALL] Thread {self.thread_id}: Starting pi subprocess")
+        logger.info(f"[LLM CALL] Command: {' '.join(cmd)}")
+        logger.info(f"[LLM CALL] Workspace: {self.workspace}")
+        logger.info(f"[LLM CALL] Session file: {self.session_file}")
+        logger.info(f"[LLM CALL] Provider: {self.llm_provider}, Model: {self.llm_model or 'default'}")
+        
+        # Check if pi executable exists
+        if not self.pi_path.exists():
+            logger.error(f"[LLM CALL] Pi executable not found at: {self.pi_path}")
+            raise FileNotFoundError(f"Pi executable not found: {self.pi_path}")
         
         # Set up environment with API key
         env = os.environ.copy()
         if self.llm_api_key:
             if self.llm_provider == "zai":
                 env["ZAI_API_KEY"] = self.llm_api_key
+                logger.info(f"[LLM CALL] Set ZAI_API_KEY environment variable")
             elif self.llm_provider == "moonshot":
                 env["MOONSHOT_API_KEY"] = self.llm_api_key
+                logger.info(f"[LLM CALL] Set MOONSHOT_API_KEY environment variable")
+        else:
+            logger.warning(f"[LLM CALL] No API key provided for provider: {self.llm_provider}")
         
         # Ensure workspace exists
         self.workspace.mkdir(parents=True, exist_ok=True)
         
         # Run pi subprocess
         try:
+            logger.info(f"[LLM CALL] Spawning subprocess...")
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -76,27 +91,47 @@ class PiSubprocess:
                 env=env
             )
             
+            logger.info(f"[LLM CALL] Subprocess started (PID: {self.process.pid}), waiting for response...")
+            
             stdout, stderr = await asyncio.wait_for(
                 self.process.communicate(),
                 timeout=self.timeout
             )
             
-            if self.process.returncode != 0:
-                error_msg = stderr.decode('utf-8', errors='replace') if stderr else "Unknown error"
-                stdout_preview = stdout.decode('utf-8', errors='replace')[:200] if stdout else ""
-                logger.error(f"pi stderr: {error_msg}")
-                logger.error(f"pi stdout: {stdout_preview}")
-                raise RuntimeError(f"pi failed with code {self.process.returncode}: {error_msg}")
+            stdout_str = stdout.decode('utf-8', errors='replace')
+            stderr_str = stderr.decode('utf-8', errors='replace')
             
-            response = stdout.decode('utf-8', errors='replace').strip()
-            logger.info(f"pi completed for thread {self.thread_id}")
+            logger.info(f"[LLM CALL] Subprocess completed (return code: {self.process.returncode})")
+            logger.debug(f"[LLM CALL] stdout length: {len(stdout_str)} chars")
+            logger.debug(f"[LLM CALL] stderr length: {len(stderr_str)} chars")
+            
+            if stderr_str:
+                logger.warning(f"[LLM CALL] stderr: {stderr_str[:500]}")
+            
+            if self.process.returncode != 0:
+                logger.error(f"[LLM CALL] pi failed with code {self.process.returncode}")
+                logger.error(f"[LLM CALL] stderr: {stderr_str}")
+                logger.error(f"[LLM CALL] stdout preview: {stdout_str[:500]}")
+                raise RuntimeError(f"pi failed with code {self.process.returncode}: {stderr_str}")
+            
+            response = stdout_str.strip()
+            logger.info(f"[LLM CALL] Response received for thread {self.thread_id} ({len(response)} chars)")
+            
+            if not response:
+                logger.warning(f"[LLM CALL] Empty response from pi for thread {self.thread_id}")
+            
             return response
             
         except asyncio.TimeoutError:
+            logger.error(f"[LLM CALL] Timeout after {self.timeout}s for thread {self.thread_id}")
             if self.process and self.process.returncode is None:
                 self.process.kill()
                 await self.process.wait()
+                logger.info(f"[LLM CALL] Killed timed-out process")
             raise asyncio.TimeoutError(f"pi timed out after {self.timeout}s")
+        except Exception as e:
+            logger.exception(f"[LLM CALL] Exception in pi subprocess for thread {self.thread_id}: {e}")
+            raise
     
     async def kill(self) -> None:
         """Kill the subprocess if running."""
