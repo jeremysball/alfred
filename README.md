@@ -97,8 +97,8 @@ workspace/         # User context (gitignored)
 ## Development
 
 ```bash
-# Tests
-uv run pytest
+# Tests (mock-based, fast)
+uv run pytest tests/test_dispatcher_commands.py -v
 
 # Type check
 uv run mypy openclaw_pi/
@@ -107,6 +107,25 @@ uv run mypy openclaw_pi/
 uv run ruff check .
 uv run ruff format .
 ```
+
+### Testing
+
+**Unit tests** (mocked, fast, no API calls):
+```bash
+uv run pytest tests/test_dispatcher_commands.py tests/test_pi_subprocess.py -v
+```
+
+**True E2E tests** (real Telegram + Pi + LLM):
+```bash
+# Requires env vars and costs real API tokens
+export TELEGRAM_BOT_TOKEN=your_bot_token
+export TELEGRAM_CHAT_ID=your_chat_id
+export LLM_API_KEY=your_llm_key
+
+uv run pytest tests/test_e2e_real.py -v --run-slow
+```
+
+E2E tests send real Telegram messages and make real LLM API calls. Use for final validation only.
 
 ## Environment Variables
 
