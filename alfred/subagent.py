@@ -4,6 +4,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
+
 from alfred.pi_manager import PiSubprocess
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class SubAgent:
     """A sub-agent with isolated context for specific tasks."""
-    
+
     def __init__(
         self,
         subagent_id: str,
@@ -33,11 +34,11 @@ class SubAgent:
         self.timeout = timeout
         self.temp_dir: Path | None = None
         self.pi: PiSubprocess | None = None
-    
+
     async def setup(self) -> None:
         """Create isolated workspace for subagent."""
         self.temp_dir = Path(tempfile.mkdtemp(prefix=f"subagent_{self.subagent_id}_"))
-        
+
         # Copy workspace files
         if self.workspace_dir.exists():
             for item in self.workspace_dir.iterdir():
@@ -45,14 +46,14 @@ class SubAgent:
                     shutil.copy2(item, self.temp_dir / item.name)
                 elif item.is_dir() and item.name not in [".pi", "__pycache__", ".venv"]:
                     shutil.copytree(item, self.temp_dir / item.name, dirs_exist_ok=True)
-        
+
         logger.info(f"Sub-agent {self.subagent_id} workspace: {self.temp_dir}")
-    
+
     async def run(self) -> str:
         """Run the sub-agent task."""
         if not self.temp_dir:
             await self.setup()
-        
+
         self.pi = PiSubprocess(
             self.subagent_id,
             self.temp_dir,
@@ -61,7 +62,7 @@ class SubAgent:
             self.llm_api_key,
             self.llm_model
         )
-        
+
         try:
             await self.pi.start()
             result = await self.pi.send_message(self.task)
@@ -72,12 +73,12 @@ class SubAgent:
             return f"⏱️ Sub-agent {self.subagent_id} timed out"
         finally:
             await self.cleanup()
-    
+
     async def cleanup(self) -> None:
         """Clean up subagent resources."""
         if self.pi:
             await self.pi.kill()
-        
+
         if self.temp_dir and self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
             logger.info(f"Cleaned up sub-agent {self.subagent_id}")

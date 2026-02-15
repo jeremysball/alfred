@@ -1,7 +1,9 @@
 """Tests for pi manager."""
-import pytest
 import shutil
 from pathlib import Path
+
+import pytest
+
 from alfred.pi_manager import PiManager, PiSubprocess
 
 
@@ -10,12 +12,12 @@ async def test_pi_subprocess_send_message(tmp_path: Path):
     """Test pi subprocess send_message (skip if pi not installed)."""
     if not shutil.which("pi"):
         pytest.skip("pi not installed")
-    
+
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    
+
     pi = PiSubprocess("test", workspace, timeout=10)
-    
+
     # send_message spawns process, sends message, returns response
     # This will fail if pi is not installed or no API key
     try:
@@ -33,7 +35,7 @@ async def test_pi_subprocess_send_message(tmp_path: Path):
 async def test_pi_manager_send_message_interface():
     """Test PiManager send_message interface."""
     manager = PiManager(timeout=5)
-    
+
     # Check configuration
     assert manager.llm_provider == "zai"
     assert manager.timeout == 5

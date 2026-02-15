@@ -1,9 +1,10 @@
 """End-to-end tests simulating Telegram messages."""
-import pytest
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-from telegram import Update, Message, Chat, User
+
+import pytest
+from telegram import Chat, Message, Update
 from telegram.ext import ContextTypes
 
 from alfred.dispatcher import Dispatcher
@@ -16,11 +17,11 @@ def create_mock_update(text: str, chat_id: int = 123, thread_id: int = None) -> 
     update = MagicMock(spec=Update)
     update.effective_chat = MagicMock(spec=Chat)
     update.effective_chat.id = chat_id
-    
+
     update.message = MagicMock(spec=Message)
     update.message.text = text
     update.message.message_thread_id = thread_id
-    
+
     return update
 
 
@@ -39,25 +40,25 @@ async def test_e2e_message_flow(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
-    
+
     # Proper async mock for send_message
     async def mock_send(thread_id, workspace, message):
         await asyncio.sleep(0.01)
         return f"Echo: {message}"
-    
+
     with patch.object(pi_manager, 'send_message', side_effect=mock_send):
         dispatcher = Dispatcher(workspace, threads, pi_manager)
-        
+
         response = await dispatcher.handle_message(
             chat_id=123,
             thread_id="123",
             message="Hello Pi"
         )
-        
+
         assert "Echo: Hello Pi" in response
-        
+
         await dispatcher.shutdown()
 
 
@@ -68,21 +69,21 @@ async def test_e2e_command_status(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     update = create_mock_update("/status")
     context = create_mock_context()
-    
+
     bot = TelegramBot("fake_token", dispatcher)
     await bot._handle_status(update, context)
-    
+
     # Check that reply_text was called with status info
     context.bot.send_message.assert_called_once()
     call_args = context.bot.send_message.call_args
     assert "Active processes" in call_args[1]["text"]
-    
+
     await dispatcher.shutdown()
 
 
@@ -93,20 +94,20 @@ async def test_e2e_command_threads_empty(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     update = create_mock_update("/threads")
     context = create_mock_context()
-    
+
     bot = TelegramBot("fake_token", dispatcher)
     await bot._handle_threads(update, context)
-    
+
     context.bot.send_message.assert_called_once()
     call_args = context.bot.send_message.call_args
     assert "No threads" in call_args[1]["text"]
-    
+
     await dispatcher.shutdown()
 
 
@@ -117,9 +118,9 @@ async def test_e2e_thread_persistence(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
-    
+
     with patch.object(
         pi_manager, 'send_message',
         return_value=asyncio.Future()
@@ -127,29 +128,29 @@ async def test_e2e_thread_persistence(tmp_path: Path):
         future = asyncio.Future()
         future.set_result("Response 1")
         mock_send.return_value = future
-        
+
         dispatcher = Dispatcher(workspace, threads, pi_manager)
-        
+
         # Send first message
         await dispatcher.handle_message(123, "thread_1", "Message 1")
-        
+
         # Send second message
         future2 = asyncio.Future()
         future2.set_result("Response 2")
         mock_send.return_value = future2
-        
+
         await dispatcher.handle_message(123, "thread_1", "Message 2")
-        
+
         # Verify thread was saved with both messages
         from alfred.storage import ThreadStorage
         storage = ThreadStorage(threads)
         thread = await storage.load("thread_1")
-        
+
         assert thread is not None
         assert len(thread.messages) == 4  # 2 user + 2 assistant
         assert thread.messages[0].content == "Message 1"
         assert thread.messages[2].content == "Message 2"
-        
+
         await dispatcher.shutdown()
 
 
@@ -160,9 +161,9 @@ async def test_e2e_typing_indicator_sent(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
-    
+
     with patch.object(
         pi_manager, 'send_message',
         return_value=asyncio.Future()
@@ -170,25 +171,25 @@ async def test_e2e_typing_indicator_sent(tmp_path: Path):
         future = asyncio.Future()
         future.set_result("Response")
         mock_send.return_value = future
-        
+
         dispatcher = Dispatcher(workspace, threads, pi_manager)
         bot = TelegramBot("fake_token", dispatcher)
-        
+
         update = create_mock_update("Test message")
         context = create_mock_context()
-        
+
         # Mock the typing indicator to track calls
         typing_calls = []
         async def mock_typing(*args, **kwargs):
             typing_calls.append("typing")
-        
+
         context.bot.send_chat_action = AsyncMock(side_effect=mock_typing)
-        
+
         await bot._handle_message(update, context)
-        
+
         # Should have sent at least one typing action
         assert len(typing_calls) >= 1
-        
+
         await dispatcher.shutdown()
 
 
@@ -199,21 +200,21 @@ async def test_e2e_timeout_handling(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=1)  # 1 second timeout
-    
+
     with patch.object(
         pi_manager, 'send_message',
         side_effect=asyncio.TimeoutError()
     ):
         dispatcher = Dispatcher(workspace, threads, pi_manager)
-        
+
         response = await dispatcher.handle_message(
             chat_id=123,
             thread_id="123",
             message="Slow message"
         )
-        
+
         assert "⏱️ Timeout" in response
-        
+
         await dispatcher.shutdown()

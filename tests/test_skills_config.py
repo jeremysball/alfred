@@ -1,8 +1,9 @@
 """Tests for skills directory configuration."""
-import pytest
 from pathlib import Path
 
-from alfred.config import parse_skills_dirs, Settings
+import pytest
+
+from alfred.config import parse_skills_dirs
 from alfred.pi_manager import PiManager, PiSubprocess
 
 
@@ -52,13 +53,13 @@ async def test_pi_subprocess_with_skills(tmp_path):
     """Test PiSubprocess includes skills in command."""
     skills_dir = tmp_path / "skills"
     skills_dir.mkdir()
-    
+
     pi = PiSubprocess(
         "test_thread",
         tmp_path / "workspace",
         skills_dirs=[skills_dir]
     )
-    
+
     assert len(pi.skills_dirs) == 1
     assert pi.skills_dirs[0] == skills_dir
 
@@ -67,9 +68,9 @@ async def test_pi_subprocess_with_skills(tmp_path):
 async def test_pi_manager_passes_skills():
     """Test PiManager passes skills to subprocess."""
     skills_dirs = [Path("/skills1"), Path("/skills2")]
-    
+
     manager = PiManager(
         skills_dirs=skills_dirs
     )
-    
+
     assert manager.skills_dirs == skills_dirs
