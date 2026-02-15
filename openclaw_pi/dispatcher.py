@@ -8,6 +8,7 @@ from openclaw_pi.storage import ThreadStorage
 from openclaw_pi.pi_manager import PiManager
 from openclaw_pi.token_tracker import TokenTracker
 from openclaw_pi.memory import MemoryManager, MemoryCompactor
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -119,9 +120,9 @@ class Dispatcher:
             return await self._get_token_stats()
         
         elif cmd == "/compact":
-            strategy = parts[1] if len(parts) > 1 else "summarize"
-            days = int(parts[2]) if len(parts) > 2 else 7
-            return await self._compact_memories(strategy, days)
+            # Get custom prompt if provided (rest of command after /compact)
+            custom_prompt = " ".join(parts[1:]) if len(parts) > 1 else None
+            return await self._compact_memories(custom_prompt)
         
         return f"Unknown command: {cmd}"
     
@@ -286,37 +287,34 @@ class Dispatcher:
         
         return "\n".join(lines)
     
-    async def _compact_memories(self, strategy: str, days: int) -> str:
+    async def _compact_memories(self, custom_prompt: Optional[str] = None) -> str:
         """Compact daily memories into long-term storage."""
         try:
-            memory_manager = MemoryManager(self.workspace_dir)
-            compactor = MemoryCompactor(memory_manager)
+            from openclaw_pi.config import Settings
+            settings = Settings()
             
-            result = await compactor.compact(days=days, strategy=strategy)
+            memory_manager = MemoryManager(self.workspace_dir)
+            compactor = MemoryCompactor(
+                memory_manager,
+                llm_provider=settings.llm_provider,
+                llm_api_key=settings.llm_api_key,
+                llm_model=settings.llm_model
+            )
+            
+            result = await compactor.compact(custom_prompt=custom_prompt)
             
             if result["compacted"] == 0:
                 flushed_msg = f" (flushed {result.get('flushed', 0)} pending)" if result.get('flushed', 0) > 0 else ""
-                return f"📭 No memories to compact (last {days} days){flushed_msg}"
+                return f"📭 No memories to compact{flushed_msg}"
             
-            lines = [f"✅ Compacted {result['compacted']} days using '{strategy}' strategy"]
+            lines = [f"✅ Compacted {result['compacted']} memory files"]
             if result.get('flushed', 0) > 0:
                 lines.append(f" (flushed {result['flushed']} pending memories)")
-            lines.append("")
-            
-            if result["strategy"] == "archive":
-                lines.append(f"📁 {result['result']}")
-            else:
-                lines.append("📝 Summary:")
-                # Add summary preview (first 500 chars)
-                summary = result["result"][:500]
-                lines.append(summary)
-                if len(result["result"]) > 500:
-                    lines.append("... (truncated)")
+            lines.append(f"\n📁 Archived {result['archived']} files")
+            lines.append(f"🤖 Compacted by: {result['provider']}/{result['model']}")
             
             return "\n".join(lines)
             
-        except ValueError as e:
-            return f"❌ {str(e)}\n\nAvailable strategies: summarize, extract_key_decisions, archive"
         except Exception as e:
             logger.exception(f"Error compacting memories: {e}")
             return f"❌ Error: {str(e)}"

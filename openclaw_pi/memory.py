@@ -1,8 +1,11 @@
 """Memory system for persistent agent context."""
 import logging
-from datetime import datetime, timedelta
+import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +45,15 @@ class MemoryManager:
         
         logger.info(f"[MEMORY] Appended to {path.name}: {content[:50]}...")
     
-    def get_recent_memories(self, days: int = 2) -> list[Path]:
-        """Get paths to recent daily memory files."""
+    def get_all_memories(self) -> list[Path]:
+        """Get all daily memory files except today."""
         paths = []
-        for i in range(days):
-            date = datetime.now() - timedelta(days=i)
-            path = self.get_daily_memory_path(date)
-            if path.exists():
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        for path in sorted(self.memory_dir.glob("*.md")):
+            if today not in path.name and path.name != "MEMORY.md":
                 paths.append(path)
+        
         return paths
     
     async def read_memory_md(self) -> Optional[str]:
@@ -67,10 +71,30 @@ class MemoryManager:
 
 
 class MemoryCompactor:
-    """Compacts daily memories into long-term MEMORY.md."""
+    """Compacts daily memories into long-term MEMORY.md using LLM."""
     
-    def __init__(self, memory_manager: MemoryManager):
+    DEFAULT_PROMPT = """You are a memory compaction assistant. Review the daily memory files and create a concise summary for long-term storage.
+
+Focus on:
+- Key decisions made
+- Important context about the user
+- Action items or follow-ups
+- Lessons learned
+
+Format the output as markdown suitable for a MEMORY.md file.
+Be concise but capture what's truly important."""
+
+    def __init__(
+        self,
+        memory_manager: MemoryManager,
+        llm_provider: str = "zai",
+        llm_api_key: str = "",
+        llm_model: str = ""
+    ):
         self.memory_manager = memory_manager
+        self.llm_provider = llm_provider
+        self.llm_api_key = llm_api_key
+        self.llm_model = llm_model
         self._pending_memories: list[dict] = []
     
     async def append_pending(self, content: str, section: str = "Notes") -> None:
@@ -94,16 +118,11 @@ class MemoryCompactor:
         self._pending_memories.clear()
         return count
     
-    async def compact(
-        self,
-        days: int = 7,
-        strategy: str = "summarize"
-    ) -> dict:
-        """Compact recent daily memories into MEMORY.md.
+    async def compact(self, custom_prompt: Optional[str] = None) -> dict:
+        """Compact all daily memories into MEMORY.md using LLM.
         
         Args:
-            days: Number of days to compact
-            strategy: Compaction strategy - "summarize", "extract_key_decisions", or "archive"
+            custom_prompt: Optional custom prompt for the compaction LLM
         
         Returns:
             Dict with compaction results
@@ -111,83 +130,112 @@ class MemoryCompactor:
         # First, flush any pending memories to disk
         flushed = await self._flush_pending()
         
-        paths = self.memory_manager.get_recent_memories(days)
+        # Get all memory files
+        paths = self.memory_manager.get_all_memories()
         
         if not paths:
-            return {"compacted": 0, "strategy": strategy, "message": "No memories to compact", "flushed": flushed}
+            return {"compacted": 0, "message": "No memories to compact", "flushed": flushed}
         
         # Read all daily memories
-        daily_contents = []
+        combined_memories = []
         for path in paths:
-            daily_contents.append(path.read_text())
+            content = path.read_text()
+            combined_memories.append(f"## {path.stem}\n\n{content}")
         
-        combined = "\n\n".join(daily_contents)
+        all_memories = "\n\n---\n\n".join(combined_memories)
         
-        # Apply compaction strategy
-        if strategy == "summarize":
-            result = await self._summarize_strategy(combined, paths)
-        elif strategy == "extract_key_decisions":
-            result = await self._extract_decisions_strategy(combined, paths)
-        elif strategy == "archive":
-            result = await self._archive_strategy(paths)
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        # Call LLM to compact memories
+        prompt = custom_prompt or self.DEFAULT_PROMPT
+        compacted = await self._call_compaction_llm(all_memories, prompt)
         
-        logger.info(f"[MEMORY] Compacted {len(paths)} days using {strategy} strategy")
+        # Update MEMORY.md
+        await self.memory_manager.update_memory_md(compacted)
+        
+        # Archive the daily files
+        archived = await self._archive_files(paths)
+        
+        logger.info(f"[MEMORY] Compacted {len(paths)} memory files")
         
         return {
             "compacted": len(paths),
-            "strategy": strategy,
-            "result": result,
-            "flushed": flushed
+            "archived": archived,
+            "flushed": flushed,
+            "summary_length": len(compacted),
+            "provider": self.llm_provider,
+            "model": self.llm_model or "default"
         }
     
-    async def _summarize_strategy(self, content: str, paths: list[Path]) -> str:
-        """Summarize daily memories into key points."""
-        # For now, extract sections marked as "Key Decisions" or "Important"
-        lines = content.split('\n')
-        summary = ["## Recent Summary\n"]
+    async def _call_compaction_llm(self, memories: str, prompt: str) -> str:
+        """Call LLM to compact memories."""
+        if not self.llm_api_key:
+            # Fallback: just concatenate with basic formatting
+            return f"# MEMORY.md\n\n## Summary\n\n{memories[:2000]}...\n\n(Generated without LLM - no API key)"
         
-        in_important_section = False
-        for line in lines:
-            if '##' in line and ('Key' in line or 'Important' in line or 'Decision' in line):
-                in_important_section = True
-                summary.append(line)
-            elif line.startswith('## '):
-                in_important_section = False
-            elif in_important_section and line.strip().startswith('-'):
-                summary.append(line)
-        
-        return '\n'.join(summary)
+        try:
+            if self.llm_provider == "zai":
+                return await self._call_zai(memories, prompt)
+            elif self.llm_provider == "openai":
+                return await self._call_openai(memories, prompt)
+            else:
+                logger.warning(f"Unknown provider {self.llm_provider}, using fallback")
+                return f"# MEMORY.md\n\n## Raw Memories\n\n{memories[:3000]}"
+        except Exception as e:
+            logger.error(f"LLM compaction failed: {e}")
+            return f"# MEMORY.md\n\n## Error\n\nCompaction failed: {e}\n\n## Raw Memories\n\n{memories[:2000]}"
     
-    async def _extract_decisions_strategy(self, content: str, paths: list[Path]) -> str:
-        """Extract only key decisions and action items."""
-        lines = content.split('\n')
-        decisions = ["## Key Decisions\n"]
-        actions = ["## Action Items\n"]
+    async def _call_zai(self, memories: str, prompt: str) -> str:
+        """Call Z.AI API for compaction."""
+        headers = {"Authorization": f"Bearer {self.llm_api_key}"}
         
-        for line in lines:
-            line_lower = line.lower()
-            if any(word in line_lower for word in ['decided', 'decision', 'chose', 'choice']):
-                decisions.append(line)
-            if line.strip().startswith('- [ ]'):
-                actions.append(line)
+        model = self.llm_model or "glm-4-flash"
         
-        return '\n'.join(decisions + ['\n'] + actions)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.z.ai/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": f"Please compact these daily memory files:\n\n{memories}"}
+                    ],
+                    "temperature": 0.3
+                }
+            ) as resp:
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
     
-    async def _archive_strategy(self, paths: list[Path]) -> str:
-        """Move daily memories to archive folder."""
+    async def _call_openai(self, memories: str, prompt: str) -> str:
+        """Call OpenAI API for compaction."""
+        headers = {"Authorization": f"Bearer {self.llm_api_key}"}
+        
+        model = self.llm_model or "gpt-4"
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": f"Please compact these daily memory files:\n\n{memories}"}
+                    ],
+                    "temperature": 0.3
+                }
+            ) as resp:
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
+    
+    async def _archive_files(self, paths: list[Path]) -> int:
+        """Move processed memory files to archive."""
         archive_dir = self.memory_manager.memory_dir / "archive"
         archive_dir.mkdir(exist_ok=True)
         
-        archived = []
+        count = 0
         for path in paths:
-            # Skip today
-            if datetime.now().strftime('%Y-%m-%d') in path.name:
-                continue
-            
             dest = archive_dir / path.name
             path.rename(dest)
-            archived.append(path.name)
+            count += 1
         
-        return f"Archived {len(archived)} files: {', '.join(archived)}"
+        return count

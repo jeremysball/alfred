@@ -12,6 +12,7 @@ from telegram.ext import (
     ContextTypes
 )
 from openclaw_pi.dispatcher import Dispatcher
+from openclaw_pi.verbose_logger import VerboseLoggerManager
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class TelegramBot:
         self.token = token
         self.dispatcher = dispatcher
         self.app: Application | None = None
+        self.verbose_manager = VerboseLoggerManager()
     
     def _get_thread_id(self, update: Update) -> str:
         """Extract thread identifier from update."""
@@ -65,6 +67,8 @@ class TelegramBot:
             "/kill <id> — Kill thread process\n"
             "/cleanup — Kill all processes\n"
             "/tokens — Token usage stats\n"
+            "/compact [prompt] — Compact memories with optional LLM prompt\n"
+            "/verbose — Toggle verbose logging to chat\n"
             "/subagent <task> — Spawn background sub-agent"
         )
     
@@ -116,14 +120,34 @@ class TelegramBot:
     async def _handle_compact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /compact command."""
         args = context.args
-        strategy = args[0] if args else "summarize"
-        days = args[1] if len(args) > 1 else "7"
+        prompt = " ".join(args) if args else ""
         
         response = await self.dispatcher.handle_command(
             self._get_thread_id(update),
-            f"/compact {strategy} {days}"
+            f"/compact {prompt}"
         )
         await update.message.reply_text(response)
+
+    async def _handle_verbose(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle /verbose command to toggle verbose logging."""
+        if not self.app:
+            await update.message.reply_text("❌ Bot not initialized")
+            return
+        
+        chat_id = update.effective_chat.id
+        enabled = self.verbose_manager.toggle_for_chat(chat_id, self.app)
+        
+        if enabled:
+            await update.message.reply_text(
+                "🔊 Verbose logging enabled\n\n"
+                "Debug logs will now be sent to this chat.\n"
+                "Use /verbose again to disable."
+            )
+        else:
+            await update.message.reply_text(
+                "🔇 Verbose logging disabled\n\n"
+                "Debug logs will no longer be sent to this chat."
+            )
 
     async def _handle_subagent(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /subagent command."""
@@ -204,6 +228,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("cleanup", self._handle_cleanup))
         self.app.add_handler(CommandHandler("tokens", self._handle_tokens))
         self.app.add_handler(CommandHandler("compact", self._handle_compact))
+        self.app.add_handler(CommandHandler("verbose", self._handle_verbose))
         self.app.add_handler(CommandHandler("subagent", self._handle_subagent))
         
         # Message handler (non-command text)
