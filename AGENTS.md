@@ -1,5 +1,36 @@
 # Agent Guidelines
 
+## Code Style
+
+### PEP 8
+
+Follow [PEP 8](https://peps.python.org/pep-0008/) for all Python code.
+
+### Docstrings Required
+
+Every module, class, and function must have a docstring.
+
+```python
+def process_data(input: str) -> dict:
+    """Process raw input into structured data.
+    
+    Args:
+        input: Raw string data to process
+        
+    Returns:
+        Dictionary with extracted fields
+        
+    Raises:
+        ValueError: If input format is invalid
+    """
+```
+
+### Document All APIs
+
+- Public functions/methods: full docstrings with args/returns/raises
+- Classes: purpose and usage examples
+- Modules: high-level overview at top of file
+
 ## Tool Usage
 
 ### ALWAYS Use `uv`
