@@ -24,7 +24,8 @@ class PiSubprocess:
         llm_provider: str = "zai",
         llm_api_key: str = "",
         llm_model: str = "",
-        pi_path: Path | None = None
+        pi_path: Path | None = None,
+        skills_dirs: list[Path] | None = None
     ):
         self.thread_id = thread_id
         self.workspace = workspace
@@ -33,6 +34,7 @@ class PiSubprocess:
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
         self.pi_path = pi_path or DEFAULT_PI_PATH
+        self.skills_dirs = skills_dirs or []
         self.session_file = workspace / f"{thread_id}.json"
     
     async def is_alive(self) -> bool:
@@ -49,6 +51,11 @@ class PiSubprocess:
             "--provider", self.llm_provider,
             "--session", str(self.session_file),
         ]
+        
+        # Add skill directories
+        for skills_dir in self.skills_dirs:
+            if skills_dir.exists():
+                cmd.extend(["--skill", str(skills_dir)])
         
         if self.llm_model:
             cmd.extend(["--model", self.llm_model])
@@ -121,7 +128,8 @@ class PiManager:
         llm_api_key: str = "",
         llm_model: str = "",
         pi_path: Path | None = None,
-        token_tracker: TokenTracker | None = None
+        token_tracker: TokenTracker | None = None,
+        skills_dirs: list[Path] | None = None
     ):
         self.timeout = timeout
         self.llm_provider = llm_provider
@@ -130,6 +138,7 @@ class PiManager:
         self.pi_path = pi_path or DEFAULT_PI_PATH
         self._active_threads: set[str] = set()
         self.token_tracker = token_tracker
+        self.skills_dirs = skills_dirs or []
     
     async def send_message(self, thread_id: str, workspace: Path, message: str) -> str:
         """Send message to Pi for a thread."""
@@ -143,7 +152,8 @@ class PiManager:
                 self.llm_provider,
                 self.llm_api_key,
                 self.llm_model,
-                self.pi_path
+                self.pi_path,
+                self.skills_dirs
             )
             response = await pi.send_message(message)
             

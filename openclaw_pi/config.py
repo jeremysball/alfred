@@ -9,6 +9,13 @@ DEFAULT_THREADS = Path.cwd() / "threads"
 DEFAULT_PI_PATH = Path.cwd() / "node_modules" / ".bin" / "pi"
 
 
+def parse_skills_dirs(value: str | None) -> list[Path]:
+    """Parse comma-separated skill directories."""
+    if not value:
+        return []
+    return [Path(p.strip()) for p in value.split(",") if p.strip()]
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment."""
     
@@ -39,6 +46,9 @@ class Settings(BaseSettings):
     
     # ZAI specific (backwards compat)
     ZAI_API_KEY: str = ""
+    
+    # Skills
+    SKILLS_DIRS: str = ""  # Comma-separated list of skill directories
     
     # Limits
     MAX_THREADS: int = 50
@@ -83,3 +93,7 @@ class Settings(BaseSettings):
     @property
     def max_threads(self) -> int:
         return self.MAX_THREADS
+    
+    @property
+    def skills_dirs(self) -> list[Path]:
+        return parse_skills_dirs(self.SKILLS_DIRS)

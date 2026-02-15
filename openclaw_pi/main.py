@@ -31,7 +31,8 @@ async def main() -> None:
         llm_api_key=settings.llm_api_key,
         llm_model=settings.llm_model,
         pi_path=settings.pi_path,
-        token_tracker=token_tracker
+        token_tracker=token_tracker,
+        skills_dirs=settings.skills_dirs
     )
     
     # Create dispatcher
