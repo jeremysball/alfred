@@ -71,46 +71,54 @@ docs(readme): update feature list
 - Bad: "Fix bugs and add features"
 - Good: "fix(storage): handle missing json file" + "feat(bot): add status command"
 
-## Table Rendering
+## Markdown Rendering
 
-### Automatic Setup
+### telegramify-markdown
 
-Playwright browsers install **automatically** on first run. No manual steps.
+We use [telegramify-markdown](https://github.com/sudoskys/telegramify-markdown) to render markdown with native Telegram entities.
 
-If auto-install fails:
-```bash
-uv run playwright install chromium
-```
+### Key Rules
 
-### How It Works
+1. **Always use `telegramify()`** — It's async and auto-splits long messages
+2. **Pass entities as `list[dict]`** — Use `[e.to_dict() for e in entities]`
+3. **Never set `parse_mode`** — Entities and parse_mode are mutually exclusive
+4. **Entity offsets are UTF-16** — The library handles this internally
 
-**Phase 1: Markdown → HTML → Image**
-- `markdown` library converts table markdown to HTML
-- `playwright` renders HTML to PNG via headless Chromium
-- Result: Clean, styled table images
-
-**Phase 2: Multi-Part Messages**
-If message + table exceeds limits:
-1. Send introductory text
-2. Send table as image
-3. Send follow-up text
-
-### Implementation
+### Usage
 
 ```python
-from alfred.table_renderer import TableRenderer
+from telegramify_markdown import telegramify
 
-renderer = TableRenderer()
-image = await renderer.render_table("| Name | Value |\n|------|-------|\n| A | 1 |")
-await update.message.reply_photo(photo=image)
+# Convert markdown to Telegram entities
+results = await telegramify("**Bold** and _italic_ text")
+
+# Send each part (auto-split for messages > 4096 chars)
+for text, entities in results:
+    await update.message.reply_text(
+        text,
+        entities=[e.to_dict() for e in entities]
+    )
 ```
 
-### Dependencies
+### Important Notes
 
-Already in `pyproject.toml`:
-- `markdown>=3.5`
-- `playwright>=1.40`
+- `telegramify()` is **async** and must be awaited
+- `convert()` is sync but doesn't auto-split
+- Entity offsets are in UTF-16 code units (handled by library)
+- Works with python-telegram-bot, aiogram, pyTelegramBotAPI
+
+### Tables
+
+Markdown tables render as formatted code blocks automatically:
+
+```markdown
+| Name | Value |
+|------|-------|
+| A    | 1     |
+```
+
+Renders as monospace text in Telegram.
 
 ### No Streaming Support
 
-Current implementation sends full responses via `reply_text()`. No streaming.
+Current implementation sends full responses. No streaming.

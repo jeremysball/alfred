@@ -9,8 +9,7 @@ dependencies = [
     "aiohttp>=3.9.0",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
-    "markdown>=3.5",
-    "playwright>=1.40",
+    "telegramify-markdown>=0.1.0",
 ]
 
 [project.optional-dependencies]
