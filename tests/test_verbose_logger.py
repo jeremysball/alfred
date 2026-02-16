@@ -1,7 +1,9 @@
 """Tests for verbose logging functionality."""
-import pytest
+import asyncio
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from alfred.verbose_logger import TelegramVerboseHandler, VerboseLoggerManager
 
@@ -12,10 +14,10 @@ async def test_verbose_handler_emit_when_enabled():
     mock_app = MagicMock()
     mock_app.bot = MagicMock()
     mock_app.bot.send_message = AsyncMock()
-    
+
     handler = TelegramVerboseHandler(mock_app, chat_id=123)
     handler.enable()
-    
+
     # Create a log record
     record = logging.LogRecord(
         name="test",
@@ -26,12 +28,12 @@ async def test_verbose_handler_emit_when_enabled():
         args=(),
         exc_info=None
     )
-    
+
     handler.emit(record)
-    
+
     # Wait a bit for async send
     await asyncio.sleep(0.1)
-    
+
     mock_app.bot.send_message.assert_called_once()
 
 
@@ -41,10 +43,10 @@ async def test_verbose_handler_no_emit_when_disabled():
     mock_app = MagicMock()
     mock_app.bot = MagicMock()
     mock_app.bot.send_message = AsyncMock()
-    
+
     handler = TelegramVerboseHandler(mock_app, chat_id=123)
     # Disabled by default
-    
+
     record = logging.LogRecord(
         name="test",
         level=logging.INFO,
@@ -54,12 +56,12 @@ async def test_verbose_handler_no_emit_when_disabled():
         args=(),
         exc_info=None
     )
-    
+
     handler.emit(record)
-    
+
     # Wait a bit
     await asyncio.sleep(0.1)
-    
+
     mock_app.bot.send_message.assert_not_called()
 
 
@@ -67,15 +69,15 @@ async def test_verbose_handler_no_emit_when_disabled():
 async def test_verbose_handler_toggle():
     """Test toggle functionality."""
     mock_app = MagicMock()
-    
+
     handler = TelegramVerboseHandler(mock_app, chat_id=123)
-    
+
     assert handler.enabled is False
-    
+
     enabled = handler.toggle()
     assert enabled is True
     assert handler.enabled is True
-    
+
     enabled = handler.toggle()
     assert enabled is False
     assert handler.enabled is False
@@ -86,9 +88,9 @@ async def test_verbose_manager_create_handler():
     """Test creating handler through manager."""
     manager = VerboseLoggerManager()
     mock_app = MagicMock()
-    
+
     handler = manager.create_handler(123, mock_app)
-    
+
     assert handler is not None
     assert manager.get_handler(123) is handler
 
@@ -98,12 +100,12 @@ async def test_verbose_manager_toggle():
     """Test toggling through manager."""
     manager = VerboseLoggerManager()
     mock_app = MagicMock()
-    
+
     # First toggle creates and enables
     enabled = manager.toggle_for_chat(456, mock_app)
     assert enabled is True
     assert manager.is_enabled(456) is True
-    
+
     # Second toggle disables
     enabled = manager.toggle_for_chat(456, mock_app)
     assert enabled is False
@@ -121,13 +123,13 @@ async def test_verbose_handler_truncate_long_messages():
     """Test that long messages are truncated."""
     mock_app = MagicMock()
     mock_app.bot = AsyncMock()
-    
+
     handler = TelegramVerboseHandler(mock_app, chat_id=123)
     handler.enable()
-    
+
     # Create a very long message
     long_msg = "x" * 5000
-    
+
     record = logging.LogRecord(
         name="test",
         level=logging.INFO,
@@ -137,16 +139,13 @@ async def test_verbose_handler_truncate_long_messages():
         args=(),
         exc_info=None
     )
-    
+
     handler.emit(record)
     await asyncio.sleep(0.1)
-    
+
     # Check that send_message was called
     mock_app.bot.send_message.assert_called_once()
     call_args = mock_app.bot.send_message.call_args
-    
+
     # Message should be truncated
     assert len(call_args[1]["text"]) < 4100
-
-
-import asyncio

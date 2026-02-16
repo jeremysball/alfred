@@ -1,0 +1,25 @@
+# Auto-labeling rules for pull requests
+
+python:
+  - changed-files:
+      - any-glob-to-any-file: ['alfred/**/*.py', 'tests/**/*.py']
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'docs/**/*']
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file: ['Dockerfile', 'docker-compose.yml', '.dockerignore']
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/workflows/**/*', '.github/*.yml']
+
+config:
+  - changed-files:
+      - any-glob-to-any-file: ['pyproject.toml', 'uv.lock', '.env.example']
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['tests/**/*']

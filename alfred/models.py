@@ -1,7 +1,8 @@
 """Data models for threads and messages."""
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 def utcnow() -> datetime:
@@ -24,7 +25,7 @@ class Thread(BaseModel):
     updated_at: datetime = Field(default_factory=utcnow)
     messages: list[Message] = []
     active_subagent: Optional[str] = None
-    
+
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the thread."""
         self.messages.append(Message(role=role, content=content))
