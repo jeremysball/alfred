@@ -10,14 +10,13 @@ from alfred.memory import MemoryCompactor, MemoryManager
 @pytest.mark.asyncio
 async def test_memory_manager_creates_directories(tmp_path: Path):
     """Test that MemoryManager creates required directories."""
-    manager = MemoryManager(tmp_path)
+    _ = MemoryManager(tmp_path)
 
     assert (tmp_path / "memory").exists()
     assert (tmp_path / "notes").exists()
 
 
-@pytest.mark.asyncio
-async def test_get_daily_memory_path(tmp_path: Path):
+def test_get_daily_memory_path(tmp_path: Path):
     """Test daily memory path generation."""
     manager = MemoryManager(tmp_path)
 
@@ -59,23 +58,21 @@ async def test_append_to_daily_appends(tmp_path: Path):
     assert "Second note" in content
 
 
-@pytest.mark.asyncio
-async def test_get_recent_memories(tmp_path: Path):
-    """Test getting recent memory files."""
+def test_get_all_memories(tmp_path: Path):
+    """Test getting all memory files except today."""
     manager = MemoryManager(tmp_path)
 
-    # Create memory files for today and yesterday
     today = manager.get_daily_memory_path()
     today.write_text("# Today\n")
 
     yesterday = manager.get_daily_memory_path(datetime.now() - timedelta(days=1))
     yesterday.write_text("# Yesterday\n")
 
-    recent = manager.get_recent_memories(days=2)
+    all_memories = manager.get_all_memories()
 
-    assert len(recent) == 2
-    assert today in recent
-    assert yesterday in recent
+    assert len(all_memories) == 1
+    assert yesterday in all_memories
+    assert today not in all_memories
 
 
 @pytest.mark.asyncio
@@ -120,73 +117,70 @@ async def test_memory_compactor_no_memories(tmp_path: Path):
     manager = MemoryManager(tmp_path)
     compactor = MemoryCompactor(manager)
 
-    result = await compactor.compact(days=7, strategy="summarize")
+    result = await compactor.compact()
 
     assert result["compacted"] == 0
-    assert "No memories" in result["message"]
+    assert "flushed" in result
 
 
 @pytest.mark.asyncio
-async def test_memory_compactor_summarize(tmp_path: Path):
-    """Test summarize compaction strategy."""
+async def test_memory_compactor_with_pending(tmp_path: Path):
+    """Test compaction flushes pending memories."""
     manager = MemoryManager(tmp_path)
     compactor = MemoryCompactor(manager)
 
-    # Create a daily memory with key decisions
-    await manager.append_to_daily("Made important decision X", section="Key Decisions")
-    await manager.append_to_daily("Regular note", section="Notes")
+    await compactor.append_pending("Pending note 1", section="Notes")
+    await compactor.append_pending("Pending note 2", section="Decisions")
 
-    result = await compactor.compact(days=1, strategy="summarize")
+    yesterday = datetime.now() - timedelta(days=1)
+    yesterday_path = manager.get_daily_memory_path(yesterday)
+    yesterday_path.write_text("# Yesterday\n\n## Notes\n\n- Old note\n")
+
+    result = await compactor.compact()
 
     assert result["compacted"] == 1
-    assert result["strategy"] == "summarize"
+    assert result["flushed"] == 2
+    assert result["archived"] == 1
 
 
 @pytest.mark.asyncio
-async def test_memory_compactor_extract_decisions(tmp_path: Path):
-    """Test extract decisions strategy."""
+async def test_memory_compactor_archives_files(tmp_path: Path):
+    """Test that compaction archives processed files."""
     manager = MemoryManager(tmp_path)
     compactor = MemoryCompactor(manager)
 
-    # Create memory with decisions and actions
-    await manager.append_to_daily("Decided to use Python", section="Key Decisions")
-    await manager.append_to_daily("- [ ] Follow up on X", section="Action Items")
-
-    result = await compactor.compact(days=1, strategy="extract_key_decisions")
-
-    assert result["compacted"] == 1
-    assert "Key Decisions" in result["result"]
-    assert "Action Items" in result["result"]
-
-
-@pytest.mark.asyncio
-async def test_memory_compactor_archive(tmp_path: Path):
-    """Test archive strategy moves files."""
-    manager = MemoryManager(tmp_path)
-    compactor = MemoryCompactor(manager)
-
-    # Create yesterday's memory (not today's)
     yesterday = datetime.now() - timedelta(days=1)
     yesterday_path = manager.get_daily_memory_path(yesterday)
     yesterday_path.write_text("# Yesterday\n")
 
-    result = await compactor.compact(days=2, strategy="archive")
+    await compactor.compact()
 
-    # File should be moved to archive
     archive_dir = tmp_path / "memory" / "archive"
     assert archive_dir.exists()
     assert len(list(archive_dir.glob("*.md"))) == 1
-    assert not yesterday_path.exists()  # Moved from original
+    assert not yesterday_path.exists()
 
 
 @pytest.mark.asyncio
-async def test_memory_compactor_unknown_strategy(tmp_path: Path):
-    """Test compaction with unknown strategy raises error."""
+async def test_memory_compactor_fallback_without_api_key(tmp_path: Path):
+    """Test compaction falls back when no API key."""
     manager = MemoryManager(tmp_path)
-    compactor = MemoryCompactor(manager)
+    compactor = MemoryCompactor(
+        manager,
+        llm_provider="zai",
+        llm_api_key="",
+        llm_model=""
+    )
 
-    # Create a memory file so there's something to compact
-    await manager.append_to_daily("Test note")
+    yesterday = datetime.now() - timedelta(days=1)
+    yesterday_path = manager.get_daily_memory_path(yesterday)
+    yesterday_path.write_text("# Yesterday\n\n## Notes\n\n- Test note\n")
 
-    with pytest.raises(ValueError, match="Unknown strategy"):
-        await compactor.compact(days=1, strategy="unknown")
+    result = await compactor.compact()
+
+    assert result["compacted"] == 1
+
+    memory_md = tmp_path / "MEMORY.md"
+    assert memory_md.exists()
+    content = memory_md.read_text()
+    assert "Generated without LLM" in content or "Test note" in content

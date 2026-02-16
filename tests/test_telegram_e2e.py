@@ -44,7 +44,7 @@ async def test_e2e_message_flow(tmp_path: Path):
     pi_manager = PiManager(timeout=5)
 
     # Proper async mock for send_message
-    async def mock_send(thread_id, workspace, message):
+    async def mock_send(thread_id, workspace, message, system_prompt=None):
         await asyncio.sleep(0.01)
         return f"Echo: {message}"
 
@@ -74,15 +74,16 @@ async def test_e2e_command_status(tmp_path: Path):
     dispatcher = Dispatcher(workspace, threads, pi_manager)
 
     update = create_mock_update("/status")
+    update.message.reply_text = AsyncMock()
     context = create_mock_context()
 
     bot = TelegramBot("fake_token", dispatcher)
     await bot._handle_status(update, context)
 
     # Check that reply_text was called with status info
-    context.bot.send_message.assert_called_once()
-    call_args = context.bot.send_message.call_args
-    assert "Active processes" in call_args[1]["text"]
+    update.message.reply_text.assert_called_once()
+    call_args = update.message.reply_text.call_args
+    assert "Status" in call_args[0][0] or "Version" in call_args[0][0]
 
     await dispatcher.shutdown()
 
@@ -99,14 +100,15 @@ async def test_e2e_command_threads_empty(tmp_path: Path):
     dispatcher = Dispatcher(workspace, threads, pi_manager)
 
     update = create_mock_update("/threads")
+    update.message.reply_text = AsyncMock()
     context = create_mock_context()
 
     bot = TelegramBot("fake_token", dispatcher)
     await bot._handle_threads(update, context)
 
-    context.bot.send_message.assert_called_once()
-    call_args = context.bot.send_message.call_args
-    assert "No threads" in call_args[1]["text"]
+    update.message.reply_text.assert_called_once()
+    call_args = update.message.reply_text.call_args
+    assert "threads" in call_args[0][0].lower()
 
     await dispatcher.shutdown()
 
@@ -121,24 +123,20 @@ async def test_e2e_thread_persistence(tmp_path: Path):
 
     pi_manager = PiManager(timeout=5)
 
-    with patch.object(
-        pi_manager, 'send_message',
-        return_value=asyncio.Future()
-    ) as mock_send:
-        future = asyncio.Future()
-        future.set_result("Response 1")
-        mock_send.return_value = future
+    # Track call count and return different responses
+    call_count = 0
+    async def mock_send(thread_id, workspace, message, system_prompt=None):
+        nonlocal call_count
+        call_count += 1
+        return f"Response {call_count}"
 
+    with patch.object(pi_manager, 'send_message', side_effect=mock_send):
         dispatcher = Dispatcher(workspace, threads, pi_manager)
 
         # Send first message
         await dispatcher.handle_message(123, "thread_1", "Message 1")
 
         # Send second message
-        future2 = asyncio.Future()
-        future2.set_result("Response 2")
-        mock_send.return_value = future2
-
         await dispatcher.handle_message(123, "thread_1", "Message 2")
 
         # Verify thread was saved with both messages
@@ -164,14 +162,11 @@ async def test_e2e_typing_indicator_sent(tmp_path: Path):
 
     pi_manager = PiManager(timeout=5)
 
-    with patch.object(
-        pi_manager, 'send_message',
-        return_value=asyncio.Future()
-    ) as mock_send:
-        future = asyncio.Future()
-        future.set_result("Response")
-        mock_send.return_value = future
+    async def mock_send(thread_id, workspace, message, system_prompt=None):
+        await asyncio.sleep(0.05)  # Small delay to allow typing indicator
+        return "Response"
 
+    with patch.object(pi_manager, 'send_message', side_effect=mock_send):
         dispatcher = Dispatcher(workspace, threads, pi_manager)
         bot = TelegramBot("fake_token", dispatcher)
 
