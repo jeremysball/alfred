@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Pi agent
+.pi/
+
+# Thread workspaces (runtime)
+threads/
+
+# Sessions
+sessions/
+
+# Environment
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Build
+dist/
+build/
