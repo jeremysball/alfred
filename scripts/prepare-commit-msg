@@ -1,0 +1,9 @@
+#!/bin/sh
+# Automatically add kimi as co-author to all commits
+# Copy this file to .git/hooks/prepare-commit-msg to activate
+
+COMMIT_MSG_FILE="$1"
+
+# Add co-author trailer
+echo "" >> "$COMMIT_MSG_FILE"
+echo "Co-authored-by: kimi k2.5 <kimi@moonshot.cn>" >> "$COMMIT_MSG_FILE"
