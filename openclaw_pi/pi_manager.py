@@ -1,18 +1,18 @@
-"""Pi agent subprocess management."""
+"""Pi agent subprocess management - one process per message."""
 import asyncio
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Default pi path - can be overridden via environment
 DEFAULT_PI_PATH = Path(__file__).parent.parent / "node_modules" / ".bin" / "pi"
 
 
 class PiSubprocess:
-    """Manages a single pi subprocess for a thread."""
+    """Manages a Pi subprocess for a single message."""
     
     def __init__(
         self,
@@ -31,19 +31,19 @@ class PiSubprocess:
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
         self.pi_path = pi_path or DEFAULT_PI_PATH
-        self.process: Optional[asyncio.subprocess.Process] = None
         self.session_file = workspace / f"{thread_id}.json"
     
-    async def start(self) -> None:
-        """Start is a no-op - pi runs per-message in --print mode."""
-        pass
+    async def is_alive(self) -> bool:
+        """Always returns False for one-shot subprocess."""
+        return False
     
     async def send_message(self, message: str) -> str:
-        """Send message to pi via subprocess invocation in --print mode."""
-        # Build pi command
+        """Send message to Pi via subprocess."""
+        start_time = time.time()
+        
         cmd = [
             str(self.pi_path),
-            "--print",  # Non-interactive mode
+            "--print",
             "--provider", self.llm_provider,
             "--session", str(self.session_file),
         ]
@@ -51,12 +51,14 @@ class PiSubprocess:
         if self.llm_model:
             cmd.extend(["--model", self.llm_model])
         
-        # Add the message
+        # Add message as argument
         cmd.append(message)
         
-        logger.info(f"Running pi for thread {self.thread_id}: {' '.join(cmd[:6])}...")
+        logger.info(f"[PI] Thread {self.thread_id}: {' '.join(cmd[:8])}...")
         
-        # Set up environment with API key
+        if not self.pi_path.exists():
+            raise FileNotFoundError(f"Pi not found: {self.pi_path}")
+        
         env = os.environ.copy()
         if self.llm_api_key:
             if self.llm_provider == "zai":
@@ -64,56 +66,51 @@ class PiSubprocess:
             elif self.llm_provider == "moonshot":
                 env["MOONSHOT_API_KEY"] = self.llm_api_key
         
-        # Ensure workspace exists
         self.workspace.mkdir(parents=True, exist_ok=True)
         
-        # Run pi subprocess
+        logger.info(f"[PI] Thread {self.thread_id}: Spawning process...")
+        
         try:
-            self.process = await asyncio.create_subprocess_exec(
+            proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=env
             )
             
+            logger.info(f"[PI] Thread {self.thread_id}: PID {proc.pid}, waiting...")
+            
             stdout, stderr = await asyncio.wait_for(
-                self.process.communicate(),
+                proc.communicate(),
                 timeout=self.timeout
             )
             
-            if self.process.returncode != 0:
-                error_msg = stderr.decode('utf-8', errors='replace') if stderr else "Unknown error"
-                stdout_preview = stdout.decode('utf-8', errors='replace')[:200] if stdout else ""
-                logger.error(f"pi stderr: {error_msg}")
-                logger.error(f"pi stdout: {stdout_preview}")
-                raise RuntimeError(f"pi failed with code {self.process.returncode}: {error_msg}")
+            elapsed = time.time() - start_time
+            stdout_str = stdout.decode('utf-8', errors='replace')
+            stderr_str = stderr.decode('utf-8', errors='replace')
             
-            response = stdout.decode('utf-8', errors='replace').strip()
-            logger.info(f"pi completed for thread {self.thread_id}")
-            return response
+            logger.info(f"[PI] Thread {self.thread_id}: Done in {elapsed:.2f}s, exit={proc.returncode}")
+            logger.info(f"[PI] Thread {self.thread_id}: stdout={len(stdout_str)} chars, stderr={len(stderr_str)} chars")
+            
+            if stderr_str:
+                logger.warning(f"[PI] Thread {self.thread_id}: stderr: {stderr_str[:500]}")
+            
+            if proc.returncode != 0:
+                logger.error(f"[PI] Thread {self.thread_id}: Failed with code {proc.returncode}")
+                raise RuntimeError(f"Pi failed: {stderr_str[:500]}")
+            
+            return stdout_str.strip()
             
         except asyncio.TimeoutError:
-            if self.process and self.process.returncode is None:
-                self.process.kill()
-                await self.process.wait()
-            raise asyncio.TimeoutError(f"pi timed out after {self.timeout}s")
-    
-    async def kill(self) -> None:
-        """Kill the subprocess if running."""
-        if self.process and self.process.returncode is None:
-            self.process.kill()
-            await self.process.wait()
-            logger.info(f"Killed pi for thread {self.thread_id}")
-    
-    async def is_alive(self) -> bool:
-        """Check if process is still running."""
-        if not self.process:
-            return False
-        return self.process.returncode is None
+            logger.error(f"[PI] Thread {self.thread_id}: Timeout after {time.time() - start_time:.2f}s")
+            raise
+        except Exception as e:
+            logger.exception(f"[PI] Thread {self.thread_id}: Error: {e}")
+            raise
 
 
 class PiManager:
-    """Manages all pi subprocesses."""
+    """Manages Pi subprocesses - one per message."""
     
     def __init__(
         self,
@@ -128,12 +125,14 @@ class PiManager:
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
         self.pi_path = pi_path or DEFAULT_PI_PATH
-        self._processes: dict[str, PiSubprocess] = {}
+        self._active_threads: set[str] = set()
     
-    async def get_or_create(self, thread_id: str, workspace: Path) -> PiSubprocess:
-        """Get or create a pi subprocess for a thread."""
-        if thread_id not in self._processes:
-            self._processes[thread_id] = PiSubprocess(
+    async def send_message(self, thread_id: str, workspace: Path, message: str) -> str:
+        """Send message to Pi for a thread."""
+        self._active_threads.add(thread_id)
+        
+        try:
+            pi = PiSubprocess(
                 thread_id,
                 workspace,
                 self.timeout,
@@ -142,28 +141,22 @@ class PiManager:
                 self.llm_model,
                 self.pi_path
             )
-        return self._processes[thread_id]
+            return await pi.send_message(message)
+        finally:
+            self._active_threads.discard(thread_id)
     
     async def kill_thread(self, thread_id: str) -> bool:
-        """Kill a specific thread's pi process."""
-        if thread_id in self._processes:
-            await self._processes[thread_id].kill()
-            del self._processes[thread_id]
+        """Kill a thread (no-op for one-shot mode, just remove from active)."""
+        if thread_id in self._active_threads:
+            self._active_threads.discard(thread_id)
             return True
         return False
     
     async def cleanup(self) -> None:
-        """Kill all processes."""
-        for pi in list(self._processes.values()):
-            await pi.kill()
-        self._processes.clear()
-        logger.info("Cleaned up all pi processes")
+        """Clear active threads."""
+        self._active_threads.clear()
+        logger.info("[PI MANAGER] Cleanup")
     
     async def list_active(self) -> list[str]:
         """List active thread IDs."""
-        # Filter to only processes that are actually running
-        active = []
-        for thread_id, pi in list(self._processes.items()):
-            if await pi.is_alive():
-                active.append(thread_id)
-        return active
+        return list(self._active_threads)

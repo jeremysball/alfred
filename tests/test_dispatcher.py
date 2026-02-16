@@ -6,8 +6,8 @@ from openclaw_pi.pi_manager import PiManager
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_commands(tmp_path: Path):
-    """Test dispatcher command handling."""
+async def test_dispatcher_handle_message_not_command(tmp_path: Path):
+    """Test that handle_message doesn't process slash commands."""
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"
     workspace.mkdir()
@@ -16,24 +16,40 @@ async def test_dispatcher_commands(tmp_path: Path):
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
     
-    # Test /threads command
+    # Slash commands should NOT be processed by handle_message
+    # They return as-is or error since no Pi is available
     response = await dispatcher.handle_message(123, "main", "/threads")
-    assert "Threads:" in response
+    # This will fail because Pi is not installed, but it proves
+    # handle_message tried to send to Pi, not process as command
+    assert "Error" in response or "⏱️ Timeout" in response
     
-    # Test /status command
-    response = await dispatcher.handle_message(123, "main", "/status")
-    assert "Active threads:" in response
+    await dispatcher.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_handle_command_directly(tmp_path: Path):
+    """Test handle_command for commands."""
+    workspace = tmp_path / "workspace"
+    threads = tmp_path / "threads"
+    workspace.mkdir()
+    threads.mkdir()
     
-    # Test unknown command
-    response = await dispatcher.handle_message(123, "main", "/foobar")
-    assert "Unknown command" in response
+    pi_manager = PiManager(timeout=5)
+    dispatcher = Dispatcher(workspace, threads, pi_manager)
+    
+    # Use handle_command for slash commands
+    response = await dispatcher.handle_command("main", "/threads")
+    assert "No threads" in response or "Threads:" in response
+    
+    response = await dispatcher.handle_command("main", "/status")
+    assert "Active" in response
     
     await dispatcher.shutdown()
 
 
 @pytest.mark.asyncio
 async def test_dispatcher_kill_command(tmp_path: Path):
-    """Test /kill command."""
+    """Test /kill command via handle_command."""
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"
     workspace.mkdir()
@@ -43,15 +59,15 @@ async def test_dispatcher_kill_command(tmp_path: Path):
     dispatcher = Dispatcher(workspace, threads, pi_manager)
     
     # Kill nonexistent thread
-    response = await dispatcher.handle_message(123, "main", "/kill nonexistent")
-    assert "not found" in response
+    response = await dispatcher.handle_command("main", "/kill nonexistent")
+    assert "not active" in response
     
     await dispatcher.shutdown()
 
 
 @pytest.mark.asyncio
 async def test_dispatcher_cleanup_command(tmp_path: Path):
-    """Test /cleanup command."""
+    """Test /cleanup command via handle_command."""
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"
     workspace.mkdir()
@@ -60,8 +76,8 @@ async def test_dispatcher_cleanup_command(tmp_path: Path):
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
     
-    response = await dispatcher.handle_message(123, "main", "/cleanup")
-    assert "Cleaned up" in response
+    response = await dispatcher.handle_command("main", "/cleanup")
+    assert "Killed" in response
     
     await dispatcher.shutdown()
 
@@ -85,8 +101,8 @@ async def test_dispatcher_creates_thread(tmp_path: Path):
     thread = await storage.load("test_thread")
     assert thread is None
     
-    # Note: Can't test actual message handling without pi installed
-    # But we can verify command handling doesn't create threads
+    # Command handling shouldn't create threads
+    await dispatcher.handle_command("test_thread", "/status")
     
     threads_list = await storage.list_threads()
     assert len(threads_list) == 0

@@ -7,7 +7,7 @@ from openclaw_pi.pi_manager import PiManager
 
 @pytest.mark.asyncio
 async def test_dispatcher_command_flow(tmp_path: Path):
-    """Test the full dispatcher command flow."""
+    """Test the full dispatcher command flow via handle_command."""
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"
     workspace.mkdir()
@@ -16,16 +16,16 @@ async def test_dispatcher_command_flow(tmp_path: Path):
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
     
-    # Test /status
-    response = await dispatcher.handle_message(123, "test_chat", "/status")
-    assert "Active threads" in response
+    # Test /status via handle_command
+    response = await dispatcher.handle_command("test_chat", "/status")
+    assert "Active" in response
     
-    # Test /threads
-    response = await dispatcher.handle_message(123, "test_chat", "/threads")
-    assert "Threads:" in response
+    # Test /threads via handle_command
+    response = await dispatcher.handle_command("test_chat", "/threads")
+    assert "No threads" in response or "Threads:" in response
     
     # Test unknown command
-    response = await dispatcher.handle_message(123, "test_chat", "/foobar")
+    response = await dispatcher.handle_command("test_chat", "/foobar")
     assert "Unknown command" in response
     
     await dispatcher.shutdown()
@@ -33,7 +33,7 @@ async def test_dispatcher_command_flow(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_dispatcher_multiple_threads(tmp_path: Path):
-    """Test handling multiple threads."""
+    """Test handling multiple threads via commands."""
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"
     workspace.mkdir()
@@ -42,11 +42,11 @@ async def test_dispatcher_multiple_threads(tmp_path: Path):
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
     
-    # Handle messages from different threads
-    response1 = await dispatcher.handle_message(111, "thread_1", "/threads")
-    response2 = await dispatcher.handle_message(222, "thread_2", "/threads")
+    # Handle commands from different threads
+    response1 = await dispatcher.handle_command("thread_1", "/status")
+    response2 = await dispatcher.handle_command("thread_2", "/status")
     
-    assert "Threads:" in response1
-    assert "Threads:" in response2
+    assert "Active" in response1
+    assert "Active" in response2
     
     await dispatcher.shutdown()
