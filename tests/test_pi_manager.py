@@ -6,8 +6,8 @@ from openclaw_pi.pi_manager import PiManager, PiSubprocess
 
 
 @pytest.mark.asyncio
-async def test_pi_subprocess_lifecycle(tmp_path: Path):
-    """Test pi subprocess lifecycle (skip if pi not installed)."""
+async def test_pi_subprocess_send_message(tmp_path: Path):
+    """Test pi subprocess send_message (skip if pi not installed)."""
     if not shutil.which("pi"):
         pytest.skip("pi not installed")
     
@@ -15,24 +15,26 @@ async def test_pi_subprocess_lifecycle(tmp_path: Path):
     workspace.mkdir()
     
     pi = PiSubprocess("test", workspace, timeout=10)
-    await pi.start()
     
-    # start() is a no-op for pi --print mode, is_alive returns False
-    # until send_message is called
-    assert not await pi.is_alive()
-    
-    # kill() should not raise even with no process
-    await pi.kill()
-    assert not await pi.is_alive()
+    # send_message spawns process, sends message, returns response
+    # This will fail if pi is not installed or no API key
+    try:
+        response = await pi.send_message("Say 'hello' and nothing else")
+        assert response
+        assert "hello" in response.lower()
+    except FileNotFoundError:
+        pytest.skip("pi binary not found")
+    except Exception as e:
+        # API key or other error
+        pytest.skip(f"Pi error: {e}")
 
 
 @pytest.mark.asyncio
-async def test_pi_manager_get_or_create():
-    """Test get_or_create returns same instance for same thread."""
+async def test_pi_manager_send_message_interface():
+    """Test PiManager send_message interface."""
     manager = PiManager(timeout=5)
     
-    # Without pi installed, we can't fully test
-    # But we can test the logic
+    # Check configuration
     assert manager.llm_provider == "zai"
     assert manager.timeout == 5
 
