@@ -1,0 +1,36 @@
+name: PR Labeler
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Auto-label PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Label based on branch name
+        uses: actions/labeler@v4
+        if: github.event.action == 'opened'
+        with:
+          configuration-path: .github/labeler.yml
+
+      - name: Label based on conventional commits
+        uses: bcoe/conventional-release-labels@v1
+        if: github.event.action == 'opened'
+        with:
+          type_labels: |
+            feat: feature
+            fix: bug
+            docs: documentation
+            style: style
+            refactor: refactor
+            test: test
+            chore: chore

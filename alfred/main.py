@@ -5,8 +5,8 @@ import signal
 
 from alfred.config import Settings
 from alfred.dispatcher import Dispatcher
-from alfred.telegram_bot import TelegramBot
 from alfred.pi_manager import PiManager
+from alfred.telegram_bot import TelegramBot
 from alfred.token_tracker import TokenTracker
 
 logging.basicConfig(
@@ -20,10 +20,10 @@ async def main() -> None:
     """Main entry point."""
     settings = Settings()
     logging.getLogger().setLevel(getattr(logging, settings.log_level.upper()))
-    
+
     # Create token tracker
     token_tracker = TokenTracker(settings.workspace_dir / "logs")
-    
+
     # Create pi manager with LLM provider config
     pi_manager = PiManager(
         timeout=settings.pi_timeout,
@@ -34,7 +34,7 @@ async def main() -> None:
         token_tracker=token_tracker,
         skills_dirs=settings.skills_dirs
     )
-    
+
     # Create dispatcher
     dispatcher = Dispatcher(
         workspace_dir=settings.workspace_dir,
@@ -42,18 +42,18 @@ async def main() -> None:
         pi_manager=pi_manager,
         token_tracker=token_tracker
     )
-    
+
     # Create bot
     bot = TelegramBot(settings.telegram_bot_token, dispatcher)
-    
+
     # Handle shutdown gracefully
     def signal_handler(sig, frame):
         logger.info("Shutdown signal received")
         raise asyncio.CancelledError()
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     try:
         await bot.run()
     except asyncio.CancelledError:

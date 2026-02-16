@@ -1,6 +1,8 @@
 """Tests for dispatcher command handling."""
-import pytest
 from pathlib import Path
+
+import pytest
+
 from alfred.dispatcher import Dispatcher
 from alfred.pi_manager import PiManager
 
@@ -12,16 +14,16 @@ async def test_handle_command_status_empty(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     response = await dispatcher.handle_command("any_thread", "/status")
-    
+
     assert "Active: 0" in response
     assert "Stored: 0" in response
     assert "OpenClaw Pi Status" in response
-    
+
     await dispatcher.shutdown()
 
 
@@ -32,14 +34,14 @@ async def test_handle_command_threads_empty(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     response = await dispatcher.handle_command("any_thread", "/threads")
-    
+
     assert "No threads stored" in response
-    
+
     await dispatcher.shutdown()
 
 
@@ -50,14 +52,14 @@ async def test_handle_command_kill_no_args(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     response = await dispatcher.handle_command("any_thread", "/kill")
-    
+
     assert "Usage: /kill" in response
-    
+
     await dispatcher.shutdown()
 
 
@@ -68,14 +70,14 @@ async def test_handle_command_kill_nonexistent(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     response = await dispatcher.handle_command("any_thread", "/kill fake_thread")
-    
+
     assert "not active" in response
-    
+
     await dispatcher.shutdown()
 
 
@@ -86,14 +88,14 @@ async def test_handle_command_cleanup(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     response = await dispatcher.handle_command("any_thread", "/cleanup")
-    
+
     assert "Killed 0 processes" in response
-    
+
     await dispatcher.shutdown()
 
 
@@ -104,12 +106,12 @@ async def test_handle_command_unknown(tmp_path: Path):
     threads = tmp_path / "threads"
     workspace.mkdir()
     threads.mkdir()
-    
+
     pi_manager = PiManager(timeout=5)
     dispatcher = Dispatcher(workspace, threads, pi_manager)
-    
+
     response = await dispatcher.handle_command("any_thread", "/unknown")
-    
+
     assert "Unknown command" in response
-    
+
     await dispatcher.shutdown()

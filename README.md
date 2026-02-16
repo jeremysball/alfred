@@ -2,6 +2,7 @@
 
 Chat with Pi on Telegram. AI coding help in your group chats.
 
+[![CI](https://github.com/jeremysball/alfred/workflows/CI/badge.svg)](https://github.com/jeremysball/alfred/actions)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Code style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
