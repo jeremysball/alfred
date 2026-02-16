@@ -1,8 +1,8 @@
 """Tests for thread storage."""
 import pytest
 from pathlib import Path
-from dispatcher.models import Thread
-from dispatcher.storage import ThreadStorage
+from openclaw_pi.models import Thread
+from openclaw_pi.storage import ThreadStorage
 
 
 @pytest.mark.asyncio

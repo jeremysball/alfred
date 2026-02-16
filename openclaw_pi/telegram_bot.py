@@ -10,7 +10,7 @@ from telegram.ext import (
     filters,
     ContextTypes
 )
-from dispatcher.dispatcher import Dispatcher
+from openclaw_pi.dispatcher import Dispatcher
 
 logger = logging.getLogger(__name__)
 
