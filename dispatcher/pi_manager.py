@@ -7,6 +7,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Default pi path - can be overridden via environment
+DEFAULT_PI_PATH = Path(__file__).parent.parent / "node_modules" / ".bin" / "pi"
+
 
 class PiSubprocess:
     """Manages a single pi subprocess for a thread."""
@@ -18,7 +21,8 @@ class PiSubprocess:
         timeout: int = 300,
         llm_provider: str = "zai",
         llm_api_key: str = "",
-        llm_model: str = ""
+        llm_model: str = "",
+        pi_path: Path | None = None
     ):
         self.thread_id = thread_id
         self.workspace = workspace
@@ -26,56 +30,48 @@ class PiSubprocess:
         self.llm_provider = llm_provider
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
+        self.pi_path = pi_path or DEFAULT_PI_PATH
         self.process: Optional[asyncio.subprocess.Process] = None
     
     async def start(self) -> None:
         """Start the pi subprocess with LLM config."""
-        env = os.environ.copy()
-        
-        # Set LLM provider config for pi
-        if self.llm_provider == "zai":
-            env["ZAI_API_KEY"] = self.llm_api_key
-            if self.llm_model:
-                env["ZAI_MODEL"] = self.llm_model
-        elif self.llm_provider == "moonshot":
-            env["MOONSHOT_API_KEY"] = self.llm_api_key
-            if self.llm_model:
-                env["MOONSHOT_MODEL"] = self.llm_model
-        
-        self.process = await asyncio.create_subprocess_exec(
-            "pi",
-            "--workspace", str(self.workspace),
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env
-        )
-        logger.info(f"Started pi for thread {self.thread_id} (PID: {self.process.pid})")
+        # Note: pi is started per-message in --print mode, not as persistent subprocess
+        pass
     
     async def send_message(self, message: str) -> str:
-        """Send message to pi, get response with timeout."""
-        if not self.process or self.process.returncode is not None:
-            raise RuntimeError("Pi process not running")
+        """Send message via direct API call (pi doesn't support custom endpoints)."""
+        import aiohttp
         
-        # Send message + newline
-        self.process.stdin.write(f"{message}\n".encode())
-        await self.process.stdin.drain()
+        # Use direct API call
+        if self.llm_provider == "zai":
+            url = "https://api.z.ai/api/coding/paas/v4/chat/completions"
+            model = self.llm_model or "glm-4.7"
+        elif self.llm_provider == "moonshot":
+            url = "https://api.moonshot.cn/v1/chat/completions"
+            model = self.llm_model or "moonshot-v1-8k"
+        else:
+            raise ValueError(f"Unknown provider: {self.llm_provider}")
         
-        # Read response with timeout
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                self.process.communicate(),
-                timeout=self.timeout
-            )
+        logger.info(f"Calling {self.llm_provider} API for thread {self.thread_id}")
+        
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+            headers = {
+                "Authorization": f"Bearer {self.llm_api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": message}],
+                "max_tokens": 4096
+            }
             
-            if stderr:
-                logger.warning(f"Pi stderr: {stderr.decode()}")
-            
-            return stdout.decode()
-        except asyncio.TimeoutError:
-            logger.error(f"Pi timeout for thread {self.thread_id}")
-            self.process.kill()
-            raise
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    raise RuntimeError(f"API error {resp.status}: {text}")
+                
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"]
     
     async def kill(self) -> None:
         """Kill the subprocess."""
@@ -99,35 +95,29 @@ class PiManager:
         timeout: int = 300,
         llm_provider: str = "zai",
         llm_api_key: str = "",
-        llm_model: str = ""
+        llm_model: str = "",
+        pi_path: Path | None = None
     ):
         self.timeout = timeout
         self.llm_provider = llm_provider
         self.llm_api_key = llm_api_key
         self.llm_model = llm_model
+        self.pi_path = pi_path or DEFAULT_PI_PATH
         self._processes: dict[str, PiSubprocess] = {}
     
     async def get_or_create(self, thread_id: str, workspace: Path) -> PiSubprocess:
-        """Get existing or create new pi subprocess."""
-        if thread_id in self._processes:
-            pi = self._processes[thread_id]
-            if await pi.is_alive():
-                return pi
-            # Dead process, clean up
-            del self._processes[thread_id]
-        
-        # Create new
-        pi = PiSubprocess(
+        """Get or create a pi subprocess configuration."""
+        # Pi is now run per-message in --print mode, not as persistent subprocess
+        # Just return a configured PiSubprocess that can be used to send messages
+        return PiSubprocess(
             thread_id,
             workspace,
             self.timeout,
             self.llm_provider,
             self.llm_api_key,
-            self.llm_model
+            self.llm_model,
+            self.pi_path
         )
-        await pi.start()
-        self._processes[thread_id] = pi
-        return pi
     
     async def kill_thread(self, thread_id: str) -> bool:
         """Kill a specific thread's pi process."""
