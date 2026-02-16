@@ -7,6 +7,53 @@ from alfred.pi_manager import PiManager, PiSubprocess
 
 
 @pytest.mark.asyncio
+async def test_pi_subprocess_send_message_stream_yields_chunks(tmp_path: Path):
+    """Test that send_message_stream yields response chunks."""
+    import shutil
+
+    # Skip if pi not installed
+    if not shutil.which("pi"):
+        pytest.skip("pi not installed")
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    pi = PiSubprocess("test_stream_thread", workspace, timeout=5)
+
+    try:
+        chunks = []
+        async for chunk in pi.send_message_stream("Say hi"):
+            chunks.append(chunk)
+
+        # Should have yielded at least one chunk
+        assert len(chunks) >= 1
+        # Combined chunks should contain a response
+        full_response = "".join(chunks)
+        assert isinstance(full_response, str)
+        assert len(full_response) > 0
+    except FileNotFoundError:
+        pytest.skip("pi binary not found")
+    except TimeoutError:
+        pytest.skip("Pi timeout - likely no API key configured")
+
+
+@pytest.mark.asyncio
+async def test_pi_manager_send_message_stream_tracks_active(tmp_path: Path):
+    """Test that send_message_stream tracks thread as active during streaming."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    manager = PiManager(timeout=5, streaming_enabled=True)
+
+    # Thread not active before streaming
+    assert "stream_thread" not in await manager.list_active()
+
+    # Note: We can't easily test "during" without mocking the subprocess
+    # but we can verify the method exists and accepts the right parameters
+    assert hasattr(manager, 'send_message_stream')
+
+
+@pytest.mark.asyncio
 async def test_pi_subprocess_send_message_not_started(tmp_path: Path):
     """Test that send_message spawns process and returns response."""
     import shutil

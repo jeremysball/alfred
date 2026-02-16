@@ -166,6 +166,36 @@ class PiManager:
         finally:
             self._active_threads.discard(thread_id)
 
+    async def send_message_stream(
+        self, thread_id: str, workspace: Path, message: str
+    ) -> AsyncGenerator[str, None]:
+        """Send message to Pi and stream response chunks."""
+        self._active_threads.add(thread_id)
+
+        try:
+            pi = PiSubprocess(
+                thread_id,
+                workspace,
+                self.timeout,
+                self.llm_provider,
+                self.llm_api_key,
+                self.llm_model,
+                self.pi_path,
+                self.skills_dirs
+            )
+
+            async for chunk in pi.send_message_stream(message):
+                yield chunk
+
+            # Sync token usage after streaming
+            if self.token_tracker:
+                count = self.token_tracker.sync_from_session(pi.session_file)
+                if count > 0:
+                    logger.info(f"[TOKENS] Synced {count} token usage entries from {thread_id}")
+
+        finally:
+            self._active_threads.discard(thread_id)
+
     async def kill_thread(self, thread_id: str) -> bool:
         """Kill a thread (no-op for one-shot mode, just remove from active)."""
         if thread_id in self._active_threads:

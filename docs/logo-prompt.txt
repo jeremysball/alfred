@@ -1,0 +1,11 @@
+A modern, minimalist logo for "Alfred" - an AI coding assistant Telegram bot. 
+
+Design: A friendly, sophisticated robot butler head in profile view, wearing a small bow tie. The robot has a gentle, helpful expression with glowing eyes. The design incorporates subtle code bracket elements ("{ }") integrated into the butler's collar or chest plate.
+
+Style: Clean vector style, flat design with subtle gradients. Professional tech aesthetic. Single color palette using deep blue (#1a365d) with electric blue (#4299e1) accents.
+
+Background: Transparent or solid white.
+
+Mood: Helpful, professional, trustworthy, intelligent.
+
+Format: Square aspect ratio, suitable for app icons and Telegram bot avatars.
