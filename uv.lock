@@ -466,7 +466,7 @@ wheels = [
 ]
 
 [[package]]
-name = "openclaw-dispatcher"
+name = "openclaw-pi"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
