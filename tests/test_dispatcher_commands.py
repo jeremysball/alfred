@@ -22,7 +22,7 @@ async def test_handle_command_status_empty(tmp_path: Path):
 
     assert "Active: 0" in response
     assert "Stored: 0" in response
-    assert "OpenClaw Pi Status" in response
+    assert "Alfred Status" in response
 
     await dispatcher.shutdown()
 

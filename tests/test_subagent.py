@@ -62,6 +62,8 @@ async def test_spawn_subagent_fails_without_parent(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_spawn_subagent_creates_subagent_workspace(tmp_path: Path):
     """Test that spawn_subagent creates workspace for subagent."""
+    import asyncio
+
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"
     workspace.mkdir()
@@ -81,6 +83,9 @@ async def test_spawn_subagent_creates_subagent_workspace(tmp_path: Path):
         thread_id="parent_2",
         task="Test task"
     )
+
+    # Wait for background task to create workspace
+    await asyncio.sleep(0.1)
 
     # Check that subagents directory was created
     subagents_dir = workspace / "subagents"
@@ -147,9 +152,8 @@ async def test_subagent_thread_id_format(tmp_path: Path):
     subagent_id = response.replace("🔄 Sub-agent ", "").replace(" started", "")
 
     # Verify format: parent_id_sub_timestamp
-    parts = subagent_id.split("_")
-    assert len(parts) >= 3
-    assert parts[0] == "parent_4"
-    assert parts[1] == "sub"
+    # parent_id can contain underscores (e.g., "parent_4"), so check it ends with "_sub_<timestamp>"
+    assert "_sub_" in subagent_id
+    assert subagent_id.startswith("parent_4_sub_")
 
     await dispatcher.shutdown()
