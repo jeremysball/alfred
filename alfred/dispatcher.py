@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from alfred.context_loader import ContextLoader
 from alfred.memory import MemoryCompactor, MemoryManager
 from alfred.models import Thread
 from alfred.pi_manager import PiManager
@@ -12,6 +13,9 @@ from alfred.storage import ThreadStorage
 from alfred.token_tracker import TokenTracker
 
 logger = logging.getLogger(__name__)
+
+
+from alfred.heartbeat import Heartbeat
 
 
 class Dispatcher:
@@ -22,12 +26,15 @@ class Dispatcher:
         workspace_dir: Path,
         threads_dir: Path,
         pi_manager: PiManager,
-        token_tracker: TokenTracker | None = None
+        token_tracker: TokenTracker | None = None,
+        heartbeat: Heartbeat | None = None
     ):
         self.workspace_dir = workspace_dir
         self.storage = ThreadStorage(threads_dir)
         self.pi_manager = pi_manager
         self.token_tracker = token_tracker
+        self.heartbeat = heartbeat
+        self.context_loader = ContextLoader(workspace_dir)
 
     async def handle_message(
         self,
@@ -53,10 +60,14 @@ class Dispatcher:
         thread.add_message("user", message)
 
         try:
+            # Load system prompt from context files
+            system_prompt = self.context_loader.get_system_prompt()
+            logger.info(f"[DISPATCHER] Loaded system prompt ({len(system_prompt)} chars)")
+
             # Send to Pi and get response
             t0 = time.time()
             response = await self.pi_manager.send_message(
-                thread_id, self.workspace_dir, message
+                thread_id, self.workspace_dir, message, system_prompt
             )
             pi_time = time.time() - t0
             logger.info(f"[DISPATCHER] Pi send_message took {pi_time:.2f}s")
@@ -206,13 +217,27 @@ class Dispatcher:
         import os
         from datetime import datetime
 
-        lines = ["🤖 OpenClaw Pi Status\n"]
+        lines = ["🤖 Alfred Status\n"]
 
         # Bot info
         lines.append("📦 Bot")
         lines.append("  Version: 0.1.0")
         lines.append(f"  Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
+
+        # Session tokens
+        if self.token_tracker:
+            session = self.token_tracker.get_session_stats()
+            lines.append("💰 Session Tokens")
+            lines.append(f"  Requests: {session['requests']}")
+            lines.append(f"  Total: {session['total_tokens']:,}")
+            lines.append(f"  Input: {session['input_tokens']:,}")
+            lines.append(f"  Output: {session['output_tokens']:,}")
+            if session['cache_read'] > 0:
+                lines.append(f"  Cache: {session['cache_read']:,}")
+            if session['last_model']:
+                lines.append(f"  Last model: {session['last_model']}")
+            lines.append("")
 
         # Threads stats
         active = await self.pi_manager.list_active()
@@ -246,12 +271,25 @@ class Dispatcher:
         lines.append(f"  Provider: {self.pi_manager.llm_provider}")
         lines.append(f"  Model: {self.pi_manager.llm_model or 'default'}")
         lines.append(f"  Timeout: {self.pi_manager.timeout}s")
+        lines.append(f"  Thinking level: {getattr(self.pi_manager, 'thinking_level', 'default')}")
         lines.append("")
+
+        # Heartbeat
+        if self.heartbeat:
+            hb_status = self.heartbeat.get_status()
+            lines.append("💓 Heartbeat")
+            lines.append(f"  Status: {'✅' if hb_status['running'] else '❌'}")
+            lines.append(f"  Interval: {hb_status['interval']}s")
+            if hb_status['last_heartbeat']:
+                lines.append(f"  Last: {hb_status['last_heartbeat'].split('T')[1].split('.')[0]}")
+            lines.append("")
 
         # Features
         lines.append("🔧 Features")
         embeddings_available = "✅" if os.getenv("OPENAI_API_KEY") else "❌"
+        streaming_available = "✅" if getattr(self.pi_manager, 'streaming_enabled', False) else "❌"
         lines.append(f"  Embeddings: {embeddings_available}")
+        lines.append(f"  Streaming: {streaming_available}")
         lines.append("")
 
         lines.append("Use /threads for detailed thread list")

@@ -120,6 +120,30 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 **Don't overdo it:** One reaction per message max. Pick the one that fits best.
 
+## Skills
+
+You have access to specialized skills in the `skills/` directory. These are loaded automatically and provide detailed guidance for specific tasks:
+
+**Available Skills:**
+- `writing-concisely/` - Write clear, human prose. Use for docs, commits, explanations. Based on Strunk's Elements of Style. Key file: `03-elementary-principles-of-composition.md`
+- `superpowers/` - Development workflows and best practices:
+  - `brainstorming` - Generate and refine ideas
+  - `dispatching-parallel-agents` - Coordinate multiple subagents
+  - `executing-plans` - Execute multi-step plans
+  - `finishing-a-development-branch` - Clean up and merge branches
+  - `receiving-code-review` - Handle incoming code review
+  - `requesting-code-review` - Request effective code review
+  - `subagent-driven-development` - Delegate with subagents
+  - `systematic-debugging` - Debug methodically
+  - `test-driven-development` - TDD workflow
+  - `using-git-worktrees` - Parallel git worktrees
+  - `using-superpowers` - When and how to use skills
+  - `verification-before-completion` - Verify before marking done
+  - `writing-plans` - Write actionable plans
+  - `writing-skills` - Create new skills
+
+When you need a skill, read its file. For limited context, load only the relevant section.
+
 ## Tools
 
 Skills provide your tools. When you need one, check its `SKILL.md`. Keep local notes (camera names, SSH details, voice preferences) in `TOOLS.md`.
