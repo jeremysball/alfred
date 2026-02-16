@@ -1,54 +1,54 @@
 # Alfred
 
-<!-- LOGO_PLACEHOLDER -->
-<!-- For Gemini Image Generator, use: docs/logo-prompt.txt -->
+<p align="center">
+  <img src="docs/assets/memory-moth-banner.png" alt="Alfred - AI coding assistant with persistent memory">
+</p>
 
-[![CI](https://github.com/jeremysball/alfred/workflows/CI/badge.svg)](https://github.com/jeremysball/alfred/actions)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Code style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+<p align="center">
+  <strong>AI coding assistant with persistent memory</strong>
+</p>
 
-AI coding assistant on Telegram. Chat with the Pi agent in your group chats.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#commands">Commands</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#development">Development</a>
+</p>
 
-## Features
+---
 
-- **Persistent threads** — Conversation history survives restarts
-- **One-shot Pi** — Fresh AI process for every message  
-- **Multi-thread** — Isolated conversations per Telegram thread
-- **Streaming** — Real-time response streaming
-- **Token tracking** — Session and daily usage stats
-- **Heartbeat monitoring** — Health checks via file
-- **Markdown support** — Native Telegram entity formatting
-- **Multi-provider** — Z.AI, Moonshot, and others
+## Quick Start (Docker)
 
-## Quick Start
-
-**Requirements:** Node.js 18+, Python 3.11+
-
-**Install:**
+**Recommended.** No local dependencies needed.
 
 ```bash
+git clone <url> && cd alfred
+cp .env.example .env
+# Edit .env with your TELEGRAM_BOT_TOKEN and LLM_API_KEY
+docker compose up -d
+```
+
+That's it. Alfred is running.
+
+## Quick Start (Local)
+
+If you prefer running locally:
+
+```bash
+# Install Pi (the underlying AI agent)
 npm install -g @mariozechner/pi-coding-agent
-git clone <url>
-cd alfred
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+
+# Clone and setup
+git clone <url> && cd alfred
+uv venv .venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Copy templates and configure
 cp -r templates/* workspace/
-```
+cp .env.example .env
+# Edit .env with your tokens
 
-**Configure:**
-
-Create `.env`:
-
-```env
-TELEGRAM_BOT_TOKEN=your_token
-LLM_API_KEY=your_key
-```
-
-**Run:**
-
-```bash
+# Run
 alfred
 ```
 
@@ -56,52 +56,132 @@ alfred
 
 | Command | Description |
 |---------|-------------|
-| `/status` | System status, tokens, threads |
-| `/threads` | List all threads |
+| `/start` | Begin conversation |
+| `/status` | System health & stats |
+| `/threads` | List active conversations |
+| `/compact [prompt]` | Summarize current thread context |
+| `/subagent <task>` | Spawn background agent |
 | `/tokens` | Token usage statistics |
-| `/kill <id>` | Terminate a thread |
-| `/cleanup` | Kill all processes |
-| `/compact` | Compact memory files |
 | `/verbose` | Toggle debug logging |
-| `/subagent` | Spawn background agent |
 
-## Architecture
+## How It Works
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design.
+### Persistent Context
+
+Alfred loads context files on **every message**:
+
+- `AGENTS.md` — Behavior rules
+- `SOUL.md` — Personality  
+- `USER.md` — Your preferences
+- `TOOLS.md` — Local tool configs
+- `SKILLS/*` — Available skills
+
+### Memory System
+
+- **Daily capture**: `memory/2026-02-16.md`
+- **Long-term**: `MEMORY.md` (curated)
+- **Thread isolation**: Each Telegram thread = separate context
+
+### Thread Compaction
+
+Long conversations get expensive. Use `/compact` to summarize:
 
 ```
-Telegram Bot → Dispatcher → Pi Manager → Pi Subprocess
-                     ↓
-             Thread Storage (JSON)
+User: /compact
+Alfred: ✅ Compacted thread
+   42 messages → summary
+   ~75% size reduction
 ```
 
-## Environment
+Optional custom prompt: `/compact Focus on API decisions`
+
+---
+
+## Power Users
+
+### Custom Skills
+
+Add skills to `workspace/skills/`:
+
+```
+skills/
+├── writing-concisely/
+│   ├── SKILL.md
+│   └── reference-material.md
+└── my-custom-skill/
+    └── SKILL.md
+```
+
+Skills auto-load on startup. [See skill examples →](docs/SKILLS.md)
+
+### Subagents
+
+Delegate long tasks:
+
+```
+/subagent Review all Python files for type hints, 
+report which files need updates
+```
+
+Runs in background. Results posted when complete.
+
+### Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TELEGRAM_BOT_TOKEN` | — | **Required.** Bot token |
-| `LLM_API_KEY` | — | **Required.** API key |
-| `LLM_PROVIDER` | `zai` | Provider (zai, moonshot) |
-| `LLM_MODEL` | — | Model name |
-| `PI_PATH` | `/usr/bin/pi` | Pi executable |
-| `WORKSPACE_DIR` | `./workspace` | Workspace path |
-| `THREADS_DIR` | `./threads` | Thread storage |
-| `SKILLS_DIRS` | — | Comma-separated skill directories |
-| `LOG_LEVEL` | `INFO` | DEBUG, INFO, WARNING, ERROR |
+| `TELEGRAM_BOT_TOKEN` | — | From [@BotFather](https://t.me/botfather) |
+| `LLM_API_KEY` | — | Your AI provider key |
+| `LLM_PROVIDER` | `zai` | `zai`, `openai`, `moonshot` |
+| `LLM_MODEL` | — | Model ID (e.g., `gpt-4`) |
+| `OPENAI_API_KEY` | — | Enables semantic memory search |
+| `WORKSPACE_DIR` | `./workspace` | Context files location |
+| `THREADS_DIR` | `./threads` | Conversation storage |
+
+---
 
 ## Development
 
+[Architecture Overview →](docs/ARCHITECTURE.md)
+
+[API Reference →](docs/API.md)
+
+### Setup
+
 ```bash
-# Test
-pytest tests/test_dispatcher_commands.py -v
+uv venv .venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
 
-# Type check
-mypy alfred/
+### Testing
 
-# Lint
+```bash
+pytest tests/ -v
+```
+
+### Linting
+
+```bash
 ruff check .
 ruff format .
+mypy alfred/
 ```
+
+### Project Structure
+
+```
+alfred/
+├── alfred/           # Core package
+│   ├── dispatcher.py # Message routing
+│   ├── pi_manager.py # AI subprocess
+│   ├── telegram_bot.py
+│   └── ...
+├── tests/
+├── workspace/        # Runtime context (gitignored)
+├── templates/        # Starter context files
+└── docs/
+```
+
+---
 
 ## License
 

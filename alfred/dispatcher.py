@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional
 
 from alfred.context_loader import ContextLoader
-from alfred.memory import MemoryCompactor, MemoryManager
 from alfred.models import Thread
 from alfred.pi_manager import PiManager
 from alfred.storage import ThreadStorage
@@ -132,9 +131,8 @@ class Dispatcher:
             return await self._get_token_stats()
 
         elif cmd == "/compact":
-            # Get custom prompt if provided (rest of command after /compact)
             custom_prompt = " ".join(parts[1:]) if len(parts) > 1 else None
-            return await self._compact_memories(custom_prompt)
+            return await self._compact_thread(thread_id, custom_prompt)
 
         return f"Unknown command: {cmd}"
 
@@ -147,19 +145,15 @@ class Dispatcher:
         """Spawn a background sub-agent for a task."""
         logger.info(f"[DISPATCHER] Spawning sub-agent for thread={thread_id}")
 
-        # Load parent thread
         parent = await self.storage.load(thread_id)
         if not parent:
             return "❌ Parent thread not found"
 
-        # Create sub-agent thread ID
         subagent_id = f"{thread_id}_sub_{asyncio.get_event_loop().time()}"
 
-        # Mark parent as having active subagent
         parent.active_subagent = subagent_id
         await self.storage.save(parent)
 
-        # Start background task
         asyncio.create_task(
             self._run_subagent(chat_id, thread_id, subagent_id, task)
         )
@@ -176,19 +170,16 @@ class Dispatcher:
         """Run sub-agent in background."""
         logger.info(f"[SUBAGENT] {subagent_id} starting: {task[:50]}...")
 
-        # Create sub-agent workspace
         subagent_workspace = self.workspace_dir / "subagents" / subagent_id
         subagent_workspace.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Run task
             result = await self.pi_manager.send_message(
                 subagent_id, subagent_workspace,
                 f"You are a sub-agent. Complete this task:\n\n{task}\n\n"
                 f"Report results concisely."
             )
 
-            # Save sub-agent thread
             subagent_thread = Thread(
                 thread_id=subagent_id,
                 chat_id=chat_id
@@ -199,7 +190,6 @@ class Dispatcher:
 
             logger.info(f"[SUBAGENT] {subagent_id} complete")
 
-            # Update parent thread with result
             parent = await self.storage.load(parent_thread_id)
             if parent:
                 parent.add_message("system", f"Sub-agent {subagent_id} result:\n{result}")
@@ -209,7 +199,6 @@ class Dispatcher:
         except Exception as e:
             logger.exception(f"[SUBAGENT] {subagent_id} failed: {e}")
         finally:
-            # Cleanup
             await self.pi_manager.kill_thread(subagent_id)
 
     async def _get_full_status(self) -> str:
@@ -219,13 +208,11 @@ class Dispatcher:
 
         lines = ["🤖 Alfred Status\n"]
 
-        # Bot info
         lines.append("📦 Bot")
         lines.append("  Version: 0.1.0")
         lines.append(f"  Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
 
-        # Session tokens
         if self.token_tracker:
             session = self.token_tracker.get_session_stats()
             lines.append("💰 Session Tokens")
@@ -239,7 +226,6 @@ class Dispatcher:
                 lines.append(f"  Last model: {session['last_model']}")
             lines.append("")
 
-        # Threads stats
         active = await self.pi_manager.list_active()
         stored = await self.storage.list_threads()
         total_messages = 0
@@ -256,7 +242,6 @@ class Dispatcher:
             lines.append(f"  Processing: {', '.join(active[:3])}{'...' if len(active) > 3 else ''}")
         lines.append("")
 
-        # Workspace info
         memory_files = list(self.workspace_dir.glob("memory/*.md")) if (self.workspace_dir / "memory").exists() else []
         skills_count = len(list((self.workspace_dir / "skills").glob("*/SKILL.md"))) if (self.workspace_dir / "skills").exists() else 0
 
@@ -266,7 +251,6 @@ class Dispatcher:
         lines.append(f"  Skills loaded: {skills_count}")
         lines.append("")
 
-        # Configuration
         lines.append("⚙️ Configuration")
         lines.append(f"  Provider: {self.pi_manager.llm_provider}")
         lines.append(f"  Model: {self.pi_manager.llm_model or 'default'}")
@@ -274,7 +258,6 @@ class Dispatcher:
         lines.append(f"  Thinking level: {getattr(self.pi_manager, 'thinking_level', 'default')}")
         lines.append("")
 
-        # Heartbeat
         if self.heartbeat:
             hb_status = self.heartbeat.get_status()
             lines.append("💓 Heartbeat")
@@ -284,7 +267,6 @@ class Dispatcher:
                 lines.append(f"  Last: {hb_status['last_heartbeat'].split('T')[1].split('.')[0]}")
             lines.append("")
 
-        # Features
         lines.append("🔧 Features")
         embeddings_available = "✅" if os.getenv("OPENAI_API_KEY") else "❌"
         streaming_available = "✅" if getattr(self.pi_manager, 'streaming_enabled', False) else "❌"
@@ -326,36 +308,55 @@ class Dispatcher:
 
         return "\n".join(lines)
 
-    async def _compact_memories(self, custom_prompt: Optional[str] = None) -> str:
-        """Compact daily memories into long-term storage."""
+    async def _compact_thread(self, thread_id: str, custom_prompt: Optional[str] = None) -> str:
+        """Compact current thread context into a summary."""
         try:
-            from alfred.config import Settings
-            settings = Settings()
+            thread = await self.storage.load(thread_id)
+            if not thread or len(thread.messages) < 2:
+                return "📭 No conversation to compact"
 
-            memory_manager = MemoryManager(self.workspace_dir)
-            compactor = MemoryCompactor(
-                memory_manager,
-                llm_provider=settings.llm_provider,
-                llm_api_key=settings.llm_api_key,
-                llm_model=settings.llm_model
+            lines = []
+            for msg in thread.messages:
+                prefix = "User" if msg.role == "user" else "Assistant"
+                lines.append(f"{prefix}: {msg.content}")
+            conversation = "\n\n".join(lines)
+
+            if len(conversation) < 500:
+                return "📭 Conversation too short to compact"
+
+            prompt = custom_prompt or """Summarize this conversation concisely. Capture:
+- Key decisions made
+- Important context shared
+- Action items or follow-ups
+- Current state/topic
+
+Be brief but complete."""
+
+            compaction_request = f"{prompt}\n\n---\n\nConversation:\n\n{conversation}"
+
+            summary = await self.pi_manager.send_message(
+                f"{thread_id}_compact",
+                self.workspace_dir,
+                compaction_request
             )
 
-            result = await compactor.compact(custom_prompt=custom_prompt)
+            thread.messages = []
+            thread.add_message("system", f"[COMPACTED] Previous conversation summary:\n\n{summary}")
+            await self.storage.save(thread)
 
-            if result["compacted"] == 0:
-                flushed_msg = f" (flushed {result.get('flushed', 0)} pending)" if result.get('flushed', 0) > 0 else ""
-                return f"📭 No memories to compact{flushed_msg}"
+            original_msgs = len(lines)
+            summary_len = len(summary)
+            savings = (1 - summary_len / len(conversation)) * 100
 
-            lines = [f"✅ Compacted {result['compacted']} memory files"]
-            if result.get('flushed', 0) > 0:
-                lines.append(f" (flushed {result['flushed']} pending memories)")
-            lines.append(f"\n📁 Archived {result['archived']} files")
-            lines.append(f"🤖 Compacted by: {result['provider']}/{result['model']}")
-
-            return "\n".join(lines)
+            return (
+                f"✅ Compacted thread\n"
+                f"   {original_msgs} messages → summary\n"
+                f"   ~{savings:.0f}% size reduction\n"
+                f"   Summary: {summary[:200]}..."
+            )
 
         except Exception as e:
-            logger.exception(f"Error compacting memories: {e}")
+            logger.exception(f"Error compacting thread: {e}")
             return f"❌ Error: {str(e)}"
 
     async def shutdown(self) -> None:
