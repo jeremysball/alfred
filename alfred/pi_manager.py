@@ -3,13 +3,14 @@ import asyncio
 import logging
 import os
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
 from alfred.token_tracker import TokenTracker
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PI_PATH = Path(__file__).parent.parent / "node_modules" / ".bin" / "pi"
+DEFAULT_PI_PATH = Path("/usr/bin/pi")
 
 
 class PiSubprocess:
@@ -40,9 +41,13 @@ class PiSubprocess:
         """Always returns False for one-shot subprocess."""
         return False
 
-    async def send_message(self, message: str) -> str:
+    async def send_message(self, message: str, system_prompt: str | None = None) -> str:
         """Send message to Pi via subprocess."""
         start_time = time.time()
+
+        # Prepend system prompt if provided
+        if system_prompt:
+            message = f"{system_prompt}\n\n---\n\nUser: {message}"
 
         cmd = [
             str(self.pi_path),
@@ -116,6 +121,111 @@ class PiSubprocess:
             logger.exception(f"[PI] Thread {self.thread_id}: Error: {e}")
             raise
 
+    async def send_message_stream(self, message: str, system_prompt: str | None = None) -> AsyncGenerator[str, None]:
+        """Send message to Pi and stream response chunks."""
+        start_time = time.time()
+
+        # Prepend system prompt if provided
+        if system_prompt:
+            message = f"{system_prompt}\n\n---\n\nUser: {message}"
+
+        cmd = [
+            str(self.pi_path),
+            "--print",
+            "--stream",
+            "--provider", self.llm_provider,
+            "--session", str(self.session_file),
+        ]
+
+        # Add skill directories
+        for skills_dir in self.skills_dirs:
+            if skills_dir.exists():
+                cmd.extend(["--skill", str(skills_dir)])
+
+        if self.llm_model:
+            cmd.extend(["--model", self.llm_model])
+
+        # Add message as argument
+        cmd.append(message)
+
+        logger.info(f"[PI] Thread {self.thread_id}: Streaming {' '.join(cmd[:8])}...")
+
+        if not self.pi_path.exists():
+            raise FileNotFoundError(f"Pi not found: {self.pi_path}")
+
+        env = os.environ.copy()
+        if self.llm_api_key:
+            if self.llm_provider == "zai":
+                env["ZAI_API_KEY"] = self.llm_api_key
+            elif self.llm_provider == "moonshot":
+                env["MOONSHOT_API_KEY"] = self.llm_api_key
+
+        self.workspace.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"[PI] Thread {self.thread_id}: Spawning stream process...")
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env
+            )
+
+            logger.info(f"[PI] Thread {self.thread_id}: PID {proc.pid}, streaming...")
+
+            buffer = ""
+            chunk_count = 0
+
+            # Stream stdout as it arrives
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(
+                        proc.stdout.read(1024),
+                        timeout=self.timeout
+                    )
+                    if not chunk:
+                        break
+
+                    text = chunk.decode('utf-8', errors='replace')
+                    buffer += text
+                    chunk_count += 1
+
+                    # Yield when we hit newlines or after accumulating enough
+                    if '\n' in text or len(buffer) > 200:
+                        yield buffer
+                        buffer = ""
+
+                except asyncio.TimeoutError:
+                    logger.error(f"[PI] Thread {self.thread_id}: Stream timeout")
+                    proc.kill()
+                    raise
+
+            # Wait for process to complete
+            stdout, stderr = await proc.communicate()
+
+            # Yield any remaining content
+            if buffer:
+                yield buffer
+
+            elapsed = time.time() - start_time
+            logger.info(f"[PI] Thread {self.thread_id}: Stream done in {elapsed:.2f}s, {chunk_count} chunks, exit={proc.returncode}")
+
+            if stderr:
+                stderr_str = stderr.decode('utf-8', errors='replace')
+                if stderr_str:
+                    logger.warning(f"[PI] Thread {self.thread_id}: stderr: {stderr_str[:500]}")
+
+            if proc.returncode != 0:
+                logger.error(f"[PI] Thread {self.thread_id}: Failed with code {proc.returncode}")
+
+        except asyncio.TimeoutError:
+            logger.error(f"[PI] Thread {self.thread_id}: Timeout after {time.time() - start_time:.2f}s")
+            raise
+        except Exception as e:
+            logger.exception(f"[PI] Thread {self.thread_id}: Error: {e}")
+            raise
+
 
 class PiManager:
     """Manages Pi subprocesses - one per message."""
@@ -128,7 +238,8 @@ class PiManager:
         llm_model: str = "",
         pi_path: Path | None = None,
         token_tracker: TokenTracker | None = None,
-        skills_dirs: list[Path] | None = None
+        skills_dirs: list[Path] | None = None,
+        streaming_enabled: bool = False
     ):
         self.timeout = timeout
         self.llm_provider = llm_provider
@@ -138,8 +249,9 @@ class PiManager:
         self._active_threads: set[str] = set()
         self.token_tracker = token_tracker
         self.skills_dirs = skills_dirs or []
+        self.streaming_enabled = streaming_enabled
 
-    async def send_message(self, thread_id: str, workspace: Path, message: str) -> str:
+    async def send_message(self, thread_id: str, workspace: Path, message: str, system_prompt: str | None = None) -> str:
         """Send message to Pi for a thread."""
         self._active_threads.add(thread_id)
 
@@ -154,7 +266,7 @@ class PiManager:
                 self.pi_path,
                 self.skills_dirs
             )
-            response = await pi.send_message(message)
+            response = await pi.send_message(message, system_prompt)
 
             # Sync token usage from session file
             if self.token_tracker:
@@ -167,7 +279,7 @@ class PiManager:
             self._active_threads.discard(thread_id)
 
     async def send_message_stream(
-        self, thread_id: str, workspace: Path, message: str
+        self, thread_id: str, workspace: Path, message: str, system_prompt: str | None = None
     ) -> AsyncGenerator[str, None]:
         """Send message to Pi and stream response chunks."""
         self._active_threads.add(thread_id)
@@ -184,7 +296,7 @@ class PiManager:
                 self.skills_dirs
             )
 
-            async for chunk in pi.send_message_stream(message):
+            async for chunk in pi.send_message_stream(message, system_prompt):
                 yield chunk
 
             # Sync token usage after streaming
