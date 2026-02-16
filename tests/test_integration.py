@@ -1,8 +1,8 @@
 """Integration tests for dispatcher."""
 import pytest
 from pathlib import Path
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.pi_manager import PiManager
+from alfred.dispatcher import Dispatcher
+from alfred.pi_manager import PiManager
 
 
 @pytest.mark.asyncio

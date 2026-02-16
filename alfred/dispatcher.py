@@ -3,9 +3,12 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from openclaw_pi.models import Thread
-from openclaw_pi.storage import ThreadStorage
-from openclaw_pi.pi_manager import PiManager
+from alfred.models import Thread
+from alfred.storage import ThreadStorage
+from alfred.pi_manager import PiManager
+from alfred.token_tracker import TokenTracker
+from alfred.memory import MemoryManager, MemoryCompactor
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +20,13 @@ class Dispatcher:
         self,
         workspace_dir: Path,
         threads_dir: Path,
-        pi_manager: PiManager
+        pi_manager: PiManager,
+        token_tracker: TokenTracker | None = None
     ):
         self.workspace_dir = workspace_dir
         self.storage = ThreadStorage(threads_dir)
         self.pi_manager = pi_manager
+        self.token_tracker = token_tracker
     
     async def handle_message(
         self,
@@ -110,6 +115,14 @@ class Dispatcher:
             active = await self.pi_manager.list_active()
             await self.pi_manager.cleanup()
             return f"✅ Killed {len(active)} processes"
+        
+        elif cmd == "/tokens":
+            return await self._get_token_stats()
+        
+        elif cmd == "/compact":
+            # Get custom prompt if provided (rest of command after /compact)
+            custom_prompt = " ".join(parts[1:]) if len(parts) > 1 else None
+            return await self._compact_memories(custom_prompt)
         
         return f"Unknown command: {cmd}"
     
@@ -242,6 +255,69 @@ class Dispatcher:
 
         lines.append("Use /threads for detailed thread list")
         return "\n".join(lines)
+    
+    async def _get_token_stats(self) -> str:
+        """Get token usage statistics."""
+        if not self.token_tracker:
+            return "❌ Token tracking not enabled"
+        
+        stats = self.token_tracker.get_daily_stats()
+        
+        lines = ["💰 Token Usage Today\n"]
+        lines.append(f"📊 Requests: {stats['requests']}")
+        lines.append(f"📝 Total tokens: {stats['total_tokens']:,}")
+        lines.append(f"   Input: {stats['input_tokens']:,}")
+        lines.append(f"   Output: {stats['output_tokens']:,}")
+        lines.append(f"   Cache: {stats.get('cache_read', 0):,}")
+        
+        if stats['by_provider']:
+            lines.append("\n🏢 By Provider:")
+            for provider, data in stats['by_provider'].items():
+                lines.append(f"  {provider}: {data['tokens']:,} tokens ({data['requests']} reqs)")
+        
+        if stats['by_thread']:
+            lines.append("\n💬 Top Threads:")
+            sorted_threads = sorted(
+                stats['by_thread'].items(),
+                key=lambda x: x[1]['tokens'],
+                reverse=True
+            )[:5]
+            for tid, data in sorted_threads:
+                lines.append(f"  {tid[:20]}...: {data['tokens']:,} tokens")
+        
+        return "\n".join(lines)
+    
+    async def _compact_memories(self, custom_prompt: Optional[str] = None) -> str:
+        """Compact daily memories into long-term storage."""
+        try:
+            from alfred.config import Settings
+            settings = Settings()
+            
+            memory_manager = MemoryManager(self.workspace_dir)
+            compactor = MemoryCompactor(
+                memory_manager,
+                llm_provider=settings.llm_provider,
+                llm_api_key=settings.llm_api_key,
+                llm_model=settings.llm_model
+            )
+            
+            result = await compactor.compact(custom_prompt=custom_prompt)
+            
+            if result["compacted"] == 0:
+                flushed_msg = f" (flushed {result.get('flushed', 0)} pending)" if result.get('flushed', 0) > 0 else ""
+                return f"📭 No memories to compact{flushed_msg}"
+            
+            lines = [f"✅ Compacted {result['compacted']} memory files"]
+            if result.get('flushed', 0) > 0:
+                lines.append(f" (flushed {result['flushed']} pending memories)")
+            lines.append(f"\n📁 Archived {result['archived']} files")
+            lines.append(f"🤖 Compacted by: {result['provider']}/{result['model']}")
+            
+            return "\n".join(lines)
+            
+        except Exception as e:
+            logger.exception(f"Error compacting memories: {e}")
+            return f"❌ Error: {str(e)}"
 
     async def shutdown(self) -> None:
         """Clean shutdown."""

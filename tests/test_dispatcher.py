@@ -1,8 +1,8 @@
 """Tests for dispatcher core."""
 import pytest
 from pathlib import Path
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.pi_manager import PiManager
+from alfred.dispatcher import Dispatcher
+from alfred.pi_manager import PiManager
 
 
 @pytest.mark.asyncio
@@ -85,7 +85,7 @@ async def test_dispatcher_cleanup_command(tmp_path: Path):
 @pytest.mark.asyncio
 async def test_dispatcher_creates_thread(tmp_path: Path):
     """Test that dispatcher creates thread on first message."""
-    from openclaw_pi.storage import ThreadStorage
+    from alfred.storage import ThreadStorage
     
     workspace = tmp_path / "workspace"
     threads = tmp_path / "threads"

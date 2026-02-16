@@ -2,7 +2,7 @@
 import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
-from openclaw_pi.memory import MemoryManager, MemoryCompactor
+from alfred.memory import MemoryManager, MemoryCompactor
 
 
 @pytest.mark.asyncio

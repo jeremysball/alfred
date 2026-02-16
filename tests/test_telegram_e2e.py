@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from telegram import Update, Message, Chat, User
 from telegram.ext import ContextTypes
 
-from openclaw_pi.dispatcher import Dispatcher
-from openclaw_pi.pi_manager import PiManager
-from openclaw_pi.telegram_bot import TelegramBot
+from alfred.dispatcher import Dispatcher
+from alfred.pi_manager import PiManager
+from alfred.telegram_bot import TelegramBot
 
 
 def create_mock_update(text: str, chat_id: int = 123, thread_id: int = None) -> Update:
@@ -141,7 +141,7 @@ async def test_e2e_thread_persistence(tmp_path: Path):
         await dispatcher.handle_message(123, "thread_1", "Message 2")
         
         # Verify thread was saved with both messages
-        from openclaw_pi.storage import ThreadStorage
+        from alfred.storage import ThreadStorage
         storage = ThreadStorage(threads)
         thread = await storage.load("thread_1")
         
