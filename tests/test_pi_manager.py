@@ -2,7 +2,7 @@
 import pytest
 import shutil
 from pathlib import Path
-from dispatcher.pi_manager import PiManager, PiSubprocess
+from openclaw_pi.pi_manager import PiManager, PiSubprocess
 
 
 @pytest.mark.asyncio
@@ -17,8 +17,11 @@ async def test_pi_subprocess_lifecycle(tmp_path: Path):
     pi = PiSubprocess("test", workspace, timeout=10)
     await pi.start()
     
-    assert await pi.is_alive()
+    # start() is a no-op for pi --print mode, is_alive returns False
+    # until send_message is called
+    assert not await pi.is_alive()
     
+    # kill() should not raise even with no process
     await pi.kill()
     assert not await pi.is_alive()
 

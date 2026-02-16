@@ -3,10 +3,10 @@ import asyncio
 import logging
 import signal
 
-from dispatcher.config import Settings
-from dispatcher.dispatcher import Dispatcher
-from dispatcher.telegram_bot import TelegramBot
-from dispatcher.pi_manager import PiManager
+from openclaw_pi.config import Settings
+from openclaw_pi.dispatcher import Dispatcher
+from openclaw_pi.telegram_bot import TelegramBot
+from openclaw_pi.pi_manager import PiManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,8 +55,13 @@ async def main() -> None:
         logger.info("Shutdown complete")
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    """CLI entry point for console script."""
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    cli()

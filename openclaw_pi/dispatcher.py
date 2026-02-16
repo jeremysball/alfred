@@ -3,9 +3,9 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from dispatcher.models import Thread
-from dispatcher.storage import ThreadStorage
-from dispatcher.pi_manager import PiManager
+from openclaw_pi.models import Thread
+from openclaw_pi.storage import ThreadStorage
+from openclaw_pi.pi_manager import PiManager
 
 logger = logging.getLogger(__name__)
 
@@ -83,19 +83,35 @@ class Dispatcher:
         cmd = parts[0].lower()
         
         if cmd == "/status":
-            threads = await self.storage.list_threads()
-            return f"Stored threads: {len(threads)}"
+            active = await self.pi_manager.list_active()
+            stored = await self.storage.list_threads()
+            return f"Active threads: {len(active)} | Stored threads: {len(stored)}"
         
         elif cmd == "/threads":
             threads = await self.storage.list_threads()
             return f"Threads: {', '.join(threads) or 'None'}"
         
+        elif cmd == "/kill":
+            if len(parts) < 2:
+                return "Usage: /kill <thread_id>"
+            target_thread = parts[1]
+            killed = await self.pi_manager.kill_thread(target_thread)
+            if killed:
+                return f"✅ Killed thread: {target_thread}"
+            return f"❌ Thread not found: {target_thread}"
+        
+        elif cmd == "/cleanup":
+            await self.pi_manager.cleanup()
+            return "✅ Cleaned up all active threads"
+        
         elif cmd == "/help":
             return (
                 "🤖 OpenClaw Dispatcher\n\n"
                 "Commands:\n"
-                "/status — Show status\n"
-                "/threads — List threads\n"
+                "/status — Show active and stored threads\n"
+                "/threads — List all stored threads\n"
+                "/kill <id> — Kill a thread's process\n"
+                "/cleanup — Kill all active processes\n"
                 "/help — This message"
             )
         

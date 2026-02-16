@@ -3,6 +3,11 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Default to workspace in the current working directory
+DEFAULT_WORKSPACE = Path.cwd() / "workspace"
+DEFAULT_THREADS = Path.cwd() / "threads"
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment."""
     
@@ -15,9 +20,9 @@ class Settings(BaseSettings):
     # Telegram
     TELEGRAM_BOT_TOKEN: str
     
-    # Paths
-    WORKSPACE_DIR: Path = Path("./workspace")
-    THREADS_DIR: Path = Path("./threads")
+    # Paths - default to ./workspace and ./threads in current directory
+    WORKSPACE_DIR: Path = DEFAULT_WORKSPACE
+    THREADS_DIR: Path = DEFAULT_THREADS
     
     # Logging
     LOG_LEVEL: str = "INFO"
@@ -29,6 +34,9 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "zai"
     LLM_API_KEY: str = ""
     LLM_MODEL: str = ""
+    
+    # ZAI specific (backwards compat)
+    ZAI_API_KEY: str = ""
     
     # Limits
     MAX_THREADS: int = 50
@@ -60,7 +68,7 @@ class Settings(BaseSettings):
     
     @property
     def llm_api_key(self) -> str:
-        return self.LLM_API_KEY
+        return self.LLM_API_KEY or self.ZAI_API_KEY
     
     @property
     def llm_model(self) -> str:
