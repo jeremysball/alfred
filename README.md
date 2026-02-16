@@ -21,19 +21,24 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ┌─────────────────────────────────────────────────────────────┐
 │                    DISPATCHER (LLM)                         │
 │  - Never hangs (enforced timeouts)                         │
-│  - Routes to correct thread/session                        │
+│  - Routes to correct thread                                │
 │  - Spawns sub-agents                                       │
+└─────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SHARED AGENT                             │
+│  workspace/ (AGENTS.md, SOUL.md, USER.md, MEMORY.md)       │
 └─────────────────────────────────────────────────────────────┘
         │
         ▼
 ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
 │ Thread 1      │  │ Thread 2      │  │ Thread N      │
-│ (Main)        │  │ (Sub-agent)   │  │ (Sub-agent)   │
-│               │  │               │  │               │
-│ workspace/    │  │ workspace/    │  │ workspace/    │
-│ MEMORY.md     │  │ memory/       │  │ memory/       │
-│ memory/       │  │ skills/       │  │ skills/       │
+│ (Main chat)   │  │ (Side topic)  │  │ (Side topic)  │
+│ history only  │  │ history only  │  │ history only  │
 └───────────────┘  └───────────────┘  └───────────────┘
+
+Same agent, different conversation contexts.
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for full design.

@@ -22,34 +22,45 @@ The outermost layer is a **dispatcher LLM session** that never blocks. Its job:
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
                             │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SHARED AGENT                             │
+│                                                             │
+│  workspace/                                                 │
+│  ├── AGENTS.md     (same across all threads)               │
+│  ├── SOUL.md       (same persona)                          │
+│  ├── USER.md       (same user context)                     │
+│  ├── MEMORY.md     (shared long-term memory)               │
+│  └── memory/       (shared daily logs)                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+                            │
         ┌───────────────────┼───────────────────┐
         ▼                   ▼                   ▼
    ┌─────────┐         ┌─────────┐         ┌─────────┐
    │ Thread 1│         │ Thread 2│         │ Thread N│
-   │ (Main)  │         │ (Sub    │         │ (Sub    │
-   │         │         │  agent) │         │  agent) │
+   │ (Main)  │         │ (Side   │         │ (Side   │
+   │         │         │  topic) │         │  topic) │
+   │ history │         │ history │         │ history │
    └─────────┘         └─────────┘         └─────────┘
-        │                   │                   │
-        ▼                   ▼                   ▼
-   [Context 1]         [Context 2]         [Context N]
-   AGENTS.md           AGENTS.md           AGENTS.md
-   MEMORY.md           memory/             memory/
-   memory/             skills/             skills/
+
+Same agent, different conversation threads.
 ```
 
-### 2. Thread Isolation (Telegram)
+### 2. Thread Context (Telegram)
 
-Each Telegram thread = isolated context:
-- Own workspace directory
-- Own MEMORY.md
-- Own daily memory files
-- Own skill set
-- Own pi subprocess
+Each Telegram thread = same agent, different conversation context:
+- Shared workspace (same AGENTS.md, SOUL.md, USER.md, MEMORY.md)
+- Shared skills and persona
+- Separate message history per thread
+- Separate current task/focus
 
-Threads can be:
-- **Main** — User's primary conversation
-- **Sub-agent** — Spawned for specific tasks
-- **Worker** — Background tasks (research, etc.)
+Threads are just conversation branches, not isolated agents:
+- **Main chat** — Primary conversation
+- **Thread 1** — Side conversation (e.g., debugging while main discusses planning)
+- **Thread 2** — Another topic
+
+The agent is the same across all — just tracking which thread it's responding to.
 
 ### 3. First-Class Sub-Sessions
 
@@ -109,25 +120,27 @@ async def handle_message(update):
 
 ### 2. Thread Manager (`thread_manager/`)
 
-Manages isolated contexts:
-- Create/destroy thread workspaces
-- Load/save thread state
-- Switch between threads
-- Namespace memory
+Manages conversation contexts per thread:
+- Track active thread message histories
+- Store/retrieve thread-specific context (what was being discussed)
+- Switch between threads seamlessly
 
 ```
 threads/
 ├── main/
-│   ├── workspace/
-│   │   ├── AGENTS.md
-│   │   ├── MEMORY.md
-│   │   └── memory/
-│   └── state.json
+│   └── history.jsonl      # Message history for main chat
 ├── thread_123/
-│   ├── workspace/
-│   └── state.json
+│   └── history.jsonl      # Message history for thread 123
 └── thread_456/
-    └── ...
+    └── history.jsonl      # Message history for thread 456
+
+workspace/                  # SHARED across all threads
+├── AGENTS.md
+├── SOUL.md
+├── USER.md
+├── MEMORY.md
+├── memory/
+└── skills/
 ```
 
 ### 3. Sub-Agent Spawner (`spawner/`)
