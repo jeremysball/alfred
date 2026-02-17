@@ -6,6 +6,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 
 - [x] M1: Project Setup - Repository structure, tooling, CI/CD (PRD #11)
 - [x] M2: Core Infrastructure - Configuration, context loading, prompt assembly (PRD #12)
+- [x] M5: Telegram Bot - Multi-user chat interface with CLI (PRD #15)
 - [x] M6: Kimi Provider - Integration with Moonshot AI's Kimi API (PRD #16)
 
 ## Short-term (Active Development)
@@ -13,7 +14,6 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 - [ ] Kicking Ass README - Transform README into compelling OSS landing page (PRD #26)
 - [ ] M3: Memory Foundation - Conversation history storage and retrieval (PRD #13)
 - [ ] M4: Vector Search - Semantic memory search with embeddings (PRD #14)
-- [ ] M5: Telegram Bot - Multi-user chat interface (PRD #15)
 - [ ] M7: Personality & Context - User modeling and preference learning (PRD #17)
 
 ## Medium-term
