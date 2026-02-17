@@ -413,10 +413,10 @@ _Good luck out there. Make it count._
 ## Implementation Plan
 
 ### Milestone 1: Template Content Finalization
-- [ ] Review all adapted templates with user feedback
-- [ ] Finalize exact wording for each template
-- [ ] Ensure consistency across all files
-- [ ] Define template storage location (`templates/` directory)
+- [x] Review all adapted templates with user feedback
+- [x] Finalize exact wording for each template
+- [x] Ensure consistency across all files
+- [x] Define template storage location (`templates/` directory)
 
 ### Milestone 2: Template Auto-Creation System
 - [ ] Create `src/templates.py` module
@@ -465,11 +465,11 @@ alfred/
 
 ## Success Criteria
 
-- [ ] All 4 templates defined (SOUL.md, USER.md, TOOLS.md, MEMORY.md)
+- [x] All 4 templates defined (SOUL.md, USER.md, TOOLS.md, MEMORY.md)
 - [ ] Templates auto-create when missing
-- [ ] Templates use frontmatter metadata consistently
+- [x] Templates use frontmatter metadata consistently
 - [ ] Users can customize templates without breaking updates
-- [ ] Template content follows writing skill guidelines (concise, active voice)
+- [x] Template content follows writing skill guidelines (concise, active voice)
 - [ ] Templates bundled in Docker image at `/app/templates/`
 - [ ] Missing files copied from templates on startup
 
