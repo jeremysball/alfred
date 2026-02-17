@@ -61,6 +61,35 @@ Alfred is a persistent memory-augmented LLM assistant. He remembers conversation
    uv run pytest
    ```
 
+### Using Docker (Full Environment)
+
+The project includes a complete Docker setup with Tailscale networking.
+
+1. **Create directories**
+   ```bash
+   mkdir -p workspace home
+   ```
+
+2. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with API keys and Git config
+   ```
+
+3. **Start services**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the container**
+   ```bash
+   docker-compose exec alfred bash
+   # Inside container:
+   alfred
+   ```
+
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed Docker configuration.
+
 ## Development
 
 ### Code Quality

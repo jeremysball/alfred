@@ -79,38 +79,15 @@ Create `config.json`:
 
 ### Docker (Recommended)
 
-```dockerfile
-FROM python:3.12-slim
+The project includes a multi-stage `Dockerfile` that builds a complete development environment.
 
-WORKDIR /app
-
-# Install uv
-RUN pip install uv
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies
-RUN uv sync --frozen --no-dev
-
-# Copy application
-COPY src/ ./src/
-COPY AGENTS.md SOUL.md USER.md TOOLS.md config.json ./
-
-# Create memory directory
-RUN mkdir -p /app/memory
-
-# Run
-CMD ["uv", "run", "python", "-m", "alfred"]
-```
-
-Build and run:
+**Build and run:**
 
 ```bash
-# Build
+# Build the image
 docker build -t alfred:latest .
 
-# Run with env file
+# Run with environment file
 docker run -d \
   --name alfred \
   --env-file .env \
@@ -118,36 +95,87 @@ docker run -d \
   alfred:latest
 ```
 
-### Docker Compose
+**Dockerfile Overview:**
 
-```yaml
-version: '3.8'
+The Dockerfile creates a comprehensive Arch Linux-based environment with:
 
-services:
-  alfred:
-    build: .
-    container_name: alfred
-    env_file: .env
-    volumes:
-      - ./memory:/app/memory
-      - ./config.json:/app/config.json:ro
-      - ./AGENTS.md:/app/AGENTS.md:ro
-      - ./SOUL.md:/app/SOUL.md:ro
-      - ./USER.md:/app/USER.md:ro
-      - ./TOOLS.md:/app/TOOLS.md:ro
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+- **Base:** Arch Linux with multilib support
+- **Languages:** Python 3, Node.js 22, Bun
+- **Tools:** Git, Neovim (v0.11+), GitHub CLI, uv
+- **Browsers:** Playwright (Chromium, Firefox, WebKit)
+- **Package Managers:** Homebrew, npm, pnpm, yarn
+- **Editor:** LazyVim pre-configured
+
+See `Dockerfile` for complete details.
+
+### Docker Compose (Full Environment)
+
+The project includes a `docker-compose.yml` that sets up Alfred with Tailscale networking.
+
+**Prerequisites:**
+
+1. Create workspace and home directories:
+```bash
+mkdir -p workspace home
 ```
 
-Run:
+2. Set environment variables in `.env`:
+```bash
+# Required for git commits
+GITHUB_TOKEN=your_github_token
+GIT_NAME=Your Name
+GIT_EMAIL=your@email.com
+GIT_GPG_KEY=your_gpg_key_id
+GIT_GPG_SIGN=true  # or false
+
+# Required for Alfred (see Environment Configuration above)
+TELEGRAM_BOT_TOKEN=...
+KIMI_API_KEY=...
+OPENAI_API_KEY=...
+```
+
+3. Configure UID/GID (optional, defaults to 1000):
+```bash
+export UID=$(id -u)
+export GID=$(id -g)
+```
+
+**Run:**
 
 ```bash
+# Start all services
 docker-compose up -d
+
+# View logs
+docker-compose logs -f alfred
+
+# Stop services
+docker-compose down
 ```
+
+**Services:**
+
+| Service | Purpose |
+|---------|---------|
+| `alfred` | Main application container with full dev environment |
+| `tailscale` | VPN networking for secure remote access |
+
+**Volumes:**
+
+| Volume | Mount | Purpose |
+|--------|-------|---------|
+| `workspace` | `./workspace` | Project files and repositories |
+| `home` | `./home` | Persistent home directory (Neovim config, cache) |
+| `tailscale` | `./volumes/tailscale` | Tailscale state |
+
+**docker-compose.yml Overview:**
+
+- Runs Alfred in an isolated container with Tailscale networking
+- Mounts local `workspace` and `home` directories for persistence
+- Configures Git with GPG signing support
+- Uses host user's UID/GID for file permission compatibility
+
+See `docker-compose.yml` for complete configuration.
 
 ### Kubernetes
 
