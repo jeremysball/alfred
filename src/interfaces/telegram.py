@@ -1,4 +1,4 @@
-"""Telegram bot interface for Alfred."""
+"""Telegram bot interface for Alfred with streaming support."""
 
 import logging
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramInterface:
-    """Thin Telegram interface - delegates to Alfred engine."""
+    """Telegram interface with streaming support."""
 
     def __init__(self, config: Config, alfred: Alfred) -> None:
         self.config = config
@@ -59,17 +59,43 @@ class TelegramInterface:
         await update.message.reply_text(result)
 
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle text messages - delegate to Alfred."""
+        """Handle text messages with streaming."""
         if not update.message or not update.message.text:
             return
 
+        # Send initial message
+        response_message = await update.message.reply_text("Thinking...")
+
+        # Stream response
+        full_response = ""
+        last_update_len = 0
+        update_threshold = 50  # Update every 50 chars
+
         try:
-            response = await self.alfred.chat(update.message.text)
-            await update.message.reply_text(response.content)
+            async for chunk in self.alfred.chat_stream(update.message.text):
+                full_response += chunk
+
+                # Update message periodically
+                if len(full_response) - last_update_len >= update_threshold:
+                    # Truncate if too long for Telegram
+                    display_text = full_response[:4000]
+                    if len(full_response) > 4000:
+                        display_text += "\n[Response too long, truncated...]"
+
+                    await response_message.edit_text(display_text)
+                    last_update_len = len(full_response)
+
+            # Final update
+            display_text = full_response[:4000]
+            if len(full_response) > 4000:
+                display_text += "\n[Response too long, truncated...]"
+
+            if display_text != "Thinking...":
+                await response_message.edit_text(display_text)
+
         except Exception as e:
             logger.exception("Error handling message")
-            await update.message.reply_text(f"Error: {e}. Please try again.")
-            raise  # Fail fast
+            await response_message.edit_text(f"Error: {e}")
 
     async def run(self) -> None:
         """Run the bot."""

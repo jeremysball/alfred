@@ -6,6 +6,7 @@ import random
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import Optional
 
 from src.config import Config
 
@@ -23,6 +24,7 @@ class ChatResponse:
     content: str
     model: str
     usage: dict | None = None
+    tool_calls: list[dict] | None = None
 
 
 # Exception classes for LLM errors
@@ -120,6 +122,36 @@ class LLMProvider(ABC):
         """Stream chat response chunk by chunk."""
         pass
 
+    @abstractmethod
+    async def chat_with_tools(
+        self,
+        messages: list[ChatMessage],
+        tools: Optional[list[dict]] = None,
+    ) -> ChatResponse:
+        """Send chat with tool definitions."""
+        pass
+
+    async def stream_chat_with_tools(
+        self,
+        messages: list[ChatMessage],
+        tools: Optional[list[dict]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream chat with tool support.
+
+        Default implementation falls back to non-streaming chat.
+        Override for true streaming with tool support.
+        """
+        # Default: use regular chat and yield result
+        response = await self.chat_with_tools(messages, tools)
+
+        # Check for tool calls
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            yield f"[TOOL_CALLS]{json.dumps(response.tool_calls)}"
+
+        # Yield content
+        if response.content:
+            yield response.content
+
 
 class KimiProvider(LLMProvider):
     """Kimi Coding Plan provider with retry logic."""
@@ -178,6 +210,55 @@ class KimiProvider(LLMProvider):
         )
 
     @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def chat_with_tools(
+        self,
+        messages: list[ChatMessage],
+        tools: Optional[list[dict]] = None,
+    ) -> ChatResponse:
+        """Send chat with tool definitions."""
+        import openai
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": m.role, "content": m.content} for m in messages],
+                tools=tools,
+                temperature=0.7,
+                max_tokens=4000,
+            )
+
+            content = response.choices[0].message.content or ""
+            tool_calls = None
+
+            # Check for tool calls
+            if response.choices[0].message.tool_calls:
+                tool_calls = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in response.choices[0].message.tool_calls
+                ]
+
+            return ChatResponse(
+                content=content,
+                model=response.model,
+                usage={
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                } if response.usage else None,
+                tool_calls=tool_calls,
+            )
+
+        except Exception as e:
+            logger.error(f"Error in chat_with_tools: {e}")
+            raise
+
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def stream_chat(
         self, messages: list[ChatMessage]
     ) -> AsyncIterator[str]:
@@ -218,6 +299,53 @@ class KimiProvider(LLMProvider):
         except Exception as e:
             logger.error(f"Error during stream: {e}")
             raise LLMError(f"Stream error: {e}") from e
+
+    async def stream_chat_with_tools(
+        self,
+        messages: list[ChatMessage],
+        tools: Optional[list[dict]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream chat with tool support.
+        
+        For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
+        followed by JSON array of tool calls.
+        """
+        import openai
+        
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": m.role, "content": m.content} for m in messages],
+                tools=tools,
+                temperature=0.7,
+                max_tokens=4000,
+            )
+            
+            # Check for tool calls
+            message = response.choices[0].message
+            
+            if message.tool_calls:
+                # Yield tool calls as special marker
+                tool_calls_data = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in message.tool_calls
+                ]
+                yield f"[TOOL_CALLS]{json.dumps(tool_calls_data)}"
+            
+            # Yield content if any
+            if message.content:
+                yield message.content
+                
+        except Exception as e:
+            logger.error(f"Error in stream_chat_with_tools: {e}")
+            raise
 
 
 class LLMFactory:
