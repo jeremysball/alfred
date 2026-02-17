@@ -19,6 +19,31 @@ If you skip this step, you have failed the pre-flight check.
 
 ---
 
+## ⚠️ SECRETS & API KEYS — READ THIS
+
+**ANY command that needs secrets (GH_TOKEN, API keys, etc.) MUST use:**
+
+```bash
+uv run dotenv <command>
+```
+
+**Examples:**
+```bash
+uv run dotenv gh pr create --title "..." --body "..."
+uv run dotenv gh issue close 23
+uv run dotenv python script_using_api.py
+```
+
+**WRONG — Do NOT do this:**
+```bash
+gh pr create --title "..." --body "..."     # ❌ Will fail - no GH_TOKEN
+source .env && gh pr create                 # ❌ Pollutes shell
+```
+
+If a command fails with "authentication required" or "token not found", you forgot `uv run dotenv`.
+
+---
+
 ## Core Principles
 
 ### 1. Permission First
@@ -69,18 +94,9 @@ The SERPER_API_KEY is already configured in `.env`.
 - Reference issues in footer when applicable
 
 ### 5. ALWAYS Use uv run dotenv for Commands Requiring Secrets
-**CRITICAL**: When running any command that requires environment variables or secrets, you **MUST** use `uv run dotenv <command>` instead of `source .env && <command>`.
+**CRITICAL**: When running any command that requires environment variables or secrets, you **MUST** use `uv run dotenv <command>`.
 
-**Correct:**
-```bash
-uv run dotenv python script.py
-uv run dotenv curl -H "Authorization: Bearer $API_KEY" https://api.example.com
-```
-
-**Incorrect:**
-```bash
-source .env && python script.py
-```
+**See the "SECRETS & API KEYS" section at the top of this file for examples.**
 
 This ensures secrets load securely through Python's `python-dotenv` package without polluting the shell environment.
 
