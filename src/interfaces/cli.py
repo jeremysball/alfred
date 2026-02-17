@@ -1,16 +1,18 @@
 """CLI interface for Alfred."""
 
+import asyncio
+
 from src.alfred import Alfred
 
 
 class CLIInterface:
-    """CLI interface - delegates to Alfred engine."""
+    """CLI interface - delegates to Alfred engine with streaming."""
 
     def __init__(self, alfred: Alfred) -> None:
         self.alfred = alfred
 
     async def run(self) -> None:
-        """Run interactive CLI."""
+        """Run interactive CLI with streaming output."""
         print("Alfred CLI. Type 'exit' to quit, 'compact' to compact.\n")
 
         while True:
@@ -31,5 +33,12 @@ class CLIInterface:
                 print(f"Alfred: {result}\n")
                 continue
 
-            response = await self.alfred.chat(user_input)
-            print(f"Alfred: {response.content}\n")
+            # Stream response
+            print("Alfred: ", end="", flush=True)
+            
+            try:
+                async for chunk in self.alfred.chat_stream(user_input):
+                    print(chunk, end="", flush=True)
+                print("\n")  # New line after response
+            except Exception as e:
+                print(f"\n[Error: {e}]\n")

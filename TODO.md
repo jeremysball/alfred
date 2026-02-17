@@ -5,8 +5,9 @@
 - [ ] #2: Create PRD for SOUVENIR.md reflection/learning system
 - [ ] #16: Create PRD for integrating skills into ContextLoader (load .pi/skills/ as context)
 - [ ] #22: Create PRD for template versioning and merge system (detect outdated, prompt user, preserve customizations)
-- [ ] #23: Create PRD for Alfred agent implementation (tool call parsing, tool registration, context injection)
-- [ ] #24: Create PRD for expanding string interpolation variables (e.g., ${ALFRED_API_PORT}, ${DATE}, etc.)
+- [x] #33: Create PRD for Alfred agent implementation (tool call parsing, tool registration, streaming) → Issue #33
+- [x] #34: Create PRD for expanding string interpolation variables → Issue #34
+- [ ] #25: Update context system to include available tools in system prompt (for skill access)
 
 ## Completed Tasks
 
