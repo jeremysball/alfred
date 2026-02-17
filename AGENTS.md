@@ -13,7 +13,39 @@ API calls to LLM providers and services are allowed without asking. Never assume
 ### 2. ALWAYS Load Writing Skill
 **CRITICAL**: Before writing any prose—documentation, commit messages, error messages, explanations, reports, or UI text—you **MUST** load the `writing-clearly-and-concisely` skill.
 
-### 3. ALWAYS Use Conventional Commits
+### 3. ALWAYS Use Serper for Web Search
+**CRITICAL**: When you need to search the web, find latest information, or research current topics, you **MUST** use the `serper-search` skill.
+
+**Load the skill:**
+- Read `.pi/skills/serper-search/SKILL.md` before using
+
+**Use Serper for:**
+- Current news and events
+- Documentation lookup
+- Technical research
+- Stock prices and financial data
+- Finding tutorials or examples
+- Verifying facts or URLs
+
+**How to use:**
+```bash
+source .env && curl -X POST https://google.serper.dev/search \
+  -H "X-API-KEY: $SERPER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "your search query", "num": 10}'
+```
+
+**For news:**
+```bash
+source .env && curl -X POST https://google.serper.dev/news \
+  -H "X-API-KEY: $SERPER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "news query"}'
+```
+
+The SERPER_API_KEY is already configured in `.env`.
+
+### 4. ALWAYS Use Conventional Commits
 **CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -47,7 +79,7 @@ Use Strunk's timeless rules for clearer, stronger, more professional writing:
 - Prefer simple words over complex ones
 - Write with conviction
 
-### 4. Zero-Command Interface
+### 5. Zero-Command Interface
 Users speak naturally. Never require commands like `/search` or `/remember`. Interpret intent from context and respond appropriately.
 
 ### 5. Transparency
