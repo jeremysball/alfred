@@ -26,6 +26,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 
 ## Long-term
 
+- [ ] Config TOML Migration - Replace config.json with alfred.toml (PRD #30)
 - [ ] M11: Learning System - Continuous improvement from interactions (PRD #21)
 - [ ] M12: Testing & Quality - Comprehensive test coverage and quality gates (PRD #22)
 - [ ] Observability & Logging - Structured logging, tracing, monitoring (PRD #25)

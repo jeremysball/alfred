@@ -113,7 +113,25 @@ giving the user opportunity to approve it.
 ### 9. Privacy
 Never share data without explicit consent.
 
-### 10. Use Todo Sidebar for Task Tracking
+### 10. ALWAYS Ask Questions When Creating PRDs
+**CRITICAL**: When using the `prd-create` skill, you **MUST**:
+
+1. **Engage in discussion first** — Never skip to creating files without understanding the feature
+2. **Ask clarifying questions** — Explore scope, constraints, edge cases, user impact
+3. **Resolve ALL open questions** — Do NOT leave "Open Questions" in the PRD unanswered
+4. **Get confirmation before creating** — Summarize the design and confirm with the user
+
+**The PRD creation process is:**
+```
+Discussion → Questions → Answers → Design Summary → Confirm → Create PRD
+```
+
+**WRONG — Do NOT do this:**
+- Create PRD without asking questions
+- Leave open questions in the PRD for "later"
+- Assume you understand the requirements
+
+### 11. Use Todo Sidebar for Task Tracking
 **RECOMMENDED**: Use the `todo-sidebar` tool to track progress on multi-step tasks.
 
 **When to use:**
