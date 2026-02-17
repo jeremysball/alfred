@@ -4,7 +4,7 @@
 
 - [x] #1: Create PRD for HTTP API + Cron Integration (renamed from scheduler/heartbeat) → Issue #29
 - [ ] #2: Create PRD for SOUVENIR.md reflection/learning system
-- [ ] #NEW: Create PRD for migrating config.json to TOML format
+- [x] #NEW: Create PRD for migrating config.json to TOML format → Issue #30
 - [ ] #16: Create PRD for integrating skills into ContextLoader (load .pi/skills/ as context)
 - [ ] #22: Create PRD for template versioning and merge system (detect outdated, prompt user, preserve customizations)
 
