@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from src.config import Config
+from src.search import ContextBuilder, MemorySearcher
 from src.templates import TemplateManager
 from src.types import AssembledContext, ContextFile, MemoryEntry
 
@@ -55,10 +56,19 @@ class ContextCache:
 
 
 class ContextLoader:
-    def __init__(self, config: Config, cache_ttl: int = 60) -> None:
+    def __init__(
+        self,
+        config: Config,
+        cache_ttl: int = 60,
+        searcher: MemorySearcher | None = None,
+    ) -> None:
         self.config = config
         self._cache = ContextCache(ttl_seconds=cache_ttl)
         self._template_manager = TemplateManager(config.workspace_dir)
+        self._searcher = searcher
+        self._context_builder: ContextBuilder | None = None
+        if searcher:
+            self._context_builder = ContextBuilder(searcher)
 
     async def load_file(self, name: str, path: Path) -> ContextFile:
         """Load a context file, auto-creating from template if missing.
@@ -117,6 +127,70 @@ class ContextLoader:
             memories=memories or [],
             system_prompt=self._build_system_prompt(files),
         )
+
+    def assemble_with_search(
+        self,
+        query_embedding: list[float],
+        memories: list[MemoryEntry],
+    ) -> str:
+        """Assemble context with semantic memory search.
+
+        Uses the MemorySearcher to find and rank relevant memories,
+        then builds a complete prompt context with them injected.
+
+        Args:
+            query_embedding: Pre-computed embedding of the user's query
+            memories: All available memories (caller loads these)
+
+        Returns:
+            Complete context string ready for the LLM
+
+        Raises:
+            RuntimeError: If no MemorySearcher was provided to ContextLoader
+        """
+        if not self._context_builder:
+            raise RuntimeError(
+                "MemorySearcher required for assemble_with_search. "
+                "Initialize ContextLoader with searcher parameter."
+            )
+
+        system_prompt = self._build_system_prompt_sync()
+        return self._context_builder.build_context(
+            query_embedding=query_embedding,
+            memories=memories,
+            system_prompt=system_prompt,
+        )
+
+    def _build_system_prompt_sync(self) -> str:
+        """Build system prompt from cached files (synchronous version).
+
+        Uses cached files if available, otherwise returns minimal prompt.
+        """
+        # Try to use cached files
+        files: dict[str, ContextFile] = {}
+        for name, path in self.config.context_files.items():
+            cached = self._cache.get(name)
+            if cached:
+                files[name] = cached
+            elif path.exists():
+                # Fallback: load synchronously
+                try:
+                    content = path.read_text("utf-8")
+                    stat = path.stat()
+                    files[name] = ContextFile(
+                        name=name,
+                        path=str(path),
+                        content=content,
+                        last_modified=datetime.fromtimestamp(stat.st_mtime),
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to load context file {name}: {e}")
+
+        if len(files) < 4:
+            # Minimal fallback prompt
+            return "You are Alfred, a helpful AI assistant."
+
+        return self._build_system_prompt(files)
 
     def add_context_file(self, name: str, path: Path) -> None:
         """Dynamically add a custom context file."""
