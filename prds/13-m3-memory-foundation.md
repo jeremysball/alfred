@@ -9,43 +9,53 @@
 **Priority**: High  
 **Created**: 2026-02-16
 
-Implement Markdown-based daily memory storage with OpenAI embeddings.
+Implement unified memory storage with OpenAI embeddings for semantic retrieval.
 
 ---
 
 ## Problem Statement
 
-Alfred needs to persist distilled insights from conversations with semantic embeddings for later retrieval. Store distilled memories in dated Markdown files with OpenAI embeddings for semantic search.
+Alfred needs to persist distilled insights from conversations with semantic embeddings for later retrieval. Store all memories in a unified, searchable store with date as metadata (not structure).
 
 ---
 
 ## Solution
 
-Create memory system with:
-1. Daily Markdown file storage (human-readable, contains distilled insights)
-2. Distillation process creates daily logs from conversation summaries
-3. OpenAI embedding generation for semantic search
-4. MEMORY.md support (curated long-term memory for durable facts)
-5. Async I/O for performance
+Create unified memory system with:
+1. **Unified storage** (`memories.jsonl`) - All memories in one searchable file
+2. **Date as metadata** - Timestamp field, not file structure
+3. **Distillation process** - Creates `MemoryEntry` objects from conversations
+4. **OpenAI embeddings** - For semantic search
+5. **MEMORY.md** - Curated long-term memory (separate, for durable facts)
+6. **Async I/O** - For performance
 
 ### Distillation Process
 
-Daily logs are created by the **distillation process**, not raw conversation logging:
+Memories are created by the **distillation process**, not raw conversation logging:
 - Run before compacting long conversations
-- Run at end of each day over all conversations
+- Run at end of each day over all conversations  
 - Extracts key facts, decisions, and context into `MemoryEntry` objects
-- Writes distilled insights to `memory/YYYY-MM-DD.md`
+- Writes to unified store via `add_entries()`
+
+### Why Unified Storage?
+
+- Single searchable space (no need to open N files)
+- Date is just another filter (query by date range)
+- Simpler code path (one read/write pattern)
+- Foundation for future indexing (FAISS, Annoy, etc.)
+- Can always generate daily views from unified store
 
 ---
 
 ## Acceptance Criteria
 
 - [ ] `src/embeddings.py` - OpenAI embedding client with cosine similarity
-- [ ] `src/memory.py` - Memory CRUD operations for daily logs and MEMORY.md
-- [ ] `write_daily_log()` - Write distilled entries to daily Markdown file
-- [ ] `parse_daily_log()` - Parse Markdown back into `MemoryEntry` objects with embeddings
-- [ ] `search_memories()` - Semantic search across daily logs and MEMORY.md
-- [ ] MEMORY.md read/write for curated long-term memory
+- [ ] `src/memory.py` - Unified memory store
+- [ ] `add_entries()` - Write distilled entries to unified store with auto-embedding
+- [ ] `search()` - Semantic search with optional date filtering
+- [ ] `filter_by_date()` - Query memories by date range
+- [ ] `iter_entries()` - Memory-efficient iteration over all memories
+- [ ] MEMORY.md read/write/search for curated long-term memory
 - [ ] Async file operations throughout
 - [ ] Handle embedding API failures (fail fast)
 
@@ -55,15 +65,21 @@ Daily logs are created by the **distillation process**, not raw conversation log
 
 ```
 src/
-├── embeddings.py    # OpenAI embedding client
-└── memory.py        # Memory operations
+├── embeddings.py    # OpenAI embedding client with cosine similarity
+└── memory.py        # Unified memory store
 
 memory/
-├── 2026-02-16.md    # Daily memory files (Markdown)
-├── 2026-02-17.md
-└── ...
+└── memories.jsonl   # All memories (one per line, JSON format)
 
-MEMORY.md            # Curated long-term memory
+MEMORY.md            # Curated long-term memory (Markdown)
+```
+
+### memories.jsonl Format
+
+Each line is a JSON-serialized `MemoryEntry`:
+
+```json
+{"timestamp": "2026-02-17T14:30:00", "role": "user", "content": "I prefer Python", "embedding": [0.1, ...], "importance": 0.8, "tags": ["preferences"]}
 ```
 
 ---
@@ -104,102 +120,113 @@ class EmbeddingClient:
 ## Memory (src/memory.py)
 
 ```python
-import re
-from datetime import datetime
+import json
+from datetime import datetime, date
 from pathlib import Path
+from typing import AsyncIterator
 
 import aiofiles
 
 from src.config import Config
-from src.embeddings import EmbeddingClient
+from src.embeddings import EmbeddingClient, cosine_similarity
 from src.types import MemoryEntry
 
 
 class MemoryStore:
-    """Store and retrieve memories from daily logs and MEMORY.md."""
+    """Unified memory store with semantic search."""
 
     def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
         self.config = config
         self.embedder = embedder
         self.memory_dir = config.memory_dir
         self.memory_dir.mkdir(parents=True, exist_ok=True)
+        self.memories_path = self.memory_dir / "memories.jsonl"
         self.curated_path = Path("MEMORY.md")
 
-    def _daily_path(self, date: str | None = None) -> Path:
-        """Get path for daily memory file (YYYY-MM-DD.md)."""
-        date_str = date or datetime.now().strftime("%Y-%m-%d")
-        return self.memory_dir / f"{date_str}.md"
+    async def add_entries(self, entries: list[MemoryEntry]) -> None:
+        """Add entries to unified store. Auto-generates embeddings if needed."""
+        # Batch embed entries without embeddings
+        entries_to_embed = [e for e in entries if e.embedding is None]
+        if entries_to_embed:
+            embeddings = await self.embedder.embed_batch(
+                [e.content for e in entries_to_embed]
+            )
+            for entry, embedding in zip(entries_to_embed, embeddings):
+                entry.embedding = embedding
 
-    async def write_daily_log(
-        self,
-        date: str,
-        entries: list[MemoryEntry],
-    ) -> Path:
-        """Write distilled entries to a daily log file.
+        # Append to JSONL
+        async with aiofiles.open(self.memories_path, "a") as f:
+            for entry in entries:
+                line = json.dumps({
+                    "timestamp": entry.timestamp.isoformat(),
+                    "role": entry.role,
+                    "content": entry.content,
+                    "embedding": entry.embedding,
+                    "importance": entry.importance,
+                    "tags": entry.tags,
+                })
+                await f.write(line + "\n")
 
-        Called by the distillation process after summarizing conversations.
-        Overwrites existing file for that date.
-        """
-        path = self._daily_path(date)
-        lines = [f"# {date}\n"]
-
-        for entry in entries:
-            timestamp = entry.timestamp.strftime("%H:%M")
-            lines.append(f"\n## {timestamp} - {entry.role.title()}\n")
-            lines.append(entry.content)
-            if entry.importance != 0.5 or entry.tags:
-                metadata = {"importance": entry.importance}
-                if entry.tags:
-                    metadata["tags"] = entry.tags
-                lines.append(f"\n<!-- metadata: {metadata} -->")
-
-        async with aiofiles.open(path, "w") as f:
-            await f.write("\n".join(lines))
-
-        return path
-
-    async def read_daily_log(self, date: str | None = None) -> str:
-        """Read a daily log file as raw Markdown."""
-        path = self._daily_path(date)
-        if not path.exists():
-            return ""
-        async with aiofiles.open(path, "r") as f:
-            return await f.read()
-
-    async def parse_daily_log(self, date: str | None = None) -> list[MemoryEntry]:
-        """Parse a daily log into MemoryEntry objects with embeddings."""
-        content = await self.read_daily_log(date)
-        if not content:
-            return []
-
+    async def get_all_entries(self) -> list[MemoryEntry]:
+        """Load all entries."""
         entries = []
-        # Split on ## headers (each entry)
-        sections = re.split(r"\n## ", content)[1:]  # Skip title
-
-        for section in sections:
-            lines = section.strip().split("\n")
-            header = lines[0]  # "HH:MM - Role"
-            body = "\n".join(lines[1:]).strip()
-
-            # Parse header and extract timestamp, role
-            # Parse metadata from HTML comment <!-- metadata: {...} -->
-            # Generate embedding for content
-            # Return list of MemoryEntry objects
-
+        async for entry in self.iter_entries():
+            entries.append(entry)
         return entries
 
-    async def search_memories(
+    async def iter_entries(self) -> AsyncIterator[MemoryEntry]:
+        """Memory-efficient iteration."""
+        if not self.memories_path.exists():
+            return
+        async with aiofiles.open(self.memories_path, "r") as f:
+            async for line in f:
+                line = line.strip()
+                if line:
+                    yield self._parse_entry(line)
+
+    async def filter_by_date(
+        self,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[MemoryEntry]:
+        """Filter entries by date range."""
+        results = []
+        async for entry in self.iter_entries():
+            entry_date = entry.timestamp.date()
+            if start_date and entry_date < start_date:
+                continue
+            if end_date and entry_date > end_date:
+                continue
+            results.append(entry)
+        return results
+
+    async def search(
         self,
         query: str,
         top_k: int = 10,
-        include_curated: bool = True,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> list[MemoryEntry]:
-        """Search all memories by semantic similarity to query."""
-        # 1. Embed query
-        # 2. Load all daily logs and MEMORY.md
-        # 3. Score by cosine similarity (boosted by importance)
-        # 4. Return top-k entries
-        pass
+        """Semantic search with optional date filtering."""
+        query_embedding = await self.embedder.embed(query)
+
+        scored = []
+        async for entry in self.iter_entries():
+            # Date filtering
+            if start_date or end_date:
+                entry_date = entry.timestamp.date()
+                if start_date and entry_date < start_date:
+                    continue
+                if end_date and entry_date > end_date:
+                    continue
+
+            if entry.embedding:
+                score = cosine_similarity(query_embedding, entry.embedding)
+                score *= 0.7 + (entry.importance * 0.3)  # Boost by importance
+                scored.append((score, entry))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [entry for _, entry in scored[:top_k]]
 ```
 
 ---
@@ -316,8 +343,10 @@ async def test_curated_memory_loads_and_parses(mock_config, mock_embedder, tmp_p
 
 ## Success Criteria
 
-- [ ] Embeddings generate for all entries
-- [ ] Daily Markdown files create automatically
+- [ ] Embeddings generate for all entries (batch or single)
+- [ ] Unified JSONL store persists memories
+- [ ] Date filtering works via metadata
+- [ ] Semantic search returns relevant results
 - [ ] MEMORY.md loads and parses
 - [ ] Async operations work correctly
 - [ ] All tests pass with golden vectors
@@ -329,9 +358,10 @@ async def test_curated_memory_loads_and_parses(mock_config, mock_embedder, tmp_p
 
 | Date | Decision | Rationale | Impact |
 |------|----------|-----------|--------|
-| 2026-02-17 | Memory files are Markdown, not JSON | Human-readable, matches OpenClaw pattern | File format, parsing logic |
+| 2026-02-17 | **Unified storage** (`memories.jsonl`) instead of daily files | Single searchable space; date is metadata; simpler code; foundation for indexing | File structure, API design, search implementation |
+| 2026-02-17 | JSONL format for unified store | Append-only, line-oriented, human-readable, easy to iterate without loading all | Storage format, memory efficiency |
 | 2026-02-17 | Long-term memory is MEMORY.md | Matches OpenClaw pattern | Renamed from IMPORTANT.md |
-| 2026-02-17 | Daily logs contain distilled insights, not raw chat | Raw conversations too noisy; distilled facts are searchable and useful | Memory format, distillation process |
-| 2026-02-17 | Distillation process creates daily logs | Run before compact or end-of-day; extracts key facts, decisions, context | Workflow, when to write memories |
-| 2026-02-17 | HTML comments for metadata in Markdown | Human-readable with parseable structured data | File format, metadata storage |
+| 2026-02-17 | Distilled insights, not raw chat | Raw conversations too noisy; distilled facts are searchable and useful | Memory format, distillation process |
+| 2026-02-17 | Distillation process creates entries | Run before compact or end-of-day; extracts key facts, decisions, context | Workflow, when to write memories |
+| 2026-02-17 | Date filtering via `start_date`/`end_date` params | Date is queryable metadata, not structural | API design, search implementation |
 | 2026-02-17 | MemoryEntry as the retrieval unit | Self-contained insight with embedding, importance, tags | Search granularity, API design |
