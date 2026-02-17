@@ -425,9 +425,9 @@ _Good luck out there. Make it count._
 - [x] Support template variables (e.g., `{current_date}`, `{current_year}`)
 
 ### Milestone 3: Integration with Context Loader
-- [ ] Modify `ContextLoader` to auto-create missing templates
-- [ ] Add warning log when templates are created
-- [ ] Ensure templates are created before first read
+- [x] Modify `ContextLoader` to auto-create missing templates
+- [x] Add warning log when templates are created
+- [x] Ensure templates are created before first read
 - [ ] Handle BOOTSTRAP.md special case (delete after onboarding)
 
 ### Milestone 4: Testing
@@ -466,7 +466,7 @@ alfred/
 ## Success Criteria
 
 - [x] All 4 templates defined (SOUL.md, USER.md, TOOLS.md, MEMORY.md)
-- [ ] Templates auto-create when missing
+- [x] Templates auto-create when missing
 - [x] Templates use frontmatter metadata consistently
 - [ ] Users can customize templates without breaking updates
 - [x] Template content follows writing skill guidelines (concise, active voice)
