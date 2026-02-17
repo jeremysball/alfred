@@ -419,10 +419,10 @@ _Good luck out there. Make it count._
 - [x] Define template storage location (`templates/` directory)
 
 ### Milestone 2: Template Auto-Creation System
-- [ ] Create `src/templates.py` module
-- [ ] Implement `create_from_template()` function
-- [ ] Add template discovery from `templates/` directory
-- [ ] Support template variables (e.g., `{{current_date}}`)
+- [x] Create `src/templates.py` module
+- [x] Implement `create_from_template()` function
+- [x] Add template discovery from `templates/` directory
+- [x] Support template variables (e.g., `{current_date}`, `{current_year}`)
 
 ### Milestone 3: Integration with Context Loader
 - [ ] Modify `ContextLoader` to auto-create missing templates
@@ -431,7 +431,7 @@ _Good luck out there. Make it count._
 - [ ] Handle BOOTSTRAP.md special case (delete after onboarding)
 
 ### Milestone 4: Testing
-- [ ] Unit tests for template loading
+- [x] Unit tests for template loading
 - [ ] Integration tests for auto-creation
 - [ ] Verify template content is valid markdown
 - [ ] Test BOOTSTRAP.md deletion flow
