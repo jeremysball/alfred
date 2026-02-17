@@ -2,15 +2,16 @@
 
 ## Open Tasks
 
-- [x] #1: Create PRD for HTTP API + Cron Integration (renamed from scheduler/heartbeat) → Issue #29
 - [ ] #2: Create PRD for SOUVENIR.md reflection/learning system
-- [x] #NEW: Create PRD for migrating config.json to TOML format → Issue #30
 - [ ] #16: Create PRD for integrating skills into ContextLoader (load .pi/skills/ as context)
 - [ ] #22: Create PRD for template versioning and merge system (detect outdated, prompt user, preserve customizations)
+- [ ] #23: Create PRD for Alfred agent implementation (tool call parsing, tool registration, context injection)
+- [ ] #24: Create PRD for expanding string interpolation variables (e.g., ${ALFRED_API_PORT}, ${DATE}, etc.)
 
 ## Completed Tasks
 
-- [x] #1: Create PRD for HTTP API + Cron Integration (renamed from scheduler/heartbeat) → Issue #29
+- [x] #1: Create PRD for HTTP API + Cron Integration → Issue #29
+- [x] #NEW: Create PRD for migrating config.json to TOML format → Issue #30
 - [x] #3: Commit PRD alignment changes (IMPORTANT.md → MEMORY.md, JSON → Markdown, session-based, template system)
 - [x] #4: Start PRD #23 - Evaluate and adapt OpenClaw templates for Alfred
 - [x] #5: Run /prd-next to identify first task for PRD #23
