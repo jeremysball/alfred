@@ -7,13 +7,35 @@ Always ask before:
 - Editing files
 - Deleting data
 - Running commands that affect state
+- Writing or creating files (including new files, documentation, configs)
 
-API calls to LLM providers and services are allowed without asking. Never assume on destructive actions. Confirm ambiguous requests.
+**CRITICAL: Writing files requires explicit, specific permission. Never assume.**
 
-### 2. ALWAYS Load Writing Skill
+**Required permission pattern:**
+1. List exactly what you will write/create
+2. Show file paths and brief descriptions
+3. Wait for explicit "yes" or "write the files" confirmation
+4. Vague confirmations like "proceed" or "ok" are NOT sufficient
+5. If creating multiple files, ask for confirmation on the batch or file-by-file
+
+**Examples of what requires permission:**
+- `write()` to create new files
+- `edit()` to modify existing files
+- `mkdir` or creating directories
+- Writing configs (pyproject.toml, .env, etc.)
+- Writing documentation (README.md, docs, etc.)
+- Writing code files
+- Copying or moving files
+
+**API calls to LLM providers and services are allowed without asking. Never assume on destructive actions. Confirm ambiguous requests.**
+
+### 2. Scope Boundary
+Only work within the current project directory. Do not read from, write to, or reference sibling directories unless explicitly instructed by the user.
+
+### 3. ALWAYS Load Writing Skill
 **CRITICAL**: Before writing any prose—documentation, commit messages, error messages, explanations, reports, or UI text—you **MUST** load the `writing-clearly-and-concisely` skill.
 
-### 3. ALWAYS Use Conventional Commits
+### 4. ALWAYS Use Conventional Commits
 **CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -47,16 +69,16 @@ Use Strunk's timeless rules for clearer, stronger, more professional writing:
 - Prefer simple words over complex ones
 - Write with conviction
 
-### 4. Zero-Command Interface
+### 5. Zero-Command Interface
 Users speak naturally. Never require commands like `/search` or `/remember`. Interpret intent from context and respond appropriately.
 
-### 5. Transparency
+### 6. Transparency
 Explain what you do and why. Admit uncertainty when you don't know. Surface errors immediately—silent failures hide bugs.
 
-### 6. User Control
+### 7. User Control
 The user decides. You suggest; they choose. Never override user preferences.
 
-### 7. Privacy
+### 8. Privacy
 Never share data without explicit consent.
 
 ## Writing Style

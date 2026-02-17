@@ -4,7 +4,7 @@
 
 **Issue**: #11  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Status**: Planning  
+**Status**: Completed  
 **Priority**: High  
 **Created**: 2026-02-16
 
@@ -32,16 +32,16 @@ Create a clean Python project with:
 
 ## Acceptance Criteria
 
-- [ ] `pyproject.toml` with all dependencies
-- [ ] `uv.lock` generated
-- [ ] `src/` directory (flat, not `src/alfred/`)
-- [ ] `tests/` directory
-- [ ] `docs/assets/` with banner and logo from existing repo
-- [ ] `.env.example` file
-- [ ] `README.md` skeleton
-- [ ] Pre-commit hooks for ruff and pytest
-- [ ] All configs in `pyproject.toml` (no setup.cfg, no setup.py)
-- [ ] `.gitignore` for Python projects
+- [x] `pyproject.toml` with all dependencies
+- [x] `uv.lock` generated
+- [x] `src/` directory (flat, not `src/alfred/`)
+- [x] `tests/` directory
+- [x] `docs/assets/` with banner and logo from existing repo
+- [x] `.env.example` file
+- [x] `README.md` skeleton
+- [x] Pre-commit hooks for ruff and pytest
+- [x] All configs in `pyproject.toml` (no setup.cfg, no setup.py)
+- [x] `.gitignore` for Python projects
 
 ---
 
@@ -222,10 +222,10 @@ git branch -m main
 
 ## Success Criteria
 
-- [ ] `uv sync` runs without errors
-- [ ] `uv run python -c "import src"` succeeds
-- [ ] `uv run ruff check src/` passes
-- [ ] `uv run mypy src/` passes
-- [ ] `uv run pytest` runs (no tests yet, but command works)
+- [x] `uv sync` runs without errors
+- [x] `uv run python -c "import src"` succeeds
+- [x] `uv run ruff check src/` passes
+- [x] `uv run mypy src/` passes
+- [x] `uv run pytest` runs (no tests yet, but command works)
 - [ ] `pre-commit install` works
 - [ ] Assets display correctly
