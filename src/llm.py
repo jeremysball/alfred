@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ChatMessage:
-    role: str  # "system", "user", "assistant"
+    role: str  # "system", "user", "assistant", "tool"
     content: str
+    tool_calls: list[dict] | None = None  # For assistant messages with tool calls
+    tool_call_id: str | None = None  # For tool role messages
 
 
 @dataclass
@@ -310,6 +312,7 @@ class KimiProvider(LLMProvider):
         For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
         followed by JSON array of tool calls.
         """
+        import json
         import openai
         
         try:
