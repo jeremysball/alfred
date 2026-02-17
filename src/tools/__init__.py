@@ -83,16 +83,27 @@ def get_tool_schemas() -> list[dict[str, Any]]:
 
 
 # Auto-discover and register built-in tools
-def register_builtin_tools() -> None:
-    """Register all built-in tools."""
+def register_builtin_tools(memory_store=None) -> None:
+    """Register all built-in tools.
+    
+    Args:
+        memory_store: Optional MemoryStore to inject into tools that need it
+    """
     from src.tools.read import ReadTool
     from src.tools.write import WriteTool
     from src.tools.edit import EditTool
     from src.tools.bash import BashTool
+    from src.tools.remember import RememberTool
     
     register_tool(ReadTool())
     register_tool(WriteTool())
     register_tool(EditTool())
     register_tool(BashTool())
+    
+    # Register remember tool with memory store injected
+    remember_tool = RememberTool()
+    if memory_store:
+        remember_tool.set_memory_store(memory_store)
+    register_tool(remember_tool)
     
     logger.info(f"Registered {len(get_registry())} built-in tools")

@@ -24,8 +24,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--debug",
-        action="store_true",
-        help="Enable debug logging",
+        choices=["info", "debug"],
+        default=None,
+        help="Set debug level: 'info' for INFO messages, 'debug' for DEBUG messages. Default: warnings/errors only",
     )
     return parser.parse_args()
 
@@ -50,8 +51,16 @@ async def async_main() -> None:
     """Main async entry point."""
     args = parse_args()
 
+    # Set log level based on --debug flag
+    if args.debug == "debug":
+        log_level = logging.DEBUG
+    elif args.debug == "info":
+        log_level = logging.INFO
+    else:
+        log_level = logging.WARNING  # Default: only warnings and errors
+
     logging.basicConfig(
-        level=logging.DEBUG if args.debug else logging.INFO,
+        level=log_level,
         format="%(levelname)s:%(name)s:%(message)s",
     )
 
