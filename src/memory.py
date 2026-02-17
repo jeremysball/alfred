@@ -56,17 +56,35 @@ class MemoryStore:
 
         Called by the distillation process after extracting insights.
         Generates embeddings if not already present.
+
+        Fail-fast behavior: If embedding generation fails (even after retries),
+        no entries are written. Memories without embeddings are useless for
+        semantic search, so we don't write partial data.
         """
+        if not entries:
+            return
+
         # Generate embeddings for entries that don't have them
         entries_to_embed = [e for e in entries if e.embedding is None]
         if entries_to_embed:
-            embeddings = await self.embedder.embed_batch(
-                [e.content for e in entries_to_embed]
-            )
-            for entry, embedding in zip(entries_to_embed, embeddings):
-                entry.embedding = embedding
+            try:
+                embeddings = await self.embedder.embed_batch(
+                    [e.content for e in entries_to_embed]
+                )
+                for entry, embedding in zip(entries_to_embed, embeddings):
+                    entry.embedding = embedding
+            except Exception:
+                # Fail fast - don't write anything if embedding fails
+                raise
 
-        # Append to JSONL file
+        # Fail fast if any entry still lacks embedding
+        entries_without_embeddings = [e for e in entries if e.embedding is None]
+        if entries_without_embeddings:
+            raise ValueError(
+                f"Cannot add {len(entries_without_embeddings)} entries without embeddings"
+            )
+
+        # Append to JSONL file (only reached if all embeddings succeeded)
         async with aiofiles.open(self.memories_path, "a") as f:
             for entry in entries:
                 await f.write(self._entry_to_jsonl(entry) + "\n")

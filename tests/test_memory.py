@@ -295,3 +295,133 @@ async def test_iteration_memory_efficient(mock_config, mock_embedder):
         assert entry.content.startswith("Entry")
 
     assert count == 5
+
+
+class TestMemoryStoreErrorHandling:
+    """Test fail-fast behavior when embedding fails."""
+
+    @pytest.mark.asyncio
+    async def test_add_entries_fails_fast_on_embedding_error(self, mock_config, tmp_path):
+        """If embedding fails, no entries are written (fail fast)."""
+        from src.embeddings import EmbeddingError
+
+        class FailingEmbedder:
+            async def embed(self, text: str) -> list[float]:
+                raise EmbeddingError("API failure")
+
+            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                raise EmbeddingError("API failure")
+
+        store = MemoryStore(mock_config, FailingEmbedder())
+        await store.clear()
+
+        entries = [
+            MemoryEntry(
+                timestamp=datetime(2026, 2, 17, 10, 0),
+                role="user",
+                content="Should not be written",
+                embedding=None,
+            )
+        ]
+
+        with pytest.raises(EmbeddingError):
+            await store.add_entries(entries)
+
+        # Verify nothing was written
+        retrieved = await store.get_all_entries()
+        assert len(retrieved) == 0
+
+    @pytest.mark.asyncio
+    async def test_add_entries_fails_fast_on_partial_embeddings(self, mock_config):
+        """If some entries lack embeddings after embedding call, fail fast."""
+
+        class PartialEmbedder:
+            """Returns fewer embeddings than requested."""
+
+            async def embed(self, text: str) -> list[float]:
+                return [0.1] * 1536
+
+            async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+                # Return fewer embeddings than requested (simulating API bug)
+                return [[0.1] * 1536] * (len(texts) - 1)
+
+        store = MemoryStore(mock_config, PartialEmbedder())
+        await store.clear()
+
+        entries = [
+            MemoryEntry(
+                timestamp=datetime(2026, 2, 17, 10, 0),
+                role="user",
+                content="Entry 1",
+                embedding=None,
+            ),
+            MemoryEntry(
+                timestamp=datetime(2026, 2, 17, 10, 1),
+                role="user",
+                content="Entry 2",
+                embedding=None,
+            ),
+        ]
+
+        # Should fail because entry 2 won't get an embedding
+        with pytest.raises(ValueError) as exc_info:
+            await store.add_entries(entries)
+
+        assert "without embeddings" in str(exc_info.value)
+
+        # Verify nothing was written
+        retrieved = await store.get_all_entries()
+        assert len(retrieved) == 0
+
+    @pytest.mark.asyncio
+    async def test_add_entries_with_pre_existing_embeddings(self, mock_config):
+        """Entries with pre-existing embeddings are written successfully."""
+        store = MemoryStore(mock_config, MockEmbedder())
+        await store.clear()
+
+        entries = [
+            MemoryEntry(
+                timestamp=datetime(2026, 2, 17, 10, 0),
+                role="user",
+                content="Already embedded",
+                embedding=[0.5] * 1536,  # Pre-existing embedding
+            )
+        ]
+
+        await store.add_entries(entries)
+
+        retrieved = await store.get_all_entries()
+        assert len(retrieved) == 1
+        assert retrieved[0].content == "Already embedded"
+        assert retrieved[0].embedding == [0.5] * 1536
+
+    @pytest.mark.asyncio
+    async def test_add_entries_mixed_embeddings(self, mock_config):
+        """Mix of pre-embedded and new entries works correctly."""
+        store = MemoryStore(mock_config, MockEmbedder())
+        await store.clear()
+
+        entries = [
+            MemoryEntry(
+                timestamp=datetime(2026, 2, 17, 10, 0),
+                role="user",
+                content="Pre-embedded",
+                embedding=[0.5] * 1536,
+            ),
+            MemoryEntry(
+                timestamp=datetime(2026, 2, 17, 10, 1),
+                role="user",
+                content="Needs embedding",
+                embedding=None,
+            ),
+        ]
+
+        await store.add_entries(entries)
+
+        retrieved = await store.get_all_entries()
+        assert len(retrieved) == 2
+        # First entry keeps original embedding
+        assert retrieved[0].embedding == [0.5] * 1536
+        # Second entry got embedded
+        assert retrieved[1].embedding is not None
+        assert len(retrieved[1].embedding) == 1536
