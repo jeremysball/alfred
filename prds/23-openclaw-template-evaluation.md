@@ -3,9 +3,10 @@
 ## Overview
 
 **Issue**: #23  
-**Status**: Planning  
+**Status**: Complete  
 **Priority**: High  
 **Created**: 2026-02-17
+**Completed**: 2026-02-17
 
 Analyze OpenClaw's proven template system, evaluate which templates fit Alfred's architecture, and create adapted versions for a Python-based, Telegram-focused memory assistant with simpler memory management.
 
@@ -428,13 +429,13 @@ _Good luck out there. Make it count._
 - [x] Modify `ContextLoader` to auto-create missing templates
 - [x] Add warning log when templates are created
 - [x] Ensure templates are created before first read
-- [ ] Handle BOOTSTRAP.md special case (delete after onboarding)
+- [~] Handle BOOTSTRAP.md special case (delete after onboarding) — Deferred: BOOTSTRAP.md not in MVP
 
 ### Milestone 4: Testing
 - [x] Unit tests for template loading
 - [x] Integration tests for auto-creation
-- [ ] Verify template content is valid markdown
-- [ ] Test BOOTSTRAP.md deletion flow
+- [~] Verify template content is valid markdown — Deferred: hand-validated, low priority
+- [~] Test BOOTSTRAP.md deletion flow — Deferred: BOOTSTRAP.md not in MVP
 
 ### Milestone 5: Documentation
 - [x] Document template system in README
@@ -471,7 +472,7 @@ alfred/
 - [x] Users can customize templates without breaking updates
 - [x] Template content follows writing skill guidelines (concise, active voice)
 - [x] Templates bundled in Docker image at `/app/templates/`
-- [ ] Missing files copied from templates on startup
+- [x] Missing files copied from templates on startup
 
 ---
 
