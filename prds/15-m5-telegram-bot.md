@@ -2,39 +2,41 @@
 
 ## Overview
 
-**Issue**: #15  
-**Parent**: #10 (Alfred - The Rememberer)  
-**Depends On**: #14 (M4: Vector Search)  
-**Status**: Planning  
-**Priority**: High  
+**Issue**: #15
+**Parent**: #10 (Alfred - The Rememberer)
+**Depends On**: #12 (M2: Core Infrastructure)
+**Status**: Planning
+**Priority**: High
 **Created**: 2026-02-16
 
-Implement async Telegram bot with message handling and conversation state.
+Implement async Telegram bot as a thin interface layer.
 
 ---
 
 ## Problem Statement
 
-Alfred needs a Telegram interface for user interaction. Handle text messages, maintain conversation state, and integrate with the memory system.
+Alfred needs a Telegram interface for user interaction. The bot should be a thin adapter that passes messages to the core Alfred engine and returns responses.
 
 ---
 
 ## Solution
 
-Build async Telegram bot with:
+Build async Telegram bot as a thin interface:
 1. Message handler for text input
-2. Conversation state tracking
-3. Integration with context loading
-4. Error handling and retry logic
+2. Delegation to core Alfred engine (memory, context, LLM)
+3. Error handling with user feedback
+4. Support for slash commands
+
+**Architecture Principle**: The bot is just one interface. It could be replaced with CLI, web, or any other interface without changing core Alfred logic.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `src/bot.py` - Telegram bot implementation
+- [ ] `src/interfaces/telegram.py` - Telegram bot implementation
+- [ ] `src/interfaces/cli.py` - CLI interface (parallel implementation)
 - [ ] Async message handling
-- [ ] Conversation state management
-- [ ] Integration with MemoryStore and ContextLoader
+- [ ] Delegation to core Alfred engine (not direct memory/context access)
 - [ ] Error handling with user feedback
 - [ ] Support for `/compact` command
 
@@ -44,12 +46,58 @@ Build async Telegram bot with:
 
 ```
 src/
-└── bot.py          # Telegram bot handler
+├── alfred.py           # Core Alfred engine (handles memory, context, LLM)
+└── interfaces/
+    ├── __init__.py
+    ├── telegram.py     # Telegram interface
+    └── cli.py          # CLI interface
 ```
 
 ---
 
-## Bot Implementation (src/bot.py)
+## Core Alfred Engine (src/alfred.py)
+
+The bot delegates to this core engine. Other interfaces (CLI, web) will use the same engine.
+
+```python
+from dataclasses import dataclass
+from src.config import Config
+
+
+@dataclass
+class ChatResponse:
+    content: str
+    tokens_used: int | None = None
+
+
+class Alfred:
+    """Core Alfred engine - handles memory, context, and LLM."""
+    
+    def __init__(self, config: Config) -> None:
+        self.config = config
+        # Memory, context, LLM initialized here or lazily
+    
+    async def chat(self, message: str) -> ChatResponse:
+        """Process a message and return response.
+        
+        This is the main entry point for any interface.
+        Handles: store message → load context → call LLM → store response
+        """
+        # TODO: Wire up memory, context, LLM
+        # For now, just pass through to LLM
+        return ChatResponse(content=f"You said: {message}")
+    
+    async def compact(self) -> str:
+        """Trigger conversation compaction."""
+        # TODO: Implement in M9
+        return "Compaction not yet implemented"
+```
+
+---
+
+## Telegram Interface (src/interfaces/telegram.py)
+
+Thin adapter - just handles Telegram-specific concerns.
 
 ```python
 import logging
@@ -62,23 +110,18 @@ from telegram.ext import (
     filters,
 )
 from src.config import Config
-from src.context import ContextLoader
-from src.memory import MemoryStore
+from src.alfred import Alfred
 
 
 logger = logging.getLogger(__name__)
 
 
-class AlfredBot:
-    def __init__(
-        self,
-        config: Config,
-        context_loader: ContextLoader,
-        memory_store: MemoryStore,
-    ) -> None:
+class TelegramInterface:
+    """Thin Telegram interface - delegates to Alfred engine."""
+    
+    def __init__(self, config: Config, alfred: Alfred) -> None:
         self.config = config
-        self.context_loader = context_loader
-        self.memory = memory_store
+        self.alfred = alfred
         self.application: Application | None = None
     
     def setup(self) -> Application:
@@ -87,7 +130,6 @@ class AlfredBot:
             self.config.telegram_bot_token
         ).build()
         
-        # Handlers
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("compact", self.compact))
         self.application.add_handler(
@@ -110,50 +152,21 @@ class AlfredBot:
         if not update.message:
             return
         
-        await update.message.reply_text(
-            "Compaction triggered. This will summarize our long conversation."
-        )
-        # TODO: Integrate with compaction system in M9
+        result = await self.alfred.compact()
+        await update.message.reply_text(result)
     
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle text messages."""
+        """Handle text messages - delegate to Alfred."""
         if not update.message or not update.message.text:
             return
         
-        user_message = update.message.text
-        chat_id = update.effective_chat.id if update.effective_chat else 0
-        
         try:
-            # Store user message
-            await self.memory.add_entry(
-                role="user",
-                content=user_message,
-            )
-            
-            # Load all memories
-            all_memories = await self.memory.load_all_memories()
-            
-            # Build context with relevant memories
-            full_context = await self.context_loader.assemble_with_memories(
-                query=user_message,
-                all_memories=all_memories,
-            )
-            
-            # TODO: Send to LLM (M6)
-            response = "I received your message. LLM integration coming in M6."
-            
-            # Store assistant response
-            await self.memory.add_entry(
-                role="assistant",
-                content=response,
-            )
-            
-            await update.message.reply_text(response)
-            
+            response = await self.alfred.chat(update.message.text)
+            await update.message.reply_text(response.content)
         except Exception as e:
             logger.exception("Error handling message")
             await update.message.reply_text(
-                f"Error: {e}. Please try again or contact support."
+                f"Error: {e}. Please try again."
             )
             raise  # Fail fast
     
@@ -168,27 +181,22 @@ class AlfredBot:
         
         logger.info("Bot started. Press Ctrl+C to stop.")
         
-        # Run until interrupted
         await self.application.updater.stop()
         await self.application.stop()
 
 
 async def main() -> None:
     """Entry point."""
+    import asyncio
     from src.config import load_config
-    from src.embeddings import EmbeddingClient
-    from src.search import MemorySearcher
     
     logging.basicConfig(level=logging.INFO)
     
     config = load_config()
-    embedder = EmbeddingClient(config)
-    memory = MemoryStore(config, embedder)
-    searcher = MemorySearcher(embedder, context_limit=config.memory_context_limit)
-    context_loader = ContextLoader(config, searcher)
+    alfred = Alfred(config)
+    interface = TelegramInterface(config, alfred)
     
-    bot = AlfredBot(config, context_loader, memory)
-    await bot.run()
+    await interface.run()
 
 
 if __name__ == "__main__":
@@ -198,14 +206,79 @@ if __name__ == "__main__":
 
 ---
 
+## CLI Interface (src/interfaces/cli.py)
+
+Same Alfred engine, different interface.
+
+```python
+import asyncio
+import logging
+from src.config import Config
+from src.alfred import Alfred
+
+
+logger = logging.getLogger(__name__)
+
+
+class CLIInterface:
+    """CLI interface - delegates to Alfred engine."""
+    
+    def __init__(self, config: Config, alfred: Alfred) -> None:
+        self.config = config
+        self.alfred = alfred
+    
+    async def run(self) -> None:
+        """Run interactive CLI."""
+        print("Alfred CLI. Type 'exit' to quit, 'compact' to compact.\n")
+        
+        while True:
+            try:
+                user_input = input("You: ").strip()
+            except EOFError:
+                break
+            
+            if not user_input:
+                continue
+            
+            if user_input.lower() == "exit":
+                print("Goodbye!")
+                break
+            
+            if user_input.lower() == "compact":
+                result = await self.alfred.compact()
+                print(f"Alfred: {result}\n")
+                continue
+            
+            response = await self.alfred.chat(user_input)
+            print(f"Alfred: {response.content}\n")
+
+
+async def main() -> None:
+    """Entry point."""
+    logging.basicConfig(level=logging.INFO)
+    
+    config = Config.from_env()
+    alfred = Alfred(config)
+    interface = CLIInterface(config, alfred)
+    
+    await interface.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
 ## Tests
 
 ```python
-# tests/test_bot.py
+# tests/test_telegram.py
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from telegram import Update, Message, Chat
-from src.bot import AlfredBot
+from src.interfaces.telegram import TelegramInterface
+from src.alfred import Alfred
 from src.config import Config
 
 
@@ -219,6 +292,14 @@ def mock_config():
 
 
 @pytest.fixture
+def mock_alfred():
+    alfred = MagicMock(spec=Alfred)
+    alfred.chat = AsyncMock(return_value=MagicMock(content="Response"))
+    alfred.compact = AsyncMock(return_value="Compacted")
+    return alfred
+
+
+@pytest.fixture
 def mock_update():
     update = MagicMock(spec=Update)
     update.message = MagicMock(spec=Message)
@@ -229,49 +310,42 @@ def mock_update():
 
 
 @pytest.mark.asyncio
-async def test_message_stores_and_responds(mock_config, mock_update):
-    context_loader = MagicMock()
-    context_loader.assemble_with_memories = AsyncMock(return_value="context")
-    
-    memory_store = MagicMock()
-    memory_store.add_entry = AsyncMock()
-    memory_store.load_all_memories = AsyncMock(return_value=[])
-    
-    bot = AlfredBot(mock_config, context_loader, memory_store)
+async def test_message_delegates_to_alfred(mock_config, mock_alfred, mock_update):
+    interface = TelegramInterface(mock_config, mock_alfred)
     
     mock_context = MagicMock()
-    mock_context.bot = MagicMock()
+    await interface.message(mock_update, mock_context)
     
-    await bot.message(mock_update, mock_context)
-    
-    # Should store user message
-    memory_store.add_entry.assert_called_once_with(
-        role="user",
-        content="Hello Alfred",
-    )
+    # Should delegate to Alfred
+    mock_alfred.chat.assert_called_once_with("Hello Alfred")
+    mock_update.message.reply_text.assert_called_once_with("Response")
 
 
 @pytest.mark.asyncio
-async def test_compact_command_triggers_compaction(mock_config, mock_update):
-    context_loader = MagicMock()
-    memory_store = MagicMock()
-    
-    bot = AlfredBot(mock_config, context_loader, memory_store)
+async def test_compact_delegates_to_alfred(mock_config, mock_alfred, mock_update):
+    interface = TelegramInterface(mock_config, mock_alfred)
     
     mock_context = MagicMock()
+    await interface.compact(mock_update, mock_context)
     
-    await bot.compact(mock_update, mock_context)
-    
-    # Should acknowledge command
-    mock_update.message.reply_text.assert_called_once()
-    assert "Compaction" in mock_update.message.reply_text.call_args[0][0]
+    mock_alfred.compact.assert_called_once()
 ```
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale | Impact |
+|------|----------|-----------|--------|
+| 2026-02-17 | Bot is thin interface | Interfaces should be interchangeable (Telegram, CLI, web) | Removed dependency on M4, added Alfred engine |
+| 2026-02-17 | CLI parallel to Telegram | Validate architecture with simple interface first | Added cli.py |
+| 2026-02-17 | Session-based threading | Each Telegram thread starts fresh, loads from files | Memory loading strategy |
 
 ---
 
 ## Docker Integration
 
-Update `docker-compose.yml`:
+Templates are copied into the container at build time. Memory files persist via volumes.
 
 ```yaml
 services:
@@ -279,14 +353,9 @@ services:
     build: .
     volumes:
       - ./memory:/app/memory
-      - ./AGENTS.md:/app/AGENTS.md
-      - ./SOUL.md:/app/SOUL.md
-      - ./USER.md:/app/USER.md
-      - ./TOOLS.md:/app/TOOLS.md
-      - ./IMPORTANT.md:/app/IMPORTANT.md
     env_file:
       - .env
-    command: uv run python -m src.bot
+    command: uv run python -m src.interfaces.telegram
 ```
 
 ---
@@ -294,9 +363,9 @@ services:
 ## Success Criteria
 
 - [ ] Bot responds to /start
-- [ ] Bot stores all messages to memory
-- [ ] Bot loads context with relevant memories
-- [ ] /compact command exists (integration in M9)
+- [ ] Bot delegates all chat to Alfred.chat()
+- [ ] CLI interface works with same Alfred engine
+- [ ] /compact command delegates to Alfred.compact()
 - [ ] Errors surface to user
 - [ ] All async operations work correctly
 - [ ] Type-safe throughout

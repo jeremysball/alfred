@@ -25,10 +25,10 @@ OpenClaw (formerly Clawdbot/Moltbot) is a personal AI assistant with a sophistic
 | **AGENTS.md** | Workspace behavior rules | Core | ⚠️ **Modify** - Simplify |
 | **BOOTSTRAP.md** | First-run onboarding ritual | Setup | ✅ **Adopt** - For onboarding |
 | **IDENTITY.md** | Name, creature, emoji, vibe | Core | ❌ **Skip** - Merge into SOUL.md |
-| **MEMORY.md** | Long-term curated memory | Memory | ❌ **Skip** - Use IMPORTANT.md instead |
+| **MEMORY.md** | Long-term curated memory | Memory | ✅ **Adopt** - Essential (not IMPORTANT.md) |
 | **GOALS.md** | Goal tracking | Productivity | ❌ **Skip** - Out of scope |
-| **HEARTBEAT.md** | Proactive behavior checklist | Automation | ❌ **Skip** - Out of scope |
-| **SOUVENIR.md** | Travel/location memories | Specialty | ❌ **Skip** - Out of scope |
+| **HEARTBEAT.md** | Proactive behavior checklist | Automation | ⏳ **Future** - Internal scheduler PRD planned |
+| **SOUVENIR.md** | Reflection/lessons learned | Learning | ⏳ **Future** - Separate PRD planned |
 | **.dev.md variants** | Development workflows | Development | ❌ **Skip** - Alfred is runtime only |
 
 ### Key Insights from OpenClaw
@@ -41,11 +41,11 @@ OpenClaw (formerly Clawdbot/Moltbot) is a personal AI assistant with a sophistic
 - Separation of shared skills from personal notes (TOOLS.md concept)
 
 **What's too complex for Alfred:**
-- Multi-session architecture (Alfred is single-session via Telegram)
-- Heartbeat/cron system (Alfred responds to messages only)
+- Session-based architecture (each Telegram thread starts fresh, loads from files)
+- Heartbeat system (will use internal asyncio scheduler, not external polling)
 - Group chat complexity (Alfred starts with 1:1 only)
-- MEMORY.md vs daily memory distinction (Alfred uses IMPORTANT.md)
-- Multi-workspace support (Alfred is single-workspace)
+- MEMORY.md is the curated long-term memory (not IMPORTANT.md)
+- Single-workspace, single-user (MVP simplicity)
 
 ---
 
@@ -56,10 +56,12 @@ OpenClaw (formerly Clawdbot/Moltbot) is a personal AI assistant with a sophistic
 **Source**: OpenClaw's SOUL.md (excellent, minimal changes needed)
 
 **Changes from OpenClaw:**
-- Remove references to "session restarts" (Alfred persists)
+- Remove references to "session restarts" (each Telegram thread = fresh start, loads from files)
 - Remove group chat guidance (not in MVP)
 - Simplify voice/TTS references (text-only initially)
 - Add explicit Telegram context
+- Use MEMORY.md (not IMPORTANT.md) for curated long-term memory
+- Use Markdown daily files (not JSON)
 
 **Alfred's SOUL.md:**
 
@@ -101,10 +103,10 @@ Be the assistant you'd actually want to talk to. Concise when needed, thorough w
 
 ## Continuity
 
-Alfred remembers through files. These are your memory:
+Each Telegram thread starts fresh. These files are your memory:
 
-- **Daily notes:** `memory/YYYY-MM-DD.json` — raw logs of conversations
-- **Long-term:** `IMPORTANT.md` — curated knowledge worth keeping
+- **Daily notes:** `memory/YYYY-MM-DD.md` — raw logs of conversations
+- **Long-term:** `MEMORY.md` — curated knowledge worth keeping
 
 Capture what matters. Decisions, context, things to remember. Skip the secrets unless asked to keep them.
 
@@ -309,8 +311,8 @@ Be concise unless asked for detail. Confirm ambiguous requests. Admit uncertaint
 - Read `SOUL.md`, `USER.md`, and `TOOLS.md` at conversation start
 - Search relevant memories before responding
 - Update files when you learn something significant
-- Write to `memory/YYYY-MM-DD.json` for daily logs
-- Write to `IMPORTANT.md` for curated long-term knowledge
+- Write to `memory/YYYY-MM-DD.md` for daily logs
+- Write to `MEMORY.md` for curated long-term knowledge
 
 ## Safety
 
@@ -382,16 +384,29 @@ _Good luck out there. Make it count._
 
 ---
 
-## Templates We're NOT Adopting
+## Templates We're NOT Adopting (MVP)
 
 | Template | Reason |
 |----------|--------|
 | **IDENTITY.md** | Merges cleanly into SOUL.md. Separate file adds complexity without value. |
-| **MEMORY.md** | Alfred uses `IMPORTANT.md` (already specified in main PRD) and `memory/YYYY-MM-DD.json`. Two memory files suffice. |
 | **GOALS.md** | Out of MVP scope. Can be added later if users request goal tracking. |
-| **HEARTBEAT.md** | Requires proactive/cron system. Alfred responds to messages only (no background tasks in MVP). |
-| **SOUVENIR.md** | Too specialized. Not needed for MVP. |
+| **HEARTBEAT.md** | Will use internal asyncio scheduler (separate PRD planned). |
+| **SOUVENIR.md** | Post-MVP feature (separate PRD planned for reflection/learning system). |
 | **.dev.md variants** | Alfred is a runtime assistant, not a development tool. |
+
+---
+
+## Decisions Made
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-02-17 | Use MEMORY.md (not IMPORTANT.md) | Matches OpenClaw pattern |
+| 2026-02-17 | Daily files are Markdown (not JSON) | Human-readable |
+| 2026-02-17 | IDENTITY.md merged into SOUL.md | Simpler structure |
+| 2026-02-17 | Session-based (each thread = fresh start) | Clean context per conversation |
+| 2026-02-17 | Single user, single agent | MVP simplicity |
+| 2026-02-17 | HEARTBEAT.md → internal scheduler | No external polling |
+| 2026-02-17 | SOUVENIR.md deferred | Post-MVP feature |
 
 ---
 
@@ -433,42 +448,40 @@ _Good luck out there. Make it count._
 
 ```
 alfred/
-├── templates/              # Template files (read-only)
+├── templates/              # Template files (bundled in Docker image)
 │   ├── SOUL.md
 │   ├── USER.md
 │   ├── TOOLS.md
-│   ├── AGENTS.md
-│   └── BOOTSTRAP.md
+│   └── MEMORY.md
 ├── SOUL.md                 # User's actual files (auto-created from templates)
 ├── USER.md
 ├── TOOLS.md
-├── AGENTS.md               # Optional (warn if missing)
-├── BOOTSTRAP.md            # Deleted after first run
-└── IMPORTANT.md            # Curated memory (user-managed)
+├── MEMORY.md               # Curated long-term memory
+└── memory/                 # Daily logs (Markdown)
+    └── YYYY-MM-DD.md
 ```
 
 ---
 
 ## Success Criteria
 
-- [ ] All 5 templates defined with clear, actionable content
-- [ ] Templates auto-create when missing (except AGENTS.md which warns)
-- [ ] BOOTSTRAP.md automatically deleted after first conversation
+- [ ] All 4 templates defined (SOUL.md, USER.md, TOOLS.md, MEMORY.md)
+- [ ] Templates auto-create when missing
 - [ ] Templates use frontmatter metadata consistently
 - [ ] Users can customize templates without breaking updates
 - [ ] Template content follows writing skill guidelines (concise, active voice)
+- [ ] Templates bundled in Docker image at `/app/templates/`
+- [ ] Missing files copied from templates on startup
 
 ---
 
 ## Open Questions
 
-1. **AGENTS.md handling**: Should it auto-create or just warn? OpenClaw treats it as essential, but Alfred's AGENTS.md is much simpler.
+1. **Template updates**: If we improve templates in a future release, how do we handle existing user-customized files?
 
-2. **Template updates**: If we improve templates in a future release, how do we handle existing user-customized files?
+2. **Multilingual support**: OpenClaw has zh-CN variants. Do we need i18n framework from the start?
 
-3. **Multilingual support**: OpenClaw has zh-CN variants. Do we need i18n framework from the start?
-
-4. **Template variables**: Should we support Jinja2-style variables in templates (e.g., `{{user_name}}`)?
+3. **Template variables**: Should we support Jinja2-style variables in templates (e.g., `{{user_name}}`)?
 
 ---
 
@@ -477,4 +490,4 @@ alfred/
 - [OpenClaw Repository](https://github.com/openclaw/openclaw)
 - [OpenClaw Templates](https://github.com/openclaw/openclaw/tree/main/docs/reference/templates)
 - [10 SOUL.md Templates Article](https://alirezarezvani.medium.com/10-soul-md-practical-cases-in-a-guide-for-moltbot-clawdbot-defining-who-your-ai-chooses-to-be-dadff9b08fe2)
-- Original Alfred PRD: `prds/TBD-alfred-the-rememberer.md`
+- Parent Alfred PRD: `prds/10-alfred-the-rememberer.md`

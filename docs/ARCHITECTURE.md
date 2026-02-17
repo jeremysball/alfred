@@ -9,7 +9,8 @@ Alfred is a persistent memory-augmented LLM assistant. He maintains conversation
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         Telegram Bot                        │
-│                   (Multi-user Interface)                    │
+│                   (Single User Interface)                   │
+│              Each thread = fresh session                    │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -60,9 +61,35 @@ Loads and assembles context files for LLM prompts.
 | File | Purpose |
 |------|---------|
 | `AGENTS.md` | Agent behavior rules and instructions |
-| `SOUL.md` | Personality and voice definition |
+| `SOUL.md` | Personality, voice, and identity definition |
 | `USER.md` | User preferences and patterns |
 | `TOOLS.md` | Available tools and usage guidelines |
+| `MEMORY.md` | Curated long-term memory |
+
+### Template System
+
+Alfred uses templates for initial context files. On first run, templates are copied from `/app/templates/` to the workspace if they don't exist.
+
+```
+/app/templates/          # Built-in templates (read-only)
+├── SOUL.md
+├── USER.md
+├── TOOLS.md
+└── MEMORY.md
+
+/workspace/              # User's runtime files
+├── SOUL.md              # Copied from template if missing
+├── USER.md
+├── TOOLS.md
+├── MEMORY.md
+└── memory/              # Daily logs (created as needed)
+```
+
+**Behavior:**
+- Templates are bundled in the Docker image at build time
+- Alfred checks for missing context files on startup
+- Missing files are auto-created from templates
+- User modifications persist; templates don't overwrite
 
 **Data Flow:**
 ```
@@ -133,11 +160,14 @@ Pydantic models for type safety across the application.
 
 ### Memory Storage
 
-**Current (M2):** File-based JSON storage
+**Current (M2):** File-based Markdown storage
 ```
 memory/
-└── 2026-02-17.json      # Daily memory files
-└── 2026-02-16.json
+├── 2026-02-17.md      # Daily memory files (Markdown)
+├── 2026-02-16.md
+└── ...
+
+MEMORY.md              # Curated long-term memory
 ```
 
 **Future (M4):** Vector search with embeddings
@@ -178,18 +208,39 @@ memory/
 4. **Observability**: Structured logging at all layers
 5. **Modularity**: Clear interfaces, swappable implementations
 
+
+## Alfred Design Philosophies
+
+### Model-Driven Decisions
+
+When making decisions—what to remember, when to summarize, how to respond—prefer prompting over programming. Let the LLM decide:
+- What deserves recording to memory
+- When context grows too long
+- How to structure responses
+- What matters in a conversation
+
+- Fail fast: surface errors immediately rather than silently swallowing them.
+
+### Memory Behavior
+
+- Capture daily interactions automatically
+- Suggest important memories; let users or the model confirm
+- Retrieve context without requiring explicit commands
+- Learn patterns and update agent files (USER.md, SOUL.md) over time
+
 ## Future Architecture (PRD Roadmap)
 
 ### M3: Memory Foundation
 - Persistent conversation storage
-- Daily memory files with JSON format
+- Daily memory files with Markdown format
 
 ### M4: Vector Search
 - Embedding-based semantic search
 - FAISS or similar vector store
 
 ### M5: Telegram Bot
-- Multi-user support
+- Single user interface
+- Session-based threading (each thread = fresh start)
 - Message handlers and commands
 
 ### M6: Kimi Provider ✅

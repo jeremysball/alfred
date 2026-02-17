@@ -23,12 +23,13 @@ Current LLM assistants have no long-term memory. Users lose context, repeat expl
 Alfred lives in a Docker container, speaks through Telegram, and uses a file-based memory system with vector embeddings.
 
 ### Key Differentiators
-1. **Infinite Memory**: JSON storage with OpenAI embeddings for semantic retrieval
-2. **Daily Capture**: Automatic logging to dated memory files
-3. **Curated Memory**: IMPORTANT.md holds refined, persistent knowledge
+1. **Infinite Memory**: Markdown storage with OpenAI embeddings for semantic retrieval
+2. **Daily Capture**: Automatic logging to dated Markdown files
+3. **Curated Memory**: MEMORY.md holds refined, persistent knowledge
 4. **Automatic Context**: Relevant memories load without user commands
 5. **Modular Providers**: Pluggable LLM support (starts with Kimi)
 6. **File-Based Config**: Human-readable context files
+7. **Template System**: Auto-creates context files from bundled templates
 
 ---
 
@@ -59,18 +60,23 @@ Errors surface immediately. Silent failures hide bugs.
 ```
 alfred/
 ├── AGENTS.md              # Behavior rules for ALL agents
-├── SOUL.md               # Alfred's personality
+├── SOUL.md               # Alfred's personality (includes identity)
 ├── USER.md               # User preferences
 ├── TOOLS.md              # Local tool configs
+├── MEMORY.md             # Curated long-term memory
+├── templates/            # Bundled templates (copied to /app/templates)
+│   ├── SOUL.md
+│   ├── USER.md
+│   ├── TOOLS.md
+│   └── MEMORY.md
 ├── CAPABILITIES/         # Capability implementations
 │   ├── __init__.py
 │   ├── search.py
 │   └── remember.py
-├── memory/               # Daily memory captures
-│   ├── 2026-02-16.json
-│   ├── 2026-02-17.json
+├── memory/               # Daily memory captures (Markdown)
+│   ├── 2026-02-16.md
+│   ├── 2026-02-17.md
 │   └── ...
-├── IMPORTANT.md          # Curated long-term memory
 ├── config.json           # Runtime config
 ├── .env                  # Secrets (gitignored)
 └── src/
@@ -80,6 +86,7 @@ alfred/
     ├── embeddings.py     # OpenAI embeddings
     ├── llm.py            # Provider abstraction
     ├── context.py        # Context assembly
+    ├── templates.py      # Template auto-creation
     ├── capabilities.py   # Capability registry
     ├── compaction.py     # Long context management
     ├── distillation.py   # Memory file writing
@@ -88,31 +95,32 @@ alfred/
 
 ### Data Schema
 
-#### Daily Memory Entry
-```json
-{
-  "date": "2026-02-16",
-  "entries": [
-    {
-      "timestamp": "2026-02-16T14:32:00Z",
-      "role": "user",
-      "content": "I'm starting a new Python project",
-      "embedding": [0.023, -0.045, ...],
-      "importance": 0.8,
-      "tags": ["coding", "python", "new-project"]
-    }
-  ]
-}
+#### Daily Memory (Markdown)
+Human-readable daily logs stored as Markdown files:
+
+```markdown
+# 2026-02-16
+
+## 14:32 - User
+I'm starting a new Python project
+
+## 14:33 - Assistant
+That's exciting! What are you building?
+
+<!-- metadata: {"importance": 0.8, "tags": ["coding", "python"]} -->
 ```
+
+#### MEMORY.md (Curated Long-Term)
+Distilled knowledge that persists across sessions. Model-driven updates.
 
 ---
 
 ## Memory Systems
 
 ### 1. Daily Memory (Automatic)
-Every interaction stores to `memory/YYYY-MM-DD.json` with embeddings.
+Every interaction stores to `memory/YYYY-MM-DD.md` (Markdown) with embeddings.
 
-### 2. IMPORTANT.md (Curated)
+### 2. MEMORY.md (Curated)
 High-value memories live here. Alfred suggests additions; users confirm or the model decides.
 
 ### 3. Compaction (Manual)
@@ -122,7 +130,10 @@ Long conversations grow unwieldy. The `/compact` command triggers intelligent su
 Alfred extracts insights from conversations and writes to memory files. Model-driven: the LLM decides what deserves recording.
 
 ### 5. Learning (Automatic)
-Alfred updates agent files (USER.md, SOUL.md, TOOLS.md) based on observed patterns. Model-driven decisions about what to learn and record.
+Alfred updates agent files (USER.md, SOUL.md) based on observed patterns. Model-driven decisions about what to learn and record.
+
+### 6. Session-Based Architecture
+Each Telegram thread/conversation starts fresh. Files are Alfred's persistence layer. Sessions load context from files, not from previous session state.
 
 ---
 
@@ -150,7 +161,7 @@ User Message → Embed → Search All Memories (cosine similarity)
 |---|-----------|-------|-------------|
 | 1 | Project Setup | #11 | pyproject.toml, uv, mypy, ruff, pre-commit, assets |
 | 2 | Core Infrastructure | #12 | Config, file loaders, context system |
-| 3 | Memory Foundation | #13 | JSON storage, OpenAI embeddings |
+| 3 | Memory Foundation | #13 | Markdown storage, OpenAI embeddings |
 | 4 | Vector Search | #14 | Semantic retrieval, context injection |
 | 5 | Telegram Bot | #15 | Async bot handler |
 | 6 | Kimi Provider | #16 | First LLM provider |
@@ -218,6 +229,18 @@ CHAT_MODEL=kimi-k2-5
 ## Dependencies
 
 See individual milestone PRDs for specific dependencies.
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale | Impact |
+|------|----------|-----------|--------|
+| 2026-02-17 | Memory files are Markdown, not JSON | Human-readable, matches OpenClaw pattern | M3 implementation |
+| 2026-02-17 | Long-term memory is MEMORY.md, not IMPORTANT.md | Matches OpenClaw pattern | Context loader, Docker setup |
+| 2026-02-17 | Single user, single agent | MVP simplicity | Architecture, Telegram bot |
+| 2026-02-17 | Session-based (each thread = fresh start) | Clean context per conversation | Memory loading strategy |
+| 2026-02-17 | IDENTITY.md merged into SOUL.md | Simpler structure | Fewer context files |
 
 ---
 

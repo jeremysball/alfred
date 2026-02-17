@@ -167,7 +167,7 @@ class SearchCapability(Capability):
 
 ```python
 from src.capabilities.base import Capability, CapabilityResult
-from src.memory import MemoryStore, ImportantMemory
+from src.memory import MemoryStore, CuratedMemory
 
 
 class RememberCapability(Capability):
@@ -182,9 +182,9 @@ class RememberCapability(Capability):
         "Information that should persist long-term",
     ]
     
-    def __init__(self, memory: MemoryStore, important: ImportantMemory) -> None:
+    def __init__(self, memory: MemoryStore, curated: CuratedMemory) -> None:
         self.memory = memory
-        self.important = important
+        self.curated = curated
     
     async def can_handle(self, message: str, context: dict) -> float:
         """Check if user wants to store something."""
@@ -205,10 +205,10 @@ class RememberCapability(Capability):
         return 0.2
     
     async def execute(self, message: str, context: dict) -> CapabilityResult:
-        """Store to IMPORTANT.md."""
+        """Store to MEMORY.md."""
         # Extract what to remember (in real impl, use LLM to extract)
         # For now, store the whole message
-        await self.important.append(f"- {message}")
+        await self.curated.append(f"- {message}")
         
         return CapabilityResult(
             success=True,

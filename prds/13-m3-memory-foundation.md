@@ -9,22 +9,22 @@
 **Priority**: High  
 **Created**: 2026-02-16
 
-Implement JSON-based daily memory storage with OpenAI embeddings.
+Implement Markdown-based daily memory storage with OpenAI embeddings.
 
 ---
 
 ## Problem Statement
 
-Alfred needs to persist every interaction with semantic embeddings for later retrieval. Store conversations in dated JSON files with OpenAI embeddings.
+Alfred needs to persist every interaction with semantic embeddings for later retrieval. Store conversations in dated Markdown files with OpenAI embeddings for semantic search.
 
 ---
 
 ## Solution
 
 Create memory system with:
-1. Daily JSON file storage
+1. Daily Markdown file storage (human-readable)
 2. OpenAI embedding generation
-3. IMPORTANT.md support
+3. MEMORY.md support (curated long-term memory)
 4. Async I/O for performance
 
 ---
@@ -34,8 +34,8 @@ Create memory system with:
 - [ ] `src/embeddings.py` - OpenAI embedding client
 - [ ] `src/memory.py` - Memory CRUD operations
 - [ ] Generate embeddings on every interaction
-- [ ] Store to `memory/YYYY-MM-DD.json`
-- [ ] IMPORTANT.md read/write
+- [ ] Store to `memory/YYYY-MM-DD.md` (Markdown format)
+- [ ] MEMORY.md read/write (curated long-term memory)
 - [ ] Async file operations
 - [ ] Handle embedding API failures (fail fast)
 
@@ -49,8 +49,11 @@ src/
 └── memory.py        # Memory operations
 
 memory/
-├── 2026-02-16.json  # Daily memory files
-└── 2026-02-17.json
+├── 2026-02-16.md    # Daily memory files (Markdown)
+├── 2026-02-17.md
+└── ...
+
+MEMORY.md            # Curated long-term memory
 ```
 
 ---
@@ -91,11 +94,10 @@ class EmbeddingClient:
 ## Memory (src/memory.py)
 
 ```python
-import json
 import aiofiles
 from datetime import datetime
 from pathlib import Path
-from src.types import MemoryEntry, DailyMemory
+from src.types import MemoryEntry
 from src.config import Config
 from src.embeddings import EmbeddingClient
 
@@ -110,24 +112,42 @@ class MemoryStore:
     def _daily_path(self, date: str | None = None) -> Path:
         """Get path for daily memory file."""
         date = date or datetime.now().strftime("%Y-%m-%d")
-        return self.memory_dir / f"{date}.json"
+        return self.memory_dir / f"{date}.md"
     
-    async def load_daily(self, date: str | None = None) -> DailyMemory:
-        """Load daily memory file."""
+    async def load_daily(self, date: str | None = None) -> str:
+        """Load daily memory file as raw Markdown."""
         path = self._daily_path(date)
         if not path.exists():
-            return DailyMemory(date=date or datetime.now().strftime("%Y-%m-%d"))
-        
+            return ""
         async with aiofiles.open(path, "r") as f:
-            content = await f.read()
-            data = json.loads(content)
-            return DailyMemory.model_validate(data)
+            return await f.read()
     
-    async def save_daily(self, memory: DailyMemory) -> None:
-        """Save daily memory file."""
-        path = self._daily_path(memory.date)
-        async with aiofiles.open(path, "w") as f:
-            await f.write(memory.model_dump_json(indent=2))
+    async def append_to_daily(
+        self,
+        role: str,
+        content: str,
+        importance: float = 0.5,
+        tags: list[str] | None = None,
+    ) -> None:
+        """Append entry to daily Markdown file."""
+        path = self._daily_path()
+        timestamp = datetime.now().strftime("%H:%M")
+        
+        # Format as Markdown
+        entry_lines = [
+            f"\n## {timestamp} - {role.title()}\n",
+            content,
+        ]
+        
+        # Add metadata as HTML comment
+        if importance != 0.5 or tags:
+            metadata = {"importance": importance}
+            if tags:
+                metadata["tags"] = tags
+            entry_lines.append(f"\n<!-- metadata: {metadata} -->")
+        
+        async with aiofiles.open(path, "a") as f:
+            await f.write("\n".join(entry_lines))
     
     async def add_entry(
         self,
@@ -139,7 +159,9 @@ class MemoryStore:
         """Add entry with auto-generated embedding."""
         embedding = await self.embedder.embed(content)
         
-        entry = MemoryEntry(
+        await self.append_to_daily(role, content, importance, tags)
+        
+        return MemoryEntry(
             timestamp=datetime.now(),
             role=role,  # type: ignore
             content=content,
@@ -147,51 +169,47 @@ class MemoryStore:
             importance=importance,
             tags=tags or [],
         )
-        
-        daily = await self.load_daily()
-        daily.entries.append(entry)
-        await self.save_daily(daily)
-        
-        return entry
     
-    async def load_all_memories(self) -> list[MemoryEntry]:
-        """Load all memories across all days."""
-        entries = []
-        for path in self.memory_dir.glob("*.json"):
-            daily = await self.load_daily(path.stem)
-            entries.extend(daily.entries)
-        return entries
+    async def load_all_daily_content(self) -> str:
+        """Load all daily Markdown files concatenated."""
+        contents = []
+        for path in sorted(self.memory_dir.glob("*.md")):
+            async with aiofiles.open(path, "r") as f:
+                content = await f.read()
+                if content.strip():
+                    contents.append(f"# {path.stem}\n\n{content}")
+        return "\n\n---\n\n".join(contents)
 ```
 
 ---
 
-## IMPORTANT.md Support
+## MEMORY.md Support
 
 ```python
 # Add to src/memory.py
 
-class ImportantMemory:
-    """Curated long-term memory."""
+class CuratedMemory:
+    """Curated long-term memory (MEMORY.md)."""
     
     def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
-        self.path = Path("IMPORTANT.md")
+        self.path = Path("MEMORY.md")
         self.config = config
         self.embedder = embedder
     
     async def load(self) -> str:
-        """Load IMPORTANT.md content."""
+        """Load MEMORY.md content."""
         if not self.path.exists():
             return ""
         async with aiofiles.open(self.path, "r") as f:
             return await f.read()
     
     async def append(self, content: str) -> None:
-        """Append to IMPORTANT.md."""
+        """Append to MEMORY.md."""
         async with aiofiles.open(self.path, "a") as f:
             await f.write(f"\n\n{content}\n")
     
     async def get_entries(self) -> list[MemoryEntry]:
-        """Parse IMPORTANT.md into memory entries with embeddings."""
+        """Parse MEMORY.md into memory entries with embeddings."""
         content = await self.load()
         if not content:
             return []
@@ -208,7 +226,7 @@ class ImportantMemory:
                 content=section,
                 embedding=embedding,
                 importance=1.0,  # High importance
-                tags=["important"],
+                tags=["curated"],
             ))
         
         return entries
@@ -222,7 +240,7 @@ class ImportantMemory:
 # tests/test_memory.py
 import pytest
 from datetime import datetime
-from src.memory import MemoryStore
+from src.memory import MemoryStore, CuratedMemory
 from src.embeddings import EmbeddingClient
 from src.config import Config
 
@@ -251,7 +269,7 @@ def mock_embedder():
 
 
 @pytest.mark.asyncio
-async def test_add_entry_creates_daily_file(mock_config, mock_embedder, tmp_path):
+async def test_add_entry_creates_daily_markdown_file(mock_config, mock_embedder, tmp_path):
     mock_config.memory_dir = tmp_path / "memory"
     store = MemoryStore(mock_config, mock_embedder)
     
@@ -262,8 +280,26 @@ async def test_add_entry_creates_daily_file(mock_config, mock_embedder, tmp_path
     assert len(entry.embedding) == 1536
     
     today = datetime.now().strftime("%Y-%m-%d")
-    daily_path = tmp_path / "memory" / f"{today}.json"
+    daily_path = tmp_path / "memory" / f"{today}.md"
     assert daily_path.exists()
+    
+    content = await store.load_daily()
+    assert "Hello Alfred" in content
+    assert "User" in content
+
+
+@pytest.mark.asyncio
+async def test_curated_memory_loads_and_parses(mock_config, mock_embedder, tmp_path):
+    # Create a test MEMORY.md
+    memory_path = tmp_path / "MEMORY.md"
+    memory_path.write_text("# Important\n\nUser prefers Python over JavaScript.\n")
+    
+    curated = CuratedMemory(mock_config, mock_embedder)
+    curated.path = memory_path
+    
+    entries = await curated.get_entries()
+    assert len(entries) == 1
+    assert "Python" in entries[0].content
 ```
 
 ---
@@ -271,8 +307,17 @@ async def test_add_entry_creates_daily_file(mock_config, mock_embedder, tmp_path
 ## Success Criteria
 
 - [ ] Embeddings generate for all entries
-- [ ] Daily files create automatically
-- [ ] IMPORTANT.md loads and parses
+- [ ] Daily Markdown files create automatically
+- [ ] MEMORY.md loads and parses
 - [ ] Async operations work correctly
 - [ ] All tests pass with golden vectors
 - [ ] Type-safe throughout
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale | Impact |
+|------|----------|-----------|--------|
+| 2026-02-17 | Memory files are Markdown, not JSON | Human-readable, matches OpenClaw pattern | File format, parsing logic |
+| 2026-02-17 | Long-term memory is MEMORY.md | Matches OpenClaw pattern | Renamed from IMPORTANT.md |

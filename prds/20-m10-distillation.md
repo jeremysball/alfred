@@ -15,7 +15,7 @@ Build distillation system that extracts insights from conversations and writes t
 
 ## Problem Statement
 
-Daily memory files accumulate endlessly. Not everything deserves long-term storage. Alfred needs intelligent distillation: extract key insights and write to IMPORTANT.md automatically. The model decides what matters.
+Daily memory files accumulate endlessly. Not everything deserves long-term storage. Alfred needs intelligent distillation: extract key insights and write to MEMORY.md automatically. The model decides what matters.
 
 ---
 
@@ -25,7 +25,7 @@ Create distillation that:
 1. Monitors conversations continuously
 2. Uses LLM to extract key insights
 3. Decides what deserves permanent storage
-4. Writes to IMPORTANT.md automatically
+4. Writes to MEMORY.md automatically
 5. Model-driven, not rule-based
 
 ---
@@ -35,7 +35,7 @@ Create distillation that:
 - [ ] `src/distillation.py` - Distillation engine
 - [ ] Continuous conversation monitoring
 - [ ] Key insight extraction via LLM
-- [ ] Automatic IMPORTANT.md updates
+- [ ] Automatic MEMORY.md updates
 - [ ] Importance scoring
 - [ ] Duplicate detection
 
@@ -235,9 +235,9 @@ Respond with only a number between 0 and 1.""",
             return insight.importance  # Fallback to original
     
     async def _store_insight(self, insight: "Insight", importance: float) -> None:
-        """Store insight to IMPORTANT.md."""
+        """Store insight to MEMORY.md."""
         formatted = f"[{insight.category.upper()}] {insight.content}"
-        await self.important.append(formatted)
+        await self.curated.append(formatted)
     
     async def periodic_distill(self) -> DistillationResult:
         """Run distillation on recent unprocessed memories."""
