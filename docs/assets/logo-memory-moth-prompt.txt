@@ -1,0 +1,19 @@
+A minimalist vector mascot character for "Alfred" — an AI coding assistant with persistent memory.
+
+SUBJECT: A stylized moth or firefly character designed as a friendly tech companion. The moth has a compact, rounded body and two large geometric wings that dominate the silhouette. The wings are patterned with circuit-board traces — straight lines and right angles that glow subtly. The head features two large, expressive compound eyes (hexagonal patterns) that take up most of the face. Two antennae extend upward, each shaped subtly like angle brackets < >. A soft, diffuse glow emanates from the wing patterns and eyes, suggesting bioluminescence and active thought.
+
+COMPOSITION: Centered in a square frame, the moth is shown in a three-quarter view facing slightly right. The wings are partially spread — not fully open (too aggressive) nor closed (too timid) — suggesting readiness to move. The wingspan fills 75% of the frame width, creating a bold, iconic silhouette. Sufficient padding ensures the character breathes and remains legible at small sizes.
+
+ACTION: Hovering in mid-flight, perfectly balanced. The posture suggests active listening — present, attentive, ready to respond. The glow pulses with gentle energy, implying living technology. Not static, not frantic — calm, persistent presence.
+
+LOCATION: Pure white background. The moth exists in clean, empty space, allowing the glow effects and silhouette to dominate. No environment, no context, no distractions — the character IS the brand.
+
+STYLE: Flat vector illustration with 2-3 colors maximum. Deep charcoal or soft black (#1a1a2e or #2d2d3a) for the body and wing outlines. Bright cyan or electric blue (#00d9ff or #39ff14) for the circuit patterns, eye glow, and bioluminescent accents. Optional third color: soft lavender or pale blue (#b8c5ff) for subtle wing membrane fill or glow bloom. Clean, confident lines with consistent stroke weight. Modern tech aesthetic meets organic insect form. The circuit patterns are geometric and precise, contrasting with the organic wing shape. No gradients on the moth itself — the "glow" is achieved through solid color contrast and optional soft outer halo.
+
+EDITING: The silhouette must read instantly as "moth" or "firefly" at 64x64 pixels. The circuit patterns simplify to glowing lines at small sizes but reveal detailed trace patterns at larger sizes. The bracket-antennae are subtle — visible on close inspection but not distracting from the overall form. The expression is friendly through large eye proportion, not through cartoonish features. Suitable for app icons, favicons, GitHub avatars, and merchandise. Works in monochrome for single-color printing. The character feels approachable to newcomers but has depth for those who look closer — the circuit wings reward inspection.
+
+PERSONALITY: Nocturnal, persistent, drawn to knowledge like flame. Flits through your codebase, attracted to bright ideas, leaves trails of insight. Moths have excellent memory for location — they return to the same places night after night. This moth returns to your code, remembers where everything is, never forgets a pattern. Gentle, helpful, slightly mysterious. Not a servant — a companion who finds what you need in the dark.
+
+FORMAT: Square aspect ratio, 1024x1024 pixels. Transparent background version for overlay use. White background version for standard deployment. Scalable vector aesthetic — crisp edges at all sizes.
+
+TAGLINE CONTEXT: "A coding companion that remembers" — the moth finds you in the dark, remembers the way, guides you back to what you forgot.
