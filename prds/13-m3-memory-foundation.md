@@ -15,28 +15,38 @@ Implement Markdown-based daily memory storage with OpenAI embeddings.
 
 ## Problem Statement
 
-Alfred needs to persist every interaction with semantic embeddings for later retrieval. Store conversations in dated Markdown files with OpenAI embeddings for semantic search.
+Alfred needs to persist distilled insights from conversations with semantic embeddings for later retrieval. Store distilled memories in dated Markdown files with OpenAI embeddings for semantic search.
 
 ---
 
 ## Solution
 
 Create memory system with:
-1. Daily Markdown file storage (human-readable)
-2. OpenAI embedding generation
-3. MEMORY.md support (curated long-term memory)
-4. Async I/O for performance
+1. Daily Markdown file storage (human-readable, contains distilled insights)
+2. Distillation process creates daily logs from conversation summaries
+3. OpenAI embedding generation for semantic search
+4. MEMORY.md support (curated long-term memory for durable facts)
+5. Async I/O for performance
+
+### Distillation Process
+
+Daily logs are created by the **distillation process**, not raw conversation logging:
+- Run before compacting long conversations
+- Run at end of each day over all conversations
+- Extracts key facts, decisions, and context into `MemoryEntry` objects
+- Writes distilled insights to `memory/YYYY-MM-DD.md`
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `src/embeddings.py` - OpenAI embedding client
-- [ ] `src/memory.py` - Memory CRUD operations
-- [ ] Generate embeddings on every interaction
-- [ ] Store to `memory/YYYY-MM-DD.md` (Markdown format)
-- [ ] MEMORY.md read/write (curated long-term memory)
-- [ ] Async file operations
+- [ ] `src/embeddings.py` - OpenAI embedding client with cosine similarity
+- [ ] `src/memory.py` - Memory CRUD operations for daily logs and MEMORY.md
+- [ ] `write_daily_log()` - Write distilled entries to daily Markdown file
+- [ ] `parse_daily_log()` - Parse Markdown back into `MemoryEntry` objects with embeddings
+- [ ] `search_memories()` - Semantic search across daily logs and MEMORY.md
+- [ ] MEMORY.md read/write for curated long-term memory
+- [ ] Async file operations throughout
 - [ ] Handle embedding API failures (fail fast)
 
 ---
@@ -94,91 +104,102 @@ class EmbeddingClient:
 ## Memory (src/memory.py)
 
 ```python
-import aiofiles
+import re
 from datetime import datetime
 from pathlib import Path
-from src.types import MemoryEntry
+
+import aiofiles
+
 from src.config import Config
 from src.embeddings import EmbeddingClient
+from src.types import MemoryEntry
 
 
 class MemoryStore:
+    """Store and retrieve memories from daily logs and MEMORY.md."""
+
     def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
         self.config = config
         self.embedder = embedder
         self.memory_dir = config.memory_dir
-        self.memory_dir.mkdir(exist_ok=True)
-    
+        self.memory_dir.mkdir(parents=True, exist_ok=True)
+        self.curated_path = Path("MEMORY.md")
+
     def _daily_path(self, date: str | None = None) -> Path:
-        """Get path for daily memory file."""
-        date = date or datetime.now().strftime("%Y-%m-%d")
-        return self.memory_dir / f"{date}.md"
-    
-    async def load_daily(self, date: str | None = None) -> str:
-        """Load daily memory file as raw Markdown."""
+        """Get path for daily memory file (YYYY-MM-DD.md)."""
+        date_str = date or datetime.now().strftime("%Y-%m-%d")
+        return self.memory_dir / f"{date_str}.md"
+
+    async def write_daily_log(
+        self,
+        date: str,
+        entries: list[MemoryEntry],
+    ) -> Path:
+        """Write distilled entries to a daily log file.
+
+        Called by the distillation process after summarizing conversations.
+        Overwrites existing file for that date.
+        """
+        path = self._daily_path(date)
+        lines = [f"# {date}\n"]
+
+        for entry in entries:
+            timestamp = entry.timestamp.strftime("%H:%M")
+            lines.append(f"\n## {timestamp} - {entry.role.title()}\n")
+            lines.append(entry.content)
+            if entry.importance != 0.5 or entry.tags:
+                metadata = {"importance": entry.importance}
+                if entry.tags:
+                    metadata["tags"] = entry.tags
+                lines.append(f"\n<!-- metadata: {metadata} -->")
+
+        async with aiofiles.open(path, "w") as f:
+            await f.write("\n".join(lines))
+
+        return path
+
+    async def read_daily_log(self, date: str | None = None) -> str:
+        """Read a daily log file as raw Markdown."""
         path = self._daily_path(date)
         if not path.exists():
             return ""
         async with aiofiles.open(path, "r") as f:
             return await f.read()
-    
-    async def append_to_daily(
+
+    async def parse_daily_log(self, date: str | None = None) -> list[MemoryEntry]:
+        """Parse a daily log into MemoryEntry objects with embeddings."""
+        content = await self.read_daily_log(date)
+        if not content:
+            return []
+
+        entries = []
+        # Split on ## headers (each entry)
+        sections = re.split(r"\n## ", content)[1:]  # Skip title
+
+        for section in sections:
+            lines = section.strip().split("\n")
+            header = lines[0]  # "HH:MM - Role"
+            body = "\n".join(lines[1:]).strip()
+
+            # Parse header and extract timestamp, role
+            # Parse metadata from HTML comment <!-- metadata: {...} -->
+            # Generate embedding for content
+            # Return list of MemoryEntry objects
+
+        return entries
+
+    async def search_memories(
         self,
-        role: str,
-        content: str,
-        importance: float = 0.5,
-        tags: list[str] | None = None,
-    ) -> None:
-        """Append entry to daily Markdown file."""
-        path = self._daily_path()
-        timestamp = datetime.now().strftime("%H:%M")
-        
-        # Format as Markdown
-        entry_lines = [
-            f"\n## {timestamp} - {role.title()}\n",
-            content,
-        ]
-        
-        # Add metadata as HTML comment
-        if importance != 0.5 or tags:
-            metadata = {"importance": importance}
-            if tags:
-                metadata["tags"] = tags
-            entry_lines.append(f"\n<!-- metadata: {metadata} -->")
-        
-        async with aiofiles.open(path, "a") as f:
-            await f.write("\n".join(entry_lines))
-    
-    async def add_entry(
-        self,
-        role: str,
-        content: str,
-        importance: float = 0.5,
-        tags: list[str] | None = None,
-    ) -> MemoryEntry:
-        """Add entry with auto-generated embedding."""
-        embedding = await self.embedder.embed(content)
-        
-        await self.append_to_daily(role, content, importance, tags)
-        
-        return MemoryEntry(
-            timestamp=datetime.now(),
-            role=role,  # type: ignore
-            content=content,
-            embedding=embedding,
-            importance=importance,
-            tags=tags or [],
-        )
-    
-    async def load_all_daily_content(self) -> str:
-        """Load all daily Markdown files concatenated."""
-        contents = []
-        for path in sorted(self.memory_dir.glob("*.md")):
-            async with aiofiles.open(path, "r") as f:
-                content = await f.read()
-                if content.strip():
-                    contents.append(f"# {path.stem}\n\n{content}")
-        return "\n\n---\n\n".join(contents)
+        query: str,
+        top_k: int = 10,
+        include_curated: bool = True,
+    ) -> list[MemoryEntry]:
+        """Search all memories by semantic similarity to query."""
+        # 1. Embed query
+        # 2. Load all daily logs and MEMORY.md
+        # 3. Score by cosine similarity (boosted by importance)
+        # 4. Return top-k entries
+        pass
 ```
 
 ---
@@ -186,50 +207,39 @@ class MemoryStore:
 ## MEMORY.md Support
 
 ```python
-# Add to src/memory.py
+# Methods on MemoryStore class
 
-class CuratedMemory:
-    """Curated long-term memory (MEMORY.md)."""
-    
-    def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
-        self.path = Path("MEMORY.md")
-        self.config = config
-        self.embedder = embedder
-    
-    async def load(self) -> str:
-        """Load MEMORY.md content."""
-        if not self.path.exists():
-            return ""
-        async with aiofiles.open(self.path, "r") as f:
-            return await f.read()
-    
-    async def append(self, content: str) -> None:
-        """Append to MEMORY.md."""
-        async with aiofiles.open(self.path, "a") as f:
-            await f.write(f"\n\n{content}\n")
-    
-    async def get_entries(self) -> list[MemoryEntry]:
-        """Parse MEMORY.md into memory entries with embeddings."""
-        content = await self.load()
-        if not content:
-            return []
-        
-        # Split by headers or entries
-        sections = [s.strip() for s in content.split("\n\n") if s.strip()]
-        
-        entries = []
-        for section in sections:
-            embedding = await self.embedder.embed(section)
-            entries.append(MemoryEntry(
-                timestamp=datetime.now(),
-                role="system",
-                content=section,
-                embedding=embedding,
-                importance=1.0,  # High importance
-                tags=["curated"],
-            ))
-        
-        return entries
+async def read_curated_memory(self) -> str:
+    """Load MEMORY.md content."""
+    if not self.curated_path.exists():
+        return ""
+    async with aiofiles.open(self.curated_path, "r") as f:
+        return await f.read()
+
+async def write_curated_memory(self, content: str) -> None:
+    """Write to MEMORY.md (overwrites existing content).
+
+    Use this for durable, important memories that should persist
+    across sessions and be loaded into every context.
+    """
+    async with aiofiles.open(self.curated_path, "w") as f:
+        await f.write(content)
+
+async def append_curated_memory(self, content: str) -> None:
+    """Append to MEMORY.md."""
+    async with aiofiles.open(self.curated_path, "a") as f:
+        await f.write(f"\n\n{content}\n")
+
+async def parse_curated_memory(self) -> list[MemoryEntry]:
+    """Parse MEMORY.md into MemoryEntry objects with embeddings."""
+    content = await self.read_curated_memory()
+    if not content:
+        return []
+
+    # Each section becomes a MemoryEntry with:
+    # - importance=1.0 (curated memories are high importance)
+    # - tags=["curated"]
+    # - Fresh embedding for semantic search
 ```
 
 ---
@@ -321,3 +331,7 @@ async def test_curated_memory_loads_and_parses(mock_config, mock_embedder, tmp_p
 |------|----------|-----------|--------|
 | 2026-02-17 | Memory files are Markdown, not JSON | Human-readable, matches OpenClaw pattern | File format, parsing logic |
 | 2026-02-17 | Long-term memory is MEMORY.md | Matches OpenClaw pattern | Renamed from IMPORTANT.md |
+| 2026-02-17 | Daily logs contain distilled insights, not raw chat | Raw conversations too noisy; distilled facts are searchable and useful | Memory format, distillation process |
+| 2026-02-17 | Distillation process creates daily logs | Run before compact or end-of-day; extracts key facts, decisions, context | Workflow, when to write memories |
+| 2026-02-17 | HTML comments for metadata in Markdown | Human-readable with parseable structured data | File format, metadata storage |
+| 2026-02-17 | MemoryEntry as the retrieval unit | Self-contained insight with embedding, importance, tags | Search granularity, API design |
