@@ -18,6 +18,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 
 ## Medium-term
 
+- [ ] HTTP API + Cron - Local API for scheduled actions via cron (PRD #29)
 - [ ] M8: Capabilities - Tool use and function calling (PRD #18)
 - [ ] M9: Compaction - Memory summarization and archival (PRD #19)
 - [ ] M10: Distillation - Knowledge extraction and pattern learning (PRD #20)
