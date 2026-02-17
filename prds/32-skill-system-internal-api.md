@@ -250,15 +250,49 @@ Additional skills can be installed to `~/.alfred/skills/` or bundled in projects
 Base URL: http://localhost:${ALFRED_API_PORT}
 Default port: 8080
 
-All endpoints return JSON. Errors include `{"error": "message"}`.
+All endpoints return JSON.
+
+## Error Handling
+
+All errors follow this standard format:
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable description",
+    "details": {}  # Optional additional context
+  }
+}
+```
+
+Common HTTP status codes:
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request (invalid parameters)
+- `404` - Not Found
+- `409` - Conflict (e.g., duplicate ID)
+- `422` - Unprocessable Entity (validation failed)
+- `500` - Internal Server Error
+
+---
 
 ## Endpoints
 
 ### Health
 
+#### Check Health
+
 GET /health
 
-Response: {"status": "healthy"}
+Response:
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2026-02-17T15:30:00Z"
+}
+```
 
 ---
 
@@ -268,18 +302,144 @@ Response: {"status": "healthy"}
 
 POST /memories
 
-Request:
-{
-  "content": string,      # Memory text to store
-  "importance": number?,  # 0.0-1.0, default 0.5
-  "tags": string[]?       # Optional tags
-}
+Create a new memory.
 
-Response:
+Request:
+```json
 {
-  "id": string,           # Memory ID (UUID)
-  "timestamp": string     # ISO 8601 timestamp
+  "content": string,      # Required: Memory text to store
+  "importance": number?,  # Optional: 0.0-1.0, default 0.5
+  "tags": string[]?       # Optional: Array of tag strings
 }
+```
+
+Response (201 Created):
+```json
+{
+  "id": string,           # UUID for the memory
+  "timestamp": string,    # ISO 8601 timestamp
+  "content": string,      # Echo back the content
+  "importance": number,
+  "tags": string[]
+}
+```
+
+Errors:
+- `400` - Content is empty or invalid
+- `422` - Importance out of range (must be 0.0-1.0)
+
+---
+
+#### Get Memory
+
+GET /memories/{id}
+
+Retrieve a specific memory by ID.
+
+Path params:
+- id: string  # Memory UUID
+
+Response (200 OK):
+```json
+{
+  "id": string,
+  "content": string,
+  "date": string,         # Date stored (YYYY-MM-DD)
+  "timestamp": string,    # Full ISO timestamp
+  "importance": number,
+  "tags": string[],
+  "source": string        # "daily" or "memory"
+}
+```
+
+Errors:
+- `404` - Memory not found
+
+---
+
+#### Update Memory
+
+PUT /memories/{id}
+
+Update an existing memory. Only provided fields are updated.
+
+Path params:
+- id: string  # Memory UUID
+
+Request:
+```json
+{
+  "content": string?,     # Optional: New content
+  "importance": number?,  # Optional: New importance (0.0-1.0)
+  "tags": string[]?       # Optional: Replace tags entirely
+}
+```
+
+Response (200 OK):
+```json
+{
+  "id": string,
+  "timestamp": string,    # Original timestamp preserved
+  "updated_at": string,   # When update occurred
+  "content": string,
+  "importance": number,
+  "tags": string[]
+}
+```
+
+Errors:
+- `404` - Memory not found
+- `422` - Importance out of range
+
+---
+
+#### Delete Memory
+
+DELETE /memories/{id}
+
+Delete a memory by ID.
+
+Path params:
+- id: string  # Memory UUID
+
+Response (200 OK):
+```json
+{
+  "id": string,
+  "deleted": true,
+  "timestamp": string  # When deletion occurred
+}
+```
+
+Errors:
+- `404` - Memory not found
+
+---
+
+#### Batch Delete Memories
+
+DELETE /memories
+
+Delete multiple memories by ID.
+
+Request:
+```json
+{
+  "ids": string[]  # Array of memory UUIDs to delete
+}
+```
+
+Response (200 OK):
+```json
+{
+  "deleted": number,      # Count successfully deleted
+  "not_found": string[],  # IDs that didn't exist
+  "timestamp": string
+}
+```
+
+Errors:
+- `400` - IDs array is empty or invalid
 
 ---
 
@@ -287,22 +447,82 @@ Response:
 
 GET /memories
 
+List memories with pagination and filtering.
+
 Query params:
 - date: string?          # Filter by date (YYYY-MM-DD)
-- limit: number?         # Max results, default 20
+- tag: string?           # Filter by tag (exact match)
+- source: string?        # Filter by source ("daily" | "memory")
+- limit: number?         # Max results per page, default 20, max 100
+- offset: number?        # Pagination offset, default 0
+- sort_by: string?       # Sort field ("date" | "importance"), default "date"
+- sort_order: string?    # "asc" | "desc", default "desc"
 
-Response:
+Response (200 OK):
+```json
 {
   "memories": [
     {
       "id": string,
       "content": string,
       "date": string,
+      "timestamp": string,
       "importance": number,
-      "tags": string[]
+      "tags": string[],
+      "source": string
+    }
+  ],
+  "pagination": {
+    "total": number,      # Total matching memories
+    "limit": number,      # Current page size
+    "offset": number,     # Current offset
+    "has_more": boolean   # Whether more results exist
+  }
+}
+```
+
+---
+
+#### Batch Create Memories
+
+POST /memories/batch
+
+Create multiple memories in one request.
+
+Request:
+```json
+{
+  "memories": [
+    {
+      "content": string,
+      "importance": number?,
+      "tags": string[]?
     }
   ]
 }
+```
+
+Response (201 Created):
+```json
+{
+  "created": number,          # Count successfully created
+  "memories": [
+    {
+      "id": string,
+      "timestamp": string,
+      "content": string,
+      "importance": number,
+      "tags": string[]
+    }
+  ],
+  "errors": [                 # Any that failed validation
+    {
+      "index": number,        # Index in request array
+      "error": string         # Error message
+    }
+  ]
+}
+```
 
 ---
 
@@ -310,23 +530,37 @@ Response:
 
 GET /search
 
-Query params:
-- q: string              # Search query
-- limit: number?         # Max results, default 10
+Semantic search across all memories.
 
-Response:
+Query params:
+- q: string              # Required: Search query
+- limit: number?         # Max results, default 10, max 50
+- min_score: number?     # Minimum similarity (0.0-1.0), default 0.0
+- source: string?        # Filter by source ("daily" | "memory")
+
+Response (200 OK):
+```json
 {
   "results": [
     {
       "id": string,
       "content": string,
       "date": string,
-      "score": number,    # Similarity score 0.0-1.0
-      "source": string    # "daily" or "memory"
+      "timestamp": string,
+      "importance": number,
+      "tags": string[],
+      "source": string,
+      "score": number       # Similarity score 0.0-1.0
     }
   ],
-  "query": string
+  "query": string,
+  "total": number,        # Total matches before limit
+  "search_time_ms": number
 }
+```
+
+Errors:
+- `400` - Query is empty
 
 ---
 
@@ -339,17 +573,32 @@ POST /distill
 Triggers the distillation system to extract insights from recent conversations and write to MEMORY.md.
 
 Request:
+```json
 {
   "scope": "recent" | "all",  # What to analyze
-  "focus": string?            # Optional topic focus
+  "focus": string?,            # Optional: Topic to focus on
+  "since": string?             # Optional: ISO timestamp, analyze from this time
 }
+```
 
-Response:
+Response (200 OK):
+```json
 {
   "status": "completed",
   "insights_added": number,
-  "memory_file": string
+  "memory_file": string,
+  "processed_memories": number,
+  "duration_ms": number
 }
+```
+
+Response (202 Accepted) - if processing is async:
+```json
+{
+  "status": "processing",
+  "job_id": string
+}
+```
 
 ---
 
@@ -360,17 +609,36 @@ POST /learn
 Updates agent files (USER.md, SOUL.md) based on observed patterns.
 
 Request:
+```json
 {
   "target": "user" | "soul",  # Which file to update
-  "observation": string       # What was learned
+  "observation": string,       # What was learned
+  "confidence": number?         # Optional: 0.0-1.0 confidence level
 }
+```
 
-Response:
+Response (200 OK):
+```json
 {
   "status": "updated",
   "file": string,
-  "changes": string[]         # List of changes made
+  "changes": string[],         # List of changes made
+  "backup_created": string     # Path to backup file
 }
+```
+
+Response (200 OK) - if no changes needed:
+```json
+{
+  "status": "no_change",
+  "file": string,
+  "reason": string
+}
+```
+
+Errors:
+- `400` - Invalid target (must be "user" or "soul")
+- `422` - Observation is empty
 
 ---
 
@@ -381,17 +649,74 @@ POST /compact
 Triggers context compaction for the current session.
 
 Request:
+```json
 {
-  "instructions": string?     # Optional custom instructions
+  "instructions": string?,     # Optional: Custom instructions for summarization
+  "preserve_recent": number?   # Optional: Number of recent messages to preserve
 }
+```
 
-Response:
+Response (200 OK):
+```json
 {
   "status": "completed",
   "tokens_before": number,
   "tokens_after": number,
-  "summary": string
+  "tokens_saved": number,
+  "summary": string,
+  "messages_compacted": number
 }
+```
+
+---
+
+### System Endpoints
+
+#### Get API Info
+
+GET /
+
+Returns API information and available endpoints.
+
+Response (200 OK):
+```json
+{
+  "name": "Alfred Internal API",
+  "version": "1.0.0",
+  "endpoints": [
+    {
+      "path": "/health",
+      "methods": ["GET"],
+      "description": "Health check"
+    },
+    {
+      "path": "/memories",
+      "methods": ["GET", "POST", "DELETE"],
+      "description": "Memory management"
+    },
+    {
+      "path": "/search",
+      "methods": ["GET"],
+      "description": "Semantic search"
+    },
+    {
+      "path": "/distill",
+      "methods": ["POST"],
+      "description": "Extract insights to MEMORY.md"
+    },
+    {
+      "path": "/learn",
+      "methods": ["POST"],
+      "description": "Update agent files"
+    },
+    {
+      "path": "/compact",
+      "methods": ["POST"],
+      "description": "Summarize context"
+    }
+  ]
+}
+```
 ```
 
 ### API Server (src/api.py)
@@ -418,6 +743,21 @@ logger = logging.getLogger(__name__)
 
 # Request/Response Models
 
+# Error response model
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+    details: Optional[dict] = None
+
+
+# Health
+class HealthResponse(BaseModel):
+    status: str
+    version: str = "1.0.0"
+    timestamp: str
+
+
+# Memory CRUD
 class MemoryCreate(BaseModel):
     content: str
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -427,64 +767,137 @@ class MemoryCreate(BaseModel):
 class MemoryResponse(BaseModel):
     id: str
     timestamp: str
+    content: str
+    importance: float
+    tags: list[str]
+
+
+class MemoryUpdate(BaseModel):
+    content: Optional[str] = None
+    importance: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    tags: Optional[list[str]] = None
 
 
 class Memory(BaseModel):
     id: str
     content: str
     date: str
+    timestamp: str
     importance: float
     tags: list[str]
+    source: str
+
+
+class PaginationInfo(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
 
 
 class MemoryList(BaseModel):
     memories: list[Memory]
+    pagination: PaginationInfo
 
 
+# Batch operations
+class BatchMemoryCreate(BaseModel):
+    memories: list[MemoryCreate]
+
+
+class BatchMemoryCreateResult(BaseModel):
+    index: int
+    error: str
+
+
+class BatchMemoryCreateResponse(BaseModel):
+    created: int
+    memories: list[MemoryResponse]
+    errors: list[BatchMemoryCreateResult]
+
+
+class BatchMemoryDelete(BaseModel):
+    ids: list[str]
+
+
+class BatchMemoryDeleteResponse(BaseModel):
+    deleted: int
+    not_found: list[str]
+    timestamp: str
+
+
+# Search
 class SearchResult(BaseModel):
     id: str
     content: str
     date: str
-    score: float
+    timestamp: str
+    importance: float
+    tags: list[str]
     source: str
+    score: float
 
 
 class SearchResponse(BaseModel):
     results: list[SearchResult]
     query: str
+    total: int
+    search_time_ms: int
 
 
+# Capabilities
 class DistillRequest(BaseModel):
     scope: str = "recent"
     focus: Optional[str] = None
+    since: Optional[str] = None
 
 
 class DistillResponse(BaseModel):
     status: str
     insights_added: int
     memory_file: str
+    processed_memories: int
+    duration_ms: int
 
 
 class LearnRequest(BaseModel):
     target: str
     observation: str
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 
 class LearnResponse(BaseModel):
     status: str
     file: str
     changes: list[str]
+    backup_created: str
 
 
 class CompactRequest(BaseModel):
     instructions: Optional[str] = None
+    preserve_recent: Optional[int] = None
 
 
 class CompactResponse(BaseModel):
     status: str
     tokens_before: int
     tokens_after: int
+    tokens_saved: int
     summary: str
+    messages_compacted: int
+
+
+# API Info
+class EndpointInfo(BaseModel):
+    path: str
+    methods: list[str]
+    description: str
+
+
+class APIInfoResponse(BaseModel):
+    name: str
+    version: str
+    endpoints: list[EndpointInfo]
 
 
 # API Server
@@ -523,61 +936,234 @@ class APIServer:
             lifespan=self.lifespan,
         )
 
-        # Health
-        @app.get("/health")
-        async def health():
-            return {"status": "healthy"}
+        # API Info
+        @app.get("/", response_model=APIInfoResponse)
+        async def api_info():
+            return APIInfoResponse(
+                name="Alfred Internal API",
+                version="1.0.0",
+                endpoints=[
+                    EndpointInfo(path="/health", methods=["GET"], description="Health check"),
+                    EndpointInfo(path="/memories", methods=["GET", "POST", "DELETE"], description="Memory management"),
+                    EndpointInfo(path="/search", methods=["GET"], description="Semantic search"),
+                    EndpointInfo(path="/distill", methods=["POST"], description="Extract insights to MEMORY.md"),
+                    EndpointInfo(path="/learn", methods=["POST"], description="Update agent files"),
+                    EndpointInfo(path="/compact", methods=["POST"], description="Summarize context"),
+                ]
+            )
 
-        # Memory endpoints
-        @app.post("/memories", response_model=MemoryResponse)
+        # Health
+        @app.get("/health", response_model=HealthResponse)
+        async def health():
+            from datetime import datetime, timezone
+            return HealthResponse(
+                status="healthy",
+                timestamp=datetime.now(timezone.utc).isoformat()
+            )
+
+        # Memory endpoints - CRUD
+        @app.post("/memories", response_model=MemoryResponse, status_code=201)
         async def create_memory(req: MemoryCreate):
-            if not req.content.strip():
-                raise HTTPException(400, "Content cannot be empty")
+            if not req.content or not req.content.strip():
+                raise HTTPException(400, detail={
+                    "error": {"code": "INVALID_CONTENT", "message": "Content cannot be empty"}
+                })
             result = self.memory.store(
                 content=req.content,
                 importance=req.importance,
                 tags=req.tags,
             )
-            return MemoryResponse(id=result.id, timestamp=result.timestamp)
+            return MemoryResponse(
+                id=result.id,
+                timestamp=result.timestamp,
+                content=req.content,
+                importance=req.importance,
+                tags=req.tags,
+            )
+
+        @app.get("/memories/{memory_id}", response_model=Memory)
+        async def get_memory(memory_id: str):
+            memory = self.memory.get(memory_id)
+            if not memory:
+                raise HTTPException(404, detail={
+                    "error": {"code": "NOT_FOUND", "message": f"Memory {memory_id} not found"}
+                })
+            return Memory(**memory)
+
+        @app.put("/memories/{memory_id}", response_model=Memory)
+        async def update_memory(memory_id: str, req: MemoryUpdate):
+            memory = self.memory.get(memory_id)
+            if not memory:
+                raise HTTPException(404, detail={
+                    "error": {"code": "NOT_FOUND", "message": f"Memory {memory_id} not found"}
+                })
+            updated = self.memory.update(
+                memory_id,
+                content=req.content,
+                importance=req.importance,
+                tags=req.tags,
+            )
+            return Memory(**updated)
+
+        @app.delete("/memories/{memory_id}")
+        async def delete_memory(memory_id: str):
+            deleted = self.memory.delete(memory_id)
+            if not deleted:
+                raise HTTPException(404, detail={
+                    "error": {"code": "NOT_FOUND", "message": f"Memory {memory_id} not found"}
+                })
+            from datetime import datetime, timezone
+            return {
+                "id": memory_id,
+                "deleted": True,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+
+        @app.delete("/memories")
+        async def batch_delete_memories(req: BatchMemoryDelete):
+            if not req.ids:
+                raise HTTPException(400, detail={
+                    "error": {"code": "INVALID_REQUEST", "message": "IDs array cannot be empty"}
+                })
+            result = self.memory.batch_delete(req.ids)
+            from datetime import datetime, timezone
+            return BatchMemoryDeleteResponse(
+                deleted=result["deleted"],
+                not_found=result["not_found"],
+                timestamp=datetime.now(timezone.utc).isoformat()
+            )
 
         @app.get("/memories", response_model=MemoryList)
         async def list_memories(
             date: Optional[str] = Query(None),
-            limit: int = Query(20, le=100),
+            tag: Optional[str] = Query(None),
+            source: Optional[str] = Query(None),
+            limit: int = Query(20, ge=1, le=100),
+            offset: int = Query(0, ge=0),
+            sort_by: str = Query("date", regex="^(date|importance)$"),
+            sort_order: str = Query("desc", regex="^(asc|desc)$"),
         ):
-            memories = self.memory.list(date_filter=date, limit=limit)
-            return MemoryList(memories=[Memory(**m) for m in memories])
+            memories, total = self.memory.list(
+                date_filter=date,
+                tag_filter=tag,
+                source_filter=source,
+                limit=limit,
+                offset=offset,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+            return MemoryList(
+                memories=[Memory(**m) for m in memories],
+                pagination=PaginationInfo(
+                    total=total,
+                    limit=limit,
+                    offset=offset,
+                    has_more=(offset + limit) < total
+                )
+            )
+
+        @app.post("/memories/batch", response_model=BatchMemoryCreateResponse, status_code=201)
+        async def batch_create_memories(req: BatchMemoryCreate):
+            if not req.memories:
+                raise HTTPException(400, detail={
+                    "error": {"code": "INVALID_REQUEST", "message": "Memories array cannot be empty"}
+                })
+            
+            created_memories = []
+            errors = []
+            
+            for i, mem in enumerate(req.memories):
+                try:
+                    if not mem.content or not mem.content.strip():
+                        errors.append(BatchMemoryCreateResult(
+                            index=i,
+                            error="Content cannot be empty"
+                        ))
+                        continue
+                    
+                    result = self.memory.store(
+                        content=mem.content,
+                        importance=mem.importance,
+                        tags=mem.tags,
+                    )
+                    created_memories.append(MemoryResponse(
+                        id=result.id,
+                        timestamp=result.timestamp,
+                        content=mem.content,
+                        importance=mem.importance,
+                        tags=mem.tags,
+                    ))
+                except Exception as e:
+                    errors.append(BatchMemoryCreateResult(
+                        index=i,
+                        error=str(e)
+                    ))
+            
+            return BatchMemoryCreateResponse(
+                created=len(created_memories),
+                memories=created_memories,
+                errors=errors
+            )
 
         @app.get("/search", response_model=SearchResponse)
         async def search_memories(
             q: str = Query(..., min_length=1),
-            limit: int = Query(10, le=50),
+            limit: int = Query(10, ge=1, le=50),
+            min_score: float = Query(0.0, ge=0.0, le=1.0),
+            source: Optional[str] = Query(None),
         ):
-            results = self.search.search(query=q, limit=limit)
+            import time
+            start_time = time.time()
+            
+            results, total = self.search.search(
+                query=q,
+                limit=limit,
+                min_score=min_score,
+                source_filter=source,
+            )
+            
+            search_time = int((time.time() - start_time) * 1000)
+            
             return SearchResponse(
                 results=[SearchResult(**r) for r in results],
                 query=q,
+                total=total,
+                search_time_ms=search_time,
             )
 
         # Capability endpoints
         @app.post("/distill", response_model=DistillResponse)
         async def distill(req: DistillRequest):
-            result = self.distiller.distill(scope=req.scope, focus=req.focus)
+            result = self.distiller.distill(
+                scope=req.scope,
+                focus=req.focus,
+                since=req.since,
+            )
             return DistillResponse(**result)
 
         @app.post("/learn", response_model=LearnResponse)
         async def learn(req: LearnRequest):
             if req.target not in ("user", "soul"):
-                raise HTTPException(400, "target must be 'user' or 'soul'")
+                raise HTTPException(400, detail={
+                    "error": {"code": "INVALID_TARGET", "message": "target must be 'user' or 'soul'"}
+                })
+            if not req.observation or not req.observation.strip():
+                raise HTTPException(422, detail={
+                    "error": {"code": "INVALID_OBSERVATION", "message": "Observation cannot be empty"}
+                })
             result = self.learner.learn(
                 target=req.target,
                 observation=req.observation,
+                confidence=req.confidence,
             )
             return LearnResponse(**result)
 
         @app.post("/compact", response_model=CompactResponse)
         async def compact(req: CompactRequest):
-            result = self.compactor.compact(instructions=req.instructions)
+            result = self.compactor.compact(
+                instructions=req.instructions,
+                preserve_recent=req.preserve_recent,
+            )
             return CompactResponse(**result)
 
         return app
