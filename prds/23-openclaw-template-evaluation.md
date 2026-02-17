@@ -437,10 +437,10 @@ _Good luck out there. Make it count._
 - [ ] Test BOOTSTRAP.md deletion flow
 
 ### Milestone 5: Documentation
-- [ ] Document template system in README
-- [ ] Explain each template's purpose
-- [ ] Provide examples of customized templates
-- [ ] Add troubleshooting guide
+- [x] Document template system in README
+- [x] Explain each template's purpose
+- [x] Provide examples of customized templates
+- [x] Add troubleshooting guide
 
 ---
 
@@ -468,7 +468,7 @@ alfred/
 - [x] All 4 templates defined (SOUL.md, USER.md, TOOLS.md, MEMORY.md)
 - [x] Templates auto-create when missing
 - [x] Templates use frontmatter metadata consistently
-- [ ] Users can customize templates without breaking updates
+- [x] Users can customize templates without breaking updates
 - [x] Template content follows writing skill guidelines (concise, active voice)
 - [x] Templates bundled in Docker image at `/app/templates/`
 - [ ] Missing files copied from templates on startup
