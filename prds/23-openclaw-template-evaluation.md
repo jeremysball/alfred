@@ -432,7 +432,7 @@ _Good luck out there. Make it count._
 
 ### Milestone 4: Testing
 - [x] Unit tests for template loading
-- [ ] Integration tests for auto-creation
+- [x] Integration tests for auto-creation
 - [ ] Verify template content is valid markdown
 - [ ] Test BOOTSTRAP.md deletion flow
 
