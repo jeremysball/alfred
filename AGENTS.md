@@ -126,3 +126,28 @@ Fail fast: surface errors immediately rather than silently swallowing them.
 - Suggest important memories; let users or the model confirm
 - Retrieve context without requiring explicit commands
 - Learn patterns and update agent files (USER.md, SOUL.md) over time
+
+## Alfred Project Structure
+
+### Template Files Location
+
+Alfred's template files (SOUL.md, USER.md, TOOLS.md, etc.) belong in the `templates/` directory:
+
+```
+alfred/
+├── templates/          # Template files (reference copies)
+│   ├── SOUL.md
+│   ├── USER.md
+│   ├── TOOLS.md
+│   ├── AGENTS.md
+│   └── BOOTSTRAP.md
+├── SOUL.md            # User's actual files (created from templates)
+├── USER.md
+├── TOOLS.md
+└── ...
+```
+
+- **templates/**: Contains the default/reference versions
+- **Root level**: Contains the user's actual customized files
+- When creating new Alfred instances, copy from `templates/` to root
+- Never edit templates directly unless updating the defaults
