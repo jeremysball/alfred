@@ -5,7 +5,7 @@
 **Issue**: #15
 **Parent**: #10 (Alfred - The Rememberer)
 **Depends On**: #12 (M2: Core Infrastructure)
-**Status**: Planning
+**Status**: Complete
 **Priority**: High
 **Created**: 2026-02-16
 
@@ -33,12 +33,12 @@ Build async Telegram bot as a thin interface:
 
 ## Acceptance Criteria
 
-- [ ] `src/interfaces/telegram.py` - Telegram bot implementation
-- [ ] `src/interfaces/cli.py` - CLI interface (parallel implementation)
-- [ ] Async message handling
-- [ ] Delegation to core Alfred engine (not direct memory/context access)
-- [ ] Error handling with user feedback
-- [ ] Support for `/compact` command
+- [x] `src/interfaces/telegram.py` - Telegram bot implementation
+- [x] `src/interfaces/cli.py` - CLI interface (parallel implementation)
+- [x] Async message handling
+- [x] Delegation to core Alfred engine (not direct memory/context access)
+- [x] Error handling with user feedback
+- [x] Support for `/compact` command
 
 ---
 
@@ -362,10 +362,10 @@ services:
 
 ## Success Criteria
 
-- [ ] Bot responds to /start
-- [ ] Bot delegates all chat to Alfred.chat()
-- [ ] CLI interface works with same Alfred engine
-- [ ] /compact command delegates to Alfred.compact()
-- [ ] Errors surface to user
-- [ ] All async operations work correctly
-- [ ] Type-safe throughout
+- [x] Bot responds to /start
+- [x] Bot delegates all chat to Alfred.chat()
+- [x] CLI interface works with same Alfred engine
+- [x] /compact command delegates to Alfred.compact()
+- [x] Errors surface to user
+- [x] All async operations work correctly
+- [x] Type-safe throughout
