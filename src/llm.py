@@ -316,9 +316,19 @@ class KimiProvider(LLMProvider):
         import openai
         
         try:
+            # Convert messages to API format, including tool_call_id for tool messages
+            api_messages = []
+            for m in messages:
+                msg = {"role": m.role, "content": m.content}
+                if m.role == "tool" and m.tool_call_id:
+                    msg["tool_call_id"] = m.tool_call_id
+                if m.tool_calls:
+                    msg["tool_calls"] = m.tool_calls
+                api_messages.append(msg)
+            
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],
+                messages=api_messages,
                 tools=tools,
                 temperature=0.7,
                 max_tokens=4000,

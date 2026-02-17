@@ -4,7 +4,7 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from src.llm import ChatMessage, LLMProvider
 from src.tools import ToolRegistry
@@ -103,6 +103,17 @@ class Agent:
             messages.append(ChatMessage(
                 role="assistant",
                 content=full_content,
+                tool_calls=[
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments),
+                        },
+                    }
+                    for tc in tool_calls
+                ],
             ))
             
             # Execute tools with streaming
