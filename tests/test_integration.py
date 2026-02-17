@@ -26,8 +26,13 @@ def reset_registry():
 @pytest.fixture
 def temp_workspace():
     """Create a temporary workspace for file operations."""
+    import shutil
     with tempfile.TemporaryDirectory() as tmpdir:
         original_cwd = os.getcwd()
+        # Copy .env file to temp directory
+        env_file = Path(original_cwd) / ".env"
+        if env_file.exists():
+            shutil.copy(env_file, Path(tmpdir) / ".env")
         os.chdir(tmpdir)
         yield tmpdir
         os.chdir(original_cwd)
@@ -301,6 +306,8 @@ class TestAgentWithRealLLM:
     @pytest.mark.asyncio
     async def test_agent_reads_file(self, temp_workspace):
         """Test agent actually reading a file via LLM."""
+        import os
+        from pathlib import Path
         from src.config import load_config
         from src.llm import LLMFactory
 
@@ -308,8 +315,9 @@ class TestAgentWithRealLLM:
         with open("test_content.txt", "w") as f:
             f.write("This is test content for the agent to read.")
 
-        # Set up real components
-        config = load_config()
+        # Load config from original directory
+        original_dir = "/workspace/alfred-prd"
+        config = load_config(Path(original_dir) / "config.json")
         llm = LLMFactory.create(config)
         register_builtin_tools()
         registry = get_registry()
@@ -326,10 +334,13 @@ class TestAgentWithRealLLM:
     @pytest.mark.asyncio
     async def test_agent_writes_file(self, temp_workspace):
         """Test agent writing a file via LLM."""
+        import os
+        from pathlib import Path
         from src.config import load_config
         from src.llm import LLMFactory
 
-        config = load_config()
+        original_dir = "/workspace/alfred-prd"
+        config = load_config(Path(original_dir) / "config.json")
         llm = LLMFactory.create(config)
         register_builtin_tools()
         registry = get_registry()
