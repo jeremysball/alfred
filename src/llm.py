@@ -4,8 +4,8 @@ import asyncio
 import logging
 import random
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator
 
 from src.config import Config
 
@@ -65,54 +65,54 @@ def retry_with_backoff(
     def decorator(func):
         async def wrapper(*args, **kwargs):
             last_exception = None
-            
+
             for attempt in range(max_retries + 1):
                 try:
                     return await func(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
-                    
+
                     # Don't retry on certain errors (programming errors)
                     if isinstance(e, (ValueError, TypeError, AttributeError)):
                         raise
-                    
+
                     if attempt >= max_retries:
                         logger.error(
                             f"Max retries ({max_retries}) exceeded for {func.__name__}: {e}"
                         )
                         raise last_exception
-                    
+
                     # Calculate delay with exponential backoff
                     delay = min(
                         base_delay * (exponential_base ** attempt),
                         max_delay
                     )
-                    
+
                     # Add jitter to avoid thundering herd (0.5x to 1.5x)
                     if jitter:
                         delay = delay * (0.5 + random.random())
-                    
+
                     logger.warning(
                         f"Attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: {e}. "
                         f"Retrying in {delay:.2f}s..."
                     )
-                    
+
                     await asyncio.sleep(delay)
-            
+
             raise last_exception
-        
+
         return wrapper
     return decorator
 
 
 class LLMProvider(ABC):
     """Abstract base for LLM providers."""
-    
+
     @abstractmethod
     async def chat(self, messages: list[ChatMessage]) -> ChatResponse:
         """Send chat messages and get response."""
         pass
-    
+
     @abstractmethod
     async def stream_chat(
         self, messages: list[ChatMessage]
@@ -123,22 +123,25 @@ class LLMProvider(ABC):
 
 class KimiProvider(LLMProvider):
     """Kimi Coding Plan provider with retry logic."""
-    
+
     def __init__(self, config: Config) -> None:
         import openai
         self.client = openai.AsyncOpenAI(
             api_key=config.kimi_api_key,
             base_url=config.kimi_base_url,
+            default_headers={
+                "User-Agent": "Kilo-Code/1.0",
+            },
         )
         self.model = config.chat_model
-    
+
     @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def chat(self, messages: list[ChatMessage]) -> ChatResponse:
         """Send chat to Kimi with retry logic."""
         import openai
-        
+
         logger.debug(f"Sending chat request to Kimi with {len(messages)} messages")
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -161,10 +164,10 @@ class KimiProvider(LLMProvider):
         except Exception as e:
             logger.error(f"Unexpected error calling Kimi: {e}")
             raise LLMError(f"Unexpected error: {e}") from e
-        
+
         content = response.choices[0].message.content or ""
         logger.debug(f"Received response from Kimi: {len(content)} chars")
-        
+
         return ChatResponse(
             content=content,
             model=response.model,
@@ -173,16 +176,16 @@ class KimiProvider(LLMProvider):
                 "completion_tokens": response.usage.completion_tokens if response.usage else 0,
             } if response.usage else None,
         )
-    
+
     @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def stream_chat(
         self, messages: list[ChatMessage]
     ) -> AsyncIterator[str]:
         """Stream chat from Kimi with retry logic."""
         import openai
-        
+
         logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
-        
+
         try:
             stream = await self.client.chat.completions.create(
                 model=self.model,
@@ -206,7 +209,7 @@ class KimiProvider(LLMProvider):
         except Exception as e:
             logger.error(f"Unexpected error calling Kimi: {e}")
             raise LLMError(f"Unexpected error: {e}") from e
-        
+
         try:
             async for chunk in stream:
                 content = chunk.choices[0].delta.content
@@ -219,7 +222,7 @@ class KimiProvider(LLMProvider):
 
 class LLMFactory:
     """Factory for creating LLM providers."""
-    
+
     @staticmethod
     def create(config: Config) -> LLMProvider:
         """Create provider based on config."""

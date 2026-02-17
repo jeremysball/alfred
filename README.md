@@ -29,8 +29,22 @@ Alfred is a persistent memory-augmented LLM assistant. He remembers conversation
 
 3. **Run**
    ```bash
+   # CLI mode (default)
    alfred
+   
+   # Telegram bot mode
+   alfred --telegram
+   
+   # Debug logging
+   alfred --debug
    ```
+
+### Available Options
+
+| Flag | Description |
+|------|-------------|
+| `--telegram` | Run as Telegram bot (default: CLI) |
+| `--debug` | Enable debug logging |
 
 ### For Developers
 
@@ -59,6 +73,18 @@ Alfred is a persistent memory-augmented LLM assistant. He remembers conversation
 5. **Run tests**
    ```bash
    uv run pytest
+   ```
+
+6. **Run Alfred**
+   ```bash
+   # CLI mode
+   uv run alfred
+   
+   # Or with dotenv for secrets
+   uv run dotenv alfred
+   
+   # Telegram mode
+   uv run dotenv alfred --telegram
    ```
 
 ### Using Docker (Full Environment)

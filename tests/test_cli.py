@@ -11,12 +11,6 @@ from src.llm import ChatResponse
 
 
 @pytest.fixture
-def mock_config():
-    """Create a mock config."""
-    return MagicMock(spec=Config)
-
-
-@pytest.fixture
 def mock_alfred():
     """Create a mock Alfred engine."""
     alfred = MagicMock(spec=Alfred)
@@ -28,9 +22,9 @@ def mock_alfred():
 
 
 @pytest.mark.asyncio
-async def test_chat_delegates_to_alfred(mock_config, mock_alfred):
+async def test_chat_delegates_to_alfred(mock_alfred):
     """Test that CLI delegates chat to Alfred."""
-    interface = CLIInterface(mock_config, mock_alfred)
+    interface = CLIInterface(mock_alfred)
 
     with patch("sys.stdin", StringIO("Hello\nexit\n")):
         with patch("sys.stdout", StringIO()):
@@ -40,9 +34,9 @@ async def test_chat_delegates_to_alfred(mock_config, mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_compact_delegates_to_alfred(mock_config, mock_alfred):
+async def test_compact_delegates_to_alfred(mock_alfred):
     """Test that CLI delegates compact to Alfred."""
-    interface = CLIInterface(mock_config, mock_alfred)
+    interface = CLIInterface(mock_alfred)
 
     with patch("sys.stdin", StringIO("compact\nexit\n")):
         with patch("sys.stdout", StringIO()):
@@ -52,9 +46,9 @@ async def test_compact_delegates_to_alfred(mock_config, mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_exit_terminates_loop(mock_config, mock_alfred):
+async def test_exit_terminates_loop(mock_alfred):
     """Test that 'exit' command terminates the loop."""
-    interface = CLIInterface(mock_config, mock_alfred)
+    interface = CLIInterface(mock_alfred)
 
     with patch("sys.stdin", StringIO("exit\n")):
         with patch("sys.stdout", StringIO()):
@@ -65,9 +59,9 @@ async def test_exit_terminates_loop(mock_config, mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_empty_input_ignored(mock_config, mock_alfred):
+async def test_empty_input_ignored(mock_alfred):
     """Test that empty input is ignored."""
-    interface = CLIInterface(mock_config, mock_alfred)
+    interface = CLIInterface(mock_alfred)
 
     with patch("sys.stdin", StringIO("\n\nHello\nexit\n")):
         with patch("sys.stdout", StringIO()):
@@ -78,9 +72,9 @@ async def test_empty_input_ignored(mock_config, mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_eoferror_terminates_loop(mock_config, mock_alfred):
+async def test_eoferror_terminates_loop(mock_alfred):
     """Test that EOFError terminates the loop gracefully."""
-    interface = CLIInterface(mock_config, mock_alfred)
+    interface = CLIInterface(mock_alfred)
 
     # Simulate EOFError on first input
     with patch("builtins.input", side_effect=EOFError):
@@ -91,9 +85,9 @@ async def test_eoferror_terminates_loop(mock_config, mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_case_insensitive_commands(mock_config, mock_alfred):
+async def test_case_insensitive_commands(mock_alfred):
     """Test that commands are case-insensitive."""
-    interface = CLIInterface(mock_config, mock_alfred)
+    interface = CLIInterface(mock_alfred)
 
     with patch("sys.stdin", StringIO("COMPACT\nEXIT\n")):
         with patch("sys.stdout", StringIO()):
