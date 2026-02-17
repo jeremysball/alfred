@@ -1,11 +1,23 @@
 """Context file loading and assembly for Alfred."""
 
 import asyncio
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 
 from src.types import ContextFile, AssembledContext, MemoryEntry
 from src.config import Config
+from src.templates import TemplateManager
+
+logger = logging.getLogger(__name__)
+
+# Map context file names to template filenames
+CONTEXT_TO_TEMPLATE = {
+    "agents": "AGENTS.md",
+    "soul": "SOUL.md",
+    "user": "USER.md",
+    "tools": "TOOLS.md",
+}
 
 
 class ContextCache:
@@ -46,13 +58,25 @@ class ContextLoader:
     def __init__(self, config: Config, cache_ttl: int = 60) -> None:
         self.config = config
         self._cache = ContextCache(ttl_seconds=cache_ttl)
+        self._template_manager = TemplateManager(config.workspace_dir)
     
     async def load_file(self, name: str, path: Path) -> ContextFile:
-        """Load a context file or fail if missing. Uses cache if available."""
+        """Load a context file, auto-creating from template if missing.
+        
+        Uses cache if available. Auto-creates missing files from templates
+        for known context types (soul, user, tools).
+        """
         # Check cache first
         cached = self._cache.get(name)
         if cached:
             return cached
+        
+        # Auto-create from template if missing
+        if not path.exists():
+            template_name = CONTEXT_TO_TEMPLATE.get(name)
+            if template_name and template_name in TemplateManager.AUTO_CREATE_TEMPLATES:
+                logger.info(f"Auto-creating missing context file from template: {name}")
+                self._template_manager.ensure_exists(template_name)
         
         if not path.exists():
             raise FileNotFoundError(f"Required context file missing: {path}")

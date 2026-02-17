@@ -1,6 +1,7 @@
 """Tests for LLM provider (non-API tests only)."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -32,7 +33,8 @@ def sample_config():
         embedding_model="text-embedding-3-small",
         chat_model="kimi-k2-5",
         memory_context_limit=20,
-        memory_dir="memory",
+        workspace_dir=Path("data"),
+        memory_dir=Path("memory"),
         context_files={},
     )
 
