@@ -13,9 +13,9 @@ class EditTool(Tool):
 
     def execute(
         self,
-        path: str = Field(..., description="Path to the file to edit"),
-        old_text: str = Field(..., description="Exact text to find and replace (must match including whitespace)"),
-        new_text: str = Field(..., description="Text to replace with"),
+        path: str,
+        old_text: str,
+        new_text: str,
     ) -> dict:
         """Replace old_text with new_text in file."""
         try:
@@ -36,6 +36,7 @@ class EditTool(Tool):
                 snippet = content[:200].replace("\n", " ") if len(content) > 200 else content.replace("\n", " ")
                 return {
                     "success": False,
+                    "edited": False,
                     "error": f"old_text not found in file. File starts with: {snippet}...",
                     "path": path,
                 }
@@ -47,6 +48,7 @@ class EditTool(Tool):
             if new_content == content:
                 return {
                     "success": False,
+                    "edited": False,
                     "error": "Replacement failed - old_text may have been found but not replaced",
                     "path": path,
                 }
@@ -57,6 +59,7 @@ class EditTool(Tool):
 
             return {
                 "success": True,
+                "edited": True,
                 "path": path,
                 "replacements": 1,
                 "bytes_changed": len(new_content) - len(content),
@@ -65,6 +68,7 @@ class EditTool(Tool):
         except Exception as e:
             return {
                 "success": False,
+                "edited": False,
                 "error": str(e),
                 "path": path,
             }

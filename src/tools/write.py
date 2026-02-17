@@ -16,8 +16,8 @@ class WriteTool(Tool):
 
     def execute(
         self,
-        path: str = Field(..., description="Path where to write the file"),
-        content: str = Field(..., description="Content to write to the file"),
+        path: str,
+        content: str,
     ) -> dict:
         """Write content to file, creating parent directories if needed."""
         try:

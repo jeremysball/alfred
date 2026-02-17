@@ -18,8 +18,8 @@ class BashTool(Tool):
 
     def execute(
         self,
-        command: str = Field(..., description="The bash command to execute"),
-        timeout: Optional[int] = Field(default=60, description="Timeout in seconds (default: 60, max: 300)"),
+        command: str,
+        timeout: Optional[int] = 60,
     ) -> dict:
         """Execute a bash command with output truncation."""
         # Clamp timeout

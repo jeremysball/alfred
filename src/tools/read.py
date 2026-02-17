@@ -16,9 +16,9 @@ class ReadTool(Tool):
     
     def execute(
         self,
-        path: str = Field(..., description="Path to the file to read"),
-        offset: Optional[int] = Field(default=None, description="Line number to start from (1-indexed)"),
-        limit: Optional[int] = Field(default=None, description="Maximum number of lines to read"),
+        path: str,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> str:
         """Read file contents with optional pagination."""
         # Validate path exists
