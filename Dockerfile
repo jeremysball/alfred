@@ -99,6 +99,7 @@ RUN npx playwright install chromium firefox webkit
 # Create .pi directory structure and workspace
 RUN mkdir -p /home/node/.pi/agent
 RUN mkdir -p /workspace
+RUN mkdir -p /workspace/data
 RUN chown -R node:node /home/node/.pi
 RUN chown -R node:node /workspace
 
@@ -144,6 +145,7 @@ RUN uv venv
 COPY pyproject.toml uv.lock .
 COPY alfred ./alfred
 COPY docs ./docs
+COPY templates/ /app/templates/
 RUN bash -c "source /app/.venv/bin/activate && uv pip install -e ."
 
 # Create symlink to docs for easy access

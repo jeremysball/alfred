@@ -1,0 +1,14 @@
+{
+  "default_llm_provider": "kimi",
+  "embedding_model": "text-embedding-3-small",
+  "chat_model": "kimi-k2-5",
+  "memory_context_limit": 20,
+  "workspace_dir": "data",
+  "memory_dir": "data/memory",
+  "context_files": {
+    "agents": "data/AGENTS.md",
+    "soul": "data/SOUL.md",
+    "user": "data/USER.md",
+    "tools": "data/TOOLS.md"
+  }
+}
