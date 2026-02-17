@@ -1,0 +1,15 @@
+A vector mascot logo for "Alfred," an AI coding companion with persistent memory.
+
+SUBJECT: A stylized moth with large geometric wings. Circuit patterns cover the wings. Two hexagonal compound eyes dominate the face. Two antennae shaped like angle brackets extend upward. A soft bioluminescent glow emits from the wings and eyes.
+
+COMPOSITION: Centered in a square frame. Three-quarter view facing right. Wings partially open at 60%. Wingspan fills 75% of frame width. Readable at 64x64 pixels.
+
+ACTION: Hovering. Balanced. Alert. The glow pulses.
+
+LOCATION: White background.
+
+STYLE: Flat vector. Two colors: charcoal body (#1a1a2e), cyan glow (#00d9ff). Optional lavender wing membrane (#b8c5ff). Clean lines. No gradients. The circuit traces are geometric; the wing shapes are organic.
+
+EDITING: Reads as "moth" at small sizes. Circuit patterns show detail at larger sizes. Bracket-antennae visible on close inspection. Works as app icon, favicon, avatar. Works in monochrome.
+
+FORMAT: Square 1024x1024. Transparent background option. White background standard.

@@ -1,0 +1,21 @@
+A GitHub banner for "Alfred," an AI coding companion with persistent memory.
+
+SUBJECT: The Alfred moth mascot on the left. Wings partially spread. Circuit patterns glow cyan. To the right: the word "Alfred" in clean sans-serif. Beneath: the tagline "Your code, remembered."
+
+COMPOSITION: 1280x640 pixels. Moth occupies left 35%. Text occupies right 65%. The moth faces the text.
+
+ACTION: Hovering. Wings uplifted. Antennae alert.
+
+LOCATION: Deep navy background (#0f172a). Suggests night. Gradient to lighter navy (#1e293b) from bottom to top.
+
+STYLE: Modern tech with organic warmth. Moth rendered in cyan glow (#00d9ff). Typography: Inter or similar geometric sans. "Alfred" in white (#ffffff). Tagline in muted cyan-gray (#94a3b8).
+
+EDITING: Readable at thumbnail size. Clear text hierarchy. Balances organic character with geometric precision.
+
+COLORS:
+- Background: Deep navy gradient (#0f172a → #1e293b)
+- Moth: Cyan glow (#00d9ff)
+- Primary text: White (#ffffff)
+- Secondary text: Muted cyan-gray (#94a3b8)
+
+FORMAT: 1280x640 pixels, 72 DPI, PNG. Optimized for GitHub, Twitter, LinkedIn.
