@@ -10,6 +10,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 
 ## Short-term (Active Development)
 
+- [ ] Kicking Ass README - Transform README into compelling OSS landing page (PRD #26)
 - [ ] M3: Memory Foundation - Conversation history storage and retrieval (PRD #13)
 - [ ] M4: Vector Search - Semantic memory search with embeddings (PRD #14)
 - [ ] M5: Telegram Bot - Multi-user chat interface (PRD #15)
