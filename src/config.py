@@ -9,23 +9,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Config(BaseSettings):
     """Application configuration with environment variable support."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    
+
     # Telegram (required - no default)
     telegram_bot_token: str = Field(..., validation_alias="TELEGRAM_BOT_TOKEN")
-    
+
     # OpenAI (required - no default)
     openai_api_key: str = Field(..., validation_alias="OPENAI_API_KEY")
-    
+
     # Kimi (required - no defaults)
     kimi_api_key: str = Field(..., validation_alias="KIMI_API_KEY")
     kimi_base_url: str = Field(..., validation_alias="KIMI_BASE_URL")
-    
+
     # Runtime settings (no defaults - from config.json)
     default_llm_provider: str
     embedding_model: str
@@ -49,6 +49,6 @@ def load_config(config_path: Path = Path("config.json")) -> Config:
     if config_path.exists():
         with open(config_path) as f:
             base_config = json.load(f)
-    
+
     # Pydantic merges: env vars override base_config values
     return Config(**base_config)

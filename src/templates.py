@@ -1,8 +1,7 @@
 """Template management and auto-creation for Alfred context files."""
 
 import logging
-import re
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,77 @@
+"""Alfred entry point - run with `python -m src` or `alfred` after install."""
+
+import argparse
+import asyncio
+import logging
+import sys
+
+from src.alfred import Alfred
+from src.config import load_config
+
+logger = logging.getLogger(__name__)
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        prog="alfred",
+        description="Alfred - The Rememberer: A persistent memory-augmented LLM assistant",
+    )
+    parser.add_argument(
+        "--telegram",
+        action="store_true",
+        help="Run as Telegram bot (default: run as CLI)",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+    return parser.parse_args()
+
+
+async def run_cli(alfred: Alfred) -> None:
+    """Run interactive CLI."""
+    from src.interfaces.cli import CLIInterface
+
+    interface = CLIInterface(alfred)
+    await interface.run()
+
+
+async def run_telegram(alfred: Alfred) -> None:
+    """Run Telegram bot."""
+    from src.interfaces.telegram import TelegramInterface
+
+    interface = TelegramInterface(alfred.config, alfred)
+    await interface.run()
+
+
+async def async_main() -> None:
+    """Main async entry point."""
+    args = parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
+
+    config = load_config()
+    alfred = Alfred(config)
+
+    if args.telegram:
+        logger.info("Starting Alfred in Telegram mode")
+        await run_telegram(alfred)
+    else:
+        await run_cli(alfred)
+
+
+def main() -> None:
+    """Synchronous entry point for script wrapper."""
+    try:
+        asyncio.run(async_main())
+    except KeyboardInterrupt:
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

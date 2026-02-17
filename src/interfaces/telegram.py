@@ -88,22 +88,3 @@ class TelegramInterface:
         finally:
             await self.application.updater.stop()
             await self.application.stop()
-
-
-async def main() -> None:
-    """Entry point."""
-    from src.config import load_config
-
-    logging.basicConfig(level=logging.INFO)
-
-    config = load_config()
-    alfred = Alfred(config)
-    interface = TelegramInterface(config, alfred)
-
-    await interface.run()
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(main())
