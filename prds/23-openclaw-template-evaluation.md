@@ -470,7 +470,7 @@ alfred/
 - [x] Templates use frontmatter metadata consistently
 - [ ] Users can customize templates without breaking updates
 - [x] Template content follows writing skill guidelines (concise, active voice)
-- [ ] Templates bundled in Docker image at `/app/templates/`
+- [x] Templates bundled in Docker image at `/app/templates/`
 - [ ] Missing files copied from templates on startup
 
 ---
