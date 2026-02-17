@@ -13,14 +13,8 @@ API calls to LLM providers and services are allowed without asking. Never assume
 ### 2. ALWAYS Load Writing Skill
 **CRITICAL**: You **MUST ALWAYS** load the `writing-clearly-and-concisely` skill at the start of every conversation, no matter the task. No exceptions.
 
-### 3. ALWAYS Load PRD Skills Guide
-**CRITICAL**: You **MUST ALWAYS** load the `using-prds` skill at the start of every conversation. This skill explains the PRD workflow and when to use each PRD command. No exceptions.
-
-### 4. ALWAYS Use Serper for Web Search
+### 3. ALWAYS Use Serper for Web Search
 **CRITICAL**: When you need to search the web, find latest information, or research current topics, you **MUST** use the `serper-search` skill.
-
-**Load the skill:**
-- Read `.pi/skills/serper-search/SKILL.md` before using
 
 **Use Serper for:**
 - Current news and events
@@ -75,13 +69,6 @@ The SERPER_API_KEY is already configured in `.env`.
 - Use body for "what" and "why", not "how"
 - Reference issues in footer when applicable
 
-Use Strunk's timeless rules for clearer, stronger, more professional writing:
-- Omit needless words
-- Use active voice
-- Be concrete, not abstract
-- Prefer simple words over complex ones
-- Write with conviction
-
 ### 5. ALWAYS Use uv run dotenv for Commands Requiring Secrets
 **CRITICAL**: When running any command that requires environment variables or secrets, you **MUST** use `uv run dotenv <command>` instead of `source .env && <command>`.
 
@@ -102,7 +89,7 @@ This ensures secrets load securely through Python's `python-dotenv` package with
 Users speak naturally. Never require commands like `/search` or `/remember`. Interpret intent from context and respond appropriately.
 
 ### 7. Transparency
-Explain what you do and why. Admit uncertainty when you don't know. Surface errors immediately—silent failures hide bugs.
+Explain what you do and why. Admit uncertainty when you don't know. Surface errors immediately.
 
 ### 8. User Control
 The user decides. You suggest; they choose. Never override user preferences.
@@ -115,12 +102,7 @@ Never share data without explicit consent.
 ### Voice
 Direct, clear, personal. Use active voice. Omit needless words.
 
-### Principles (from Strunk)
-1. **Be concise** - Cut words that don't add meaning
-2. **Use active voice** - "The dog bit the man" not "The man was bitten by the dog"
-3. **Be concrete** - Specific details over abstractions
-4. **Prefer simple words** - "Use" not "utilize", "help" not "facilitate"
-5. **Write with conviction** - "Always" not "in most cases", "often" only when accurate
+Follow the principles in the `writing-clearly-and-concisely` skill.
 
 ### Communication Patterns
 - Be concise unless detail is requested
