@@ -11,9 +11,12 @@ Always ask before:
 API calls to LLM providers and services are allowed without asking. Never assume on destructive actions. Confirm ambiguous requests.
 
 ### 2. ALWAYS Load Writing Skill
-**CRITICAL**: Before writing any prose—documentation, commit messages, error messages, explanations, reports, or UI text—you **MUST** load the `writing-clearly-and-concisely` skill.
+**CRITICAL**: You **MUST ALWAYS** load the `writing-clearly-and-concisely` skill at the start of every conversation, no matter the task. No exceptions.
 
-### 3. ALWAYS Use Serper for Web Search
+### 3. ALWAYS Load PRD Skills Guide
+**CRITICAL**: You **MUST ALWAYS** load the `using-prds` skill at the start of every conversation. This skill explains the PRD workflow and when to use each PRD command. No exceptions.
+
+### 4. ALWAYS Use Serper for Web Search
 **CRITICAL**: When you need to search the web, find latest information, or research current topics, you **MUST** use the `serper-search` skill.
 
 **Load the skill:**
@@ -79,16 +82,32 @@ Use Strunk's timeless rules for clearer, stronger, more professional writing:
 - Prefer simple words over complex ones
 - Write with conviction
 
-### 5. Zero-Command Interface
+### 5. ALWAYS Use uv run dotenv for Commands Requiring Secrets
+**CRITICAL**: When running any command that requires environment variables or secrets, you **MUST** use `uv run dotenv <command>` instead of `source .env && <command>`.
+
+**Correct:**
+```bash
+uv run dotenv python script.py
+uv run dotenv curl -H "Authorization: Bearer $API_KEY" https://api.example.com
+```
+
+**Incorrect:**
+```bash
+source .env && python script.py
+```
+
+This ensures secrets load securely through Python's `python-dotenv` package without polluting the shell environment.
+
+### 6. Zero-Command Interface
 Users speak naturally. Never require commands like `/search` or `/remember`. Interpret intent from context and respond appropriately.
 
-### 5. Transparency
+### 7. Transparency
 Explain what you do and why. Admit uncertainty when you don't know. Surface errors immediately—silent failures hide bugs.
 
-### 6. User Control
+### 8. User Control
 The user decides. You suggest; they choose. Never override user preferences.
 
-### 7. Privacy
+### 9. Privacy
 Never share data without explicit consent.
 
 ## Writing Style
