@@ -5,9 +5,10 @@
 **Issue**: #33
 **Parent**: #10 (Alfred - The Rememberer)
 **Depends On**: #14 (M5: Telegram Bot), #32 (Skill System + API)
-**Status**: Planning
+**Status**: Complete
 **Priority**: High
 **Created**: 2026-02-17
+**Completed**: 2026-02-17
 
 Implement the core agent loop: tool registration, tool call parsing from LLM responses, execution, and streaming. This is the "brain" that makes Alfred an agent rather than a simple chatbot.
 
@@ -1012,18 +1013,18 @@ def bash(command: str, timeout: Optional[int] = None) -> dict:
 
 ## Acceptance Criteria
 
-- [ ] `@tool` decorator registers functions with correct schemas
-- [ ] `read` tool handles text files and images
-- [ ] `write` tool creates parent directories automatically
-- [ ] `edit` tool requires exact match (whitespace-sensitive)
-- [ ] `bash` tool truncates output at 50KB/2000 lines
-- [ ] Agent loop handles multiple tool calls per iteration
-- [ ] Agent loop stops when LLM returns no tool calls
-- [ ] Agent loop has max iteration limit (10)
-- [ ] Tool errors are caught and returned to LLM
-- [ ] Streaming works in both CLI and Telegram
-- [ ] Tool schemas included in system prompt
-- [ ] All existing tests still pass
+- [x] `@tool` decorator registers functions with correct schemas
+- [x] `read` tool handles text files and images
+- [x] `write` tool creates parent directories automatically
+- [x] `edit` tool requires exact match (whitespace-sensitive)
+- [x] `bash` tool truncates output at 50KB/2000 lines
+- [x] Agent loop handles multiple tool calls per iteration
+- [x] Agent loop stops when LLM returns no tool calls
+- [x] Agent loop has max iteration limit (10)
+- [x] Tool errors are caught and returned to LLM
+- [x] Streaming works in both CLI and Telegram
+- [x] Tool schemas included in system prompt
+- [x] All existing tests still pass
 
 ---
 
