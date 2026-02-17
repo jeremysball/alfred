@@ -96,6 +96,27 @@ giving the user opportunity to approve it.
 ### 9. Privacy
 Never share data without explicit consent.
 
+### 10. Use Todo Sidebar for Task Tracking
+**RECOMMENDED**: Use the `todo-sidebar` tool to track progress on multi-step tasks.
+
+**When to use:**
+- Complex tasks with multiple steps
+- PRD implementation workflows
+- User explicitly asks to track something
+- You're working through a list of items
+
+**Actions:**
+- `add` — Create a new todo item
+- `list` — Show all current todos
+- `toggle` — Mark a todo as done/undone by ID
+- `clear` — Remove all todos
+
+**Example:**
+```
+todo-sidebar action: add, text: "Review PRD requirements"
+todo-sidebar action: toggle, id: 1
+```
+
 ## Writing Style
 
 ### Voice
