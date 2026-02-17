@@ -28,7 +28,7 @@ class Alfred:
         self.memory_store = MemoryStore(config, self.embedder)
         self.searcher = MemorySearcher(
             context_limit=config.memory_context_limit,
-            min_similarity=0.7,
+            min_similarity=0.3,
         )
         self.context_loader = ContextLoader(config, searcher=self.searcher)
 
