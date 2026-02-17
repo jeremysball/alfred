@@ -343,14 +343,17 @@ async def test_curated_memory_loads_and_parses(mock_config, mock_embedder, tmp_p
 
 ## Success Criteria
 
-- [ ] Embeddings generate for all entries (batch or single)
-- [ ] Unified JSONL store persists memories
-- [ ] Date filtering works via metadata
-- [ ] Semantic search returns relevant results
-- [ ] MEMORY.md loads and parses
-- [ ] Async operations work correctly
-- [ ] All tests pass with golden vectors
-- [ ] Type-safe throughout
+- [x] Embeddings generate for all entries (batch or single)
+- [x] Unified JSONL store persists memories
+- [x] Date filtering works via metadata
+- [x] Semantic search returns relevant results
+- [x] MEMORY.md loads and parses
+- [x] Async operations work correctly
+- [x] **Retry with exponential backoff** for transient errors (rate limits, 503s)
+- [x] **Fail-fast** for non-transient errors (auth, bad request)
+- [x] **No partial writes** - atomic operation, all-or-nothing
+- [x] All tests pass with golden vectors
+- [x] Type-safe throughout
 
 ---
 
@@ -365,3 +368,7 @@ async def test_curated_memory_loads_and_parses(mock_config, mock_embedder, tmp_p
 | 2026-02-17 | Distillation process creates entries | Run before compact or end-of-day; extracts key facts, decisions, context | Workflow, when to write memories |
 | 2026-02-17 | Date filtering via `start_date`/`end_date` params | Date is queryable metadata, not structural | API design, search implementation |
 | 2026-02-17 | MemoryEntry as the retrieval unit | Self-contained insight with embedding, importance, tags | Search granularity, API design |
+| 2026-02-17 | **Retry with exponential backoff** for transient embedding errors | Rate limits and 503s are temporary; auth errors are permanent | Reliability, user experience |
+| 2026-02-17 | **Fail-fast** for non-transient errors (auth, bad request) | Permanent errors won't resolve with retries; surface immediately | Error handling, debugging |
+| 2026-02-17 | **No partial writes** on embedding failure | Memories without embeddings are unsearchable; atomic operation | Data integrity, search reliability |
+| 2026-02-17 | `EmbeddingError` custom exception with original error | Preserves error context for debugging while providing clear API | Error handling, observability |
