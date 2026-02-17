@@ -32,8 +32,8 @@ class Alfred:
         )
         self.context_loader = ContextLoader(config, searcher=self.searcher)
 
-        # Register built-in tools
-        register_builtin_tools()
+        # Register built-in tools (inject memory store for remember tool)
+        register_builtin_tools(memory_store=self.memory_store)
         self.tools = get_registry()
 
         # Create agent
