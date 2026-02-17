@@ -63,6 +63,7 @@ class Agent:
             full_content = ""
             tool_calls_data = []
             in_tool_call = False
+            reasoning_content = None
             
             async for chunk in self.llm.stream_chat_with_tools(
                 messages,
@@ -77,6 +78,11 @@ class Agent:
                         in_tool_call = True
                     except json.JSONDecodeError:
                         pass
+                    continue
+                
+                # Check for reasoning content marker
+                if chunk.startswith("[REASONING]"):
+                    reasoning_content = chunk[11:]  # Remove prefix
                     continue
                 
                 # Regular content
@@ -99,8 +105,8 @@ class Agent:
                 for i, tc in enumerate(tool_calls_data)
             ]
             
-            # Add assistant message with tool calls
-            messages.append(ChatMessage(
+            # Add assistant message with tool calls and reasoning
+            assistant_msg = ChatMessage(
                 role="assistant",
                 content=full_content,
                 tool_calls=[
@@ -114,7 +120,10 @@ class Agent:
                     }
                     for tc in tool_calls
                 ],
-            ))
+            )
+            if reasoning_content:
+                assistant_msg.reasoning_content = reasoning_content
+            messages.append(assistant_msg)
             
             # Execute tools with streaming
             for call in tool_calls:

@@ -19,6 +19,7 @@ class ChatMessage:
     content: str
     tool_calls: list[dict] | None = None  # For assistant messages with tool calls
     tool_call_id: str | None = None  # For tool role messages
+    reasoning_content: str | None = None  # For Kimi thinking mode
 
 
 @dataclass
@@ -27,6 +28,7 @@ class ChatResponse:
     model: str
     usage: dict | None = None
     tool_calls: list[dict] | None = None
+    reasoning_content: str | None = None  # For provider thinking/reasoning modes
 
 
 # Exception classes for LLM errors
@@ -229,11 +231,13 @@ class KimiProvider(LLMProvider):
                 max_tokens=4000,
             )
 
-            content = response.choices[0].message.content or ""
+            message = response.choices[0].message
+            content = message.content or ""
             tool_calls = None
+            reasoning_content = None
 
             # Check for tool calls
-            if response.choices[0].message.tool_calls:
+            if message.tool_calls:
                 tool_calls = [
                     {
                         "id": tc.id,
@@ -243,8 +247,12 @@ class KimiProvider(LLMProvider):
                             "arguments": tc.function.arguments,
                         },
                     }
-                    for tc in response.choices[0].message.tool_calls
+                    for tc in message.tool_calls
                 ]
+            
+            # Capture reasoning_content for thinking mode
+            if hasattr(message, 'reasoning_content') and message.reasoning_content:
+                reasoning_content = message.reasoning_content
 
             return ChatResponse(
                 content=content,
@@ -254,6 +262,7 @@ class KimiProvider(LLMProvider):
                     "completion_tokens": response.usage.completion_tokens if response.usage else 0,
                 } if response.usage else None,
                 tool_calls=tool_calls,
+                reasoning_content=reasoning_content,
             )
 
         except Exception as e:
@@ -317,6 +326,7 @@ class KimiProvider(LLMProvider):
         
         try:
             # Convert messages to API format, including tool_call_id for tool messages
+            # and reasoning_content for assistant messages
             api_messages = []
             for m in messages:
                 msg = {"role": m.role, "content": m.content}
@@ -324,6 +334,8 @@ class KimiProvider(LLMProvider):
                     msg["tool_call_id"] = m.tool_call_id
                 if m.tool_calls:
                     msg["tool_calls"] = m.tool_calls
+                if m.reasoning_content and m.role == "assistant":
+                    msg["reasoning_content"] = m.reasoning_content
                 api_messages.append(msg)
             
             response = await self.client.chat.completions.create(
@@ -336,6 +348,10 @@ class KimiProvider(LLMProvider):
             
             # Check for tool calls
             message = response.choices[0].message
+            
+            # Yield reasoning content if present
+            if hasattr(message, 'reasoning_content') and message.reasoning_content:
+                yield f"[REASONING]{message.reasoning_content}"
             
             if message.tool_calls:
                 # Yield tool calls as special marker
