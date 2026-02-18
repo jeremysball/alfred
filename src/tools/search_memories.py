@@ -92,7 +92,7 @@ class SearchMemoriesTool(Tool):
             return
 
         try:
-            results, similarities = await self._memory_store.search(query, top_k=top_k)
+            results, similarities, scores = await self._memory_store.search(query, top_k=top_k)
 
             if not results:
                 yield "No relevant memories found."
@@ -102,9 +102,10 @@ class SearchMemoriesTool(Tool):
             for entry in results:
                 date_str = entry.timestamp.strftime("%Y-%m-%d")
                 sim_pct = int(similarities.get(entry.entry_id, 0) * 100)
+                scr_pct = int(scores.get(entry.entry_id, 0) * 100)
                 lines.append(
                     f"- [{date_str}] {entry.content} "
-                    f"({sim_pct}% match, id: {entry.entry_id})"
+                    f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry.entry_id})"
                 )
 
             yield "\n".join(lines)
