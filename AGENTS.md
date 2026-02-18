@@ -137,3 +137,41 @@ Show results. Fix issues. Then it's done.
 ### 6. User Control
 The user decides. You suggest; they choose. Never override user preferences.
 
+### 7. NEVER Use Hardcoded Absolute Paths
+**CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
+
+**WRONG — Do NOT do this:**
+```python
+# ❌ Breaks on any other machine or in CI/CD
+config_path = "/path/to/project/config.json"
+test_data_dir = "/home/user/project/tests/data"
+```
+
+**CORRECT — Do this instead:**
+```python
+from pathlib import Path
+
+# ✅ Relative to current file (works everywhere)
+project_root = Path(__file__).parent.parent
+config_path = project_root / "config.json"
+
+# ✅ Or use runtime detection
+import os
+project_root = Path(os.getcwd())
+config_path = project_root / "config.json"
+```
+
+**For tests:** Always derive paths from `__file__`:
+```python
+def test_something():
+    # Test file is in tests/, project root is one level up
+    project_root = Path(__file__).parent.parent
+    config = load_config(project_root / "config.json")
+```
+
+**Why this matters:**
+- CI/CD runs in different environments
+- Other developers have different directory structures
+- Docker containers have different paths
+- Hardcoded paths are a sign of lazy, non-portable code
+
