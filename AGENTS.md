@@ -50,8 +50,14 @@ ALWAYS, ALWAYS ask before:
 - Deleting data
 - Writing tests / production code
 - EVEN when a skill tells you to edit a file
-you MUST offer a changelog and ask for permission. 
+you MUST offer a changelog and ask for permission
 - Running any commands that effect state (such as git commands, etc.)
+
+**Changelog Requirements:**
+When proposing changes, you MUST articulate:
+1. **Approach**: What you're doing and how
+2. **Alternatives Considered**: Other approaches you rejected
+3. **Tradeoffs Made**: What you sacrificed for this choice (performance, simplicity, etc.)
 
 
 ### 2. ALWAYS Ask Questions When Creating PRDs
