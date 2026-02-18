@@ -33,11 +33,42 @@ Complete the PRD implementation workflow including branch management, pull reque
 - [ ] **All PRD checkboxes completed**: Verify every requirement is implemented and tested
 - [ ] **Documentation updated**: All user-facing docs reflect implemented functionality
 - [ ] **No outstanding blockers**: All dependencies resolved and technical debt addressed
+- [ ] **Quality gates passed**: Run all quality checks and ensure they pass (see below)
 - [ ] **Update PRD status**: Mark PRD as "Complete" with completion date
 - [ ] **Archive PRD file**: Move completed PRD to `./prds/done/` directory to maintain project organization
 - [ ] **Update ROADMAP.md (if it exists)**: Remove the completed feature from `docs/ROADMAP.md` roadmap if the file exists
 
-**Note**: Tests will run automatically in the CI/CD pipeline when the PR is created. Do not run tests locally during the completion workflow.
+#### Quality Gates (MUST PASS before proceeding)
+
+**CRITICAL**: Before marking a PRD as done, you MUST run and verify:
+
+1. **Type Checking with mypy**:
+   ```bash
+   uv run mypy .
+   ```
+   - All type errors must be resolved
+   - No `ignore` comments without justification
+
+2. **Linting with ruff**:
+   ```bash
+   uv run ruff check .
+   uv run ruff format --check .
+   ```
+   - All lint errors must be resolved
+   - All formatting must be correct (or run `uv run ruff format .` to fix)
+
+3. **All Tests Green**:
+   ```bash
+   uv run pytest
+   ```
+   - **100% of tests must pass** - no exceptions
+   - No skipped tests without justification
+   - No flaky tests - if tests are unreliable, fix them first
+   - Code coverage should meet project standards (check `pyproject.toml`)
+
+**If any quality gate fails**: Fix the issues before proceeding. Do not create a PR with failing tests, type errors, or lint violations.
+
+**Note**: These same checks will run in the CI/CD pipeline when the PR is created. Running them locally first prevents CI failures and rework.
 
 ### 2. Branch and Commit Management
 
@@ -283,6 +314,10 @@ Closes #[issue-id]
 ```
 
 ### 4. Review and Merge Process
+- [ ] **Verify quality gates in CI**: Confirm that mypy, ruff, and all tests pass in the CI pipeline
+  - Type checking: mypy must pass with no errors
+  - Linting: ruff check and format must pass
+  - Tests: 100% of tests must be green (no failures, no unexpected skips)
 - [ ] **Check ongoing processes**: Use `gh pr checks [pr-number]` to check for any ongoing CI/CD, security analysis, or automated reviews (CodeRabbit, CodeQL, etc.)
 - [ ] **Check PR details**: Use `gh pr view [pr-number]` to check for human review comments and PR metadata
 - [ ] **Review all automated feedback**: Check PR comments section for automated code review feedback (bots, linters, analyzers)
