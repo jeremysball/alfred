@@ -3,11 +3,22 @@
 import asyncio
 import subprocess
 import os
-from typing import Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+
+
+class BashToolParams(BaseModel):
+    """Parameters for BashTool."""
+    
+    command: str = Field(..., description="Bash command to execute")
+    timeout: int | None = Field(60, description="Timeout in seconds (max 300)")
+    
+    class Config:
+        extra = "forbid"
 
 
 class BashTool(Tool):
@@ -15,13 +26,13 @@ class BashTool(Tool):
 
     name = "bash"
     description = "Execute a bash command in the current working directory. Commands run with a 60 second timeout by default (max 300 seconds). Large outputs are truncated."
+    param_model = BashToolParams
 
-    def execute(
-        self,
-        command: str,
-        timeout: Optional[int] = 60,
-    ) -> dict:
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
         """Execute a bash command with output truncation."""
+        command = kwargs.get("command", "")
+        timeout = kwargs.get("timeout", 60)
+        
         # Clamp timeout
         timeout = min(timeout or 60, 300)
         
@@ -85,11 +96,13 @@ class BashTool(Tool):
                 "exit_code": -1,
             }
     
-    async def execute_stream(self, command: str, timeout: Optional[int] = None) -> str:
+    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute a bash command with streaming output.
         
         Yields output chunks as they are produced by the command.
         """
+        command = kwargs.get("command", "")
+        timeout = kwargs.get("timeout")
         timeout = min(timeout or 60, 300)
         
         yield f"[Running: {command}]\n"
@@ -102,10 +115,6 @@ class BashTool(Tool):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=os.getcwd(),
             )
-            
-            # Read output with timeout
-            stdout_data = []
-            stderr_data = []
             
             try:
                 stdout, stderr = await asyncio.wait_for(

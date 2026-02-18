@@ -1,11 +1,22 @@
 """Read file contents tool."""
 
 import os
-from typing import Optional
+from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+
+
+class ReadToolParams(BaseModel):
+    """Parameters for ReadTool."""
+    
+    path: str = Field(..., description="Path to the file to read")
+    offset: int | None = Field(None, description="Line number to start reading from (1-indexed)")
+    limit: int | None = Field(None, description="Maximum number of lines to read")
+    
+    class Config:
+        extra = "forbid"
 
 
 class ReadTool(Tool):
@@ -13,14 +24,14 @@ class ReadTool(Tool):
     
     name = "read"
     description = "Read file contents. Supports text files (with optional line offset/limit) and images (jpg, png, gif, webp)."
+    param_model = ReadToolParams
     
-    def execute(
-        self,
-        path: str,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-    ) -> str:
+    def execute(self, **kwargs: Any) -> str:
         """Read file contents with optional pagination."""
+        path = kwargs.get("path", "")
+        offset = kwargs.get("offset")
+        limit = kwargs.get("limit")
+        
         # Validate path exists
         if not os.path.exists(path):
             return f"Error: File not found: {path}"

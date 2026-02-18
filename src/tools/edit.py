@@ -1,8 +1,21 @@
 """Edit file tool."""
 
-from pydantic import Field
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+
+
+class EditToolParams(BaseModel):
+    """Parameters for EditTool."""
+    
+    path: str = Field(..., description="Path to the file to edit")
+    old_text: str = Field(..., description="Exact text to replace (including whitespace)")
+    new_text: str = Field(..., description="New text to insert")
+    
+    class Config:
+        extra = "forbid"
 
 
 class EditTool(Tool):
@@ -10,14 +23,14 @@ class EditTool(Tool):
 
     name = "edit"
     description = "Make precise edit to a file by replacing old_text with new_text. The old_text must match exactly (including whitespace)."
+    param_model = EditToolParams
 
-    def execute(
-        self,
-        path: str,
-        old_text: str,
-        new_text: str,
-    ) -> dict:
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
         """Replace old_text with new_text in file."""
+        path = kwargs.get("path", "")
+        old_text = kwargs.get("old_text", "")
+        new_text = kwargs.get("new_text", "")
+        
         try:
             # Read file
             try:

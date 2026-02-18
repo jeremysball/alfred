@@ -1,8 +1,24 @@
 """Tool for updating existing memories in the unified memory store."""
 
 from collections.abc import AsyncIterator
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from .base import Tool
+
+
+class UpdateMemoryToolParams(BaseModel):
+    """Parameters for UpdateMemoryTool."""
+    
+    search_query: str = Field("", description="Query to find the memory to update")
+    entry_id: str = Field("", description="Direct lookup by memory ID")
+    new_content: str = Field("", description="New content for the memory (empty = no change)")
+    new_importance: float = Field(-1, description="New importance value 0.0-1.0 (-1 = no change)")
+    confirm: bool = Field(False, description="Set to True to actually update (False = preview)")
+    
+    class Config:
+        extra = "forbid"
 
 
 class UpdateMemoryTool(Tool):
@@ -10,57 +26,52 @@ class UpdateMemoryTool(Tool):
 
     name = "update_memory"
     description = "Update an existing memory's content or importance. Requires confirmation."
+    param_model = UpdateMemoryToolParams
 
-    def __init__(self, memory_store=None):
+    def __init__(self, memory_store: Any = None) -> None:
         super().__init__()
         self._memory_store = memory_store
 
-    def set_memory_store(self, memory_store):
+    def set_memory_store(self, memory_store: Any) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(
-        self,
-        search_query: str = "",
-        entry_id: str = "",
-        new_content: str = "",
-        new_importance: float = -1,
-        confirm: bool = False,
-    ) -> str:
+    def execute(self, **kwargs: Any) -> str:
         """Update a memory (sync wrapper - use execute_stream).
 
         Args:
-            search_query: Query to find the memory to update (use entry_id or this)
-            entry_id: Direct lookup by memory ID (use this or search_query)
-            new_content: New content for the memory (empty = no change)
-            new_importance: New importance value 0.0-1.0 (-1 = no change)
-            confirm: Set to True to actually update. False = preview only.
+            **kwargs: Tool parameters including:
+                - search_query: Query to find the memory to update
+                - entry_id: Direct lookup by memory ID
+                - new_content: New content for the memory (empty = no change)
+                - new_importance: New importance value 0.0-1.0 (-1 = no change)
+                - confirm: Set to True to actually update (False = preview)
 
         Returns:
             Error message directing to use async method
         """
         return "Error: UpdateMemoryTool must be called via execute_stream in async context"
 
-    async def execute_stream(
-        self,
-        search_query: str = "",
-        entry_id: str = "",
-        new_content: str = "",
-        new_importance: float = -1,
-        confirm: bool = False,
-    ) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Update a memory or show preview.
 
         Args:
-            search_query: Query to find the memory to update
-            entry_id: Direct lookup by memory ID
-            new_content: New content for the memory (empty = no change)
-            new_importance: New importance value 0.0-1.0 (-1 = no change)
-            confirm: Set to True to actually update. False = preview only.
+            **kwargs: Tool parameters including:
+                - search_query: Query to find the memory to update
+                - entry_id: Direct lookup by memory ID
+                - new_content: New content for the memory (empty = no change)
+                - new_importance: New importance value 0.0-1.0 (-1 = no change)
+                - confirm: Set to True to actually update (False = preview)
 
         Yields:
             Preview of memory to update, or update confirmation
         """
+        search_query = kwargs.get("search_query", "")
+        entry_id = kwargs.get("entry_id", "")
+        new_content = kwargs.get("new_content", "")
+        new_importance = kwargs.get("new_importance", -1)
+        confirm = kwargs.get("confirm", False)
+
         if not self._memory_store:
             yield "Error: Memory store not initialized"
             return

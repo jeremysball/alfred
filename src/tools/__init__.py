@@ -1,7 +1,7 @@
 """Tool registry and discovery."""
 
 import logging
-from typing import Any, TypeVar
+from typing import Any
 
 from src.tools.base import Tool
 
@@ -83,7 +83,7 @@ def get_tool_schemas() -> list[dict[str, Any]]:
 
 
 # Auto-discover and register built-in tools
-def register_builtin_tools(memory_store=None) -> None:
+def register_builtin_tools(memory_store: Any = None) -> None:
     """Register all built-in tools.
     
     Args:

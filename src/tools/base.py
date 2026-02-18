@@ -35,13 +35,19 @@ class Tool(ABC):
     
     name: str
     description: str
+    param_model: type[BaseModel] | None = None
     
     def __init__(self) -> None:
         self._param_model: type[BaseModel] | None = None
         self._init_param_model()
     
     def _init_param_model(self) -> None:
-        """Initialize the Pydantic model from execute signature."""
+        """Initialize the Pydantic model from execute signature or param_model attr."""
+        # Use explicit param_model if defined on the class
+        if self.param_model is not None:
+            self._param_model = self.param_model
+            return
+        
         import inspect
         
         sig = inspect.signature(self.execute)
