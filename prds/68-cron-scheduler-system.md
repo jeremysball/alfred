@@ -1,0 +1,490 @@
+# PRD: Cron Scheduler System
+
+**Issue**: #68  
+**Status**: Planning  
+**Priority**: High  
+**Created**: 2026-02-18
+
+---
+
+## Problem Statement
+
+Alfred needs a reliable way to run background tasks—session TTL checks, memory compaction, and user-scheduled jobs. Without a proper cron system, these tasks must be manually triggered or awkwardly piggybacked on user interactions. This limits automation, delays critical maintenance, and prevents users from scheduling their own recurring workflows.
+
+---
+
+## Solution Overview
+
+Build a production-grade cron scheduler with:
+
+1. **Standard cron syntax** (`0 19 * * 0` for Sunday 7pm)
+2. **Persistent job storage** in `data/cron.jsonl` with full history in `data/cron_history.jsonl`
+3. **Comprehensive observability**—logging, metrics, health checks, and alerts
+4. **Safe user jobs** with human code review and approval
+5. **Queue-based concurrency**—jobs queue if already running, never skip
+
+---
+
+## Design Principles
+
+### 1. Human-in-the-Loop for User Jobs
+All user-created jobs require explicit human review and approval before execution. The model can generate code, but a human must approve it. This is the primary security mechanism.
+
+### 2. Audit Everything
+Every job execution is logged with full context—code snapshot, inputs, outputs, duration, success/failure. Post-hoc analysis is always possible.
+
+### 3. Fail Fast, Alert Loudly
+Job failures surface immediately through logging and alerts. Silent failures hide bugs.
+
+### 4. Defense in Depth
+Human approval is primary. Secondary defenses: timeouts, memory limits, optional network restrictions, and audit trails.
+
+---
+
+## Technical Architecture
+
+### Core Components
+
+#### 1. CronScheduler (`src/cron/scheduler.py`)
+
+The orchestrator that manages job lifecycle.
+
+```python
+class CronScheduler:
+    """Async job scheduler with standard cron syntax support."""
+    
+    def __init__(self, store: CronStore, notifier: Notifier | None = None):
+        self.store = store
+        self.notifier = notifier
+        self._jobs: dict[str, asyncio.Task] = {}
+        self._shutdown_event = asyncio.Event()
+    
+    async def start(self) -> None:
+        """Start scheduler, load jobs from storage, begin execution loop."""
+        
+    async def stop(self) -> None:
+        """Graceful shutdown—cancel running jobs, wait for completion."""
+        
+    def register_system_job(self, job: SystemJob) -> None:
+        """Register pre-approved system job (TTL, compaction, etc)."""
+        
+    async def submit_user_job(self, job: UserJob) -> str:
+        """Submit user job for review. Returns job_id."""
+        
+    async def approve_job(self, job_id: str, approved_by: str) -> None:
+        """Approve pending user job for execution."""
+```
+
+#### 2. CronStore (`src/cron/store.py`)
+
+JSONL persistence for jobs and execution history.
+
+**File: `data/cron.jsonl`**
+```json
+{
+  "job_id": "uuid",
+  "name": "Session TTL Check",
+  "description": "Check for expired sessions and trigger summarization",
+  "cron": "*/5 * * * *",
+  "code": "async def run(context): ...",
+  "job_type": "system",
+  "status": "active",
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z",
+  "resource_limits": {
+    "timeout_seconds": 30,
+    "max_memory_mb": 100,
+    "allow_network": false
+  }
+}
+```
+
+**File: `data/cron_history.jsonl`**
+```json
+{
+  "execution_id": "uuid",
+  "job_id": "uuid",
+  "started_at": "2026-02-18T10:05:00Z",
+  "ended_at": "2026-02-18T10:05:02Z",
+  "status": "success",
+  "code_snapshot": "async def run(context): ...",
+  "stdout": "...",
+  "stderr": "...",
+  "duration_ms": 1500,
+  "memory_peak_mb": 45
+}
+```
+
+#### 3. CronParser (`src/cron/parser.py`)
+
+Standard cron expression parsing.
+
+```python
+class CronParser:
+    """Parse standard cron expressions."""
+    
+    def __init__(self, expression: str):
+        self.expression = expression
+        self.minute, self.hour, self.day, self.month, self.dow = expression.split()
+    
+    def get_next_run(self, from_time: datetime | None = None) -> datetime:
+        """Calculate next execution time."""
+        
+    def should_run(self, current_time: datetime, last_run: datetime) -> bool:
+        """Check if job should execute now."""
+```
+
+Supports standard cron syntax:
+- `*/5 * * * *` — every 5 minutes
+- `0 19 * * 0` — Sunday at 7pm
+- `0 9 * * 1-5` — weekdays at 9am
+- `0 0 1 * *` — first of month at midnight
+
+#### 4. JobExecutor (`src/cron/executor.py`)
+
+Isolated execution environment with resource limits.
+
+```python
+class JobExecutor:
+    """Execute jobs with resource limits and monitoring."""
+    
+    def __init__(self, job: Job, context: ExecutionContext):
+        self.job = job
+        self.context = context
+        self.limits = job.resource_limits
+    
+    async def execute(self) -> ExecutionResult:
+        """Execute job with timeout and memory monitoring."""
+        # Inject safe globals
+        # Run with asyncio.wait_for(timeout)
+        # Capture stdout/stderr
+        # Record memory usage
+```
+
+**Injected globals for user jobs:**
+```python
+{
+    "remember": lambda text: context.memory.add(text),
+    "search": lambda query: context.memory.search(query),
+    "notify": lambda msg: context.notifier.send(msg),
+    "store_get": lambda key: context.kv.get(key),
+    "store_set": lambda key, val: context.kv.set(key, val),
+    # No os, subprocess, open by default—user must import if needed
+}
+```
+
+#### 5. Observability Stack (`src/cron/observability.py`)
+
+**Logging:**
+- Job start/end with structured logging
+- Duration, memory, success/failure
+- Full code snapshot for audit
+
+**Metrics:**
+- Jobs executed (counter)
+- Job duration (histogram)
+- Job failures (counter, labeled by job_id and error type)
+- Queue depth (gauge)
+- Scheduler uptime (gauge)
+
+**Health Checks:**
+```python
+class HealthChecker:
+    async def check(self) -> HealthStatus:
+        # Is scheduler running?
+        # Any jobs stuck > timeout?
+        # Storage accessible?
+```
+
+**Alerts:**
+```python
+class AlertManager:
+    async def check_and_alert(self) -> None:
+        # Job failed N times in a row
+        # Job execution time > threshold
+        # Scheduler not running
+```
+
+---
+
+## Job Types
+
+### System Jobs
+
+Pre-approved jobs built into Alfred. Signed by codebase, no human review needed.
+
+| Job | Cron | Description |
+|-----|------|-------------|
+| session_ttl | `*/5 * * * *` | Check for expired sessions, trigger summarization |
+| memory_compact | `0 2 * * *` | Compact old memories, extract insights |
+| memory_cleanup | `0 3 * * 0` | Remove orphaned memory entries |
+| health_report | `0 9 * * *` | Daily system health summary |
+
+### User Jobs
+
+Created by users through natural language, code generated by model, human approval required.
+
+**Example user interaction:**
+```
+User: "Remind me every morning at 8am to check my calendar"
+Alfred: "I'll create a job that sends you a notification at 8am daily. 
+         Here's the code:
+         
+         async def run(context):
+             await context.notify("Time to check your calendar!")
+         
+         Approve this job? (yes/no)"
+User: "yes"
+Alfred: "Job approved and scheduled."
+```
+
+**User job lifecycle:**
+```
+Created → Pending Review → Approved → Active → (Executes on schedule)
+   ↑                          ↓
+   └────── Rejected ←─────────┘
+```
+
+---
+
+## Concurrency Model
+
+### Queue-Based Execution
+
+Jobs never skip. If a job is still running when next schedule arrives, the new execution queues.
+
+```python
+class JobQueue:
+    """Per-job queue for serialized execution."""
+    
+    def __init__(self):
+        self._running: asyncio.Task | None = None
+        self._queued: list[asyncio.Task] = []
+    
+    async def enqueue(self, coro: Coroutine) -> None:
+        """Add execution to queue."""
+        if self._running is None:
+            self._running = asyncio.create_task(self._run(coro))
+        else:
+            self._queued.append(asyncio.create_task(coro))
+    
+    async def _run(self, coro: Coroutine) -> None:
+        """Execute and process queue."""
+        try:
+            await coro
+        finally:
+            self._running = None
+            if self._queued:
+                next_coro = self._queued.pop(0)
+                self._running = asyncio.create_task(self._run(next_coro))
+```
+
+---
+
+## Security Model
+
+### Primary: Human Approval
+
+All user jobs require explicit approval before execution.
+
+```python
+async def submit_user_job(self, name: str, description: str, 
+                          cron: str, code: str) -> str:
+    job = UserJob(
+        job_id=str(uuid4()),
+        name=name,
+        description=description,
+        cron=cron,
+        code=code,
+        status="pending",
+        created_at=datetime.now(UTC)
+    )
+    await self.store.save_job(job)
+    
+    # Notify for approval
+    await self.notifier.send(
+        f"Job '{name}' pending approval. Review: /cron review {job.job_id}"
+    )
+    return job.job_id
+```
+
+### Secondary: Resource Limits
+
+```python
+@dataclass
+class ResourceLimits:
+    timeout_seconds: int = 30
+    max_memory_mb: int = 100
+    allow_network: bool = False
+    max_output_lines: int = 1000
+```
+
+### Tertiary: Audit Trail
+
+Every execution logged with:
+- Full code snapshot (what actually ran)
+- Input parameters
+- stdout/stderr
+- Duration and memory
+- Success/failure status
+
+---
+
+## Context Integration
+
+### Alfred Lifecycle
+
+```python
+class Alfred:
+    def __init__(self, config: Config):
+        # ... existing init ...
+        
+        self.cron_scheduler = CronScheduler(
+            store=CronStore(config.data_dir),
+            notifier=self.notifier
+        )
+        
+        # Register system jobs
+        self.cron_scheduler.register_system_job(SystemJob(
+            name="session_ttl",
+            cron="*/5 * * * *",
+            handler=self._check_session_ttl
+        ))
+    
+    async def start(self) -> None:
+        """Start Alfred and all subsystems."""
+        await self.cron_scheduler.start()
+    
+    async def stop(self) -> None:
+        """Graceful shutdown."""
+        await self.cron_scheduler.stop()
+```
+
+### Telegram Interface
+
+```python
+class TelegramInterface:
+    async def cron_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /cron commands."""
+        # /cron list — show all jobs
+        # /cron submit <name> <cron> — create new job (pending)
+        # /cron review <job_id> — review pending job
+        # /cron approve <job_id> — approve pending job
+        # /cron reject <job_id> — reject pending job
+        # /cron history <job_id> — show execution history
+```
+
+### CLI Interface
+
+```bash
+# List all jobs
+alfred cron list
+
+# Submit new job
+alfred cron submit "Daily summary" "0 9 * * *" "async def run(ctx): ..."
+
+# Review pending job
+alfred cron review <job_id>
+
+# Approve/reject
+alfred cron approve <job_id>
+alfred cron reject <job_id>
+
+# View history
+alfred cron history <job_id>
+
+# System metrics
+alfred cron metrics
+```
+
+---
+
+## Milestone Roadmap
+
+| # | Milestone | Description | Success Criteria |
+|---|-----------|-------------|------------------|
+| M1 | **Core Scheduler** | Async scheduler with job registration and execution loop | Jobs run on schedule, graceful shutdown works |
+| M2 | **Cron Parser** | Standard cron expression parsing | Supports `*/5 * * * *`, `0 19 * * 0`, etc. |
+| M3 | **Persistence** | JSONL storage for jobs and history | Jobs survive restarts, history queryable |
+| M4 | **Observability** | Logging, metrics, health checks, alerts | All jobs logged, metrics exposed, alerts fire |
+| M5 | **System Jobs** | TTL check, compaction, cleanup jobs | Session TTL runs every 5 min, compaction nightly |
+| M6 | **User Job Submission** | Model generates code, submits for review | User can create job via natural language |
+| M7 | **Approval Workflow** | Human review and approval UI | Pending → Approved/Rejected flow works |
+| M8 | **Resource Limits** | Timeouts, memory limits, execution isolation | Jobs killed after timeout, memory tracked |
+| M9 | **Telegram Integration** | /cron commands in Telegram bot | Full cron management via Telegram |
+| M10 | **CLI Integration** | alfred cron commands | Full cron management via CLI |
+| M11 | **Testing** | Unit and integration tests | >90% coverage, all edge cases tested |
+
+---
+
+## Success Criteria
+
+- [ ] Jobs execute reliably on schedule (99.9% uptime)
+- [ ] No job skips—queue handles overlapping executions
+- [ ] All executions logged with full audit trail
+- [ ] Alerts fire within 60 seconds of job failure
+- [ ] User jobs require human approval before first run
+- [ ] Resource limits enforced (timeout, memory)
+- [ ] System survives restart without losing job state
+- [ ] All system jobs (TTL, compaction, cleanup) running
+- [ ] User can create, review, approve jobs via Telegram and CLI
+- [ ] Test coverage >90%
+
+---
+
+## File Structure
+
+```
+src/
+├── cron/
+│   ├── __init__.py
+│   ├── scheduler.py       # Core scheduler orchestration
+│   ├── store.py           # JSONL persistence
+│   ├── parser.py          # Cron expression parsing
+│   ├── executor.py        # Job execution with limits
+│   ├── observability.py   # Logging, metrics, health, alerts
+│   ├── models.py          # Job, ExecutionResult, etc.
+│   └── system_jobs.py     # Built-in system job handlers
+data/
+├── cron.jsonl             # Job definitions
+└── cron_history.jsonl     # Execution history
+```
+
+---
+
+## Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `croniter` | Cron expression parsing (if we don't write our own) |
+| `psutil` | Memory monitoring during job execution |
+| `prometheus_client` | Metrics export (optional) |
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-02-18 | Human approval for user jobs | Primary security mechanism—sandboxing Python is unreliable |
+| 2026-02-18 | Standard cron syntax | Industry standard, well understood, no need for custom DSL |
+| 2026-02-18 | Queue-based concurrency | Never skip jobs, preserve execution order |
+| 2026-02-18 | Separate history JSONL | Query performance, audit compliance, easy archival |
+| 2026-02-18 | System vs User job distinction | System jobs trusted, user jobs reviewed |
+| 2026-02-18 | Resource limits secondary | Human approval catches intent, limits catch accidents |
+
+---
+
+## Open Questions (Resolved)
+
+**Q: How do we handle daylight saving time transitions?**  
+A: Store all times in UTC. Cron expressions interpreted as UTC.
+
+**Q: What happens if the scheduler is down during a scheduled time?**  
+A: Job runs immediately on startup if missed (configurable per-job).
+
+**Q: Can jobs be edited after creation?**  
+A: Yes, but edited user jobs return to "pending" status for re-approval.
+
+**Q: How do we prevent job storms on startup?**  
+A: Max 1 queued execution per job—if multiple missed, only run once.
