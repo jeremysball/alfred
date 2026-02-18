@@ -4,6 +4,7 @@
 **Status**: Ready for Implementation  
 **Priority**: High  
 **Created**: 2026-02-18
+**Depends on**: #54 (✅ Complete - In-Memory Session Storage)
 
 ---
 
@@ -118,7 +119,7 @@ Check timeout → Summarize if > 1hr inactive
 
 | # | Milestone | Description | Success Criteria |
 |---|-----------|-------------|------------------|
-| 1 | **Session Data Model** | Create Session, Exchange dataclasses; JSONL serialization | Can create, save, load sessions |
+| 1 | **Session Data Model** | ✅ Complete in PRD #54 | `Session`, `Message` dataclasses in `src/session.py` |
 | 2 | **Session Manager** | In-memory session tracking with TTL; auto-archive on timeout | Sessions persist 1hr, auto-summarize |
 | 3 | **Summarization Engine** | LLM prompt to summarize session; extract key facts | Quality summaries with facts extraction |
 | 4 | **Context Integration** | Inject active session + relevant past sessions into LLM context | LLM sees conversation history |
@@ -215,6 +216,7 @@ A: Yes, via CLI commands to list, resume, or start fresh.
 
 ## Dependencies
 
+- ✅ PRD #54 (In-Memory Session Storage) - Complete
 - Existing memory system (memories.jsonl, embeddings)
 - LLM provider for summarization
 - Telegram chat ID for session isolation

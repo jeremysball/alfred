@@ -123,8 +123,7 @@ wheels = [
 ]
 
 [[package]]
-name = "alfred"
-version = "0.1.0"
+name = "alfred-assistant"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

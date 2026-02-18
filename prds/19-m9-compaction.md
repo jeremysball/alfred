@@ -4,10 +4,12 @@
 
 **Issue**: #19  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Depends On**: #18 (M8: Capabilities)  
+**Depends On**: #53 (Session System)  
 **Status**: Planning  
 **Priority**: High  
 **Created**: 2026-02-16
+
+> **Note**: Updated to use tool-based architecture. Original dependency on M8 (Capabilities - superseded) removed. Now depends on Session System for conversation context.
 
 Implement `/compact` command that intelligently summarizes long-running conversations using model-driven decisions.
 
@@ -175,8 +177,6 @@ Current context: """ + query_context,
                 role=mem.role,
                 content=content,
                 embedding=mem.embedding,
-                importance=mem.importance,
-                tags=mem.tags,
             ))
         
         return compacted
@@ -252,8 +252,6 @@ class AlfredBot:
             await self.memory.add_entry(
                 role="system",
                 content=f"[Summary of {result.summarized_count} messages]: {result.summary}",
-                importance=1.0,
-                tags=["compaction", "summary"],
             )
             
             await update.message.reply_text(
