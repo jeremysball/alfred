@@ -1,5 +1,7 @@
 """Tests for CLI interface."""
 
+from collections.abc import AsyncIterator
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from io import StringIO
@@ -11,12 +13,12 @@ from src.llm import ChatResponse
 
 
 @pytest.fixture
-def mock_alfred():
+def mock_alfred() -> MagicMock:
     """Create a mock Alfred engine."""
     alfred = MagicMock(spec=Alfred)
     
     # Create an async generator mock for chat_stream
-    async def async_gen(*args, **kwargs):
+    async def async_gen(*args: object, **kwargs: object) -> AsyncIterator[str]:
         yield "CLI response"
     
     alfred.chat_stream = AsyncMock(side_effect=async_gen)
@@ -25,7 +27,7 @@ def mock_alfred():
 
 
 @pytest.mark.asyncio
-async def test_chat_delegates_to_alfred(mock_alfred):
+async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates chat to Alfred via chat_stream."""
     interface = CLIInterface(mock_alfred)
 
@@ -37,7 +39,7 @@ async def test_chat_delegates_to_alfred(mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_compact_delegates_to_alfred(mock_alfred):
+async def test_compact_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates compact to Alfred."""
     interface = CLIInterface(mock_alfred)
 
@@ -49,7 +51,7 @@ async def test_compact_delegates_to_alfred(mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_exit_terminates_loop(mock_alfred):
+async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
     """Test that 'exit' command terminates the loop."""
     interface = CLIInterface(mock_alfred)
 
@@ -62,7 +64,7 @@ async def test_exit_terminates_loop(mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_empty_input_ignored(mock_alfred):
+async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
     """Test that empty input is ignored."""
     interface = CLIInterface(mock_alfred)
 
@@ -75,7 +77,7 @@ async def test_empty_input_ignored(mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_eoferror_terminates_loop(mock_alfred):
+async def test_eoferror_terminates_loop(mock_alfred: MagicMock) -> None:
     """Test that EOFError terminates the loop gracefully."""
     interface = CLIInterface(mock_alfred)
 
@@ -88,7 +90,7 @@ async def test_eoferror_terminates_loop(mock_alfred):
 
 
 @pytest.mark.asyncio
-async def test_case_insensitive_commands(mock_alfred):
+async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
     """Test that commands are case-insensitive."""
     interface = CLIInterface(mock_alfred)
 
