@@ -52,6 +52,48 @@ class TimeoutError(LLMError):
     pass
 
 
+async def _retry_async(
+    operation,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+    operation_name: str = "operation"
+):
+    """Retry an async operation with exponential backoff.
+    
+    For use inside async generators where decorators don't work.
+    """
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await operation()
+        except Exception as e:
+            last_exception = e
+            
+            # Don't retry on programming errors
+            if isinstance(e, (ValueError, TypeError, AttributeError)):
+                raise
+            
+            if attempt >= max_retries:
+                logger.error(
+                    f"Max retries ({max_retries}) exceeded for {operation_name}: {e}"
+                )
+                raise last_exception
+            
+            # Calculate delay with exponential backoff
+            delay = min(base_delay * (2.0 ** attempt), max_delay)
+            delay = delay * (0.5 + random.random())  # Add jitter
+            
+            logger.warning(
+                f"Attempt {attempt + 1}/{max_retries + 1} failed for {operation_name}: {e}. "
+                f"Retrying in {delay:.2f}s..."
+            )
+            await asyncio.sleep(delay)
+    
+    raise last_exception
+
+
 def retry_with_backoff(
     max_retries: int = 3,
     base_delay: float = 1.0,
@@ -277,8 +319,8 @@ class KimiProvider(LLMProvider):
 
         logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
 
-        try:
-            stream = await self.client.chat.completions.create(
+        async def _create_stream():
+            return await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": m.role, "content": m.content}
@@ -287,6 +329,14 @@ class KimiProvider(LLMProvider):
                 temperature=0.7,
                 max_tokens=2000,
                 stream=True,
+            )
+
+        try:
+            stream = await _retry_async(
+                _create_stream,
+                max_retries=3,
+                base_delay=1.0,
+                operation_name="stream_chat"
             )
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
@@ -326,21 +376,21 @@ class KimiProvider(LLMProvider):
         import json
         import openai
         
-        try:
-            # Convert messages to API format, including tool_call_id for tool messages
-            # and reasoning_content for assistant messages
-            api_messages = []
-            for m in messages:
-                msg = {"role": m.role, "content": m.content}
-                if m.role == "tool" and m.tool_call_id:
-                    msg["tool_call_id"] = m.tool_call_id
-                if m.tool_calls:
-                    msg["tool_calls"] = m.tool_calls
-                if m.reasoning_content and m.role == "assistant":
-                    msg["reasoning_content"] = m.reasoning_content
-                api_messages.append(msg)
-            
-            stream = await self.client.chat.completions.create(
+        # Convert messages to API format, including tool_call_id for tool messages
+        # and reasoning_content for assistant messages
+        api_messages = []
+        for m in messages:
+            msg = {"role": m.role, "content": m.content}
+            if m.role == "tool" and m.tool_call_id:
+                msg["tool_call_id"] = m.tool_call_id
+            if m.tool_calls:
+                msg["tool_calls"] = m.tool_calls
+            if m.reasoning_content and m.role == "assistant":
+                msg["reasoning_content"] = m.reasoning_content
+            api_messages.append(msg)
+        
+        async def _create_stream():
+            return await self.client.chat.completions.create(
                 model=self.model,
                 messages=api_messages,
                 tools=tools,
@@ -348,12 +398,33 @@ class KimiProvider(LLMProvider):
                 max_tokens=4000,
                 stream=True,
             )
-            
-            # Collect streaming data
-            tool_calls_data = []
-            current_tool_call = None
-            full_content = ""
-            
+        
+        try:
+            stream = await _retry_async(
+                _create_stream,
+                max_retries=3,
+                base_delay=1.0,
+                operation_name="stream_chat_with_tools"
+            )
+        except openai.RateLimitError as e:
+            logger.error(f"Kimi rate limit exceeded: {e}")
+            raise RateLimitError(f"Rate limit exceeded: {e}") from e
+        except openai.APIError as e:
+            logger.error(f"Kimi API error: {e}")
+            raise APIError(f"API error: {e}") from e
+        except openai.APITimeoutError as e:
+            logger.error(f"Kimi request timed out: {e}")
+            raise TimeoutError(f"Request timed out: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error calling Kimi: {e}")
+            raise LLMError(f"Unexpected error: {e}") from e
+        
+        # Collect streaming data
+        tool_calls_data = []
+        current_tool_call = None
+        full_content = ""
+        
+        try:
             async for chunk in stream:
                 # Skip chunks with no choices (can happen with some providers)
                 if not chunk.choices:
