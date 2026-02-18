@@ -3,9 +3,11 @@
 ## Overview
 
 **Issue**: #10  
-**Status**: Planning  
+**Status**: Superseded by [#48](48-alfred-v1-vision.md)  
 **Priority**: High  
 **Created**: 2026-02-16
+
+> **⚠️ Deprecated**: This PRD has been superseded by [PRD 48: Alfred v1.0 - Complete Vision](48-alfred-v1-vision.md). Please refer to PRD 48 for the current architecture and roadmap.
 
 Alfred maintains context across infinite time horizons. Unlike assistants that start fresh each conversation, Alfred captures daily interactions, curates long-term memories with embeddings, and evolves its understanding of the user.
 

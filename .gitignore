@@ -60,6 +60,12 @@ htmlcov/
 # Local development
 local/
 
+# User-specific files (auto-created from templates)
+USER.md
+SOUL.md
+TOOLS.md
+MEMORY.md
+
 # Scraped reference files (not for repo)
 .scraped/
 
