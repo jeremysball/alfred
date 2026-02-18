@@ -30,6 +30,9 @@ class MemoryStore:
 
     def _entry_to_jsonl(self, entry: MemoryEntry) -> str:
         """Serialize MemoryEntry to JSONL line."""
+        # Ensure ID is generated
+        if entry.entry_id is None:
+            entry.entry_id = entry.generate_id()
         return json.dumps({
             "timestamp": entry.timestamp.isoformat(),
             "role": entry.role,
@@ -37,6 +40,7 @@ class MemoryStore:
             "embedding": entry.embedding,
             "importance": entry.importance,
             "tags": entry.tags,
+            "entry_id": entry.entry_id,
         })
 
     def _entry_from_jsonl(self, line: str) -> MemoryEntry:
@@ -49,6 +53,7 @@ class MemoryStore:
             embedding=data.get("embedding"),
             importance=data.get("importance", 0.5),
             tags=data.get("tags", []),
+            entry_id=data.get("entry_id"),  # Auto-generated if None
         )
 
     async def add_entries(self, entries: list[MemoryEntry]) -> None:
@@ -174,6 +179,156 @@ class MemoryStore:
         """Clear all memories (useful for testing)."""
         if self.memories_path.exists():
             self.memories_path.unlink()
+
+    async def get_by_id(self, entry_id: str) -> MemoryEntry | None:
+        """Get a memory entry by its ID.
+
+        Args:
+            entry_id: The unique ID of the memory entry
+
+        Returns:
+            The memory entry if found, None otherwise
+        """
+        async for entry in self.iter_entries():
+            if entry.entry_id == entry_id:
+                return entry
+        return None
+
+    # --- CRUD Operations ---
+
+    async def update_entry(
+        self,
+        search_query: str,
+        new_content: str | None = None,
+        new_importance: float | None = None,
+    ) -> tuple[bool, str]:
+        """Update an existing memory entry.
+
+        Finds the best matching memory by semantic search and updates specified fields.
+        If content changes, the embedding is regenerated.
+
+        Args:
+            search_query: Query to find the memory to update
+            new_content: New content (None = don't change)
+            new_importance: New importance value (None = don't change)
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        if new_content is None and new_importance is None:
+            return False, "No changes specified"
+
+        # Load all entries
+        entries = await self.get_all_entries()
+        if not entries:
+            return False, "No memories to update"
+
+        # Find best match
+        query_embedding = await self.embedder.embed(search_query)
+        best_match: tuple[float, MemoryEntry | None] = (0.0, None)
+
+        for entry in entries:
+            if entry.embedding:
+                similarity = cosine_similarity(query_embedding, entry.embedding)
+                if similarity > best_match[0]:
+                    best_match = (similarity, entry)
+
+        if best_match[1] is None or best_match[0] < 0.3:
+            return False, f"No matching memory found for query: {search_query}"
+
+        target_entry = best_match[1]
+
+        # Apply updates
+        old_content = target_entry.content
+        if new_content is not None:
+            target_entry.content = new_content
+            # Regenerate embedding if content changed
+            if new_content != old_content:
+                target_entry.embedding = await self.embedder.embed(new_content)
+
+        if new_importance is not None:
+            target_entry.importance = new_importance
+
+        # Rewrite all entries
+        await self._rewrite_entries(entries)
+
+        return True, f"Updated: {target_entry.content[:100]}{'...' if len(target_entry.content) > 100 else ''}"
+
+    async def delete_entries(
+        self,
+        query: str,
+    ) -> tuple[int, str]:
+        """Delete memories matching a semantic query.
+
+        Args:
+            query: Semantic query to find memories to delete
+
+        Returns:
+            Tuple of (count_deleted: int, message: str)
+        """
+        # Load all entries
+        entries = await self.get_all_entries()
+        if not entries:
+            return 0, "No memories to delete"
+
+        # Find matches
+        query_embedding = await self.embedder.embed(query)
+        entries_to_keep: list[MemoryEntry] = []
+        deleted_count = 0
+
+        for entry in entries:
+            if entry.embedding:
+                similarity = cosine_similarity(query_embedding, entry.embedding)
+                if similarity >= 0.3:  # Same threshold as retrieval
+                    deleted_count += 1
+                    continue  # Skip this entry (delete it)
+            entries_to_keep.append(entry)
+
+        if deleted_count == 0:
+            return 0, f"No memories matching query: {query}"
+
+        # Rewrite with remaining entries
+        await self._rewrite_entries(entries_to_keep)
+
+        return deleted_count, f"Deleted {deleted_count} memory{'ies' if deleted_count != 1 else 'y'}"
+
+    async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
+        """Delete a memory entry by its ID.
+
+        Args:
+            entry_id: The unique ID of the memory entry to delete
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        entries = await self.get_all_entries()
+        if not entries:
+            return False, "No memories to delete"
+
+        original_count = len(entries)
+        entries = [e for e in entries if e.entry_id != entry_id]
+
+        if len(entries) == original_count:
+            return False, f"No memory found with ID: {entry_id}"
+
+        # Rewrite with remaining entries
+        await self._rewrite_entries(entries)
+
+        return True, "Deleted 1 memory"
+
+    async def _rewrite_entries(self, entries: list[MemoryEntry]) -> None:
+        """Atomically rewrite all entries to the JSONL file.
+
+        Uses a temp file and atomic replace to prevent corruption.
+        """
+        temp_path = self.memories_path.with_suffix('.tmp')
+
+        async with aiofiles.open(temp_path, "w") as f:
+            for entry in entries:
+                await f.write(self._entry_to_jsonl(entry) + "\n")
+
+        # Atomic replace
+        temp_path.replace(self.memories_path)
 
     # --- MEMORY.md (Curated Long-term Memory) ---
 
