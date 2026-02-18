@@ -4,10 +4,12 @@
 
 **Issue**: #20  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Depends On**: #19 (M9: Compaction)  
+**Depends On**: #53 (Session System), #19 (M9: Compaction)  
 **Status**: Planning  
 **Priority**: High  
 **Created**: 2026-02-16
+
+> **Note**: Updated to use tool-based architecture. Removed importance scoring (feature removed in #57).
 
 Build distillation system that extracts insights from conversations and writes to memory files using model-driven decisions.
 
@@ -36,7 +38,6 @@ Create distillation that:
 - [ ] Continuous conversation monitoring
 - [ ] Key insight extraction via LLM
 - [ ] Automatic MEMORY.md updates
-- [ ] Importance scoring
 - [ ] Duplicate detection
 
 ---
@@ -76,13 +77,11 @@ class DistillationEngine:
         self,
         config: Config,
         llm: LLMProvider,
-        important: ImportantMemory,
-        min_importance: float = 0.7,
+        memory_store: MemoryStore,
     ) -> None:
         self.config = config
         self.llm = llm
-        self.important = important
-        self.min_importance = min_importance
+        self.memory_store = memory_store
     
     async def distill(
         self,
@@ -113,12 +112,8 @@ class DistillationEngine:
                 duplicates += 1
                 continue
             
-            # Score importance
-            importance = await self._score_importance(insight)
-            
-            if importance >= self.min_importance:
-                await self._store_insight(insight, importance)
-                added.append(insight)
+            await self._store_insight(insight)
+            added.append(insight)
         
         return DistillationResult(
             insights=[i.text for i in insights],
@@ -143,14 +138,13 @@ class DistillationEngine:
 
 For each insight, provide:
 - Content: The specific fact, preference, or decision
-- Importance (0-1): How valuable is this for future conversations?
 - Category: user_preference, user_fact, decision, goal, context
 
 Only extract substantive insights. Skip trivialities.
 
 Format as JSON array:
 [
-  {"content": "...", "importance": 0.9, "category": "user_preference"}
+  {"content": "...", "category": "user_preference"}
 ]""",
             ),
             ChatMessage(
@@ -168,7 +162,7 @@ Format as JSON array:
             return [Insight(**item) for item in data]
         except Exception:
             # Fallback: treat whole response as single insight
-            return [Insight(content=response.content, importance=0.8, category="context")]
+            return [Insight(content=response.content, category="context")]
     
     async def _is_duplicate(self, insight: "Insight") -> bool:
         """Check if similar insight already exists."""
@@ -195,46 +189,8 @@ Format as JSON array:
         union = a_words | b_words
         
         return len(intersection) / len(union)
-    
-    async def _score_importance(self, insight: "Insight") -> float:
-        """Score importance using LLM."""
-        messages = [
-            ChatMessage(
-                role="system",
-                content="""Rate the importance of this insight for long-term memory (0-1).
 
-High importance (0.8-1.0):
-- Core user preferences
-- Important life facts
-- Project goals and decisions
-- Relationship information
-
-Medium importance (0.5-0.7):
-- Temporary preferences
-- Minor context
-- Routine information
-
-Low importance (0.0-0.4):
-- Trivial details
-- One-time mentions
-- Obvious information
-
-Respond with only a number between 0 and 1.""",
-            ),
-            ChatMessage(
-                role="user",
-                content=f"Insight: {insight.content}\nCategory: {insight.category}",
-            ),
-        ]
-        
-        response = await self.llm.chat(messages)
-        
-        try:
-            return float(response.content.strip())
-        except ValueError:
-            return insight.importance  # Fallback to original
-    
-    async def _store_insight(self, insight: "Insight", importance: float) -> None:
+    async def _store_insight(self, insight: "Insight") -> None:
         """Store insight to MEMORY.md."""
         formatted = f"[{insight.category.upper()}] {insight.content}"
         await self.curated.append(formatted)
@@ -258,5 +214,4 @@ Respond with only a number between 0 and 1.""",
 @dataclass
 class Insight:
     content: str
-    importance: float
     category: str

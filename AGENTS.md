@@ -44,6 +44,27 @@ If a command fails with "authentication required" or "token not found", you forg
 
 ---
 
+## ⚠️ GITHUB CLI — READ THIS
+
+**ALWAYS, ALWAYS, ALWAYS run `gh` commands with `uv run dotenv gh`:**
+
+```bash
+uv run dotenv gh issue create --title "..." --body "..."
+uv run dotenv gh issue edit 123 --body "..."
+uv run dotenv gh pr create --title "..." --body "..."
+uv run dotenv gh pr merge 456
+```
+
+**WRONG — Do NOT do this:**
+```bash
+gh issue create --title "..."               # ❌ Will fail - no GH_TOKEN
+export $(cat .env | grep GH_TOKEN | xargs) && gh issue create  # ❌ Pollutes shell
+```
+
+**NO EXCEPTIONS.** Every `gh` command must use `uv run dotenv gh`.
+
+---
+
 ### 1. Permission First
 ALWAYS, ALWAYS ask before:
 - Editing files

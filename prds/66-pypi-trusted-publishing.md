@@ -90,7 +90,7 @@ Use `uv-dynamic-versioning` or similar to extract version from git tags:
    - **PyPI Project Name**: `alfred-assistant`
    - **Owner**: `jeremysball`
    - **Repository**: `alfred`
-   - **Workflow**: `publish.yml`
+   - **Workflow**: `release.yml`
    - **Environment**: `pypi`
 
 #### TestPyPI Setup
@@ -100,7 +100,7 @@ Use `uv-dynamic-versioning` or similar to extract version from git tags:
 ### CI/CD Workflow
 
 ```yaml
-# .github/workflows/publish.yml
+# .github/workflows/release.yml
 name: Publish to PyPI
 
 on:
@@ -148,8 +148,8 @@ jobs:
 | M2 | Version Management | Todo | Set up dynamic versioning from git tags, initial version 0.1.0 |
 | M3 | PyPI Trusted Publisher | Todo | Configure pending publisher on PyPI (production) |
 | M4 | TestPyPI Trusted Publisher | Todo | Configure pending publisher on TestPyPI |
-| M5 | GitHub Environments | Todo | Create `pypi` and `testpypi` environments with protection rules |
-| M6 | CI/CD Workflow | Todo | Create publish.yml workflow for TestPyPI (main branch) and PyPI (tags) |
+| M5 | GitHub Environments | ✅ Done | Create `pypi` and `testpypi` environments with protection rules |
+| M6 | CI/CD Workflow | ✅ Done | Create release.yml workflow for TestPyPI (main branch) and PyPI (tags) |
 | M7 | Test Release | Todo | Push to main, verify TestPyPI package builds and installs |
 | M8 | Production Release | Todo | Create git tag v0.1.0, verify PyPI release |
 
