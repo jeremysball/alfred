@@ -34,4 +34,8 @@ jobs:
         run: uv run mypy src/
 
       - name: Run pytest
+        env:
+          OPENAI_API_KEY: test
+          KIMI_API_KEY: test
+          TELEGRAM_BOT_TOKEN: test
         run: uv run pytest
