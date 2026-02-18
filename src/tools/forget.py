@@ -139,11 +139,12 @@ class ForgetTool(Tool):
 
             lines = [f"Found {len(results)} memories matching '{query}':\n"]
 
-            for entry, similarity in zip(results, similarities, strict=False):
+            for entry in results:
                 date_str = entry.timestamp.strftime("%Y-%m-%d")
                 preview = entry.content[:60]
                 if len(entry.content) > 60:
                     preview += "..."
+                similarity = similarities.get(entry.entry_id, 0.0)
                 match_pct = int(similarity * 100)
                 lines.append(f"  - [{date_str}] {preview}")
                 lines.append(f"    ID: {entry.entry_id} ({match_pct}% match)")
