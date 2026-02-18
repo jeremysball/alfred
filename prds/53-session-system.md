@@ -81,12 +81,9 @@ class Exchange:
 ### File Structure
 
 ```
-data/sessions/
-├── active_sessions.jsonl      # Currently active sessions
-└── archived/
-    ├── 2026-02-18_sessions.jsonl
-    ├── 2026-02-19_sessions.jsonl
-    └── ...
+data/
+├── memories.jsonl       # Distilled facts from all sessions (replaces MEMORY.md)
+└── sessions.jsonl       # All sessions (active + archived)
 ```
 
 ---
@@ -167,9 +164,9 @@ PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
 
 | System | Stores | Use Case | Status |
 |--------|--------|----------|--------|
-| **Session System** | Full conversations, summaries | Context for current conversation, finding relevant past chats | **New - replaces MEMORY.md** |
-| **MEMORY.md** | Curated long-term facts | ~~Durable user preferences~~ | **Obsolete** - replaced by session summaries |
-| **memories.jsonl** | Distilled facts from all interactions | Semantic search for specific facts | **Active** - populated from session key_facts |
+| **Session System** | Full conversations, summaries | Context for current conversation, finding relevant past chats | **New** |
+| **MEMORY.md** | Curated long-term facts | ~~Durable user preferences~~ | **Obsolete** - replaced by memories.jsonl |
+| **memories.jsonl** | Distilled facts from all interactions | Long-term curated knowledge + semantic search | **Active** - populated from session key_facts |
 
 ### Data Flow
 
@@ -178,18 +175,19 @@ Conversation Ends
     ↓
 Session Summarized
     ↓
-├─→ Save to session archive (full conversation + summary)
-└─→ Extract key facts → add to memories.jsonl
+├─→ Save to sessions.jsonl (full conversation + summary)
+└─→ Extract key facts → add to memories.jsonl (replaces MEMORY.md)
 ```
 
-Session summaries serve as the primary long-term memory. Key facts extracted during summarization feed into memories.jsonl for semantic search.
+- **sessions.jsonl**: Complete session history with summaries
+- **memories.jsonl**: Curated facts extracted from sessions (the new MEMORY.md)
 
 ---
 
 ## Open Questions (Resolved)
 
 **Q: How does this relate to the existing memory system?**  
-A: Sessions replace MEMORY.md entirely. Sessions handle both conversation context AND long-term curated knowledge. Session summaries feed into memories.jsonl for semantic search.
+A: Sessions handle conversation context and summaries. memories.jsonl replaces MEMORY.md as the curated long-term knowledge store. Key facts extracted from session summaries feed into memories.jsonl.
 
 **Q: What triggers session summarization?**  
 A: 1 hour of inactivity OR 100 exchanges (configurable).
