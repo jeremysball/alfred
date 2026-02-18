@@ -1,7 +1,8 @@
 """Tests for Alfred core engine."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.alfred import Alfred
 
@@ -31,21 +32,21 @@ def mock_context():
 
 class MockStream:
     """Mock async iterator that records calls and yields chunks."""
-    
+
     def __init__(self, chunks):
         self.chunks = chunks
         self.call_args = None
         self.call_kwargs = None
-        
+
     def __call__(self, *args, **kwargs):
         self.call_args = args
         self.call_kwargs = kwargs
         return self
-        
+
     def __aiter__(self):
         self._idx = 0
         return self
-        
+
     async def __anext__(self):
         if self._idx >= len(self.chunks):
             raise StopAsyncIteration
@@ -63,7 +64,7 @@ async def test_chat_returns_response(mock_config, mock_context):
     ):
         # Create a mock stream that yields chunks
         mock_stream = MockStream(["Hello! ", "How ", "can ", "I ", "help ", "you?"])
-        
+
         mock_llm = MagicMock()
         mock_llm.stream_chat_with_tools = mock_stream
         mock_factory.create.return_value = mock_llm
@@ -84,7 +85,7 @@ async def test_chat_returns_response(mock_config, mock_context):
 async def test_chat_builds_correct_messages(mock_config, mock_context):
     """Test that chat builds messages with system prompt and user input."""
     mock_stream = MockStream(["Test response"])
-    
+
     with (
         patch("src.alfred.LLMFactory") as mock_factory,
         patch("src.alfred.ContextLoader") as mock_loader_class,

@@ -22,7 +22,10 @@ class EditTool(Tool):
     """Make precise edits to a file by replacing text."""
 
     name = "edit"
-    description = "Make precise edit to a file by replacing old_text with new_text. The old_text must match exactly (including whitespace)."
+    description = (
+        "Make precise edit to a file by replacing old_text with new_text. "
+        "The old_text must match exactly (including whitespace)."
+    )
     param_model = EditToolParams
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:

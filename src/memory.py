@@ -252,7 +252,9 @@ class MemoryStore:
         # Rewrite all entries
         await self._rewrite_entries(entries)
 
-        return True, f"Updated: {target_entry.content[:100]}{'...' if len(target_entry.content) > 100 else ''}"
+        truncated = target_entry.content[:100]
+        suffix = "..." if len(target_entry.content) > 100 else ""
+        return True, f"Updated: {truncated}{suffix}"
 
     async def delete_entries(
         self,
@@ -290,7 +292,8 @@ class MemoryStore:
         # Rewrite with remaining entries
         await self._rewrite_entries(entries_to_keep)
 
-        return deleted_count, f"Deleted {deleted_count} memory{'ies' if deleted_count != 1 else 'y'}"
+        suffix = "ies" if deleted_count != 1 else "y"
+        return deleted_count, f"Deleted {deleted_count} memor{suffix}"
 
     async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
         """Delete a memory entry by its ID.

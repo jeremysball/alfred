@@ -38,7 +38,7 @@ class Config(BaseSettings):
 
 def load_config(config_path: Path = Path("config.json")) -> Config:
     """Load configuration with config.json as source of truth.
-    
+
     Precedence (highest to lowest):
     1. Environment variables
     2. .env file

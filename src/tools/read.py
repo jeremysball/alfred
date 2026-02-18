@@ -23,7 +23,10 @@ class ReadTool(Tool):
     """Read file contents. Supports text files and images."""
 
     name = "read"
-    description = "Read file contents. Supports text files (with optional line offset/limit) and images (jpg, png, gif, webp)."
+    description = (
+        "Read file contents. Supports text files (with optional line offset/limit) "
+        "and images (jpg, png, gif, webp)."
+    )
     param_model = ReadToolParams
 
     def execute(self, **kwargs: Any) -> str:
@@ -76,7 +79,10 @@ class ReadTool(Tool):
             result = '\n'.join(result_lines)
             if len(result) > max_bytes:
                 result = result[:max_bytes]
-            result += "\n\n[Output truncated: file too large. Use offset/limit to read specific sections.]"
+            result += (
+                "\n\n[Output truncated: file too large. "
+                "Use offset/limit to read specific sections.]"
+            )
 
         # If empty result, mention it
         if not result.strip():

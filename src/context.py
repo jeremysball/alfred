@@ -72,7 +72,7 @@ class ContextLoader:
 
     async def load_file(self, name: str, path: Path) -> ContextFile:
         """Load a context file, auto-creating from template if missing.
-        
+
         Uses cache if available. Auto-creates missing files from templates
         for known context types (soul, user, tools).
         """

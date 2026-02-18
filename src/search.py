@@ -42,7 +42,10 @@ class MemorySearcher:
         Returns:
             Top memories ranked by hybrid score (similarity + recency + importance)
         """
-        logger.debug(f"Searching {len(memories)} memories with min_similarity={self.min_similarity}")
+        logger.debug(
+            f"Searching {len(memories)} memories with "
+            f"min_similarity={self.min_similarity}"
+        )
 
         scored: list[tuple[float, MemoryEntry]] = []
 
@@ -61,7 +64,10 @@ class MemorySearcher:
         scored.sort(key=lambda x: x[0], reverse=True)
 
         results = [memory for _, memory in scored[:self.context_limit]]
-        logger.info(f"Memory search: {len(memories)} total, {len(scored)} scored, {len(results)} returned")
+        logger.info(
+            f"Memory search: {len(memories)} total, "
+            f"{len(scored)} scored, {len(results)} returned"
+        )
         return results
 
     def _hybrid_score(
@@ -183,7 +189,10 @@ class ContextBuilder:
         logger.info(f"Context built: {token_count} tokens ({len(relevant)} memories injected)")
 
         if token_count > self.token_budget:
-            logger.warning(f"Context exceeds budget: {token_count} > {self.token_budget} tokens, truncating")
+            logger.warning(
+                f"Context exceeds budget: {token_count} > "
+                f"{self.token_budget} tokens, truncating"
+            )
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
             truncated = self._truncate_to_budget(

@@ -1,6 +1,5 @@
 """Tests for embedding error handling and retry logic."""
 
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -195,10 +194,11 @@ class TestEmbeddingClientErrorHandling:
         )
 
         # Fail twice, then succeed
+        mock_data = MagicMock(data=[MagicMock(embedding=[0.1, 0.2])])
         with patch.object(
             client.client.embeddings,
             "create",
-            AsyncMock(side_effect=[error, error, MagicMock(data=[MagicMock(embedding=[0.1, 0.2])])]),
+            AsyncMock(side_effect=[error, error, mock_data]),
         ):
             result = await client.embed("test text")
 
@@ -218,9 +218,8 @@ class TestEmbeddingClientErrorHandling:
 
         with patch.object(
             client.client.embeddings, "create", AsyncMock(side_effect=error)
-        ):
-            with pytest.raises(EmbeddingError) as exc_info:
-                await client.embed("test text")
+        ), pytest.raises(EmbeddingError) as exc_info:
+            await client.embed("test text")
 
         assert "non-transient" in str(exc_info.value)
 
@@ -261,9 +260,8 @@ class TestEmbeddingClientErrorHandling:
 
         with patch.object(
             client.client.embeddings, "create", AsyncMock(side_effect=error)
-        ):
-            with pytest.raises(EmbeddingError) as exc_info:
-                await client.embed_batch(["text1", "text2"])
+        ), pytest.raises(EmbeddingError) as exc_info:
+            await client.embed_batch(["text1", "text2"])
 
         assert "non-transient" in str(exc_info.value)
 

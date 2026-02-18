@@ -1,8 +1,8 @@
 """Integration tests for ContextLoader template auto-creation."""
 
 import tempfile
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
 import pytest
 

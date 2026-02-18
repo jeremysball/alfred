@@ -1,13 +1,13 @@
 """Tests for Telegram interface."""
 
 from collections.abc import AsyncIterator
-
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.interfaces.telegram import TelegramInterface
+import pytest
+
 from src.alfred import Alfred
 from src.config import Config
+from src.interfaces.telegram import TelegramInterface
 
 
 @pytest.fixture
@@ -49,7 +49,12 @@ def mock_context() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_message_delegates_to_alfred(mock_config: MagicMock, mock_alfred: MagicMock, mock_update: MagicMock, mock_context: MagicMock) -> None:
+async def test_message_delegates_to_alfred(
+    mock_config: MagicMock,
+    mock_alfred: MagicMock,
+    mock_update: MagicMock,
+    mock_context: MagicMock,
+) -> None:
     """Test that message handler delegates to Alfred.chat_stream()."""
     interface = TelegramInterface(mock_config, mock_alfred)
 
@@ -62,7 +67,12 @@ async def test_message_delegates_to_alfred(mock_config: MagicMock, mock_alfred: 
 
 
 @pytest.mark.asyncio
-async def test_compact_delegates_to_alfred(mock_config: MagicMock, mock_alfred: MagicMock, mock_update: MagicMock, mock_context: MagicMock) -> None:
+async def test_compact_delegates_to_alfred(
+    mock_config: MagicMock,
+    mock_alfred: MagicMock,
+    mock_update: MagicMock,
+    mock_context: MagicMock,
+) -> None:
     """Test that compact handler delegates to Alfred.compact()."""
     interface = TelegramInterface(mock_config, mock_alfred)
 
@@ -73,7 +83,12 @@ async def test_compact_delegates_to_alfred(mock_config: MagicMock, mock_alfred: 
 
 
 @pytest.mark.asyncio
-async def test_start_sends_greeting(mock_config: MagicMock, mock_alfred: MagicMock, mock_update: MagicMock, mock_context: MagicMock) -> None:
+async def test_start_sends_greeting(
+    mock_config: MagicMock,
+    mock_alfred: MagicMock,
+    mock_update: MagicMock,
+    mock_context: MagicMock,
+) -> None:
     """Test that start handler sends greeting."""
     interface = TelegramInterface(mock_config, mock_alfred)
 
@@ -85,7 +100,11 @@ async def test_start_sends_greeting(mock_config: MagicMock, mock_alfred: MagicMo
 
 
 @pytest.mark.asyncio
-async def test_message_handles_none_text(mock_config: MagicMock, mock_alfred: MagicMock, mock_context: MagicMock) -> None:
+async def test_message_handles_none_text(
+    mock_config: MagicMock,
+    mock_alfred: MagicMock,
+    mock_context: MagicMock,
+) -> None:
     """Test that message handler handles None text gracefully."""
     interface = TelegramInterface(mock_config, mock_alfred)
 
@@ -100,7 +119,11 @@ async def test_message_handles_none_text(mock_config: MagicMock, mock_alfred: Ma
 
 
 @pytest.mark.asyncio
-async def test_message_handles_missing_message(mock_config: MagicMock, mock_alfred: MagicMock, mock_context: MagicMock) -> None:
+async def test_message_handles_missing_message(
+    mock_config: MagicMock,
+    mock_alfred: MagicMock,
+    mock_context: MagicMock,
+) -> None:
     """Test that message handler handles missing message gracefully."""
     interface = TelegramInterface(mock_config, mock_alfred)
 
@@ -119,7 +142,12 @@ async def error_stream(message: str) -> AsyncIterator[str]:
 
 
 @pytest.mark.asyncio
-async def test_message_surfaces_errors(mock_config: MagicMock, mock_alfred: MagicMock, mock_update: MagicMock, mock_context: MagicMock) -> None:
+async def test_message_surfaces_errors(
+    mock_config: MagicMock,
+    mock_alfred: MagicMock,
+    mock_update: MagicMock,
+    mock_context: MagicMock,
+) -> None:
     """Test that message handler surfaces errors to user."""
     interface = TelegramInterface(mock_config, mock_alfred)
     mock_alfred.chat_stream = error_stream

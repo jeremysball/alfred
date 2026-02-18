@@ -25,7 +25,11 @@ class BashTool(Tool):
     """Execute bash commands in the current working directory."""
 
     name = "bash"
-    description = "Execute a bash command in the current working directory. Commands run with a 60 second timeout by default (max 300 seconds). Large outputs are truncated."
+    description = (
+        "Execute a bash command in the current working directory. "
+        "Commands run with a 60 second timeout by default (max 300 seconds). "
+        "Large outputs are truncated."
+    )
     param_model = BashToolParams
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
@@ -98,7 +102,7 @@ class BashTool(Tool):
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute a bash command with streaming output.
-        
+
         Yields output chunks as they are produced by the command.
         """
         command = kwargs.get("command", "")

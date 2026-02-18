@@ -1,7 +1,8 @@
 """Tests for MemoryStore CRUD operations (update and delete)."""
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 from src.memory import MemoryStore
 from src.types import MemoryEntry
