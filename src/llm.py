@@ -7,7 +7,7 @@ import random
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from src.config import Config
 
@@ -266,7 +266,6 @@ class KimiProvider(LLMProvider):
         tools: list[dict[str, Any]] | None = None,
     ) -> ChatResponse:
         """Send chat with tool definitions."""
-        import openai
 
         try:
             response = await self.client.chat.completions.create(
@@ -378,6 +377,7 @@ class KimiProvider(LLMProvider):
         followed by JSON array of tool calls.
         """
         import json
+
         import openai
 
         # Convert messages to API format, including tool_call_id for tool messages

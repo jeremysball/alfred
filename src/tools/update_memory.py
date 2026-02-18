@@ -10,13 +10,13 @@ from .base import Tool
 
 class UpdateMemoryToolParams(BaseModel):
     """Parameters for UpdateMemoryTool."""
-    
+
     search_query: str = Field("", description="Query to find the memory to update")
     entry_id: str = Field("", description="Direct lookup by memory ID")
     new_content: str = Field("", description="New content for the memory (empty = no change)")
     new_importance: float = Field(-1, description="New importance value 0.0-1.0 (-1 = no change)")
     confirm: bool = Field(False, description="Set to True to actually update (False = preview)")
-    
+
     class Config:
         extra = "forbid"
 
@@ -95,7 +95,7 @@ class UpdateMemoryTool(Tool):
             try:
                 entry = None
                 lookup_key = ""
-                
+
                 if entry_id:
                     entry = await self._memory_store.get_by_id(entry_id)
                     lookup_key = f"id={entry_id}"
@@ -104,7 +104,7 @@ class UpdateMemoryTool(Tool):
                     if results:
                         entry = results[0]
                     lookup_key = f"query='{search_query}'"
-                
+
                 if not entry:
                     yield f"No memory found matching {lookup_key}."
                     return
@@ -122,19 +122,19 @@ class UpdateMemoryTool(Tool):
                 if importance is not None:
                     lines.append(f"  New importance: {importance:.1f}")
                 lines.append("")
-                
+
                 # Build confirmation call
                 if entry_id:
                     confirm_call = f"update_memory(entry_id='{entry_id}'"
                 else:
                     confirm_call = f"update_memory(search_query='{search_query}'"
-                
+
                 if new_content:
                     confirm_call += f", new_content='{new_content}'"
                 if new_importance >= 0:
                     confirm_call += f", new_importance={new_importance}"
                 confirm_call += ", confirm=True)"
-                
+
                 lines.append(f"Call {confirm_call} to apply changes.")
                 yield "\n".join(lines)
             except Exception as e:
@@ -154,7 +154,7 @@ class UpdateMemoryTool(Tool):
                 else:
                     yield f"Error: Memory with ID {entry_id} not found"
                     return
-            
+
             success, message = await self._memory_store.update_entry(
                 search_query=search_key,
                 new_content=content,

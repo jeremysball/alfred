@@ -9,11 +9,11 @@ from src.tools.base import Tool
 
 class EditToolParams(BaseModel):
     """Parameters for EditTool."""
-    
+
     path: str = Field(..., description="Path to the file to edit")
     old_text: str = Field(..., description="Exact text to replace (including whitespace)")
     new_text: str = Field(..., description="New text to insert")
-    
+
     class Config:
         extra = "forbid"
 
@@ -30,11 +30,11 @@ class EditTool(Tool):
         path = kwargs.get("path", "")
         old_text = kwargs.get("old_text", "")
         new_text = kwargs.get("new_text", "")
-        
+
         try:
             # Read file
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     content = f.read()
             except FileNotFoundError:
                 return {

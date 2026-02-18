@@ -2,13 +2,12 @@
 
 import logging
 from collections.abc import AsyncIterator
-from typing import Optional
 
 from src.agent import Agent
 from src.config import Config
 from src.context import ContextLoader
 from src.embeddings import EmbeddingClient
-from src.llm import ChatMessage, ChatResponse, LLMFactory
+from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
 from src.search import MemorySearcher
 from src.tools import get_registry, register_builtin_tools
@@ -108,7 +107,7 @@ class Alfred:
                         else:
                             param_type = str(ann).lower()
                     param_list.append(f"{name}: {param_type}")
-                
+
                 params_str = ", ".join(param_list)
                 tool_descriptions.append(f"- {tool.name}({params_str}): {tool.description}")
             else:

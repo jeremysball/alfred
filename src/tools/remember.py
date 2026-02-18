@@ -13,11 +13,11 @@ from .base import Tool
 
 class RememberToolParams(BaseModel):
     """Parameters for RememberTool."""
-    
+
     content: str = Field(..., description="The distilled insight or fact to remember")
     importance: float = Field(0.5, description="How important this memory is (0.0 to 1.0)")
     tags: str = Field("", description="Comma-separated list of category tags")
-    
+
     class Config:
         extra = "forbid"
 
@@ -29,19 +29,19 @@ class RememberTool(Tool):
     or when you learn important facts, preferences, or context
     that would be useful to recall in future conversations.
     """
-    
+
     name = "remember"
     description = "Save a memory to the unified memory store for future retrieval"
     param_model = RememberToolParams
-    
+
     def __init__(self, memory_store: Any = None) -> None:
         super().__init__()
         self._memory_store = memory_store
-    
+
     def set_memory_store(self, memory_store: Any) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
-    
+
     def execute(self, **kwargs: Any) -> str:
         """Save a memory to the unified store (sync wrapper - use execute_stream).
         
@@ -56,7 +56,7 @@ class RememberTool(Tool):
         """
         # This method should not be called directly - use execute_stream
         return "Error: RememberTool must be called via execute_stream in async context"
-    
+
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Save a memory to the unified store (async).
         
@@ -75,10 +75,10 @@ class RememberTool(Tool):
         if not self._memory_store:
             yield "Error: Memory store not initialized"
             return
-        
+
         # Parse tags
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        
+
         # Create memory entry
         entry = MemoryEntry(
             timestamp=datetime.now(),
@@ -88,7 +88,7 @@ class RememberTool(Tool):
             importance=importance,
             tags=tag_list,
         )
-        
+
         try:
             await self._memory_store.add_entries([entry])
             tag_str = f" (tags: {', '.join(tag_list)})" if tag_list else ""

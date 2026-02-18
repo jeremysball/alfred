@@ -6,34 +6,36 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 
 - [x] M1: Project Setup - Repository structure, tooling, CI/CD (PRD #11)
 - [x] M2: Core Infrastructure - Configuration, context loading, prompt assembly (PRD #12)
+- [x] M3: Memory Foundation - JSONL storage with embeddings (PRD #13)
+- [x] M4: Vector Search - Semantic memory retrieval (PRD #14)
 - [x] M5: Telegram Bot - Multi-user chat interface with CLI (PRD #15)
 - [x] M6: Kimi Provider - Integration with Moonshot AI's Kimi API (PRD #16)
+- [x] M7: Personality & Context - SOUL.md, USER.md, context assembly (PRD #17)
+- [x] M8: Tool System - Built-in tools with Pydantic schemas (PRD #18)
+- [x] Agent Loop - Streaming with tool execution (PRD #33)
+- [x] Memory System V2 - Full CRUD operations (PRD #23)
 
 ## Short-term (Active Development)
 
-- [ ] Fix Tool Class Type Safety - Resolve mypy override errors in tool classes (PRD #44)
-- [ ] Add Missing Type Annotations - Complete type coverage for mypy strict mode (PRD #45)
-- [ ] Auto-Fix Ruff Violations - Clean up 172 auto-fixable lint issues (PRD #46)
-- [ ] Manual Lint Fixes - Fix remaining 23 manual lint issues (PRD #47)
-- [ ] Kicking Ass README - Transform README into compelling OSS landing page (PRD #26)
-- [ ] M3: Memory Foundation - Conversation history storage and retrieval (PRD #13)
-- [ ] M4: Vector Search - Semantic memory search with embeddings (PRD #14)
-- [ ] M7: Personality & Context - User modeling and preference learning (PRD #17)
+- [ ] **Alfred v1.0 Vision** - Comprehensive PRD documenting architecture and roadmap (PRD #48)
+- [ ] **README Landing Page** - Transform README into compelling OSS landing page (PRD #49)
+- [ ] Fix Tool Class Type Safety - Resolve mypy override errors (PRD #44)
+- [ ] Add Missing Type Annotations - Complete type coverage (PRD #45)
+- [ ] Auto-Fix Ruff Violations - Clean up auto-fixable lint issues (PRD #46)
+- [ ] Manual Lint Fixes - Fix remaining manual lint issues (PRD #47)
 
 ## Medium-term
 
-- [ ] HTTP API + Cron - Local API for scheduled actions via cron (PRD #29)
-- [ ] M8: Capabilities - Tool use and function calling (PRD #18)
-- [ ] M9: Compaction - Memory summarization and archival (PRD #19)
-- [ ] M10: Distillation - Knowledge extraction and pattern learning (PRD #20)
-- [ ] OpenClaw Template Evaluation - Assess OpenClaw framework compatibility (PRD #23)
+- [ ] M9: Distillation - Auto-extract insights to MEMORY.md (PRD #20)
+- [ ] M10: Learning - Auto-update USER.md from patterns (PRD #21)
+- [ ] M11: Compaction - Summarize long conversations (PRD #19)
+- [ ] M12: Testing & Quality - Comprehensive test coverage (PRD #22)
+- [ ] HTTP API + Cron - Local API for scheduled actions (PRD #29)
 
 ## Long-term
 
 - [ ] Config TOML Migration - Replace config.json with alfred.toml (PRD #30)
-- [ ] M11: Learning System - Continuous improvement from interactions (PRD #21)
-- [ ] M12: Testing & Quality - Comprehensive test coverage and quality gates (PRD #22)
-- [ ] Observability & Logging - Structured logging, tracing, monitoring (PRD #25)
+- [ ] Observability & Logging - Structured logging, tracing (PRD #25)
 
 ---
 

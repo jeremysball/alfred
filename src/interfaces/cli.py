@@ -1,6 +1,5 @@
 """CLI interface for Alfred."""
 
-import asyncio
 
 from src.alfred import Alfred
 
@@ -35,7 +34,7 @@ class CLIInterface:
 
             # Stream response
             print("Alfred: ", end="", flush=True)
-            
+
             try:
                 async for chunk in self.alfred.chat_stream(user_input):
                     print(chunk, end="", flush=True)

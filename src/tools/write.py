@@ -10,10 +10,10 @@ from src.tools.base import Tool
 
 class WriteToolParams(BaseModel):
     """Parameters for WriteTool."""
-    
+
     path: str = Field(..., description="Path to the file to write")
     content: str = Field(..., description="Content to write to the file")
-    
+
     class Config:
         extra = "forbid"
 
@@ -29,7 +29,7 @@ class WriteTool(Tool):
         """Write content to file, creating parent directories if needed."""
         path = kwargs.get("path", "")
         content = kwargs.get("content", "")
-        
+
         try:
             # Create parent directories if needed
             parent = Path(path).parent

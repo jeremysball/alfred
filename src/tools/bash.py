@@ -1,8 +1,8 @@
 """Bash command execution tool with streaming support."""
 
 import asyncio
-import subprocess
 import os
+import subprocess
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -13,10 +13,10 @@ from src.tools.base import Tool
 
 class BashToolParams(BaseModel):
     """Parameters for BashTool."""
-    
+
     command: str = Field(..., description="Bash command to execute")
     timeout: int | None = Field(60, description="Timeout in seconds (max 300)")
-    
+
     class Config:
         extra = "forbid"
 
@@ -32,10 +32,10 @@ class BashTool(Tool):
         """Execute a bash command with output truncation."""
         command = kwargs.get("command", "")
         timeout = kwargs.get("timeout", 60)
-        
+
         # Clamp timeout
         timeout = min(timeout or 60, 300)
-        
+
         try:
             # Run command
             result = subprocess.run(
@@ -46,31 +46,31 @@ class BashTool(Tool):
                 timeout=timeout,
                 cwd=os.getcwd(),
             )
-            
+
             # Truncate output if needed
             stdout = result.stdout
             stderr = result.stderr
             max_bytes = 50000
             max_lines = 2000
             truncated = False
-            
+
             # Truncate stdout
             if len(stdout) > max_bytes:
                 stdout = stdout[:max_bytes]
                 truncated = True
-            
+
             lines = stdout.split('\n')
             if len(lines) > max_lines:
                 stdout = '\n'.join(lines[:max_lines])
                 truncated = True
-            
+
             # Truncate stderr (smaller limit)
             if len(stderr) > 10000:
                 stderr = stderr[:10000] + "\n[stderr truncated...]"
-            
+
             if truncated:
                 stdout += "\n\n[Output truncated: use file redirection or grep for large outputs]"
-            
+
             return {
                 "success": result.returncode == 0,
                 "stdout": stdout,
@@ -78,7 +78,7 @@ class BashTool(Tool):
                 "exit_code": result.returncode,
                 "truncated": truncated,
             }
-            
+
         except subprocess.TimeoutExpired:
             return {
                 "success": False,
@@ -95,7 +95,7 @@ class BashTool(Tool):
                 "stderr": "",
                 "exit_code": -1,
             }
-    
+
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute a bash command with streaming output.
         
@@ -104,9 +104,9 @@ class BashTool(Tool):
         command = kwargs.get("command", "")
         timeout = kwargs.get("timeout")
         timeout = min(timeout or 60, 300)
-        
+
         yield f"[Running: {command}]\n"
-        
+
         try:
             # Start process with pipes
             process = await asyncio.create_subprocess_shell(
@@ -115,17 +115,17 @@ class BashTool(Tool):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=os.getcwd(),
             )
-            
+
             try:
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(),
                     timeout=timeout
                 )
-                
+
                 # Decode output
                 stdout_text = stdout.decode('utf-8', errors='replace')
                 stderr_text = stderr.decode('utf-8', errors='replace')
-                
+
                 # Yield stdout
                 if stdout_text:
                     # Chunk into lines for better streaming
@@ -136,23 +136,23 @@ class BashTool(Tool):
                         else:  # Last line (might not have newline)
                             if line:
                                 yield line
-                
+
                 # Yield stderr if any
                 if stderr_text:
                     yield f"\n[stderr]:\n{stderr_text[:5000]}"
-                
+
                 # Yield exit code if non-zero
                 if process.returncode != 0:
                     yield f"\n[Exit code: {process.returncode}]"
-                
+
                 # Check truncation
                 if len(stdout_text) > 50000:
                     yield "\n[Output truncated: too large]"
-                    
-            except asyncio.TimeoutError:
+
+            except TimeoutError:
                 process.kill()
                 await process.wait()
                 yield "\n[Command timed out]\n"
-                
+
         except Exception as e:
             yield f"\n[Error: {e}]\n"

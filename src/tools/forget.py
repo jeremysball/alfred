@@ -10,11 +10,11 @@ from .base import Tool
 
 class ForgetToolParams(BaseModel):
     """Parameters for ForgetTool."""
-    
+
     query: str = Field("", description="Semantic query to find memories to delete")
     entry_id: str = Field("", description="Direct delete by memory ID")
     confirm: bool = Field(False, description="Set to True to actually delete (False = preview)")
-    
+
     class Config:
         extra = "forbid"
 
@@ -80,7 +80,7 @@ class ForgetTool(Tool):
                     if not entry:
                         yield f"No memory found with ID: {entry_id}"
                         return
-                    
+
                     date_str = entry.timestamp.strftime("%Y-%m-%d")
                     lines = ["Found memory to delete:"]
                     lines.append(f"  - [{date_str}] {entry.content[:60]}...")
