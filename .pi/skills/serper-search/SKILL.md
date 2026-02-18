@@ -32,13 +32,38 @@ POST https://google.serper.dev/search
 
 ### Using curl
 
+**Option 1: Export the API key first (recommended)**
 ```bash
+export SERPER_API_KEY="your_api_key_here"
+
 curl -X POST https://google.serper.dev/search \
   -H "X-API-KEY: $SERPER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "q": "your search query"
   }'
+```
+
+**Option 2: Load from .env file with uv run dotenv**
+```bash
+uv run dotenv sh -c 'curl -X POST https://google.serper.dev/search \
+  -H "X-API-KEY: $SERPER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '\''{"q": "your search query"}'\'''
+```
+
+**Option 3: Python one-liner**
+```bash
+uv run python -c "
+import os
+from dotenv import load_dotenv
+load_dotenv()
+import requests
+r = requests.post('https://google.serper.dev/search',
+  headers={'X-API-KEY': os.getenv('SERPER_API_KEY'), 'Content-Type': 'application/json'},
+  json={'q': 'your search query'})
+print(r.json())
+"
 ```
 
 ### Using Python
