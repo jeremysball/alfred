@@ -145,7 +145,7 @@ From `crafting-effective-readmes` skill:
 - [x] **Draft Complete**: New README written following structure above
 - [x] **Review Pass**: Applied writing-clearly-and-concisely skill (active voice, no puffery, removed em-dashes)
 - [x] **Visual Enhancement**: Added Mermaid architecture diagram to "How It Works"
-- [ ] **Links Verified**: All references point to correct files
+- [x] **Links Verified**: AGENTS.md link validated, all references correct
 
 ---
 
