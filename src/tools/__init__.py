@@ -94,6 +94,7 @@ def register_builtin_tools(memory_store=None) -> None:
     from src.tools.edit import EditTool
     from src.tools.bash import BashTool
     from src.tools.remember import RememberTool
+    from src.tools.search_memories import SearchMemoriesTool
     
     register_tool(ReadTool())
     register_tool(WriteTool())
@@ -105,5 +106,11 @@ def register_builtin_tools(memory_store=None) -> None:
     if memory_store:
         remember_tool.set_memory_store(memory_store)
     register_tool(remember_tool)
+    
+    # Register search_memories tool with memory store injected
+    search_tool = SearchMemoriesTool()
+    if memory_store:
+        search_tool.set_memory_store(memory_store)
+    register_tool(search_tool)
     
     logger.info(f"Registered {len(get_registry())} built-in tools")

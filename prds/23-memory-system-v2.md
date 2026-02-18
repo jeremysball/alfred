@@ -226,10 +226,10 @@ class ForgetTool(Tool):
 - [x] Tests for all new methods
 
 ### Phase 2: Search Tool
-- [ ] Create `SearchMemoriesTool`
-- [ ] Register with tool registry
-- [ ] Tests for search functionality
-- [ ] Update SOUL.md with search instructions
+- [x] Create `SearchMemoriesTool`
+- [x] Register with tool registry
+- [x] Tests for search functionality
+- [~] Update SOUL.md with search instructions (moved to AGENTS.md)
 
 ### Phase 3: Update Tool
 - [ ] Create `UpdateMemoryTool`
@@ -243,7 +243,7 @@ class ForgetTool(Tool):
 - [ ] Update SOUL.md with deletion instructions
 
 ### Phase 5: Integration
-- [ ] Update AGENTS.md with memory management guidelines
+- [x] Update AGENTS.md with memory management guidelines
 - [ ] Add memory management examples to documentation
 - [ ] Integration tests for full CRUD workflow
 
@@ -291,7 +291,7 @@ Use when information is obsolete or wrong:
 
 ## Acceptance Criteria
 
-- [ ] `search_memories` tool returns relevant memories
+- [x] `search_memories` tool returns relevant memories
 - [ ] `update_memory` tool modifies existing memories correctly
 - [ ] `forget` tool deletes by semantic query
 - [ ] All CRUD operations have comprehensive tests
