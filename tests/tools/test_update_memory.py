@@ -1,8 +1,9 @@
 """Tests for the update_memory tool."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 from src.tools.update_memory import UpdateMemoryTool
 from src.types import MemoryEntry

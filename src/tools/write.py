@@ -44,7 +44,9 @@ class WriteTool(Tool):
                 "success": True,
                 "path": path,
                 "bytes_written": len(content.encode("utf-8")),
-                "lines_written": content.count("\n") + (1 if content and not content.endswith("\n") else 0),
+                "lines_written": content.count("\n") + (
+                    1 if content and not content.endswith("\n") else 0
+                ),
             }
 
         except Exception as e:

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.search import MemorySearcher, ContextBuilder, approximate_tokens
+from src.search import ContextBuilder, MemorySearcher, approximate_tokens
 from src.types import MemoryEntry
 
 

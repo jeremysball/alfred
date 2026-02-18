@@ -40,7 +40,7 @@ class Alfred:
 
     async def chat(self, message: str) -> str:
         """Process a message with full agent loop (non-streaming).
-        
+
         Returns:
             Complete response as string
         """
@@ -123,7 +123,8 @@ You have access to the following tools. Use them when needed to accomplish the u
 
 {tools_section}
 
-To use a tool, respond with a tool call. The system will execute the tool and return the results to you.
+To use a tool, respond with a tool call. The system will execute the tool "
+            "and return the results to you.
 You can then continue the conversation with the tool results.
 """
 

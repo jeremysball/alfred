@@ -33,7 +33,7 @@ def _is_transient_error(error: Exception) -> bool:
 
 
 
-async def _with_retry(
+async def _with_retry[T](
     operation: str,
     func: Callable[[], Awaitable[T]],
     max_retries: int = 3,

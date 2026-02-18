@@ -1,12 +1,11 @@
 """Tests for the remember tool."""
 
-import pytest
-from datetime import datetime
 
-from src.tools.remember import RememberTool
-from src.tools import register_builtin_tools, get_registry, clear_registry
+import pytest
+
 from src.memory import MemoryStore
-from src.types import MemoryEntry
+from src.tools import clear_registry, get_registry, register_builtin_tools
+from src.tools.remember import RememberTool
 
 
 class MockEmbedder:
@@ -61,17 +60,17 @@ def mock_embedder():
 async def test_remember_tool_saves_memory(mock_config, mock_embedder):
     """Remember tool saves a memory to the store."""
     clear_registry()
-    
+
     memory_store = MemoryStore(mock_config, mock_embedder)
     await memory_store.clear()
-    
+
     # Register tool with memory store
     register_builtin_tools(memory_store=memory_store)
     tool = get_registry().get("remember")
-    
+
     assert tool is not None
     assert tool._memory_store is not None
-    
+
     # Execute the tool
     result_chunks = []
     async for chunk in tool.execute_stream(
@@ -80,19 +79,19 @@ async def test_remember_tool_saves_memory(mock_config, mock_embedder):
         tags="identity,name"
     ):
         result_chunks.append(chunk)
-    
+
     result = "".join(result_chunks)
-    
+
     # Verify result
     assert "Remembered" in result
     assert "User name is Jaz" in result
     assert "identity" in result
     assert "name" in result
-    
+
     # Verify memory was saved
     memories = await memory_store.get_all_entries()
     assert len(memories) == 1
-    
+
     mem = memories[0]
     assert mem.content == "User name is Jaz"
     assert mem.importance == 0.9
@@ -106,19 +105,19 @@ async def test_remember_tool_saves_memory(mock_config, mock_embedder):
 async def test_remember_tool_without_tags(mock_config, mock_embedder):
     """Remember tool works without optional tags."""
     clear_registry()
-    
+
     memory_store = MemoryStore(mock_config, mock_embedder)
     await memory_store.clear()
-    
+
     register_builtin_tools(memory_store=memory_store)
     tool = get_registry().get("remember")
-    
-    async for chunk in tool.execute_stream(
+
+    async for _chunk in tool.execute_stream(
         content="User prefers dark mode",
         importance=0.7
     ):
         pass  # Just consume
-    
+
     memories = await memory_store.get_all_entries()
     assert len(memories) == 1
     assert memories[0].tags == []
@@ -128,16 +127,16 @@ async def test_remember_tool_without_tags(mock_config, mock_embedder):
 async def test_remember_tool_uses_default_importance(mock_config, mock_embedder):
     """Remember tool uses default importance of 0.5."""
     clear_registry()
-    
+
     memory_store = MemoryStore(mock_config, mock_embedder)
     await memory_store.clear()
-    
+
     register_builtin_tools(memory_store=memory_store)
     tool = get_registry().get("remember")
-    
-    async for chunk in tool.execute_stream(content="User likes coffee"):
+
+    async for _chunk in tool.execute_stream(content="User likes coffee"):
         pass
-    
+
     memories = await memory_store.get_all_entries()
     assert len(memories) == 1
     assert memories[0].importance == 0.5
@@ -147,11 +146,11 @@ async def test_remember_tool_uses_default_importance(mock_config, mock_embedder)
 async def test_remember_tool_error_without_memory_store(mock_config, mock_embedder):
     """Remember tool returns error if memory store not set."""
     tool = RememberTool(memory_store=None)
-    
+
     result_chunks = []
     async for chunk in tool.execute_stream(content="Test"):
         result_chunks.append(chunk)
-    
+
     result = "".join(result_chunks)
     assert "Error" in result
     assert "not initialized" in result
@@ -161,22 +160,22 @@ async def test_remember_tool_error_without_memory_store(mock_config, mock_embedd
 async def test_remember_tool_content_truncation(mock_config, mock_embedder):
     """Remember tool truncates long content in response."""
     clear_registry()
-    
+
     memory_store = MemoryStore(mock_config, mock_embedder)
     await memory_store.clear()
-    
+
     register_builtin_tools(memory_store=memory_store)
     tool = get_registry().get("remember")
-    
+
     long_content = "A" * 200
-    
+
     result_chunks = []
     async for chunk in tool.execute_stream(content=long_content):
         result_chunks.append(chunk)
-    
+
     result = "".join(result_chunks)
     assert "..." in result  # Should be truncated in response
-    
+
     # But full content should be saved
     memories = await memory_store.get_all_entries()
     assert memories[0].content == long_content

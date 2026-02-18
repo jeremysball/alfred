@@ -1,10 +1,10 @@
 """Tests for LLM provider (non-API tests only)."""
 
-import asyncio
 from pathlib import Path
 
 import pytest
 
+from src.config import Config
 from src.llm import (
     APIError,
     ChatMessage,
@@ -16,7 +16,6 @@ from src.llm import (
     TimeoutError,
     retry_with_backoff,
 )
-from src.config import Config
 
 
 # Fixtures
@@ -168,7 +167,7 @@ class TestRetryWithBackoff:
 
         with pytest.raises(ConnectionError):
             await always_fails()
-        
+
         assert call_count == 3  # Initial + 2 retries
 
     @pytest.mark.asyncio
@@ -184,7 +183,7 @@ class TestRetryWithBackoff:
 
         with pytest.raises(ValueError):
             await value_error_func()
-        
+
         assert call_count == 1  # No retries for ValueError
 
     @pytest.mark.asyncio
@@ -200,7 +199,7 @@ class TestRetryWithBackoff:
 
         with pytest.raises(TypeError):
             await type_error_func()
-        
+
         assert call_count == 1  # No retries for TypeError
 
 
@@ -217,14 +216,14 @@ class TestLLMFactory:
     def test_create_unknown_provider(self, sample_config):
         """Test error on unknown provider."""
         sample_config.default_llm_provider = "unknown_provider"
-        
+
         with pytest.raises(ValueError, match="Unknown provider: unknown_provider"):
             LLMFactory.create(sample_config)
 
     def test_create_openai_provider_placeholder(self, sample_config):
         """Test that only 'kimi' is supported currently."""
         sample_config.default_llm_provider = "openai"
-        
+
         with pytest.raises(ValueError, match="Unknown provider: openai"):
             LLMFactory.create(sample_config)
 

@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -38,27 +37,27 @@ class TestWriteTool:
         """Test writing a new file."""
         path = os.path.join(temp_dir, "test.txt")
         content = "Hello World"
-        
+
         result = write_tool.execute(path=path, content=content)
-        
+
         assert result["success"] is True
         assert result["path"] == path
         assert os.path.exists(path)
-        
+
         with open(path) as f:
             assert f.read() == content
 
     def test_overwrite_existing_file(self, write_tool, temp_dir):
         """Test overwriting an existing file."""
         path = os.path.join(temp_dir, "test.txt")
-        
+
         # Create initial file
         with open(path, "w") as f:
             f.write("Old content")
-        
+
         # Overwrite
         result = write_tool.execute(path=path, content="New content")
-        
+
         assert result["success"] is True
         with open(path) as f:
             assert f.read() == "New content"
@@ -66,18 +65,18 @@ class TestWriteTool:
     def test_create_parent_directories(self, write_tool, temp_dir):
         """Test that parent directories are created."""
         path = os.path.join(temp_dir, "nested", "deep", "file.txt")
-        
+
         result = write_tool.execute(path=path, content="Nested content")
-        
+
         assert result["success"] is True
         assert os.path.exists(path)
 
     def test_write_empty_content(self, write_tool, temp_dir):
         """Test writing empty content."""
         path = os.path.join(temp_dir, "empty.txt")
-        
+
         result = write_tool.execute(path=path, content="")
-        
+
         assert result["success"] is True
         assert os.path.exists(path)
         assert os.path.getsize(path) == 0
@@ -86,9 +85,9 @@ class TestWriteTool:
         """Test bytes_written in result."""
         path = os.path.join(temp_dir, "test.txt")
         content = "Hello"
-        
+
         result = write_tool.execute(path=path, content=content)
-        
+
         assert result["bytes_written"] == len(content.encode("utf-8"))
 
     @pytest.mark.asyncio
@@ -96,11 +95,11 @@ class TestWriteTool:
         """Test streaming write."""
         path = os.path.join(temp_dir, "stream_test.txt")
         content = "Streamed content"
-        
+
         chunks = []
         async for chunk in write_tool.execute_stream(path=path, content=content):
             chunks.append(chunk)
-        
+
         # Should complete and file should exist
         assert os.path.exists(path)
         with open(path) as f:
@@ -110,7 +109,7 @@ class TestWriteTool:
         """Test that write tool registers correctly."""
         register_builtin_tools()
         registry = get_registry()
-        
+
         assert "write" in registry
         tool = registry.get("write")
         assert tool.name == "write"
@@ -118,7 +117,7 @@ class TestWriteTool:
     def test_get_schema(self, write_tool):
         """Test schema generation."""
         schema = write_tool.get_schema()
-        
+
         assert schema["type"] == "function"
         assert schema["function"]["name"] == "write"
         params = schema["function"]["parameters"]["properties"]

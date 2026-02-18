@@ -43,13 +43,13 @@ class TestEditTool:
             old_text="Line 2",
             new_text="Modified Line 2"
         )
-        
+
         assert result["success"] is True
         assert result["edited"] is True
-        
+
         with open(temp_file) as f:
             content = f.read()
-        
+
         assert "Modified Line 2" in content
         assert "Line 1" in content  # Other lines unchanged
 
@@ -60,12 +60,12 @@ class TestEditTool:
             old_text="Line 1\nLine 2",
             new_text="Replaced\nLines"
         )
-        
+
         assert result["success"] is True
-        
+
         with open(temp_file) as f:
             content = f.read()
-        
+
         assert "Replaced" in content
         assert "Lines" in content
         assert "Line 3" in content  # Third line preserved
@@ -75,16 +75,16 @@ class TestEditTool:
         # Create file with duplicate content
         with open(temp_file, "w") as f:
             f.write("dup\ndup\ndup\n")
-        
-        result = edit_tool.execute(
+
+        edit_tool.execute(
             path=temp_file,
             old_text="dup",
             new_text="unique"
         )
-        
+
         with open(temp_file) as f:
             content = f.read()
-        
+
         # Only first should be replaced
         assert content.count("unique") == 1
         assert content.count("dup") == 2
@@ -96,7 +96,7 @@ class TestEditTool:
             old_text="old",
             new_text="new"
         )
-        
+
         assert result["success"] is False
         assert "not found" in result.get("error", "").lower()
 
@@ -107,7 +107,7 @@ class TestEditTool:
             old_text="This text does not exist",
             new_text="New text"
         )
-        
+
         assert result["success"] is False
         assert result["edited"] is False
         assert "not found" in result.get("error", "").lower()
@@ -116,14 +116,14 @@ class TestEditTool:
         """Test that edit is whitespace-sensitive."""
         with open(temp_file, "w") as f:
             f.write("  indented line\n")
-        
+
         # Try to match with wrong whitespace
         result = edit_tool.execute(
             path=temp_file,
             old_text="indented line  ",  # trailing spaces
             new_text="changed"
         )
-        
+
         assert result["success"] is False  # Should fail - whitespace matters
 
     @pytest.mark.asyncio
@@ -136,7 +136,7 @@ class TestEditTool:
             new_text="Modified"
         ):
             chunks.append(chunk)
-        
+
         result = "".join(chunks)
         assert "success" in result.lower() or "edited" in result.lower()
 
@@ -144,7 +144,7 @@ class TestEditTool:
         """Test that edit tool registers correctly."""
         register_builtin_tools()
         registry = get_registry()
-        
+
         assert "edit" in registry
         tool = registry.get("edit")
         assert tool.name == "edit"
@@ -152,7 +152,7 @@ class TestEditTool:
     def test_get_schema(self, edit_tool):
         """Test schema generation."""
         schema = edit_tool.get_schema()
-        
+
         assert schema["type"] == "function"
         assert schema["function"]["name"] == "edit"
         params = schema["function"]["parameters"]["properties"]

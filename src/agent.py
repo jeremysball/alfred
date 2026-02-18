@@ -39,7 +39,7 @@ class Agent:
         system_prompt: str | None = None,
     ) -> AsyncIterator[str]:
         """Run agent loop with full streaming.
-        
+
         Yields:
             - LLM response tokens as they arrive
             - Tool execution status markers
@@ -169,7 +169,7 @@ class Agent:
         system_prompt: str | None = None,
     ) -> str:
         """Run agent loop (non-streaming, collects full response).
-        
+
         Returns:
             Complete response as string
         """

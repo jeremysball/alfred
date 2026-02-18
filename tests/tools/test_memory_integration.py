@@ -4,24 +4,25 @@ These tests use real MemoryStore with a test embedder (no API calls).
 Verifies the complete memory lifecycle end-to-end.
 """
 
-import pytest
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+import pytest
 
 from src.embeddings import EmbeddingClient
 from src.memory import MemoryStore
+from src.tools.forget import ForgetTool
 from src.tools.remember import RememberTool
 from src.tools.search_memories import SearchMemoriesTool
 from src.tools.update_memory import UpdateMemoryTool
-from src.tools.forget import ForgetTool
 
 
 class TestEmbedder(EmbeddingClient):
     """Test embedder that returns deterministic embeddings without API calls."""
-    
+
     def __init__(self):
         self.dimension = 1536
-    
+
     async def embed(self, text: str) -> list[float]:
         """Return deterministic embedding based on text hash."""
         # Simple hash-based embedding for testing
@@ -39,7 +40,7 @@ class TestEmbedder(EmbeddingClient):
         if norm > 0:
             base = [x / norm for x in base]
         return base
-    
+
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed multiple texts."""
         return [await self.embed(t) for t in texts]
@@ -60,12 +61,11 @@ def temp_memory_dir(tmp_path):
 async def memory_store(temp_memory_dir):
     """Create a real MemoryStore with test embedder."""
     # Create minimal config with all required fields
-    from pathlib import Path
-    
+
     class TestConfig:
         def __init__(self, memory_dir):
             self.memory_dir = Path(memory_dir)
-    
+
     config = TestConfig(temp_memory_dir)
     embedder = TestEmbedder()
     store = MemoryStore(config, embedder)
@@ -77,16 +77,16 @@ def tools(memory_store):
     """Create all memory tools with injected store."""
     remember = RememberTool()
     remember.set_memory_store(memory_store)
-    
+
     search = SearchMemoriesTool()
     search.set_memory_store(memory_store)
-    
+
     update = UpdateMemoryTool()
     update.set_memory_store(memory_store)
-    
+
     forget = ForgetTool()
     forget.set_memory_store(memory_store)
-    
+
     return {
         "remember": remember,
         "search": search,
@@ -97,7 +97,7 @@ def tools(memory_store):
 
 class TestMemoryCrudWorkflow:
     """End-to-end tests for memory CRUD operations."""
-    
+
     async def test_full_crud_workflow(self, tools):
         """Test complete memory lifecycle: create, search, update, delete."""
         # 1. Create memory
@@ -108,20 +108,20 @@ class TestMemoryCrudWorkflow:
         ):
             result += chunk
         assert "Remembered" in result
-        
+
         # 2. Search for it
         result = ""
         async for chunk in tools["search"].execute_stream(query="Python"):
             result += chunk
         assert "User prefers Python" in result
-        
+
         # Extract entry_id from search result
         # Format: "- [2026-02-18] User prefers... (importance: 0.8, id: abc123)"
         import re
         id_match = re.search(r'id: ([a-f0-9]+)', result)
         assert id_match, f"Could not find entry_id in: {result}"
         entry_id = id_match.group(1)
-        
+
         # 3. Update via preview
         result = ""
         async for chunk in tools["update"].execute_stream(
@@ -132,7 +132,7 @@ class TestMemoryCrudWorkflow:
         assert "Found memory to update" in result
         assert "Will update to:" in result
         assert "User prefers Python and Rust" in result
-        
+
         # 4. Confirm update
         result = ""
         async for chunk in tools["update"].execute_stream(
@@ -142,20 +142,20 @@ class TestMemoryCrudWorkflow:
         ):
             result += chunk
         assert "Updated" in result
-        
+
         # 5. Verify update via search by ID
         result = ""
         async for chunk in tools["search"].execute_stream(entry_id=entry_id):
             result += chunk
         assert "User prefers Python and Rust" in result
         assert "JavaScript" not in result
-        
+
         # 6. Delete via preview
         result = ""
         async for chunk in tools["forget"].execute_stream(entry_id=entry_id):
             result += chunk
         assert "Found memory to delete" in result
-        
+
         # 7. Confirm deletion
         result = ""
         async for chunk in tools["forget"].execute_stream(
@@ -164,13 +164,13 @@ class TestMemoryCrudWorkflow:
         ):
             result += chunk
         assert "Deleted" in result
-        
+
         # 8. Verify deletion
         result = ""
         async for chunk in tools["search"].execute_stream(entry_id=entry_id):
             result += chunk
         assert "No memory found" in result
-    
+
     async def test_semantic_search_finds_relevant_memories(self, tools):
         """Test that semantic search returns relevant results."""
         # Create multiple memories
@@ -179,25 +179,25 @@ class TestMemoryCrudWorkflow:
             ("User enjoys hiking on weekends", 0.7),
             ("User's favorite food is pizza", 0.6),
         ]
-        
+
         for content, importance in memories:
             async for _ in tools["remember"].execute_stream(
                 content=content,
                 importance=importance,
             ):
                 pass
-        
+
         # Search for coding-related memory
         result = ""
         async for chunk in tools["search"].execute_stream(query="coding"):
             result += chunk
-        
+
         # Should find Python memory first (most relevant)
         assert "Python" in result
         lines = result.strip().split("\n")
         # First result should be Python
         assert "Python" in lines[0] or "Python" in lines[1]
-    
+
     async def test_update_by_query_finds_correct_memory(self, tools):
         """Test that update finds and updates the right memory."""
         # Create two memories
@@ -206,18 +206,18 @@ class TestMemoryCrudWorkflow:
             importance=0.7,
         ):
             pass
-        
+
         async for _ in tools["remember"].execute_stream(
             content="User lives in Portland",
             importance=0.7,
         ):
             pass
-        
+
         # Get all memories and find work memory
         result = ""
         async for chunk in tools["search"].execute_stream(query="User"):
             result += chunk
-        
+
         import re
         # Find the entry_id for the work memory
         lines = result.strip().split("\n")
@@ -229,10 +229,10 @@ class TestMemoryCrudWorkflow:
                 work_entry_id = id_match.group(1)
             elif id_match and "Portland" in line:
                 portland_entry_id = id_match.group(1)
-        
+
         assert work_entry_id, "Could not find work memory"
         assert portland_entry_id, "Could not find Portland memory"
-        
+
         # Update work memory using entry_id
         result = ""
         async for chunk in tools["update"].execute_stream(
@@ -240,9 +240,9 @@ class TestMemoryCrudWorkflow:
             new_content="User works at TechCorp",
         ):
             result += chunk
-        
+
         assert "Acme Corp" in result  # Found the work memory
-        
+
         # Confirm update
         result = ""
         async for chunk in tools["update"].execute_stream(
@@ -251,20 +251,20 @@ class TestMemoryCrudWorkflow:
             confirm=True,
         ):
             result += chunk
-        
+
         assert "Updated" in result
-        
+
         # Verify work memory changed but location didn't
         result = ""
         async for chunk in tools["search"].execute_stream(entry_id=work_entry_id):
             result += chunk
         assert "TechCorp" in result
-        
+
         result = ""
         async for chunk in tools["search"].execute_stream(entry_id=portland_entry_id):
             result += chunk
         assert "Portland" in result
-    
+
     async def test_forget_by_query_deletes_multiple_matches(self, tools):
         """Test that forget by query can delete multiple matching memories."""
         # Create memories about old project
@@ -273,23 +273,23 @@ class TestMemoryCrudWorkflow:
             importance=0.5,
         ):
             pass
-        
+
         async for _ in tools["remember"].execute_stream(
             content="Old project: mobile app concept",
             importance=0.5,
         ):
             pass
-        
+
         # Preview deletion of old projects
         result = ""
         async for chunk in tools["forget"].execute_stream(query="old project"):
             result += chunk
-        
+
         # Should find at least the 2 old project memories
         assert "Found" in result
         assert "chatbot" in result
         assert "mobile app" in result
-        
+
         # Confirm deletion
         result = ""
         async for chunk in tools["forget"].execute_stream(
@@ -297,15 +297,15 @@ class TestMemoryCrudWorkflow:
             confirm=True,
         ):
             result += chunk
-        
+
         assert "Deleted" in result
-        
+
         # Verify old projects gone
         result = ""
         async for chunk in tools["search"].execute_stream(query="chatbot"):
             result += chunk
         assert "No memories found" in result or "No relevant memories" in result
-    
+
     async def test_no_changes_without_confirmation(self, tools):
         """Test that preview mode doesn't modify anything."""
         # Create a memory
@@ -314,7 +314,7 @@ class TestMemoryCrudWorkflow:
             importance=0.5,
         ):
             pass
-        
+
         # Try update without confirm
         result = ""
         async for chunk in tools["update"].execute_stream(
@@ -322,24 +322,24 @@ class TestMemoryCrudWorkflow:
             new_content="Modified content",
         ):
             result += chunk
-        
+
         # Should show preview, not update
         assert "Will update to:" in result
-        
+
         # Verify memory unchanged
         result = ""
         async for chunk in tools["search"].execute_stream(query="test"):
             result += chunk
         assert "Test memory content" in result
         assert "Modified content" not in result
-        
+
         # Same for forget
         result = ""
         async for chunk in tools["forget"].execute_stream(query="test"):
             result += chunk
-        
+
         assert "Call forget" in result
-        
+
         # Verify memory still exists
         result = ""
         async for chunk in tools["search"].execute_stream(query="test"):

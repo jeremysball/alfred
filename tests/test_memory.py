@@ -1,11 +1,11 @@
 """Tests for unified memory storage system."""
 
-import pytest
-from datetime import datetime, date
-from pathlib import Path
+from datetime import date, datetime
 
-from src.types import MemoryEntry
+import pytest
+
 from src.memory import MemoryStore
+from src.types import MemoryEntry
 
 
 class MockEmbedder:

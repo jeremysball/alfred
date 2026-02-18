@@ -1,8 +1,9 @@
 """Tests for the search_memories tool."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 from src.tools.search_memories import SearchMemoriesTool
 from src.types import MemoryEntry
@@ -26,20 +27,20 @@ def search_tool(mock_memory_store):
 
 class TestSearchMemoriesTool:
     """Test suite for SearchMemoriesTool."""
-    
+
     def test_name_and_description(self):
         """Tool has correct name and description."""
         tool = SearchMemoriesTool()
         assert tool.name == "search_memories"
         assert "search" in tool.description.lower()
-    
+
     def test_execute_returns_error(self):
         """Sync execute returns error message."""
         tool = SearchMemoriesTool()
         result = tool.execute(query="test")
         assert "Error" in result
         assert "execute_stream" in result
-    
+
     async def test_search_returns_formatted_results(self, search_tool, mock_memory_store):
         """Search returns formatted memory results."""
         # Arrange
@@ -62,46 +63,46 @@ class TestSearchMemoriesTool:
             ),
         ]
         mock_memory_store.search.return_value = memories
-        
+
         # Act
         result = ""
         async for chunk in search_tool.execute_stream(query="Python", top_k=5):
             result += chunk
-        
+
         # Assert
         assert "Python over JavaScript" in result
         assert "Portland" in result
         assert "importance: 0.8" in result
         assert "[2026-02-17]" in result
         mock_memory_store.search.assert_called_once_with("Python", top_k=5)
-    
+
     async def test_search_no_results(self, search_tool, mock_memory_store):
         """Search with no results returns appropriate message."""
         mock_memory_store.search.return_value = []
-        
+
         result = ""
         async for chunk in search_tool.execute_stream(query="unknown"):
             result += chunk
-        
+
         assert "No relevant memories found" in result
-    
+
     async def test_search_without_memory_store(self):
         """Error when memory store not initialized."""
         tool = SearchMemoriesTool()  # No store set
-        
+
         result = ""
         async for chunk in tool.execute_stream(query="test"):
             result += chunk
-        
+
         assert "Error" in result
         assert "not initialized" in result
-    
+
     async def test_search_error_handling(self, search_tool, mock_memory_store):
         """Handles errors from memory store gracefully."""
         mock_memory_store.search.side_effect = Exception("Search failed")
-        
+
         result = ""
         async for chunk in search_tool.execute_stream(query="test"):
             result += chunk
-        
+
         assert "Error searching memories" in result

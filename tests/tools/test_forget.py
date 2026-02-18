@@ -1,8 +1,9 @@
 """Tests for the forget tool."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 from src.tools.forget import ForgetTool
 from src.types import MemoryEntry

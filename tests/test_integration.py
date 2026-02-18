@@ -153,7 +153,7 @@ def farewell(name):
         """Test creating and traversing a directory tree."""
         bash_tool = BashTool()
         write_tool = WriteTool()
-        read_tool = ReadTool()
+        _read_tool = ReadTool()  # noqa: F841 - available for future tests
 
         # Create directory structure
         bash_tool.execute(command="mkdir -p src/utils src/models tests")
@@ -310,8 +310,8 @@ class TestAgentWithRealLLM:
     @pytest.mark.asyncio
     async def test_agent_reads_file(self, temp_workspace):
         """Test agent actually reading a file via LLM."""
-        import os
         from pathlib import Path
+
         from src.config import load_config
         from src.llm import LLMFactory
 
@@ -340,6 +340,7 @@ class TestAgentWithRealLLM:
         """Test agent writing a file via LLM."""
         import os
         from pathlib import Path
+
         from src.config import load_config
         from src.llm import LLMFactory
 

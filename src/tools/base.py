@@ -28,7 +28,7 @@ class ToolResult(BaseModel):
 
 class Tool(ABC):
     """Abstract base class for tools.
-    
+
     Tools define their parameters using Pydantic models, which automatically
     generate JSON Schema for the LLM.
     """
@@ -85,10 +85,10 @@ class Tool(ABC):
     @abstractmethod
     def execute(self, **kwargs: Any) -> str | dict[str, Any]:
         """Execute the tool with the given parameters (non-streaming).
-        
+
         Args:
             **kwargs: Parameters as defined by the tool's schema
-        
+
         Returns:
             Either a string or a dict (will be JSON-serialized)
         """
@@ -96,13 +96,13 @@ class Tool(ABC):
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the tool with streaming output.
-        
+
         Yields output chunks as they become available. Default implementation
         calls execute() and yields the full result (override for true streaming).
-        
+
         Args:
             **kwargs: Parameters as defined by the tool's schema
-        
+
         Yields:
             Output chunks as strings
         """
@@ -133,10 +133,10 @@ class Tool(ABC):
 
     def validate_and_run(self, arguments: dict[str, Any]) -> str | dict[str, Any]:
         """Validate arguments and execute the tool (non-streaming).
-        
+
         Args:
             arguments: Raw arguments from LLM (will be validated)
-        
+
         Returns:
             Tool result
         """
@@ -151,10 +151,10 @@ class Tool(ABC):
 
     async def validate_and_run_stream(self, arguments: dict[str, Any]) -> AsyncIterator[str]:
         """Validate arguments and execute the tool with streaming.
-        
+
         Args:
             arguments: Raw arguments from LLM (will be validated)
-        
+
         Yields:
             Output chunks as strings
         """

@@ -61,7 +61,7 @@ def get_registry() -> ToolRegistry:
 
 def register_tool(tool: Tool) -> Tool:
     """Register a tool instance in the global registry.
-    
+
     Usage:
         register_tool(ReadTool())
     """
@@ -85,7 +85,7 @@ def get_tool_schemas() -> list[dict[str, Any]]:
 # Auto-discover and register built-in tools
 def register_builtin_tools(memory_store: Any = None) -> None:
     """Register all built-in tools.
-    
+
     Args:
         memory_store: Optional MemoryStore to inject into tools that need it
     """

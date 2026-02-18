@@ -24,7 +24,7 @@ class RememberToolParams(BaseModel):
 
 class RememberTool(Tool):
     """Save a memory to the unified memory store.
-    
+
     Use this when the user asks you to remember something,
     or when you learn important facts, preferences, or context
     that would be useful to recall in future conversations.
@@ -44,13 +44,13 @@ class RememberTool(Tool):
 
     def execute(self, **kwargs: Any) -> str:
         """Save a memory to the unified store (sync wrapper - use execute_stream).
-        
+
         Args:
             **kwargs: Tool parameters including:
                 - content: The distilled insight or fact to remember
                 - importance: How important this memory is (0.0 to 1.0)
                 - tags: Comma-separated list of category tags
-        
+
         Returns:
             Confirmation that the memory was saved
         """
@@ -59,13 +59,13 @@ class RememberTool(Tool):
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Save a memory to the unified store (async).
-        
+
         Args:
             **kwargs: Tool parameters including:
                 - content: The distilled insight or fact to remember
                 - importance: How important this memory is (0.0 to 1.0)
                 - tags: Comma-separated list of category tags
-        
+
         Yields:
             Confirmation that the memory was saved
         """
