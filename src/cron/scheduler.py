@@ -12,10 +12,12 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 from src.cron import parser
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job
+from src.cron.observability import Alert, HealthStatus, Observability
 from src.cron.store import CronStore
 
 logger = logging.getLogger(__name__)
@@ -77,24 +79,35 @@ class CronScheduler:
         self,
         store: CronStore | None = None,
         check_interval: float = 60.0,
+        data_dir: Path | None = None,
+        observability: Observability | None = None,
     ) -> None:
         """Initialize scheduler.
 
         Args:
             store: CronStore for persistence (creates default if None)
             check_interval: Seconds between schedule checks
+            data_dir: Directory for log files (default: data/)
+            observability: Observability instance (creates default if None)
         """
-        self._store = store or CronStore()
+        self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
         self._job_code: dict[str, str] = {}  # Store code for each job
         self._task: asyncio.Task | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
 
+        # Initialize observability
+        if observability:
+            self._observability = observability
+        else:
+            log_file = (data_dir or Path("data")) / "cron_logs.jsonl"
+            self._observability = Observability(log_file)
+
     async def start(self) -> None:
         """Start the scheduler monitoring loop.
 
-        Loads jobs from store before starting.
+        Loads jobs from store and registers system jobs before starting.
         """
         if self._task is not None:
             return
@@ -102,13 +115,21 @@ class CronScheduler:
         # Load jobs from store
         await self._load_jobs()
 
+        # Register system jobs
+        await self.register_system_jobs()
+
         self._shutdown_event.clear()
         self._task = asyncio.create_task(self._monitor_loop())
+        self._observability.health.set_scheduler_running(True)
+        await self._observability.logger.log_scheduler_event(
+            "scheduler_start", "Cron scheduler started"
+        )
         logger.info("Cron scheduler started")
 
     async def stop(self) -> None:
         """Stop the scheduler gracefully."""
         self._shutdown_event.set()
+        self._observability.health.set_scheduler_running(False)
 
         if self._task is not None:
             self._task.cancel()
@@ -116,6 +137,9 @@ class CronScheduler:
                 await self._task
             self._task = None
 
+        await self._observability.logger.log_scheduler_event(
+            "scheduler_stop", "Cron scheduler stopped"
+        )
         logger.info("Cron scheduler stopped")
 
     async def register_job(self, job: Job) -> None:
@@ -180,6 +204,40 @@ class CronScheduler:
                 return
         raise ValueError(f"Job not found: {job_id}")
 
+    async def register_system_jobs(self) -> None:
+        """Register built-in system jobs.
+
+        System jobs are pre-approved and run without human review.
+        Currently includes session_ttl check every 5 minutes.
+        """
+        from src.cron.system_jobs import get_system_job_code
+
+        system_jobs = ["session_ttl"]
+
+        for job_id in system_jobs:
+            job_info = get_system_job_code(job_id)
+            if job_info is None:
+                logger.warning(f"System job {job_id} not found")
+                continue
+
+            expression, code = job_info
+
+            # Check if already registered
+            if job_id in self._jobs:
+                logger.debug(f"System job {job_id} already registered")
+                continue
+
+            job = Job(
+                job_id=job_id,
+                name=job_id.replace("_", " ").title(),
+                expression=expression,
+                code=code,
+                status="active",
+            )
+
+            await self.register_job(job)
+            logger.info(f"Registered system job: {job_id}")
+
     async def _load_jobs(self) -> None:
         """Load jobs from store and compile handlers."""
         jobs = await self._store.load_jobs()
@@ -226,7 +284,7 @@ class CronScheduler:
         if "run" not in namespace:
             raise ValueError("Job code must define an async run() function")
 
-        handler = namespace["run"]
+        handler = cast(Callable[[], Awaitable[None]], namespace["run"])
         if not asyncio.iscoroutinefunction(handler):
             raise ValueError("Job run() function must be async")
 
@@ -272,7 +330,7 @@ class CronScheduler:
         """Execute a single job.
 
         Uses lock to ensure only one instance runs at a time.
-        Records execution to store.
+        Records execution to store and observability systems.
         """
         if job._running.locked():
             logger.debug(f"Job already running, skipping: {job.name} ({job.job_id})")
@@ -282,6 +340,13 @@ class CronScheduler:
             start_time = datetime.now(UTC)
             execution_id = str(uuid.uuid4())
             error_message = None
+            code_snapshot = self._job_code.get(job.job_id)
+
+            # Record start in observability
+            await self._observability.health.record_job_start(job.job_id)
+            await self._observability.logger.log_job_start(
+                job.job_id, job.name, code_snapshot
+            )
 
             try:
                 logger.debug(f"Executing job: {job.name} ({job.job_id})")
@@ -316,3 +381,59 @@ class CronScheduler:
                     error_message=error_message,
                 )
                 await self._store.record_execution(record)
+
+                # Record end in observability
+                await self._observability.health.record_job_end(job.job_id)
+                await self._observability.logger.log_job_end(
+                    job.job_id, job.name, record, code_snapshot
+                )
+
+                # Update metrics
+                await self._observability.metrics.jobs_executed.increment()
+                await self._observability.metrics.job_duration_ms.observe(duration_ms)
+                if status == ExecutionStatus.FAILED:
+                    await self._observability.metrics.job_failures.increment()
+
+                # Check for alerts
+                alerts = await self._observability.alerts.record_execution(
+                    job.job_id, status == ExecutionStatus.SUCCESS, duration_ms
+                )
+                for alert in alerts:
+                    logger.warning(f"Alert: {alert.message}")
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get current metrics from the observability system.
+
+        Returns:
+            Dictionary containing all metrics
+        """
+        return self._observability.metrics.to_dict()
+
+    async def health_check(self) -> HealthStatus:
+        """Perform a health check on the scheduler.
+
+        Returns:
+            HealthStatus with current health information
+        """
+        # Update stuck jobs from health checker
+        health = await self._observability.health.check_health()
+
+        # Generate any alerts from health issues
+        alerts = await self._observability.alerts.check_stuck_jobs(
+            health.stuck_jobs, health
+        )
+        for alert in alerts:
+            logger.warning(f"Health alert: {alert.message}")
+
+        return health
+
+    async def check_and_alert(self) -> list[Alert]:
+        """Check health and generate alerts.
+
+        Returns:
+            List of alerts generated
+        """
+        health = await self.health_check()
+        return await self._observability.alerts.check_stuck_jobs(
+            health.stuck_jobs, health
+        )

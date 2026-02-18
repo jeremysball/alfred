@@ -427,7 +427,7 @@ alfred cron metrics
 | M2 | **Cron Parser** | ✅ Complete | Standard cron expression parsing using `croniter` library, 25 tests, 90% coverage |
 | M3 | **Persistence** | ✅ Complete | JSONL storage with atomic writes, 19 tests, 94% coverage, documentation created |
 | M4 | **Observability** | Logging, metrics, health checks, alerts | All jobs logged, metrics exposed, alerts fire |
-| M5 | **System Jobs** | TTL check, compaction, cleanup jobs | Session TTL runs every 5 min, compaction nightly |
+| M5 | **System Jobs** | ✅ Complete | Session TTL job runs every 5 min, auto-registers on startup, 8 tests, 100% coverage |
 | M6 | **User Job Submission** | Model generates code, submits for review | User can create job via natural language |
 | M7 | **Approval Workflow** | Human review and approval UI | Pending → Approved/Rejected flow works |
 | M8 | **Resource Limits** | Timeouts, memory limits, execution isolation | Jobs killed after timeout, memory tracked |

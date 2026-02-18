@@ -10,7 +10,7 @@ import pytest
 
 from src.cron.scheduler import CronScheduler
 from src.cron.store import CronStore
-from src.tools.schedule_job import ScheduleJobParams, ScheduleJobTool
+from src.tools.schedule_job import ScheduleJobTool
 
 
 @pytest.fixture
@@ -33,13 +33,16 @@ class TestScheduleJobToolIntegration:
 
     async def test_job_persisted_to_store(self, tool, temp_scheduler, tmp_path):
         """Created job is saved to JSONL file."""
-        params = ScheduleJobParams(
+        result_chunks = []
+        async for chunk in tool.execute_stream(
             name="Persisted Job",
             description="Should be saved",
             cron_expression="0 10 * * *",
-        )
+        ):
+            result_chunks.append(chunk)
 
-        await tool.execute(params)
+        result = "".join(result_chunks)
+        assert "submitted for approval" in result
 
         # Verify job was saved
         jobs = await temp_scheduler._store.load_jobs()
@@ -50,26 +53,35 @@ class TestScheduleJobToolIntegration:
     async def test_multiple_jobs_persisted(self, tool, temp_scheduler):
         """Multiple jobs are all saved."""
         for i in range(3):
-            params = ScheduleJobParams(
+            async for _ in tool.execute_stream(
                 name=f"Job {i}",
                 description=f"Description {i}",
                 cron_expression=f"{i} * * * *",
-            )
-            await tool.execute(params)
+            ):
+                pass
 
         jobs = await temp_scheduler._store.load_jobs()
         assert len(jobs) == 3
 
     async def test_job_pending_until_approved(self, tool, temp_scheduler):
         """Job stays pending, doesn't execute until approved."""
-        params = ScheduleJobParams(
+        result_chunks = []
+        async for chunk in tool.execute_stream(
             name="Pending Job",
             description="Wait for approval",
             cron_expression="* * * * *",
-        )
+        ):
+            result_chunks.append(chunk)
 
-        result = await tool.execute(params)
-        job_id = extract_job_id(result.output)
+        result = "".join(result_chunks)
+        # Extract job ID from output
+        job_id = None
+        for line in result.split("\n"):
+            if "Job ID:" in line:
+                job_id = line.split("Job ID:")[1].strip()
+                break
+
+        assert job_id is not None
 
         # Start scheduler - job should not run (pending)
         await temp_scheduler.start()
@@ -93,13 +105,12 @@ class TestScheduleJobToolIntegration:
 
     async def test_generated_code_is_valid_python(self, tool, temp_scheduler):
         """Auto-generated code compiles successfully."""
-        params = ScheduleJobParams(
+        async for _ in tool.execute_stream(
             name="Code Gen Test",
             description="Print hello world",
             cron_expression="0 * * * *",
-        )
-
-        await tool.execute(params)
+        ):
+            pass
 
         # Load job and try to compile code
         jobs = await temp_scheduler._store.load_jobs()
@@ -117,28 +128,13 @@ async def run():
     print(f"Result: {result}")
     return result
 """
-        params = ScheduleJobParams(
+        async for _ in tool.execute_stream(
             name="Custom Code Job",
             description="Use my code",
             cron_expression="*/10 * * * *",
             code=custom_code,
-        )
-
-        await tool.execute(params)
+        ):
+            pass
 
         jobs = await temp_scheduler._store.load_jobs()
         assert jobs[0].code == custom_code
-
-
-def extract_job_id(output: str) -> str:
-    """Extract job ID from tool output."""
-    # Output format includes: "Job ID: <uuid>\nTo approve..."
-    if "Job ID: " in output:
-        # Get the line with Job ID
-        for line in output.split("\n"):
-            if "Job ID: " in line:
-                # Extract just the UUID part
-                job_id_part = line.split("Job ID: ")[-1].strip()
-                # Return just the UUID (before any newlines or additional text)
-                return job_id_part.split()[0] if job_id_part else ""
-    return ""

@@ -3,6 +3,8 @@
 Tool for Alfred to schedule tasks via natural language.
 """
 
+from collections.abc import AsyncIterator
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -51,6 +53,19 @@ class ScheduleJobParams(BaseModel):
         return v.strip()
 
 
+class ScheduleJobResult(ToolResult):
+    """Result from scheduling a job."""
+
+    job_id: str | None = Field(
+        default=None,
+        description="ID of the created job (if successful)",
+    )
+    message: str = Field(
+        default="",
+        description="Human-readable result message",
+    )
+
+
 class ScheduleJobTool(Tool):
     """Create a recurring cron job that runs on a schedule.
 
@@ -77,21 +92,39 @@ class ScheduleJobTool(Tool):
         """
         self.scheduler = scheduler
 
-    async def execute(self, params: ScheduleJobParams) -> ToolResult:
-        """Execute the schedule_job tool.
+    def execute(self, **kwargs: Any) -> str:
+        """Execute the schedule_job tool (sync - not supported).
 
         Args:
-            params: Tool parameters
+            **kwargs: Tool parameters matching ScheduleJobParams
 
         Returns:
-            ToolResult with job ID or error message
+            Error message directing to use async execution
         """
+        return "Error: ScheduleJobTool must be called via execute_stream in async context"
+
+    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+        """Execute the schedule_job tool (async).
+
+        Args:
+            **kwargs: Tool parameters matching ScheduleJobParams
+
+        Yields:
+            Result message with job details or error
+        """
+        try:
+            params = ScheduleJobParams(**kwargs)
+        except ValueError as e:
+            yield f"Error: Invalid parameters - {e}"
+            return
+
         # Validate cron expression
         if not parser.is_valid(params.cron_expression):
-            return ToolResult(
-                error=f"Invalid cron expression: '{params.cron_expression}'. "
-                      f"Use standard 5-field format like '0 9 * * *' for 9am daily."
+            yield (
+                f"Error: Invalid cron expression '{params.cron_expression}'. "
+                f"Use standard 5-field format like '0 9 * * *' for 9am daily."
             )
+            return
 
         # Generate or use provided code
         job_code = params.code or self._generate_code(params.description)
@@ -100,9 +133,8 @@ class ScheduleJobTool(Tool):
             # Validate generated/provided code compiles
             compile(job_code, "<string>", "exec")
         except SyntaxError as e:
-            return ToolResult(
-                error=f"Invalid Python code: {e}"
-            )
+            yield f"Error: Invalid Python code - {e}"
+            return
 
         try:
             # Submit job for approval
@@ -112,19 +144,20 @@ class ScheduleJobTool(Tool):
                 code=job_code,
             )
 
-            return ToolResult(
-                output=(
-                    f"Job '{params.name}' submitted for approval. "
+            result = ScheduleJobResult(
+                success=True,
+                message=(
+                    f"Job '{params.name}' submitted for approval.\n"
                     f"Job ID: {job_id}\n"
                     f"To approve and activate: /cron approve {job_id}\n"
                     f"To view details: /cron review {job_id}"
-                )
+                ),
+                job_id=job_id,
             )
+            yield result.message
 
         except Exception as e:
-            return ToolResult(
-                error=f"Failed to create job: {e}"
-            )
+            yield f"Error: Failed to create job - {e}"
 
     def _generate_code(self, description: str) -> str:
         """Generate Python code from natural language description.
