@@ -20,8 +20,8 @@ Implement persistent conversation sessions with automatic summarization and sema
 ### Key Behaviors
 
 1. **Active Session Tracking**: Current conversation held in memory, injected into every LLM call
-2. **Automatic Persistence**: Sessions saved to JSONL on activity timeout (1 hour)
-3. **Smart Summarization**: LLM extracts key topics/facts after session ends
+2. **Immediate Persistence**: Every exchange appended to sessions.jsonl immediately (durability)
+3. **Smart Summarization**: LLM extracts key topics/facts after 1 hour of inactivity
 4. **Semantic Retrieval**: Past conversation summaries searchable by current query
 5. **Dual Storage**: Raw exchanges preserved + distilled insights extracted
 6. **CLI Control**: Commands to start new session or resume old ones
@@ -37,7 +37,9 @@ User Message → Load/Create Session → Inject History → LLM Response
                                     ↓
                               Store Exchange
                                     ↓
-                    [1hr timeout] → Summarize → Embed → Save
+                         Append to sessions.jsonl (durability)
+                                    ↓
+                    [1hr timeout] → Summarize → Embed → Update record
 ```
 
 ### Data Schema
@@ -102,6 +104,8 @@ User Query
 LLM Response
     ↓
 Store exchange to active session
+    ↓
+Append to sessions.jsonl (immediate durability)
     ↓
 Check timeout → Summarize if > 1hr inactive
 ```
@@ -171,15 +175,17 @@ PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
 ### Data Flow
 
 ```
-Conversation Ends
-    ↓
-Session Summarized
-    ↓
-├─→ Save to sessions.jsonl (full conversation + summary)
-└─→ Extract key facts → add to memories.jsonl (replaces MEMORY.md)
+During Conversation (every message):
+    User Message → LLM Response → Append exchange to sessions.jsonl
+
+When Session Ends (1hr timeout):
+    Session Summarized
+        ↓
+    ├─→ Update session record in sessions.jsonl with summary + embedding
+    └─→ Extract key facts → add to memories.jsonl (replaces MEMORY.md)
 ```
 
-- **sessions.jsonl**: Complete session history with summaries
+- **sessions.jsonl**: Complete session history (written immediately per message), summaries added on timeout
 - **memories.jsonl**: Curated facts extracted from sessions (the new MEMORY.md)
 
 ---
