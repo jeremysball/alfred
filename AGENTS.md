@@ -7,7 +7,7 @@
 **STOP.** Before responding to any user message or command, you **MUST**:
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
-2. Read `/workspace/alfred-prd/prds/10-alfred-the-rememberer.md` (parent PRD)
+2. Read `/workspace/alfred-prd/prds/48-alfred-v1-vision.md` (parent PRD)
 3. Confirm completion in your first response: "✅ Writing skill and parent PRD loaded"
 
 **No exceptions.** This applies to:
