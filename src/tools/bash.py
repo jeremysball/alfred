@@ -63,9 +63,9 @@ class BashTool(Tool):
                 stdout = stdout[:max_bytes]
                 truncated = True
 
-            lines = stdout.split('\n')
+            lines = stdout.split("\n")
             if len(lines) > max_lines:
-                stdout = '\n'.join(lines[:max_lines])
+                stdout = "\n".join(lines[:max_lines])
                 truncated = True
 
             # Truncate stderr (smaller limit)
@@ -121,22 +121,19 @@ class BashTool(Tool):
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
 
                 # Decode output
-                stdout_text = stdout.decode('utf-8', errors='replace')
-                stderr_text = stderr.decode('utf-8', errors='replace')
+                stdout_text = stdout.decode("utf-8", errors="replace")
+                stderr_text = stderr.decode("utf-8", errors="replace")
 
                 # Yield stdout
                 if stdout_text:
                     # Chunk into lines for better streaming
-                    lines = stdout_text.split('\n')
+                    lines = stdout_text.split("\n")
                     for i, line in enumerate(lines):
                         if i < len(lines) - 1:  # Not last line
-                            yield line + '\n'
+                            yield line + "\n"
                         else:  # Last line (might not have newline)
                             if line:
                                 yield line

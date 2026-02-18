@@ -56,7 +56,7 @@ class Tool(ABC):
         fields: dict[str, Any] = {}
 
         for param_name, param in sig.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
             # Get type annotation
@@ -77,9 +77,7 @@ class Tool(ABC):
 
         # Create the Pydantic model
         self._param_model = create_model(
-            f"{self.__class__.__name__}Params",
-            __base__=ToolParameter,
-            **fields
+            f"{self.__class__.__name__}Params", __base__=ToolParameter, **fields
         )
 
     @abstractmethod

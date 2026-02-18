@@ -26,7 +26,6 @@ dev = [
     "pytest-cov>=4.0",
     "mypy>=1.8",
     "ruff>=0.2",
-    "pre-commit>=3.6",
     "respx>=0.21",
     "pytest-mock>=3.12",
     "dotenv-cli>=3.0",
@@ -51,6 +50,7 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+disallow_any_generics = false
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -73,3 +73,8 @@ omit = ["*/tests/*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[dependency-groups]
+dev = [
+    "types-aiofiles>=25.1.0.20251011",
+]

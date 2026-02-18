@@ -20,6 +20,7 @@ class MemoryEntry(BaseModel):
     def generate_id(self) -> str:
         """Generate unique ID from timestamp and content."""
         import hashlib
+
         content = f"{self.timestamp.isoformat()}:{self.content}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 

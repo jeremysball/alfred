@@ -32,7 +32,6 @@ def _is_transient_error(error: Exception) -> bool:
     return isinstance(error, (TimeoutError, ConnectionError))
 
 
-
 async def _with_retry[T](
     operation: str,
     func: Callable[[], Awaitable[T]],
@@ -57,9 +56,7 @@ async def _with_retry[T](
 
             # Don't retry non-transient errors
             if not _is_transient_error(e):
-                raise EmbeddingError(
-                    f"{operation} failed with non-transient error: {e}", e
-                ) from e
+                raise EmbeddingError(f"{operation} failed with non-transient error: {e}", e) from e
 
             # Last attempt failed
             if attempt == max_retries:
