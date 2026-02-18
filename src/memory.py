@@ -30,6 +30,9 @@ class MemoryStore:
 
     def _entry_to_jsonl(self, entry: MemoryEntry) -> str:
         """Serialize MemoryEntry to JSONL line."""
+        # Ensure ID is generated
+        if entry.entry_id is None:
+            entry.entry_id = entry.generate_id()
         return json.dumps({
             "timestamp": entry.timestamp.isoformat(),
             "role": entry.role,
@@ -37,6 +40,7 @@ class MemoryStore:
             "embedding": entry.embedding,
             "importance": entry.importance,
             "tags": entry.tags,
+            "entry_id": entry.entry_id,
         })
 
     def _entry_from_jsonl(self, line: str) -> MemoryEntry:
@@ -49,6 +53,7 @@ class MemoryStore:
             embedding=data.get("embedding"),
             importance=data.get("importance", 0.5),
             tags=data.get("tags", []),
+            entry_id=data.get("entry_id"),  # Auto-generated if None
         )
 
     async def add_entries(self, entries: list[MemoryEntry]) -> None:
