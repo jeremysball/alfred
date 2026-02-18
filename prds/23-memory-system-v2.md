@@ -232,10 +232,10 @@ class ForgetTool(Tool):
 - [~] Update SOUL.md with search instructions (moved to AGENTS.md)
 
 ### Phase 3: Update Tool
-- [ ] Create `UpdateMemoryTool`
-- [ ] Handle partial updates (content and/or importance)
-- [ ] Tests for update operations
-- [ ] Update SOUL.md with update instructions
+- [x] Create `UpdateMemoryTool`
+- [x] Handle partial updates (content and/or importance)
+- [x] Tests for update operations
+- [~] Update SOUL.md with update instructions (moved to AGENTS.md)
 
 ### Phase 4: Forget Tool
 - [ ] Create `ForgetTool`
@@ -292,7 +292,7 @@ Use when information is obsolete or wrong:
 ## Acceptance Criteria
 
 - [x] `search_memories` tool returns relevant memories
-- [ ] `update_memory` tool modifies existing memories correctly
+- [x] `update_memory` tool modifies existing memories correctly
 - [ ] `forget` tool deletes by semantic query
 - [ ] All CRUD operations have comprehensive tests
 - [ ] Agent knows when to use each tool

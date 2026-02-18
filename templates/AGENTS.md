@@ -46,6 +46,30 @@ search_memories(query="Python preferences", top_k=5)
 
 **Search before asking.** If the user mentions something you might already know, check your memories first.
 
+#### update_memory
+Modify an existing memory when information changes.
+
+Use when:
+- User corrects something you remembered
+- Details need refinement
+- Importance should be adjusted
+
+```
+update_memory(
+    search_query="user name",
+    new_content="User name is Jasmine (goes by Jaz)",
+    new_importance=0.9
+)
+```
+
+- `search_query`: Find the memory to update by semantic search
+- `new_content`: New content (optional if updating importance only)
+- `new_importance`: New importance 0.0-1.0 (optional if updating content only)
+
+At least one of `new_content` or `new_importance` must be provided.
+
+**Updates only the top matching memory.** If multiple memories need updating, call multiple times with more specific queries.
+
 ## Communication
 
 Be concise. Confirm ambiguous requests. Admit uncertainty.
