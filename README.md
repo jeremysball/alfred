@@ -44,9 +44,19 @@ Then just start talking.
 
 ## How It Works
 
-Alfred stores every conversation with embeddings. When you talk, he searches by meaning, not keywords, and pulls the right context into your current session.
+```mermaid
+flowchart LR
+    You["You"] -->|message| Alfred["Alfred"]
+    Alfred -->|embed| Memory[(Memory Store)]
+    Memory -->|relevant context| Alfred
+    Alfred -->|prompt + context| LLM["LLM Provider"]
+    LLM -->|response| Alfred
+    Alfred -->|reply| You
+```
 
-But it's more than retrieval. Over time, he learns what matters to you. Which details are important. How you think. The context he brings isn't just relevant. It's intelligent.
+Every message gets embedded and stored. When you talk, Alfred searches by meaning, not keywords, and pulls the right context into your session.
+
+Over time, he learns what matters. Which details are important. How you think. The context he brings isn't just relevant. It's intelligent.
 
 ## What Alfred Does
 
