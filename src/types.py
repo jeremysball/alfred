@@ -15,6 +15,18 @@ class MemoryEntry(BaseModel):
     embedding: list[float] | None = None
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
     tags: list[str] = Field(default_factory=list)
+    entry_id: str | None = None  # Hash of timestamp + content
+
+    def generate_id(self) -> str:
+        """Generate unique ID from timestamp and content."""
+        import hashlib
+        content = f"{self.timestamp.isoformat()}:{self.content}"
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def model_post_init(self, __context):
+        """Auto-generate ID if not set."""
+        if self.entry_id is None:
+            self.entry_id = self.generate_id()
 
 
 class DailyMemory(BaseModel):
