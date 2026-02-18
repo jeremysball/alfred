@@ -96,7 +96,7 @@ class MemoryStore:
 
     async def get_all_entries(self) -> list[MemoryEntry]:
         """Load all memory entries."""
-        entries = []
+        entries: list[MemoryEntry] = []
         if not self.memories_path.exists():
             return entries
 

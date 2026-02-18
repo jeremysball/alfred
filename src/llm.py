@@ -1,14 +1,17 @@
 """LLM provider abstraction and implementations."""
 
 import asyncio
+import json
 import logging
 import random
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional, TypeVar
 
 from src.config import Config
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ChatMessage:
     role: str  # "system", "user", "assistant", "tool"
     content: str
-    tool_calls: list[dict] | None = None  # For assistant messages with tool calls
+    tool_calls: list[dict[str, Any]] | None = None  # For assistant messages with tool calls
     tool_call_id: str | None = None  # For tool role messages
     reasoning_content: str | None = None  # For Kimi thinking mode
 
@@ -26,8 +29,8 @@ class ChatMessage:
 class ChatResponse:
     content: str
     model: str
-    usage: dict | None = None
-    tool_calls: list[dict] | None = None
+    usage: dict[str, Any] | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     reasoning_content: str | None = None  # For provider thinking/reasoning modes
 
 
@@ -53,45 +56,45 @@ class TimeoutError(LLMError):
 
 
 async def _retry_async(
-    operation,
+    operation: Callable[[], Any],
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     operation_name: str = "operation"
-):
+) -> Any:
     """Retry an async operation with exponential backoff.
-    
+
     For use inside async generators where decorators don't work.
     """
     last_exception = None
-    
+
     for attempt in range(max_retries + 1):
         try:
             return await operation()
         except Exception as e:
             last_exception = e
-            
+
             # Don't retry on programming errors
             if isinstance(e, (ValueError, TypeError, AttributeError)):
                 raise
-            
+
             if attempt >= max_retries:
                 logger.error(
                     f"Max retries ({max_retries}) exceeded for {operation_name}: {e}"
                 )
                 raise last_exception
-            
+
             # Calculate delay with exponential backoff
             delay = min(base_delay * (exponential_base ** attempt), max_delay)
             delay = delay * (0.5 + random.random())  # Add jitter
-            
+
             logger.warning(
                 f"Attempt {attempt + 1}/{max_retries + 1} failed for {operation_name}: {e}. "
                 f"Retrying in {delay:.2f}s..."
             )
             await asyncio.sleep(delay)
-    
+
     raise last_exception
 
 
@@ -101,9 +104,9 @@ def retry_with_backoff(
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
-):
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator for retrying async functions with exponential backoff.
-    
+
     Args:
         max_retries: Maximum number of retry attempts
         base_delay: Initial delay between retries in seconds
@@ -111,8 +114,8 @@ def retry_with_backoff(
         exponential_base: Base for exponential backoff calculation
         jitter: Whether to add random jitter to delay
     """
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             last_exception = None
 
             for attempt in range(max_retries + 1):
@@ -173,7 +176,7 @@ class LLMProvider(ABC):
     async def chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: Optional[list[dict]] = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> ChatResponse:
         """Send chat with tool definitions."""
         pass
@@ -181,7 +184,7 @@ class LLMProvider(ABC):
     async def stream_chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: Optional[list[dict]] = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """Stream chat with tool support.
 
@@ -260,7 +263,7 @@ class KimiProvider(LLMProvider):
     async def chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: Optional[list[dict]] = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> ChatResponse:
         """Send chat with tool definitions."""
         import openai
@@ -292,7 +295,7 @@ class KimiProvider(LLMProvider):
                     }
                     for tc in message.tool_calls
                 ]
-            
+
             # Capture reasoning_content for thinking mode
             if hasattr(message, 'reasoning_content') and message.reasoning_content:
                 reasoning_content = message.reasoning_content
@@ -320,7 +323,7 @@ class KimiProvider(LLMProvider):
 
         logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
 
-        async def _create_stream():
+        async def _create_stream() -> Any:
             return await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -367,19 +370,19 @@ class KimiProvider(LLMProvider):
     async def stream_chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: Optional[list[dict]] = None,
+        tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """Stream chat with tool support.
-        
+
         For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
         followed by JSON array of tool calls.
         """
         import json
         import openai
-        
+
         # Convert messages to API format, including tool_call_id for tool messages
         # and reasoning_content for assistant messages
-        api_messages = []
+        api_messages: list[dict[str, Any]] = []
         for m in messages:
             msg = {"role": m.role, "content": m.content}
             if m.role == "tool" and m.tool_call_id:
@@ -389,8 +392,8 @@ class KimiProvider(LLMProvider):
             if m.reasoning_content and m.role == "assistant":
                 msg["reasoning_content"] = m.reasoning_content
             api_messages.append(msg)
-        
-        async def _create_stream():
+
+        async def _create_stream() -> Any:
             return await self.client.chat.completions.create(
                 model=self.model,
                 messages=api_messages,
@@ -399,7 +402,7 @@ class KimiProvider(LLMProvider):
                 max_tokens=4000,
                 stream=True,
             )
-        
+
         try:
             stream = await _retry_async(
                 _create_stream,
@@ -419,29 +422,29 @@ class KimiProvider(LLMProvider):
         except Exception as e:
             logger.error(f"Unexpected error calling Kimi: {e}")
             raise LLMError(f"Unexpected error: {e}") from e
-        
+
         # Collect streaming data
         tool_calls_data = []
         current_tool_call = None
         full_content = ""
-        
+
         try:
             async for chunk in stream:
                 # Skip chunks with no choices (can happen with some providers)
                 if not chunk.choices:
                     continue
-                
+
                 delta = chunk.choices[0].delta
-                
+
                 # Handle content
                 if delta.content:
                     full_content += delta.content
                     yield delta.content
-                
+
                 # Handle reasoning content (required for Kimi thinking mode with tool calls)
                 if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                     yield f"[REASONING]{delta.reasoning_content}"
-                
+
                 # Handle tool calls
                 if delta.tool_calls:
                     for tc in delta.tool_calls:
@@ -458,11 +461,11 @@ class KimiProvider(LLMProvider):
                                 current_tool_call["function"]["name"] = tc.function.name
                             if tc.function.arguments and current_tool_call:
                                 current_tool_call["function"]["arguments"] += tc.function.arguments
-            
+
             # Yield tool calls if any were collected
             if tool_calls_data:
                 yield f"[TOOL_CALLS]{json.dumps(tool_calls_data)}"
-                
+
         except Exception as e:
             logger.error(f"Error in stream_chat_with_tools: {e}")
             raise

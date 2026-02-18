@@ -1,6 +1,7 @@
 """OpenAI embedding client for semantic memory retrieval."""
 
 import math
+from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
 import openai
@@ -33,9 +34,10 @@ def _is_transient_error(error: Exception) -> bool:
     return False
 
 
+
 async def _with_retry(
     operation: str,
-    func,
+    func: Callable[[], Awaitable[T]],
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 30.0,
@@ -97,7 +99,7 @@ class EmbeddingClient:
         Fails fast on permanent errors (auth, bad request).
         """
 
-        async def _embed():
+        async def _embed() -> list[float]:
             response = await self.client.embeddings.create(
                 model=self.model,
                 input=text,
@@ -121,7 +123,7 @@ class EmbeddingClient:
         if not texts:
             return []
 
-        async def _embed_batch():
+        async def _embed_batch() -> list[list[float]]:
             response = await self.client.embeddings.create(
                 model=self.model,
                 input=texts,
