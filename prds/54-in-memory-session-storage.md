@@ -17,7 +17,7 @@ The CLI starts fresh with every message. Alfred has no conversation memory—eac
 
 Implement in-memory session storage that maintains conversation history during the CLI session. This is intentionally minimal: no persistence, no summarization, just raw message history injected into context.
 
-**Key Principle**: This PRD delivers immediate value (working CLI conversations) and serves as the foundation for PRD #53 (full session system with persistence, summarization, and semantic retrieval).
+**Key Principle**: This PRD delivers immediate value (working CLI conversations) and serves as the foundation for PRD #53 (full session system with persistence, summarization, and semantic retrieval) and PRD #55 (advanced session features).
 
 ---
 
@@ -31,6 +31,7 @@ Implement in-memory session storage that maintains conversation history during t
 | **No message limit** | Fill context window; PRD #53 will add compaction |
 | **No persistence** | Survives only for process lifetime; PRD #53 adds JSONL |
 | **Single session** | CLI has one active session; PRD #53 adds session management |
+| **No search/summaries** | Basic only; PRD #55 adds substring search and LLM tools |
 
 ### Data Model
 
@@ -84,12 +85,7 @@ Append assistant message to session
 
 ```python
 class SessionManager:
-    """Source of truth for session data. Handles storage, retrieval, and serialization.
-    
-    Never triggers compaction automatically. Creates/stores summaries only when
-    explicitly requested by ContextAssembler. This ensures SessionManager remains
-    a pure data layer that can fully serialize the conversation at any point.
-    """
+    """Simple manager for the active CLI session. Stores messages in memory only."""
     
     _instance: SessionManager | None = None
     _session: Session | None = None
@@ -104,96 +100,43 @@ class SessionManager:
     def add_message(self, role: str, content: str) -> None:
         """Append message to current session."""
         
-    def get_messages(self, start_idx: int = 0, end_idx: int | None = None) -> list[Message]:
-        """Get message slice by index range. Returns all if no range specified."""
-        
-    def get_substring_matches(self, query: str) -> list[tuple[int, Message]]:
-        """Search messages for substring matches. Returns (index, message) pairs."""
-        
-    def create_summary(self, start_idx: int, end_idx: int) -> str:
-        """Generate summary of message range via LLM. Stores and returns summary."""
-        
-    def get_summaries(self) -> list[Summary]:
-        """Get all stored summaries for this session."""
-        
-    def get_full_session(self) -> Session:
-        """Return complete session for serialization. Source of truth."""
+    def get_messages(self) -> list[Message]:
+        """Get all messages in chronological order."""
         
     def clear_session(self) -> None:
         """Clear current session."""
 ```
-```
 
-### ContextAssembler Interface
-
-```python
-class ContextAssembler:
-    """Builds LLM context from sessions, memories, and other sources.
-    
-    Makes all decisions about what goes into context. Uses SessionManager
-    as source of truth but decides which slices to fetch and how to format.
-    """
-    
-    def __init__(self, session_manager: SessionManager):
-        self.session_manager = session_manager
-        self.context_preferences: ContextPreferences | None = None
-    
-    async def assemble_context(self) -> str:
-        """Build full context for LLM prompt."""
-        
-    def set_context_preferences(self, prefs: ContextPreferences) -> None:
-        """Apply LLM-specified preferences for next context assembly."""
-        
-    def request_summary(self, start_idx: int, end_idx: int) -> str:
-        """Request SessionManager create summary of message range."""
-        
-    def search_session_substring(self, query: str) -> list[tuple[int, Message]]:
-        """Search session history for substring matches."""
-        
-    def clear_preferences(self) -> None:
-        """Clear LLM preferences after use."""
-
-@dataclass
-class ContextPreferences:
-    """LLM-specified preferences for context assembly (via tool call)."""
-    memory_ids: list[str] | None = None      # Specific memories to include
-    session_range: tuple[int, int] | None = None  # (start, end) message indices
-    include_summaries: bool = True           # Include session summaries
-    max_messages: int | None = None          # Limit to N most recent
-```
-
-### LLM Context Control Tool
+### Context Assembly
 
 ```python
-class SetContextPreferences(Tool):
-    """Tool allowing LLM to influence what appears in its context."""
+async def assemble_context(self) -> str:
+    """Build context with full session history."""
+    base_prompt = self._load_system_prompt()
+    session_messages = self.session_manager.get_messages()
     
-    name = "set_context_preferences"
-    description = """Control what information appears in your context for the next turn.
+    history_parts = []
+    for msg in session_messages:
+        prefix = "User" if msg.role == "user" else "Assistant"
+        history_parts.append(f"{prefix}: {msg.content}")
     
-    Use this to:
-    - Request specific memories by ID
-    - Specify which part of the conversation to focus on
-    - Limit context window to recent messages
-    - Include/exclude session summaries
-    """
-    
-    async def execute(
-        self,
-        memory_ids: list[str] | None = None,
-        session_start_idx: int | None = None,
-        session_end_idx: int | None = None,
-        max_recent_messages: int | None = None,
-        include_summaries: bool = True,
-    ) -> ToolResult:
-        """Store preferences for next context assembly."""
+    return f"""{base_prompt}
+
+## CONVERSATION HISTORY
+
+{chr(10).join(history_parts)}
+
+## CURRENT MESSAGE
+"""
 ```
 
 ---
 
-## Relationship to PRD #53
+## Relationship to Future PRDs
 
-This PRD is intentionally scoped to deliver immediate value. PRD #53 will extend this foundation:
+This PRD is intentionally minimal. Future PRDs extend this foundation:
+
+### PRD #53 (Full Session System)
 
 | Feature | This PRD (#54) | PRD #53 (Future) |
 |---------|----------------|------------------|
@@ -204,13 +147,19 @@ This PRD is intentionally scoped to deliver immediate value. PRD #53 will extend
 | **CLI commands** | Auto-start session | `/sessions`, `/resume`, `/newsession` |
 | **Multi-session** | No | Yes |
 
-**Migration Path**: PRD #53 will:
-1. Replace in-memory storage with JSONL
-2. Add session summarization
-3. Add semantic retrieval
-4. Add CLI session management commands
+### PRD #55 (Advanced Session Features)
 
-The data model (Session, Message) remains unchanged.
+| Feature | This PRD (#54) | PRD #55 (Future) |
+|---------|----------------|------------------|
+| **Substring search** | None | Search conversation history |
+| **LLM context control** | None | Tools for LLM to specify context |
+| **Smart assembly** | None | ContextAssembler respects LLM preferences |
+| **Summary on demand** | None | LLM requests summaries of ranges |
+
+**Migration Path**: 
+- PRD #53: Replace storage with JSONL, add persistence
+- PRD #55: Add search, LLM tools, smart assembly
+- Data model (Session, Message) unchanged
 
 ---
 
@@ -238,4 +187,9 @@ The data model (Session, Message) remains unchanged.
 |------|----------|-----------|
 | 2026-02-18 | In-memory only | Fastest path to working CLI; persistence in PRD #53 |
 | 2026-02-18 | No message limit | Simplicity; PRD #53 adds compaction |
+| 2026-02-18 | No search/tools | Basic only; PRD #55 adds advanced features |
 | 2026-02-18 | Singleton SessionManager | CLI has one active session; PRD #53 generalizes |
+| 2026-02-18 | Message format: simple prefix | User preference (Option A: "User: ...\nAssistant: ...") |
+| 2026-02-18 | Tool results: truncated | Store in session but truncated in context |
+| 2026-02-18 | Session starts on first message | Auto-start when user sends first message |
+| 2026-02-18 | TDD approach | Tests written before implementation |
