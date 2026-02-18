@@ -31,6 +31,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 - [ ] M11: Compaction - Summarize long conversations (PRD #19)
 - [ ] M12: Testing & Quality - Comprehensive test coverage (PRD #22)
 - [ ] HTTP API + Cron - Local API for scheduled actions (PRD #29)
+- [ ] PyPI Trusted Publishing - Automated package distribution (PRD #66)
 
 ## Long-term
 

@@ -4,9 +4,11 @@
 
 **Issue**: #29
 **Parent**: #10 (Alfred - The Rememberer)
-**Status**: Planning
+**Status**: ⚠️ ORPHANED - Needs Redesign
 **Priority**: Medium
 **Created**: 2026-02-17
+
+> **⚠️ WARNING**: This PRD was designed for the Skill System architecture (#32) which has been **superseded**. The HTTP API approach assumed skills would call `POST /message` via curl. With the current tool-based architecture, this PRD needs redesign or should be deprecated in favor of a different approach to scheduled tasks.
 
 Implement a local HTTP API that cron can call, with Alfred managing cron jobs through natural language.
 

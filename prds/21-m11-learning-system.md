@@ -4,10 +4,12 @@
 
 **Issue**: #21  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Depends On**: #20 (M10: Distillation)  
+**Depends On**: #53 (Session System), #20 (M10: Distillation)  
 **Status**: Planning  
 **Priority**: High  
 **Created**: 2026-02-16
+
+> **Note**: Updated dependencies to use Session System instead of superseded M8 Capabilities.
 
 Implement learning system that updates agent files (USER.md, SOUL.md, TOOLS.md) based on conversation insights using model-driven decisions.
 
