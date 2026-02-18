@@ -4,7 +4,7 @@
 
 **Issue**: #38  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Status**: Planning  
+**Status**: Complete  
 **Priority**: High  
 **Created**: 2026-02-17
 
@@ -14,12 +14,11 @@ Build a complete memory system with Create, Read, Update, Delete operations and 
 
 ## Problem Statement
 
-The current memory system has:
-- ✅ **Read**: Semantic search and retrieval (implemented in M4)
-- ✅ **Create**: `remember` tool for saving memories (just implemented)
-- ❌ **Update**: No way to modify existing memories
-- ❌ **Delete**: No way to remove memories
-- ❌ **Search API**: No direct search tool for agent-initiated queries
+The memory system now has complete CRUD operations:
+- ✅ **Create**: `remember` tool for saving memories
+- ✅ **Read**: `search_memories` tool for semantic search and ID-based lookup
+- ✅ **Update**: `update_memory` tool with preview/confirm safety
+- ✅ **Delete**: `forget` tool with preview/confirm safety
 
 Users need full CRUD operations to manage their memory store effectively.
 
@@ -244,7 +243,7 @@ class ForgetTool(Tool):
 
 ### Phase 5: Integration
 - [x] Update AGENTS.md with memory management guidelines
-- [~] Add memory management examples to documentation (in AGENTS.md)
+- [x] Add memory management examples to documentation
 - [x] Integration tests for full CRUD workflow
 
 ---
@@ -295,8 +294,8 @@ Use when information is obsolete or wrong:
 - [x] `update_memory` tool modifies existing memories correctly
 - [x] `forget` tool deletes by semantic query
 - [x] All CRUD operations have comprehensive tests
-- [~] Agent knows when to use each tool (documented in AGENTS.md)
-- [~] Documentation updated for all tools (AGENTS.md complete)
+- [x] Agent knows when to use each tool
+- [x] Documentation updated for all tools
 
 ---
 
