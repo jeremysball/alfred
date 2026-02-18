@@ -4,7 +4,7 @@
 #40
 
 ## Status
-Planning
+In Progress
 
 ## Priority
 High
@@ -59,9 +59,9 @@ Stream chunks → extract content + tool_calls + reasoning_content
 ## Implementation Plan
 
 ### Milestone 1: Fix reasoning_content Extraction
-- [ ] Modify `stream_chat_with_tools()` to extract `delta.reasoning_content`
-- [ ] Accumulate reasoning content across streaming chunks
-- [ ] Ensure reasoning_content is passed through in assistant messages with tool calls
+- [x] Modify `stream_chat_with_tools()` to extract `delta.reasoning_content`
+- [x] Accumulate reasoning content across streaming chunks
+- [x] Ensure reasoning_content is passed through in assistant messages with tool calls
 - [ ] Verify fix with manual test
 
 ### Milestone 2: Testing Strategy Evaluation
@@ -91,7 +91,7 @@ Stream chunks → extract content + tool_calls + reasoning_content
 - Documented requirement in code comments will guide future maintainers
 
 **Action Items**:
-- [ ] Add code comment in `stream_chat_with_tools()` documenting reasoning_content extraction requirement
+- [x] Add code comment in `stream_chat_with_tools()` documenting reasoning_content extraction requirement
 - [ ] Ensure integration tests cover tool calls with streaming
 
 ## Related Code
