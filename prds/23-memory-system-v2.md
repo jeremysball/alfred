@@ -130,28 +130,15 @@ class MemoryStore:
 ```python
     async def update_entry(
         self,
-        entry_id: str,  # timestamp-based or hash
-        content: str | None = None,
-        importance: float | None = None,
-        tags: list[str] | None = None,
-    ) -> bool
+        search_query: str,  # Find by semantic match
+        new_content: str | None = None,
+        new_importance: float | None = None,
+    ) -> tuple[bool, str]  # (success, message)
     
     async def delete_entries(
         self,
-        query: str | None = None,  # Delete by semantic match
-        entry_ids: list[str] | None = None,  # Delete specific IDs
-        tags: list[str] | None = None,  # Delete by tag
-    ) -> int  # Number deleted
-    
-    async def search_with_filters(
-        self,
-        query: str,
-        tags: list[str] | None = None,
-        min_importance: float | None = None,
-        start_date: date | None = None,
-        end_date: date | None = None,
-        top_k: int = 10,
-    ) -> list[MemoryEntry]
+        query: str,  # Delete by semantic match
+    ) -> tuple[int, str]  # (count_deleted, message)
 ```
 
 ---
@@ -162,7 +149,7 @@ class MemoryStore:
 
 ```python
 class SearchMemoriesTool(Tool):
-    """Search through saved memories with optional filters."""
+    """Search through saved memories."""
     
     name = "search_memories"
     description = "Search through your memory store for relevant information"
@@ -170,25 +157,21 @@ class SearchMemoriesTool(Tool):
     def execute(
         self,
         query: str,
-        tags: str = "",  # Comma-separated
-        min_importance: float = 0.0,
-        start_date: str = "",  # YYYY-MM-DD
-        end_date: str = "",    # YYYY-MM-DD
         top_k: int = 5,
     ) -> str:
         """Search memories and return formatted results."""
 ```
 
 **Usage Examples**:
-- `search_memories(query="Python preferences", tags="coding")`
-- `search_memories(query="what did we discuss last week", start_date="2026-02-10")`
-- `search_memories(query="important facts", min_importance=0.8)`
+- `search_memories(query="Python preferences")`
+- `search_memories(query="what did we discuss last week")`
+- `search_memories(query="important facts")`
 
 ### 2. update_memory Tool
 
 ```python
 class UpdateMemoryTool(Tool):
-    """Update an existing memory's content, importance, or tags."""
+    """Update an existing memory's content or importance."""
     
     name = "update_memory"
     description = "Update an existing memory with new information"
@@ -198,7 +181,6 @@ class UpdateMemoryTool(Tool):
         search_query: str,  # Find memory to update
         new_content: str = "",
         new_importance: float = -1,  # -1 means don't change
-        new_tags: str = "",  # Comma-separated, empty means don't change
     ) -> str:
         """Find memory matching query and update it."""
 ```
@@ -206,7 +188,9 @@ class UpdateMemoryTool(Tool):
 **Usage Examples**:
 - `update_memory(search_query="user name", new_content="User name is Jasmine (goes by Jaz)")`
 - `update_memory(search_query="Python", new_importance=0.9)`
-- `update_memory(search_query="work location", new_tags="work,location,remote")`
+- `update_memory(search_query="work location", new_content="User works remotely from Portland", new_importance=0.8)`
+
+**Note**: Updates only the top matching memory. If multiple memories need updating, call multiple times with more specific queries.
 
 ### 3. forget Tool
 
@@ -215,23 +199,21 @@ class ForgetTool(Tool):
     """Remove memories from the store."""
     
     name = "forget"
-    description = "Delete memories that match criteria"
+    description = "Delete memories matching a semantic query"
     
     def execute(
         self,
-        query: str = "",       # Delete semantically similar memories
-        tags: str = "",        # Delete by tags
-        confirm: bool = False, # Safety flag
+        query: str,  # Delete semantically similar memories
     ) -> str:
-        """Delete memories matching query or tags."""
+        """Delete memories matching query."""
 ```
 
 **Usage Examples**:
-- `forget(query="old project idea", confirm=True)`
-- `forget(tags="temp,todo", confirm=True)`
-- `forget(query="incorrect information about my age", confirm=True)`
+- `forget(query="old project idea")`
+- `forget(query="incorrect information about my age")`
+- `forget(query="temporary todos from last week")`
 
-**Safety**: Requires `confirm=True` to prevent accidental deletion.
+**Note**: No confirmation mechanism - the LLM's interpretation of user intent is the safety check.
 
 ---
 
@@ -240,8 +222,6 @@ class ForgetTool(Tool):
 ### Phase 1: MemoryStore Extensions
 - [ ] Add `update_entry()` method to MemoryStore
 - [ ] Add `delete_entries()` method to MemoryStore
-- [ ] Add `search_with_filters()` method
-- [ ] Add entry ID system (hash of content + timestamp)
 - [ ] Tests for all new methods
 
 ### Phase 2: Search Tool
@@ -252,13 +232,12 @@ class ForgetTool(Tool):
 
 ### Phase 3: Update Tool
 - [ ] Create `UpdateMemoryTool`
-- [ ] Handle partial updates (only change provided fields)
+- [ ] Handle partial updates (content and/or importance)
 - [ ] Tests for update operations
 - [ ] Update SOUL.md with update instructions
 
 ### Phase 4: Forget Tool
 - [ ] Create `ForgetTool`
-- [ ] Implement confirmation safety
 - [ ] Tests for deletion
 - [ ] Update SOUL.md with deletion instructions
 
@@ -298,24 +277,23 @@ Use when information changes:
 Use when information is obsolete or wrong:
 - User says "forget that" or "that's wrong"
 - Old temporary information (todos, etc.)
-- Always confirm before deleting
+- Use semantic queries to find what to delete
 
 ### Best Practices
 - **Create liberally**: Better to remember too much than too little
 - **Search before asking**: Check if you already know the answer
 - **Update promptly**: Keep information current
-- **Delete carefully**: Use confirm=True, only when clearly requested
+- **Delete matches**: Semantic search finds what to delete
 ```
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `search_memories` tool returns relevant memories with filters
+- [ ] `search_memories` tool returns relevant memories
 - [ ] `update_memory` tool modifies existing memories correctly
-- [ ] `forget` tool deletes with confirmation safety
+- [ ] `forget` tool deletes by semantic query
 - [ ] All CRUD operations have comprehensive tests
-- [ ] Memory IDs work for precise targeting
 - [ ] Agent knows when to use each tool
 - [ ] Documentation updated for all tools
 
@@ -326,7 +304,7 @@ Use when information is obsolete or wrong:
 - Agent can perform full CRUD on memories
 - Semantic search returns >80% relevant results
 - Updates preserve embedding (or regenerate if content changes)
-- Deletion requires explicit confirmation
+- Deletion uses semantic matching to find targets
 - All operations are idempotent where appropriate
 
 ---
@@ -346,6 +324,7 @@ Use when information is obsolete or wrong:
 - Batch memory operations
 - Memory export/import
 - Vector index optimization (FAISS/Annoy)
+- Structured tags/categories (if needed for bulk operations)
 
 ---
 
@@ -355,5 +334,5 @@ Use when information is obsolete or wrong:
 |------|----------|-----------|--------|
 | 2026-02-17 | Tools over capabilities | Simpler, main process, no overhead | All memory operations are tools |
 | 2026-02-17 | Async execute_stream | MemoryStore is async | Tools use async iteration |
-| 2026-02-17 | Entry IDs for updates | Need to target specific memories | Hash-based IDs in JSONL |
-| 2026-02-17 | Confirm for delete | Prevent accidental data loss | Safety feature in forget tool |
+| 2026-02-17 | No confirmation for delete | LLM interprets intent; confirming twice is theater | Delete by semantic query only |
+| 2026-02-17 | No tags | Embeddings handle categorization better | Simpler MemoryEntry, rely on semantic search |
