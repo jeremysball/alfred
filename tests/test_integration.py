@@ -319,9 +319,9 @@ class TestAgentWithRealLLM:
         with open("test_content.txt", "w") as f:
             f.write("This is test content for the agent to read.")
 
-        # Load config from original directory
-        original_dir = "/workspace/alfred-prd"
-        config = load_config(Path(original_dir) / "config.json")
+        # Load config from project root (tests are in tests/ subdirectory)
+        project_root = Path(__file__).parent.parent
+        config = load_config(project_root / "config.json")
         llm = LLMFactory.create(config)
         register_builtin_tools()
         registry = get_registry()
@@ -344,8 +344,8 @@ class TestAgentWithRealLLM:
         from src.config import load_config
         from src.llm import LLMFactory
 
-        original_dir = "/workspace/alfred-prd"
-        config = load_config(Path(original_dir) / "config.json")
+        project_root = Path(__file__).parent.parent
+        config = load_config(project_root / "config.json")
         llm = LLMFactory.create(config)
         register_builtin_tools()
         registry = get_registry()
