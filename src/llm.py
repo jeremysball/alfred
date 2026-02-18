@@ -227,8 +227,8 @@ class KimiProvider(LLMProvider):
         logger.debug(f"Sending chat request to Kimi with {len(messages)} messages")
 
         api_messages: list[ChatCompletionMessageParam] = [
-            {"role": m.role, "content": m.content}
-            for m in messages  # type: ignore[misc]
+            {"role": m.role, "content": m.content}  # type: ignore[misc]
+            for m in messages
         ]
 
         try:
@@ -332,8 +332,8 @@ class KimiProvider(LLMProvider):
 
         async def _create_stream() -> Any:
             api_messages: list[ChatCompletionMessageParam] = [
-                {"role": m.role, "content": m.content}
-                for m in messages  # type: ignore[misc]
+                {"role": m.role, "content": m.content}  # type: ignore[misc]
+                for m in messages
             ]
             return await self.client.chat.completions.create(
                 model=self.model,
