@@ -453,7 +453,7 @@ alfred cron metrics
 | M6 | **User Job Submission** | Model generates code, submits for review | User can create job via natural language |
 | M7 | **Approval Workflow** | Human review and approval UI | Pending → Approved/Rejected flow works |
 | M8 | **Resource Limits** | ✅ Complete | Timeout enforcement, memory monitoring, output limits, 31 tests, 95% coverage |
-| M9 | **Natural Language Interface** | User creates jobs via conversation, not commands | "Remind me daily at 8am" just works |
+| M9 | **Natural Language Interface** | ✅ Complete | Rule-based NL parser, 52 tests, timezone support, confidence scoring |
 | M10 | **CLI Integration** | alfred cron commands for power users | Optional CLI management available |
 | M11 | **Testing** | Unit and integration tests | >90% coverage, all edge cases tested |
 | M12 | **ScheduleJobTool** | ✅ Complete | Tool for agent to create cron jobs, 14 tests (unit + integration), Pydantic validation |
@@ -484,6 +484,7 @@ src/
 │   ├── scheduler.py       # Core scheduler orchestration
 │   ├── store.py           # JSONL persistence
 │   ├── parser.py          # Cron expression parsing
+│   ├── nlp_parser.py      # Natural language to cron parsing
 │   ├── executor.py        # Job execution with limits
 │   ├── observability.py   # Logging, metrics, health, alerts
 │   ├── models.py          # Job, ExecutionResult, etc.
@@ -520,6 +521,7 @@ data/
 | 2026-02-18 | 5-field cron validation | Reject expressions with fewer or more than 5 fields (minute hour day month dow) |
 | 2026-02-18 | Timezone-aware return values | `get_next_run()` returns datetime in target timezone (e.g., 9am NY), not UTC |
 | 2026-02-18 | Missed window catch-up | `should_run()` returns True if scheduled time passed since last run—jobs don't skip |
+| 2026-02-19 | Rule-based natural language parsing | Regex patterns for 90% of cases, faster than LLM, extensible, no token costs |
 
 ---
 
