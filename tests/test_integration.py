@@ -300,6 +300,7 @@ class TestStreamingIntegration:
         assert "success" in result.lower() or "edited" in result.lower()
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     os.environ.get("SKIP_LLM_TESTS"),
     reason="Skipping tests that require LLM"

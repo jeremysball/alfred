@@ -65,7 +65,10 @@ show_error_codes = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=src --cov-report=term-missing"
+addopts = "--cov=src --cov-report=term-missing -m 'not integration'"
+markers = [
+    "integration: marks tests that hit real external APIs (skipped by default)",
+]
 
 [tool.coverage.run]
 source = ["src"]
