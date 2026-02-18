@@ -13,7 +13,6 @@ class MemoryEntry(BaseModel):
     role: Literal["user", "assistant", "system"]
     content: str
     embedding: list[float] | None = None
-    importance: float = Field(default=0.5, ge=0.0, le=1.0)
     tags: list[str] = Field(default_factory=list)
     entry_id: str | None = None  # Hash of timestamp + content
 

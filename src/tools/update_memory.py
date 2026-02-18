@@ -14,7 +14,6 @@ class UpdateMemoryToolParams(BaseModel):
     search_query: str = Field("", description="Query to find the memory to update")
     entry_id: str = Field("", description="Direct lookup by memory ID")
     new_content: str = Field("", description="New content for the memory (empty = no change)")
-    new_importance: float = Field(-1, description="New importance value 0.0-1.0 (-1 = no change)")
     confirm: bool = Field(False, description="Set to True to actually update (False = preview)")
 
     class Config:
@@ -22,10 +21,10 @@ class UpdateMemoryToolParams(BaseModel):
 
 
 class UpdateMemoryTool(Tool):
-    """Update an existing memory's content or importance. Requires confirmation."""
+    """Update an existing memory's content. Requires confirmation."""
 
     name = "update_memory"
-    description = "Update an existing memory's content or importance. Requires confirmation."
+    description = "Update an existing memory's content. Requires confirmation."
     param_model = UpdateMemoryToolParams
 
     def __init__(self, memory_store: Any = None) -> None:
@@ -44,7 +43,6 @@ class UpdateMemoryTool(Tool):
                 - search_query: Query to find the memory to update
                 - entry_id: Direct lookup by memory ID
                 - new_content: New content for the memory (empty = no change)
-                - new_importance: New importance value 0.0-1.0 (-1 = no change)
                 - confirm: Set to True to actually update (False = preview)
 
         Returns:
@@ -60,7 +58,6 @@ class UpdateMemoryTool(Tool):
                 - search_query: Query to find the memory to update
                 - entry_id: Direct lookup by memory ID
                 - new_content: New content for the memory (empty = no change)
-                - new_importance: New importance value 0.0-1.0 (-1 = no change)
                 - confirm: Set to True to actually update (False = preview)
 
         Yields:
@@ -69,7 +66,6 @@ class UpdateMemoryTool(Tool):
         search_query = kwargs.get("search_query", "")
         entry_id = kwargs.get("entry_id", "")
         new_content = kwargs.get("new_content", "")
-        new_importance = kwargs.get("new_importance", -1)
         confirm = kwargs.get("confirm", False)
 
         if not self._memory_store:
@@ -83,11 +79,9 @@ class UpdateMemoryTool(Tool):
 
         # Convert empty string to None (no change)
         content = new_content if new_content else None
-        # Convert -1 to None (no change)
-        importance = new_importance if new_importance >= 0 else None
 
-        if content is None and importance is None:
-            yield "Error: Specify at least one of new_content or new_importance"
+        if content is None:
+            yield "Error: Specify new_content to update"
             return
 
         if not confirm:
@@ -100,7 +94,7 @@ class UpdateMemoryTool(Tool):
                     entry = await self._memory_store.get_by_id(entry_id)
                     lookup_key = f"id={entry_id}"
                 else:
-                    results = await self._memory_store.search(search_query, top_k=1)
+                    results, _ = await self._memory_store.search(search_query, top_k=1)
                     if results:
                         entry = results[0]
                     lookup_key = f"query='{search_query}'"
@@ -113,14 +107,10 @@ class UpdateMemoryTool(Tool):
 
                 lines = ["Found memory to update:"]
                 lines.append(f"  Current: [{date_str}] {entry.content}")
-                lines.append(f"  Importance: {entry.importance:.1f}")
                 lines.append(f"  ID: {entry.entry_id}")
                 lines.append("")
                 lines.append("Will update to:")
-                if content is not None:
-                    lines.append(f"  New content: {content}")
-                if importance is not None:
-                    lines.append(f"  New importance: {importance:.1f}")
+                lines.append(f"  New content: {content}")
                 lines.append("")
 
                 # Build confirmation call
@@ -131,8 +121,6 @@ class UpdateMemoryTool(Tool):
 
                 if new_content:
                     confirm_call += f", new_content='{new_content}'"
-                if new_importance >= 0:
-                    confirm_call += f", new_importance={new_importance}"
                 confirm_call += ", confirm=True)"
 
                 lines.append(f"Call {confirm_call} to apply changes.")
@@ -158,7 +146,6 @@ class UpdateMemoryTool(Tool):
             success, message = await self._memory_store.update_entry(
                 search_query=search_key,
                 new_content=content,
-                new_importance=importance,
             )
             yield message
         except Exception as e:

@@ -39,21 +39,22 @@ class MemoryStore:
                 "role": entry.role,
                 "content": entry.content,
                 "embedding": entry.embedding,
-                "importance": entry.importance,
                 "tags": entry.tags,
                 "entry_id": entry.entry_id,
             }
         )
 
     def _entry_from_jsonl(self, line: str) -> MemoryEntry:
-        """Deserialize JSONL line to MemoryEntry."""
+        """Deserialize JSONL line to MemoryEntry.
+
+        Backward compatible: ignores importance field if present in old data.
+        """
         data = json.loads(line)
         return MemoryEntry(
             timestamp=datetime.fromisoformat(data["timestamp"]),
             role=data["role"],
             content=data["content"],
             embedding=data.get("embedding"),
-            importance=data.get("importance", 0.5),
             tags=data.get("tags", []),
             entry_id=data.get("entry_id"),  # Auto-generated if None
         )
@@ -140,7 +141,7 @@ class MemoryStore:
         top_k: int = 10,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> list[MemoryEntry]:
+    ) -> tuple[list[MemoryEntry], dict[str, float]]:
         """Search memories by semantic similarity.
 
         Args:
@@ -150,12 +151,12 @@ class MemoryStore:
             end_date: Optional filter for entries on or before this date
 
         Returns:
-            Top-k most relevant entries, ranked by similarity × importance
+            Tuple of (top-k most relevant entries, dict of entry_id -> similarity)
         """
         query_embedding = await self.embedder.embed(query)
 
         # Score all entries (with optional date filtering)
-        scored: list[tuple[float, MemoryEntry]] = []
+        scored: list[tuple[float, MemoryEntry, float]] = []  # (score, entry, similarity)
 
         async for entry in self.iter_entries():
             # Date filtering
@@ -167,13 +168,13 @@ class MemoryStore:
                     continue
 
             if entry.embedding:
-                score = cosine_similarity(query_embedding, entry.embedding)
-                # Boost by importance (0.7 base + 0.3 × importance)
-                score *= 0.7 + (entry.importance * 0.3)
-                scored.append((score, entry))
+                similarity = cosine_similarity(query_embedding, entry.embedding)
+                scored.append((similarity, entry, similarity))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [entry for _, entry in scored[:top_k]]
+        results = [entry for _, entry, _ in scored[:top_k]]
+        similarities = {entry.entry_id or "": sim for _, entry, sim in scored[:top_k]}
+        return results, similarities
 
     async def clear(self) -> None:
         """Clear all memories (useful for testing)."""
@@ -200,7 +201,6 @@ class MemoryStore:
         self,
         search_query: str,
         new_content: str | None = None,
-        new_importance: float | None = None,
     ) -> tuple[bool, str]:
         """Update an existing memory entry.
 
@@ -210,12 +210,11 @@ class MemoryStore:
         Args:
             search_query: Query to find the memory to update
             new_content: New content (None = don't change)
-            new_importance: New importance value (None = don't change)
 
         Returns:
             Tuple of (success: bool, message: str)
         """
-        if new_content is None and new_importance is None:
+        if new_content is None:
             return False, "No changes specified"
 
         # Load all entries
@@ -245,9 +244,6 @@ class MemoryStore:
             # Regenerate embedding if content changed
             if new_content != old_content:
                 target_entry.embedding = await self.embedder.embed(new_content)
-
-        if new_importance is not None:
-            target_entry.importance = new_importance
 
         # Rewrite all entries
         await self._rewrite_entries(entries)
@@ -387,7 +383,6 @@ class MemoryStore:
                 role="system",
                 content=section,
                 embedding=None,  # Could cache these later
-                importance=1.0,
                 tags=["curated"],
             )
             for _, section in scored[:top_k]

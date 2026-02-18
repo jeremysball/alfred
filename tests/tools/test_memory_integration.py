@@ -104,7 +104,6 @@ class TestMemoryCrudWorkflow:
         result = ""
         async for chunk in tools["remember"].execute_stream(
             content="User prefers Python over JavaScript",
-            importance=0.8,
         ):
             result += chunk
         assert "Remembered" in result
@@ -116,7 +115,7 @@ class TestMemoryCrudWorkflow:
         assert "User prefers Python" in result
 
         # Extract entry_id from search result
-        # Format: "- [2026-02-18] User prefers... (importance: 0.8, id: abc123)"
+        # Format: "- [2026-02-18] User prefers... (92% match, id: abc123)"
         import re
         id_match = re.search(r'id: ([a-f0-9]+)', result)
         assert id_match, f"Could not find entry_id in: {result}"
@@ -180,10 +179,9 @@ class TestMemoryCrudWorkflow:
             ("User's favorite food is pizza", 0.6),
         ]
 
-        for content, importance in memories:
+        for content, _importance in memories:
             async for _ in tools["remember"].execute_stream(
                 content=content,
-                importance=importance,
             ):
                 pass
 
@@ -203,13 +201,11 @@ class TestMemoryCrudWorkflow:
         # Create two memories
         async for _ in tools["remember"].execute_stream(
             content="User works at Acme Corp",
-            importance=0.7,
         ):
             pass
 
         async for _ in tools["remember"].execute_stream(
             content="User lives in Portland",
-            importance=0.7,
         ):
             pass
 
@@ -270,13 +266,11 @@ class TestMemoryCrudWorkflow:
         # Create memories about old project
         async for _ in tools["remember"].execute_stream(
             content="Old project: chatbot idea",
-            importance=0.5,
         ):
             pass
 
         async for _ in tools["remember"].execute_stream(
             content="Old project: mobile app concept",
-            importance=0.5,
         ):
             pass
 
@@ -311,7 +305,6 @@ class TestMemoryCrudWorkflow:
         # Create a memory
         async for _ in tools["remember"].execute_stream(
             content="Test memory content",
-            importance=0.5,
         ):
             pass
 

@@ -91,7 +91,7 @@ class ForgetTool(Tool):
                     )
                     yield "\n".join(lines)
                 else:
-                    results = await self._memory_store.search(query, top_k=100)
+                    results, _ = await self._memory_store.search(query, top_k=100)
                     if not results:
                         yield f"No memories found matching '{query}'."
                         return

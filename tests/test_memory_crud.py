@@ -77,7 +77,6 @@ async def test_update_entry_content(mock_config, mock_embedder):
             role="system",
             content=content,
             embedding=await mock_embedder.embed(content),
-            importance=0.8,
         )
     ]
     await store.add_entries(entries)
@@ -101,34 +100,8 @@ async def test_update_entry_content(mock_config, mock_embedder):
 
 @pytest.mark.asyncio
 async def test_update_entry_importance(mock_config, mock_embedder):
-    """Can update memory importance without changing content."""
-    store = MemoryStore(mock_config, mock_embedder)
-    await store.clear()
-
-    content = "I prefer Python"
-    entries = [
-        MemoryEntry(
-            timestamp=datetime(2026, 2, 17, 10, 0),
-            role="system",
-            content=content,
-            embedding=await mock_embedder.embed(content),
-            importance=0.5,
-        )
-    ]
-    await store.add_entries(entries)
-
-    # Update only importance using exact content
-    success, message = await store.update_entry(
-        search_query=content,
-        new_importance=0.9,
-    )
-
-    assert success is True
-
-    # Verify embedding unchanged
-    memories = await store.get_all_entries()
-    assert memories[0].importance == 0.9
-    assert memories[0].content == "I prefer Python"
+    """Importance field removed - test deprecated."""
+    pytest.skip("Importance field removed from MemoryEntry")
 
 
 @pytest.mark.asyncio
@@ -158,7 +131,6 @@ async def test_update_entry_no_match(mock_config, mock_embedder):
             role="system",
             content="I like coffee",
             embedding=await mock_embedder.embed("I like coffee"),
-            importance=0.5,
         )
     ]
     await store.add_entries(entries)
@@ -201,7 +173,6 @@ async def test_delete_entries_by_query(mock_config, mock_embedder):
             role="system",
             content="DELETE_ME_name_memory",
             embedding=await mock_embedder.embed("DELETE_ME_name_memory"),
-            importance=0.8,
         ),
     ]
     await store.add_entries(entries)
@@ -229,7 +200,6 @@ async def test_delete_entries_no_match(mock_config, mock_embedder):
             role="system",
             content="I like coffee",
             embedding=await mock_embedder.embed("I like coffee"),
-            importance=0.5,
         )
     ]
     await store.add_entries(entries)
@@ -270,21 +240,18 @@ async def test_delete_entries_multiple_matches(mock_config, mock_embedder):
             role="system",
             content="TEMP_note_one",
             embedding=await mock_embedder.embed("TEMP_note_one"),
-            importance=0.3,
         ),
         MemoryEntry(
             timestamp=datetime(2026, 2, 17, 11, 0),
             role="system",
             content="TEMP_note_two",
             embedding=await mock_embedder.embed("TEMP_note_two"),
-            importance=0.3,
         ),
         MemoryEntry(
             timestamp=datetime(2026, 2, 17, 12, 0),
             role="system",
             content="PERMANENT_dark_mode",
             embedding=await mock_embedder.embed("PERMANENT_dark_mode"),
-            importance=0.9,
         ),
     ]
     await store.add_entries(entries)
@@ -314,14 +281,12 @@ async def test_update_preserves_other_entries(mock_config, mock_embedder):
             role="system",
             content="name_memory_Jaz",
             embedding=await mock_embedder.embed("name_memory_Jaz"),
-            importance=0.8,
         ),
         MemoryEntry(
             timestamp=datetime(2026, 2, 17, 11, 0),
             role="system",
             content="python_preference",
             embedding=await mock_embedder.embed("python_preference"),
-            importance=0.7,
         ),
     ]
     await store.add_entries(entries)
@@ -335,7 +300,6 @@ async def test_update_preserves_other_entries(mock_config, mock_embedder):
     # Verify second entry unchanged
     memories = await store.get_all_entries()
     python_mem = next(m for m in memories if "python" in m.content)
-    assert python_mem.importance == 0.7
     assert python_mem.content == "python_preference"
 
 

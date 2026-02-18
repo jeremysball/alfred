@@ -32,7 +32,7 @@ class MemorySearcher:
         self,
         query_embedding: list[float],
         memories: list[MemoryEntry],
-    ) -> list[MemoryEntry]:
+    ) -> tuple[list[MemoryEntry], dict[str, float]]:
         """Search memories by semantic similarity with hybrid scoring.
 
         Args:
@@ -40,13 +40,13 @@ class MemorySearcher:
             memories: List of memories to search (caller loads these)
 
         Returns:
-            Top memories ranked by hybrid score (similarity + recency + importance)
+            Tuple of (top memories ranked by hybrid score, dict of entry_id -> similarity)
         """
         logger.debug(
             f"Searching {len(memories)} memories with min_similarity={self.min_similarity}"
         )
 
-        scored: list[tuple[float, MemoryEntry]] = []
+        scored: list[tuple[float, MemoryEntry, float]] = []  # (score, memory, similarity)
 
         for memory in memories:
             if not memory.embedding:
@@ -57,34 +57,36 @@ class MemorySearcher:
                 continue
 
             score = self._hybrid_score(memory, similarity)
-            scored.append((score, memory))
+            scored.append((score, memory, similarity))
 
         # Sort by score descending
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        results = [memory for _, memory in scored[: self.context_limit]]
+        results = [memory for _, memory, _ in scored[: self.context_limit]]
+        similarities = {
+            memory.entry_id or "": sim for _, memory, sim in scored[: self.context_limit]
+        }
         logger.info(
             f"Memory search: {len(memories)} total, {len(scored)} scored, {len(results)} returned"
         )
-        return results
+        return results, similarities
 
     def _hybrid_score(
         self,
         memory: MemoryEntry,
         similarity: float,
     ) -> float:
-        """Combine similarity, recency, and importance into a single score.
+        """Combine similarity and recency into a single score.
 
         Weights:
-            - Similarity: 0.5 (semantic relevance to query)
-            - Recency: 0.3 (newer memories score higher)
-            - Importance: 0.2 (user/marked importance)
+            - Similarity: 0.6 (semantic relevance to query)
+            - Recency: 0.4 (newer memories score higher)
         """
         # Recency decay: exp(-age / half_life)
         age_days = (datetime.now() - memory.timestamp).days
         recency = math.exp(-age_days / self.recency_half_life)
 
-        return similarity * 0.5 + recency * 0.3 + memory.importance * 0.2
+        return similarity * 0.6 + recency * 0.4
 
     def deduplicate(
         self,
@@ -165,11 +167,11 @@ class ContextBuilder:
         logger.debug(f"Building context with {len(memories)} memories available")
 
         # Search and deduplicate
-        relevant = self.searcher.search(query_embedding, memories)
+        relevant, similarities = self.searcher.search(query_embedding, memories)
         relevant = self.searcher.deduplicate(relevant)
 
-        # Build memory section
-        memory_section = self._format_memories(relevant)
+        # Build memory section with similarities
+        memory_section = self._format_memories(relevant, similarities)
 
         # Build session history section
         session_section = self._format_session_messages(session_messages or [])
@@ -199,7 +201,7 @@ class ContextBuilder:
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
             truncated = self._truncate_to_budget(
-                system_prompt, relevant, session_messages or [], self.token_budget
+                system_prompt, relevant, session_messages or [], self.token_budget, similarities
             )
             return truncated
 
@@ -226,8 +228,10 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
-    def _format_memories(self, memories: list[MemoryEntry]) -> str:
-        """Format memories section for prompt."""
+    def _format_memories(
+        self, memories: list[MemoryEntry], similarities: dict[str, float]
+    ) -> str:
+        """Format memories section for prompt with similarity scores."""
         if not memories:
             return "## RELEVANT MEMORIES\n\n_No relevant memories found._"
 
@@ -240,7 +244,11 @@ class ContextBuilder:
             content = memory.content[:200]
             if len(memory.content) > 200:
                 content += "..."
-            lines.append(f"- [{date}] {prefix}: {content}")
+            # Get similarity and format as percentage
+            sim = similarities.get(memory.entry_id or "", 0.0)
+            sim_pct = int(sim * 100)
+            mid = memory.entry_id
+            lines.append(f"- [{date}] {prefix}: {content} ({sim_pct}% match, id: {mid})")
 
         return "\n".join(lines)
 
@@ -250,8 +258,10 @@ class ContextBuilder:
         memories: list[MemoryEntry],
         session_messages: list[tuple[str, str]],
         budget: int,
+        similarities: dict[str, float] | None = None,
     ) -> str:
         """Truncate memories and session messages to fit within token budget."""
+        similarities = similarities or {}
         # Reserve tokens for system prompt, headers, and conversation
         reserved = approximate_tokens(system_prompt) + 300  # Increased for session section
         available = budget - reserved
@@ -297,8 +307,10 @@ class ContextBuilder:
             content = memory.content[:200]
             if len(memory.content) > 200:
                 content += "..."
+            sim = similarities.get(memory.entry_id or "", 0.0)
+            sim_pct = int(sim * 100)
 
-            line = f"- [{date}] {prefix}: {content}"
+            line = f"- [{date}] {prefix}: {content} ({sim_pct}% match, id: {memory.entry_id})"
             line_tokens = approximate_tokens(line)
 
             if current_tokens + line_tokens > available_for_memories:

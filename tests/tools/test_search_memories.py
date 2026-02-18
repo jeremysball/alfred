@@ -50,7 +50,6 @@ class TestSearchMemoriesTool:
                 role="system",
                 content="User prefers Python over JavaScript",
                 embedding=[0.1, 0.2],
-                importance=0.8,
                 tags=[],
             ),
             MemoryEntry(
@@ -58,11 +57,11 @@ class TestSearchMemoriesTool:
                 role="system",
                 content="User works remotely from Portland",
                 embedding=[0.3, 0.4],
-                importance=0.7,
                 tags=[],
             ),
         ]
-        mock_memory_store.search.return_value = memories
+        similarities = {memories[0].entry_id: 0.85, memories[1].entry_id: 0.65}
+        mock_memory_store.search.return_value = (memories, similarities)
 
         # Act
         result = ""
@@ -72,13 +71,13 @@ class TestSearchMemoriesTool:
         # Assert
         assert "Python over JavaScript" in result
         assert "Portland" in result
-        assert "importance: 0.8" in result
+        assert "85% match" in result or "65% match" in result
         assert "[2026-02-17]" in result
         mock_memory_store.search.assert_called_once_with("Python", top_k=5)
 
     async def test_search_no_results(self, search_tool, mock_memory_store):
         """Search with no results returns appropriate message."""
-        mock_memory_store.search.return_value = []
+        mock_memory_store.search.return_value = ([], {})
 
         result = ""
         async for chunk in search_tool.execute_stream(query="unknown"):

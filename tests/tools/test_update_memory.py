@@ -49,10 +49,9 @@ class TestUpdateMemoryTool:
             role="system",
             content="Old content here",
             embedding=[0.1, 0.2],
-            importance=0.5,
             tags=[],
         )
-        mock_memory_store.search.return_value = [memory]
+        mock_memory_store.search.return_value = ([memory], {})
 
         result = ""
         async for chunk in update_tool.execute_stream(
@@ -71,56 +70,33 @@ class TestUpdateMemoryTool:
         mock_memory_store.update_entry.assert_not_called()
 
     async def test_preview_importance_only(self, update_tool, mock_memory_store):
-        """Preview mode shows proposed importance change."""
-        memory = MemoryEntry(
-            timestamp=datetime(2026, 2, 17),
-            role="system",
-            content="Memory content",
-            embedding=[0.1, 0.2],
-            importance=0.5,
-            tags=[],
-        )
-        mock_memory_store.search.return_value = [memory]
-
-        result = ""
-        async for chunk in update_tool.execute_stream(
-            search_query="memory",
-            new_importance=0.9,
-        ):
-            result += chunk
-
-        assert "Found memory to update" in result
-        assert "Importance: 0.5" in result
-        assert "New importance: 0.9" in result
-        mock_memory_store.update_entry.assert_not_called()
+        """Importance field removed - test deprecated."""
+        pytest.skip("Importance field removed from MemoryEntry")
 
     async def test_preview_both_fields(self, update_tool, mock_memory_store):
-        """Preview mode shows both content and importance changes."""
+        """Preview mode shows content change."""
         memory = MemoryEntry(
             timestamp=datetime(2026, 2, 17),
             role="system",
             content="User name is John",
             embedding=[0.1, 0.2],
-            importance=0.5,
             tags=[],
         )
-        mock_memory_store.search.return_value = [memory]
+        mock_memory_store.search.return_value = ([memory], {})
 
         result = ""
         async for chunk in update_tool.execute_stream(
             search_query="user name",
             new_content="User name is Jasmine",
-            new_importance=0.9,
         ):
             result += chunk
 
         assert "Found memory to update" in result
         assert "New content: User name is Jasmine" in result
-        assert "New importance: 0.9" in result
 
     async def test_preview_no_matches(self, update_tool, mock_memory_store):
         """Preview mode returns message when no matches found."""
-        mock_memory_store.search.return_value = []
+        mock_memory_store.search.return_value = ([], {})
 
         result = ""
         async for chunk in update_tool.execute_stream(
@@ -151,7 +127,6 @@ class TestUpdateMemoryTool:
         mock_memory_store.update_entry.assert_called_once_with(
             search_query="old memory",
             new_content="New content here",
-            new_importance=None,
         )
         mock_memory_store.search.assert_not_called()
 
@@ -179,7 +154,7 @@ class TestUpdateMemoryTool:
             result += chunk
 
         assert "Error" in result
-        assert "Specify at least one" in result
+        assert "Specify new_content" in result
         mock_memory_store = update_tool._memory_store
         mock_memory_store.search.assert_not_called()
         mock_memory_store.update_entry.assert_not_called()
