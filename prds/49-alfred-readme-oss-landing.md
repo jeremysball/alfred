@@ -142,10 +142,10 @@ From `crafting-effective-readmes` skill:
 
 ## Milestones
 
-1. **Draft Complete**: New README written following structure above
-2. **Review Pass**: Apply writing-clearly-and-concisely skill
-3. **Visual Enhancement**: Add architecture diagram or memory visualization
-4. **Links Verified**: All references point to correct files
+- [x] **Draft Complete**: New README written following structure above
+- [ ] **Review Pass**: Apply writing-clearly-and-concisely skill
+- [ ] **Visual Enhancement**: Add architecture diagram or memory visualization
+- [ ] **Links Verified**: All references point to correct files
 
 ---
 

@@ -1,196 +1,74 @@
-# Alfred - The Rememberer
+# Alfred
 
 ![Memory Moth Banner](docs/assets/memory-moth-banner.png)
 
-Alfred is a persistent memory-augmented LLM assistant. He remembers conversations across sessions and builds a rich understanding of his users over time.
+**Alfred manages context intelligently.**
+
+Not just memory. He knows what matters, when to bring it up, and what connects to now. Other assistants start fresh every time. Alfred builds a relationship with you.
+
+## Why This Matters
+
+You know that feeling when you start a new ChatGPT conversation and have to explain your entire project from scratch? Or when you mention a preference you've stated ten times before?
+
+Alfred doesn't make you repeat yourself.
+
+```
+You: What did we decide about the database?
+
+Alfred: You went with PostgreSQL over SQLite last Tuesday. The main reasons were:
+- You need concurrent access (5+ users)
+- JSONB queries for the metadata field
+- Your team already knows Postgres
+
+You also picked UUIDs for primary keys. Want me to pull up the full conversation?
+```
+
+That's not a transcript. That's Alfred actually remembering.
+
+## Your Data Stays With You
+
+Alfred runs on your machine. Your conversations never leave. No cloud storage, no corporate servers, just your files on your computer.
+
+And you don't configure Alfred. You just talk to him. Tell him your preferences, your projects, how you communicate. He learns. He adapts. No YAML files to edit, no slash commands to memorize.
+
+## Getting Started
+
+```bash
+pip install alfred-ai
+export KIMI_API_KEY=your_key
+export OPENAI_API_KEY=your_key
+alfred
+```
+
+Then just start talking.
+
+## How It Works
+
+Alfred stores every conversation with embeddings. When you talk, he searches by meaning, not keywords, and pulls the right context into your current session.
+
+But it's more than retrieval. Over time, he learns what matters to you. Which details are important. How you think. The context he brings isn't just relevant. It's intelligent.
 
 ## What Alfred Does
 
-- **Remembers everything**: Every conversation, preference, and detail persists
-- **Learns continuously**: Alfred improves his understanding with each interaction
-- **Adapts to you**: His personality and responses match your communication style
-- **Recalls context**: He brings relevant past conversations into current chats automatically
+**Manages context intelligently.** Brings the right information forward at the right time, without being asked.
 
-## Quick Start
+**Works with tools.** Alfred can read your files, write code, and run shell commands when you ask.
 
-### For Users
+**Fits your workflow.** Chat in your terminal or through Telegram.
 
-1. **Install**
-   ```bash
-   pip install alfred
-   ```
+**Plays nice with others.** Works with Kimi, OpenAI, or any OpenAI-compatible API.
 
-2. **Configure**
-   ```bash
-   export TELEGRAM_BOT_TOKEN=your_token
-   export KIMI_API_KEY=your_key
-   export OPENAI_API_KEY=your_key
-   ```
+## Contributing
 
-3. **Run**
-   ```bash
-   # CLI mode (default)
-   alfred
-   
-   # Telegram bot mode
-   alfred --telegram
-   
-   # Debug logging
-   alfred --debug
-   ```
+Alfred is young but useful. If you want to help:
 
-### Available Options
+- Make him smarter about what to remember
+- Improve how he learns your preferences over time
+- Add better test coverage
+- Build conversation summarization for long chats
 
-| Flag | Description |
-|------|-------------|
-| `--telegram` | Run as Telegram bot (default: CLI) |
-| `--debug` | Enable debug logging |
-
-### For Developers
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd alfred
-   ```
-
-2. **Install dependencies**
-   ```bash
-   uv sync
-   ```
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
-
-4. **Install pre-commit hooks**
-   ```bash
-   uv run pre-commit install
-   ```
-
-5. **Run tests**
-   ```bash
-   uv run pytest
-   ```
-
-6. **Run Alfred**
-   ```bash
-   # CLI mode
-   uv run alfred
-   
-   # Or with dotenv for secrets
-   uv run dotenv alfred
-   
-   # Telegram mode
-   uv run dotenv alfred --telegram
-   ```
-
-### Using Docker (Full Environment)
-
-The project includes a complete Docker setup with Tailscale networking.
-
-1. **Create directories**
-   ```bash
-   mkdir -p workspace home
-   ```
-
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with API keys and Git config
-   ```
-
-3. **Start services**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Access the container**
-   ```bash
-   docker-compose exec alfred bash
-   # Inside container:
-   alfred
-   ```
-
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed Docker configuration.
-
-## Development
-
-### Code Quality
-
-- **Type checking**: `uv run mypy src/`
-- **Linting**: `uv run ruff check src/`
-- **Formatting**: `uv run ruff format src/`
-- **Tests**: `uv run pytest`
-
-All checks run automatically on commit via pre-commit hooks.
-
-## Template System
-
-Alfred uses templates to auto-create context files on first run. These files define Alfred's personality, user preferences, and environment configuration.
-
-### Available Templates
-
-| Template | Purpose | Location |
-|----------|---------|----------|
-| **SOUL.md** | Alfred's personality, values, and voice | Core context |
-| **USER.md** | User profile, preferences, and context | Core context |
-| **TOOLS.md** | LLM preferences and environment notes | Configuration |
-| **MEMORY.md** | Curated long-term knowledge | Persistent memory |
-
-### How It Works
-
-1. **Bundled in Docker**: Templates are included at `/app/templates/`
-2. **Auto-created**: Missing files are created from templates on startup
-3. **User-owned**: Once created, files belong to you — templates won't overwrite
-
-```
-/app/templates/     → Template files (read-only, bundled)
-/workspace/data/    → Your files (auto-created from templates)
-```
-
-### Customizing Templates
-
-After first run, edit files directly in your data directory:
-
-```bash
-# Edit Alfred's personality
-vim data/SOUL.md
-
-# Add your preferences
-vim data/USER.md
-
-# Configure LLM settings
-vim data/TOOLS.md
-```
-
-**Your customizations persist** — templates only create missing files.
-
-### Template Variables
-
-Templates support variable substitution:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `{current_date}` | Today's date | `2026-02-17` |
-| `{current_year}` | Current year | `2026` |
-
-### Troubleshooting
-
-**Q: File not auto-created?**
-- Check template exists in `/app/templates/`
-- Verify `workspace_dir` in `config.json` is correct
-
-**Q: Want to reset to defaults?**
-- Delete the file and restart Alfred
-- Template will recreate on next startup
-
-**Q: Changes not appearing?**
-- Context files are cached (60s TTL by default)
-- Restart Alfred to reload immediately
+Check [AGENTS.md](AGENTS.md) for how we work. Pull requests and issues welcome.
 
 ## License
 
-MIT License - See LICENSE for details.
+MIT
