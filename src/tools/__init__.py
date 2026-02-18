@@ -96,6 +96,7 @@ def register_builtin_tools(memory_store=None) -> None:
     from src.tools.remember import RememberTool
     from src.tools.search_memories import SearchMemoriesTool
     from src.tools.update_memory import UpdateMemoryTool
+    from src.tools.forget import ForgetTool
     
     register_tool(ReadTool())
     register_tool(WriteTool())
@@ -119,5 +120,11 @@ def register_builtin_tools(memory_store=None) -> None:
     if memory_store:
         update_tool.set_memory_store(memory_store)
     register_tool(update_tool)
+    
+    # Register forget tool with memory store injected
+    forget_tool = ForgetTool()
+    if memory_store:
+        forget_tool.set_memory_store(memory_store)
+    register_tool(forget_tool)
     
     logger.info(f"Registered {len(get_registry())} built-in tools")

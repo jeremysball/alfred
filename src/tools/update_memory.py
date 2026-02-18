@@ -6,10 +6,10 @@ from .base import Tool
 
 
 class UpdateMemoryTool(Tool):
-    """Update an existing memory's content or importance."""
+    """Update an existing memory's content or importance. Requires confirmation."""
 
     name = "update_memory"
-    description = "Update an existing memory's content or importance"
+    description = "Update an existing memory's content or importance. Requires confirmation."
 
     def __init__(self, memory_store=None):
         super().__init__()
@@ -24,6 +24,7 @@ class UpdateMemoryTool(Tool):
         search_query: str,
         new_content: str = "",
         new_importance: float = -1,
+        confirm: bool = False,
     ) -> str:
         """Update a memory (sync wrapper - use execute_stream).
 
@@ -31,6 +32,7 @@ class UpdateMemoryTool(Tool):
             search_query: Query to find the memory to update
             new_content: New content for the memory (empty = no change)
             new_importance: New importance value 0.0-1.0 (-1 = no change)
+            confirm: Set to True to actually update. False = preview only.
 
         Returns:
             Error message directing to use async method
@@ -42,16 +44,18 @@ class UpdateMemoryTool(Tool):
         search_query: str,
         new_content: str = "",
         new_importance: float = -1,
+        confirm: bool = False,
     ) -> AsyncIterator[str]:
-        """Update a memory and return result.
+        """Update a memory or show preview.
 
         Args:
             search_query: Query to find the memory to update
             new_content: New content for the memory (empty = no change)
             new_importance: New importance value 0.0-1.0 (-1 = no change)
+            confirm: Set to True to actually update. False = preview only.
 
         Yields:
-            Result message
+            Preview of memory to update, or update confirmation
         """
         if not self._memory_store:
             yield "Error: Memory store not initialized"
@@ -66,6 +70,38 @@ class UpdateMemoryTool(Tool):
             yield "Error: Specify at least one of new_content or new_importance"
             return
 
+        if not confirm:
+            # Preview mode: search but don't update
+            try:
+                results = await self._memory_store.search(search_query, top_k=1)
+                if not results:
+                    yield f"No memory found matching '{search_query}'."
+                    return
+
+                entry = results[0]
+                date_str = entry.timestamp.strftime("%Y-%m-%d")
+
+                lines = ["Found memory to update:"]
+                lines.append(f"  Current: [{date_str}] {entry.content}")
+                lines.append(f"  Importance: {entry.importance:.1f}")
+                lines.append("")
+                lines.append("Will update to:")
+                if content is not None:
+                    lines.append(f"  New content: {content}")
+                if importance is not None:
+                    lines.append(f"  New importance: {importance:.1f}")
+                lines.append("")
+                lines.append(
+                    f"Call update_memory(search_query='{search_query}', "
+                    f"new_content='{new_content}', "
+                    f"new_importance={new_importance}, confirm=True) to apply changes."
+                )
+                yield "\n".join(lines)
+            except Exception as e:
+                yield f"Error previewing update: {e}"
+            return
+
+        # Confirmed: actually update
         try:
             success, message = await self._memory_store.update_entry(
                 search_query=search_query,

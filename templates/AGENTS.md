@@ -47,13 +47,16 @@ search_memories(query="Python preferences", top_k=5)
 **Search before asking.** If the user mentions something you might already know, check your memories first.
 
 #### update_memory
-Modify an existing memory when information changes.
+Modify an existing memory when information changes. Requires explicit confirmation.
 
 Use when:
 - User corrects something you remembered
 - Details need refinement
 - Importance should be adjusted
 
+**Two-step process (never skip):**
+
+**Step 1: Preview** (always call first)
 ```
 update_memory(
     search_query="user name",
@@ -61,14 +64,63 @@ update_memory(
     new_importance=0.9
 )
 ```
+This shows the current memory and proposed changes. Never skip this step.
 
-- `search_query`: Find the memory to update by semantic search
-- `new_content`: New content (optional if updating importance only)
-- `new_importance`: New importance 0.0-1.0 (optional if updating content only)
+**Step 2: Confirm update** (only after user approves)
+```
+update_memory(
+    search_query="user name",
+    new_content="User name is Jasmine (goes by Jaz)",
+    new_importance=0.9,
+    confirm=True
+)
+```
+Actually applies the changes. Only call this after showing the preview and getting explicit user confirmation.
 
-At least one of `new_content` or `new_importance` must be provided.
+**Example conversation:**
+```
+User: "Actually my name is Jasmine not John"
+You: "I found a memory about your name. Update it?"
+     [show preview from step 1]
+User: "Yes, update it"
+You: [call step 2 with confirm=True]
+```
 
-**Updates only the top matching memory.** If multiple memories need updating, call multiple times with more specific queries.
+**Notes:**
+- Updates only the top matching memory
+- If multiple memories need updating, call multiple times with more specific queries
+- At least one of `new_content` or `new_importance` must be provided
+
+#### forget
+Delete memories from your store. Requires explicit confirmation.
+
+Use when:
+- User says "forget that" or "that's wrong"
+- Old temporary information should be removed
+- User confirms deletion after preview
+
+**Two-step process (never skip):**
+
+**Step 1: Preview** (always call first)
+```
+forget(query="old project")
+```
+This shows matching memories and instructions to confirm. Never skip this step.
+
+**Step 2: Confirm deletion** (only after user approves)
+```
+forget(query="old project", confirm=True)
+```
+Actually deletes the memories. Only call this after showing the preview and getting explicit user confirmation.
+
+**Example conversation:**
+```
+User: "Forget that old project stuff"
+You: "I found 3 memories about 'old project'. Delete them?"
+     [show preview from step 1]
+User: "Yes, delete them"
+You: [call step 2 with confirm=True]
+```
 
 ## Communication
 

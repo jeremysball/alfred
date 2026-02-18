@@ -238,9 +238,9 @@ class ForgetTool(Tool):
 - [~] Update SOUL.md with update instructions (moved to AGENTS.md)
 
 ### Phase 4: Forget Tool
-- [ ] Create `ForgetTool`
-- [ ] Tests for deletion
-- [ ] Update SOUL.md with deletion instructions
+- [x] Create `ForgetTool`
+- [x] Tests for deletion
+- [~] Update SOUL.md with deletion instructions (moved to AGENTS.md)
 
 ### Phase 5: Integration
 - [x] Update AGENTS.md with memory management guidelines
@@ -293,7 +293,7 @@ Use when information is obsolete or wrong:
 
 - [x] `search_memories` tool returns relevant memories
 - [x] `update_memory` tool modifies existing memories correctly
-- [ ] `forget` tool deletes by semantic query
+- [x] `forget` tool deletes by semantic query
 - [ ] All CRUD operations have comprehensive tests
 - [ ] Agent knows when to use each tool
 - [ ] Documentation updated for all tools
@@ -335,6 +335,7 @@ Use when information is obsolete or wrong:
 |------|----------|-----------|--------|
 | 2026-02-17 | Tools over capabilities | Simpler, main process, no overhead | All memory operations are tools |
 | 2026-02-17 | Async execute_stream | MemoryStore is async | Tools use async iteration |
-| 2026-02-17 | No confirmation for delete | LLM interprets intent; confirming twice is theater | Delete by semantic query only |
+| 2026-02-17 | ~~No confirmation for delete~~ | ~~LLM interprets intent; confirming twice is theater~~ | ~~Delete by semantic query only~~ |
+| 2026-02-18 | Two-step confirmation for destructive ops | Safety requires explicit user approval before changes | Both `update_memory` and `forget` use preview/confirm pattern |
 | 2026-02-17 | No tags | Embeddings handle categorization better | Simpler MemoryEntry, rely on semantic search |
 | 2026-02-17 | Entry IDs from hash | Stable identifiers without tracking max ID | Memories have unique IDs (SHA256 of timestamp:content) for future use |
