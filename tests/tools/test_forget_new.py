@@ -220,7 +220,7 @@ class TestQueryMode:
         memories[0].entry_id = "abc123"
         memories[1].entry_id = "xyz789"
 
-        mock_memory_store.search.return_value = (memories, [0.95, 0.82], {})
+        mock_memory_store.search.return_value = (memories, {"abc123": 0.95, "xyz789": 0.82}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="San Francisco"):
@@ -259,7 +259,7 @@ class TestQueryMode:
             ),
         ]
         memories[0].entry_id = "test-id-123"
-        mock_memory_store.search.return_value = (memories, [0.9], {})
+        mock_memory_store.search.return_value = (memories, {"test-id-123": 0.9}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="test"):
@@ -529,7 +529,7 @@ class TestIntegrationScenarios:
             ),
         ]
         memories[0].entry_id = "sf-memory-id"
-        mock_memory_store.search.return_value = (memories, [0.95], {})
+        mock_memory_store.search.return_value = (memories, {"sf-memory-id": 0.95}, {})
         mock_memory_store.get_by_id.return_value = memories[0]
         mock_memory_store.delete_by_id.return_value = (True, "Memory deleted")
 
