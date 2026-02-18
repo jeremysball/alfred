@@ -336,3 +336,4 @@ Use when information is obsolete or wrong:
 | 2026-02-17 | Async execute_stream | MemoryStore is async | Tools use async iteration |
 | 2026-02-17 | No confirmation for delete | LLM interprets intent; confirming twice is theater | Delete by semantic query only |
 | 2026-02-17 | No tags | Embeddings handle categorization better | Simpler MemoryEntry, rely on semantic search |
+| 2026-02-17 | Entry IDs from hash | Stable identifiers without tracking max ID | Memories have unique IDs (SHA256 of timestamp:content) for future use |
