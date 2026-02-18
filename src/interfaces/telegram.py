@@ -27,17 +27,11 @@ class TelegramInterface:
 
     def setup(self) -> Application:
         """Initialize telegram application."""
-        self.application = (
-            Application.builder()
-            .token(self.config.telegram_bot_token)
-            .build()
-        )
+        self.application = Application.builder().token(self.config.telegram_bot_token).build()
 
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("compact", self.compact))
-        self.application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, self.message)
-        )
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message))
 
         return self.application
 
@@ -46,9 +40,7 @@ class TelegramInterface:
         if not update.message:
             return
 
-        await update.message.reply_text(
-            "Hello, I'm Alfred. I remember our conversations."
-        )
+        await update.message.reply_text("Hello, I'm Alfred. I remember our conversations.")
 
     async def compact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /compact command."""
@@ -115,6 +107,7 @@ class TelegramInterface:
 
         # Keep running until interrupted
         import asyncio
+
         stop_event = asyncio.Event()
         try:
             await stop_event.wait()

@@ -41,7 +41,7 @@ class ReadTool(Tool):
 
         # Check if image
         ext = os.path.splitext(path)[1].lower()
-        if ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'):
+        if ext in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"):
             # For now, return marker indicating it's an image
             # In future, could return base64 or send directly to LLM
             file_size = os.path.getsize(path)
@@ -49,7 +49,7 @@ class ReadTool(Tool):
 
         # Read text file
         try:
-            with open(path, encoding='utf-8') as f:
+            with open(path, encoding="utf-8") as f:
                 lines = f.readlines()
         except UnicodeDecodeError:
             # Binary file
@@ -61,7 +61,7 @@ class ReadTool(Tool):
         if offset:
             if offset < 1:
                 return "Error: offset must be >= 1"
-            lines = lines[offset - 1:]
+            lines = lines[offset - 1 :]
 
         # Apply limit
         if limit:
@@ -75,8 +75,8 @@ class ReadTool(Tool):
 
         if len(result) > max_bytes or len(lines) > max_lines:
             # Truncate to safe limits
-            result_lines = result.split('\n')[:max_lines]
-            result = '\n'.join(result_lines)
+            result_lines = result.split("\n")[:max_lines]
+            result = "\n".join(result_lines)
             if len(result) > max_bytes:
                 result = result[:max_bytes]
             result += (

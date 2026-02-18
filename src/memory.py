@@ -33,15 +33,17 @@ class MemoryStore:
         # Ensure ID is generated
         if entry.entry_id is None:
             entry.entry_id = entry.generate_id()
-        return json.dumps({
-            "timestamp": entry.timestamp.isoformat(),
-            "role": entry.role,
-            "content": entry.content,
-            "embedding": entry.embedding,
-            "importance": entry.importance,
-            "tags": entry.tags,
-            "entry_id": entry.entry_id,
-        })
+        return json.dumps(
+            {
+                "timestamp": entry.timestamp.isoformat(),
+                "role": entry.role,
+                "content": entry.content,
+                "embedding": entry.embedding,
+                "importance": entry.importance,
+                "tags": entry.tags,
+                "entry_id": entry.entry_id,
+            }
+        )
 
     def _entry_from_jsonl(self, line: str) -> MemoryEntry:
         """Deserialize JSONL line to MemoryEntry."""
@@ -73,9 +75,7 @@ class MemoryStore:
         entries_to_embed = [e for e in entries if e.embedding is None]
         if entries_to_embed:
             try:
-                embeddings = await self.embedder.embed_batch(
-                    [e.content for e in entries_to_embed]
-                )
+                embeddings = await self.embedder.embed_batch([e.content for e in entries_to_embed])
                 for entry, embedding in zip(entries_to_embed, embeddings):  # noqa: B905
                     entry.embedding = embedding
             except Exception:
@@ -324,7 +324,7 @@ class MemoryStore:
 
         Uses a temp file and atomic replace to prevent corruption.
         """
-        temp_path = self.memories_path.with_suffix('.tmp')
+        temp_path = self.memories_path.with_suffix(".tmp")
 
         async with aiofiles.open(temp_path, "w") as f:
             for entry in entries:

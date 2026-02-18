@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToolCall:
     """A parsed tool call from LLM."""
+
     id: str
     name: str
     arguments: dict[str, Any]
@@ -131,11 +132,13 @@ class Agent:
 
                 if not tool:
                     yield f"\n[Tool '{call.name}' not found]\n"
-                    messages.append(ChatMessage(
-                        role="tool",
-                        content=f"Error: Tool '{call.name}' not found",
-                        tool_call_id=call.id,
-                    ))
+                    messages.append(
+                        ChatMessage(
+                            role="tool",
+                            content=f"Error: Tool '{call.name}' not found",
+                            tool_call_id=call.id,
+                        )
+                    )
                     continue
 
                 # Stream tool execution
@@ -152,11 +155,13 @@ class Agent:
                     tool_output += error_msg
 
                 # Add tool result to messages
-                messages.append(ChatMessage(
-                    role="tool",
-                    content=tool_output,
-                    tool_call_id=call.id,
-                ))
+                messages.append(
+                    ChatMessage(
+                        role="tool",
+                        content=tool_output,
+                        tool_call_id=call.id,
+                    )
+                )
 
                 yield f"\n[{call.name} complete]\n"
 
