@@ -434,7 +434,7 @@ alfred cron metrics
 | M9 | **Telegram Integration** | /cron commands in Telegram bot | Full cron management via Telegram |
 | M10 | **CLI Integration** | alfred cron commands | Full cron management via CLI |
 | M11 | **Testing** | Unit and integration tests | >90% coverage, all edge cases tested |
-| M12 | **ScheduleJobTool** | Tool for agent to create cron jobs | Agent can schedule tasks via natural language, tool with Pydantic validation |
+| M12 | **ScheduleJobTool** | ✅ Complete | Tool for agent to create cron jobs, 14 tests (unit + integration), Pydantic validation |
 
 ---
 
