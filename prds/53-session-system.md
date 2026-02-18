@@ -97,7 +97,7 @@ data/sessions/
 User Query
     ↓
 [1] Load active session for chat_id
-[2] Get recent exchanges (last 10 turns)
+[2] Get all exchanges from active session (no limit - fills context)
 [3] Embed query → search past session summaries
 [4] Top 3 relevant past sessions → inject summaries
 [5] Combine: System Prompt + Past Context + Active Session + Current Query
@@ -108,6 +108,8 @@ Store exchange to active session
     ↓
 Check timeout → Summarize if > 1hr inactive
 ```
+
+**Note on Long Conversations**: Active session exchanges fill the available context window without artificial limits. Token budget management and compaction (intelligent summarization of older exchanges) will be implemented in a future milestone.
 
 ---
 
@@ -153,7 +155,8 @@ alfred session sess_abc
 SESSION_TIMEOUT_MINUTES = 60      # Auto-summarize after inactivity
 SESSION_MAX_EXCHANGES = 100       # Force summarize after N turns
 PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
-RECENT_EXCHANGES_IN_CONTEXT = 10  # Recent turns in active session
+# Note: No limit on recent exchanges - fills context until token budget hit
+# Compaction (future milestone) will handle long conversations
 ```
 
 ---
@@ -162,11 +165,11 @@ RECENT_EXCHANGES_IN_CONTEXT = 10  # Recent turns in active session
 
 ### Relationship to Existing Memory
 
-| System | Stores | Use Case |
-|--------|--------|----------|
-| **Session System** | Full conversations, summaries | Context for current conversation, finding relevant past chats |
-| **MEMORY.md** | Curated long-term facts | Durable user preferences, persistent knowledge |
-| **memories.jsonl** | Distilled facts from all interactions | Semantic search for specific facts |
+| System | Stores | Use Case | Status |
+|--------|--------|----------|--------|
+| **Session System** | Full conversations, summaries | Context for current conversation, finding relevant past chats | **New - replaces MEMORY.md** |
+| **MEMORY.md** | Curated long-term facts | ~~Durable user preferences~~ | **Obsolete** - replaced by session summaries |
+| **memories.jsonl** | Distilled facts from all interactions | Semantic search for specific facts | **Active** - populated from session key_facts |
 
 ### Data Flow
 
@@ -177,16 +180,16 @@ Session Summarized
     ↓
 ├─→ Save to session archive (full conversation + summary)
 └─→ Extract key facts → add to memories.jsonl
-    ↓
-Facts curated over time → update MEMORY.md
 ```
+
+Session summaries serve as the primary long-term memory. Key facts extracted during summarization feed into memories.jsonl for semantic search.
 
 ---
 
 ## Open Questions (Resolved)
 
 **Q: How does this relate to the existing memory system?**  
-A: Sessions handle conversation context; MEMORY.md handles curated facts. Session summaries feed into the memory pipeline.
+A: Sessions replace MEMORY.md entirely. Sessions handle both conversation context AND long-term curated knowledge. Session summaries feed into memories.jsonl for semantic search.
 
 **Q: What triggers session summarization?**  
 A: 1 hour of inactivity OR 100 exchanges (configurable).
