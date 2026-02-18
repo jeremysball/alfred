@@ -43,8 +43,7 @@ class MemorySearcher:
             Top memories ranked by hybrid score (similarity + recency + importance)
         """
         logger.debug(
-            f"Searching {len(memories)} memories with "
-            f"min_similarity={self.min_similarity}"
+            f"Searching {len(memories)} memories with min_similarity={self.min_similarity}"
         )
 
         scored: list[tuple[float, MemoryEntry]] = []
@@ -63,10 +62,9 @@ class MemorySearcher:
         # Sort by score descending
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        results = [memory for _, memory in scored[:self.context_limit]]
+        results = [memory for _, memory in scored[: self.context_limit]]
         logger.info(
-            f"Memory search: {len(memories)} total, "
-            f"{len(scored)} scored, {len(results)} returned"
+            f"Memory search: {len(memories)} total, {len(scored)} scored, {len(results)} returned"
         )
         return results
 
@@ -86,11 +84,7 @@ class MemorySearcher:
         age_days = (datetime.now() - memory.timestamp).days
         recency = math.exp(-age_days / self.recency_half_life)
 
-        return (
-            similarity * 0.5 +
-            recency * 0.3 +
-            memory.importance * 0.2
-        )
+        return similarity * 0.5 + recency * 0.3 + memory.importance * 0.2
 
     def deduplicate(
         self,
@@ -190,14 +184,11 @@ class ContextBuilder:
 
         if token_count > self.token_budget:
             logger.warning(
-                f"Context exceeds budget: {token_count} > "
-                f"{self.token_budget} tokens, truncating"
+                f"Context exceeds budget: {token_count} > {self.token_budget} tokens, truncating"
             )
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
-            truncated = self._truncate_to_budget(
-                system_prompt, relevant, self.token_budget
-            )
+            truncated = self._truncate_to_budget(system_prompt, relevant, self.token_budget)
             return truncated
 
         return context
@@ -233,10 +224,12 @@ class ContextBuilder:
 
         if available <= 0:
             # No room for memories at all
-            return "\n\n".join([
-                system_prompt,
-                "## CURRENT CONVERSATION\n",
-            ])
+            return "\n\n".join(
+                [
+                    system_prompt,
+                    "## CURRENT CONVERSATION\n",
+                ]
+            )
 
         # Include memories until budget exhausted
         lines = ["## RELEVANT MEMORIES\n"]
@@ -261,8 +254,10 @@ class ContextBuilder:
         if len(lines) == 1:
             lines.append("_No memories fit in context window._")
 
-        return "\n\n".join([
-            system_prompt,
-            "\n".join(lines),
-            "## CURRENT CONVERSATION\n",
-        ])
+        return "\n\n".join(
+            [
+                system_prompt,
+                "\n".join(lines),
+                "## CURRENT CONVERSATION\n",
+            ]
+        )

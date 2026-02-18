@@ -108,10 +108,7 @@ class ContextLoader:
 
     async def load_all(self) -> dict[str, ContextFile]:
         """Load all required context files concurrently."""
-        tasks = [
-            self.load_file(name, path)
-            for name, path in self.config.context_files.items()
-        ]
+        tasks = [self.load_file(name, path) for name, path in self.config.context_files.items()]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
 

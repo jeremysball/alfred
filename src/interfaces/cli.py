@@ -1,6 +1,5 @@
 """CLI interface for Alfred."""
 
-
 from src.alfred import Alfred
 
 

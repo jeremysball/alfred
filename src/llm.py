@@ -37,21 +37,25 @@ class ChatResponse:
 # Exception classes for LLM errors
 class LLMError(Exception):
     """Base exception for LLM errors."""
+
     pass
 
 
 class RateLimitError(LLMError):
     """Raised when rate limit is hit."""
+
     pass
 
 
 class APIError(LLMError):
     """Raised for API errors."""
+
     pass
 
 
 class TimeoutError(LLMError):
     """Raised when request times out."""
+
     pass
 
 
@@ -61,13 +65,13 @@ async def _retry_async(
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
-    operation_name: str = "operation"
+    operation_name: str = "operation",
 ) -> Any:
     """Retry an async operation with exponential backoff.
 
     For use inside async generators where decorators don't work.
     """
-    last_exception = None
+    last_exception: BaseException | None = None
 
     for attempt in range(max_retries + 1):
         try:
@@ -80,13 +84,13 @@ async def _retry_async(
                 raise
 
             if attempt >= max_retries:
-                logger.error(
-                    f"Max retries ({max_retries}) exceeded for {operation_name}: {e}"
-                )
-                raise last_exception from e
+                logger.error(f"Max retries ({max_retries}) exceeded for {operation_name}: {e}")
+                if last_exception:
+                    raise last_exception from e
+                raise
 
             # Calculate delay with exponential backoff
-            delay = min(base_delay * (exponential_base ** attempt), max_delay)
+            delay = min(base_delay * (exponential_base**attempt), max_delay)
             delay = delay * (0.5 + random.random())  # Add jitter
 
             logger.warning(
@@ -95,7 +99,10 @@ async def _retry_async(
             )
             await asyncio.sleep(delay)
 
-    raise last_exception
+    # Should never reach here, but mypy needs it
+    if last_exception:
+        raise last_exception
+    raise RuntimeError(f"All retries exhausted for {operation_name}")
 
 
 def retry_with_backoff(
@@ -114,13 +121,14 @@ def retry_with_backoff(
         exponential_base: Base for exponential backoff calculation
         jitter: Whether to add random jitter to delay
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
-            last_exception = None
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception: BaseException | None = None
 
             for attempt in range(max_retries + 1):
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(*args, **kwargs)  # type: ignore[misc]
                 except Exception as e:
                     last_exception = e
 
@@ -132,13 +140,12 @@ def retry_with_backoff(
                         logger.error(
                             f"Max retries ({max_retries}) exceeded for {func.__name__}: {e}"
                         )
-                        raise last_exception from e
+                        if last_exception:
+                            raise last_exception from e
+                        raise
 
                     # Calculate delay with exponential backoff
-                    delay = min(
-                        base_delay * (exponential_base ** attempt),
-                        max_delay
-                    )
+                    delay = min(base_delay * (exponential_base**attempt), max_delay)
 
                     # Add jitter to avoid thundering herd (0.5x to 1.5x)
                     if jitter:
@@ -151,9 +158,13 @@ def retry_with_backoff(
 
                     await asyncio.sleep(delay)
 
-            raise last_exception
+            # Should never reach here, but mypy needs it
+            if last_exception:
+                raise last_exception
+            raise RuntimeError(f"All retries exhausted for {func.__name__}")
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
+
     return decorator
 
 
@@ -166,9 +177,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def stream_chat(
-        self, messages: list[ChatMessage]
-    ) -> AsyncIterator[str]:
+    def stream_chat(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         """Stream chat response chunk by chunk."""
         pass
 
@@ -181,26 +190,17 @@ class LLMProvider(ABC):
         """Send chat with tool definitions."""
         pass
 
-    async def stream_chat_with_tools(
+    def stream_chat_with_tools(
         self,
         messages: list[ChatMessage],
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[str]:
         """Stream chat with tool support.
 
-        Default implementation falls back to non-streaming chat.
-        Override for true streaming with tool support.
+        Default implementation raises NotImplementedError.
+        Override for streaming with tool support.
         """
-        # Default: use regular chat and yield result
-        response = await self.chat_with_tools(messages, tools)
-
-        # Check for tool calls
-        if hasattr(response, 'tool_calls') and response.tool_calls:
-            yield f"[TOOL_CALLS]{json.dumps(response.tool_calls)}"
-
-        # Yield content
-        if response.content:
-            yield response.content
+        raise NotImplementedError("stream_chat_with_tools not implemented for this provider")
 
 
 class KimiProvider(LLMProvider):
@@ -208,6 +208,7 @@ class KimiProvider(LLMProvider):
 
     def __init__(self, config: Config) -> None:
         import openai
+
         self.client = openai.AsyncOpenAI(
             api_key=config.kimi_api_key,
             base_url=config.kimi_base_url,
@@ -221,16 +222,19 @@ class KimiProvider(LLMProvider):
     async def chat(self, messages: list[ChatMessage]) -> ChatResponse:
         """Send chat to Kimi with retry logic."""
         import openai
+        from openai.types.chat import ChatCompletionMessageParam
 
         logger.debug(f"Sending chat request to Kimi with {len(messages)} messages")
+
+        api_messages: list[ChatCompletionMessageParam] = [
+            {"role": m.role, "content": m.content}  # type: ignore[misc]
+            for m in messages
+        ]
 
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": m.role, "content": m.content}
-                    for m in messages
-                ],
+                messages=api_messages,
                 temperature=0.7,
                 max_tokens=2000,
             )
@@ -256,7 +260,9 @@ class KimiProvider(LLMProvider):
             usage={
                 "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
                 "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-            } if response.usage else None,
+            }
+            if response.usage
+            else None,
         )
 
     @retry_with_backoff(max_retries=3, base_delay=1.0)
@@ -270,8 +276,8 @@ class KimiProvider(LLMProvider):
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],
-                tools=tools,
+                messages=[{"role": m.role, "content": m.content} for m in messages],  # type: ignore[misc]
+                tools=tools,  # type: ignore[arg-type]
                 temperature=0.7,
                 max_tokens=4000,
             )
@@ -288,15 +294,15 @@ class KimiProvider(LLMProvider):
                         "id": tc.id,
                         "type": "function",
                         "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
+                            "name": tc.function.name,  # type: ignore[union-attr]
+                            "arguments": tc.function.arguments,  # type: ignore[union-attr]
                         },
                     }
                     for tc in message.tool_calls
                 ]
 
             # Capture reasoning_content for thinking mode
-            if hasattr(message, 'reasoning_content') and message.reasoning_content:
+            if hasattr(message, "reasoning_content") and message.reasoning_content:
                 reasoning_content = message.reasoning_content
 
             return ChatResponse(
@@ -305,7 +311,9 @@ class KimiProvider(LLMProvider):
                 usage={
                     "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
                     "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                } if response.usage else None,
+                }
+                if response.usage
+                else None,
                 tool_calls=tool_calls,
                 reasoning_content=reasoning_content,
             )
@@ -314,21 +322,22 @@ class KimiProvider(LLMProvider):
             logger.error(f"Error in chat_with_tools: {e}")
             raise
 
-    async def stream_chat(
-        self, messages: list[ChatMessage]
-    ) -> AsyncIterator[str]:
+    async def stream_chat(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         """Stream chat from Kimi with retry logic."""
         import openai
 
         logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
 
+        from openai.types.chat import ChatCompletionMessageParam
+
         async def _create_stream() -> Any:
+            api_messages: list[ChatCompletionMessageParam] = [
+                {"role": m.role, "content": m.content}  # type: ignore[misc]
+                for m in messages
+            ]
             return await self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": m.role, "content": m.content}
-                    for m in messages
-                ],
+                messages=api_messages,
                 temperature=0.7,
                 max_tokens=2000,
                 stream=True,
@@ -336,10 +345,7 @@ class KimiProvider(LLMProvider):
 
         try:
             stream = await _retry_async(
-                _create_stream,
-                max_retries=3,
-                base_delay=1.0,
-                operation_name="stream_chat"
+                _create_stream, max_retries=3, base_delay=1.0, operation_name="stream_chat"
             )
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
@@ -376,15 +382,13 @@ class KimiProvider(LLMProvider):
         For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
         followed by JSON array of tool calls.
         """
-        import json
-
         import openai
 
         # Convert messages to API format, including tool_call_id for tool messages
         # and reasoning_content for assistant messages
         api_messages: list[dict[str, Any]] = []
         for m in messages:
-            msg = {"role": m.role, "content": m.content}
+            msg: dict[str, Any] = {"role": m.role, "content": m.content}
             if m.role == "tool" and m.tool_call_id:
                 msg["tool_call_id"] = m.tool_call_id
             if m.tool_calls:
@@ -396,8 +400,8 @@ class KimiProvider(LLMProvider):
         async def _create_stream() -> Any:
             return await self.client.chat.completions.create(
                 model=self.model,
-                messages=api_messages,
-                tools=tools,
+                messages=api_messages,  # type: ignore[arg-type]
+                tools=tools,  # type: ignore[arg-type]
                 temperature=0.7,
                 max_tokens=4000,
                 stream=True,
@@ -408,7 +412,7 @@ class KimiProvider(LLMProvider):
                 _create_stream,
                 max_retries=3,
                 base_delay=1.0,
-                operation_name="stream_chat_with_tools"
+                operation_name="stream_chat_with_tools",
             )
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
@@ -442,7 +446,7 @@ class KimiProvider(LLMProvider):
                     yield delta.content
 
                 # Handle reasoning content (required for Kimi thinking mode with tool calls)
-                if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                if hasattr(delta, "reasoning_content") and delta.reasoning_content:
                     yield f"[REASONING]{delta.reasoning_content}"
 
                 # Handle tool calls
@@ -450,13 +454,16 @@ class KimiProvider(LLMProvider):
                     for tc in delta.tool_calls:
                         if tc.id:
                             # New tool call
+                            func_name = ""
+                            if hasattr(tc, "function") and tc.function:
+                                func_name = tc.function.name or ""
                             current_tool_call = {
                                 "id": tc.id,
                                 "type": "function",
-                                "function": {"name": tc.function.name or "", "arguments": ""},
+                                "function": {"name": func_name, "arguments": ""},
                             }
                             tool_calls_data.append(current_tool_call)
-                        if tc.function:
+                        if hasattr(tc, "function") and tc.function:
                             if tc.function.name and current_tool_call:
                                 current_tool_call["function"]["name"] = tc.function.name
                             if tc.function.arguments and current_tool_call:
