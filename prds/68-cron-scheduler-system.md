@@ -1,7 +1,7 @@
 # PRD: Cron Scheduler System
 
 **Issue**: #68  
-**Status**: Planning  
+**Status**: In Progress  
 **Priority**: High  
 **Created**: 2026-02-18
 
@@ -117,24 +117,37 @@ JSONL persistence for jobs and execution history.
 
 #### 3. CronParser (`src/cron/parser.py`)
 
-Standard cron expression parsing.
+Standard cron expression parsing using stateless utility functions.
 
 ```python
-class CronParser:
-    """Parse standard cron expressions."""
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+def is_valid(expression: str) -> bool:
+    """Validate if a string is a valid cron expression."""
     
-    def __init__(self, expression: str):
-        self.expression = expression
-        self.minute, self.hour, self.day, self.month, self.dow = expression.split()
+def get_next_run(
+    expression: str,
+    from_time: datetime | None = None,
+    timezone: str = "UTC",
+) -> datetime:
+    """Get the next execution time for a cron expression.
     
-    def get_next_run(self, from_time: datetime | None = None) -> datetime:
-        """Calculate next execution time."""
-        
-    def should_run(self, current_time: datetime, last_run: datetime) -> bool:
-        """Check if job should execute now."""
+    Returns timezone-aware datetime in the target timezone.
+    """
+    
+def should_run(
+    expression: str,
+    last_run: datetime,
+    current_time: datetime,
+) -> bool:
+    """Check if a job should run based on last execution time.
+    
+    Returns True if scheduled time passed since last_run (catch-up behavior).
+    """
 ```
 
-Supports standard cron syntax:
+Supports standard cron syntax (5 fields only):
 - `*/5 * * * *` — every 5 minutes
 - `0 19 * * 0` — Sunday at 7pm
 - `0 9 * * 1-5` — weekdays at 9am
@@ -404,7 +417,7 @@ alfred cron metrics
 | # | Milestone | Description | Success Criteria |
 |---|-----------|-------------|------------------|
 | M1 | **Core Scheduler** | Async scheduler with job registration and execution loop | Jobs run on schedule, graceful shutdown works |
-| M2 | **Cron Parser** | Standard cron expression parsing | Supports `*/5 * * * *`, `0 19 * * 0`, etc. |
+| M2 | **Cron Parser** | ✅ Complete | Standard cron expression parsing using `croniter` library, 25 tests, 90% coverage |
 | M3 | **Persistence** | JSONL storage for jobs and history | Jobs survive restarts, history queryable |
 | M4 | **Observability** | Logging, metrics, health checks, alerts | All jobs logged, metrics exposed, alerts fire |
 | M5 | **System Jobs** | TTL check, compaction, cleanup jobs | Session TTL runs every 5 min, compaction nightly |
@@ -456,7 +469,7 @@ data/
 
 | Package | Purpose |
 |---------|---------|
-| `croniter` | Cron expression parsing (if we don't write our own) |
+| `croniter` | Cron expression parsing—standard syntax support |
 | `psutil` | Memory monitoring during job execution |
 | `prometheus_client` | Metrics export (optional) |
 
@@ -472,6 +485,11 @@ data/
 | 2026-02-18 | Separate history JSONL | Query performance, audit compliance, easy archival |
 | 2026-02-18 | System vs User job distinction | System jobs trusted, user jobs reviewed |
 | 2026-02-18 | Resource limits secondary | Human approval catches intent, limits catch accidents |
+| 2026-02-18 | Use `croniter` library | Battle-tested, handles edge cases (leap years, DST, etc.) |
+| 2026-02-18 | Stateless utility functions | `is_valid()`, `get_next_run()`, `should_run()`—simpler API, easier testing |
+| 2026-02-18 | 5-field cron validation | Reject expressions with fewer or more than 5 fields (minute hour day month dow) |
+| 2026-02-18 | Timezone-aware return values | `get_next_run()` returns datetime in target timezone (e.g., 9am NY), not UTC |
+| 2026-02-18 | Missed window catch-up | `should_run()` returns True if scheduled time passed since last run—jobs don't skip |
 
 ---
 
