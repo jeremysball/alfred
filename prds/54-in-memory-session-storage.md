@@ -84,7 +84,12 @@ Append assistant message to session
 
 ```python
 class SessionManager:
-    """Singleton manager for the active CLI session."""
+    """Source of truth for session data. Handles storage, retrieval, and serialization.
+    
+    Never triggers compaction automatically. Creates/stores summaries only when
+    explicitly requested by ContextAssembler. This ensures SessionManager remains
+    a pure data layer that can fully serialize the conversation at any point.
+    """
     
     _instance: SessionManager | None = None
     _session: Session | None = None
@@ -99,34 +104,89 @@ class SessionManager:
     def add_message(self, role: str, content: str) -> None:
         """Append message to current session."""
         
-    def get_messages(self) -> list[Message]:
-        """Get all messages in chronological order."""
+    def get_messages(self, start_idx: int = 0, end_idx: int | None = None) -> list[Message]:
+        """Get message slice by index range. Returns all if no range specified."""
+        
+    def get_substring_matches(self, query: str) -> list[tuple[int, Message]]:
+        """Search messages for substring matches. Returns (index, message) pairs."""
+        
+    def create_summary(self, start_idx: int, end_idx: int) -> str:
+        """Generate summary of message range via LLM. Stores and returns summary."""
+        
+    def get_summaries(self) -> list[Summary]:
+        """Get all stored summaries for this session."""
+        
+    def get_full_session(self) -> Session:
+        """Return complete session for serialization. Source of truth."""
         
     def clear_session(self) -> None:
         """Clear current session."""
 ```
+```
 
-### Context Assembly
+### ContextAssembler Interface
 
 ```python
-async def assemble_context(self) -> str:
-    """Build context with session history."""
-    base_prompt = self._load_system_prompt()
-    session_messages = self.session_manager.get_messages()
+class ContextAssembler:
+    """Builds LLM context from sessions, memories, and other sources.
     
-    history_parts = []
-    for msg in session_messages:
-        prefix = "User" if msg.role == "user" else "Assistant"
-        history_parts.append(f"{prefix}: {msg.content}")
+    Makes all decisions about what goes into context. Uses SessionManager
+    as source of truth but decides which slices to fetch and how to format.
+    """
     
-    return f"""{base_prompt}
+    def __init__(self, session_manager: SessionManager):
+        self.session_manager = session_manager
+        self.context_preferences: ContextPreferences | None = None
+    
+    async def assemble_context(self) -> str:
+        """Build full context for LLM prompt."""
+        
+    def set_context_preferences(self, prefs: ContextPreferences) -> None:
+        """Apply LLM-specified preferences for next context assembly."""
+        
+    def request_summary(self, start_idx: int, end_idx: int) -> str:
+        """Request SessionManager create summary of message range."""
+        
+    def search_session_substring(self, query: str) -> list[tuple[int, Message]]:
+        """Search session history for substring matches."""
+        
+    def clear_preferences(self) -> None:
+        """Clear LLM preferences after use."""
 
-## CONVERSATION HISTORY
+@dataclass
+class ContextPreferences:
+    """LLM-specified preferences for context assembly (via tool call)."""
+    memory_ids: list[str] | None = None      # Specific memories to include
+    session_range: tuple[int, int] | None = None  # (start, end) message indices
+    include_summaries: bool = True           # Include session summaries
+    max_messages: int | None = None          # Limit to N most recent
+```
 
-{chr(10).join(history_parts)}
+### LLM Context Control Tool
 
-## CURRENT MESSAGE
-"""
+```python
+class SetContextPreferences(Tool):
+    """Tool allowing LLM to influence what appears in its context."""
+    
+    name = "set_context_preferences"
+    description = """Control what information appears in your context for the next turn.
+    
+    Use this to:
+    - Request specific memories by ID
+    - Specify which part of the conversation to focus on
+    - Limit context window to recent messages
+    - Include/exclude session summaries
+    """
+    
+    async def execute(
+        self,
+        memory_ids: list[str] | None = None,
+        session_start_idx: int | None = None,
+        session_end_idx: int | None = None,
+        max_recent_messages: int | None = None,
+        include_summaries: bool = True,
+    ) -> ToolResult:
+        """Store preferences for next context assembly."""
 ```
 
 ---
