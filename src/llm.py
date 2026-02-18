@@ -57,6 +57,7 @@ async def _retry_async(
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
+    exponential_base: float = 2.0,
     operation_name: str = "operation"
 ):
     """Retry an async operation with exponential backoff.
@@ -82,7 +83,7 @@ async def _retry_async(
                 raise last_exception
             
             # Calculate delay with exponential backoff
-            delay = min(base_delay * (2.0 ** attempt), max_delay)
+            delay = min(base_delay * (exponential_base ** attempt), max_delay)
             delay = delay * (0.5 + random.random())  # Add jitter
             
             logger.warning(
