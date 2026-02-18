@@ -105,6 +105,8 @@ Identify different types of changes:
 - **Code files**: Show functionality is implemented
 - **Test files**: Demonstrate comprehensive testing
 - **Integration**: Components properly connected
+- **Quality checks**: mypy passes with no type errors, ruff shows no lint/format violations
+- **All tests green**: 100% of tests pass (no failures, no unexpected skips)
 
 **Documentation Requirements** - Mark complete when:
 - **Files created**: Documentation files exist
@@ -206,6 +208,9 @@ Present proposed changes clearly with complete transparency:
 3. **Remaining work analysis**: Clearly show what's still unchecked and why
 4. **Divergence alerts**: Highlight any plan vs reality differences
 5. **Honest progress assessment**: Give realistic completion percentage
+6. **Quality verification**: Confirm mypy, ruff, and tests have been run and pass
+   - Remind user that `/prd-done` requires all quality gates to pass
+   - Suggest running checks now if not yet done: `uv run mypy . && uv run ruff check . && uv run pytest`
 
 **Critical Requirements:**
 - **Never claim "everything is done"** unless literally ALL checkboxes are complete
