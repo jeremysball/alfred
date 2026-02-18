@@ -11,6 +11,10 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 
 ## Short-term (Active Development)
 
+- [ ] Fix Tool Class Type Safety - Resolve mypy override errors in tool classes (PRD #44)
+- [ ] Add Missing Type Annotations - Complete type coverage for mypy strict mode (PRD #45)
+- [ ] Auto-Fix Ruff Violations - Clean up 172 auto-fixable lint issues (PRD #46)
+- [ ] Manual Lint Fixes - Fix remaining 23 manual lint issues (PRD #47)
 - [ ] Kicking Ass README - Transform README into compelling OSS landing page (PRD #26)
 - [ ] M3: Memory Foundation - Conversation history storage and retrieval (PRD #13)
 - [ ] M4: Vector Search - Semantic memory search with embeddings (PRD #14)
