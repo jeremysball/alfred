@@ -88,7 +88,7 @@ class TestForgetTool:
         ]
         memories[0].entry_id = "abc123"
         memories[1].entry_id = "def456"
-        mock_memory_store.search.return_value = (memories, [0.9, 0.8], {})
+        mock_memory_store.search.return_value = (memories, {"abc123": 0.9, "def456": 0.8}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="old project"):
@@ -112,7 +112,7 @@ class TestForgetTool:
             ),
         ]
         memories[0].entry_id = "long123"
-        mock_memory_store.search.return_value = (memories, [0.95], {})
+        mock_memory_store.search.return_value = (memories, {"long123": 0.95}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="test"):
