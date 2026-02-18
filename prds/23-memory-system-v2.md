@@ -220,9 +220,10 @@ class ForgetTool(Tool):
 ## Implementation Plan
 
 ### Phase 1: MemoryStore Extensions
-- [ ] Add `update_entry()` method to MemoryStore
-- [ ] Add `delete_entries()` method to MemoryStore
-- [ ] Tests for all new methods
+- [x] Add `update_entry()` method to MemoryStore
+- [x] Add `delete_entries()` method to MemoryStore
+- [x] Add entry_id generation (hash of timestamp + content)
+- [x] Tests for all new methods
 
 ### Phase 2: Search Tool
 - [ ] Create `SearchMemoriesTool`
