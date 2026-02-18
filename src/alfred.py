@@ -10,6 +10,7 @@ from src.embeddings import EmbeddingClient
 from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
 from src.search import MemorySearcher
+from src.session import SessionManager
 from src.tools import get_registry, register_builtin_tools
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ class Alfred:
 
         # Create agent
         self.agent = Agent(self.llm, self.tools, max_iterations=10)
+
+        # Session manager for conversation history
+        self.session_manager = SessionManager.get_instance()
 
     async def chat(self, message: str) -> str:
         """Process a message with full agent loop (non-streaming).
@@ -67,6 +71,16 @@ class Alfred:
         """
         logger.info(f"Processing message: {message[:50]}...")
 
+        # Start session on first message
+        if not self.session_manager.has_active_session():
+            logger.debug("Starting new session...")
+            self.session_manager.start_session()
+
+        # Add user message to session
+        self.session_manager.add_message("user", message)
+        msg_count = len(self.session_manager.get_messages())
+        logger.debug(f"Added user message. Session now has {msg_count} messages")
+
         # Get query embedding for memory search
         logger.debug("Generating query embedding...")
         query_embedding = await self.embedder.embed(message)
@@ -76,19 +90,29 @@ class Alfred:
         all_memories = await self.memory_store.get_all_entries()
         logger.info(f"Loaded {len(all_memories)} memories from store")
 
-        # Build context with memory search
+        # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
+        session_messages = self._get_session_messages_for_context()
         system_prompt = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
+            session_messages=session_messages,
         )
         system_prompt = self._build_system_prompt(system_prompt)
 
         messages = [ChatMessage(role="user", content=message)]
 
         logger.debug("Starting agent loop...")
+        full_response = []
         async for chunk in self.agent.run_stream(messages, system_prompt):
+            full_response.append(chunk)
             yield chunk
+
+        # Add assistant response to session
+        assistant_message = "".join(full_response)
+        self.session_manager.add_message("assistant", assistant_message)
+        msg_count = len(self.session_manager.get_messages())
+        logger.debug(f"Added assistant message. Session now has {msg_count} messages")
 
     def _build_system_prompt(self, base_prompt: str) -> str:
         """Build system prompt with tool descriptions."""
@@ -132,3 +156,20 @@ You can then continue the conversation with the tool results.
         """Trigger conversation compaction."""
         # TODO: Implement in M9
         return "Compaction not yet implemented"
+
+    def _get_session_messages_for_context(self) -> list[tuple[str, str]]:
+        """Get session messages formatted for context injection.
+
+        Returns:
+            List of (role, content) tuples for session history.
+        """
+        if not self.session_manager.has_active_session():
+            return []
+
+        messages = self.session_manager.get_messages()
+        # Convert to (role, content) tuples, excluding the most recent user message
+        # (which is the current query being processed)
+        result = []
+        for msg in messages[:-1] if messages else []:  # Exclude last (current) message
+            result.append((msg.role.value, msg.content))
+        return result

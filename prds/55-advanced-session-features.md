@@ -120,12 +120,12 @@ class SummarizeMessageRange(Tool):
         start_idx: int,
         end_idx: int,
     ) -> ToolResult:
-        """Returns summary immediately AND stores it. ContextAssembler decides which to use.""
+        """Generates and stores summary. SessionManager holds both raw messages AND summary."""
         
         # Generate summary via LLM
         summary = await self._generate_summary(start_idx, end_idx)
         
-        # Store in SessionManager (both raw and summary now available)
+        # Store in SessionManager (raw messages already there, now add summary)
         self.session_manager.store_summary(start_idx, end_idx, summary)
         
         return ToolResult(content=summary)

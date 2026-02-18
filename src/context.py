@@ -129,6 +129,7 @@ class ContextLoader:
         self,
         query_embedding: list[float],
         memories: list[MemoryEntry],
+        session_messages: list[tuple[str, str]] | None = None,
     ) -> str:
         """Assemble context with semantic memory search.
 
@@ -156,6 +157,7 @@ class ContextLoader:
             query_embedding=query_embedding,
             memories=memories,
             system_prompt=system_prompt,
+            session_messages=session_messages,
         )
 
     def _build_system_prompt_sync(self) -> str:
