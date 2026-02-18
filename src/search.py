@@ -149,13 +149,15 @@ class ContextBuilder:
         query_embedding: list[float],
         memories: list[MemoryEntry],
         system_prompt: str,
+        session_messages: list[tuple[str, str]] | None = None,
     ) -> str:
-        """Build full context with relevant memories injected.
+        """Build full context with relevant memories and session history injected.
 
         Args:
             query_embedding: Pre-computed query embedding
             memories: All available memories (caller loads these)
             system_prompt: Base system prompt from context files
+            session_messages: Optional list of (role, content) tuples from current session
 
         Returns:
             Combined context string ready for LLM
@@ -169,10 +171,14 @@ class ContextBuilder:
         # Build memory section
         memory_section = self._format_memories(relevant)
 
+        # Build session history section
+        session_section = self._format_session_messages(session_messages or [])
+
         # Combine parts
         parts = [
             system_prompt,
             memory_section,
+            session_section,
             "## CURRENT CONVERSATION\n",
         ]
 
@@ -180,7 +186,11 @@ class ContextBuilder:
 
         # Verify token budget (log warning if exceeded)
         token_count = approximate_tokens(context)
-        logger.info(f"Context built: {token_count} tokens ({len(relevant)} memories injected)")
+        mem_count = len(relevant)
+        sess_count = len(session_messages or [])
+        logger.info(
+            f"Context: {token_count} tokens ({mem_count} memories, {sess_count} session msg)"
+        )
 
         if token_count > self.token_budget:
             logger.warning(
@@ -188,10 +198,33 @@ class ContextBuilder:
             )
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
-            truncated = self._truncate_to_budget(system_prompt, relevant, self.token_budget)
+            truncated = self._truncate_to_budget(
+                system_prompt, relevant, session_messages or [], self.token_budget
+            )
             return truncated
 
         return context
+
+    def _format_session_messages(self, messages: list[tuple[str, str]]) -> str:
+        """Format session messages for context.
+
+        Args:
+            messages: List of (role, content) tuples
+
+        Returns:
+            Formatted session history section
+        """
+        if not messages:
+            return "## SESSION HISTORY\n\n_No previous messages in this session._"
+
+        lines = ["## SESSION HISTORY\n"]
+
+        for role, content in messages:
+            # Capitalize role for display
+            display_role = role.capitalize()
+            lines.append(f"{display_role}: {content}")
+
+        return "\n".join(lines)
 
     def _format_memories(self, memories: list[MemoryEntry]) -> str:
         """Format memories section for prompt."""
@@ -215,11 +248,12 @@ class ContextBuilder:
         self,
         system_prompt: str,
         memories: list[MemoryEntry],
+        session_messages: list[tuple[str, str]],
         budget: int,
     ) -> str:
-        """Truncate memories to fit within token budget."""
+        """Truncate memories and session messages to fit within token budget."""
         # Reserve tokens for system prompt, headers, and conversation
-        reserved = approximate_tokens(system_prompt) + 200
+        reserved = approximate_tokens(system_prompt) + 300  # Increased for session section
         available = budget - reserved
 
         if available <= 0:
@@ -231,9 +265,31 @@ class ContextBuilder:
                 ]
             )
 
+        # First, include all session messages (they're critical for context)
+        session_lines = ["## SESSION HISTORY\n"]
+        for role, content in session_messages:
+            line = f"{role.capitalize()}: {content}"
+            session_lines.append(line)
+
+        session_section = "\n".join(session_lines)
+        session_tokens = approximate_tokens(session_section)
+
+        # Reserve space for session messages
+        available_for_memories = available - session_tokens - 100  # Buffer
+
+        if available_for_memories <= 0:
+            # No room for memories, just return system + session
+            return "\n\n".join(
+                [
+                    system_prompt,
+                    session_section,
+                    "## CURRENT CONVERSATION\n",
+                ]
+            )
+
         # Include memories until budget exhausted
-        lines = ["## RELEVANT MEMORIES\n"]
-        current_tokens = approximate_tokens("\n".join(lines))
+        memory_lines = ["## RELEVANT MEMORIES\n"]
+        current_tokens = approximate_tokens("\n".join(memory_lines))
 
         for memory in memories:
             prefix = "User" if memory.role == "user" else "Assistant"
@@ -245,19 +301,20 @@ class ContextBuilder:
             line = f"- [{date}] {prefix}: {content}"
             line_tokens = approximate_tokens(line)
 
-            if current_tokens + line_tokens > available:
+            if current_tokens + line_tokens > available_for_memories:
                 break
 
-            lines.append(line)
+            memory_lines.append(line)
             current_tokens += line_tokens
 
-        if len(lines) == 1:
-            lines.append("_No memories fit in context window._")
+        if len(memory_lines) == 1:
+            memory_lines.append("_No memories fit in context window._")
 
         return "\n\n".join(
             [
                 system_prompt,
-                "\n".join(lines),
+                "\n".join(memory_lines),
+                session_section,
                 "## CURRENT CONVERSATION\n",
             ]
         )
