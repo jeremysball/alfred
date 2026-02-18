@@ -149,26 +149,24 @@ class TestMemoryCrudWorkflow:
         assert "User prefers Python and Rust" in result
         assert "JavaScript" not in result
 
-        # 6. Delete via preview
+        # 6. Delete - First call requests confirmation (new two-call pattern)
         result = ""
-        async for chunk in tools["forget"].execute_stream(entry_id=entry_id):
+        async for chunk in tools["forget"].execute_stream(memory_id=entry_id):
             result += chunk
-        assert "Found memory to delete" in result
+        assert "Please confirm" in result
+        assert entry_id in result
 
-        # 7. Confirm deletion
+        # 7. Delete - Second call executes deletion
         result = ""
-        async for chunk in tools["forget"].execute_stream(
-            entry_id=entry_id,
-            confirm=True,
-        ):
+        async for chunk in tools["forget"].execute_stream(memory_id=entry_id):
             result += chunk
-        assert "Deleted" in result
+        assert "deleted" in result.lower()
 
         # 8. Verify deletion
         result = ""
         async for chunk in tools["search"].execute_stream(entry_id=entry_id):
             result += chunk
-        assert "No memory found" in result
+        assert "No memory found" in result or "not found" in result.lower()
 
     async def test_semantic_search_finds_relevant_memories(self, tools):
         """Test that semantic search returns relevant results."""
@@ -261,8 +259,8 @@ class TestMemoryCrudWorkflow:
             result += chunk
         assert "Portland" in result
 
-    async def test_forget_by_query_deletes_multiple_matches(self, tools):
-        """Test that forget by query can delete multiple matching memories."""
+    async def test_forget_by_query_finds_candidates(self, tools):
+        """Test that forget by query returns candidates without deleting."""
         # Create memories about old project
         async for _ in tools["remember"].execute_stream(
             content="Old project: chatbot idea",
@@ -274,7 +272,7 @@ class TestMemoryCrudWorkflow:
         ):
             pass
 
-        # Preview deletion of old projects
+        # Query to find candidates (does not delete)
         result = ""
         async for chunk in tools["forget"].execute_stream(query="old project"):
             result += chunk
@@ -284,21 +282,29 @@ class TestMemoryCrudWorkflow:
         assert "chatbot" in result
         assert "mobile app" in result
 
-        # Confirm deletion
-        result = ""
-        async for chunk in tools["forget"].execute_stream(
-            query="old project",
-            confirm=True,
-        ):
-            result += chunk
-
-        assert "Deleted" in result
-
-        # Verify old projects gone
+        # Verify memories still exist (query mode doesn't delete)
         result = ""
         async for chunk in tools["search"].execute_stream(query="chatbot"):
             result += chunk
-        assert "No memories found" in result or "No relevant memories" in result
+        assert "chatbot" in result
+
+        # Now delete one memory using the two-call pattern
+        import re
+        id_match = re.search(r'id: ([a-f0-9]+)', result)
+        assert id_match, "Could not find entry_id"
+        entry_id = id_match.group(1)
+
+        # First call - mark for deletion
+        result = ""
+        async for chunk in tools["forget"].execute_stream(memory_id=entry_id):
+            result += chunk
+        assert "Please confirm" in result
+
+        # Second call - execute deletion
+        result = ""
+        async for chunk in tools["forget"].execute_stream(memory_id=entry_id):
+            result += chunk
+        assert "deleted" in result.lower()
 
     async def test_no_changes_without_confirmation(self, tools):
         """Test that preview mode doesn't modify anything."""
@@ -326,12 +332,12 @@ class TestMemoryCrudWorkflow:
         assert "Test memory content" in result
         assert "Modified content" not in result
 
-        # Same for forget
+        # Query forget mode (does not delete)
         result = ""
         async for chunk in tools["forget"].execute_stream(query="test"):
             result += chunk
 
-        assert "Call forget" in result
+        assert "To delete a memory" in result
 
         # Verify memory still exists
         result = ""
