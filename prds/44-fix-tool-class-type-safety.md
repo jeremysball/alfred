@@ -3,9 +3,10 @@
 ## Overview
 
 **Issue**: #44  
-**Status**: Planning  
+**Status**: Complete  
 **Priority**: High  
-**Created**: 2026-02-18
+**Created**: 2026-02-18  
+**Completed**: 2026-02-18
 
 Tool subclasses have incompatible method signatures with the base `Tool` class. This violates the Liskov Substitution Principle and causes mypy errors that indicate potential runtime bugs.
 
@@ -92,11 +93,11 @@ def execute(self, **kwargs: Any) -> str | dict[str, Any]:
 
 | # | Milestone | Definition of Done |
 |---|-----------|-------------------|
-| 1 | Refactor write.py and read.py | Both tools use `**kwargs`, mypy passes |
-| 2 | Refactor edit.py and bash.py | Both tools use `**kwargs`, mypy passes |
-| 3 | Refactor memory tools (remember, forget) | Both tools use `**kwargs`, mypy passes |
-| 4 | Refactor search/update tools | Both tools use `**kwargs`, mypy passes |
-| 5 | CI Zero Errors | `mypy src/` returns no override errors |
+| [x] | 1 | Refactor write.py and read.py | Both tools use `**kwargs`, mypy passes |
+| [x] | 2 | Refactor edit.py and bash.py | Both tools use `**kwargs`, mypy passes |
+| [x] | 3 | Refactor memory tools (remember, forget) | Both tools use `**kwargs`, mypy passes |
+| [x] | 4 | Refactor search/update tools | Both tools use `**kwargs`, mypy passes |
+| [x] | 5 | CI Zero Errors | `mypy src/` returns no override errors |
 
 ---
 

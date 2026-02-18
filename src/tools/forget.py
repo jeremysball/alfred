@@ -1,8 +1,22 @@
 """Tool for deleting memories from the unified memory store."""
 
 from collections.abc import AsyncIterator
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from .base import Tool
+
+
+class ForgetToolParams(BaseModel):
+    """Parameters for ForgetTool."""
+
+    query: str = Field("", description="Semantic query to find memories to delete")
+    entry_id: str = Field("", description="Direct delete by memory ID")
+    confirm: bool = Field(False, description="Set to True to actually delete (False = preview)")
+
+    class Config:
+        extra = "forbid"
 
 
 class ForgetTool(Tool):
@@ -10,49 +24,45 @@ class ForgetTool(Tool):
 
     name = "forget"
     description = "Delete memories matching a semantic query. Requires confirmation."
+    param_model = ForgetToolParams
 
-    def __init__(self, memory_store=None):
+    def __init__(self, memory_store: Any = None) -> None:
         super().__init__()
         self._memory_store = memory_store
 
-    def set_memory_store(self, memory_store):
+    def set_memory_store(self, memory_store: Any) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(
-        self,
-        query: str = "",
-        entry_id: str = "",
-        confirm: bool = False,
-    ) -> str:
+    def execute(self, **kwargs: Any) -> str:
         """Delete memories (sync wrapper - use execute_stream).
 
         Args:
-            query: Semantic query to find memories to delete (use entry_id or this)
-            entry_id: Direct delete by memory ID (use this or query)
-            confirm: Set to True to actually delete. False = preview only.
+            **kwargs: Tool parameters including:
+                - query: Semantic query to find memories to delete
+                - entry_id: Direct delete by memory ID
+                - confirm: Set to True to actually delete (False = preview)
 
         Returns:
             Error message directing to use async method
         """
         return "Error: ForgetTool must be called via execute_stream in async context"
 
-    async def execute_stream(
-        self,
-        query: str = "",
-        entry_id: str = "",
-        confirm: bool = False,
-    ) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Delete memories or show preview.
 
         Args:
-            query: Semantic query to find memories to delete
-            entry_id: Direct delete by memory ID
-            confirm: Set to True to actually delete. False = preview only.
+            **kwargs: Tool parameters including:
+                - query: Semantic query to find memories to delete
+                - entry_id: Direct delete by memory ID
+                - confirm: Set to True to actually delete (False = preview)
 
         Yields:
             Preview of memories to delete, or deletion confirmation
         """
+        query = kwargs.get("query", "")
+        entry_id = kwargs.get("entry_id", "")
+        confirm = kwargs.get("confirm", False)
         if not self._memory_store:
             yield "Error: Memory store not initialized"
             return
@@ -70,7 +80,7 @@ class ForgetTool(Tool):
                     if not entry:
                         yield f"No memory found with ID: {entry_id}"
                         return
-                    
+
                     date_str = entry.timestamp.strftime("%Y-%m-%d")
                     lines = ["Found memory to delete:"]
                     lines.append(f"  - [{date_str}] {entry.content[:60]}...")
