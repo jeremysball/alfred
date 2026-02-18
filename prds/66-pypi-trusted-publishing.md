@@ -145,24 +145,24 @@ jobs:
 | # | Milestone | Status | Description |
 |---|-----------|--------|-------------|
 | M1 | Package Metadata | ✅ Done | Add required fields to pyproject.toml (description, readme, license, classifiers, urls) |
-| M2 | Version Management | Todo | Set up dynamic versioning from git tags, initial version 0.1.0 |
-| M3 | PyPI Trusted Publisher | Todo | Configure pending publisher on PyPI (production) |
-| M4 | TestPyPI Trusted Publisher | Todo | Configure pending publisher on TestPyPI |
+| M2 | Version Management | ✅ Done | Set up dynamic versioning from git tags, initial version 0.1.0 |
+| M3 | PyPI Trusted Publisher | ✅ Done | Configure pending publisher on PyPI (production) |
+| M4 | TestPyPI Trusted Publisher | ✅ Done | Configure pending publisher on TestPyPI |
 | M5 | GitHub Environments | ✅ Done | Create `pypi` and `testpypi` environments with protection rules |
 | M6 | CI/CD Workflow | ✅ Done | Create release.yml workflow for TestPyPI (main branch) and PyPI (tags) |
-| M7 | Test Release | Todo | Push to main, verify TestPyPI package builds and installs |
-| M8 | Production Release | Todo | Create git tag v0.1.0, verify PyPI release |
+| M7 | Test Release | ✅ Done | Push to main, verify TestPyPI package builds and installs |
+| M8 | Production Release | ✅ Done | Create git tag v0.1.0, verify PyPI release |
 
 ---
 
 ## Success Criteria
 
-- [ ] Package `alfred-assistant` available on PyPI
-- [ ] `pip install alfred-assistant` works correctly
-- [ ] Every push to main publishes to TestPyPI
-- [ ] Every git tag `v*` publishes to production PyPI
-- [ ] No API tokens stored in GitHub (using OIDC only)
-- [ ] Package includes proper metadata (description, license, classifiers)
+- [x] Package `alfred-assistant` available on PyPI
+- [x] `pip install alfred-assistant` works correctly
+- [x] Every push to main publishes to TestPyPI
+- [x] Every git tag `v*` publishes to production PyPI
+- [x] No API tokens stored in GitHub (using OIDC only)
+- [x] Package includes proper metadata (description, license, classifiers)
 
 ---
 
