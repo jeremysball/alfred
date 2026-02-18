@@ -83,7 +83,7 @@ async def _retry_async(
                 logger.error(
                     f"Max retries ({max_retries}) exceeded for {operation_name}: {e}"
                 )
-                raise last_exception
+                raise last_exception from e
 
             # Calculate delay with exponential backoff
             delay = min(base_delay * (exponential_base ** attempt), max_delay)
@@ -132,7 +132,7 @@ def retry_with_backoff(
                         logger.error(
                             f"Max retries ({max_retries}) exceeded for {func.__name__}: {e}"
                         )
-                        raise last_exception
+                        raise last_exception from e
 
                     # Calculate delay with exponential backoff
                     delay = min(

@@ -46,7 +46,9 @@ class EditTool(Tool):
             # Check if old_text exists
             if old_text not in content:
                 # Provide context about what was searched
-                snippet = content[:200].replace("\n", " ") if len(content) > 200 else content.replace("\n", " ")
+                snippet = content[:200].replace("\n", " ")
+                if len(content) <= 200:
+                    snippet = content.replace("\n", " ")
                 return {
                     "success": False,
                     "edited": False,

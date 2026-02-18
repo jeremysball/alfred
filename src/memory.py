@@ -76,7 +76,7 @@ class MemoryStore:
                 embeddings = await self.embedder.embed_batch(
                     [e.content for e in entries_to_embed]
                 )
-                for entry, embedding in zip(entries_to_embed, embeddings):
+                for entry, embedding in zip(entries_to_embed, embeddings):  # noqa: B905
                     entry.embedding = embedding
             except Exception:
                 # Fail fast - don't write anything if embedding fails

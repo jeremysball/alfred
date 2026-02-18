@@ -29,9 +29,7 @@ def _is_transient_error(error: Exception) -> bool:
     if isinstance(error, openai.APIStatusError):
         return error.status_code in (503, 504, 502, 529)
     # Connection errors
-    if isinstance(error, (TimeoutError, ConnectionError)):
-        return True
-    return False
+    return isinstance(error, (TimeoutError, ConnectionError))
 
 
 
@@ -141,7 +139,7 @@ class EmbeddingClient:
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Compute cosine similarity between two vectors."""
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b))  # noqa: B905
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0 or norm_b == 0:
