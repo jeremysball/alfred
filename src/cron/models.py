@@ -26,6 +26,39 @@ class ExecutionStatus(Enum):
 
 
 @dataclass
+class ResourceLimits:
+    """Resource limits for job execution.
+
+    Defines boundaries for CPU time, memory, network, and output.
+    Used by JobExecutor to enforce safe execution of user code.
+    """
+
+    timeout_seconds: int = 30
+    max_memory_mb: int = 100
+    allow_network: bool = False
+    max_output_lines: int = 1000
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert limits to dictionary for JSON serialization."""
+        return {
+            "timeout_seconds": self.timeout_seconds,
+            "max_memory_mb": self.max_memory_mb,
+            "allow_network": self.allow_network,
+            "max_output_lines": self.max_output_lines,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ResourceLimits":
+        """Create ResourceLimits from dictionary."""
+        return cls(
+            timeout_seconds=data.get("timeout_seconds", 30),
+            max_memory_mb=data.get("max_memory_mb", 100),
+            allow_network=data.get("allow_network", False),
+            max_output_lines=data.get("max_output_lines", 1000),
+        )
+
+
+@dataclass
 class Job:
     """Cron job definition.
 
@@ -42,6 +75,7 @@ class Job:
     last_run: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
     updated_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
+    resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job to dictionary for JSON serialization."""
@@ -54,6 +88,7 @@ class Job:
             "last_run": self.last_run.isoformat() if self.last_run else None,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "resource_limits": self.resource_limits.to_dict(),
         }
 
     @classmethod
@@ -66,6 +101,9 @@ class Job:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Job":
         """Create Job from dictionary (JSON deserialization)."""
+        limits_data = data.get("resource_limits", {})
+        resource_limits = ResourceLimits.from_dict(limits_data) if limits_data else ResourceLimits()
+
         return cls(
             job_id=data["job_id"],
             name=data["name"],
@@ -75,6 +113,7 @@ class Job:
             last_run=datetime.fromisoformat(data["last_run"]) if data.get("last_run") else None,
             created_at=cls._parse_datetime(data.get("created_at")),
             updated_at=cls._parse_datetime(data.get("updated_at")),
+            resource_limits=resource_limits,
         )
 
 
@@ -94,6 +133,8 @@ class ExecutionRecord:
     error_message: str | None = None
     stdout: str | None = None
     stderr: str | None = None
+    memory_peak_mb: int | None = None
+    stdout_truncated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Convert execution record to dictionary for JSON serialization."""
@@ -107,6 +148,8 @@ class ExecutionRecord:
             "error_message": self.error_message,
             "stdout": self.stdout,
             "stderr": self.stderr,
+            "memory_peak_mb": self.memory_peak_mb,
+            "stdout_truncated": self.stdout_truncated,
         }
 
     @classmethod
@@ -122,4 +165,6 @@ class ExecutionRecord:
             error_message=data.get("error_message"),
             stdout=data.get("stdout"),
             stderr=data.get("stderr"),
+            memory_peak_mb=data.get("memory_peak_mb"),
+            stdout_truncated=data.get("stdout_truncated", False),
         )

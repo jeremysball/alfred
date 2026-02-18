@@ -380,21 +380,43 @@ class Alfred:
         await self.cron_scheduler.stop()
 ```
 
-### Telegram Interface
+### Natural Language Interface
 
-```python
-class TelegramInterface:
-    async def cron_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /cron commands."""
-        # /cron list — show all jobs
-        # /cron submit <name> <cron> — create new job (pending)
-        # /cron review <job_id> — review pending job
-        # /cron approve <job_id> — approve pending job
-        # /cron reject <job_id> — reject pending job
-        # /cron history <job_id> — show execution history
+Users interact with Alfred conversationally. No `/commands` required.
+
+**Creating jobs:**
+```
+User: "Remind me every morning at 8am to check my calendar"
+Alfred: "I'll create a job that sends you a notification at 8am daily. 
+         Here's the code:
+         
+         async def run(context):
+             await context.notify("Time to check your calendar!")
+         
+         Approve this job? (yes/no)"
+User: "yes"
+Alfred: "Job approved and scheduled."
 ```
 
-### CLI Interface
+**Managing jobs:**
+```
+User: "What jobs do I have running?"
+Alfred: "You have 3 active jobs:
+         1. Daily calendar reminder (8am)
+         2. Weekly summary (Sundays 7pm)
+         3. Session cleanup (every 5 min)"
+
+User: "Cancel the calendar reminder"
+Alfred: "Deleted job 'Daily calendar reminder'."
+```
+
+**Reviewing executions:**
+```
+User: "Did my weekly summary run last Sunday?"
+Alfred: "Yes, it ran at 7:00pm and completed successfully in 2.3 seconds."
+```
+
+### CLI Interface (Optional)
 
 ```bash
 # List all jobs
@@ -430,9 +452,9 @@ alfred cron metrics
 | M5 | **System Jobs** | ✅ Complete | Session TTL job runs every 5 min, auto-registers on startup, 8 tests, 100% coverage |
 | M6 | **User Job Submission** | Model generates code, submits for review | User can create job via natural language |
 | M7 | **Approval Workflow** | Human review and approval UI | Pending → Approved/Rejected flow works |
-| M8 | **Resource Limits** | Timeouts, memory limits, execution isolation | Jobs killed after timeout, memory tracked |
-| M9 | **Telegram Integration** | /cron commands in Telegram bot | Full cron management via Telegram |
-| M10 | **CLI Integration** | alfred cron commands | Full cron management via CLI |
+| M8 | **Resource Limits** | ✅ Complete | Timeout enforcement, memory monitoring, output limits, 31 tests, 95% coverage |
+| M9 | **Natural Language Interface** | User creates jobs via conversation, not commands | "Remind me daily at 8am" just works |
+| M10 | **CLI Integration** | alfred cron commands for power users | Optional CLI management available |
 | M11 | **Testing** | Unit and integration tests | >90% coverage, all edge cases tested |
 | M12 | **ScheduleJobTool** | ✅ Complete | Tool for agent to create cron jobs, 14 tests (unit + integration), Pydantic validation |
 
@@ -448,7 +470,7 @@ alfred cron metrics
 - [ ] Resource limits enforced (timeout, memory)
 - [ ] System survives restart without losing job state
 - [ ] All system jobs (TTL, compaction, cleanup) running
-- [ ] User can create, review, approve jobs via Telegram and CLI
+- [ ] User can create, review, approve jobs via natural language
 - [ ] Test coverage >90%
 
 ---

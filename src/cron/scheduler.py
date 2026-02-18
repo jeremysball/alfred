@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from src.cron import parser
+from src.cron.executor import ExecutionContext, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job
 from src.cron.observability import Alert, HealthStatus, Observability
 from src.cron.store import CronStore
@@ -327,9 +328,9 @@ class CronScheduler:
                 asyncio.create_task(self._execute_job(job))
 
     async def _execute_job(self, job: RunnableJob) -> None:
-        """Execute a single job.
+        """Execute a single job with resource limits.
 
-        Uses lock to ensure only one instance runs at a time.
+        Uses JobExecutor for timeout, memory monitoring, and output capture.
         Records execution to store and observability systems.
         """
         if job._running.locked():
@@ -339,8 +340,32 @@ class CronScheduler:
         async with job._running:
             start_time = datetime.now(UTC)
             execution_id = str(uuid.uuid4())
-            error_message = None
             code_snapshot = self._job_code.get(job.job_id)
+
+            # Get job model for resource limits
+            job_model = job.to_job(code_snapshot) if code_snapshot else None
+            limits = job_model.resource_limits if job_model else None
+
+            # Create execution context
+            context = ExecutionContext(
+                job_id=job.job_id,
+                job_name=job.name,
+                notifier=None,  # TODO: Inject notifier when available
+            )
+
+            # Create executor and run
+            job_for_executor = job_model or Job(
+                job_id=job.job_id,
+                name=job.name,
+                expression=job.expression,
+                code=code_snapshot or "",
+            )
+            executor = JobExecutor(
+                job=job_for_executor,
+                handler=job.handler,
+                limits=limits,
+                context=context,
+            )
 
             # Record start in observability
             await self._observability.health.record_job_start(job.job_id)
@@ -348,58 +373,61 @@ class CronScheduler:
                 job.job_id, job.name, code_snapshot
             )
 
-            try:
-                logger.debug(f"Executing job: {job.name} ({job.job_id})")
-                await job.handler()
-                job.last_run = datetime.now(UTC)
+            logger.debug(f"Executing job: {job.name} ({job.job_id})")
 
-                # Persist updated last_run
-                if job.job_id in self._job_code:
-                    job_model = job.to_job(self._job_code[job.job_id])
-                    await self._store.save_job(job_model)
+            # Execute with resource limits
+            result = await executor.execute()
 
+            end_time = datetime.now(UTC)
+
+            # Update job state
+            job.last_run = end_time
+            if job.job_id in self._job_code:
+                job_model = job.to_job(self._job_code[job.job_id])
+                await self._store.save_job(job_model)
+
+            # Log result
+            if result.status == ExecutionStatus.SUCCESS:
                 logger.debug(f"Job completed: {job.name} ({job.job_id})")
-                status = ExecutionStatus.SUCCESS
+            elif result.status == ExecutionStatus.TIMEOUT:
+                logger.warning(f"Job timed out: {job.name} ({job.job_id})")
+            else:
+                logger.error(f"Job failed: {job.name} ({job.job_id})")
 
-            except Exception as e:
-                logger.exception(f"Job failed: {job.name} ({job.job_id})")
-                error_message = str(e)
-                status = ExecutionStatus.FAILED
+            # Record execution
+            record = ExecutionRecord(
+                execution_id=execution_id,
+                job_id=job.job_id,
+                started_at=start_time,
+                ended_at=end_time,
+                status=result.status,
+                duration_ms=result.duration_ms,
+                error_message=result.error_message,
+                stdout=result.stdout or None,
+                stderr=result.stderr or None,
+                memory_peak_mb=result.memory_peak_mb,
+                stdout_truncated=result.stdout_truncated,
+            )
+            await self._store.record_execution(record)
 
-            finally:
-                end_time = datetime.now(UTC)
-                duration_ms = int((end_time - start_time).total_seconds() * 1000)
+            # Record end in observability
+            await self._observability.health.record_job_end(job.job_id)
+            await self._observability.logger.log_job_end(
+                job.job_id, job.name, record, code_snapshot
+            )
 
-                # Record execution
-                record = ExecutionRecord(
-                    execution_id=execution_id,
-                    job_id=job.job_id,
-                    started_at=start_time,
-                    ended_at=end_time,
-                    status=status,
-                    duration_ms=duration_ms,
-                    error_message=error_message,
-                )
-                await self._store.record_execution(record)
+            # Update metrics
+            await self._observability.metrics.jobs_executed.increment()
+            await self._observability.metrics.job_duration_ms.observe(result.duration_ms)
+            if result.status == ExecutionStatus.FAILED:
+                await self._observability.metrics.job_failures.increment()
 
-                # Record end in observability
-                await self._observability.health.record_job_end(job.job_id)
-                await self._observability.logger.log_job_end(
-                    job.job_id, job.name, record, code_snapshot
-                )
-
-                # Update metrics
-                await self._observability.metrics.jobs_executed.increment()
-                await self._observability.metrics.job_duration_ms.observe(duration_ms)
-                if status == ExecutionStatus.FAILED:
-                    await self._observability.metrics.job_failures.increment()
-
-                # Check for alerts
-                alerts = await self._observability.alerts.record_execution(
-                    job.job_id, status == ExecutionStatus.SUCCESS, duration_ms
-                )
-                for alert in alerts:
-                    logger.warning(f"Alert: {alert.message}")
+            # Check for alerts
+            alerts = await self._observability.alerts.record_execution(
+                job.job_id, result.status == ExecutionStatus.SUCCESS, result.duration_ms
+            )
+            for alert in alerts:
+                logger.warning(f"Alert: {alert.message}")
 
     def get_metrics(self) -> dict[str, Any]:
         """Get current metrics from the observability system.
