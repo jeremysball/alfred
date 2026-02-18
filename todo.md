@@ -3,9 +3,16 @@
 ## PRD Tasks
 
 ### Active PRDs
-- [ ] **#54** - In-Memory Session Storage - Foundation for CLI conversation memory
-  - Add LLM context control tool (`set_context_preferences`)
-  - Implement substring search in session history
+- [x] **#54** - In-Memory Session Storage - Foundation for CLI conversation memory ✓ COMPLETE
+  - [x] Session data model (Session, Message, Role)
+  - [x] SessionManager singleton
+  - [x] Context integration (session history in LLM context)
+  - [x] CLI wiring (auto-start session, add user/assistant messages)
+  - [x] Tests: 28 new tests, all passing
+
+### Next PRDs
+- [ ] **#55** - Advanced Session Features - LLM context control, substring search
+- [ ] **#53** - Full Session System - Persistence, summarization, multi-session
 
 ### Other PRDs
 - [ ] Create PRD for making default behavior not print tool information (add flag to enable it)
