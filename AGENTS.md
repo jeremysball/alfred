@@ -99,7 +99,14 @@ todo-sidebar action: add, text: "Review PRD requirements"
 todo-sidebar action: toggle, id: 1
 ```
 
-### 4. ALWAYS Use Conventional Commits
+### 4. Always Verify Before Done
+After any code change, run:
+```bash
+uv run ruff check src/ && uv run mypy src/ && uv run pytest
+```
+Show results. Fix issues. Then it's done.
+
+### 5. ALWAYS Use Conventional Commits
 **CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -127,6 +134,6 @@ todo-sidebar action: toggle, id: 1
 - Reference issues in footer when applicable
 
 
-### 5. User Control
+### 6. User Control
 The user decides. You suggest; they choose. Never override user preferences.
 

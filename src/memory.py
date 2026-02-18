@@ -1,9 +1,9 @@
 """Unified memory storage system with semantic search."""
 
 import json
-from datetime import datetime, date
+from collections.abc import AsyncIterator
+from datetime import date, datetime
 from pathlib import Path
-from typing import AsyncIterator
 
 import aiofiles
 
@@ -76,7 +76,7 @@ class MemoryStore:
                 embeddings = await self.embedder.embed_batch(
                     [e.content for e in entries_to_embed]
                 )
-                for entry, embedding in zip(entries_to_embed, embeddings):
+                for entry, embedding in zip(entries_to_embed, embeddings):  # noqa: B905
                     entry.embedding = embedding
             except Exception:
                 # Fail fast - don't write anything if embedding fails
@@ -96,11 +96,11 @@ class MemoryStore:
 
     async def get_all_entries(self) -> list[MemoryEntry]:
         """Load all memory entries."""
-        entries = []
+        entries: list[MemoryEntry] = []
         if not self.memories_path.exists():
             return entries
 
-        async with aiofiles.open(self.memories_path, "r") as f:
+        async with aiofiles.open(self.memories_path) as f:
             async for line in f:
                 line = line.strip()
                 if line:
@@ -112,7 +112,7 @@ class MemoryStore:
         if not self.memories_path.exists():
             return
 
-        async with aiofiles.open(self.memories_path, "r") as f:
+        async with aiofiles.open(self.memories_path) as f:
             async for line in f:
                 line = line.strip()
                 if line:
@@ -336,7 +336,7 @@ class MemoryStore:
         """Read MEMORY.md content."""
         if not self.curated_path.exists():
             return ""
-        async with aiofiles.open(self.curated_path, "r") as f:
+        async with aiofiles.open(self.curated_path) as f:
             return await f.read()
 
     async def write_curated_memory(self, content: str) -> None:

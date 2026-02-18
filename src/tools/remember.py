@@ -2,10 +2,24 @@
 
 from collections.abc import AsyncIterator
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 from src.types import MemoryEntry
 
 from .base import Tool
+
+
+class RememberToolParams(BaseModel):
+    """Parameters for RememberTool."""
+
+    content: str = Field(..., description="The distilled insight or fact to remember")
+    importance: float = Field(0.5, description="How important this memory is (0.0 to 1.0)")
+    tags: str = Field("", description="Comma-separated list of category tags")
+
+    class Config:
+        extra = "forbid"
 
 
 class RememberTool(Tool):
@@ -15,62 +29,56 @@ class RememberTool(Tool):
     or when you learn important facts, preferences, or context
     that would be useful to recall in future conversations.
     """
-    
+
     name = "remember"
     description = "Save a memory to the unified memory store for future retrieval"
-    
-    def __init__(self, memory_store=None):
+    param_model = RememberToolParams
+
+    def __init__(self, memory_store: Any = None) -> None:
         super().__init__()
         self._memory_store = memory_store
-    
-    def set_memory_store(self, memory_store):
+
+    def set_memory_store(self, memory_store: Any) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
-    
-    def execute(
-        self,
-        content: str,
-        importance: float = 0.5,
-        tags: str = "",
-    ) -> str:
+
+    def execute(self, **kwargs: Any) -> str:
         """Save a memory to the unified store (sync wrapper - use execute_stream).
         
         Args:
-            content: The distilled insight or fact to remember. Be specific and concise.
-            importance: How important this memory is (0.0 to 1.0). Use higher values for
-                       core preferences, key facts, or things mentioned multiple times.
-            tags: Comma-separated list of category tags (e.g., "preferences,coding,work")
+            **kwargs: Tool parameters including:
+                - content: The distilled insight or fact to remember
+                - importance: How important this memory is (0.0 to 1.0)
+                - tags: Comma-separated list of category tags
         
         Returns:
             Confirmation that the memory was saved
         """
         # This method should not be called directly - use execute_stream
         return "Error: RememberTool must be called via execute_stream in async context"
-    
-    async def execute_stream(
-        self,
-        content: str,
-        importance: float = 0.5,
-        tags: str = "",
-    ) -> AsyncIterator[str]:
+
+    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Save a memory to the unified store (async).
         
         Args:
-            content: The distilled insight or fact to remember. Be specific and concise.
-            importance: How important this memory is (0.0 to 1.0). Use higher values for
-                       core preferences, key facts, or things mentioned multiple times.
-            tags: Comma-separated list of category tags (e.g., "preferences,coding,work")
+            **kwargs: Tool parameters including:
+                - content: The distilled insight or fact to remember
+                - importance: How important this memory is (0.0 to 1.0)
+                - tags: Comma-separated list of category tags
         
         Yields:
             Confirmation that the memory was saved
         """
+        content = kwargs.get("content", "")
+        importance = kwargs.get("importance", 0.5)
+        tags = kwargs.get("tags", "")
         if not self._memory_store:
             yield "Error: Memory store not initialized"
             return
-        
+
         # Parse tags
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        
+
         # Create memory entry
         entry = MemoryEntry(
             timestamp=datetime.now(),
@@ -80,7 +88,7 @@ class RememberTool(Tool):
             importance=importance,
             tags=tag_list,
         )
-        
+
         try:
             await self._memory_store.add_entries([entry])
             tag_str = f" (tags: {', '.join(tag_list)})" if tag_list else ""

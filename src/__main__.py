@@ -26,7 +26,10 @@ def parse_args() -> argparse.Namespace:
         "--debug",
         choices=["info", "debug"],
         default=None,
-        help="Set debug level: 'info' for INFO messages, 'debug' for DEBUG messages. Default: warnings/errors only",
+        help=(
+            "Set debug level: 'info' for INFO messages, 'debug' for DEBUG messages. "
+            "Default: warnings/errors only"
+        ),
     )
     return parser.parse_args()
 

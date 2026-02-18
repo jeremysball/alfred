@@ -1,7 +1,7 @@
 """Shared type definitions for Alfred."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class MemoryEntry(BaseModel):
         content = f"{self.timestamp.isoformat()}:{self.content}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def model_post_init(self, __context):
+    def model_post_init(self, __context: Any) -> None:
         """Auto-generate ID if not set."""
         if self.entry_id is None:
             self.entry_id = self.generate_id()

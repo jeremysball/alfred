@@ -1,11 +1,21 @@
 """Write file tool."""
 
-import os
 from pathlib import Path
+from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+
+
+class WriteToolParams(BaseModel):
+    """Parameters for WriteTool."""
+
+    path: str = Field(..., description="Path to the file to write")
+    content: str = Field(..., description="Content to write to the file")
+
+    class Config:
+        extra = "forbid"
 
 
 class WriteTool(Tool):
@@ -13,13 +23,13 @@ class WriteTool(Tool):
 
     name = "write"
     description = "Create or overwrite a file. Automatically creates parent directories if needed."
+    param_model = WriteToolParams
 
-    def execute(
-        self,
-        path: str,
-        content: str,
-    ) -> dict:
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
         """Write content to file, creating parent directories if needed."""
+        path = kwargs.get("path", "")
+        content = kwargs.get("content", "")
+
         try:
             # Create parent directories if needed
             parent = Path(path).parent
