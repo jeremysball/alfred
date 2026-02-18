@@ -102,15 +102,21 @@ class TelegramInterface:
         if not self.application:
             self.setup()
 
-        await self.application.initialize()
-        await self.application.start()
-        await self.application.updater.start_polling()
+        app = self.application
+        assert app is not None, "Application not initialized"
+        await app.initialize()
+        await app.start()
+        updater = app.updater
+        if not updater:
+            raise RuntimeError("Failed to get Telegram updater")
+        await updater.start_polling()
 
         logger.info("Bot started. Press Ctrl+C to stop.")
 
         # Keep running until interrupted
+        import asyncio
+        stop_event = asyncio.Event()
         try:
-            await self.application.updater.idle()
+            await stop_event.wait()
         finally:
-            await self.application.updater.stop()
-            await self.application.stop()
+            await app.stop()

@@ -1,0 +1,11 @@
+#!/bin/bash
+# Pre-commit hook for code quality checks
+# Run once to activate: git config core.hooksPath .githooks
+
+set -e
+
+echo "Running ruff check..."
+uv run ruff check src/
+
+echo "Running pytest..."
+uv run pytest
