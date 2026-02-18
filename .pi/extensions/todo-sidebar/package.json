@@ -1,0 +1,17 @@
+{
+  "name": "pi-todo-sidebar",
+  "version": "1.0.0",
+  "description": "Todo-List Extension with Collapsible Sidebar for Pi",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest watch"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^1.6.1",
+    "vitest": "^1.6.1",
+    "typescript": "^5.0.0"
+  }
+}

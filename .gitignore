@@ -62,3 +62,8 @@ local/
 
 # Scraped reference files (not for repo)
 .scraped/
+
+# Node.js (pi extensions)
+node_modules/
+.pi/extensions/*/package-lock.json
+.pi/extensions/*/.vite/
