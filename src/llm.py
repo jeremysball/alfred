@@ -269,7 +269,6 @@ class KimiProvider(LLMProvider):
             logger.error(f"Error in chat_with_tools: {e}")
             raise
 
-    @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def stream_chat(
         self, messages: list[ChatMessage]
     ) -> AsyncIterator[str]:
@@ -304,6 +303,9 @@ class KimiProvider(LLMProvider):
 
         try:
             async for chunk in stream:
+                # Skip chunks with no choices (can happen with some providers)
+                if not chunk.choices:
+                    continue
                 content = chunk.choices[0].delta.content
                 if content:
                     yield content
@@ -338,39 +340,52 @@ class KimiProvider(LLMProvider):
                     msg["reasoning_content"] = m.reasoning_content
                 api_messages.append(msg)
             
-            response = await self.client.chat.completions.create(
+            stream = await self.client.chat.completions.create(
                 model=self.model,
                 messages=api_messages,
                 tools=tools,
                 temperature=0.7,
                 max_tokens=4000,
+                stream=True,
             )
             
-            # Check for tool calls
-            message = response.choices[0].message
+            # Collect streaming data
+            tool_calls_data = []
+            current_tool_call = None
+            full_content = ""
             
-            # Yield reasoning content if present
-            if hasattr(message, 'reasoning_content') and message.reasoning_content:
-                yield f"[REASONING]{message.reasoning_content}"
+            async for chunk in stream:
+                # Skip chunks with no choices (can happen with some providers)
+                if not chunk.choices:
+                    continue
+                
+                delta = chunk.choices[0].delta
+                
+                # Handle content
+                if delta.content:
+                    full_content += delta.content
+                    yield delta.content
+                
+                # Handle tool calls
+                if delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        if tc.id:
+                            # New tool call
+                            current_tool_call = {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {"name": tc.function.name or "", "arguments": ""},
+                            }
+                            tool_calls_data.append(current_tool_call)
+                        if tc.function:
+                            if tc.function.name and current_tool_call:
+                                current_tool_call["function"]["name"] = tc.function.name
+                            if tc.function.arguments and current_tool_call:
+                                current_tool_call["function"]["arguments"] += tc.function.arguments
             
-            if message.tool_calls:
-                # Yield tool calls as special marker
-                tool_calls_data = [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        },
-                    }
-                    for tc in message.tool_calls
-                ]
+            # Yield tool calls if any were collected
+            if tool_calls_data:
                 yield f"[TOOL_CALLS]{json.dumps(tool_calls_data)}"
-            
-            # Yield content if any
-            if message.content:
-                yield message.content
                 
         except Exception as e:
             logger.error(f"Error in stream_chat_with_tools: {e}")

@@ -17,13 +17,16 @@ def mock_config():
     return config
 
 
+async def mock_chat_stream(message):
+    """Mock async generator for chat_stream."""
+    yield "Test response"
+
+
 @pytest.fixture
 def mock_alfred():
     """Create a mock Alfred engine."""
     alfred = MagicMock(spec=Alfred)
-    alfred.chat = AsyncMock(
-        return_value=ChatResponse(content="Test response", model="kimi")
-    )
+    alfred.chat_stream.side_effect = mock_chat_stream
     alfred.compact = AsyncMock(return_value="Compacted successfully")
     return alfred
 
@@ -46,13 +49,15 @@ def mock_context():
 
 @pytest.mark.asyncio
 async def test_message_delegates_to_alfred(mock_config, mock_alfred, mock_update, mock_context):
-    """Test that message handler delegates to Alfred.chat()."""
+    """Test that message handler delegates to Alfred.chat_stream()."""
     interface = TelegramInterface(mock_config, mock_alfred)
 
     await interface.message(mock_update, mock_context)
 
-    mock_alfred.chat.assert_called_once_with("Hello Alfred")
-    mock_update.message.reply_text.assert_called_once_with("Test response")
+    assert mock_alfred.chat_stream.called
+    # Verify it was called with the right message
+    call_args = mock_alfred.chat_stream.call_args[0][0]
+    assert call_args == "Hello Alfred"
 
 
 @pytest.mark.asyncio
@@ -90,7 +95,7 @@ async def test_message_handles_none_text(mock_config, mock_alfred, mock_context)
 
     await interface.message(update, mock_context)
 
-    mock_alfred.chat.assert_not_called()
+    assert not mock_alfred.chat_stream.called
 
 
 @pytest.mark.asyncio
@@ -103,21 +108,28 @@ async def test_message_handles_missing_message(mock_config, mock_alfred, mock_co
 
     await interface.message(update, mock_context)
 
-    mock_alfred.chat.assert_not_called()
+    assert not mock_alfred.chat_stream.called
+
+
+async def error_stream(message):
+    """Mock async generator that raises an error."""
+    raise Exception("API error")
+    yield ""
 
 
 @pytest.mark.asyncio
 async def test_message_surfaces_errors(mock_config, mock_alfred, mock_update, mock_context):
     """Test that message handler surfaces errors to user."""
     interface = TelegramInterface(mock_config, mock_alfred)
-    mock_alfred.chat.side_effect = Exception("API error")
+    mock_alfred.chat_stream = error_stream
 
-    with pytest.raises(Exception):
-        await interface.message(mock_update, mock_context)
+    # Should not raise - error is caught and displayed
+    await interface.message(mock_update, mock_context)
 
-    mock_update.message.reply_text.assert_called()
-    call_args = mock_update.message.reply_text.call_args[0][0]
-    assert "Error" in call_args
+    # Error should be displayed via edit_text
+    mock_update.message.reply_text.assert_called_once()
+    # edit_text should be called with error message
+    assert mock_update.message.reply_text.return_value.edit_text.called
 
 
 @pytest.mark.asyncio

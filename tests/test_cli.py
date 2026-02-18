@@ -14,23 +14,26 @@ from src.llm import ChatResponse
 def mock_alfred():
     """Create a mock Alfred engine."""
     alfred = MagicMock(spec=Alfred)
-    alfred.chat = AsyncMock(
-        return_value=ChatResponse(content="CLI response", model="kimi")
-    )
+    
+    # Create an async generator mock for chat_stream
+    async def async_gen(*args, **kwargs):
+        yield "CLI response"
+    
+    alfred.chat_stream = AsyncMock(side_effect=async_gen)
     alfred.compact = AsyncMock(return_value="Compacted")
     return alfred
 
 
 @pytest.mark.asyncio
 async def test_chat_delegates_to_alfred(mock_alfred):
-    """Test that CLI delegates chat to Alfred."""
+    """Test that CLI delegates chat to Alfred via chat_stream."""
     interface = CLIInterface(mock_alfred)
 
     with patch("sys.stdin", StringIO("Hello\nexit\n")):
         with patch("sys.stdout", StringIO()):
             await interface.run()
 
-    mock_alfred.chat.assert_called_once_with("Hello")
+    mock_alfred.chat_stream.assert_called_once_with("Hello")
 
 
 @pytest.mark.asyncio
@@ -54,8 +57,8 @@ async def test_exit_terminates_loop(mock_alfred):
         with patch("sys.stdout", StringIO()):
             await interface.run()
 
-    # Should not call chat
-    mock_alfred.chat.assert_not_called()
+    # Should not call chat_stream
+    mock_alfred.chat_stream.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -67,8 +70,8 @@ async def test_empty_input_ignored(mock_alfred):
         with patch("sys.stdout", StringIO()):
             await interface.run()
 
-    # Only one chat call for "Hello"
-    mock_alfred.chat.assert_called_once_with("Hello")
+    # Only one chat_stream call for "Hello"
+    mock_alfred.chat_stream.assert_called_once_with("Hello")
 
 
 @pytest.mark.asyncio
@@ -80,8 +83,8 @@ async def test_eoferror_terminates_loop(mock_alfred):
     with patch("builtins.input", side_effect=EOFError):
         await interface.run()
 
-    # Should not call chat
-    mock_alfred.chat.assert_not_called()
+    # Should not call chat_stream
+    mock_alfred.chat_stream.assert_not_called()
 
 
 @pytest.mark.asyncio
