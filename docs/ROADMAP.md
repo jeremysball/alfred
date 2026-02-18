@@ -14,6 +14,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 - [x] M8: Tool System - Built-in tools with Pydantic schemas (PRD #18)
 - [x] Agent Loop - Streaming with tool execution (PRD #33)
 - [x] Memory System V2 - Full CRUD operations (PRD #23)
+- [x] PyPI Trusted Publishing - Automated package distribution (PRD #66)
 
 ## Short-term (Active Development)
 
@@ -31,7 +32,6 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 - [ ] M11: Compaction - Summarize long conversations (PRD #19)
 - [ ] M12: Testing & Quality - Comprehensive test coverage (PRD #22)
 - [ ] HTTP API + Cron - Local API for scheduled actions (PRD #29)
-- [ ] PyPI Trusted Publishing - Automated package distribution (PRD #66)
 
 ## Long-term
 
