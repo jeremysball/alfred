@@ -59,7 +59,7 @@ class TestCosineSimilaritySearch:
 
         # Query embedding aligned with first axis (Python)
         query = [1.0, 0.0, 0.0]
-        results = searcher.search(query, memories)
+        results, _ = searcher.search(query, memories)
 
         assert len(results) == 3
         # Most similar should be first (Python programming)
@@ -94,7 +94,7 @@ class TestCosineSimilaritySearch:
         ]
 
         query = [1.0, 0.0]
-        results = searcher.search(query, memories)
+        results, _ = searcher.search(query, memories)
 
         assert len(results) == 1
         assert results[0].content == "Very relevant"
@@ -115,7 +115,7 @@ class TestCosineSimilaritySearch:
         ]
 
         query = [1.0, 0.0]
-        results = searcher.search(query, memories)
+        results, _ = searcher.search(query, memories)
 
         assert len(results) == 2
 
@@ -140,7 +140,7 @@ class TestCosineSimilaritySearch:
         ]
 
         query = [1.0, 0.0]
-        results = searcher.search(query, memories)
+        results, _ = searcher.search(query, memories)
 
         assert len(results) == 1
         assert results[0].content == "Has embedding"
@@ -160,12 +160,11 @@ class TestHybridScoring:
             role="user",
             content="Test",
             embedding=[1.0, 0.0],
-            importance=0.0,
         )
 
         score = searcher._hybrid_score(memory, similarity=1.0)
-        # Expected: 1.0*0.5 + 1.0*0.3 + 0.0*0.2 = 0.8
-        assert score == pytest.approx(0.8, abs=0.01)
+        # Expected: 1.0*0.6 + 1.0*0.4 = 1.0
+        assert score == pytest.approx(1.0, abs=0.01)
 
     def test_recency_decay(self):
         """Test that older memories score lower on recency."""
@@ -178,7 +177,6 @@ class TestHybridScoring:
             role="user",
             content="Fresh",
             embedding=[1.0, 0.0],
-            importance=0.5,
         )
 
         # Old memory (60 days ago)
@@ -187,7 +185,6 @@ class TestHybridScoring:
             role="user",
             content="Old",
             embedding=[1.0, 0.0],
-            importance=0.5,
         )
 
         fresh_score = searcher._hybrid_score(fresh, similarity=1.0)
@@ -198,35 +195,13 @@ class TestHybridScoring:
 
         # Verify the math: recency = exp(-60/30) = exp(-2) ≈ 0.135
         expected_old_recency = math.exp(-2)
-        expected_old_score = 1.0 * 0.5 + expected_old_recency * 0.3 + 0.5 * 0.2
+        expected_old_score = 1.0 * 0.6 + expected_old_recency * 0.4
         assert old_score == pytest.approx(expected_old_score, abs=0.01)
 
     def test_importance_boost(self):
-        """Test that high importance boosts score."""
-        searcher = MemorySearcher()
-        now = datetime.now()
+        """Test removed - importance field no longer exists."""
+        pytest.skip("Importance field removed from MemoryEntry")
 
-        # Same similarity and recency, different importance
-        low_imp = MemoryEntry(
-            timestamp=now,
-            role="user",
-            content="Low importance",
-            embedding=[1.0, 0.0],
-            importance=0.0,
-        )
-        high_imp = MemoryEntry(
-            timestamp=now,
-            role="user",
-            content="High importance",
-            embedding=[1.0, 0.0],
-            importance=1.0,
-        )
-
-        low_score = searcher._hybrid_score(low_imp, similarity=1.0)
-        high_score = searcher._hybrid_score(high_imp, similarity=1.0)
-
-        # High importance should score 0.2 more
-        assert high_score == pytest.approx(low_score + 0.2, abs=0.01)
 
 
 class TestDeduplication:
@@ -430,28 +405,24 @@ class TestIntegration:
                 role="user",
                 content="I love Python programming",
                 embedding=[1.0, 0.0, 0.0],
-                importance=0.8,
             ),
             MemoryEntry(
                 timestamp=now,
                 role="user",
                 content="I love Python coding",  # Near duplicate
                 embedding=[0.99, 0.01, 0.0],
-                importance=0.5,
             ),
             MemoryEntry(
                 timestamp=now - timedelta(days=60),  # Old
                 role="user",
                 content="My favorite color is blue",
                 embedding=[0.0, 1.0, 0.0],
-                importance=0.5,
             ),
             MemoryEntry(
                 timestamp=now,
                 role="assistant",
                 content="That's great!",
                 embedding=[0.5, 0.5, 0.0],
-                importance=0.3,
             ),
         ]
 
@@ -496,9 +467,9 @@ class TestIntegration:
         ]
 
         # Query for Python
-        python_results = searcher.search([1.0, 0.0], memories)
+        python_results, _ = searcher.search([1.0, 0.0], memories)
         assert python_results[0].content == "I love Python"
 
         # Query for JavaScript
-        js_results = searcher.search([0.0, 1.0], memories)
+        js_results, _ = searcher.search([0.0, 1.0], memories)
         assert js_results[0].content == "I like JavaScript"

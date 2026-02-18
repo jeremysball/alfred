@@ -18,3 +18,7 @@
 - [ ] Create PRD for making default behavior not print tool information (add flag to enable it)
 - [ ] Create PRD for CLI commands (sessions, resume, newsession, etc.)
 - [ ] Create PRD for a throbber
+
+## Bugs / Technical Debt
+- [ ] Fix templates not being copied to data folder on startup
+- [ ] ContextAssembler loads from templates - make this configurable (data vs templates priority)

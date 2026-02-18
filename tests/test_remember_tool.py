@@ -75,7 +75,6 @@ async def test_remember_tool_saves_memory(mock_config, mock_embedder):
     result_chunks = []
     async for chunk in tool.execute_stream(
         content="User name is Jaz",
-        importance=0.9,
         tags="identity,name"
     ):
         result_chunks.append(chunk)
@@ -94,7 +93,6 @@ async def test_remember_tool_saves_memory(mock_config, mock_embedder):
 
     mem = memories[0]
     assert mem.content == "User name is Jaz"
-    assert mem.importance == 0.9
     assert "identity" in mem.tags
     assert "name" in mem.tags
     assert mem.embedding is not None
@@ -113,8 +111,7 @@ async def test_remember_tool_without_tags(mock_config, mock_embedder):
     tool = get_registry().get("remember")
 
     async for _chunk in tool.execute_stream(
-        content="User prefers dark mode",
-        importance=0.7
+        content="User prefers dark mode"
     ):
         pass  # Just consume
 
@@ -125,21 +122,8 @@ async def test_remember_tool_without_tags(mock_config, mock_embedder):
 
 @pytest.mark.asyncio
 async def test_remember_tool_uses_default_importance(mock_config, mock_embedder):
-    """Remember tool uses default importance of 0.5."""
-    clear_registry()
-
-    memory_store = MemoryStore(mock_config, mock_embedder)
-    await memory_store.clear()
-
-    register_builtin_tools(memory_store=memory_store)
-    tool = get_registry().get("remember")
-
-    async for _chunk in tool.execute_stream(content="User likes coffee"):
-        pass
-
-    memories = await memory_store.get_all_entries()
-    assert len(memories) == 1
-    assert memories[0].importance == 0.5
+    """Importance field removed - test deprecated."""
+    pytest.skip("Importance field removed from MemoryEntry")
 
 
 @pytest.mark.asyncio

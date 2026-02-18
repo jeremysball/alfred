@@ -79,7 +79,6 @@ async def test_add_and_retrieve_entries(mock_config, mock_embedder):
             role="user",
             content="I prefer Python over JavaScript",
             embedding=None,
-            importance=0.8,
             tags=["preferences", "coding"],
         ),
         MemoryEntry(
@@ -87,7 +86,6 @@ async def test_add_and_retrieve_entries(mock_config, mock_embedder):
             role="assistant",
             content="Noted. I'll keep that in mind.",
             embedding=None,
-            importance=0.5,
             tags=[],
         ),
     ]
@@ -115,7 +113,6 @@ async def test_entries_persisted_to_jsonl(mock_config, mock_embedder, tmp_path):
         role="user",
         content="Test content",
         embedding=[0.1] * 1536,
-        importance=0.9,
         tags=["test"],
     )
 
@@ -180,21 +177,19 @@ async def test_search_by_semantic_similarity(mock_config, mock_embedder):
             role="user",
             content="I love programming in Python and building CLI tools",
             embedding=None,
-            importance=0.8,
         ),
         MemoryEntry(
             timestamp=datetime(2026, 2, 17, 11, 0),
             role="user",
             content="My favorite color is blue especially for dark mode themes",
             embedding=None,
-            importance=0.5,
         ),
     ]
 
     await store.add_entries(entries)
 
     # Search
-    results = await store.search("coding and software development", top_k=2)
+    results, _ = await store.search("coding and software development", top_k=2)
 
     assert len(results) <= 2
     # The programming entry should rank higher
@@ -225,7 +220,7 @@ async def test_search_with_date_filter(mock_config, mock_embedder):
     await store.add_entries(entries)
 
     # Search only Feb 17
-    results = await store.search(
+    results, _ = await store.search(
         "python",
         start_date=date(2026, 2, 17),
         end_date=date(2026, 2, 17),
@@ -269,7 +264,6 @@ async def test_search_curated_memory(mock_config, mock_embedder, tmp_path):
 
     assert len(results) >= 1
     assert all("curated" in r.tags for r in results)
-    assert all(r.importance == 1.0 for r in results)
 
 
 @pytest.mark.asyncio

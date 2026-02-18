@@ -44,7 +44,7 @@ class TestForgetTool:
 
     async def test_preview_no_matches(self, forget_tool, mock_memory_store):
         """Preview mode returns message when no matches found."""
-        mock_memory_store.search.return_value = []
+        mock_memory_store.search.return_value = ([], {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="nonexistent"):
@@ -62,7 +62,6 @@ class TestForgetTool:
                 role="system",
                 content="Old project idea about a chatbot",
                 embedding=[0.1, 0.2],
-                importance=0.5,
                 tags=[],
             ),
             MemoryEntry(
@@ -70,11 +69,10 @@ class TestForgetTool:
                 role="system",
                 content="Another old project memory",
                 embedding=[0.3, 0.4],
-                importance=0.6,
                 tags=[],
             ),
         ]
-        mock_memory_store.search.return_value = memories
+        mock_memory_store.search.return_value = (memories, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="old project"):
@@ -93,11 +91,10 @@ class TestForgetTool:
                 role="system",
                 content="A" * 100,  # Very long content
                 embedding=[0.1, 0.2],
-                importance=0.5,
                 tags=[],
             ),
         ]
-        mock_memory_store.search.return_value = memories
+        mock_memory_store.search.return_value = (memories, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="test"):
@@ -115,12 +112,11 @@ class TestForgetTool:
                 role="system",
                 content=f"Memory {i}",
                 embedding=[0.1, 0.2],
-                importance=0.5,
                 tags=[],
             )
             for i in range(7)
         ]
-        mock_memory_store.search.return_value = memories
+        mock_memory_store.search.return_value = (memories, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="test"):
