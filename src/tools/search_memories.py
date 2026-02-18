@@ -19,11 +19,17 @@ class SearchMemoriesTool(Tool):
         """Set the memory store after initialization."""
         self._memory_store = memory_store
     
-    def execute(self, query: str, top_k: int = 5) -> str:
+    def execute(
+        self,
+        query: str = "",
+        entry_id: str = "",
+        top_k: int = 5,
+    ) -> str:
         """Search memories (sync wrapper - use execute_stream).
         
         Args:
             query: Search query to find relevant memories
+            entry_id: Direct lookup by memory ID
             top_k: Maximum number of results to return
         
         Returns:
@@ -33,20 +39,43 @@ class SearchMemoriesTool(Tool):
     
     async def execute_stream(
         self,
-        query: str,
+        query: str = "",
+        entry_id: str = "",
         top_k: int = 5,
     ) -> AsyncIterator[str]:
         """Search memories and return formatted results.
         
         Args:
-            query: Search query to find relevant memories
-            top_k: Maximum number of results to return
+            query: Search query to find relevant memories (semantic search)
+            entry_id: Direct lookup by memory ID (bypasses search)
+            top_k: Maximum number of results to return (ignored if entry_id provided)
         
         Yields:
             Formatted search results
         """
         if not self._memory_store:
             yield "Error: Memory store not initialized"
+            return
+        
+        # Direct ID lookup takes precedence
+        if entry_id:
+            try:
+                entry = await self._memory_store.get_by_id(entry_id)
+                if not entry:
+                    yield f"No memory found with ID: {entry_id}"
+                    return
+                
+                date_str = entry.timestamp.strftime("%Y-%m-%d")
+                result = f"- [{date_str}] {entry.content} (importance: {entry.importance:.1f}, id: {entry.entry_id})"
+                yield result
+                return
+            except Exception as e:
+                yield f"Error retrieving memory: {e}"
+                return
+        
+        # Semantic search
+        if not query:
+            yield "Error: Provide either query or entry_id"
             return
         
         try:
@@ -61,7 +90,7 @@ class SearchMemoriesTool(Tool):
                 date_str = entry.timestamp.strftime("%Y-%m-%d")
                 lines.append(
                     f"- [{date_str}] {entry.content} "
-                    f"(importance: {entry.importance:.1f})"
+                    f"(importance: {entry.importance:.1f}, id: {entry.entry_id})"
                 )
             
             yield "\n".join(lines)

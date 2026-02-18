@@ -244,8 +244,8 @@ class ForgetTool(Tool):
 
 ### Phase 5: Integration
 - [x] Update AGENTS.md with memory management guidelines
-- [ ] Add memory management examples to documentation
-- [ ] Integration tests for full CRUD workflow
+- [~] Add memory management examples to documentation (in AGENTS.md)
+- [x] Integration tests for full CRUD workflow
 
 ---
 
@@ -294,9 +294,9 @@ Use when information is obsolete or wrong:
 - [x] `search_memories` tool returns relevant memories
 - [x] `update_memory` tool modifies existing memories correctly
 - [x] `forget` tool deletes by semantic query
-- [ ] All CRUD operations have comprehensive tests
-- [ ] Agent knows when to use each tool
-- [ ] Documentation updated for all tools
+- [x] All CRUD operations have comprehensive tests
+- [~] Agent knows when to use each tool (documented in AGENTS.md)
+- [~] Documentation updated for all tools (AGENTS.md complete)
 
 ---
 

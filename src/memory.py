@@ -180,6 +180,20 @@ class MemoryStore:
         if self.memories_path.exists():
             self.memories_path.unlink()
 
+    async def get_by_id(self, entry_id: str) -> MemoryEntry | None:
+        """Get a memory entry by its ID.
+
+        Args:
+            entry_id: The unique ID of the memory entry
+
+        Returns:
+            The memory entry if found, None otherwise
+        """
+        async for entry in self.iter_entries():
+            if entry.entry_id == entry_id:
+                return entry
+        return None
+
     # --- CRUD Operations ---
 
     async def update_entry(
@@ -277,6 +291,30 @@ class MemoryStore:
         await self._rewrite_entries(entries_to_keep)
 
         return deleted_count, f"Deleted {deleted_count} memory{'ies' if deleted_count != 1 else 'y'}"
+
+    async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
+        """Delete a memory entry by its ID.
+
+        Args:
+            entry_id: The unique ID of the memory entry to delete
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        entries = await self.get_all_entries()
+        if not entries:
+            return False, "No memories to delete"
+
+        original_count = len(entries)
+        entries = [e for e in entries if e.entry_id != entry_id]
+
+        if len(entries) == original_count:
+            return False, f"No memory found with ID: {entry_id}"
+
+        # Rewrite with remaining entries
+        await self._rewrite_entries(entries)
+
+        return True, "Deleted 1 memory"
 
     async def _rewrite_entries(self, entries: list[MemoryEntry]) -> None:
         """Atomically rewrite all entries to the JSONL file.

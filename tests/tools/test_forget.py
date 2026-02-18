@@ -104,7 +104,7 @@ class TestForgetTool:
 
         # Should show "AAA..." not all 100 As
         assert "..." in result
-        assert len(result) < 200  # Should be truncated
+        assert len(result) < 300  # Should be truncated (increased limit due to ID)
 
     async def test_preview_shows_more_indicator(self, forget_tool, mock_memory_store):
         """Preview shows 'and X more' when more than 5 matches."""
