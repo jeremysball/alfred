@@ -40,7 +40,7 @@ User Message → Load/Create Session → Inject History → LLM Response
                                     ↓
                          Append to sessions.jsonl (durability)
                                     ↓
-                    [1hr timeout] → Summarize → Embed → Update record
+                    [10min timeout] → Summarize → Embed → Update record
 ```
 
 ### Data Schema
@@ -108,7 +108,7 @@ Store exchange to active session
     ↓
 Append to sessions.jsonl (immediate durability)
     ↓
-Check timeout → Summarize if > 1hr inactive
+Check timeout → Summarize if > 10min inactive
 ```
 
 **Note on Long Conversations**: Active session exchanges fill the available context window without artificial limits. Token budget management and compaction (intelligent summarization of older exchanges) will be implemented in a future milestone.
@@ -120,7 +120,7 @@ Check timeout → Summarize if > 1hr inactive
 | # | Milestone | Description | Success Criteria |
 |---|-----------|-------------|------------------|
 | 1 | **Session Data Model** | ✅ Complete in PRD #54 | `Session`, `Message` dataclasses in `src/session.py` |
-| 2 | **Session Manager** | In-memory session tracking with TTL; auto-archive on timeout | Sessions persist 1hr, auto-summarize |
+| 2 | **Session Manager** | In-memory session tracking with TTL; auto-archive on timeout | Sessions persist 10min, auto-summarize |
 | 3 | **Summarization Engine** | LLM prompt to summarize session; extract key facts | Quality summaries with facts extraction |
 | 4 | **Context Integration** | Inject active session + relevant past sessions into LLM context | LLM sees conversation history |
 | 5 | **Telegram Integration** | Wire session manager to Telegram handler; per-chat sessions | Each chat has isolated session |
@@ -154,7 +154,7 @@ alfred session sess_abc
 ## Configuration
 
 ```python
-SESSION_TIMEOUT_MINUTES = 60      # Auto-summarize after inactivity
+SESSION_TIMEOUT_MINUTES = 10      # Auto-summarize after inactivity
 SESSION_MAX_EXCHANGES = 100       # Force summarize after N turns
 PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
 # Note: No limit on recent exchanges - fills context until token budget hit
@@ -178,7 +178,7 @@ PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
 During Conversation (every message):
     User Message → LLM Response → Append exchange to sessions.jsonl
 
-When Session Ends (1hr timeout):
+When Session Ends (10min timeout):
     Session Summarized
         ↓
     ├─→ Update session record in sessions.jsonl with summary + embedding
@@ -228,6 +228,6 @@ A: Yes, via CLI commands to list, resume, or start fresh.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-02-18 | JSONL storage for sessions | Consistent with existing memory system |
-| 2026-02-18 | 1-hour timeout for summarization | Balances freshness with API efficiency |
+| 2026-02-18 | 10-minute timeout for summarization | Faster session turnover, more granular summaries |
 | 2026-02-18 | Dual storage (raw + summary) | Enables both full replay and fast retrieval |
 | 2026-02-18 | Per-chat session isolation | Telegram users don't share context |
