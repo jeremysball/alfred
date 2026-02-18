@@ -84,7 +84,7 @@ class Exchange:
 
 ```
 data/
-├── memories.jsonl       # Distilled facts from all sessions (replaces MEMORY.md)
+├── memories.jsonl       # Curated facts extracted from all sessions
 └── sessions.jsonl       # All sessions (active + archived)
 ```
 
@@ -169,8 +169,7 @@ PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
 | System | Stores | Use Case | Status |
 |--------|--------|----------|--------|
 | **Session System** | Full conversations, summaries | Context for current conversation, finding relevant past chats | **New** |
-| **MEMORY.md** | Curated long-term facts | ~~Durable user preferences~~ | **Obsolete** - replaced by memories.jsonl |
-| **memories.jsonl** | Distilled facts from all interactions | Long-term curated knowledge + semantic search | **Active** - populated from session key_facts |
+| **memories.jsonl** | Curated facts from all interactions | Long-term curated knowledge + semantic search | **Active** - populated from session key_facts |
 
 ### Data Flow
 
@@ -182,18 +181,18 @@ When Session Ends (1hr timeout):
     Session Summarized
         ↓
     ├─→ Update session record in sessions.jsonl with summary + embedding
-    └─→ Extract key facts → add to memories.jsonl (replaces MEMORY.md)
+    └─→ Extract key facts → add to memories.jsonl
 ```
 
 - **sessions.jsonl**: Complete session history (written immediately per message), summaries added on timeout
-- **memories.jsonl**: Curated facts extracted from sessions (the new MEMORY.md)
+- **memories.jsonl**: Curated facts extracted from sessions (long-term knowledge store)
 
 ---
 
 ## Open Questions (Resolved)
 
 **Q: How does this relate to the existing memory system?**  
-A: Sessions handle conversation context and summaries. memories.jsonl replaces MEMORY.md as the curated long-term knowledge store. Key facts extracted from session summaries feed into memories.jsonl.
+A: Sessions handle conversation context. memories.jsonl is the curated long-term knowledge store. Key facts extracted from session summaries feed into memories.jsonl.
 
 **Q: What triggers session summarization?**  
 A: 1 hour of inactivity OR 100 exchanges (configurable).
