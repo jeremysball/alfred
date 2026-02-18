@@ -94,7 +94,7 @@ class UpdateMemoryTool(Tool):
                     entry = await self._memory_store.get_by_id(entry_id)
                     lookup_key = f"id={entry_id}"
                 else:
-                    results, _ = await self._memory_store.search(search_query, top_k=1)
+                    results, _, _ = await self._memory_store.search(search_query, top_k=1)
                     if results:
                         entry = results[0]
                     lookup_key = f"query='{search_query}'"

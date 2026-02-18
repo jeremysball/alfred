@@ -51,7 +51,7 @@ class TestUpdateMemoryTool:
             embedding=[0.1, 0.2],
             tags=[],
         )
-        mock_memory_store.search.return_value = ([memory], {})
+        mock_memory_store.search.return_value = ([memory], {}, {})
 
         result = ""
         async for chunk in update_tool.execute_stream(
@@ -82,7 +82,7 @@ class TestUpdateMemoryTool:
             embedding=[0.1, 0.2],
             tags=[],
         )
-        mock_memory_store.search.return_value = ([memory], {})
+        mock_memory_store.search.return_value = ([memory], {}, {})
 
         result = ""
         async for chunk in update_tool.execute_stream(
@@ -96,7 +96,7 @@ class TestUpdateMemoryTool:
 
     async def test_preview_no_matches(self, update_tool, mock_memory_store):
         """Preview mode returns message when no matches found."""
-        mock_memory_store.search.return_value = ([], {})
+        mock_memory_store.search.return_value = ([], {}, {})
 
         result = ""
         async for chunk in update_tool.execute_stream(

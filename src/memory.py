@@ -141,7 +141,7 @@ class MemoryStore:
         top_k: int = 10,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> tuple[list[MemoryEntry], dict[str, float]]:
+    ) -> tuple[list[MemoryEntry], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
 
         Args:
@@ -151,7 +151,10 @@ class MemoryStore:
             end_date: Optional filter for entries on or before this date
 
         Returns:
-            Tuple of (top-k most relevant entries, dict of entry_id -> similarity)
+            Tuple of (results, similarities, scores) where:
+            - results: top-k most relevant entries
+            - similarities: dict of entry_id -> cosine similarity (0-1)
+            - scores: dict of entry_id -> hybrid score (0-1)
         """
         query_embedding = await self.embedder.embed(query)
 
@@ -174,7 +177,8 @@ class MemoryStore:
         scored.sort(key=lambda x: x[0], reverse=True)
         results = [entry for _, entry, _ in scored[:top_k]]
         similarities = {entry.entry_id or "": sim for _, entry, sim in scored[:top_k]}
-        return results, similarities
+        scores = {entry.entry_id or "": scr for scr, entry, _ in scored[:top_k]}
+        return results, similarities, scores
 
     async def clear(self) -> None:
         """Clear all memories (useful for testing)."""

@@ -59,7 +59,7 @@ class TestCosineSimilaritySearch:
 
         # Query embedding aligned with first axis (Python)
         query = [1.0, 0.0, 0.0]
-        results, _ = searcher.search(query, memories)
+        results, _, _ = searcher.search(query, memories)
 
         assert len(results) == 3
         # Most similar should be first (Python programming)
@@ -94,7 +94,7 @@ class TestCosineSimilaritySearch:
         ]
 
         query = [1.0, 0.0]
-        results, _ = searcher.search(query, memories)
+        results, _, _ = searcher.search(query, memories)
 
         assert len(results) == 1
         assert results[0].content == "Very relevant"
@@ -115,7 +115,7 @@ class TestCosineSimilaritySearch:
         ]
 
         query = [1.0, 0.0]
-        results, _ = searcher.search(query, memories)
+        results, _, _ = searcher.search(query, memories)
 
         assert len(results) == 2
 
@@ -140,7 +140,7 @@ class TestCosineSimilaritySearch:
         ]
 
         query = [1.0, 0.0]
-        results, _ = searcher.search(query, memories)
+        results, _, _ = searcher.search(query, memories)
 
         assert len(results) == 1
         assert results[0].content == "Has embedding"
@@ -467,9 +467,9 @@ class TestIntegration:
         ]
 
         # Query for Python
-        python_results, _ = searcher.search([1.0, 0.0], memories)
+        python_results, _, _ = searcher.search([1.0, 0.0], memories)
         assert python_results[0].content == "I love Python"
 
         # Query for JavaScript
-        js_results, _ = searcher.search([0.0, 1.0], memories)
+        js_results, _, _ = searcher.search([0.0, 1.0], memories)
         assert js_results[0].content == "I like JavaScript"

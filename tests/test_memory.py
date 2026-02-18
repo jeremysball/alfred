@@ -189,7 +189,7 @@ async def test_search_by_semantic_similarity(mock_config, mock_embedder):
     await store.add_entries(entries)
 
     # Search
-    results, _ = await store.search("coding and software development", top_k=2)
+    results, _, _ = await store.search("coding and software development", top_k=2)
 
     assert len(results) <= 2
     # The programming entry should rank higher
@@ -220,7 +220,7 @@ async def test_search_with_date_filter(mock_config, mock_embedder):
     await store.add_entries(entries)
 
     # Search only Feb 17
-    results, _ = await store.search(
+    results, _, _ = await store.search(
         "python",
         start_date=date(2026, 2, 17),
         end_date=date(2026, 2, 17),

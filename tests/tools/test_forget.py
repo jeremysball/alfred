@@ -44,7 +44,7 @@ class TestForgetTool:
 
     async def test_preview_no_matches(self, forget_tool, mock_memory_store):
         """Preview mode returns message when no matches found."""
-        mock_memory_store.search.return_value = ([], {})
+        mock_memory_store.search.return_value = ([], {}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="nonexistent"):
@@ -72,7 +72,7 @@ class TestForgetTool:
                 tags=[],
             ),
         ]
-        mock_memory_store.search.return_value = (memories, {})
+        mock_memory_store.search.return_value = (memories, {}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="old project"):
@@ -94,7 +94,7 @@ class TestForgetTool:
                 tags=[],
             ),
         ]
-        mock_memory_store.search.return_value = (memories, {})
+        mock_memory_store.search.return_value = (memories, {}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="test"):
@@ -116,7 +116,7 @@ class TestForgetTool:
             )
             for i in range(7)
         ]
-        mock_memory_store.search.return_value = (memories, {})
+        mock_memory_store.search.return_value = (memories, {}, {})
 
         result = ""
         async for chunk in forget_tool.execute_stream(query="test"):

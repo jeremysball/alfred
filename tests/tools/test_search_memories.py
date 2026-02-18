@@ -61,7 +61,8 @@ class TestSearchMemoriesTool:
             ),
         ]
         similarities = {memories[0].entry_id: 0.85, memories[1].entry_id: 0.65}
-        mock_memory_store.search.return_value = (memories, similarities)
+        scores = {memories[0].entry_id: 0.90, memories[1].entry_id: 0.70}
+        mock_memory_store.search.return_value = (memories, similarities, scores)
 
         # Act
         result = ""
@@ -71,13 +72,14 @@ class TestSearchMemoriesTool:
         # Assert
         assert "Python over JavaScript" in result
         assert "Portland" in result
-        assert "85% match" in result or "65% match" in result
+        assert "sim:" in result  # Shows similarity percentage
+        assert "score:" in result  # Shows hybrid score
         assert "[2026-02-17]" in result
         mock_memory_store.search.assert_called_once_with("Python", top_k=5)
 
     async def test_search_no_results(self, search_tool, mock_memory_store):
         """Search with no results returns appropriate message."""
-        mock_memory_store.search.return_value = ([], {})
+        mock_memory_store.search.return_value = ([], {}, {})
 
         result = ""
         async for chunk in search_tool.execute_stream(query="unknown"):
