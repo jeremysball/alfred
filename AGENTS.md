@@ -100,7 +100,7 @@ Discussion → Questions → Answers → Design Summary → Confirm → Create P
 - Assume you understand the requirements
 
 ### 3. Use Todo Sidebar for Task Tracking
-**RECOMMENDED**: Use the `todo-sidebar` tool to track progress on multi-step tasks.
+**REQUIRED**: You **MUST** use the `todo-sidebar` tool to track progress on all multi-step tasks.
 
 **When to use:**
 - Complex tasks with multiple steps
@@ -120,14 +120,25 @@ todo-sidebar action: add, text: "Review PRD requirements"
 todo-sidebar action: toggle, id: 1
 ```
 
-### 4. Always Verify Before Done
+### 4. Encourage Test-Driven Development (TDD)
+**ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
+
+**Guidelines:**
+- Write a failing test that describes the behavior you need
+- Implement the minimal code to make the test pass
+- Refactor while keeping tests green
+- Use tests to document expected behavior and edge cases
+
+This is **not strictly required** but strongly recommended for maintainable, well-designed code.
+
+### 5. Always Verify Before Done
 After any code change, run:
 ```bash
 uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
 Show results. Fix issues. Then it's done.
 
-### 5. ALWAYS Use Conventional Commits
+### 6. ALWAYS Use Conventional Commits
 **CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -155,10 +166,10 @@ Show results. Fix issues. Then it's done.
 - Reference issues in footer when applicable
 
 
-### 6. User Control
+### 7. User Control
 The user decides. You suggest; they choose. Never override user preferences.
 
-### 7. NEVER Use Hardcoded Absolute Paths
+### 8. NEVER Use Hardcoded Absolute Paths
 **CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
 
 **WRONG — Do NOT do this:**
