@@ -217,13 +217,13 @@ Examples:
 
 ## Success Criteria
 
-- [ ] Deletion requires exactly 2 calls with same memory_id
-- [ ] Query mode returns candidates without deleting anything
-- [ ] Pending deletions expire after 5 minutes
-- [ ] Tool description clearly explains two-call pattern
-- [ ] All existing tests updated and passing
-- [ ] New tests cover: two-call pattern, expiration, edge cases
-- [ ] Manual test confirms LLM uses it correctly
+- [x] Deletion requires exactly 2 calls with same memory_id
+- [x] Query mode returns candidates without deleting anything
+- [x] Pending deletions expire after 5 minutes
+- [x] Tool description clearly explains two-call pattern
+- [x] All existing tests updated and passing
+- [x] New tests cover: two-call pattern, expiration, edge cases
+- [x] Manual test confirms LLM uses it correctly
 
 ---
 
