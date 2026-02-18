@@ -82,7 +82,8 @@ class Agent:
                 
                 # Check for reasoning content marker
                 if chunk.startswith("[REASONING]"):
-                    reasoning_content = chunk[11:]  # Remove prefix
+                    chunk_reasoning = chunk[11:]  # Remove prefix
+                    reasoning_content = (reasoning_content or "") + chunk_reasoning
                     continue
                 
                 # Regular content

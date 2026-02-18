@@ -438,6 +438,10 @@ class KimiProvider(LLMProvider):
                     full_content += delta.content
                     yield delta.content
                 
+                # Handle reasoning content (required for Kimi thinking mode with tool calls)
+                if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                    yield f"[REASONING]{delta.reasoning_content}"
+                
                 # Handle tool calls
                 if delta.tool_calls:
                     for tc in delta.tool_calls:
