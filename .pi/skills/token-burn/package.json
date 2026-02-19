@@ -1,0 +1,39 @@
+{
+  "name": "token-burn",
+  "version": "1.0.0",
+  "description": "Calculate token usage from OpenClaw session JSONL files",
+  "main": "dist/token-burn.js",
+  "bin": {
+    "token-burn": "./dist/token-burn.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/token-burn.ts",
+    "start": "node dist/token-burn.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
+  },
+  "keywords": [
+    "tokens",
+    "openclaw",
+    "llm",
+    "usage",
+    "analytics"
+  ],
+  "author": "Jaz Ball",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
