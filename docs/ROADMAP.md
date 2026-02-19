@@ -19,6 +19,7 @@ This roadmap tracks the development of Alfred, an AI coding agent with persisten
 ## Short-term (Active Development)
 
 - [ ] **Alfred v1.0 Vision** - Comprehensive PRD documenting architecture and roadmap (PRD #48)
+- [ ] **Cron Error Handling & UX** - Friendly errors, local timezone, CLI responsiveness fix (PRD #75)
 - [ ] **Rich Markdown Output for CLI** - Streaming markdown-to-ANSI rendering (PRD #70)
 - [ ] **README Landing Page** - Transform README into compelling OSS landing page (PRD #49)
 - [ ] Fix Tool Class Type Safety - Resolve mypy override errors (PRD #44)
