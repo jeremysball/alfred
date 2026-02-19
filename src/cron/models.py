@@ -76,6 +76,8 @@ class Job:
     created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
     updated_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
     resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
+    chat_id: int | None = None  # Telegram chat_id for job notifications
+    sandbox_enabled: bool = False  # Whether to use restricted builtins
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job to dictionary for JSON serialization."""
@@ -89,6 +91,8 @@ class Job:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "resource_limits": self.resource_limits.to_dict(),
+            "chat_id": self.chat_id,
+            "sandbox_enabled": self.sandbox_enabled,
         }
 
     @classmethod
@@ -114,6 +118,8 @@ class Job:
             created_at=cls._parse_datetime(data.get("created_at")),
             updated_at=cls._parse_datetime(data.get("updated_at")),
             resource_limits=resource_limits,
+            chat_id=data.get("chat_id"),
+            sandbox_enabled=data.get("sandbox_enabled", False),
         )
 
 

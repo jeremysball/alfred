@@ -4,9 +4,12 @@ import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from telegram import Bot
+
 from src.agent import Agent
 from src.config import Config
 from src.context import ContextLoader
+from src.cron.notifier import CLINotifier, Notifier, TelegramNotifier
 from src.cron.scheduler import CronScheduler
 from src.cron.store import CronStore
 from src.embeddings import EmbeddingClient
@@ -22,7 +25,7 @@ logger = logging.getLogger(__name__)
 class Alfred:
     """Core Alfred engine - handles memory, context, LLM, and agent loop."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, telegram_mode: bool = False) -> None:
         self.config = config
         self.llm = LLMFactory.create(config)
 
@@ -35,11 +38,42 @@ class Alfred:
         )
         self.context_loader = ContextLoader(config, searcher=self.searcher)
 
-        # Initialize cron scheduler
+        # Initialize data directory
         data_dir = getattr(config, "data_dir", Path("data"))
+
+        # Create notifier based on mode
+        notifier: Notifier
+        self._telegram_bot: Bot | None = None
+
+        if telegram_mode:
+            try:
+                self._telegram_bot = Bot(token=config.telegram_bot_token)
+                # Read chat_id from telegram state file
+                state_file = data_dir / "telegram_state.json"
+                chat_id: int | None = None
+                if state_file.exists():
+                    import json
+
+                    with open(state_file) as f:
+                        chat_id = json.load(f).get("chat_id")
+
+                notifier = TelegramNotifier(
+                    bot=self._telegram_bot,
+                    default_chat_id=chat_id,
+                )
+                logger.info("TelegramNotifier initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize TelegramNotifier, falling back to CLI: {e}")
+                notifier = CLINotifier()
+        else:
+            notifier = CLINotifier()
+            logger.info("CLINotifier initialized")
+
+        # Initialize cron scheduler with notifier
         self.cron_scheduler = CronScheduler(
             store=CronStore(data_dir),
             data_dir=data_dir,
+            notifier=notifier,
         )
 
         # Register built-in tools (inject memory store and scheduler)

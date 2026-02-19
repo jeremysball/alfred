@@ -18,6 +18,7 @@ from typing import Any, cast
 from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
+from src.cron.notifier import Notifier
 from src.cron.observability import Alert, HealthStatus, Observability
 from src.cron.store import CronStore
 
@@ -82,6 +83,7 @@ class CronScheduler:
         check_interval: float = 60.0,
         data_dir: Path | None = None,
         observability: Observability | None = None,
+        notifier: Notifier | None = None,
     ) -> None:
         """Initialize scheduler.
 
@@ -90,6 +92,7 @@ class CronScheduler:
             check_interval: Seconds between schedule checks
             data_dir: Directory for log files (default: data/)
             observability: Observability instance (creates default if None)
+            notifier: Notifier for sending messages to users (optional)
         """
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
@@ -97,6 +100,7 @@ class CronScheduler:
         self._task: asyncio.Task | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
+        self._notifier = notifier
 
         # Initialize observability
         if observability:
@@ -148,9 +152,12 @@ class CronScheduler:
 
         Args:
             job: Job to register (will be persisted)
+
+        Raises:
+            ValueError: If job code fails to compile or doesn't define run() function
         """
-        # Compile code to handler
-        handler = self._compile_handler(job.code)
+        # Compile code to handler (raises ValueError on failure)
+        handler = self._compile_handler(job.code, job.sandbox_enabled)
         runnable = RunnableJob.from_job(job, handler)
 
         self._jobs[job.job_id] = runnable
@@ -165,6 +172,7 @@ class CronScheduler:
         name: str,
         expression: str,
         code: str,
+        sandbox_enabled: bool = False,
     ) -> str:
         """Submit a user job for approval.
 
@@ -172,38 +180,58 @@ class CronScheduler:
             name: Job name
             expression: Cron expression
             code: Python code as string
+            sandbox_enabled: Whether to run in sandbox with restricted builtins
 
         Returns:
             Job ID (pending approval)
+
+        Raises:
+            ValueError: If code fails validation (compile error or missing run function)
         """
+        # Validate code compiles and has run() function before saving
+        self._validate_job_code(code)
+
         job = Job(
             job_id=str(uuid.uuid4()),
             name=name,
             expression=expression,
             code=code,
             status="pending",
+            sandbox_enabled=sandbox_enabled,
         )
         await self._store.save_job(job)
         logger.info(f"Submitted user job for approval: {name} ({job.job_id})")
         return job.job_id
 
-    async def approve_job(self, job_id: str, approved_by: str) -> None:
+    async def approve_job(self, job_id: str, approved_by: str) -> dict[str, Any]:
         """Approve a pending user job.
 
         Args:
             job_id: Job ID to approve
             approved_by: Who approved the job
+
+        Returns:
+            Dictionary with 'success' bool and 'message' string
         """
         jobs = await self._store.load_jobs()
         for job in jobs:
             if job.job_id == job_id:
-                job.status = "active"
-                await self._store.save_job(job)
-                # Register for execution
-                await self.register_job(job)
-                logger.info(f"Approved job {job_id} by {approved_by}")
-                return
-        raise ValueError(f"Job not found: {job_id}")
+                try:
+                    # Try to compile before updating status
+                    self._validate_job_code(job.code)
+                    job.status = "active"
+                    await self._store.save_job(job)
+                    # Register for execution
+                    await self.register_job(job)
+                    logger.info(f"Approved job {job_id} by {approved_by}")
+                    return {"success": True, "message": f"Job '{job.name}' approved and activated"}
+                except ValueError as e:
+                    logger.error(f"Failed to approve job {job_id}: {e}")
+                    return {"success": False, "message": f"Cannot approve job: {e}"}
+                except Exception as e:
+                    logger.exception(f"Unexpected error approving job {job_id}")
+                    return {"success": False, "message": f"Unexpected error: {e}"}
+        return {"success": False, "message": f"Job not found: {job_id}"}
 
     async def register_system_jobs(self) -> None:
         """Register built-in system jobs.
@@ -245,7 +273,7 @@ class CronScheduler:
         for job in jobs:
             if job.status == "active":
                 try:
-                    handler = self._compile_handler(job.code)
+                    handler = self._compile_handler(job.code, job.sandbox_enabled)
                     runnable = RunnableJob.from_job(job, handler)
                     self._jobs[job.job_id] = runnable
                     self._job_code[job.job_id] = job.code
@@ -253,56 +281,100 @@ class CronScheduler:
                 except Exception:
                     logger.exception(f"Failed to load job {job.job_id}")
 
-    def _compile_handler(self, code: str) -> Callable[[], Awaitable[None]]:
-        """Compile job code into executable handler.
+    def _validate_job_code(self, code: str) -> None:
+        """Validate job code compiles and has required run() function.
 
         Args:
             code: Python code as string
 
+        Raises:
+            ValueError: If code doesn't compile or lacks run() function
+        """
+        try:
+            compiled = compile(code, "<string>", "exec")
+        except SyntaxError as e:
+            raise ValueError(f"Syntax error in job code: {e}") from e
+        except Exception as e:
+            raise ValueError(f"Failed to compile job code: {e}") from e
+
+        # Check for run function by examining bytecode
+        namespace: dict[str, Any] = {"__builtins__": {}}
+        exec(compiled, namespace)  # noqa: S102
+
+        if "run" not in namespace:
+            raise ValueError("Job code must define a run() function")
+        if not asyncio.iscoroutinefunction(namespace["run"]):
+            raise ValueError("Job run() function must be async (defined with 'async def')")
+
+    def _compile_handler(
+        self, code: str, sandbox_enabled: bool = False
+    ) -> Callable[[], Awaitable[None]]:
+        """Compile job code into executable handler.
+
+        Args:
+            code: Python code as string
+            sandbox_enabled: If True, use restricted builtins. If False, full access.
+
         Returns:
             Compiled async function
+
+        Raises:
+            ValueError: If code doesn't compile or lacks run() function
         """
-        # Create namespace with allowed builtins
-        namespace: dict[str, Any] = {
-            "__builtins__": {
-                "print": print,
-                "len": len,
-                "str": str,
-                "int": int,
-                "float": float,
-                "bool": bool,
-                "list": list,
-                "dict": dict,
-                "set": set,
-                "tuple": tuple,
-                "range": range,
-                "enumerate": enumerate,
-                "zip": zip,
-                "map": map,
-                "filter": filter,
-                "sum": sum,
-                "min": min,
-                "max": max,
-                "abs": abs,
-                "round": round,
-                "any": any,
-                "all": all,
-                "isinstance": isinstance,
-                "hasattr": hasattr,
-                "getattr": getattr,
-                "setattr": setattr,
-                "Exception": Exception,
-                "ValueError": ValueError,
-                "TypeError": TypeError,
-                "KeyError": KeyError,
-                "IndexError": IndexError,
-                "AttributeError": AttributeError,
-                "RuntimeError": RuntimeError,
-                "ImportError": ImportError,
-                "NameError": NameError,
-                "TimeoutError": TimeoutError,
-            },
-        }
+
+        async def _placeholder_notify(message: str) -> None:
+            """Placeholder notify function - replaced at runtime."""
+            pass
+
+        if sandbox_enabled:
+            # Restricted builtins for sandboxed jobs
+            namespace: dict[str, Any] = {
+                "__builtins__": {
+                    "print": print,
+                    "len": len,
+                    "str": str,
+                    "int": int,
+                    "float": float,
+                    "bool": bool,
+                    "list": list,
+                    "dict": dict,
+                    "set": set,
+                    "tuple": tuple,
+                    "range": range,
+                    "enumerate": enumerate,
+                    "zip": zip,
+                    "map": map,
+                    "filter": filter,
+                    "sum": sum,
+                    "min": min,
+                    "max": max,
+                    "abs": abs,
+                    "round": round,
+                    "any": any,
+                    "all": all,
+                    "isinstance": isinstance,
+                    "hasattr": hasattr,
+                    "getattr": getattr,
+                    "setattr": setattr,
+                    "Exception": Exception,
+                    "ValueError": ValueError,
+                    "TypeError": TypeError,
+                    "KeyError": KeyError,
+                    "IndexError": IndexError,
+                    "AttributeError": AttributeError,
+                    "RuntimeError": RuntimeError,
+                    "ImportError": ImportError,
+                    "NameError": NameError,
+                    "TimeoutError": TimeoutError,
+                },
+                "notify": _placeholder_notify,
+            }
+        else:
+            # Full builtins access for non-sandboxed jobs
+            namespace = {
+                "__builtins__": __builtins__,
+                "notify": _placeholder_notify,
+            }
 
         # Execute code in namespace
         exec(code, namespace)  # noqa: S102
@@ -376,7 +448,8 @@ class CronScheduler:
             context = ExecutionContext(
                 job_id=job.job_id,
                 job_name=job.name,
-                notifier=None,  # TODO: Inject notifier when available
+                notifier=self._notifier,
+                chat_id=job_model.chat_id if job_model else None,
             )
 
             # Create executor and run

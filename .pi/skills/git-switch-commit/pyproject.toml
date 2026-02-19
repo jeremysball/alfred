@@ -1,0 +1,8 @@
+[project]
+name = "git-switch-commit"
+version = "1.0.0"
+description = "Stash, switch to main, commit, push, return, and pop - the perfect workflow for quick commits"
+requires-python = ">=3.10"
+
+[project.scripts]
+git-switch-commit = "src.git_switch_commit:main"

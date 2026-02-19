@@ -70,7 +70,7 @@ class Notifier(ABC):
     """Abstract interface for sending notifications to users."""
     
     @abstractmethod
-    async def send(self, message: str) -> None:
+    async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send a notification message."""
         pass
 ```
@@ -81,12 +81,24 @@ class Notifier(ABC):
 class TelegramNotifier(Notifier):
     """Send notifications via Telegram bot."""
     
-    def __init__(self, bot, chat_id: int):
+    def __init__(self, bot: Bot, default_chat_id: int | None = None):
         self.bot = bot
-        self.chat_id = chat_id
+        self.default_chat_id = default_chat_id
     
-    async def send(self, message: str) -> None:
-        await self.bot.send_message(chat_id=self.chat_id, text=message)
+    async def send(self, message: str, chat_id: int | None = None) -> None:
+        target = chat_id or self.default_chat_id
+        if target is None:
+            logger.warning("No chat_id available for notification")
+            return
+        
+        # Truncate if needed (Telegram limit is 4096)
+        if len(message) > 4093:
+            message = message[:4093] + "..."
+        
+        try:
+            await self.bot.send_message(chat_id=target, text=message)
+        except Exception as e:
+            logger.error(f"Failed to send Telegram notification: {e}")
 
 class CLINotifier(Notifier):
     """Send notifications to CLI output."""
@@ -94,7 +106,7 @@ class CLINotifier(Notifier):
     def __init__(self, output_stream=None):
         self.output = output_stream or sys.stdout
     
-    async def send(self, message: str) -> None:
+    async def send(self, message: str, chat_id: int | None = None) -> None:
         self.output.write(f"[JOB NOTIFICATION] {message}\n")
 ```
 
@@ -126,29 +138,24 @@ class Alfred:
 
 | # | Milestone | Status | Description |
 |---|-----------|--------|-------------|
-| M1 | Notifier Interface | 🔲 Todo | Create `Notifier` ABC in `src/cron/notifier.py` |
-| M2 | Telegram Notifier | 🔲 Todo | Implement `TelegramNotifier` class |
-<<<<<<< Updated upstream
+| M1 | Notifier Interface | ✅ Done | Create `Notifier` ABC in `src/cron/notifier.py` |
+| M2 | Telegram Notifier | ✅ Done | Implement `TelegramNotifier` class |
 | M3 | CLI Notifier | ✅ Done | Implement `CLINotifier` class |
 | M4 | Scheduler Wiring | ✅ Done | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
-=======
-| M3 | CLI Notifier | ✅ Done | Implement `CLINotifier` class |
-| M4 | Scheduler Wiring | ✅ Done | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
->>>>>>> Stashed changes
-| M5 | Alfred Integration | 🔲 Todo | Create notifier in `Alfred.__init__`, inject into scheduler |
-| M6 | Testing | 🔲 Todo | Unit tests for notifiers, integration test for notify() flow |
-| M7 | Documentation | 🔲 Todo | Update `docs/job-api.md` to remove "not implemented" warnings |
+| M5 | Alfred Integration | ✅ Done | Create notifier in `Alfred.__init__`, inject into scheduler |
+| M6 | Testing | ✅ Done | Unit tests for notifiers, integration test for notify() flow |
+| M7 | Documentation | ✅ Done | Update `docs/job-api.md` to remove "not implemented" warnings |
 
 ---
 
 ## Success Criteria
 
-- [ ] Jobs can call `await notify("message")` and message reaches user
-- [ ] Telegram interface: messages appear in chat
-- [ ] CLI interface: messages appear in console output
-- [ ] Notifier is properly injected through dependency chain
-- [ ] Tests cover all notifier implementations
-- [ ] Documentation updated to reflect working feature
+- [x] Jobs can call `await notify("message")` and message reaches user
+- [x] Telegram interface: messages appear in chat
+- [x] CLI interface: messages appear in console output
+- [x] Notifier is properly injected through dependency chain
+- [x] Tests cover all notifier implementations
+- [x] Documentation updated to reflect working feature
 
 ---
 
@@ -156,22 +163,27 @@ class Alfred:
 
 | Component | Change |
 |-----------|--------|
-| `src/cron/notifier.py` | New file with Notifier ABC and implementations |
-| `src/cron/scheduler.py` | Accept `notifier` parameter, pass to ExecutionContext |
-| `src/cron/executor.py` | Import Notifier type, add type hints |
-| `src/alfred.py` | Create notifier instance, inject into CronScheduler |
-| `src/interfaces/telegram.py` | May need to expose bot for notifier |
-| `docs/job-api.md` | Remove "not implemented" warnings |
-| `docs/notifier.md` | Update to reflect implemented status |
+| `src/cron/models.py` | ✅ Added `chat_id: int \| None` field to Job model |
+| `src/cron/notifier.py` | ✅ Notifier ABC, TelegramNotifier, CLINotifier |
+| `src/cron/scheduler.py` | ✅ Accepts `notifier` parameter, passes to ExecutionContext |
+| `src/cron/executor.py` | ✅ ExecutionContext has chat_id field |
+| `src/alfred.py` | ✅ Creates notifier instance, injects into CronScheduler |
+| `src/interfaces/telegram.py` | ✅ Chat ID tracking embedded in TelegramInterface |
+| `docs/job-api.md` | ✅ Removed "not implemented" warnings |
+| `docs/notifier.md` | ✅ Updated to reflect implemented status |
 
 ---
 
 ## Decision Log
 
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-02-19 | Notifier ABC | Allows multiple implementations (Telegram, CLI, future HTTP) |
-| 2026-02-19 | Inject via constructor | Follows existing pattern for memory_store, keeps testable |
+| Date | Decision | Rationale | Impact |
+|------|----------|-----------|--------|
+| 2026-02-19 | Notifier ABC | Allows multiple implementations (Telegram, CLI, future HTTP) | `Notifier` base class |
+| 2026-02-19 | Inject via constructor | Follows existing pattern for memory_store, keeps testable | Scheduler accepts `notifier` param |
+| 2026-02-19 | Bot instance from TelegramInterface | Avoid duplicate bot instances, reuse existing connection | TelegramNotifier receives `Bot`, not token |
+| 2026-02-19 | Per-job chat_id with default fallback | Jobs may want to notify different users, but default to owner | Add `chat_id: int \| None` to Job model |
+| 2026-02-19 | Log errors, don't crash jobs | Consistent with CLINotifier, prevents job failure from notification issues | Try/catch in `send()`, log on failure |
+| 2026-02-19 | Truncate messages at 4093 + "..." | Telegram has 4096 char limit, give user indication of truncation | Truncation logic in `send()` |
 
 ---
 

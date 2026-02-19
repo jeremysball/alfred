@@ -12,7 +12,7 @@ The notifier provides a bridge between background jobs and user-facing interface
 
 ## Current Status
 
-**⚠️ Not Implemented**: The notifier infrastructure exists but is not yet wired up. Jobs calling `notify()` will silently do nothing.
+**✅ Implemented**: The notifier infrastructure is fully wired up. Jobs can call `await notify("message")` to send notifications to users via Telegram (when running in Telegram mode) or CLI output (when running in CLI mode).
 
 ## Architecture
 
@@ -32,15 +32,16 @@ The notifier provides a bridge between background jobs and user-facing interface
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   Notifier Interface                        │
-│              (needs to be defined/injected)                 │
+│                   Notifier (ABC)                            │
+│              (src/cron/notifier.py)                         │
 └──────────────────────┬──────────────────────────────────────┘
                        │
          ┌─────────────┴─────────────┐
          ▼                           ▼
 ┌──────────────────┐      ┌──────────────────┐
-│  Telegram Bot    │      │      CLI         │
-│  send_message()  │      │  print/output    │
+│ TelegramNotifier │      │   CLINotifier    │
+│  Bot.send_       │      │  stdout write    │
+│  message()       │      │                  │
 └──────────────────┘      └──────────────────┘
 ```
 
@@ -54,100 +55,114 @@ class ExecutionContext:
     job_id: str
     job_name: str
     memory_store: Any | None = None
-    notifier: Any | None = None  # Currently always None
+    notifier: Notifier | None = None
+    chat_id: int | None = None  # Per-job routing
 
     async def notify(self, message: str) -> None:
         if self.notifier:
-            await self.notifier.send(message)
+            await self.notifier.send(message, chat_id=self.chat_id)
 ```
 
 ### Injection Points
 
-Currently, the scheduler creates `ExecutionContext` with `notifier=None`:
+The scheduler creates `ExecutionContext` with the notifier injected by Alfred:
 
 ```python
 # src/cron/scheduler.py
 context = ExecutionContext(
     job_id=job.job_id,
     job_name=job.name,
-    memory_store=self._store,
-    notifier=None,  # TODO: Inject notifier when available
+    notifier=self._notifier,
+    chat_id=job_model.chat_id if job_model else None,
 )
 ```
 
-## Implementation Path
+## Implementation Details
 
-To make `notify()` work, the following steps are needed:
-
-### 1. Define Notifier Interface
+### Notifier Interface
 
 ```python
 from abc import ABC, abstractmethod
 
 class Notifier(ABC):
     @abstractmethod
-    async def send(self, message: str) -> None:
+    async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send a notification message to the user."""
         pass
 ```
 
-### 2. Create Concrete Notifiers
+### Concrete Notifiers
 
 **Telegram Notifier:**
 ```python
 class TelegramNotifier(Notifier):
-    def __init__(self, bot, chat_id: int):
+    def __init__(self, bot: Bot, default_chat_id: int | None = None):
         self.bot = bot
-        self.chat_id = chat_id
-    
-    async def send(self, message: str) -> None:
-        await self.bot.send_message(chat_id=self.chat_id, text=message)
+        self.default_chat_id = default_chat_id
+
+    async def send(self, message: str, chat_id: int | None = None) -> None:
+        target = chat_id or self.default_chat_id
+        if target is None:
+            logger.warning("No chat_id available for notification")
+            return
+
+        # Truncate if needed (Telegram limit is 4096)
+        if len(message) > 4093:
+            message = message[:4093] + "..."
+
+        try:
+            await self.bot.send_message(chat_id=target, text=message)
+        except Exception as e:
+            logger.error(f"Failed to send Telegram notification: {e}")
 ```
 
 **CLI Notifier:**
 ```python
 class CLINotifier(Notifier):
-    def send(self, message: str) -> None:
-        print(f"[NOTIFICATION] {message}")
+    def __init__(self, output_stream: TextIO | None = None):
+        self.output = output_stream or sys.stdout
+
+    async def send(self, message: str, chat_id: int | None = None) -> None:
+        # Formats with timestamp and writes to output stream
+        self.output.write(f"[{timestamp} JOB NOTIFICATION] {message}\n")
 ```
 
-### 3. Wire Up in Alfred
+### Alfred Integration
 
 ```python
 class Alfred:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, telegram_mode: bool = False):
         # ... existing initialization ...
-        
-        # Create notifier based on interface
-        if telegram_bot:
-            self.notifier = TelegramNotifier(telegram_bot, chat_id)
+
+        # Create notifier based on mode
+        if telegram_mode:
+            self._telegram_bot = Bot(token=config.telegram_bot_token)
+            # Read chat_id from telegram state file
+            chat_id = ...  # From data/telegram_state.json
+            notifier = TelegramNotifier(bot=self._telegram_bot, default_chat_id=chat_id)
         else:
-            self.notifier = CLINotifier()
-        
+            notifier = CLINotifier()
+
         # Pass to scheduler
         self.cron_scheduler = CronScheduler(
             store=CronStore(data_dir),
             data_dir=data_dir,
-            notifier=self.notifier,  # Inject here
+            notifier=notifier,
         )
 ```
 
-### 4. Update CronScheduler
+### Chat ID Tracking
+
+The `TelegramInterface` tracks incoming chat IDs and persists them to `data/telegram_state.json`:
 
 ```python
-class CronScheduler:
-    def __init__(self, ..., notifier: Notifier | None = None):
-        # ...
-        self._notifier = notifier
-    
-    async def _execute_job(self, job: RunnableJob) -> None:
-        context = ExecutionContext(
-            job_id=job.job_id,
-            job_name=job.name,
-            memory_store=self._store,
-            notifier=self._notifier,  # Pass through
-        )
-        # ... execute with context
+class TelegramInterface:
+    def _track_chat_id(self, update: Update) -> None:
+        if update.effective_chat:
+            new_chat_id = update.effective_chat.id
+            if new_chat_id != self._chat_id:
+                self._chat_id = new_chat_id
+                self._save_state()
 ```
 
 ## Design Decisions
@@ -174,6 +189,9 @@ The notifier is injected rather than being a singleton to support:
 
 ## Related Code
 
+- `src/cron/notifier.py` - Notifier ABC, TelegramNotifier, CLINotifier
 - `src/cron/executor.py` - ExecutionContext implementation
 - `src/cron/scheduler.py` - CronScheduler, creates ExecutionContext
+- `src/alfred.py` - Creates and injects notifier
+- `src/interfaces/telegram.py` - Chat ID tracking
 - `docs/job-api.md` - User-facing job documentation

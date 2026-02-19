@@ -349,3 +349,55 @@ def run():
 """
         with pytest.raises(ValueError, match="must be async"):
             scheduler._compile_handler(code)
+
+
+class TestCronSchedulerNotifier:
+    """Tests for notifier integration."""
+
+    def test_scheduler_accepts_notifier_parameter(self):
+        """CronScheduler accepts notifier in constructor."""
+        from src.cron.notifier import CLINotifier
+
+        notifier = CLINotifier()
+        scheduler = CronScheduler(notifier=notifier)
+
+        assert scheduler._notifier is notifier
+
+    def test_scheduler_notifier_defaults_to_none(self):
+        """CronScheduler notifier defaults to None."""
+        scheduler = CronScheduler()
+
+        assert scheduler._notifier is None
+
+    async def test_notifier_passed_to_execution_context(self, temp_data_dir: Path):
+        """Notifier is passed to ExecutionContext during job execution."""
+        import io
+
+        from src.cron.notifier import CLINotifier
+
+        output = io.StringIO()
+        notifier = CLINotifier(output_stream=output)
+        scheduler = CronScheduler(check_interval=0.1, notifier=notifier)
+
+        # Register job that calls notify
+        job_code = """
+async def run():
+    await notify("Hello from test job!")
+"""
+        job = Job(
+            job_id="test-notify-job",
+            name="Test Notify Job",
+            expression="* * * * *",
+            code=job_code,
+            status="active",
+        )
+        await scheduler.register_job(job)
+
+        # Execute the job directly
+        runnable_job = scheduler._jobs["test-notify-job"]
+        await scheduler._execute_job(runnable_job)
+
+        # Check output contains notification
+        result = output.getvalue()
+        assert "JOB NOTIFICATION" in result
+        assert "Hello from test job!" in result

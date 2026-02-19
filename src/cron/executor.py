@@ -19,6 +19,7 @@ from typing import Any
 import psutil
 
 from src.cron.models import ExecutionStatus, Job, ResourceLimits
+from src.cron.notifier import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,8 @@ class ExecutionContext:
     job_id: str
     job_name: str
     memory_store: Any | None = None
-    notifier: Any | None = None
+    notifier: Notifier | None = None
+    chat_id: int | None = None  # Per-job chat_id for notifications
 
     async def notify(self, message: str) -> None:
         """Send a notification to the user.
@@ -43,7 +45,7 @@ class ExecutionContext:
             message: Message to send
         """
         if self.notifier:
-            await self.notifier.send(message)
+            await self.notifier.send(message, chat_id=self.chat_id)
 
     def store_get(self, key: str) -> Any:
         """Get a value from the job's key-value store.
@@ -211,6 +213,10 @@ class JobExecutor:
         # Get initial memory
         process = psutil.Process()
         initial_memory = process.memory_info().rss
+
+        # Inject notify into handler's globals if notifier is available
+        if self.context.notifier is not None:
+            self.handler.__globals__["notify"] = self.context.notify
 
         # Execute the handler
         await self.handler()

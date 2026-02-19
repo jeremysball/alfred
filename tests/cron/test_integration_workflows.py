@@ -110,7 +110,7 @@ class TestFullJobLifecycle:
             result.append(chunk)
 
         output = "".join(result)
-        assert "Approved" in output
+        assert "approved" in output.lower()
         assert "active" in output.lower()
 
         # Verify in store
