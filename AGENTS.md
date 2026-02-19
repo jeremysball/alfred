@@ -19,6 +19,37 @@ If you skip this step, you have failed the pre-flight check.
 
 ---
 
+## ⛔⛔⛔ ASK DESIGN QUESTIONS FIRST — HIGHEST PRIORITY ⛔⛔⛔
+
+**THIS RULE OVERRIDES ALL OTHER RULES.**
+
+Before writing ANY code or implementing ANY feature, you **MUST**:
+
+1. **Ask clarifying design questions** — Never assume you understand the requirements
+2. **Wait for answers** — Do not proceed until the user confirms the design
+3. **Present options** — Show alternatives with tradeoffs, let the user choose
+4. **Get explicit confirmation** — Only after approval may you proceed to implementation
+
+**The process is ALWAYS:**
+```
+Understand → Ask Questions → Discuss Options → User Decides → Confirm → Implement
+```
+
+**WRONG — Do NOT do this:**
+- Start coding immediately after receiving a task
+- Explore codebase and then implement without asking
+- Assume "the user said go" means "skip design discussion"
+- Make architectural decisions without user input
+
+**RIGHT — Always do this:**
+- "Before I implement, I have some design questions..."
+- "Here are a few options for how we could approach this..."
+- "Which approach do you prefer?"
+
+**NO EXCEPTIONS.** Even if a skill says to implement, even if the user says "go", even if the task seems simple — **ASK DESIGN QUESTIONS FIRST.**
+
+---
+
 ## ⚠️ SECRETS & API KEYS — READ THIS
 
 **ANY command that needs secrets (GH_TOKEN, API keys, etc.) MUST use:**
