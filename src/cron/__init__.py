@@ -1,6 +1,6 @@
 """Cron scheduler package for Alfred."""
 
-from src.cron.notifier import Notifier, NotifierError
+from src.cron.notifier import CLINotifier, Notifier, NotifierError
 from src.cron.observability import (
     Alert,
     AlertManager,
@@ -21,6 +21,7 @@ __all__ = [
     "Alert",
     "AlertManager",
     "AlertType",
+    "CLINotifier",
     "Counter",
     "CronMetrics",
     "CronScheduler",
