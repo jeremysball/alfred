@@ -4,356 +4,252 @@
 
 **Issue**: #21  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Depends On**: #53 (Session System), #20 (M10: Distillation)  
+**Depends On**: #53 (Session System)  
 **Status**: Planning  
 **Priority**: High  
 **Created**: 2026-02-16
 
-> **Note**: Updated dependencies to use Session System instead of superseded M8 Capabilities.
-
-Implement learning system that updates agent files (USER.md, SOUL.md, TOOLS.md) based on conversation insights using model-driven decisions.
+Implement learning system that updates agent context files based on conversation insights. Model-driven, prompt-based, permission-first.
 
 ---
 
 ## Problem Statement
 
-Alfred must evolve. User preferences change. New tools appear. Alfred's personality refines. The learning system observes conversations and updates agent files automatically. The model decides what to learn and record.
+Alfred must evolve as he learns about the user. Preferences emerge. Communication patterns develop. Alfred's understanding deepens. The learning system observes each message and proposes updates to context files when patterns emerge. No background tasks. No complex tooling. Just judgment guided by prompt.
 
 ---
 
 ## Solution
 
-Create learning system that:
-1. Analyzes conversations for user pattern changes
-2. Detects new tool configurations
-3. Refines personality based on interaction style
-4. Updates agent files (USER.md, SOUL.md, TOOLS.md)
-5. Asks permission before changes (per AGENTS.md)
+Create a learning skill that:
+1. Loads into the system prompt on startup
+2. Evaluates every message for learning opportunities
+3. Proposes file changes conversationally (not tool calls)
+4. Applies changes only with explicit user approval
+5. Edits files in `./data/` (copied from `templates/`)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `src/learning.py` - Learning engine
-- [ ] User preference learning (USER.md updates)
-- [ ] Tool configuration learning (TOOLS.md updates)
-- [ ] Personality refinement (SOUL.md updates)
-- [ ] Permission requests before file changes
-- [ ] Change proposal generation
+- [ ] Template copying on startup (`templates/` → `./data/`)
+- [ ] Learning skill loaded into system prompt
+- [ ] USER.md learning (preferences, patterns, facts)
+- [ ] SOUL.md learning (personality refinement, evolved understanding)
+- [ ] TOOLS.md learning (environment-specific configurations)
+- [ ] Permission requests before any file changes
+- [ ] Edits applied via standard `edit` tool
 
 ---
 
 ## File Structure
 
 ```
-src/
-└── learning.py            # Learning engine
+workspace/
+├── templates/               # Source templates (read-only)
+│   ├── SOUL.md
+│   ├── USER.md
+│   ├── TOOLS.md
+│   └── AGENTS.md
+└── data/                    # Working copies (editable)
+    ├── SOUL.md
+    ├── USER.md
+    ├── TOOLS.md
+    └── AGENTS.md
+
+.pi/skills/
+└── learning/
+    └── SKILL.md             # Learning skill (loaded into prompt)
 ```
 
 ---
 
-## Learning Engine (src/learning.py)
+## Template Copying
+
+On startup, Alfred copies templates to `./data/` if they don't exist:
 
 ```python
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import Any
-from src.types import MemoryEntry
-from src.llm import LLMProvider, ChatMessage
-from src.config import Config
-
-
-@dataclass
-class ProposedChange:
-    file: str  # "USER.md", "SOUL.md", "TOOLS.md"
-    section: str | None
-    action: str  # "add", "update", "remove"
-    current_content: str | None
-    proposed_content: str
-    reason: str
-
-
-@dataclass
-class LearningResult:
-    proposals: list[ProposedChange]
-    applied: list[ProposedChange]
-    rejected: list[ProposedChange]
-
-
-class LearningEngine:
-    """Learn from conversations and propose file updates."""
+async def initialize_context_files(templates_dir: Path, data_dir: Path) -> None:
+    """Copy templates to data directory on first run."""
+    data_dir.mkdir(parents=True, exist_ok=True)
     
-    def __init__(
-        self,
-        config: Config,
-        llm: LLMProvider,
-    ) -> None:
-        self.config = config
-        self.llm = llm
-    
-    async def analyze(
-        self,
-        recent_memories: list[MemoryEntry],
-    ) -> LearningResult:
-        """Analyze conversations and propose changes."""
-        if len(recent_memories) < 5:
-            return LearningResult(proposals=[], applied=[], rejected=[])
+    for file in ["SOUL.md", "USER.md", "TOOLS.md", "AGENTS.md"]:
+        source = templates_dir / file
+        dest = data_dir / file
         
-        conversation = self._format_conversation(recent_memories)
-        
-        # Load current files
-        user_md = self._load_file("USER.md")
-        soul_md = self._load_file("SOUL.md")
-        tools_md = self._load_file("TOOLS.md")
-        
-        # Generate proposals
-        proposals = await self._generate_proposals(
-            conversation=conversation,
-            user_md=user_md,
-            soul_md=soul_md,
-            tools_md=tools_md,
-        )
-        
-        return LearningResult(
-            proposals=proposals,
-            applied=[],
-            rejected=[],
-        )
-    
-    def _format_conversation(self, memories: list[MemoryEntry]) -> str:
-        """Format memories for analysis."""
-        lines = []
-        for mem in memories:
-            role = "User" if mem.role == "user" else "Assistant"
-            lines.append(f"{role}: {mem.content}")
-        return "\n".join(lines)
-    
-    def _load_file(self, filename: str) -> str:
-        """Load agent file content."""
-        path = Path(filename)
-        if not path.exists():
-            return ""
-        return path.read_text(encoding="utf-8")
-    
-    async def _generate_proposals(
-        self,
-        conversation: str,
-        user_md: str,
-        soul_md: str,
-        tools_md: str,
-    ) -> list[ProposedChange]:
-        """Use LLM to generate change proposals."""
-        messages = [
-            ChatMessage(
-                role="system",
-                content=f"""Analyze this conversation and current agent files.
+        if not dest.exists():
+            shutil.copy(source, dest)
+```
 
-Propose changes to agent files based on new information learned.
+- Templates remain clean for reference
+- Alfred only edits files in `./data/`
+- Users can reset by deleting `./data/` files (copied fresh on restart)
 
-Current files:
+---
 
-USER.md:
-{user_md}
+## Learning Skill
 
-SOUL.md:
-{soul_md}
+The learning skill is a prompt section loaded at startup, not a tool.
 
-TOOLS.md:
-{tools_md}
+**Location:** `.pi/skills/learning/SKILL.md`
 
-For each proposal, specify:
-- file: Which file to change
-- section: Which section (if applicable)
-- action: add, update, or remove
-- current_content: What's there now (null if adding)
-- proposed_content: What to change it to
-- reason: Why this change matters
+**Content:**
+```markdown
+---
+name: learning
+description: Guidance for learning from conversations and updating context files
+load: system_prompt
+---
 
-Only propose substantive changes. Skip trivial updates.
+# Learning
 
-Format as JSON array:
-[
-  {{
-    "file": "USER.md",
-    "section": "Preferences",
-    "action": "add",
-    "current_content": null,
-    "proposed_content": "communication_style: concise",
-    "reason": "User repeatedly asks for brief responses"
-  }}
-]""",
-            ),
-            ChatMessage(
-                role="user",
-                content=conversation,
-            ),
-        ]
-        
-        response = await self.llm.chat(messages)
-        
-        # Parse proposals
-        try:
-            import json
-            data = json.loads(response.content)
-            return [ProposedChange(**item) for item in data]
-        except Exception:
-            return []
+You evolve. You learn. Not through background tasks — through attention to what's happening right now.
+
+## What to Learn
+
+Watch for patterns worth remembering:
+
+**User Preferences**
+- Communication style (concise/detailed, formal/casual)
+- Technical preferences (languages, tools, patterns)
+- Workflow habits (how they like to work, what annoys them)
+- Context they repeatedly reference
+
+**Relationship Dynamics**
+- How they respond to your suggestions
+- What kind of help they actually value
+- When they want pushback vs just support
+- Humor, tone, the feel of how you talk to each other
+
+**Environment Specifics**
+- Tool configurations unique to their setup
+- Directory preferences, naming conventions
+- API keys, endpoints, local customizations
+- Anything in TOOLS.md that would help you do better work
+
+## When to Propose Changes
+
+Every message, ask yourself: *Is there something here worth recording?*
+
+Propose updates when:
+- User explicitly states a preference ("I prefer...", "I hate...", "Always...")
+- Pattern emerges across multiple exchanges
+- You notice something that would improve future interactions
+- Environment details would help you work better
+
+Don't propose when:
+- It's trivial or temporary ("I'm tired today")
+- It's speculative ("I might try...")
+- It's already captured
+- You're not confident it represents a real pattern
+
+## How to Propose
+
+Conversation, not automation. Just ask:
+
+"I noticed you prefer brief responses. Should I update USER.md to note that?"
+
+"You've mentioned liking TypeScript over Python a few times. Want me to record that preference?"
+
+"I'm seeing a pattern — you tend to work late. Should I note your timezone preference?"
+
+Wait for explicit yes before editing. No surprises.
+
+## What You Can Edit
+
+**USER.md** — Who they are, what they prefer, how to treat them
+**SOUL.md** — Who you're becoming together (with their input)
+**TOOLS.md** — Environment specifics, configurations, shortcuts
+
+**AGENTS.md** — Read only. Behavior rules come from the system.
+
+## How to Edit
+
+Use the standard `edit` tool. Be precise. Show your work.
+
+Propose → Get approval → Make the edit → Confirm it's right.
+
+## Remember
+
+You're not building a dossier. You're becoming someone who knows them.
+Quality over quantity. Substance over speculation.
+```
+
+---
+
+## Context Loading
+
+Update context assembly to:
+1. Copy templates to `./data/` on startup (if missing)
+2. Load files from `./data/` (not `templates/`)
+3. Inject learning skill into system prompt
+
+```python
+# src/context.py
+async def load_context_files(config: Config) -> dict[str, str]:
+    """Load context files from data directory."""
+    # Ensure files exist
+    await initialize_context_files(config.templates_dir, config.data_dir)
     
-    async def apply_proposal(
-        self,
-        proposal: ProposedChange,
-        user_approved: bool = False,
-    ) -> bool:
-        """Apply a proposed change if approved."""
-        if not user_approved:
-            # Per AGENTS.md: always ask permission
-            return False
-        
-        path = Path(proposal.file)
-        
-        if proposal.action == "add":
-            await self._add_to_file(path, proposal.proposed_content, proposal.section)
-        elif proposal.action == "update" and proposal.current_content:
-            await self._update_file(path, proposal.current_content, proposal.proposed_content)
-        elif proposal.action == "remove" and proposal.current_content:
-            await self._remove_from_file(path, proposal.current_content)
-        
-        return True
+    files = {}
+    for name in ["AGENTS", "SOUL", "USER", "TOOLS"]:
+        path = config.data_dir / f"{name}.md"
+        files[name.lower()] = await read_file(path)
     
-    async def _add_to_file(
-        self,
-        path: Path,
-        content: str,
-        section: str | None,
-    ) -> None:
-        """Add content to file, optionally in a section."""
-        if not path.exists():
-            path.write_text(f"# {path.stem}\n\n")
-        
-        current = path.read_text(encoding="utf-8")
-        
-        if section and f"## {section}" in current:
-            # Add under section
-            lines = current.split("\n")
-            section_idx = None
-            for i, line in enumerate(lines):
-                if line.startswith(f"## {section}"):
-                    section_idx = i
-                    break
-            
-            if section_idx is not None:
-                lines.insert(section_idx + 1, f"\n{content}")
-                path.write_text("\n".join(lines), encoding="utf-8")
-                return
-        
-        # Append to end
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(f"\n\n{content}\n")
-    
-    async def _update_file(
-        self,
-        path: Path,
-        old_content: str,
-        new_content: str,
-    ) -> None:
-        """Replace old content with new content."""
-        if not path.exists():
-            return
-        
-        current = path.read_text(encoding="utf-8")
-        updated = current.replace(old_content, new_content)
-        path.write_text(updated, encoding="utf-8")
-    
-    async def _remove_from_file(
-        self,
-        path: Path,
-        content: str,
-    ) -> None:
-        """Remove content from file."""
-        if not path.exists():
-            return
-        
-        current = path.read_text(encoding="utf-8")
-        updated = current.replace(content, "")
-        path.write_text(updated, encoding="utf-8")
-    
-    def format_proposal(self, proposal: ProposedChange) -> str:
-        """Format proposal for user review."""
-        lines = [
-            f"Proposed change to {proposal.file}:",
-            f"",
-            f"Action: {proposal.action}",
-        ]
-        
-        if proposal.section:
-            lines.append(f"Section: {proposal.section}")
-        
-        if proposal.current_content:
-            lines.extend([
-                f"",
-                f"Current:",
-                f"```",
-                f"{proposal.current_content}",
-                f"```",
-            ])
-        
-        lines.extend([
-            f"",
-            f"Proposed:",
-            f"```",
-            f"{proposal.proposed_content}",
-            f"```",
-            f"",
-            f"Reason: {proposal.reason}",
-        ])
-        
-        return "\n".join(lines)
+    return files
 
+def build_system_prompt(files: dict[str, str], skills: list[str]) -> str:
+    """Assemble system prompt with context files and skills."""
+    sections = [
+        "# AGENTS\n\n" + files["agents"],
+        "# SOUL\n\n" + files["soul"],
+        "# USER\n\n" + files["user"],
+        "# TOOLS\n\n" + files["tools"],
+    ]
+    
+    # Inject skills
+    for skill in skills:
+        sections.append(f"# {skill.name.upper()}\n\n" + skill.content)
+    
+    return "\n\n---\n\n".join(sections)
+```
 
-class PermissionRequester:
-    """Request user permission for file changes."""
-    
-    def __init__(self, bot) -> None:
-        self.pending: dict[str, ProposedChange] = {}
-        self.bot = bot
-    
-    async def request_permission(
-        self,
-        chat_id: int,
-        proposal: ProposedChange,
-    ) -> str:
-        """Send permission request to user."""
-        import uuid
-        request_id = str(uuid.uuid4())[:8]
-        
-        self.pending[request_id] = proposal
-        
-        engine = LearningEngine(None, None)  # type: ignore
-        message = engine.format_proposal(proposal)
-        
-        full_message = f"""{message}
+---
 
-Reply with:
-- "approve {request_id}" to apply this change
-- "reject {request_id}" to discard
-- "approve all" to auto-approve future changes"""
-        
-        await self.bot.send_message(chat_id, full_message)
-        
-        return request_id
-    
-    async def handle_response(self, chat_id: int, text: str) -> ProposedChange | None:
-        """Handle user response to permission request."""
-        text_lower = text.lower().strip()
-        
-        if text_lower.startswith("approve "):
-            request_id = text_lower.split()[1]
-            return self.pending.pop(request_id, None)
-        
-        if text_lower.startswith("reject "):
-            request_id = text_lower.split()[1]
-            self.pending.pop(request_id, None)
-            return None
-        
-        return None
+## Interaction Flow
+
+**User:** "Keep responses short, I don't have time for essays"
+
+**Alfred internally:**
+- Loads learning skill guidance
+- Recognizes explicit preference
+- Checks if already captured in USER.md
+- Decides to propose update
+
+**Alfred:** "Got it. Should I update your USER.md to note you prefer concise responses?"
+
+**User:** "Yes"
+
+**Alfred:** [Uses `edit` tool to add preference to USER.md]
+"Done. Updated your preferences."
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-02-19 | Prompt-based learning, not tools | Learning is judgment-based like memory curation; tools are for deterministic operations |
+| 2026-02-19 | Copy templates to `./data/` | Keeps templates clean, allows user reset, clear separation of concerns |
+| 2026-02-19 | Every message evaluation | Simple, synchronous, no background complexity |
+| 2026-02-19 | Drop MEMORY.md | Redundant with searchable memory system |
+
+---
+
+## Notes
+
+- No background workers, no scheduled tasks, no async queues
+- Learning happens in-band during conversation
+- User sees and approves every change
+- Files in `./data/` are human-editable (user can modify directly)
+- Reset context by deleting `./data/` files (re-copied from templates on restart)

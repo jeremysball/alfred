@@ -4,12 +4,12 @@
 
 **Issue**: #20  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Depends On**: #53 (Session System), #19 (M9: Compaction)  
-**Status**: Planning  
+**Status**: Closed (Superseded)  
 **Priority**: High  
 **Created**: 2026-02-16
+**Closed**: 2026-02-19
 
-> **Note**: Updated to use tool-based architecture. Removed importance scoring (feature removed in #57).
+> **Note**: This PRD is superseded by #53 (Session System) and #21 (M11: Learning System). The memory system with embeddings and search made MEMORY.md redundant. Learning now happens via prompt-based skill in M11, not background distillation.
 
 Build distillation system that extracts insights from conversations and writes to memory files using model-driven decisions.
 
