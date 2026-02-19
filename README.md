@@ -48,7 +48,7 @@ Weeks later. Different project. He remembers not just what you did, but what you
 
 ### He Actually Pays Attention
 
-Every conversation is stored with meaning, not just text. Alfred searches by concept, not keyword. Ask "what was that thing I was worried about?" and he'll find the database migration anxiety from Tuesday, not every message containing "that."
+Every conversation is stored with meaning, not just text. Alfred searches by concept. Ask "what was that thing I was worried about?" and he'll find it.
 
 ### Two Kinds of Memory
 
@@ -74,13 +74,9 @@ You committed a fix yesterday (a3f7d2e) but the test you added
 is failing on main. Want me to run it and see what's up?
 ```
 
-### Streaming Everything
-
-You see his thinking in real-time. Tool calls happen visibly. No black box, no waiting for paragraphs to appear. Alfred thinks out loud.
-
 ### Scheduled Actions
 
-Alfred doesn't just respond—he acts on his own. Schedule Python code that runs with full access to his memory and tools.
+Alfred doesn't just respond—he acts on his own. Schedule Python code that runs with access to his memory and tools.
 
 ```
 You: Every morning, check my calendar and remind me of any 
@@ -88,19 +84,16 @@ You: Every morning, check my calendar and remind me of any
 
 Alfred: [creates scheduled job]
 
-I'll run this each morning. It will:
-- Search your memory for anything about deadlines
-- Check for calendar events
-- Notify you if something needs attention
+I'll run this each morning with access to your memories.
 ```
 
-Jobs are written in Python and can:
-- Search memories and sessions
-- Save new memories
-- Send notifications (Telegram or CLI)
-- Use key-value storage for state
+Jobs run with **configurable context**. You decide what they can access:
+- Full context: Search memories, save insights, use any tool
+- Sandboxed: Memory operations only, no file system or network
+- System jobs: Pre-vetted code that runs automatically
+- User jobs: Require approval before execution
 
-System jobs run automatically. User-created jobs go through approval—Alfred reviews the code before it runs.
+You control the attack surface for every job.
 
 ### Your Data, Your Machine
 
@@ -110,7 +103,7 @@ JSONL files. Markdown templates. Human-readable, portable, yours. No cloud lock-
 
 ## Why Alfred Works This Way
 
-Four principles shape every decision:
+Three principles shape every decision:
 
 **1. Model-Driven Intelligence**
 
@@ -123,10 +116,6 @@ Natural language is the interface. No `/remember` or `/search` to memorize. Just
 **3. Fail Fast**
 
 Errors surface immediately. Silent failures hide bugs. If something's wrong, you'll know. If Alfred's uncertain, he'll say so.
-
-**4. Streaming First**
-
-Real-time responses. Visible tool execution. You watch Alfred work, you don't wait for him to finish.
 
 ---
 
@@ -208,31 +197,6 @@ class DeployTool(Tool):
 ```
 
 The LLM sees the schema, understands the purpose, and uses it when relevant. No registration code, no routing logic.
-
----
-
-## Security Model
-
-Alfred runs code. That requires care.
-
-**Two execution modes:**
-
-| Mode | Access | Approval |
-|------|--------|----------|
-| System jobs | Full Python + all tools | None (pre-vetted) |
-| User jobs | Sandboxed + memory tools | Required |
-
-**Sandbox restrictions:**
-- Limited builtins (no `open`, `import`, `exec`)
-- Access to: `notify`, `remember`, `search`, `store_get`, `store_set`
-- No file system, no network, no subprocess
-
-**Approval workflow:**
-1. User (or LLM) submits job → pending status
-2. Reviewer approves or rejects
-3. Only then does it run
-
-This lets you say "check my notes every morning and remind me about deadlines" without worrying about what code actually runs. Alfred creates it, shows it to you, and waits for approval.
 
 ---
 
