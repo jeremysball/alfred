@@ -455,7 +455,7 @@ alfred cron metrics
 | M8 | **Resource Limits** | ✅ Complete | Timeout enforcement, memory monitoring, output limits, 31 tests, 95% coverage |
 | M9 | **Natural Language Interface** | ✅ Complete | Rule-based NL parser, 52 tests, timezone support, confidence scoring |
 | M10 | **CLI Integration** | alfred cron commands for power users | Optional CLI management available |
-| M11 | **Testing** | Unit and integration tests | >90% coverage, all edge cases tested |
+| M11 | **Testing** | ✅ Complete | 214 tests, integration workflows, e2e tests, race condition fixed |
 | M12 | **ScheduleJobTool** | ✅ Complete | Tool for agent to create cron jobs, 14 tests (unit + integration), Pydantic validation |
 
 ---
@@ -527,6 +527,7 @@ data/
 | 2026-02-18 | Timezone-aware return values | `get_next_run()` returns datetime in target timezone (e.g., 9am NY), not UTC |
 | 2026-02-18 | Missed window catch-up | `should_run()` returns True if scheduled time passed since last run—jobs don't skip |
 | 2026-02-19 | Rule-based natural language parsing | Regex patterns for 90% of cases, faster than LLM, extensible, no token costs |
+| 2026-02-19 | asyncio.Lock in CronStore | Prevents race conditions between scheduler execution and test code accessing files |
 
 ---
 

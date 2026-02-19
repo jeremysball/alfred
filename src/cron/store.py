@@ -3,6 +3,7 @@
 Handles saving/loading jobs from JSONL files with atomic writes.
 """
 
+import asyncio
 import json
 import logging
 from datetime import UTC, datetime
@@ -37,6 +38,9 @@ class CronStore:
         self.jobs_path = self.data_dir / "cron.jsonl"
         self.history_path = self.data_dir / "cron_history.jsonl"
 
+        # Lock for serializing file operations
+        self._lock = asyncio.Lock()
+
     async def save_job(self, job: Job) -> None:
         """Save job to cron.jsonl.
 
@@ -46,17 +50,18 @@ class CronStore:
         Args:
             job: Job to save
         """
-        # Load existing jobs
-        jobs = await self.load_jobs()
+        async with self._lock:
+            # Load existing jobs
+            jobs = await self._load_jobs_unlocked()
 
-        # Update or add job
-        jobs_dict = {j.job_id: j for j in jobs}
-        job.updated_at = datetime.now(UTC)
-        jobs_dict[job.job_id] = job
+            # Update or add job
+            jobs_dict = {j.job_id: j for j in jobs}
+            job.updated_at = datetime.now(UTC)
+            jobs_dict[job.job_id] = job
 
-        # Write all jobs atomically
-        await self._write_jobs_atomic(list(jobs_dict.values()))
-        logger.debug(f"Saved job: {job.name} ({job.job_id})")
+            # Write all jobs atomically
+            await self._write_jobs_atomic(list(jobs_dict.values()))
+            logger.debug(f"Saved job: {job.name} ({job.job_id})")
 
     async def delete_job(self, job_id: str) -> None:
         """Delete job from cron.jsonl.
@@ -64,10 +69,11 @@ class CronStore:
         Args:
             job_id: ID of job to delete
         """
-        jobs = await self.load_jobs()
-        jobs = [j for j in jobs if j.job_id != job_id]
-        await self._write_jobs_atomic(jobs)
-        logger.debug(f"Deleted job: {job_id}")
+        async with self._lock:
+            jobs = await self._load_jobs_unlocked()
+            jobs = [j for j in jobs if j.job_id != job_id]
+            await self._write_jobs_atomic(jobs)
+            logger.debug(f"Deleted job: {job_id}")
 
     async def load_jobs(self) -> list[Job]:
         """Load all jobs from cron.jsonl.
@@ -75,6 +81,11 @@ class CronStore:
         Returns:
             List of jobs (empty if file doesn't exist)
         """
+        async with self._lock:
+            return await self._load_jobs_unlocked()
+
+    async def _load_jobs_unlocked(self) -> list[Job]:
+        """Load jobs without lock (caller must hold lock)."""
         if not self.jobs_path.exists():
             return []
 

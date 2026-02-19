@@ -1,24 +1,48 @@
-# TODO
+# Development TODOs
 
-## PRD Tasks
+## Edit Tool Safety
 
-### Active PRDs
-- [x] **#54** - In-Memory Session Storage - Foundation for CLI conversation memory ✓ COMPLETE
-  - [x] Session data model (Session, Message, Role)
-  - [x] SessionManager singleton
-  - [x] Context integration (session history in LLM context)
-  - [x] CLI wiring (auto-start session, add user/assistant messages)
-  - [x] Tests: 28 new tests, all passing
+- [ ] **Ensure edit tool forces exact text matching**
+  - Current issue: LLM sometimes guesses file state when it doesn't have the most up-to-date content
+  - Solution: Add validation that `oldText` parameter matches current file content exactly before applying edit
+  - Reject edit with clear error if mismatch detected
 
-### Next PRDs
-- [ ] **#55** - Advanced Session Features - LLM context control, substring search
-- [ ] **#53** - Full Session System - Persistence, summarization, multi-session
+- [ ] **Add pre-edit validation to verify current file state**
+  - Read file immediately before each edit operation
+  - Compare against `oldText` parameter
+  - Provide diff output when mismatch occurs
+  - Require explicit confirmation for non-exact matches
 
-### Other PRDs
-- [ ] Create PRD for making default behavior not print tool information (add flag to enable it)
-- [ ] Create PRD for CLI commands (sessions, resume, newsession, etc.)
-- [ ] Create PRD for a throbber
+## Test Configuration
 
-## Bugs / Technical Debt
-- [ ] Fix templates not being copied to data folder on startup
-- [ ] ContextAssembler loads from templates - make this configurable (data vs templates priority)
+- [ ] **Skip integration and e2e tests during regular pytest runs**
+  - Mark integration tests with `@pytest.mark.integration`
+  - Mark e2e tests with `@pytest.mark.e2e`
+  - Configure `pyproject.toml` to exclude these by default
+  - Keep unit tests fast for development feedback
+
+- [ ] **Configure CI to run integration and e2e tests**
+  - Add separate CI job for integration tests
+  - Add separate CI job for e2e tests
+  - Run full suite on PRs and main branch
+  - Allow unit tests to pass quickly for rapid iteration
+
+## Code Quality
+
+- [ ] **Fix pytest deprecation warnings**
+  - `asyncio.iscoroutinefunction` deprecated in Python 3.16
+    - Replace with `inspect.iscoroutinefunction()` in `src/cron/scheduler.py:289`
+  - Pydantic class-based `config` deprecated in V2
+    - Update `src/tools/base.py` to use `ConfigDict` instead
+    - Update all tool parameter classes
+  - Unknown pytest marks (`slow`)
+    - Register custom marks in `pyproject.toml`
+
+## Completed
+
+- [x] ~~Implement M8 Resource Limits~~
+- [x] ~~Implement M9 Natural Language Interface~~
+- [x] ~~Implement M7 Approval Workflow~~
+- [x] ~~Implement M11 Integration Testing~~
+- [x] ~~Fix race condition in CronStore~~
+- [x] ~~Add data/ to .gitignore~~
