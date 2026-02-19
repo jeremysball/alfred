@@ -142,20 +142,20 @@ class Alfred:
 | M2 | Telegram Notifier | ✅ Done | Implement `TelegramNotifier` class |
 | M3 | CLI Notifier | ✅ Done | Implement `CLINotifier` class |
 | M4 | Scheduler Wiring | ✅ Done | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
-| M5 | Alfred Integration | 🔲 Todo | Create notifier in `Alfred.__init__`, inject into scheduler |
+| M5 | Alfred Integration | ✅ Done | Create notifier in `Alfred.__init__`, inject into scheduler |
 | M6 | Testing | ✅ Done | Unit tests for notifiers, integration test for notify() flow |
-| M7 | Documentation | 🔲 Todo | Update `docs/job-api.md` to remove "not implemented" warnings |
+| M7 | Documentation | ✅ Done | Update `docs/job-api.md` to remove "not implemented" warnings |
 
 ---
 
 ## Success Criteria
 
-- [ ] Jobs can call `await notify("message")` and message reaches user
-- [ ] Telegram interface: messages appear in chat
-- [ ] CLI interface: messages appear in console output
-- [ ] Notifier is properly injected through dependency chain
-- [ ] Tests cover all notifier implementations
-- [ ] Documentation updated to reflect working feature
+- [x] Jobs can call `await notify("message")` and message reaches user
+- [x] Telegram interface: messages appear in chat
+- [x] CLI interface: messages appear in console output
+- [x] Notifier is properly injected through dependency chain
+- [x] Tests cover all notifier implementations
+- [x] Documentation updated to reflect working feature
 
 ---
 
@@ -163,14 +163,14 @@ class Alfred:
 
 | Component | Change |
 |-----------|--------|
-| `src/cron/models.py` | Add `chat_id: int \| None` field to Job model |
-| `src/cron/notifier.py` | New file with Notifier ABC and implementations |
-| `src/cron/scheduler.py` | Accept `notifier` parameter, pass to ExecutionContext |
-| `src/cron/executor.py` | Import Notifier type, add type hints |
-| `src/alfred.py` | Create notifier instance, inject into CronScheduler |
-| `src/interfaces/telegram.py` | May need to expose bot for notifier |
-| `docs/job-api.md` | Remove "not implemented" warnings |
-| `docs/notifier.md` | Update to reflect implemented status |
+| `src/cron/models.py` | ✅ Added `chat_id: int \| None` field to Job model |
+| `src/cron/notifier.py` | ✅ Notifier ABC, TelegramNotifier, CLINotifier |
+| `src/cron/scheduler.py` | ✅ Accepts `notifier` parameter, passes to ExecutionContext |
+| `src/cron/executor.py` | ✅ ExecutionContext has chat_id field |
+| `src/alfred.py` | ✅ Creates notifier instance, injects into CronScheduler |
+| `src/interfaces/telegram.py` | ✅ Chat ID tracking embedded in TelegramInterface |
+| `docs/job-api.md` | ✅ Removed "not implemented" warnings |
+| `docs/notifier.md` | ✅ Updated to reflect implemented status |
 
 ---
 

@@ -15,7 +15,7 @@ Jobs execute arbitrary user-submitted Python code. To maintain security and stab
 
 | Function | Status | Description |
 |----------|--------|-------------|
-| `notify(message)` | ❌ Not implemented | Send a notification message to the user |
+| `notify(message)` | ✅ Available | Send a notification message to the user (Telegram or CLI) |
 | `store_get(key)` | ❌ Not implemented | Retrieve a value from the job's persistent key-value store |
 | `store_set(key, value)` | ❌ Not implemented | Save a value to the job's persistent key-value store |
 | `print()` | ✅ Available | Output to job logs (captured and stored with execution history) |
@@ -88,7 +88,7 @@ result = await read_tool.execute(path="todo.md")
 async def run():
     print("Checking system status...")
     # Process something
-    await notify("System check complete!")  # Requires notifier implementation
+    await notify("System check complete!")
 ```
 
 ## Common Patterns
@@ -116,8 +116,7 @@ async def run():
         print(f"Success: {result}")
     except Exception as e:
         print(f"Error: {e}")
-        # Optionally notify user when notify() is available
-        # await notify(f"Job failed: {e}")
+        await notify(f"Job failed: {e}")
 ```
 
 ### State Persistence
@@ -142,10 +141,9 @@ async def run():
 
 The following features are planned but not yet implemented:
 
-1. **Notifier Integration**: Wire up `notify()` to send messages to users via Telegram/CLI
-2. **Persistent KV Store**: Implement `store_get`/`store_set` with durable storage
-3. **Memory Bridge**: Potential API for jobs to queue memory additions (subject to approval)
-4. **HTTP Client**: Safe HTTP requests for API calls (with allowlist)
+1. **Persistent KV Store**: Implement `store_get`/`store_set` with durable storage
+2. **Memory Bridge**: Potential API for jobs to queue memory additions (subject to approval)
+3. **HTTP Client**: Safe HTTP requests for API calls (with allowlist)
 
 ## Related Documentation
 
