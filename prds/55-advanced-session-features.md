@@ -5,6 +5,7 @@
 **Priority**: Medium
 **Created**: 2026-02-18
 **Depends on**: #54 (✅ Complete - In-Memory Session Storage)
+**Related**: #76 (Session Summarization with Cron)
 
 ---
 
@@ -231,6 +232,19 @@ This PRD extends PRD #54 (✅ **Complete**):
 
 ---
 
+## Relationship to PRD #76 (Session Summarization)
+
+This PRD (#55) provides **on-demand** summarization via the `summarize_message_range` tool. PRD #76 provides **automatic** summarization via cron jobs.
+
+| Feature | PRD #55 (This) | PRD #76 (Cron) |
+|---------|----------------|----------------|
+| Trigger | LLM requests summary | Automatic (30 min idle or 20 messages) |
+| Storage | SessionManager (in-memory) | `session_summaries.jsonl` (persistent, embedded) |
+| Use case | Immediate context needs | Long-term session retrieval |
+| Searchable | Via `search_session_history` | Via `search_sessions` (semantic) |
+
+**Coexistence:** Both can exist. PRD #55 summaries are ephemeral (session lifetime), PRD #76 summaries are persistent with embeddings for semantic search.
+
 ## Decision Log
 
 | Date | Decision | Rationale |
@@ -238,3 +252,4 @@ This PRD extends PRD #54 (✅ **Complete**):
 | 2026-02-18 | Separate PRD from #54 | Keeps #54 minimal, this is additive complexity |
 | 2026-02-18 | Summaries returned immediately | Assembler decides storage; SessionManager stays pure |
 | 2026-02-18 | Preferences consumed once | Prevents stale preferences accumulating |
+| 2026-02-19 | Add PRD #76 reference | Clarify relationship to automatic session summarization |

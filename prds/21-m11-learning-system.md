@@ -163,6 +163,8 @@ Wait for explicit yes before editing. No surprises.
 
 **AGENTS.md** — Read only. Behavior rules come from the system.
 
+**Session Summaries** — Use `search_sessions` to recall the arc of past conversations when learning patterns (see PRD #76).
+
 ## How to Edit
 
 Use the standard `edit` tool. Be precise. Show your work.
