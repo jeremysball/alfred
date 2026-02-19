@@ -3,9 +3,10 @@
 ## Overview
 
 **Issue**: #47  
-**Status**: Planning  
+**Status**: Complete  
 **Priority**: Medium  
 **Created**: 2026-02-18
+**Completed**: 2026-02-18
 
 23 linting violations require manual fixes. These are non-trivial issues that ruff cannot auto-fix and require developer attention.
 
@@ -167,3 +168,19 @@ return condition
 - These are the final lint fixes before clean CI
 - Requires careful manual review
 - Consider running tests after each file is fixed
+
+---
+
+## Completion Evidence
+
+**Completed in commit**: `2db9bdb chore(todo): complete tasks #45, #46, #47 - type safety and linting`
+
+All 23 manual fixes applied:
+- E501 (14): Long lines broken with parentheses
+- B904 (2): `raise ... from err` pattern applied
+- B905 (2): `zip(..., strict=True)` added
+- F841 (2): Unused variables removed
+- F821 (1): Missing `import json` added
+- SIM103 (1): Needless bool simplified
+
+**Verification**: `ruff check src/` passes with zero errors.
