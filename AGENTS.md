@@ -7,8 +7,9 @@
 **STOP.** Before responding to any user message or command, you **MUST**:
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
-2. Read `/workspace/alfred-prd/prds/48-alfred-v1-vision.md` (parent PRD)
-3. Confirm completion in your first response: "✅ Writing skill and parent PRD loaded"
+2. Read `/workspace/alfred-prd/.pi/skills/ntfy/SKILL.md`
+3. Read `/workspace/alfred-prd/prds/48-alfred-v1-vision.md` (parent PRD)
+4. Confirm completion in your first response: "✅ Writing skill, ntfy skill, and parent PRD loaded"
 
 **No exceptions.** This applies to:
 - The first message of every conversation
@@ -276,4 +277,40 @@ curl -s -d "<message>" ntfy.sh/pi-agent-prometheus
 - Action-oriented: "Tests passed", "PR created", "Need input", "Question"
 
 **This is the final step before awaiting user response.**
+
+---
+
+## Design Principles
+
+### Share Memory by Communicating, Don't Communicate by Sharing Memory
+
+When passing data between components (e.g., job output capture), follow the Go proverb: **do not communicate by sharing memory; instead, share memory by communicating.**
+
+**BAD — Mutating global state:**
+```python
+# ❌ Race conditions, locks needed, fragile
+sys.stdout = my_buffer
+try:
+    await job.run()
+finally:
+    sys.stdout = original  # What if another job already changed it?
+```
+
+**GOOD — Isolated buffers per job:**
+```python
+# ✅ Each job gets its own stdout/stderr
+job_stdout = io.StringIO()
+job_stderr = io.StringIO()
+job_globals = create_job_globals(stdout=job_stdout, stderr=job_stderr)
+await job.run(globals=job_globals)
+result = job_stdout.getvalue()
+```
+
+**Why this matters:**
+- No race conditions between concurrent jobs
+- No locks needed
+- CLI thread and job tasks are completely isolated
+- Each job's output is independent
+
+**In Alfred's cron executor:** Jobs get injected `sys` and `print` that write to job-specific buffers. The real `sys.stdout` is never touched.
 

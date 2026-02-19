@@ -23,6 +23,22 @@
   - Provide diff output when mismatch occurs
   - Require explicit confirmation for non-exact matches
 
+## CLI Testing
+
+- [ ] **Create CLI test harness for interactive testing**
+  - Build a test harness that can actually interact with the CLI (not just unit tests)
+  - Should support automated input sequences and output capture
+  - Use for regression testing the threading/buffering fixes
+  - Consider using `pexpect` or similar for pseudo-TTY interaction
+  - Test scenarios: piped input, multiple inputs, streaming output, keyboard interrupts
+
+- [ ] **Integrate prompt-toolkit library for proper async CLI**
+  - Replace custom async_input() with prompt_toolkit's PromptSession
+  - Native async support without run_in_executor() threading hacks
+  - Eliminates need for os.write() workaround by avoiding threading entirely
+  - Provides bonus features: history, keybindings, completion, multiline input
+  - https://python-prompt-toolkit.readthedocs.io/
+
 ## Test Configuration
 
 - [ ] **Skip integration and e2e tests during regular pytest runs**

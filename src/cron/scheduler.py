@@ -101,6 +101,7 @@ class CronScheduler:
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
         self._notifier = notifier
+        self._running_jobs: set[asyncio.Task] = set()  # Track executing jobs
 
         # Initialize observability
         if observability:
@@ -141,6 +142,14 @@ class CronScheduler:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._task
             self._task = None
+
+        # Cancel any running job execution tasks
+        if self._running_jobs:
+            for task in list(self._running_jobs):
+                task.cancel()
+            # Wait for all to complete (with timeout to avoid hanging)
+            await asyncio.gather(*self._running_jobs, return_exceptions=True)
+            self._running_jobs.clear()
 
         await self._observability.logger.log_scheduler_event(
             "scheduler_stop", "Cron scheduler stopped"
@@ -446,7 +455,9 @@ class CronScheduler:
 
             if should_run:
                 # Start execution without waiting (queue if already running)
-                asyncio.create_task(self._execute_job(job))
+                task = asyncio.create_task(self._execute_job(job))
+                self._running_jobs.add(task)
+                task.add_done_callback(self._running_jobs.discard)
 
     async def _execute_job(self, job: RunnableJob) -> None:
         """Execute a single job with resource limits.

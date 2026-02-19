@@ -1,7 +1,6 @@
 """Tests for CLI interface."""
 
 from collections.abc import AsyncIterator
-from io import StringIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -37,7 +36,7 @@ async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
         call_count[0] += 1
         return result
 
-    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
+    with patch("src.interfaces.cli.async_input", side_effect=mock_input):
         await interface.run()
 
     mock_alfred.chat_stream.assert_called_once_with("Hello")
@@ -56,7 +55,7 @@ async def test_compact_delegates_to_alfred(mock_alfred: MagicMock) -> None:
         call_count[0] += 1
         return result
 
-    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
+    with patch("src.interfaces.cli.async_input", side_effect=mock_input):
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
@@ -70,7 +69,7 @@ async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
     async def mock_input(prompt: str) -> str:
         return "exit"
 
-    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
+    with patch("src.interfaces.cli.async_input", side_effect=mock_input):
         await interface.run()
 
     # Should not call chat_stream
@@ -90,7 +89,7 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
         call_count[0] += 1
         return result
 
-    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
+    with patch("src.interfaces.cli.async_input", side_effect=mock_input):
         await interface.run()
 
     # Only one chat_stream call for "Hello"
@@ -103,7 +102,7 @@ async def test_eoferror_terminates_loop(mock_alfred: MagicMock) -> None:
     interface = CLIInterface(mock_alfred)
 
     # Simulate EOFError on first input
-    with patch("src.interfaces.cli.ainput", side_effect=EOFError):
+    with patch("src.interfaces.cli.async_input", side_effect=EOFError):
         await interface.run()
 
     # Should not call chat_stream
@@ -123,7 +122,7 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
         call_count[0] += 1
         return result
 
-    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
+    with patch("src.interfaces.cli.async_input", side_effect=mock_input):
         await interface.run()
 
     mock_alfred.compact.assert_called_once()

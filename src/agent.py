@@ -65,105 +65,120 @@ class Agent:
             in_tool_call = False
             reasoning_content = None
 
-            async for chunk in self.llm.stream_chat_with_tools(
-                messages,
-                tools=tool_schemas if tool_schemas else None,
-            ):
-                # Check for tool call markers in stream
-                if chunk.startswith("[TOOL_CALLS]"):
-                    # Parse tool calls from marker
-                    try:
-                        tc_data = json.loads(chunk[12:])  # Remove prefix
-                        tool_calls_data = tc_data
-                        in_tool_call = True
-                    except json.JSONDecodeError:
-                        pass
-                    continue
+            # Create stream generator - using typing.cast to tell mypy this is an AsyncGenerator
+            # which has aclose() method for proper cleanup
+            from collections.abc import AsyncGenerator
+            from typing import cast
 
-                # Check for reasoning content marker
-                if chunk.startswith("[REASONING]"):
-                    chunk_reasoning = chunk[11:]  # Remove prefix
-                    reasoning_content = (reasoning_content or "") + chunk_reasoning
-                    continue
-
-                # Regular content
-                if not in_tool_call:
-                    full_content += chunk
-                    yield chunk
-
-            # Check if we have tool calls
-            if not tool_calls_data:
-                # No tool calls, we're done
-                return
-
-            # Parse tool calls
-            tool_calls = [
-                ToolCall(
-                    id=tc.get("id", f"call_{i}"),
-                    name=tc["function"]["name"],
-                    arguments=json.loads(tc["function"]["arguments"]),
-                )
-                for i, tc in enumerate(tool_calls_data)
-            ]
-
-            # Add assistant message with tool calls and reasoning
-            assistant_msg = ChatMessage(
-                role="assistant",
-                content=full_content,
-                tool_calls=[
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.name,
-                            "arguments": json.dumps(tc.arguments),
-                        },
-                    }
-                    for tc in tool_calls
-                ],
+            stream = cast(
+                AsyncGenerator[str, None],
+                self.llm.stream_chat_with_tools(
+                    messages,
+                    tools=tool_schemas if tool_schemas else None,
+                ),
             )
-            if reasoning_content:
-                assistant_msg.reasoning_content = reasoning_content
-            messages.append(assistant_msg)
+            try:
+                async for chunk in stream:
+                    # Check for tool call markers in stream
+                    if chunk.startswith("[TOOL_CALLS]"):
+                        # Parse tool calls from marker
+                        try:
+                            tc_data = json.loads(chunk[12:])  # Remove prefix
+                            tool_calls_data = tc_data
+                            in_tool_call = True
+                        except json.JSONDecodeError:
+                            pass
+                        continue
 
-            # Execute tools with streaming
-            for call in tool_calls:
-                tool = self.tools.get(call.name)
+                    # Check for reasoning content marker
+                    if chunk.startswith("[REASONING]"):
+                        chunk_reasoning = chunk[11:]  # Remove prefix
+                        reasoning_content = (reasoning_content or "") + chunk_reasoning
+                        continue
 
-                if not tool:
-                    yield f"\n[Tool '{call.name}' not found]\n"
+                    # Regular content
+                    if not in_tool_call:
+                        full_content += chunk
+                        yield chunk
+
+                # Check if we have tool calls
+                if not tool_calls_data:
+                    # No tool calls, we're done
+                    return
+
+                # Parse tool calls
+                tool_calls = [
+                    ToolCall(
+                        id=tc.get("id", f"call_{i}"),
+                        name=tc["function"]["name"],
+                        arguments=json.loads(tc["function"]["arguments"]),
+                    )
+                    for i, tc in enumerate(tool_calls_data)
+                ]
+
+                # Add assistant message with tool calls and reasoning
+                assistant_msg = ChatMessage(
+                    role="assistant",
+                    content=full_content,
+                    tool_calls=[
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.name,
+                                "arguments": json.dumps(tc.arguments),
+                            },
+                        }
+                        for tc in tool_calls
+                    ],
+                )
+                if reasoning_content:
+                    assistant_msg.reasoning_content = reasoning_content
+                messages.append(assistant_msg)
+
+                # Execute tools with streaming
+                for call in tool_calls:
+                    tool = self.tools.get(call.name)
+
+                    if not tool:
+                        yield f"\n[Tool '{call.name}' not found]\n"
+                        messages.append(
+                            ChatMessage(
+                                role="tool",
+                                content=f"Error: Tool '{call.name}' not found",
+                                tool_call_id=call.id,
+                            )
+                        )
+                        continue
+
+                    # Stream tool execution
+                    yield f"\n[Executing: {call.name}]\n"
+
+                    tool_output = ""
+                    try:
+                        async for chunk in tool.validate_and_run_stream(call.arguments):
+                            tool_output += chunk
+                            yield chunk  # Stream tool output in real-time!
+                    except Exception as e:
+                        error_msg = f"Error executing {call.name}: {e}"
+                        yield f"\n{error_msg}\n"
+                        tool_output += error_msg
+
+                    # Add tool result to messages
                     messages.append(
                         ChatMessage(
                             role="tool",
-                            content=f"Error: Tool '{call.name}' not found",
+                            content=tool_output,
                             tool_call_id=call.id,
                         )
                     )
-                    continue
 
-                # Stream tool execution
-                yield f"\n[Executing: {call.name}]\n"
-
-                tool_output = ""
-                try:
-                    async for chunk in tool.validate_and_run_stream(call.arguments):
-                        tool_output += chunk
-                        yield chunk  # Stream tool output in real-time!
-                except Exception as e:
-                    error_msg = f"Error executing {call.name}: {e}"
-                    yield f"\n{error_msg}\n"
-                    tool_output += error_msg
-
-                # Add tool result to messages
-                messages.append(
-                    ChatMessage(
-                        role="tool",
-                        content=tool_output,
-                        tool_call_id=call.id,
-                    )
-                )
-
-                yield f"\n[{call.name} complete]\n"
+                    yield f"\n[{call.name} complete]\n"
+            finally:
+                # Ensure the stream generator is properly closed
+                # This prevents hanging when stdin is redirected and EOF is reached
+                if hasattr(stream, 'aclose'):
+                    await stream.aclose()
 
         # Max iterations reached
         yield "\n[Max iterations reached]\n"

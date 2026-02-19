@@ -31,6 +31,11 @@ def parse_args() -> argparse.Namespace:
             "Default: warnings/errors only"
         ),
     )
+    parser.add_argument(
+        "--notrunc",
+        action="store_true",
+        help="Disable log message truncation (default: truncate to 512 chars)",
+    )
     return parser.parse_args()
 
 
@@ -43,6 +48,7 @@ async def run_cli(alfred: Alfred) -> None:
     try:
         await interface.run()
     finally:
+        logger.info("CLI interface exited, shutting down Alfred...")
         await alfred.stop()
 
 
@@ -55,7 +61,63 @@ async def run_telegram(alfred: Alfred) -> None:
     try:
         await interface.run()
     finally:
+        logger.info("Telegram interface exited, shutting down Alfred...")
         await alfred.stop()
+
+
+class ColoredFormatter(logging.Formatter):
+    """Formatter with colored log levels."""
+
+    # ANSI color codes
+    COLORS = {
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",   # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[35m",  # Magenta
+        "RESET": "\033[0m",
+    }
+
+    def __init__(self, fmt: str | None = None, datefmt: str | None = None, use_colors: bool = True):
+        super().__init__(fmt, datefmt)
+        self.use_colors = use_colors
+
+    def format(self, record: logging.LogRecord) -> str:
+        # Get color for this level
+        levelname = record.levelname
+        if self.use_colors and levelname in self.COLORS:
+            color = self.COLORS[levelname]
+            reset = self.COLORS["RESET"]
+            record.levelname = f"{color}{levelname}{reset}"
+
+        return super().format(record)
+
+
+class TruncatingFormatter(ColoredFormatter):
+    """Formatter that truncates long log messages with colors."""
+
+    def __init__(
+        self,
+        fmt: str | None = None,
+        datefmt: str | None = None,
+        max_length: int = 512,
+        use_colors: bool = True,
+    ):
+        super().__init__(fmt, datefmt, use_colors)
+        self.max_length = max_length
+
+    def format(self, record: logging.LogRecord) -> str:
+        # Store original levelname since ColoredFormatter modifies it
+        original_levelname = record.levelname
+        result = super().format(record)
+
+        # Restore original for other formatters
+        record.levelname = original_levelname
+
+        if len(result) > self.max_length:
+            truncated = len(result) - self.max_length
+            result = result[:self.max_length - 3] + f"... [trunc {truncated} chars]"
+        return result
 
 
 async def async_main() -> None:
@@ -70,10 +132,25 @@ async def async_main() -> None:
     else:
         log_level = logging.WARNING  # Default: only warnings and errors
 
-    logging.basicConfig(
-        level=log_level,
-        format="%(levelname)s:%(name)s:%(message)s",
-    )
+    # Configure logging with optional truncation and colors
+    use_colors = sys.stdout.isatty()
+    handler = logging.StreamHandler()
+    if args.notrunc:
+        formatter = ColoredFormatter(
+            "%(levelname)s:%(name)s:%(message)s",
+            use_colors=use_colors,
+        )
+    else:
+        formatter = TruncatingFormatter(
+            "%(levelname)s:%(name)s:%(message)s",
+            max_length=512,
+            use_colors=use_colors,
+        )
+    handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    root_logger.addHandler(handler)
 
     config = load_config()
     alfred = Alfred(config)

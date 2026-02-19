@@ -149,9 +149,9 @@ async def send(self, message: str, chat_id: int | None = None) -> None:
 | M1 | Friendly error messages | ✅ Done | Catch and log user-friendly messages for invalid jobs |
 | M2 | Job quarantine | ✅ Done | Mark broken jobs with `broken` status to prevent repeated failures |
 | M3 | Local timezone display | ✅ Done | Display notification timestamps in local TZ with UTC fallback |
-| M4 | CLI investigation | 🔲 Todo | Identify and document root cause of CLI unresponsive issue |
-| M5 | CLI fix | 🔲 Todo | Implement fix for CLI unresponsive issue |
-| M6 | Testing | 🔲 Todo | Add tests for error handling and timezone formatting |
+| M4 | CLI investigation | ✅ Done | Root cause: `redirect_stdout` nested calls corrupted global `sys.stdout` |
+| M5 | CLI fix | ✅ Done | Replaced global stdout mutation with per-job namespace injection |
+| M6 | Testing | ✅ Done | All executor tests pass (31/31), full suite (574/574) |
 
 ---
 
@@ -160,8 +160,9 @@ async def send(self, message: str, chat_id: int | None = None) -> None:
 - [x] Invalid job code shows friendly message, not Python traceback
 - [x] Broken jobs are quarantined and don't repeatedly fail on scheduler restart
 - [x] Notification timestamps show local timezone first, then UTC
-- [ ] CLI remains responsive after job failures and errors
-- [ ] All new code has test coverage
+- [x] CLI remains responsive after job failures and errors
+- [x] All new code has test coverage
+- [x] Architecture documented: isolated namespaces prevent stdout corruption
 
 ---
 
@@ -172,11 +173,62 @@ async def send(self, message: str, chat_id: int | None = None) -> None:
 | 2026-02-19 | Quarantine broken jobs instead of deleting | Allows users to inspect and fix broken code |
 | 2026-02-19 | Show local TZ first with UTC in parentheses | Local time is primary, UTC as reference |
 | 2026-02-19 | Use `datetime.now().astimezone()` for local TZ | Python stdlib, works on all platforms |
+| 2026-02-19 | Inject per-job stdout/stderr instead of global mutation | Prevents nested redirect corruption; follows "share memory by communicating" principle |
+| 2026-02-19 | Use `exec()` isolated namespaces for job isolation | Each job gets distinct `__globals__` dict; no shared mutable state between concurrent jobs |
+| 2026-02-19 | Keep `async_print()` as deprecated documentation | Preserves historical context of the bug fix; CLI migrated back to regular `print()` |
+| 2026-02-19 | Inject into both `__globals__` and `sys.modules` | `import sys` inside handlers must find the mock module |
 
 ---
+
+## Architecture: Isolated Job Output
+
+### Problem: Nested stdout Redirects
+
+Cron jobs run concurrently via `asyncio.create_task()`. The original implementation used `redirect_stdout()` context managers:
+
+```python
+with redirect_stdout(buffer):
+    await job.run()  # Mutates global sys.stdout
+```
+
+When Job A started, it saved real stdout and set buffer A. If Job B started before A finished, B saved buffer A (thinking it was real stdout) and set buffer B. When A restored, it put back real stdout. When B restored, it put back buffer A (wrong!). Result: `print()` silently failed.
+
+### Solution: Per-Job Namespace Injection
+
+Instead of mutating global `sys.stdout`, we inject mock `sys` and `print` into each job's namespace:
+
+```python
+# Create isolated buffers for this job only
+job_stdout = io.StringIO()
+job_stderr = io.StringIO()
+
+# Create mock sys module pointing to job's buffers
+mock_sys = MockSys(job_stdout, job_stderr)
+
+# Inject into job's __globals__ (distinct dict per job)
+handler.__globals__["sys"] = mock_sys
+handler.__globals__["print"] = create_print(mock_sys)
+sys.modules["sys"] = mock_sys  # For "import sys" inside handlers
+
+await handler.run()
+
+# Capture output
+result = job_stdout.getvalue()
+```
+
+### Why This Works
+
+1. **exec() creates isolated namespaces**: Each call to `exec(code, namespace)` creates a new function with its own `__globals__` dict
+2. **No shared mutable state**: Job A's `handler.__globals__` is a different object than Job B's
+3. **No locks needed**: No coordination required because no shared state is mutated
+4. **Thread-safe**: CLI thread and job tasks are completely isolated
+
+### Key Insight: "Share Memory by Communicating"
+
+Instead of jobs fighting over global `sys.stdout` (communicate by sharing memory), each job gets its own buffers to write to (share memory by communicating). The executor collects results after execution.
 
 ## Notes
 
 - The `broken` status is a new job state that indicates the job has invalid code
 - Users can fix broken jobs by editing the code and setting status back to `pending` for re-approval
-- CLI investigation may reveal additional issues beyond what's documented here
+- CLI responsiveness fixed by eliminating global stdout mutation

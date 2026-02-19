@@ -238,8 +238,11 @@ You can then continue the conversation with the tool results.
 
         Stops all subsystems cleanly.
         """
+        logger.info("Starting Alfred shutdown...")
         try:
+            logger.debug("Stopping cron scheduler...")
             await self.cron_scheduler.stop()
             logger.info("Cron scheduler stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping cron scheduler: {e}")
+        logger.info("Alfred shutdown complete")

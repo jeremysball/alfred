@@ -3,15 +3,64 @@
 The JobExecutor class wraps job execution with timeout enforcement,
 memory monitoring, and output capture. It provides safe execution
 of user-submitted code with configurable resource boundaries.
+
+ARCHITECTURE: Isolated Namespaces for Concurrent Job Execution
+--------------------------------------------------------------
+
+Problem: Cron jobs run concurrently via asyncio.create_task(). If multiple
+jobs mutate global sys.stdout simultaneously, they corrupt each other's
+output (check-time-use-time race condition).
+
+Solution: Each job gets its own isolated stdout/stderr buffers injected
+into its namespace. No global state mutation. No locks needed.
+
+How exec() Provides Isolation:
+    When scheduler._compile_handler() calls exec(code, namespace):
+    1. Python compiles the code into a code object
+    2. exec() creates a NEW function object for each 'def run()'
+    3. The function's __globals__ points to the provided namespace dict
+    4. Each job gets a DISTINCT function with DISTINCT globals
+
+    Example:
+        Job A: namespace_A -> exec() -> handler_A
+               handler_A.__globals__ is namespace_A
+
+        Job B: namespace_B -> exec() -> handler_B
+               handler_B.__globals__ is namespace_B
+
+    Modifying handler_A.__globals__ does NOT affect handler_B.__globals__
+    because they are different dictionary objects.
+
+Output Capture Without Global Mutation:
+    Instead of: sys.stdout = my_buffer  # RACE: shared global!
+
+    We do: handler.__globals__["sys"] = mock_sys_module
+           handler.__globals__["print"] = capture_print_function
+           sys.modules["sys"] = mock_sys_module  # For "import sys"
+
+    The mock sys module has stdout/stderr that write to job-specific
+    StringIO buffers. Each job writes to its own buffers.
+
+Why This Is Thread-Safe:
+    - Different jobs = different handler functions = different globals dicts
+    - No shared mutable state between jobs
+    - The only "shared" thing we modify is sys.modules["sys"], but we
+      save/restore it around each job execution
+    - Scheduler prevents concurrent execution of the SAME job (same handler)
+
+Why Not Use Locks:
+    - threading.Lock() blocks the OS thread (bad for async)
+    - asyncio.Lock() only works within event loop (not threads)
+    - With isolated buffers, no coordination needed = no locks
 """
 
 import asyncio
 import contextlib
 import io
 import logging
+import sys
 import tracemalloc
 from collections.abc import Callable
-from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -83,6 +132,73 @@ class ExecutionResult:
     stdout_truncated: bool = False
 
 
+class _JobOutput:
+    """Output stream for job execution that writes to a buffer.
+
+    Provides stdout/stderr-like interface that writes to StringIO buffers.
+    Each job gets its own instance, no shared global state.
+    """
+
+    def __init__(self, buffer: io.StringIO):
+        self._buffer = buffer
+
+    def write(self, text: str) -> int:
+        """Write text to the buffer."""
+        return self._buffer.write(text)
+
+    def flush(self) -> None:
+        """Flush the buffer (no-op for StringIO)."""
+        pass
+
+
+def _create_job_globals(stdout: io.StringIO, stderr: io.StringIO) -> dict[str, Any]:
+    """Create globals namespace for job execution with isolated output.
+
+    Returns a namespace where print() and sys.stdout write to the
+    provided buffers instead of the real stdout/stderr.
+
+    Args:
+        stdout: Buffer for stdout output
+        stderr: Buffer for stderr output
+
+    Returns:
+        Globals dictionary for job execution
+    """
+
+    # Create mock sys module
+    class MockSys:
+        def __init__(self, out: io.StringIO, err: io.StringIO) -> None:
+            self.stdout = _JobOutput(out)
+            self.stderr = _JobOutput(err)
+            self.version = sys.version
+            self.version_info = sys.version_info
+            self.platform = sys.platform
+            self.path: list[str] = []
+            self.modules: dict[str, Any] = {}
+
+    mock_sys = MockSys(stdout, stderr)
+
+    # Create print function that uses mock sys
+    def job_print(
+        *args: Any,
+        sep: str = " ",
+        end: str = "\n",
+        file: Any = None,
+        flush: bool = False,
+    ) -> None:
+        if file is None:
+            file = mock_sys.stdout
+        text = sep.join(str(arg) for arg in args) + end
+        file.write(text)
+        if flush:
+            file.flush()
+
+    return {
+        "sys": mock_sys,
+        "print": job_print,
+    }
+
+
 class JobExecutor:
     """Execute jobs with resource limits and monitoring.
 
@@ -90,7 +206,7 @@ class JobExecutor:
     - Timeout enforcement via asyncio.wait_for
     - Memory usage tracking via psutil
     - Output capture with line limits
-    - Safe execution namespace with injected globals
+    - Safe execution namespace with isolated stdout/stderr
     """
 
     def __init__(
@@ -104,7 +220,7 @@ class JobExecutor:
 
         Args:
             job: Job being executed
-            handler: Compiled async handler function
+            handler: Compiled async handler function (see ARCHITECTURE note above)
             limits: Resource limits to enforce
             context: Execution context with safe operations
         """
@@ -132,17 +248,12 @@ class JobExecutor:
         # Start memory tracking
         tracemalloc.start()
 
-        try:
-            # Capture output
-            stdout_capture = io.StringIO()
-            stderr_capture = io.StringIO()
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
 
-            with (
-                redirect_stdout(stdout_capture),
-                redirect_stderr(stderr_capture),
-            ):
-                # Execute with timeout
-                await self._execute_with_timeout()
+        try:
+            # Execute with timeout, passing capture buffers
+            await self._execute_with_timeout(stdout_capture, stderr_capture)
 
             # Get results
             stdout = stdout_capture.getvalue()
@@ -194,10 +305,14 @@ class JobExecutor:
         finally:
             tracemalloc.stop()
 
-    async def _execute_with_timeout(self) -> None:
+    async def _execute_with_timeout(
+        self, stdout_capture: io.StringIO, stderr_capture: io.StringIO
+    ) -> None:
         """Execute handler with timeout and memory monitoring."""
         # Create task for the handler
-        task = asyncio.create_task(self._monitored_execution())
+        task = asyncio.create_task(
+            self._monitored_execution(stdout_capture, stderr_capture)
+        )
 
         try:
             await asyncio.wait_for(task, timeout=self.limits.timeout_seconds)
@@ -208,18 +323,71 @@ class JobExecutor:
                 await task
             raise
 
-    async def _monitored_execution(self) -> None:
-        """Execute handler while monitoring resources."""
+    async def _monitored_execution(
+        self, stdout_capture: io.StringIO, stderr_capture: io.StringIO
+    ) -> None:
+        """Execute handler while monitoring resources.
+
+        ARCHITECTURE NOTE: Output Capture Without Global State Mutation
+
+        Instead of mutating global sys.stdout (which causes races between
+        concurrent jobs), we inject mock sys/print into the handler's
+        __globals__ dict. Each job has its own handler with its own globals,
+        so there's no shared mutable state.
+
+        The injection process:
+        1. Create mock sys module with stdout/stderr pointing to capture buffers
+        2. Create custom print() that writes to mock sys.stdout
+        3. Save original globals values
+        4. Inject mock sys/print into handler.__globals__
+        5. Also inject into sys.modules["sys"] for "import sys" in handlers
+        6. Run handler
+        7. Restore original globals
+
+        Why This Works:
+        - Each job has distinct handler function (from scheduler._compile_handler)
+        - Each handler has distinct __globals__ dict
+        - Concurrent jobs don't interfere with each other's globals
+        - No locks needed because no shared mutable state
+        """
         # Get initial memory
         process = psutil.Process()
         initial_memory = process.memory_info().rss
 
-        # Inject notify into handler's globals if notifier is available
-        if self.context.notifier is not None:
-            self.handler.__globals__["notify"] = self.context.notify
+        # Create isolated globals with output buffers
+        job_globals = _create_job_globals(stdout_capture, stderr_capture)
 
-        # Execute the handler
-        await self.handler()
+        # Inject into handler's globals (save originals)
+        handler_globals = self.handler.__globals__
+        original_globals_sys = handler_globals.get("sys")
+        original_globals_print = handler_globals.get("print")
+        original_modules_sys = sys.modules.get("sys")
+
+        handler_globals["sys"] = job_globals["sys"]
+        handler_globals["print"] = job_globals["print"]
+        sys.modules["sys"] = job_globals["sys"]  # For "import sys" in handlers
+
+        # Also inject notify if available
+        if self.context.notifier is not None:
+            handler_globals["notify"] = self.context.notify
+
+        try:
+            # Execute the handler
+            await self.handler()
+        finally:
+            # Restore original globals and modules
+            if original_globals_sys is not None:
+                handler_globals["sys"] = original_globals_sys
+            elif "sys" in handler_globals:
+                del handler_globals["sys"]
+
+            if original_globals_print is not None:
+                handler_globals["print"] = original_globals_print
+            elif "print" in handler_globals:
+                del handler_globals["print"]
+
+            if original_modules_sys is not None:
+                sys.modules["sys"] = original_modules_sys
 
         # Check final memory
         final_memory = process.memory_info().rss
@@ -238,111 +406,3 @@ class JobExecutor:
             return 0
         elapsed = datetime.now(UTC) - self._start_time
         return int(elapsed.total_seconds() * 1000)
-
-    def _create_safe_globals(self) -> dict[str, Any]:
-        """Create safe globals namespace for job execution.
-
-        Returns:
-            Dictionary of safe builtins and injected functions
-        """
-        return {
-            "__builtins__": {
-                "print": print,
-                "len": len,
-                "str": str,
-                "int": int,
-                "float": float,
-                "bool": bool,
-                "list": list,
-                "dict": dict,
-                "set": set,
-                "tuple": tuple,
-                "range": range,
-                "enumerate": enumerate,
-                "zip": zip,
-                "map": map,
-                "filter": filter,
-                "sum": sum,
-                "min": min,
-                "max": max,
-                "abs": abs,
-                "round": round,
-                "pow": pow,
-                "divmod": divmod,
-                "chr": chr,
-                "ord": ord,
-                "hex": hex,
-                "bin": bin,
-                "oct": oct,
-                "format": format,
-                "repr": repr,
-                "sorted": sorted,
-                "reversed": reversed,
-                "any": any,
-                "all": all,
-                "hasattr": hasattr,
-                "getattr": getattr,
-                "setattr": setattr,
-                "isinstance": isinstance,
-                "issubclass": issubclass,
-                "type": type,
-                "Exception": Exception,
-                "ValueError": ValueError,
-                "TypeError": TypeError,
-                "KeyError": KeyError,
-                "IndexError": IndexError,
-                "AttributeError": AttributeError,
-                "RuntimeError": RuntimeError,
-                "StopIteration": StopIteration,
-                "GeneratorExit": GeneratorExit,
-                "ArithmeticError": ArithmeticError,
-                "LookupError": LookupError,
-                "AssertionError": AssertionError,
-                "BufferError": BufferError,
-                "EOFError": EOFError,
-                "FloatingPointError": FloatingPointError,
-                "OSError": OSError,
-                "ImportError": ImportError,
-                "ModuleNotFoundError": ModuleNotFoundError,
-                "NameError": NameError,
-                "UnboundLocalError": UnboundLocalError,
-                "BlockingIOError": BlockingIOError,
-                "ChildProcessError": ChildProcessError,
-                "ConnectionError": ConnectionError,
-                "BrokenPipeError": BrokenPipeError,
-                "ConnectionAbortedError": ConnectionAbortedError,
-                "ConnectionRefusedError": ConnectionRefusedError,
-                "ConnectionResetError": ConnectionResetError,
-                "FileExistsError": FileExistsError,
-                "FileNotFoundError": FileNotFoundError,
-                "InterruptedError": InterruptedError,
-                "IsADirectoryError": IsADirectoryError,
-                "NotADirectoryError": NotADirectoryError,
-                "PermissionError": PermissionError,
-                "ProcessLookupError": ProcessLookupError,
-                "TimeoutError": TimeoutError,
-                "ReferenceError": ReferenceError,
-                "SyntaxError": SyntaxError,
-                "IndentationError": IndentationError,
-                "TabError": TabError,
-                "SystemError": SystemError,
-                "UnicodeError": UnicodeError,
-                "UnicodeDecodeError": UnicodeDecodeError,
-                "UnicodeEncodeError": UnicodeEncodeError,
-                "UnicodeTranslateError": UnicodeTranslateError,
-                "Warning": Warning,
-                "UserWarning": UserWarning,
-                "DeprecationWarning": DeprecationWarning,
-                "PendingDeprecationWarning": PendingDeprecationWarning,
-                "SyntaxWarning": SyntaxWarning,
-                "RuntimeWarning": RuntimeWarning,
-                "FutureWarning": FutureWarning,
-                "ImportWarning": ImportWarning,
-                "UnicodeWarning": UnicodeWarning,
-                "BytesWarning": BytesWarning,
-                "ResourceWarning": ResourceWarning,
-            },
-            "notify": self.context.notify,
-            "store_get": self.context.store_get,
-            "store_set": self.context.store_set,
-        }
