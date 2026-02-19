@@ -324,6 +324,25 @@ session_summaries_path = "data/session_summaries.jsonl"
 
 ---
 
+## Future: Triple-Layer Memory Architecture
+
+This PRD implements dual search (messages + session summaries). A future enhancement adds **per-session message embeddings** for contextual retrieval:
+
+1. **Global Memory** (messages.jsonl) — Facts across all time
+2. **Session Summaries** (session_summaries.jsonl) — Narrative arcs with embeddings ← THIS PRD
+3. **Session-Local Messages** — Individual messages embedded WITHIN session context
+
+**The Hyperweb Retrieval Pattern:**
+```
+Query → Find relevant sessions (via summary similarity)
+            ↓
+    Search messages ONLY within those sessions
+            ↓
+    Higher precision, natural context expansion
+```
+
+Instead of searching 10,000 messages globally, narrow to 2-3 relevant sessions, then find specifics. See PRD #[TBD - Contextual Retrieval System] for implementation.
+
 ## Vector Database Discussion
 
 **Current approach (JSONL files):**
