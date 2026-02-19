@@ -451,7 +451,7 @@ alfred cron metrics
 | M4 | **Observability** | Logging, metrics, health checks, alerts | All jobs logged, metrics exposed, alerts fire |
 | M5 | **System Jobs** | ✅ Complete | Session TTL job runs every 5 min, auto-registers on startup, 8 tests, 100% coverage |
 | M6 | **User Job Submission** | Model generates code, submits for review | User can create job via natural language |
-| M7 | **Approval Workflow** | Human review and approval UI | Pending → Approved/Rejected flow works |
+| M7 | **Approval Workflow** | ✅ Complete | ListJobsTool, ApproveJobTool, RejectJobTool, 18 tests, fuzzy name matching |
 | M8 | **Resource Limits** | ✅ Complete | Timeout enforcement, memory monitoring, output limits, 31 tests, 95% coverage |
 | M9 | **Natural Language Interface** | ✅ Complete | Rule-based NL parser, 52 tests, timezone support, confidence scoring |
 | M10 | **CLI Integration** | alfred cron commands for power users | Optional CLI management available |
@@ -489,6 +489,11 @@ src/
 │   ├── observability.py   # Logging, metrics, health, alerts
 │   ├── models.py          # Job, ExecutionResult, etc.
 │   └── system_jobs.py     # Built-in system job handlers
+├── tools/
+│   ├── schedule_job.py    # Create jobs via natural language
+│   ├── list_jobs.py       # List jobs by status
+│   ├── approve_job.py     # Approve pending jobs
+│   └── reject_job.py      # Reject/delete jobs
 data/
 ├── cron.jsonl             # Job definitions
 └── cron_history.jsonl     # Execution history
