@@ -76,10 +76,14 @@ class Job:
     job_id: str
     name: str
     expression: str
-    handler: Callable[[], Awaitable[None]]
-    status: JobStatus = JobStatus.ACTIVE
+    code: str  # Python code as string, compiled at runtime
+    status: str = "active"  # "active", "pending", "paused"
     last_run: datetime | None = None
-    _running: asyncio.Lock = field(default_factory=asyncio.Lock)
+    created_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
+    updated_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
+    resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
+    chat_id: int | None = None
+    sandbox_enabled: bool = False  # If True, restricts builtins during execution
 ```
 
 #### 2. CronStore (`src/cron/store.py`)
@@ -102,7 +106,8 @@ JSONL persistence for jobs and execution history.
     "timeout_seconds": 30,
     "max_memory_mb": 100,
     "allow_network": false
-  }
+  },
+  "sandbox_enabled": false
 }
 ```
 
@@ -328,7 +333,7 @@ async def submit_user_job(self, name: str, description: str,
     return job.job_id
 ```
 
-### Secondary: Resource Limits
+### Secondary: Resource Limits & Configurable Sandbox
 
 ```python
 @dataclass
@@ -339,6 +344,13 @@ class ResourceLimits:
     max_output_lines: int = 1000
 ```
 
+**Configurable Sandbox:**
+Jobs can opt-in to restricted builtins via `sandbox_enabled` flag (default: False).
+- `sandbox_enabled=False` (default): Full Python builtins access
+- `sandbox_enabled=True`: Restricted builtins (print, len, str, etc. only)
+
+Resource limits (timeout, memory) are enforced regardless of sandbox setting.
+
 ### Tertiary: Audit Trail
 
 Every execution logged with:
@@ -347,6 +359,46 @@ Every execution logged with:
 - stdout/stderr
 - Duration and memory
 - Success/failure status
+
+### UX Resilience: Failures Never Break the Interface
+
+Job errors are handled gracefully to ensure the UX remains functional:
+
+**Validation at Submit Time:**
+```python
+async def submit_user_job(self, name: str, expression: str, code: str):
+    # Validate code compiles before saving
+    self._validate_job_code(code)  # Raises ValueError if invalid
+    # ... save job
+```
+
+**Graceful Approval Flow:**
+```python
+async def approve_job(self, job_id: str, approved_by: str) -> dict[str, Any]:
+    try:
+        self._validate_job_code(job.code)
+        job.status = "active"
+        await self.register_job(job)
+        return {"success": True, "message": "Job approved"}
+    except ValueError as e:
+        return {"success": False, "message": f"Cannot approve: {e}"}
+    except Exception as e:
+        return {"success": False, "message": f"Unexpected error: {e}"}
+```
+
+**Resilient Job Loading:**
+```python
+async def _load_jobs(self) -> None:
+    jobs = await self._store.load_jobs()
+    for job in jobs:
+        if job.status == "active":
+            try:
+                handler = self._compile_handler(job.code, job.sandbox_enabled)
+                # ... register job
+            except Exception:
+                logger.exception(f"Failed to load job {job.job_id}")
+                # Job skipped, scheduler continues
+```
 
 ---
 
@@ -537,6 +589,8 @@ data/
 | 2026-02-19 | CronScheduler integrated with Alfred | Scheduler lifecycle tied to Alfred.start()/stop(), cron tools registered on init |
 | 2026-02-19 | super().__init__() in cron tools | Fix missing parent init calls to properly set _param_model |
 | 2026-02-19 | Typer CLI with Rich tables | Shell completion built-in, table output for job lists/history, chat as default command |
+| 2026-02-19 | Job failures must not break UX | Validation at submit/approve time, graceful error handling with user-friendly messages |
+| 2026-02-19 | Configurable sandbox per job | `sandbox_enabled` flag (default: False) gives users full builtins access; resource limits still enforced |
 
 ---
 

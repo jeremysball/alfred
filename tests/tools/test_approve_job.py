@@ -39,7 +39,7 @@ class TestApproveJobTool:
             result.append(chunk)
         
         output = "".join(result)
-        assert "Approved" in output
+        assert "approved" in output.lower()
         assert "Daily Report" in output
         assert "active" in output.lower()
 
@@ -86,7 +86,7 @@ class TestApproveJobTool:
             result.append(chunk)
         
         output = "".join(result)
-        assert "Approved" in output
+        assert "approved" in output.lower()
         assert "By ID Test" in output
 
     @pytest.mark.asyncio
@@ -104,7 +104,7 @@ class TestApproveJobTool:
             result.append(chunk)
         
         output = "".join(result)
-        assert "Approved" in output
+        assert "approved" in output.lower()
         assert "Daily Morning Report" in output
 
 
