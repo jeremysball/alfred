@@ -1,6 +1,6 @@
 ---
 name: token-burn
-description: Calculate total token usage from pi session JSONL files with beautiful emoji tables. Use when analyzing conversation history, tracking API costs, or auditing token consumption across multiple sessions. Integrates with search skills for cost estimation.
+description: Calculate total token usage from pi session JSONL files with beautiful emoji tables. Use when analyzing conversation history, tracking API costs, or auditing token consumption.
 ---
 
 # 🔥 Token Burn
@@ -60,104 +60,11 @@ python3 src/token_burn.py
 ║  📄 Total Lines              11,561                                ║
 ║  💬 Messages w/ Usage         4,899                                ║
 ╚════════════════════════════════════════════════════════════════════╝
-
-📊════════════════════════════════════════════════════════════════════📊
-║              🤖 TOKEN USAGE BY MODEL 🤖                            ║
-📊════════════════════════════════════════════════════════════════════📊
-
-┌────────────────────────────────────────────────────────────────────┐
-│ #1  🌙  kimi-coding/k2p5                                           │
-├────────────────────────────────────────────────────────────────────┤
-│  📥  Input:             11,065,261  (11.07M)    44.5%              │
-│  📤  Output:             1,082,103  (1.08M)      4.4%              │
-│  💾  Cache Read:       239,416,576  (239.42M)   95.1%              │
-│  💿  Cache Write:               0  (0)           0.0%              │
-├────────────────────────────────────────────────────────────────────┤
-│  🔥  TOTAL:            251,563,940  (251.56M)                      │
-└────────────────────────────────────────────────────────────────────┘
-
-💰════════════════════════════════════════════════════════════════════💰
-║                    🏆 GRAND TOTALS 🏆                              ║
-💰════════════════════════════════════════════════════════════════════💰
-│  📥  TOTAL INPUT          16,191,416  (16.19M)                     │
-│  📤  TOTAL OUTPUT          1,334,843  (1.33M)                      │
-│  💾  TOTAL CACHE READ    270,346,440  (270.35M)                    │
-├────────────────────────────────────────────────────────────────────┤
-│  🔥  GRAND TOTAL         287,872,699  (287.87M)                    │
-└────────────────────────────────────────────────────────────────────┘
-
-💡────────────────────────────────────────────────────────────────────💡
-│  💰 Cost Estimation Tip:                                           │
-│     Use serper-search or web-search to find current pricing:       │
-│     'Anthropic Claude API pricing per token 2025'                  │
-│     'OpenAI GPT-4 pricing per token 2025'                          │
-│     Then multiply: tokens × price_per_token = estimated cost       │
-💡────────────────────────────────────────────────────────────────────💡
 ```
 
 ### JSON Output for Automation
 ```bash
 python3 src/token_burn.py --json > token_report.json
-```
-
-## 💰 Cost Estimation with Search Skills
-
-Token Burn integrates beautifully with search skills to estimate actual costs:
-
-### Step 1: Get Token Counts
-```bash
-python3 src/token_burn.py
-# Note the model names and token counts (e.g., kimi-coding/k2p5: 251M tokens)
-```
-
-### Step 2: Search for Current Pricing
-
-Use **serper-search** (or any web search skill) to find current pricing:
-
-```bash
-# For Claude/Anthropic models
-serper-search "Anthropic Claude API pricing per token 2025"
-
-# For OpenAI models  
-serper-search "OpenAI GPT-4o API pricing per million tokens 2025"
-
-# For Kimi models
-serper-search "Moonshot AI Kimi API pricing per token 2025"
-
-# For GLM/Zhipu models
-serper-search "Zhipu AI GLM-4 API pricing per token 2025"
-```
-
-### Step 3: Calculate Estimated Cost
-
-Example calculation:
-```
-Model: kimi-coding/k2p5
-Input tokens:  11,065,261
-Output tokens: 1,082,103
-
-Pricing (hypothetical):
-- Input:  $0.50 per 1M tokens
-- Output: $1.50 per 1M tokens
-
-Cost = (11.07M × $0.50) + (1.08M × $1.50)
-     = $5.54 + $1.62
-     = $7.16
-```
-
-### 🔍 Quick Cost Lookup Commands
-
-Add these to your workflow:
-
-```bash
-# Claude pricing
-alias claude-pricing='serper-search "Anthropic Claude 3.5 Sonnet API pricing 2025"'
-
-# OpenAI pricing  
-alias openai-pricing='serper-search "OpenAI GPT-4o mini API pricing per million tokens"'
-
-# Kimi pricing
-alias kimi-pricing='serper-search "Moonshot AI Kimi k2 API pricing 2025"'
 ```
 
 ## 📊 Output Format Details
@@ -167,21 +74,62 @@ alias kimi-pricing='serper-search "Moonshot AI Kimi k2 API pricing 2025"'
 | Provider | Emoji | Example Models |
 |----------|-------|----------------|
 | Kimi | 🌙 | kimi-coding/k2p5, kimi-k2-thinking |
-| Claude | 🧠 | claude-3.5-sonnet, claude-3-opus |
-| OpenAI | 🤖 | gpt-4o, gpt-4o-mini, gpt-3.5-turbo |
-| Gemini | 💎 | gemini-1.5-pro, gemini-1.5-flash |
-| Zhipu/GLM | ⚡ | zai/glm-4, zai/glm-5 |
-| Llama | 🦙 | llama-3.1-70b, llama-3.1-8b |
-| DeepSeek | 🔮 | deepseek-chat, deepseek-coder |
+| Claude | 🧠 | claude-4-sonnet, claude-opus-4 |
+| OpenAI | 🤖 | o1, o3-mini, gpt-4o |
+| Gemini | 💎 | gemini-2.0-flash-thinking |
+| GLM/Zhipu | ⚡ | glm-4, glm-5 |
+| DeepSeek | 🔮 | deepseek-r1, deepseek-reasoner |
+| Qwen | 🐉 | qwen-qwq |
 | Unknown | 🤖 | fallback for unrecognized models |
 
-### Token Format
+### Token Types
 
-| Range | Display | Example |
-|-------|---------|---------|
-| < 1,000 | exact | `842` |
-| 1K - 1M | K suffix | `12.5K` |
-| ≥ 1M | M suffix | `251.56M` |
+| Token Type | Emoji | Description |
+|------------|-------|-------------|
+| `input` | 📥 | Standard input tokens sent to API |
+| `output` | 📤 | Generated output tokens from model |
+| `cacheRead` | 💾 | Tokens read from cache (cheaper) |
+| `cacheWrite` | 💿 | Tokens written to cache (one-time cost) |
+
+## 💰 Cost Estimation with Search Skills
+
+Token Burn integrates with search skills to estimate actual costs:
+
+### Step 1: Get Token Counts
+```bash
+python3 src/token_burn.py
+```
+
+### Step 2: Search for Current Pricing
+
+```bash
+# For Claude/Anthropic models
+serper-search "Anthropic Claude API pricing per token 2025"
+
+# For OpenAI models  
+serper-search "OpenAI o1 API pricing per million tokens 2025"
+
+# For Kimi models
+serper-search "Moonshot AI Kimi k2 API pricing 2025"
+```
+
+### Step 3: Calculate Estimated Cost
+
+```
+Model: kimi-coding/k2p5
+Input tokens:      11,065,261
+Output tokens:      1,082,103
+Cache read:       239,416,576
+
+Pricing (example):
+- Input:   $0.50/1M
+- Output:  $1.50/1M
+- Cache read: $0.05/1M (usually much cheaper)
+
+Cost = (11.07M × $0.50) + (1.08M × $1.50) + (239.42M × $0.05)
+     = $5.54 + $1.62 + $11.97
+     = $19.13
+```
 
 ## 🔧 Advanced Usage
 
@@ -190,52 +138,11 @@ alias kimi-pricing='serper-search "Moonshot AI Kimi k2 API pricing 2025"'
 python3 src/token_burn.py ~/.pi/agent/sessions/--workspace-alfred-- --recursive
 ```
 
-### Filter by Date Range (with find)
+### Filter by Date Range
 ```bash
-# Only sessions from today
 find ~/.pi/agent/sessions -name "2026-02-18*.jsonl" -exec \
   python3 src/token_burn.py {} \;
 ```
-
-### Compare Sessions
-```bash
-# Yesterday vs today
-python3 src/token_burn.py ~/.pi/agent/sessions/--workspace--/2026-02-17*.jsonl --json > yesterday.json
-python3 src/token_burn.py ~/.pi/agent/sessions/--workspace--/2026-02-18*.jsonl --json > today.json
-```
-
-## 📁 JSON Output Structure
-
-```json
-{
-  "files_processed": 84,
-  "total_lines": 11561,
-  "total_messages": 4899,
-  "tokens_by_model": {
-    "kimi-coding/k2p5": {
-      "input": 11065261,
-      "output": 1082103,
-      "cache_read": 239416576,
-      "cache_write": 0,
-      "total": 251563940
-    }
-  },
-  "total_input": 16191416,
-  "total_output": 1334843,
-  "total_cache_read": 270346440,
-  "total_cache_write": 0,
-  "total_tokens": 287872699
-}
-```
-
-## 🎯 Cached Token Support
-
-| Token Type | Emoji | Description |
-|------------|-------|-------------|
-| `input` | 📥 | Standard input tokens sent to API |
-| `output` | 📤 | Generated output tokens from model |
-| `cacheRead` | 💾 | Tokens read from cache (cheaper) |
-| `cacheWrite` | 💿 | Tokens written to cache (one-time cost) |
 
 ## 🛠️ How It Works
 
@@ -250,7 +157,6 @@ python3 src/token_burn.py ~/.pi/agent/sessions/--workspace--/2026-02-18*.jsonl -
 | Skill | Use Case | Command Example |
 |-------|----------|-----------------|
 | serper-search | Find current API pricing | `serper-search "Claude API pricing 2025"` |
-| zai-web-search | Alternative pricing lookup | `zai-web-search "OpenAI GPT-4o pricing"` |
 | writing-clearly | Document findings | Use for cost reports |
 
 ## 📝 License

@@ -55,79 +55,47 @@ class TestNotifierError:
 class TestCLINotifier:
     """Test the CLINotifier implementation."""
 
-    async def test_cli_notifier_outputs_to_stream(self):
-        """CLINotifier writes formatted message to output stream."""
-        output = io.StringIO()
-        notifier = CLINotifier(output_stream=output)
+    async def test_cli_notifier_queues_message(self):
+        """CLINotifier queues messages instead of printing immediately."""
+        notifier = CLINotifier()
         await notifier.send("Test message")
-        result = output.getvalue()
-        assert "JOB NOTIFICATION" in result
-        assert "Test message" in result
+        # Message should be queued
+        queued = notifier.flush_queued()
+        assert "Test message" in queued
 
-    async def test_cli_notifier_includes_timestamp(self):
-        """CLINotifier includes timestamp in output."""
-        output = io.StringIO()
-        notifier = CLINotifier(output_stream=output)
+    async def test_cli_notifier_queues_multiple_messages(self):
+        """CLINotifier can queue multiple messages."""
+        notifier = CLINotifier()
+        await notifier.send("Message 1")
+        await notifier.send("Message 2")
+        queued = notifier.flush_queued()
+        assert "Message 1" in queued
+        assert "Message 2" in queued
+        assert len(queued) == 2
+
+    async def test_cli_notifier_flush_clears_queue(self):
+        """flush_queued clears the queue after returning."""
+        notifier = CLINotifier()
         await notifier.send("Test message")
-        result = output.getvalue()
-        # Check for timestamp format [HH:MM:SS TZ (HH:MM:SS UTC) JOB NOTIFICATION]
-        assert result.startswith("[")
-        assert ":" in result  # Time separator
-        assert "UTC" in result  # UTC reference
-        assert "JOB NOTIFICATION" in result
-
-    async def test_cli_notifier_indents_multiline(self):
-        """CLINotifier indents continuation lines."""
-        output = io.StringIO()
-        notifier = CLINotifier(output_stream=output)
-        await notifier.send("Line 1\nLine 2\nLine 3")
-        result = output.getvalue()
-        lines = result.split("\n")
-        # First line has timestamp and label
-        assert "Line 1" in lines[0]
-        assert lines[0].startswith("[")
-        # Continuation lines should be indented (starts with spaces, not [)
-        assert lines[1].startswith(" ")
-        assert "Line 2" in lines[1]
-        assert lines[2].startswith(" ")
-        assert "Line 3" in lines[2]
-
-    async def test_cli_notifier_handles_empty_message(self):
-        """CLINotifier handles empty message gracefully."""
-        output = io.StringIO()
-        notifier = CLINotifier(output_stream=output)
-        await notifier.send("")
-        result = output.getvalue()
-        # Should just have the label with empty content
-        assert "JOB NOTIFICATION" in result
+        # First flush returns message
+        queued1 = notifier.flush_queued()
+        assert len(queued1) == 1
+        # Second flush returns empty
+        queued2 = notifier.flush_queued()
+        assert len(queued2) == 0
 
     async def test_cli_notifier_uses_stdout_by_default(self):
         """CLINotifier defaults to sys.stdout."""
         notifier = CLINotifier()
         assert notifier.output is __import__("sys").stdout
 
-    async def test_cli_notifier_graceful_on_write_error(self, caplog):
-        """CLINotifier logs error on write failure but doesn't raise."""
-        class BrokenStream:
-            def write(self, s: str) -> None:
-                raise IOError("Stream broken")
-            def flush(self) -> None:
-                pass
-
-        notifier = CLINotifier(output_stream=BrokenStream())
-        # Should not raise
-        await notifier.send("Test message")
-        # Error should be logged
-        assert "Failed to send CLI notification" in caplog.text
-
     async def test_cli_notifier_ignores_chat_id(self):
         """CLINotifier accepts chat_id parameter but ignores it."""
-        output = io.StringIO()
-        notifier = CLINotifier(output_stream=output)
+        notifier = CLINotifier()
         # Should not raise even with chat_id
         await notifier.send("Test message", chat_id=12345)
-        result = output.getvalue()
-        assert "Test message" in result
+        queued = notifier.flush_queued()
+        assert "Test message" in queued
 
 
 class TestTelegramNotifier:

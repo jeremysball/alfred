@@ -28,6 +28,28 @@ class Notifier(ABC):
         await notify("Hello from my job!")
     """
 
+    def __init__(self) -> None:
+        """Initialize notifier with empty message queue."""
+        self._message_queue: list[str] = []
+
+    def enqueue(self, message: str) -> None:
+        """Queue a message for later display.
+
+        Args:
+            message: Message to queue
+        """
+        self._message_queue.append(message)
+
+    def flush_queued(self) -> list[str]:
+        """Get and clear all queued messages.
+
+        Returns:
+            List of queued messages
+        """
+        messages = self._message_queue.copy()
+        self._message_queue.clear()
+        return messages
+
     @abstractmethod
     async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send a notification message to the user.
@@ -52,6 +74,9 @@ class CLINotifier(Notifier):
     Outputs formatted messages to stdout or a configurable stream.
     Format: [2026-02-19 10:30:00 JOB NOTIFICATION] Message here
             Continuation lines are indented
+
+    Messages are queued instead of printed immediately to avoid
+    interleaving with streaming output.
     """
 
     def __init__(self, output_stream: TextIO | None = None) -> None:
@@ -60,44 +85,23 @@ class CLINotifier(Notifier):
         Args:
             output_stream: Stream to write to (default: sys.stdout)
         """
+        super().__init__()
         self.output = output_stream or sys.stdout
 
     async def send(self, message: str, chat_id: int | None = None) -> None:
-        """Send notification to CLI output.
+        """Queue notification for later display.
+
+        Messages are queued to avoid interleaving with streaming output.
+        Use flush_queued() to display them at safe points.
 
         Args:
-            message: Message to display
+            message: Message to queue
             chat_id: Ignored (CLI has no chat routing)
 
         Returns:
             None
         """
-        try:
-            # Get local time with timezone and UTC time
-            now_local = datetime.now().astimezone()
-            now_utc = datetime.now(UTC)
-
-            # Format: "HH:MM:SS TZ (HH:MM:SS UTC)"
-            local_str = now_local.strftime("%H:%M:%S") + " " + now_local.strftime("%Z")
-            utc_str = now_utc.strftime("%H:%M:%S UTC")
-            timestamp = f"{local_str} ({utc_str})"
-
-            lines = message.splitlines() if message else [""]
-
-            for i, line in enumerate(lines):
-                if i == 0:
-                    formatted = f"[{timestamp} JOB NOTIFICATION] {line}\n"
-                else:
-                    # Indent continuation lines to align with first line
-                    # Length of "[{timestamp} JOB NOTIFICATION] "
-                    prefix_len = len(timestamp) + 22
-                    formatted = f"{' ' * prefix_len}{line}\n"
-                self.output.write(formatted)
-
-            self.output.flush()
-        except Exception as e:
-            # Log error but don't fail the job
-            logger.error(f"Failed to send CLI notification: {e}")
+        self.enqueue(message)
 
 
 class TelegramNotifier(Notifier):
@@ -119,6 +123,7 @@ class TelegramNotifier(Notifier):
             bot: Telegram Bot instance (from TelegramInterface)
             default_chat_id: Default chat to send to if job has no chat_id
         """
+        super().__init__()
         self.bot = bot
         self.default_chat_id = default_chat_id
 

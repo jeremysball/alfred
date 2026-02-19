@@ -397,7 +397,6 @@ async def run():
         runnable_job = scheduler._jobs["test-notify-job"]
         await scheduler._execute_job(runnable_job)
 
-        # Check output contains notification
-        result = output.getvalue()
-        assert "JOB NOTIFICATION" in result
-        assert "Hello from test job!" in result
+        # Check notification was queued
+        queued = notifier.flush_queued()
+        assert "Hello from test job!" in queued

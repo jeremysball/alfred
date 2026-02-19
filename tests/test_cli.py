@@ -21,6 +21,12 @@ def mock_alfred() -> MagicMock:
 
     alfred.chat_stream = AsyncMock(side_effect=async_gen)
     alfred.compact = AsyncMock(return_value="Compacted")
+    
+    # Mock the notifier
+    alfred.cron_scheduler = MagicMock()
+    alfred.cron_scheduler._notifier = MagicMock()
+    alfred.cron_scheduler._notifier.flush_queued = MagicMock(return_value=[])
+    
     return alfred
 
 
@@ -29,7 +35,15 @@ async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates chat to Alfred via chat_stream."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("Hello\nexit\n")), patch("sys.stdout", StringIO()):
+    inputs = ["Hello", "exit"]
+    call_count = [0]
+
+    async def mock_input(prompt: str) -> str:
+        result = inputs[call_count[0]]
+        call_count[0] += 1
+        return result
+
+    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
         await interface.run()
 
     mock_alfred.chat_stream.assert_called_once_with("Hello")
@@ -40,7 +54,15 @@ async def test_compact_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates compact to Alfred."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("compact\nexit\n")), patch("sys.stdout", StringIO()):
+    inputs = ["compact", "exit"]
+    call_count = [0]
+
+    async def mock_input(prompt: str) -> str:
+        result = inputs[call_count[0]]
+        call_count[0] += 1
+        return result
+
+    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
@@ -51,7 +73,10 @@ async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
     """Test that 'exit' command terminates the loop."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("exit\n")), patch("sys.stdout", StringIO()):
+    async def mock_input(prompt: str) -> str:
+        return "exit"
+
+    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
         await interface.run()
 
     # Should not call chat_stream
@@ -63,7 +88,15 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
     """Test that empty input is ignored."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("\n\nHello\nexit\n")), patch("sys.stdout", StringIO()):
+    inputs = ["", "", "Hello", "exit"]
+    call_count = [0]
+
+    async def mock_input(prompt: str) -> str:
+        result = inputs[call_count[0]]
+        call_count[0] += 1
+        return result
+
+    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
         await interface.run()
 
     # Only one chat_stream call for "Hello"
@@ -76,7 +109,7 @@ async def test_eoferror_terminates_loop(mock_alfred: MagicMock) -> None:
     interface = CLIInterface(mock_alfred)
 
     # Simulate EOFError on first input
-    with patch("builtins.input", side_effect=EOFError):
+    with patch("src.interfaces.cli.ainput", side_effect=EOFError):
         await interface.run()
 
     # Should not call chat_stream
@@ -88,7 +121,15 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
     """Test that commands are case-insensitive."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("COMPACT\nEXIT\n")), patch("sys.stdout", StringIO()):
+    inputs = ["COMPACT", "EXIT"]
+    call_count = [0]
+
+    async def mock_input(prompt: str) -> str:
+        result = inputs[call_count[0]]
+        call_count[0] += 1
+        return result
+
+    with patch("src.interfaces.cli.ainput", side_effect=mock_input), patch("sys.stdout", StringIO()):
         await interface.run()
 
     mock_alfred.compact.assert_called_once()

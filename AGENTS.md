@@ -255,3 +255,25 @@ def test_something():
 - Docker containers have different paths
 - Hardcoded paths are a sign of lazy, non-portable code
 
+### 9. ALWAYS Notify on Completion or Input Required
+**ALWAYS** send a phone notification via ntfy.sh when:
+
+1. **Task completes** — Any multi-step task finishes (tests pass, files created, PR merged, etc.)
+2. **User input required** — You ask a question, present options, or need a decision
+
+**Do NOT notify for:**
+- Simple read operations
+- Intermediate steps in ongoing work
+- Acknowledgments or confirmations
+
+**How to notify:**
+```bash
+curl -s -d "<message>" ntfy.sh/pi-agent-prometheus
+```
+
+**Message guidelines:**
+- 2-5 words max
+- Action-oriented: "Tests passed", "PR created", "Need input", "Question"
+
+**This is the final step before awaiting user response.**
+
