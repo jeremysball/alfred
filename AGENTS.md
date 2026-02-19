@@ -115,30 +115,8 @@ When proposing changes, you MUST articulate:
 ### 2. ALWAYS Ask Questions When Creating PRDs
 **CRITICAL**: When using the `prd-create` skill, you **MUST**:
 
-1. **Engage in discussion first** — Never skip to creating files without understanding the feature
-2. **Ask clarifying questions** — Explore scope, constraints, edge cases, user impact
-3. **Resolve ALL open questions** — Do NOT leave "Open Questions" in the PRD unanswered
-4. **Get confirmation before creating** — Summarize the design and confirm with the user
-
-**The PRD creation process is:**
-```
-Discussion → Questions → Answers → Design Summary → Confirm → Create PRD
-```
-
-**WRONG — Do NOT do this:**
-- Create PRD without asking questions
-- Leave open questions in the PRD for "later"
-- Assume you understand the requirements
-
 ### 3. Use Todo Sidebar for Task Tracking — MANDATORY
 **ALWAYS use the `todo-sidebar` tool** when outlining or tracking multi-step work. **NEVER use numbered lists in prose** when tasks need to be tracked.
-
-**When to use:**
-- Complex tasks with multiple steps
-- PRD implementation workflows
-- Outlining implementation steps before coding
-- User explicitly asks to track something
-- You're working through a list of items
 
 **MANDATORY RULE:**
 When you would otherwise write a numbered list like this in your response:
@@ -171,13 +149,10 @@ todo-sidebar action: toggle, id: 1
 ### 4. Encourage Test-Driven Development (TDD)
 **ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
 
-**Guidelines:**
-- Write a failing test that describes the behavior you need
-- Implement the minimal code to make the test pass
-- Refactor while keeping tests green
-- Use tests to document expected behavior and edge cases
 
-This is **not strictly required** but strongly recommended for maintainable, well-designed code.
+This is **not strictly required** but STRONGLY encouraged and you 
+will be expected to justify deciding
+not to.
 
 ### 5. Always Verify Before Done
 After any code change, run:
@@ -214,9 +189,6 @@ Show results. Fix issues. Then it's done.
 - Reference issues in footer when applicable
 
 
-### 7. User Control
-The user decides. You suggest; they choose. Never override user preferences.
-
 ### 8. NEVER Use Hardcoded Absolute Paths
 **CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
 
@@ -249,9 +221,5 @@ def test_something():
     config = load_config(project_root / "config.json")
 ```
 
-**Why this matters:**
-- CI/CD runs in different environments
-- Other developers have different directory structures
-- Docker containers have different paths
-- Hardcoded paths are a sign of lazy, non-portable code
-
+### ALWAYS ASK DESIGN QUESTIONS!!!
+### PRESENT TRADEOFFS AND ALTERNATIVES
