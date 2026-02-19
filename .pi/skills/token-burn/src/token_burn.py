@@ -58,11 +58,11 @@ def extract_model_info(data: dict) -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-def extract_token_usage(data: dict) -> Tuple[int, int, int, int, int]:
+def extract_token_usage(data: dict) -> Tuple[int, int, int, int, int, int]:
     """
-    Extract token usage from message data, including cached tokens.
+    Extract token usage from message data, including cached and reasoning tokens.
     
-    Returns: (input_tokens, output_tokens, cache_read, cache_write, total_tokens)
+    Returns: (input_tokens, output_tokens, cache_read, cache_write, reasoning_tokens, total_tokens)
     """
     msg = data.get('message', {})
     usage = msg.get('usage', {})
@@ -72,10 +72,21 @@ def extract_token_usage(data: dict) -> Tuple[int, int, int, int, int]:
         out = usage.get('output', 0) or usage.get('outputTokens', 0) or 0
         cache_read = usage.get('cacheRead', 0) or 0
         cache_write = usage.get('cacheWrite', 0) or 0
-        total = usage.get('totalTokens', 0) or (inp + out + cache_read + cache_write)
-        return inp, out, cache_read, cache_write, total
+        
+        # Extract reasoning tokens (Kimi, Z.AI, OpenAI o1/o3, Claude 3.7)
+        reasoning = 0
+        if 'reasoning_tokens' in usage:
+            reasoning = usage.get('reasoning_tokens', 0)
+        elif 'thinking_tokens' in usage:
+            reasoning = usage.get('thinking_tokens', 0)
+        elif 'completion_tokens_details' in usage:
+            details = usage.get('completion_tokens_details', {})
+            reasoning = details.get('reasoning_tokens', 0)
+        
+        total = usage.get('totalTokens', 0) or (inp + out + cache_read + cache_write + reasoning)
+        return inp, out, cache_read, cache_write, reasoning, total
     
-    return 0, 0, 0, 0, 0
+    return 0, 0, 0, 0, 0, 0
 
 
 def get_model_name(provider: Optional[str], model_id: Optional[str]) -> str:
@@ -176,6 +187,12 @@ def print_model_card(model: str, counts: dict, rank: int):
     out_pct = (out / total * 100) if total > 0 else 0
     print(f"│  📤  Output:       {format_number(out):>15}  ({format_tokens(out)})  {out_pct:>5.1f}%  │")
     
+    # Reasoning tokens (if any)
+    reasoning = counts.get('reasoning', 0)
+    if reasoning > 0:
+        reasoning_pct = (reasoning / total * 100) if total > 0 else 0
+        print(f"│  🧠  Reasoning:    {format_number(reasoning):>15}  ({format_tokens(reasoning)})  {reasoning_pct:>5.1f}%  │")
+    
     # Cache read (if any)
     cache_r = counts['cache_read']
     if cache_r > 0:
@@ -199,12 +216,13 @@ def process_jsonl_file(filepath: str, buffer_size: int = 8192) -> Dict:
         'file': filepath,
         'lines_processed': 0,
         'messages_processed': 0,
-        'tokens_by_model': defaultdict(lambda: {'input': 0, 'output': 0, 'cache_read': 0, 'cache_write': 0, 'total': 0}),
+        'tokens_by_model': defaultdict(lambda: {'input': 0, 'output': 0, 'cache_read': 0, 'cache_write': 0, 'reasoning': 0, 'total': 0}),
         'errors': 0,
         'total_input': 0,
         'total_output': 0,
         'total_cache_read': 0,
         'total_cache_write': 0,
+        'total_reasoning': 0,
         'total_tokens': 0
     }
     
@@ -233,7 +251,7 @@ def process_jsonl_file(filepath: str, buffer_size: int = 8192) -> Dict:
                 if model_id:
                     current_model = get_model_name(provider, model_id)
                 
-                inp, out, cache_read, cache_write, total = extract_token_usage(data)
+                inp, out, cache_read, cache_write, reasoning, total = extract_token_usage(data)
                 
                 if total > 0:
                     results['messages_processed'] += 1
@@ -243,12 +261,14 @@ def process_jsonl_file(filepath: str, buffer_size: int = 8192) -> Dict:
                     results['tokens_by_model'][model]['output'] += out
                     results['tokens_by_model'][model]['cache_read'] += cache_read
                     results['tokens_by_model'][model]['cache_write'] += cache_write
+                    results['tokens_by_model'][model]['reasoning'] += reasoning
                     results['tokens_by_model'][model]['total'] += total
                     
                     results['total_input'] += inp
                     results['total_output'] += out
                     results['total_cache_read'] += cache_read
                     results['total_cache_write'] += cache_write
+                    results['total_reasoning'] += reasoning
                     results['total_tokens'] += total
                     
         except Exception as e:
@@ -311,7 +331,7 @@ def main():
     
     # Process files
     all_results = []
-    grand_total = defaultdict(lambda: {'input': 0, 'output': 0, 'cache_read': 0, 'cache_write': 0, 'total': 0})
+    grand_total = defaultdict(lambda: {'input': 0, 'output': 0, 'cache_read': 0, 'cache_write': 0, 'reasoning': 0, 'total': 0})
     total_lines = 0
     total_messages = 0
     
@@ -325,6 +345,7 @@ def main():
                 grand_total[model]['output'] += counts['output']
                 grand_total[model]['cache_read'] += counts['cache_read']
                 grand_total[model]['cache_write'] += counts['cache_write']
+                grand_total[model]['reasoning'] += counts.get('reasoning', 0)
                 grand_total[model]['total'] += counts['total']
             
             total_lines += result['lines_processed']
@@ -344,6 +365,7 @@ def main():
             'total_output': sum(m['output'] for m in grand_total.values()),
             'total_cache_read': sum(m['cache_read'] for m in grand_total.values()),
             'total_cache_write': sum(m['cache_write'] for m in grand_total.values()),
+            'total_reasoning': sum(m.get('reasoning', 0) for m in grand_total.values()),
             'total_tokens': sum(m['total'] for m in grand_total.values()),
         }
         print(json.dumps(output, indent=2))
@@ -382,11 +404,14 @@ def main():
         total_out = sum(m['output'] for m in grand_total.values())
         total_cache_r = sum(m['cache_read'] for m in grand_total.values())
         total_cache_w = sum(m['cache_write'] for m in grand_total.values())
+        total_reasoning = sum(m.get('reasoning', 0) for m in grand_total.values())
         total_all = sum(m['total'] for m in grand_total.values())
         
         print(f"│  📥  TOTAL INPUT         {format_number(total_in):>15}  ({format_tokens(total_in)})          │")
         print(f"│  📤  TOTAL OUTPUT        {format_number(total_out):>15}  ({format_tokens(total_out)})          │")
         
+        if total_reasoning > 0:
+            print(f"│  🧠  TOTAL REASONING     {format_number(total_reasoning):>15}  ({format_tokens(total_reasoning)})          │")
         if total_cache_r > 0:
             print(f"│  💾  TOTAL CACHE READ    {format_number(total_cache_r):>15}  ({format_tokens(total_cache_r)})          │")
         if total_cache_w > 0:

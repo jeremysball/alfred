@@ -1,6 +1,11 @@
 # Development TODOs
 
-- investogate whether we should or should not include reasoning traces and if so how to do so. 
+- [ ] **Add Shift+Enter to queue message** - Allow queuing messages while LLM is running
+- [ ] **Normal Enter is steering mode** - Interject with it instead of waiting for completion
+- [ ] **Add background color to tool call output** - Better visual distinction for tool calls
+- [ ] **Keybind to toggle tool call output** - Show/hide tool call sections
+
+- investigate whether we should or should not include reasoning traces and if so how to do so. 
   - **Insight**: For a coding agent, the best middle ground is often to save the reasoning only for the immediate previous turn, but summarize or discard it for older turns.
 - [ ] **Remove max iterations limit** - Agent should run until completion or user cancellation, not have an arbitrary iteration cap
 - [ ] **Create PRD for ESC keybinding** - Add keyboard shortcut to cancel the current LLM call
