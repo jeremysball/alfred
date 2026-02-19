@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,14 +17,22 @@ class Config(BaseSettings):
     )
 
     # Telegram (required - no default)
-    telegram_bot_token: str = Field(..., validation_alias="TELEGRAM_BOT_TOKEN")
+    telegram_bot_token: str = Field(
+        ..., validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "telegram_bot_token")
+    )
 
     # OpenAI (required - no default)
-    openai_api_key: str = Field(..., validation_alias="OPENAI_API_KEY")
+    openai_api_key: str = Field(
+        ..., validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key")
+    )
 
     # Kimi (required - no defaults)
-    kimi_api_key: str = Field(..., validation_alias="KIMI_API_KEY")
-    kimi_base_url: str = Field(..., validation_alias="KIMI_BASE_URL")
+    kimi_api_key: str = Field(
+        ..., validation_alias=AliasChoices("KIMI_API_KEY", "kimi_api_key")
+    )
+    kimi_base_url: str = Field(
+        ..., validation_alias=AliasChoices("KIMI_BASE_URL", "kimi_base_url")
+    )
 
     # Runtime settings (no defaults - from config.json)
     default_llm_provider: str

@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -62,7 +63,7 @@ async def _run_interactive() -> None:
     _setup_logging()
 
     config = load_config()
-    alfred = Alfred(config)
+    alfred = Alfred(config, telegram_mode=_run_telegram)
 
     try:
         if _run_telegram:
@@ -88,7 +89,8 @@ async def _run_telegram_bot(alfred: Alfred) -> None:
     """Run Telegram bot."""
     from src.interfaces.telegram import TelegramInterface
 
-    interface = TelegramInterface(alfred.config, alfred)
+    data_dir = getattr(alfred.config, "data_dir", Path("data"))
+    interface = TelegramInterface(alfred.config, alfred, data_dir)
     await alfred.start()
     await interface.run()
 
