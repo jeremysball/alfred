@@ -1,4 +1,4 @@
-"""Tests for CLI interface."""
+"""Tests for CLI interface using prompt_toolkit."""
 
 from collections.abc import AsyncIterator
 from io import StringIO
@@ -29,7 +29,12 @@ async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates chat to Alfred via chat_stream."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("Hello\nexit\n")), patch("sys.stdout", StringIO()):
+    # Mock prompt_async to return inputs sequentially
+    inputs = iter(["Hello", "exit"])
+    with (
+        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("sys.stdout", StringIO()),
+    ):
         await interface.run()
 
     mock_alfred.chat_stream.assert_called_once_with("Hello")
@@ -40,7 +45,11 @@ async def test_compact_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates compact to Alfred."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("compact\nexit\n")), patch("sys.stdout", StringIO()):
+    inputs = iter(["compact", "exit"])
+    with (
+        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("sys.stdout", StringIO()),
+    ):
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
@@ -51,7 +60,10 @@ async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
     """Test that 'exit' command terminates the loop."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("exit\n")), patch("sys.stdout", StringIO()):
+    with (
+        patch.object(interface.session, "prompt_async", return_value="exit"),
+        patch("sys.stdout", StringIO()),
+    ):
         await interface.run()
 
     # Should not call chat_stream
@@ -63,7 +75,11 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
     """Test that empty input is ignored."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("\n\nHello\nexit\n")), patch("sys.stdout", StringIO()):
+    inputs = iter(["", "", "Hello", "exit"])
+    with (
+        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("sys.stdout", StringIO()),
+    ):
         await interface.run()
 
     # Only one chat_stream call for "Hello"
@@ -71,12 +87,26 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
 
 
 @pytest.mark.asyncio
-async def test_eoferror_terminates_loop(mock_alfred: MagicMock) -> None:
-    """Test that EOFError terminates the loop gracefully."""
+async def test_eof_terminates_loop(mock_alfred: MagicMock) -> None:
+    """Test that EOF terminates the loop gracefully."""
     interface = CLIInterface(mock_alfred)
 
-    # Simulate EOFError on first input
-    with patch("builtins.input", side_effect=EOFError):
+    with patch.object(interface.session, "prompt_async", side_effect=EOFError):
+        await interface.run()
+
+    # Should not call chat_stream
+    mock_alfred.chat_stream.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_keyboard_interrupt_terminates_loop(mock_alfred: MagicMock) -> None:
+    """Test that KeyboardInterrupt terminates the loop gracefully."""
+    interface = CLIInterface(mock_alfred)
+
+    with (
+        patch.object(interface.session, "prompt_async", side_effect=KeyboardInterrupt),
+        patch("sys.stdout", StringIO()),
+    ):
         await interface.run()
 
     # Should not call chat_stream
@@ -88,7 +118,11 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
     """Test that commands are case-insensitive."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("sys.stdin", StringIO("COMPACT\nEXIT\n")), patch("sys.stdout", StringIO()):
+    inputs = iter(["COMPACT", "EXIT"])
+    with (
+        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("sys.stdout", StringIO()),
+    ):
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
