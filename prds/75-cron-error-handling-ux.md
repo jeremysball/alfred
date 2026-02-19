@@ -146,9 +146,9 @@ async def send(self, message: str, chat_id: int | None = None) -> None:
 
 | # | Milestone | Status | Description |
 |---|-----------|--------|-------------|
-| M1 | Friendly error messages | 🔲 Todo | Catch and log user-friendly messages for invalid jobs |
-| M2 | Job quarantine | 🔲 Todo | Mark broken jobs with `broken` status to prevent repeated failures |
-| M3 | Local timezone display | 🔲 Todo | Display notification timestamps in local TZ with UTC fallback |
+| M1 | Friendly error messages | ✅ Done | Catch and log user-friendly messages for invalid jobs |
+| M2 | Job quarantine | ✅ Done | Mark broken jobs with `broken` status to prevent repeated failures |
+| M3 | Local timezone display | ✅ Done | Display notification timestamps in local TZ with UTC fallback |
 | M4 | CLI investigation | 🔲 Todo | Identify and document root cause of CLI unresponsive issue |
 | M5 | CLI fix | 🔲 Todo | Implement fix for CLI unresponsive issue |
 | M6 | Testing | 🔲 Todo | Add tests for error handling and timezone formatting |
@@ -157,9 +157,9 @@ async def send(self, message: str, chat_id: int | None = None) -> None:
 
 ## Success Criteria
 
-- [ ] Invalid job code shows friendly message, not Python traceback
-- [ ] Broken jobs are quarantined and don't repeatedly fail on scheduler restart
-- [ ] Notification timestamps show local timezone first, then UTC
+- [x] Invalid job code shows friendly message, not Python traceback
+- [x] Broken jobs are quarantined and don't repeatedly fail on scheduler restart
+- [x] Notification timestamps show local timezone first, then UTC
 - [ ] CLI remains responsive after job failures and errors
 - [ ] All new code has test coverage
 

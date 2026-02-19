@@ -278,8 +278,31 @@ class CronScheduler:
                     self._jobs[job.job_id] = runnable
                     self._job_code[job.job_id] = job.code
                     logger.debug(f"Loaded job: {job.name} ({job.job_id})")
-                except Exception:
-                    logger.exception(f"Failed to load job {job.job_id}")
+                except ValueError as e:
+                    # User-friendly error without traceback
+                    logger.warning(f"Skipping job '{job.name}' ({job.job_id}) - {e}")
+                    # Quarantine the broken job
+                    job.status = "broken"
+                    job.error_message = str(e)
+                    await self._store.save_job(job)
+                    # Notify user about quarantined job
+                    if self._notifier:
+                        await self._notifier.send(
+                            f"⚠️ Job '{job.name}' quarantined due to error: {e}"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Skipping job '{job.name}' ({job.job_id}) - unexpected error: {e}"
+                    )
+                    # Quarantine the broken job
+                    job.status = "broken"
+                    job.error_message = str(e)
+                    await self._store.save_job(job)
+                    # Notify user about quarantined job
+                    if self._notifier:
+                        await self._notifier.send(
+                            f"⚠️ Job '{job.name}' quarantined due to unexpected error: {e}"
+                        )
 
     def _validate_job_code(self, code: str) -> None:
         """Validate job code compiles and has required run() function.

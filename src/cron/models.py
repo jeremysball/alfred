@@ -78,6 +78,7 @@ class Job:
     resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
     chat_id: int | None = None  # Telegram chat_id for job notifications
     sandbox_enabled: bool = False  # Whether to use restricted builtins
+    error_message: str | None = None  # Error message if job failed to load
 
     def to_dict(self) -> dict[str, Any]:
         """Convert job to dictionary for JSON serialization."""
@@ -93,6 +94,7 @@ class Job:
             "resource_limits": self.resource_limits.to_dict(),
             "chat_id": self.chat_id,
             "sandbox_enabled": self.sandbox_enabled,
+            "error_message": self.error_message,
         }
 
     @classmethod
@@ -120,6 +122,7 @@ class Job:
             resource_limits=resource_limits,
             chat_id=data.get("chat_id"),
             sandbox_enabled=data.get("sandbox_enabled", False),
+            error_message=data.get("error_message"),
         )
 
 

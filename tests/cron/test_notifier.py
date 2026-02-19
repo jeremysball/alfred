@@ -70,10 +70,11 @@ class TestCLINotifier:
         notifier = CLINotifier(output_stream=output)
         await notifier.send("Test message")
         result = output.getvalue()
-        # Check for timestamp format [YYYY-MM-DD HH:MM:SS
+        # Check for timestamp format [HH:MM:SS TZ (HH:MM:SS UTC) JOB NOTIFICATION]
         assert result.startswith("[")
-        assert "20" in result  # Year
         assert ":" in result  # Time separator
+        assert "UTC" in result  # UTC reference
+        assert "JOB NOTIFICATION" in result
 
     async def test_cli_notifier_indents_multiline(self):
         """CLINotifier indents continuation lines."""
@@ -85,10 +86,10 @@ class TestCLINotifier:
         # First line has timestamp and label
         assert "Line 1" in lines[0]
         assert lines[0].startswith("[")
-        # Continuation lines should be indented (32 spaces)
-        assert lines[1].startswith(" " * 32)
+        # Continuation lines should be indented (starts with spaces, not [)
+        assert lines[1].startswith(" ")
         assert "Line 2" in lines[1]
-        assert lines[2].startswith(" " * 32)
+        assert lines[2].startswith(" ")
         assert "Line 3" in lines[2]
 
     async def test_cli_notifier_handles_empty_message(self):

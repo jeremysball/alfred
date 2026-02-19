@@ -73,7 +73,15 @@ class CLINotifier(Notifier):
             None
         """
         try:
-            timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+            # Get local time with timezone and UTC time
+            now_local = datetime.now().astimezone()
+            now_utc = datetime.now(UTC)
+
+            # Format: "HH:MM:SS TZ (HH:MM:SS UTC)"
+            local_str = now_local.strftime("%H:%M:%S") + " " + now_local.strftime("%Z")
+            utc_str = now_utc.strftime("%H:%M:%S UTC")
+            timestamp = f"{local_str} ({utc_str})"
+
             lines = message.splitlines() if message else [""]
 
             for i, line in enumerate(lines):
@@ -81,7 +89,9 @@ class CLINotifier(Notifier):
                     formatted = f"[{timestamp} JOB NOTIFICATION] {line}\n"
                 else:
                     # Indent continuation lines to align with first line
-                    formatted = f"{' ' * 32}{line}\n"
+                    # Length of "[{timestamp} JOB NOTIFICATION] "
+                    prefix_len = len(timestamp) + 22
+                    formatted = f"{' ' * prefix_len}{line}\n"
                 self.output.write(formatted)
 
             self.output.flush()
