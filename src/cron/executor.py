@@ -213,6 +213,10 @@ class JobExecutor:
         process = psutil.Process()
         initial_memory = process.memory_info().rss
 
+        # Inject notify into handler's globals if notifier is available
+        if self.context.notifier is not None:
+            self.handler.__globals__["notify"] = self.context.notify
+
         # Execute the handler
         await self.handler()
 
