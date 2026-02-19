@@ -128,8 +128,13 @@ class Alfred:
 |---|-----------|--------|-------------|
 | M1 | Notifier Interface | 🔲 Todo | Create `Notifier` ABC in `src/cron/notifier.py` |
 | M2 | Telegram Notifier | 🔲 Todo | Implement `TelegramNotifier` class |
-| M3 | CLI Notifier | 🔲 Todo | Implement `CLINotifier` class |
-| M4 | Scheduler Wiring | 🔲 Todo | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
+<<<<<<< Updated upstream
+| M3 | CLI Notifier | ✅ Done | Implement `CLINotifier` class |
+| M4 | Scheduler Wiring | ✅ Done | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
+=======
+| M3 | CLI Notifier | ✅ Done | Implement `CLINotifier` class |
+| M4 | Scheduler Wiring | ✅ Done | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
+>>>>>>> Stashed changes
 | M5 | Alfred Integration | 🔲 Todo | Create notifier in `Alfred.__init__`, inject into scheduler |
 | M6 | Testing | 🔲 Todo | Unit tests for notifiers, integration test for notify() flow |
 | M7 | Documentation | 🔲 Todo | Update `docs/job-api.md` to remove "not implemented" warnings |
