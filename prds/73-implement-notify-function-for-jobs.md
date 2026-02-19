@@ -70,7 +70,7 @@ class Notifier(ABC):
     """Abstract interface for sending notifications to users."""
     
     @abstractmethod
-    async def send(self, message: str) -> None:
+    async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send a notification message."""
         pass
 ```
@@ -106,7 +106,7 @@ class CLINotifier(Notifier):
     def __init__(self, output_stream=None):
         self.output = output_stream or sys.stdout
     
-    async def send(self, message: str) -> None:
+    async def send(self, message: str, chat_id: int | None = None) -> None:
         self.output.write(f"[JOB NOTIFICATION] {message}\n")
 ```
 
@@ -139,11 +139,11 @@ class Alfred:
 | # | Milestone | Status | Description |
 |---|-----------|--------|-------------|
 | M1 | Notifier Interface | ✅ Done | Create `Notifier` ABC in `src/cron/notifier.py` |
-| M2 | Telegram Notifier | 🔲 Todo | Implement `TelegramNotifier` class |
+| M2 | Telegram Notifier | ✅ Done | Implement `TelegramNotifier` class |
 | M3 | CLI Notifier | ✅ Done | Implement `CLINotifier` class |
 | M4 | Scheduler Wiring | ✅ Done | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
 | M5 | Alfred Integration | 🔲 Todo | Create notifier in `Alfred.__init__`, inject into scheduler |
-| M6 | Testing | 🔲 Todo | Unit tests for notifiers, integration test for notify() flow |
+| M6 | Testing | ✅ Done | Unit tests for notifiers, integration test for notify() flow |
 | M7 | Documentation | 🔲 Todo | Update `docs/job-api.md` to remove "not implemented" warnings |
 
 ---
