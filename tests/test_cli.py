@@ -21,12 +21,6 @@ def mock_alfred() -> MagicMock:
 
     alfred.chat_stream = AsyncMock(side_effect=async_gen)
     alfred.compact = AsyncMock(return_value="Compacted")
-    
-    # Mock the notifier
-    alfred.cron_scheduler = MagicMock()
-    alfred.cron_scheduler._notifier = MagicMock()
-    alfred.cron_scheduler._notifier.flush_queued = MagicMock(return_value=[])
-    
     return alfred
 
 
