@@ -39,7 +39,11 @@ async def run_cli(alfred: Alfred) -> None:
     from src.interfaces.cli import CLIInterface
 
     interface = CLIInterface(alfred)
-    await interface.run()
+    await alfred.start()
+    try:
+        await interface.run()
+    finally:
+        await alfred.stop()
 
 
 async def run_telegram(alfred: Alfred) -> None:
@@ -47,7 +51,11 @@ async def run_telegram(alfred: Alfred) -> None:
     from src.interfaces.telegram import TelegramInterface
 
     interface = TelegramInterface(alfred.config, alfred)
-    await interface.run()
+    await alfred.start()
+    try:
+        await interface.run()
+    finally:
+        await alfred.stop()
 
 
 async def async_main() -> None:

@@ -99,14 +99,31 @@ Discussion → Questions → Answers → Design Summary → Confirm → Create P
 - Leave open questions in the PRD for "later"
 - Assume you understand the requirements
 
-### 3. Use Todo Sidebar for Task Tracking
-**REQUIRED**: You **MUST** use the `todo-sidebar` tool to track progress on all multi-step tasks.
+### 3. Use Todo Sidebar for Task Tracking — MANDATORY
+**ALWAYS use the `todo-sidebar` tool** when outlining or tracking multi-step work. **NEVER use numbered lists in prose** when tasks need to be tracked.
 
 **When to use:**
 - Complex tasks with multiple steps
 - PRD implementation workflows
+- Outlining implementation steps before coding
 - User explicitly asks to track something
 - You're working through a list of items
+
+**MANDATORY RULE:**
+When you would otherwise write a numbered list like this in your response:
+```
+Here's what I'll do:
+1. Step one
+2. Step two
+3. Step three
+```
+
+**You MUST instead use todo-sidebar:**
+```
+todo-sidebar action: add, text: "Step one"
+todo-sidebar action: add, text: "Step two"
+todo-sidebar action: add, text: "Step three"
+```
 
 **Actions:**
 - `add` — Create a new todo item

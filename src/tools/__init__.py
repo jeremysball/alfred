@@ -83,17 +83,22 @@ def get_tool_schemas() -> list[dict[str, Any]]:
 
 
 # Auto-discover and register built-in tools
-def register_builtin_tools(memory_store: Any = None) -> None:
+def register_builtin_tools(memory_store: Any = None, scheduler: Any = None) -> None:
     """Register all built-in tools.
 
     Args:
         memory_store: Optional MemoryStore to inject into tools that need it
+        scheduler: Optional CronScheduler to inject into tools that need it
     """
+    from src.tools.approve_job import ApproveJobTool
     from src.tools.bash import BashTool
     from src.tools.edit import EditTool
     from src.tools.forget import ForgetTool
+    from src.tools.list_jobs import ListJobsTool
     from src.tools.read import ReadTool
+    from src.tools.reject_job import RejectJobTool
     from src.tools.remember import RememberTool
+    from src.tools.schedule_job import ScheduleJobTool
     from src.tools.search_memories import SearchMemoriesTool
     from src.tools.update_memory import UpdateMemoryTool
     from src.tools.write import WriteTool
@@ -126,5 +131,12 @@ def register_builtin_tools(memory_store: Any = None) -> None:
     if memory_store:
         forget_tool.set_memory_store(memory_store)
     register_tool(forget_tool)
+
+    # Register cron tools with scheduler injected
+    if scheduler:
+        register_tool(ScheduleJobTool(scheduler=scheduler))
+        register_tool(ListJobsTool(scheduler=scheduler))
+        register_tool(ApproveJobTool(scheduler=scheduler))
+        register_tool(RejectJobTool(scheduler=scheduler))
 
     logger.info(f"Registered {len(get_registry())} built-in tools")
