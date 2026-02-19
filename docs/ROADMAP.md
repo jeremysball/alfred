@@ -149,17 +149,19 @@ Two separate tools; Alfred chooses based on query intent.
 |---|-----------|-------------|
 | 22 | Advanced Session Features | LLM context control, substring search, on-demand summaries |
 | 23 | Contextual Retrieval System | Triple-layer memory: global + session summaries + per-session message embeddings (PRD #77) |
-| 24 | HTTP API + Cron | Local API for scheduled actions |
-| 25 | Config TOML Migration | Replace config.json with alfred.toml |
-| 26 | Observability & Logging | Structured logging, tracing, metrics |
+| 24 | Configurable Context Budget | User-defined context percentages: 50% conversation, 10% tools, etc. |
+| 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
+| 26 | HTTP API + Cron | Local API for scheduled actions |
+| 27 | Config TOML Migration | Replace config.json with alfred.toml |
+| 28 | Observability & Logging | Structured logging, tracing, metrics |
 
 ### Long-term 🔮
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 27 | Vector Database Evaluation | SQLite-vec or Chroma if JSONL performance degrades |
-| 28 | Multi-user Support | Proper user isolation and authentication |
-| 29 | Plugin System | Extensible tool and skill architecture |
+| 29 | Vector Database Evaluation | SQLite-vec or Chroma if JSONL performance degrades |
+| 30 | Multi-user Support | Proper user isolation and authentication |
+| 31 | Plugin System | Extensible tool and skill architecture |
 
 ---
 
