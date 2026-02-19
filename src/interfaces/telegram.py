@@ -1,6 +1,8 @@
 """Telegram bot interface for Alfred with streaming support."""
 
+import json
 import logging
+from pathlib import Path
 
 from telegram import Update
 from telegram.ext import (
@@ -18,12 +20,54 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramInterface:
-    """Telegram interface with streaming support."""
+    """Telegram interface with streaming support.
 
-    def __init__(self, config: Config, alfred: Alfred) -> None:
+    Manages chat_id persistence for job notifications.
+    """
+
+    def __init__(self, config: Config, alfred: Alfred, data_dir: Path | None = None) -> None:
         self.config = config
         self.alfred = alfred
         self.application: Application | None = None
+
+        # Initialize state for chat_id persistence
+        self._data_dir = data_dir or Path("data")
+        self._state_file = self._data_dir / "telegram_state.json"
+        self._chat_id: int | None = None
+
+    @property
+    def chat_id(self) -> int | None:
+        """Get current chat_id, loading from file if needed."""
+        if self._chat_id is None:
+            self._load_state()
+        return self._chat_id
+
+    def _track_chat_id(self, update: Update) -> None:
+        """Track chat_id from incoming message and persist."""
+        if update.effective_chat:
+            new_chat_id = update.effective_chat.id
+            if new_chat_id != self._chat_id:
+                self._chat_id = new_chat_id
+                self._save_state()
+
+    def _load_state(self) -> None:
+        """Load state from file."""
+        if self._state_file.exists():
+            try:
+                with open(self._state_file) as f:
+                    data = json.load(f)
+                    self._chat_id = data.get("chat_id")
+            except Exception as e:
+                logger.warning(f"Failed to load telegram state: {e}")
+
+    def _save_state(self) -> None:
+        """Save state to file immediately."""
+        try:
+            self._state_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._state_file, "w") as f:
+                json.dump({"chat_id": self._chat_id}, f)
+        except Exception as e:
+            logger.error(f"Failed to save telegram state: {e}")
 
     def setup(self) -> Application:
         """Initialize telegram application."""
@@ -40,6 +84,7 @@ class TelegramInterface:
         if not update.message:
             return
 
+        self._track_chat_id(update)
         await update.message.reply_text("Hello, I'm Alfred. I remember our conversations.")
 
     async def compact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -47,6 +92,7 @@ class TelegramInterface:
         if not update.message:
             return
 
+        self._track_chat_id(update)
         result = await self.alfred.compact()
         await update.message.reply_text(result)
 
@@ -54,6 +100,8 @@ class TelegramInterface:
         """Handle text messages with streaming."""
         if not update.message or not update.message.text:
             return
+
+        self._track_chat_id(update)
 
         # Send initial message
         response_message = await update.message.reply_text("Thinking...")
