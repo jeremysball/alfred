@@ -97,6 +97,7 @@ class ScheduleJobTool(Tool):
         Args:
             scheduler: The cron scheduler to submit jobs to
         """
+        super().__init__()
         self.scheduler = scheduler
 
     def execute(self, **kwargs: Any) -> str:

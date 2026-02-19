@@ -50,6 +50,7 @@ class ListJobsTool(Tool):
         Args:
             scheduler: The cron scheduler to query for jobs
         """
+        super().__init__()
         self.scheduler = scheduler
 
     def execute(self, **kwargs: Any) -> str:

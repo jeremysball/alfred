@@ -448,9 +448,9 @@ alfred cron metrics
 | M1 | **Core Scheduler** | ✅ Complete | Async scheduler with job registration, execution loop, 13 tests, 92% coverage |
 | M2 | **Cron Parser** | ✅ Complete | Standard cron expression parsing using `croniter` library, 25 tests, 90% coverage |
 | M3 | **Persistence** | ✅ Complete | JSONL storage with atomic writes, 19 tests, 94% coverage, documentation created |
-| M4 | **Observability** | Logging, metrics, health checks, alerts | All jobs logged, metrics exposed, alerts fire |
+| M4 | **Observability** | ✅ Complete | AlertManager, HealthChecker, metrics, logging in `observability.py` |
 | M5 | **System Jobs** | ✅ Complete | Session TTL job runs every 5 min, auto-registers on startup, 8 tests, 100% coverage |
-| M6 | **User Job Submission** | Model generates code, submits for review | User can create job via natural language |
+| M6 | **User Job Submission** | ✅ Complete | ScheduleJobTool registered, NLP parsing, code generation |
 | M7 | **Approval Workflow** | ✅ Complete | ListJobsTool, ApproveJobTool, RejectJobTool, 18 tests, fuzzy name matching |
 | M8 | **Resource Limits** | ✅ Complete | Timeout enforcement, memory monitoring, output limits, 31 tests, 95% coverage |
 | M9 | **Natural Language Interface** | ✅ Complete | Rule-based NL parser, 52 tests, timezone support, confidence scoring |
@@ -528,6 +528,8 @@ data/
 | 2026-02-18 | Missed window catch-up | `should_run()` returns True if scheduled time passed since last run—jobs don't skip |
 | 2026-02-19 | Rule-based natural language parsing | Regex patterns for 90% of cases, faster than LLM, extensible, no token costs |
 | 2026-02-19 | asyncio.Lock in CronStore | Prevents race conditions between scheduler execution and test code accessing files |
+| 2026-02-19 | CronScheduler integrated with Alfred | Scheduler lifecycle tied to Alfred.start()/stop(), cron tools registered on init |
+| 2026-02-19 | super().__init__() in cron tools | Fix missing parent init calls to properly set _param_model |
 
 ---
 

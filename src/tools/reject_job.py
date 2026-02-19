@@ -56,6 +56,7 @@ class RejectJobTool(Tool):
 
     def __init__(self, scheduler: CronScheduler) -> None:
         """Initialize with CronScheduler instance."""
+        super().__init__()
         self.scheduler = scheduler
 
     def execute(self, **kwargs: Any) -> str:

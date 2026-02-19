@@ -2,10 +2,13 @@
 
 import logging
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 from src.agent import Agent
 from src.config import Config
 from src.context import ContextLoader
+from src.cron.scheduler import CronScheduler
+from src.cron.store import CronStore
 from src.embeddings import EmbeddingClient
 from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
@@ -32,8 +35,18 @@ class Alfred:
         )
         self.context_loader = ContextLoader(config, searcher=self.searcher)
 
-        # Register built-in tools (inject memory store for remember tool)
-        register_builtin_tools(memory_store=self.memory_store)
+        # Initialize cron scheduler
+        data_dir = getattr(config, "data_dir", Path("data"))
+        self.cron_scheduler = CronScheduler(
+            store=CronStore(data_dir),
+            data_dir=data_dir,
+        )
+
+        # Register built-in tools (inject memory store and scheduler)
+        register_builtin_tools(
+            memory_store=self.memory_store,
+            scheduler=self.cron_scheduler,
+        )
         self.tools = get_registry()
 
         # Create agent
@@ -119,7 +132,7 @@ class Alfred:
         tool_descriptions = []
         for tool in self.tools.list_tools():
             # Get parameter summary
-            params = tool._param_model
+            params = tool.param_model
             if params:
                 param_list = []
                 for name, field in params.model_fields.items():
@@ -173,3 +186,26 @@ You can then continue the conversation with the tool results.
         for msg in messages[:-1] if messages else []:  # Exclude last (current) message
             result.append((msg.role.value, msg.content))
         return result
+
+    async def start(self) -> None:
+        """Start Alfred and all subsystems.
+
+        Initializes the cron scheduler and starts background tasks.
+        Failures are logged but don't prevent Alfred from starting.
+        """
+        try:
+            await self.cron_scheduler.start()
+            logger.info("Cron scheduler started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start cron scheduler: {e}")
+
+    async def stop(self) -> None:
+        """Graceful shutdown.
+
+        Stops all subsystems cleanly.
+        """
+        try:
+            await self.cron_scheduler.stop()
+            logger.info("Cron scheduler stopped successfully")
+        except Exception as e:
+            logger.error(f"Error stopping cron scheduler: {e}")

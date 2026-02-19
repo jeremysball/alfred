@@ -59,6 +59,7 @@ class ApproveJobTool(Tool):
         Args:
             scheduler: The cron scheduler to approve jobs through
         """
+        super().__init__()
         self.scheduler = scheduler
 
     def execute(self, **kwargs: Any) -> str:
