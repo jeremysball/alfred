@@ -3,9 +3,10 @@
 ## Overview
 
 **Issue**: #46  
-**Status**: Planning  
+**Status**: Complete  
 **Priority**: Medium  
 **Created**: 2026-02-18
+**Completed**: 2026-02-18
 
 172 ruff linting violations can be auto-fixed. This PRD runs `ruff check --fix` to clean up whitespace, unused imports, import sorting, and modernization issues.
 
@@ -121,3 +122,21 @@ Import from `collections.abc` instead of `typing`:
 - Run this after #44 and #45 to avoid merge conflicts
 - Commit with clear message: `style: auto-fix ruff violations`
 - Review the diff before committing to ensure no surprises
+
+---
+
+## Completion Evidence
+
+**Completed in commits**:
+- `45ee345 style: fix all ruff linting errors`
+- `e8bb724 style: format code with ruff`
+- `2db9bdb chore(todo): complete tasks #45, #46, #47 - type safety and linting`
+
+All 172 auto-fixable errors resolved:
+- W293 (168): Blank line whitespace removed
+- F401 (12): Unused imports removed
+- UP045 (10): `Optional[X]` → `X | None`
+- I001 (4): Import sorting
+- UP015/UP035/UP041/W292: Modernization fixes
+
+**Verification**: `ruff check src/` passes with only non-auto-fixable errors remaining (handled in #47).
