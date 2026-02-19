@@ -1,7 +1,7 @@
 # PRD: Cron Scheduler System
 
 **Issue**: #68  
-**Status**: In Progress  
+**Status**: Complete  
 **Priority**: High  
 **Created**: 2026-02-18
 
@@ -454,7 +454,7 @@ alfred cron metrics
 | M7 | **Approval Workflow** | ✅ Complete | ListJobsTool, ApproveJobTool, RejectJobTool, 18 tests, fuzzy name matching |
 | M8 | **Resource Limits** | ✅ Complete | Timeout enforcement, memory monitoring, output limits, 31 tests, 95% coverage |
 | M9 | **Natural Language Interface** | ✅ Complete | Rule-based NL parser, 52 tests, timezone support, confidence scoring |
-| M10 | **CLI Integration** | alfred cron commands for power users | Optional CLI management available |
+| M10 | **CLI Integration** | ✅ Complete | Typer CLI with Rich tables, 6 commands (list/submit/review/approve/reject/history), shell completion |
 | M11 | **Testing** | ✅ Complete | 214 tests, integration workflows, e2e tests, race condition fixed |
 | M12 | **ScheduleJobTool** | ✅ Complete | Tool for agent to create cron jobs, 14 tests (unit + integration), Pydantic validation |
 
@@ -479,6 +479,10 @@ alfred cron metrics
 
 ```
 src/
+├── cli/
+│   ├── __init__.py        # CLI package
+│   ├── main.py            # Typer entry point, chat default
+│   └── cron.py            # Cron subcommands with Rich tables
 ├── cron/
 │   ├── __init__.py
 │   ├── scheduler.py       # Core scheduler orchestration
@@ -508,6 +512,8 @@ data/
 | `croniter` | Cron expression parsing—standard syntax support |
 | `psutil` | Memory monitoring during job execution |
 | `prometheus_client` | Metrics export (optional) |
+| `typer` | CLI framework with shell completion |
+| `rich` | Terminal formatting with tables and syntax highlighting |
 
 ---
 
@@ -530,6 +536,7 @@ data/
 | 2026-02-19 | asyncio.Lock in CronStore | Prevents race conditions between scheduler execution and test code accessing files |
 | 2026-02-19 | CronScheduler integrated with Alfred | Scheduler lifecycle tied to Alfred.start()/stop(), cron tools registered on init |
 | 2026-02-19 | super().__init__() in cron tools | Fix missing parent init calls to properly set _param_model |
+| 2026-02-19 | Typer CLI with Rich tables | Shell completion built-in, table output for job lists/history, chat as default command |
 
 ---
 

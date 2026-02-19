@@ -1,5 +1,6 @@
 # Development TODOs
 
+- investogate whether we should or should not include reasoning traces and if so how to do so. 
 ## Edit Tool Safety
 
 - [ ] **Ensure edit tool forces exact text matching**
