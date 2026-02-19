@@ -126,7 +126,7 @@ class Alfred:
 
 | # | Milestone | Status | Description |
 |---|-----------|--------|-------------|
-| M1 | Notifier Interface | 🔲 Todo | Create `Notifier` ABC in `src/cron/notifier.py` |
+| M1 | Notifier Interface | ✅ Done | Create `Notifier` ABC in `src/cron/notifier.py` |
 | M2 | Telegram Notifier | 🔲 Todo | Implement `TelegramNotifier` class |
 | M3 | CLI Notifier | 🔲 Todo | Implement `CLINotifier` class |
 | M4 | Scheduler Wiring | 🔲 Todo | Add `notifier` parameter to `CronScheduler`, pass to `ExecutionContext` |
