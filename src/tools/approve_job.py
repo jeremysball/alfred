@@ -112,15 +112,20 @@ class ApproveJobTool(Tool):
                 return
 
             # Approve the job
-            await self.scheduler.approve_job(job.job_id, "user")
+            result = await self.scheduler.approve_job(job.job_id, "user")
 
-            result = ApproveJobResult(
-                success=True,
-                message=f"✓ Approved '{job.name}'. The job is now active and will run on schedule.",
-                job_id=job.job_id,
-                job_name=job.name,
-            )
-            yield result.message
+            if result["success"]:
+                base_msg = result['message']
+                full_message = f"✓ {base_msg}. The job is now active and will run on schedule."
+                approve_result = ApproveJobResult(
+                    success=True,
+                    message=full_message,
+                    job_id=job.job_id,
+                    job_name=job.name,
+                )
+                yield approve_result.message
+            else:
+                yield f"Error: {result['message']}"
 
         except Exception as e:
             yield f"Error: Failed to approve job - {e}"

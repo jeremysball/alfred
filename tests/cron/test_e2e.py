@@ -122,12 +122,13 @@ class TestE2EErrorHandling:
     """E2E tests for error scenarios."""
 
     @pytest.mark.asyncio
-    async def test_approve_nonexistent_job_raises_error(self, running_scheduler):
-        """Approving nonexistent job raises ValueError."""
+    async def test_approve_nonexistent_job_returns_error(self, running_scheduler):
+        """Approving nonexistent job returns error dict."""
         scheduler = running_scheduler
 
-        with pytest.raises(ValueError, match="Job not found"):
-            await scheduler.approve_job("nonexistent-id", "test")
+        result = await scheduler.approve_job("nonexistent-id", "test")
+        assert result["success"] is False
+        assert "not found" in result["message"].lower()
 
     @pytest.mark.asyncio
     async def test_job_code_persistence(self, running_scheduler):
