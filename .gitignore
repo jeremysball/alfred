@@ -60,6 +60,9 @@ htmlcov/
 # Local development
 local/
 
+# Data files (runtime generated)
+data/
+
 # User-specific files (auto-created from templates)
 USER.md
 SOUL.md

@@ -111,17 +111,22 @@ class TestAlfredSessionIntegration:
             yield "Response"
         mock_agent.run_stream = mock_run_stream
         
+        mock_cron_store = Mock()
+        mock_cron_scheduler = AsyncMock()
+        
         with patch('src.alfred.LLMFactory.create'):
             with patch('src.alfred.EmbeddingClient', return_value=mock_embedder):
                 with patch('src.alfred.MemoryStore', return_value=mock_memory_store):
                     with patch('src.alfred.ContextLoader', return_value=mock_context_loader):
-                        with patch('src.alfred.register_builtin_tools'):
-                            with patch('src.alfred.get_registry', return_value=mock_registry):
-                                with patch('src.alfred.Agent', return_value=mock_agent):
-                                    alfred = Alfred(mock_config)
-                                    # Store the mock agent so tests can override run_stream
-                                    alfred._mock_agent = mock_agent
-                                    yield alfred
+                        with patch('src.alfred.CronStore', return_value=mock_cron_store):
+                            with patch('src.alfred.CronScheduler', return_value=mock_cron_scheduler):
+                                with patch('src.alfred.register_builtin_tools'):
+                                    with patch('src.alfred.get_registry', return_value=mock_registry):
+                                        with patch('src.alfred.Agent', return_value=mock_agent):
+                                            alfred = Alfred(mock_config)
+                                            # Store the mock agent so tests can override run_stream
+                                            alfred._mock_agent = mock_agent
+                                            yield alfred
 
     @pytest.mark.asyncio
     async def test_chat_stream_adds_user_message(self, mock_alfred):

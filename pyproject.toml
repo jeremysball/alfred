@@ -31,6 +31,10 @@ dependencies = [
     "aiofiles>=23.0",
     "tiktoken>=0.5",
     "aiohttp>=3.9",
+    "croniter>=2.0",
+    "psutil>=5.9",
+    "typer>=0.12",
+    "rich>=13.0",
 ]
 
 [project.urls]
@@ -39,7 +43,7 @@ Repository = "https://github.com/jeremysball/alfred"
 Issues = "https://github.com/jeremysball/alfred/issues"
 
 [project.scripts]
-alfred = "src.__main__:main"
+alfred = "src.cli.main:app"
 
 [project.optional-dependencies]
 dev = [
@@ -105,4 +109,5 @@ source = "vcs"
 [dependency-groups]
 dev = [
     "types-aiofiles>=25.1.0.20251011",
+    "types-psutil>=7.2.2.20260130",
 ]
