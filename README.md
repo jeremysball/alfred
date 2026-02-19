@@ -78,6 +78,30 @@ is failing on main. Want me to run it and see what's up?
 
 You see his thinking in real-time. Tool calls happen visibly. No black box, no waiting for paragraphs to appear. Alfred thinks out loud.
 
+### Scheduled Actions
+
+Alfred doesn't just respond—he acts on his own. Schedule Python code that runs with full access to his memory and tools.
+
+```
+You: Every morning, check my calendar and remind me of any 
+     deadlines mentioned in my notes.
+
+Alfred: [creates scheduled job]
+
+I'll run this each morning. It will:
+- Search your memory for anything about deadlines
+- Check for calendar events
+- Notify you if something needs attention
+```
+
+Jobs are written in Python and can:
+- Search memories and sessions
+- Save new memories
+- Send notifications (Telegram or CLI)
+- Use key-value storage for state
+
+System jobs run automatically. User-created jobs go through approval—Alfred reviews the code before it runs.
+
 ### Your Data, Your Machine
 
 JSONL files. Markdown templates. Human-readable, portable, yours. No cloud lock-in, no proprietary formats. If you want to leave, you take everything with you.
@@ -187,14 +211,39 @@ The LLM sees the schema, understands the purpose, and uses it when relevant. No 
 
 ---
 
+## Security Model
+
+Alfred runs code. That requires care.
+
+**Two execution modes:**
+
+| Mode | Access | Approval |
+|------|--------|----------|
+| System jobs | Full Python + all tools | None (pre-vetted) |
+| User jobs | Sandboxed + memory tools | Required |
+
+**Sandbox restrictions:**
+- Limited builtins (no `open`, `import`, `exec`)
+- Access to: `notify`, `remember`, `search`, `store_get`, `store_set`
+- No file system, no network, no subprocess
+
+**Approval workflow:**
+1. User (or LLM) submits job → pending status
+2. Reviewer approves or rejects
+3. Only then does it run
+
+This lets you say "check my notes every morning and remind me about deadlines" without worrying about what code actually runs. Alfred creates it, shows it to you, and waits for approval.
+
+---
+
 ## What's Next
 
 Alfred is young but useful. We're building:
 
 - **Learning system**: Automatic updates to your preference profile
-- **Cron integration**: Scheduled actions, periodic summaries
 - **Rich CLI output**: Streaming markdown rendering
 - **Advanced session features**: On-demand summarization, context management
+- **Extended tool library**: More built-in tools for common workflows
 
 See [ROADMAP.md](docs/ROADMAP.md) for the full plan.
 
