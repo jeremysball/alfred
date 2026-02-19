@@ -18,6 +18,7 @@ from typing import Any, cast
 from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
+from src.cron.notifier import Notifier
 from src.cron.observability import Alert, HealthStatus, Observability
 from src.cron.store import CronStore
 
@@ -82,6 +83,7 @@ class CronScheduler:
         check_interval: float = 60.0,
         data_dir: Path | None = None,
         observability: Observability | None = None,
+        notifier: Notifier | None = None,
     ) -> None:
         """Initialize scheduler.
 
@@ -90,6 +92,7 @@ class CronScheduler:
             check_interval: Seconds between schedule checks
             data_dir: Directory for log files (default: data/)
             observability: Observability instance (creates default if None)
+            notifier: Notifier for sending messages to users (optional)
         """
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
@@ -97,6 +100,7 @@ class CronScheduler:
         self._task: asyncio.Task | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
+        self._notifier = notifier
 
         # Initialize observability
         if observability:
@@ -262,6 +266,11 @@ class CronScheduler:
         Returns:
             Compiled async function
         """
+
+        async def _placeholder_notify(message: str) -> None:
+            """Placeholder notify function - replaced at runtime."""
+            pass
+
         # Create namespace with allowed builtins
         namespace: dict[str, Any] = {
             "__builtins__": {
@@ -302,6 +311,7 @@ class CronScheduler:
                 "NameError": NameError,
                 "TimeoutError": TimeoutError,
             },
+            "notify": _placeholder_notify,
         }
 
         # Execute code in namespace
@@ -376,7 +386,7 @@ class CronScheduler:
             context = ExecutionContext(
                 job_id=job.job_id,
                 job_name=job.name,
-                notifier=None,  # TODO: Inject notifier when available
+                notifier=self._notifier,
             )
 
             # Create executor and run
