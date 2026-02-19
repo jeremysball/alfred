@@ -3,7 +3,7 @@
 ## Overview
 
 **Issue**: #48
-**Status**: Planning
+**Status**: PERMANENT
 **Priority**: High
 **Created**: 2026-02-18
 **Supersedes**: #10
