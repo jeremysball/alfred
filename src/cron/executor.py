@@ -19,6 +19,7 @@ from typing import Any
 import psutil
 
 from src.cron.models import ExecutionStatus, Job, ResourceLimits
+from src.cron.notifier import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class ExecutionContext:
     job_id: str
     job_name: str
     memory_store: Any | None = None
-    notifier: Any | None = None
+    notifier: Notifier | None = None
 
     async def notify(self, message: str) -> None:
         """Send a notification to the user.
