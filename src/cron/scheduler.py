@@ -17,7 +17,7 @@ from typing import Any, cast
 
 from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
-from src.cron.models import ExecutionRecord, ExecutionStatus, Job
+from src.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
 from src.cron.observability import Alert, HealthStatus, Observability
 from src.cron.store import CronStore
 
@@ -344,7 +344,7 @@ class CronScheduler:
 
             # Get job model for resource limits
             job_model = job.to_job(code_snapshot) if code_snapshot else None
-            limits = job_model.resource_limits if job_model else None
+            limits = job_model.resource_limits if job_model else ResourceLimits()
 
             # Create execution context
             context = ExecutionContext(

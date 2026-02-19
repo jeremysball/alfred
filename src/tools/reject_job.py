@@ -32,6 +32,7 @@ class RejectJobParams(BaseModel):
 class RejectJobResult(ToolResult):
     """Result from rejecting a job."""
 
+    message: str = Field(default="", description="Human-readable result message")
     job_id: str | None = Field(default=None, description="ID of rejected job")
     job_name: str | None = Field(default=None, description="Name of rejected job")
 

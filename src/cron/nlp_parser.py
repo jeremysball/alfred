@@ -33,7 +33,7 @@ class NaturalLanguageCronParser:
     }
 
     # Day patterns mapped to cron day-of-week values
-    DAY_PATTERNS = {
+    DAY_PATTERNS: dict[str, int | str] = {
         "monday": 1,
         "mon": 1,
         "tuesday": 2,

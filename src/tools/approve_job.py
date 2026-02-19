@@ -32,6 +32,7 @@ class ApproveJobParams(BaseModel):
 class ApproveJobResult(ToolResult):
     """Result from approving a job."""
 
+    message: str = Field(default="", description="Human-readable result message")
     job_id: str | None = Field(default=None, description="ID of approved job")
     job_name: str | None = Field(default=None, description="Name of approved job")
 
