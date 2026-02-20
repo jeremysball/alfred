@@ -89,13 +89,39 @@ Then message your bot on Telegram (see setup docs).
 
 ## Features
 
+### Core Memory System
 - [x] **Persistent Memory**: Conversations stored in JSONL files you control
 - [x] **Semantic Search**: OpenAI embeddings for finding relevant context
-- [x] **Telegram Integration**: Chat with Alfred via Telegram bot
-- [x] **CLI Interface**: Terminal-based chat with streaming responses
-- [x] **File-Based Config**: Human-readable `SOUL.md`, `AGENTS.md`, `TOOLS.md`
+- [x] **Dual Memory**: Message-level (facts) + session-level (narrative) storage
 - [x] **Session Management**: Organize conversations by project or topic
 - [x] **Memory Tools**: Search, update, and manage memories programmatically
+
+### Interfaces
+- [x] **Telegram Integration**: Chat with Alfred via Telegram bot
+- [x] **CLI Interface**: Terminal-based chat with streaming responses
+- [x] **Library**: Use `from alfred import Alfred` to integrate into your own applications
+
+### Automation & Scheduling
+- [x] **Cron Scheduler**: Schedule jobs with natural language ("remind me every morning at 8am")
+- [x] **Job Notifications**: Jobs can send messages back to you via Telegram/CLI
+- [x] **System Jobs**: Auto-summarize sessions, compact old memories, health reports
+- [x] **Human Approval**: User jobs require approval before execution (security)
+
+### Tools & Capabilities
+- [x] **File Operations**: Read, write, and edit files
+- [x] **Bash Execution**: Run shell commands in controlled environment
+- [x] **Memory CRUD**: Create, read, update, delete memories
+- [x] **Search Tools**: Semantic search across memories and sessions
+- [x] **Job Management**: Schedule, list, approve, and reject jobs
+
+### Intelligence
+- [x] **Context Injection**: Automatic retrieval of relevant past conversations
+- [x] **Session Summarization**: Auto-generate conversation summaries
+- [x] **Streaming Responses**: Real-time token streaming
+- [x] **Multi-Provider**: Support for Kimi, OpenAI, and other LLM providers
+
+### Configuration
+- [x] **File-Based Config**: Human-readable `SOUL.md`, `AGENTS.md`, `TOOLS.md`
 - [x] **Privacy First**: Everything local — no cloud, no data sent to us
 
 ## Interfaces
@@ -106,15 +132,16 @@ Then message your bot on Telegram (see setup docs).
 | Memory Search | ✅ | ✅ | ✅ |
 | Session Management | ✅ | ✅ | ✅ |
 | Tool Execution | ✅ | ✅ | ✅ |
+| Job Scheduling | ✅ | ✅ | ✅ |
 | Streaming Responses | ✅ | ✅ | ✅ |
 
 **Telegram**: Message your bot or run your own.
 
 **CLI**: Run `alfred chat` for interactive terminal sessions.
 
-**Library**: Use `from alfred import Memory` to integrate into your own applications.
+**Library**: Use `from alfred import Alfred` to integrate into your own applications.
 
-## Example
+## Example: Chat with Memory
 
 ```python
 from alfred import Alfred
@@ -134,13 +161,33 @@ for memory in memories:
     print(f"{memory['timestamp']}: {memory['content']}")
 ```
 
+## Example: Scheduled Jobs
+
+```python
+# Create a job that runs every morning
+job = await alfred.schedule_job(
+    name="Daily standup reminder",
+    schedule="0 9 * * 1-5",  # Weekdays at 9am
+    code='''
+async def run(context):
+    await context.notify("Time for standup! Here's what you did yesterday:")
+    memories = await context.search("yesterday", limit=3)
+    for m in memories:
+        await context.notify(f"• {m['content'][:100]}...")
+'''
+)
+
+# Alfred will ask for approval before activating the job
+```
+
 ## Data Transparency
 
 **Alfred stores everything locally:**
 
-- Conversations: `data/memories.jsonl` (text, timestamp, embedding)
-- Sessions: `data/session_summaries.jsonl` (conversation summaries)
-- Config: `SOUL.md`, `AGENTS.md`, `TOOLS.md` (human-readable)
+- **Conversations**: `data/memories.jsonl` (text, timestamp, embedding)
+- **Sessions**: `data/session_summaries.jsonl` (conversation summaries)
+- **Jobs**: `data/cron.jsonl` (scheduled jobs) + `data/cron_history.jsonl` (execution history)
+- **Config**: `SOUL.md`, `AGENTS.md`, `TOOLS.md` (human-readable)
 
 **No cloud. No data sent to us. No phone home.** Your memories live in files you control.
 
