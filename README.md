@@ -56,7 +56,7 @@ alfred telegram setup
 alfred telegram start
 ```
 
-Then message [@AlfredMemoryBot](https://t.me/AlfredMemoryBot) on Telegram.
+Then message your bot on Telegram (see setup docs).
 
 ## How It Works
 
@@ -108,7 +108,7 @@ Then message [@AlfredMemoryBot](https://t.me/AlfredMemoryBot) on Telegram.
 | Tool Execution | ✅ | ✅ | ✅ |
 | Streaming Responses | ✅ | ✅ | ✅ |
 
-**Telegram**: Message [@AlfredMemoryBot](https://t.me/AlfredMemoryBot) or run your own.
+**Telegram**: Message your bot or run your own.
 
 **CLI**: Run `alfred chat` for interactive terminal sessions.
 
@@ -146,24 +146,17 @@ for memory in memories:
 
 ## Documentation
 
-- [Getting Started](https://github.com/jeremysball/alfred/blob/main/docs/getting-started.md)
-- [Configuration](https://github.com/jeremysball/alfred/blob/main/docs/configuration.md)
-- [Telegram Setup](https://github.com/jeremysball/alfred/blob/main/docs/telegram.md)
-- [API Reference](https://github.com/jeremysball/alfred/blob/main/docs/api.md)
-- [Architecture](https://github.com/jeremysball/alfred/blob/main/docs/architecture.md)
+Documentation coming soon. For now, see:
 
-## Built With
-
-- [OpenAI](https://openai.com/) for embeddings and chat completions
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) for Telegram integration
-- [Pydantic](https://docs.pydantic.dev/) for data validation
-- [aiofiles](https://github.com/Tinche/aiofiles) for async file operations
+- [Architecture Diagram](https://github.com/jeremysball/alfred/blob/main/research/78-readme-redesign/assets/architecture-diagram.svg)
+- [Demo Script](https://github.com/jeremysball/alfred/blob/main/research/78-readme-redesign/assets/demo-gif-script.md)
+- Inline code documentation in `src/`
 
 ## Community
 
 - [GitHub Discussions](https://github.com/jeremysball/alfred/discussions) — Ask questions, share ideas
 - [GitHub Issues](https://github.com/jeremysball/alfred/issues) — Report bugs, request features
-- [Discord](https://discord.gg/alfred) — Chat with the community
+- Discord — Coming soon
 
 ## Contributing
 
