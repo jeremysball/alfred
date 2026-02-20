@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#fafafa"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#333">Alfred Architecture</text>
+  
+  <!-- User Input Section -->
+  <rect x="320" y="70" width="160" height="50" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="400" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#1565c0">User Message</text>
+  
+  <!-- Interfaces -->
+  <rect x="80" y="160" width="120" height="50" rx="8" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="140" y="190" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#e65100">Telegram</text>
+  
+  <rect x="340" y="160" width="120" height="50" rx="8" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="400" y="190" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#e65100">CLI</text>
+  
+  <rect x="600" y="160" width="120" height="50" rx="8" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="660" y="190" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#e65100">Library</text>
+  
+  <!-- Alfred Core -->
+  <rect x="300" y="260" width="200" height="60" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <text x="400" y="295" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#880e4f">Alfred Core</text>
+  
+  <!-- Core Components -->
+  <rect x="60" y="360" width="140" height="50" rx="6" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <text x="130" y="390" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#4a148c">Memory Manager</text>
+  
+  <rect x="330" y="360" width="140" height="50" rx="6" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <text x="400" y="390" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#4a148c">Context Assembler</text>
+  
+  <rect x="600" y="360" width="140" height="50" rx="6" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <text x="670" y="390" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#4a148c">Agent Loop</text>
+  
+  <!-- Storage -->
+  <rect x="60" y="460" width="140" height="50" rx="6" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="130" y="485" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1b5e20">memories.jsonl</text>
+  
+  <rect x="330" y="460" width="140" height="50" rx="6" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <text x="400" y="485" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1b5e20">Session Store</text>
+  
+  <rect x="600" y="460" width="140" height="50" rx="6" fill="#ffebee" stroke="#d32f2f" stroke-width="2"/>
+  <text x="670" y="485" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#b71c1c">LLM Provider</text>
+  
+  <!-- Arrows from User -->
+  <path d="M 360 120 L 160 160" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 400 120 L 400 160" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 440 120 L 640 160" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Arrows to Core -->
+  <path d="M 140 210 L 350 260" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 400 210 L 400 260" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 660 210 L 450 260" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Arrows to Components -->
+  <path d="M 340 320 L 180 360" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 400 320 L 400 360" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 460 320 L 620 360" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Arrows to Storage -->
+  <path d="M 130 410 L 130 460" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 400 410 L 400 460" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 650 410 L 650 460" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Arrowhead marker -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#666"/>
+    </marker>
+  </defs>
+  
+  <!-- Labels -->
+  <text x="400" y="580" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#666">Blue: Input | Orange: Interface | Pink: Core | Purple: Components | Green: Storage | Red: External</text>
+</svg>

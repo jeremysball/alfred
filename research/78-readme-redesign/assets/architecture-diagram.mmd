@@ -1,0 +1,42 @@
+graph TD
+    A[User Message] --> B{Interface}
+    B -->|Telegram| C[Telegram Bot]
+    B -->|CLI| D[CLI Interface]
+    B -->|Library| E[Python API]
+    
+    C --> F[Alfred Core]
+    D --> F
+    E --> F
+    
+    F --> G[Memory Manager]
+    F --> H[Context Assembler]
+    F --> I[Agent Loop]
+    
+    G --> J[(Memory Store)]
+    G --> K[Embedding Client]
+    
+    J --> L[memories.jsonl]
+    J --> M[session_summaries.jsonl]
+    
+    K --> N[OpenAI API]
+    
+    H --> O[Semantic Search]
+    O --> J
+    
+    I --> P[LLM Provider]
+    P --> Q[Kimi API]
+    
+    H --> I
+    O --> H
+    
+    I --> R[Response]
+    R --> C
+    R --> D
+    R --> E
+    
+    style A fill:#e1f5fe
+    style F fill:#fff3e0
+    style J fill:#e8f5e9
+    style R fill:#e1f5fe
+    style N fill:#fce4ec
+    style Q fill:#fce4ec
