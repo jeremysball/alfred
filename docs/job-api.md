@@ -16,8 +16,6 @@ Jobs execute arbitrary user-submitted Python code. To maintain security and stab
 | Function | Status | Description |
 |----------|--------|-------------|
 | `notify(message)` | ✅ Available | Send a notification message to the user (Telegram or CLI) |
-| `store_get(key)` | ❌ Not implemented | Retrieve a value from the job's persistent key-value store |
-| `store_set(key, value)` | ❌ Not implemented | Save a value to the job's persistent key-value store |
 | `print()` | ✅ Available | Output to job logs (captured and stored with execution history) |
 
 ### Built-in Python Functions
@@ -74,13 +72,11 @@ result = await read_tool.execute(path="todo.md")
 - **Capabilities**:
   - Perform scheduled tasks
   - Print output (logged to execution history)
-  - Store small amounts of data via store_get/store_set (when implemented)
-  - Send notifications via notify() (when implemented)
+  - Send notifications via `notify()`
 - **Limitations**:
-  - Cannot access files directly (unless code does file I/O)
+  - Cannot access files directly
   - Cannot call Alfred's tools
   - Cannot modify memories directly
-  - Cannot send messages to users (pending notifier implementation)
 
 **Example job code:**
 ```python
@@ -119,33 +115,25 @@ async def run():
         await notify(f"Job failed: {e}")
 ```
 
-### State Persistence
+### Notifications
 
-When `store_get`/`store_set` are implemented:
+Send user notifications:
 
 ```python
 async def run():
-    # Get previous count
-    count = store_get("processed_count") or 0
-    
-    # Process new items
-    new_items = await fetch_new_items()
-    count += len(new_items)
-    
-    # Save updated count
-    store_set("processed_count", count)
-    print(f"Total processed: {count}")
+    await notify("Daily reminder: Review your goals!")
 ```
 
 ## Future Enhancements
 
 The following features are planned but not yet implemented:
 
-1. **Persistent KV Store**: Implement `store_get`/`store_set` with durable storage
-2. **Memory Bridge**: Potential API for jobs to queue memory additions (subject to approval)
-3. **HTTP Client**: Safe HTTP requests for API calls (with allowlist)
+1. **Persistent KV Store**: `store_get`/`store_set` for durable storage
+2. **Memory Bridge**: Potential API for jobs to queue memory additions
+3. **HTTP Client**: Safe HTTP requests for API calls
 
 ## Related Documentation
 
-- [Cron Jobs](cron-jobs.md) - Overview of the cron system and job lifecycle
-- [Notifier Architecture](notifier.md) - How user notifications work (or will work)
+- [Cron Jobs](cron-jobs.md) — Overview of the cron system and job lifecycle
+- [Notifier Architecture](notifier.md) — How user notifications work
+- [Architecture](ARCHITECTURE.md) — System design

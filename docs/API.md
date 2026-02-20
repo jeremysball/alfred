@@ -13,17 +13,6 @@ from src.config import Config, load_config
 
 # Load with defaults from config.json, override from env
 config = load_config(Path("config.json"))
-
-# Or create directly
-config = Config(
-    telegram_bot_token="...",
-    openai_api_key="...",
-    kimi_api_key="...",
-    kimi_base_url="...",
-    default_llm_provider="kimi",
-    chat_model="kimi-k2-0711-preview",
-    # ... other settings
-)
 ```
 
 **Attributes:**
@@ -32,12 +21,13 @@ config = Config(
 |-----------|------|-------------|
 | `telegram_bot_token` | `str` | Telegram Bot API token |
 | `openai_api_key` | `str` | OpenAI API key |
-| `kimi_api_key` | `str` | Moonshot AI API key |
+| `kimi_api_key` | `str` | Kimi API key |
 | `kimi_base_url` | `str` | Kimi API base URL |
 | `default_llm_provider` | `str` | Provider to use ("kimi") |
 | `chat_model` | `str` | Model identifier |
 | `embedding_model` | `str` | Embedding model identifier |
 | `memory_context_limit` | `int` | Max memories to include |
+| `workspace_dir` | `Path` | Workspace directory |
 | `memory_dir` | `Path` | Memory storage directory |
 | `context_files` | `dict[str, Path]` | Map of context file names |
 
@@ -56,8 +46,8 @@ from src.config import load_config
 config = load_config()
 loader = ContextLoader(config, cache_ttl=60)
 
-# Load single file
-file = await loader.load_file("agents", Path("AGENTS.md"))
+# Load single file (auto-creates from template if missing)
+file = await loader.load_file("soul", Path("data/SOUL.md"))
 
 # Load all configured files
 files = await loader.load_all()
@@ -71,7 +61,7 @@ context = await loader.assemble(memories=memory_list)
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `load_file(name, path)` | `ContextFile` | Load single file with caching |
+| `load_file(name, path)` | `ContextFile` | Load single file with caching, auto-create from template |
 | `load_all()` | `dict[str, ContextFile]` | Load all configured files concurrently |
 | `assemble(memories)` | `AssembledContext` | Build complete prompt context |
 | `add_context_file(name, path)` | `None` | Add custom context file |
@@ -117,14 +107,14 @@ class MyProvider(LLMProvider):
         ...
     
     async def stream_chat(
-        self, messages: list[ChatMessage]
+        self, messages: list[ChatMessage], system_prompt: str
     ) -> AsyncIterator[str]:
         ...
 ```
 
 #### `KimiProvider`
 
-Moonshot AI Kimi implementation.
+Kimi API implementation.
 
 ```python
 from src.llm import KimiProvider, ChatMessage
@@ -144,7 +134,7 @@ print(response.model)    # Model used
 print(response.usage)    # Token counts
 
 # Streaming chat
-async for chunk in provider.stream_chat(messages):
+async for chunk in provider.stream_chat(messages, system_prompt):
     print(chunk, end="")
 ```
 
@@ -207,7 +197,6 @@ memory = MemoryEntry(
     role="assistant",
     content="I'll help you with that...",
     embedding=[0.1, 0.2, ...],  # Optional
-    importance=0.8,             # 0.0 to 1.0
     tags=["coding", "python"],
 )
 ```
@@ -220,22 +209,8 @@ memory = MemoryEntry(
 | `role` | `Literal["user", "assistant", "system"]` | Speaker role |
 | `content` | `str` | Message content |
 | `embedding` | `list[float] \| None` | Vector embedding |
-| `importance` | `float` | 0.0 to 1.0 |
 | `tags` | `list[str]` | Categorization tags |
-
-#### `DailyMemory`
-
-Day-grouped memories.
-
-```python
-from src.types import DailyMemory
-from datetime import date
-
-daily = DailyMemory(
-    date=date.today(),
-    entries=[memory1, memory2, ...],
-)
-```
+| `entry_id` | `str \| None` | Unique identifier |
 
 #### `ContextFile`
 
@@ -247,7 +222,7 @@ from datetime import datetime
 
 file = ContextFile(
     name="agents",
-    path="/app/AGENTS.md",
+    path="data/AGENTS.md",
     content="# Agent Behavior Rules...",
     last_modified=datetime.now(),
 )
@@ -341,15 +316,16 @@ except TimeoutError:
 ```json
 {
   "default_llm_provider": "kimi",
-  "chat_model": "kimi-k2-0711-preview",
+  "chat_model": "kimi-k2-5",
   "embedding_model": "text-embedding-3-small",
-  "memory_context_limit": 10,
-  "memory_dir": "./memory",
+  "memory_context_limit": 20,
+  "workspace_dir": "data",
+  "memory_dir": "data/memory",
   "context_files": {
-    "agents": "./AGENTS.md",
-    "soul": "./SOUL.md",
-    "user": "./USER.md",
-    "tools": "./TOOLS.md"
+    "agents": "data/AGENTS.md",
+    "soul": "data/SOUL.md",
+    "user": "data/USER.md",
+    "tools": "data/TOOLS.md"
   }
 }
 ```
@@ -359,6 +335,14 @@ except TimeoutError:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot API token |
-| `OPENAI_API_KEY` | Yes | OpenAI API key |
-| `KIMI_API_KEY` | Yes | Moonshot AI key |
+| `OPENAI_API_KEY` | Yes | OpenAI API key (embeddings) |
+| `KIMI_API_KEY` | Yes | Kimi API key |
 | `KIMI_BASE_URL` | Yes | Kimi API endpoint |
+
+---
+
+## Related Documentation
+
+- [Architecture](ARCHITECTURE.md) — System design
+- [Deployment](DEPLOYMENT.md) — Production setup
+- [Cron Jobs](cron-jobs.md) — Scheduled tasks

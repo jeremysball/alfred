@@ -2,11 +2,34 @@
 
 ## Overview
 
-Alfred's cron system allows scheduling recurring tasks. Jobs run in the background at specified intervals using standard cron syntax.
+Alfred's cron system allows scheduling recurring tasks. Jobs run in the background at specified intervals using standard cron syntax or natural language.
 
 ## Creating a Job
 
-Jobs are defined with Python code and a cron expression.
+### Using CLI
+
+```bash
+# Submit a job for approval
+alfred cron submit "Daily Standup" "0 9 * * 1-5" "async def run(): await notify('Time for standup!')"
+
+# List all jobs
+alfred cron list
+
+# Approve a pending job
+alfred cron approve <job-id>
+
+# Reject a pending job
+alfred cron reject <job-id>
+```
+
+### Natural Language Scheduling
+
+Alfred can parse natural language expressions:
+
+- "every day at 9am"
+- "every monday at 2pm"
+- "every 30 minutes"
+- "weekdays at 9am"
 
 ### Job Structure
 
@@ -31,10 +54,7 @@ async def run():
 Jobs can use these built-in functions:
 
 - `notify(message)` - Send notification to user
-- `remember(text)` - Save to long-term memory
-- `search(query)` - Search memories
-- `store_get(key)` - Get value from key-value store
-- `store_set(key, value)` - Set value in key-value store
+- `print()` - Log output (captured to execution history)
 
 ### Cron Expression Format
 
@@ -107,25 +127,25 @@ for record in history:
     print(f"{record.started_at}: {record.status} ({record.duration_ms}ms)")
 ```
 
+## Data Storage
+
+Jobs are persisted to JSONL files:
+
+| File | Purpose |
+|------|---------|
+| `data/cron.jsonl` | Job definitions |
+| `data/cron_history.jsonl` | Execution history |
+| `data/cron_logs.jsonl` | Job output logs |
+
 ## Best Practices
 
 1. **Keep jobs idempotent** - They may run multiple times if interrupted
 2. **Handle errors** - Use try/except in job code
 3. **Short execution** - Jobs should complete quickly; use async for I/O
-4. **Test expressions** - Use `get_next_run()` to verify timing
+4. **Test expressions** - Verify timing before deploying
 
-## CLI Commands
+## Related Documentation
 
-```bash
-# List all jobs
-alfred cron list
-
-# Submit new job (pending approval)
-alfred cron submit "My Job" "*/5 * * * *" "async def run(): pass"
-
-# Approve pending job
-alfred cron approve <job-id>
-
-# View job history
-alfred cron history <job-id>
-```
+- [Job API Reference](job-api.md) — Functions available to job code
+- [Notifier Architecture](notifier.md) — How notifications work
+- [Architecture](ARCHITECTURE.md) — System design

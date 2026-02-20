@@ -60,33 +60,35 @@ Loads and assembles context files for LLM prompts.
 **Context Files:**
 | File | Purpose |
 |------|---------|
-| `AGENTS.md` | Agent behavior rules and instructions |
-| `SOUL.md` | Personality, voice, and identity definition |
-| `USER.md` | User preferences and patterns |
-| `TOOLS.md` | Available tools and usage guidelines |
+| `data/AGENTS.md` | Agent behavior rules and instructions |
+| `data/SOUL.md` | Personality, voice, and identity definition |
+| `data/USER.md` | User preferences and patterns |
+| `data/TOOLS.md` | Available tools and usage guidelines |
 | `MEMORY.md` | Curated long-term memory |
 
 ### Template System
 
-Alfred uses templates for initial context files. On first run, templates are copied from `/app/templates/` to the workspace if they don't exist.
+Alfred uses templates for initial context files. On first run, templates are copied from `templates/` to `data/` if they don't exist.
 
 ```
-/app/templates/          # Built-in templates (read-only)
+templates/               # Built-in templates (read-only)
+├── AGENTS.md
 ├── SOUL.md
 ├── USER.md
 ├── TOOLS.md
 └── MEMORY.md
 
-/workspace/              # User's runtime files
-├── SOUL.md              # Copied from template if missing
+data/                    # User's runtime files
+├── AGENTS.md            # Copied from template if missing
+├── SOUL.md
 ├── USER.md
 ├── TOOLS.md
 ├── MEMORY.md
-└── memory/              # Daily logs (created as needed)
+└── memory/              # JSONL memory storage
+    └── memories.jsonl
 ```
 
 **Behavior:**
-- Templates are bundled in the Docker image at build time
 - Alfred checks for missing context files on startup
 - Missing files are auto-created from templates
 - User modifications persist; templates don't overwrite
@@ -127,7 +129,6 @@ Pydantic models for type safety across the application.
 
 **Core Types:**
 - `MemoryEntry`: Single memory with embedding and metadata
-- `DailyMemory`: Day-grouped memories
 - `ContextFile`: Loaded file with metadata
 - `AssembledContext`: Complete prompt context
 
@@ -151,8 +152,7 @@ Pydantic models for type safety across the application.
         │
         ▼
 4. Store Response
-   - Save to memory store
-   - Update user model
+   - Save to memory store with embedding
         │
         ▼
 5. Reply to User
@@ -160,22 +160,16 @@ Pydantic models for type safety across the application.
 
 ### Memory Storage
 
-**Current (M2):** File-based Markdown storage
+**Current:** JSONL with vector embeddings
 ```
-memory/
-├── 2026-02-17.md      # Daily memory files (Markdown)
-├── 2026-02-16.md
-└── ...
-
-MEMORY.md              # Curated long-term memory
+data/memory/
+└── memories.jsonl      # All conversations with embeddings
 ```
 
-**Future (M4):** Vector search with embeddings
-```
-memory/
-├── embeddings/          # Vector index
-└── archive/             # Compacted summaries
-```
+Each entry contains:
+- Timestamp, role, content
+- OpenAI embedding vector
+- Entry ID for CRUD operations
 
 ## Error Handling Strategy
 
@@ -208,7 +202,6 @@ memory/
 4. **Observability**: Structured logging at all layers
 5. **Modularity**: Clear interfaces, swappable implementations
 
-
 ## Alfred Design Philosophies
 
 ### Model-Driven Decisions
@@ -219,36 +212,15 @@ When making decisions—what to remember, when to summarize, how to respond—pr
 - How to structure responses
 - What matters in a conversation
 
-- Fail fast: surface errors immediately rather than silently swallowing them.
-
 ### Memory Behavior
 
-- Capture daily interactions automatically
-- Suggest important memories; let users or the model confirm
+- Capture interactions automatically
 - Retrieve context without requiring explicit commands
 - Learn patterns and update agent files (USER.md, SOUL.md) over time
 
-## Future Architecture (PRD Roadmap)
+## Related Documentation
 
-### M3: Memory Foundation
-- Persistent conversation storage
-- Daily memory files with Markdown format
-
-### M4: Vector Search
-- Embedding-based semantic search
-- FAISS or similar vector store
-
-### M5: Telegram Bot
-- Single user interface
-- Session-based threading (each thread = fresh start)
-- Message handlers and commands
-
-### M6: Kimi Provider ✅
-- Moonshot AI integration
-- Retry logic with backoff
-
-### M7+: Advanced Features
-- Personality modeling
-- Capability system
-- Memory compaction
-- Knowledge distillation
+- [API Reference](API.md) — Module documentation
+- [Deployment](DEPLOYMENT.md) — Production setup
+- [Cron Jobs](cron-jobs.md) — Scheduled tasks
+- [Roadmap](ROADMAP.md) — Development progress
