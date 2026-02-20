@@ -16,7 +16,7 @@ This guide covers deploying Alfred to various environments.
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/jeremysball/alfred.git
 cd alfred
 
 # Install dependencies
@@ -26,15 +26,14 @@ uv sync
 cp .env.example .env
 # Edit .env with your API keys
 
-# Configure application
-cp config.example.json config.json
-# Edit config.json as needed
-
 # Run tests
 uv run pytest
 
-# Start application
-uv run python -m alfred
+# Start application (CLI mode)
+uv run alfred
+
+# Start application (Telegram mode)
+uv run alfred --telegram
 ```
 
 ## Environment Configuration
@@ -47,30 +46,31 @@ Create `.env` file:
 # Telegram
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
-# OpenAI
+# OpenAI (for embeddings)
 OPENAI_API_KEY=your_openai_key
 
-# Kimi (Moonshot AI)
+# Kimi (primary LLM)
 KIMI_API_KEY=your_kimi_key
-KIMI_BASE_URL=https://api.moonshot.cn/v1
+KIMI_BASE_URL=https://api.kimi.com/coding/v1
 ```
 
 ### Application Configuration
 
-Create `config.json`:
+`config.json` (committed to repo):
 
 ```json
 {
   "default_llm_provider": "kimi",
-  "chat_model": "kimi-k2-0711-preview",
+  "chat_model": "kimi-k2-5",
   "embedding_model": "text-embedding-3-small",
-  "memory_context_limit": 10,
-  "memory_dir": "./memory",
+  "memory_context_limit": 20,
+  "workspace_dir": "data",
+  "memory_dir": "data/memory",
   "context_files": {
-    "agents": "./AGENTS.md",
-    "soul": "./SOUL.md",
-    "user": "./USER.md",
-    "tools": "./TOOLS.md"
+    "agents": "data/AGENTS.md",
+    "soul": "data/SOUL.md",
+    "user": "data/USER.md",
+    "tools": "data/TOOLS.md"
   }
 }
 ```
@@ -91,7 +91,7 @@ docker build -t alfred:latest .
 docker run -d \
   --name alfred \
   --env-file .env \
-  -v $(pwd)/memory:/app/memory \
+  -v $(pwd)/data:/app/data \
   alfred:latest
 ```
 
@@ -128,7 +128,7 @@ GIT_EMAIL=your@email.com
 GIT_GPG_KEY=your_gpg_key_id
 GIT_GPG_SIGN=true  # or false
 
-# Required for Alfred (see Environment Configuration above)
+# Required for Alfred
 TELEGRAM_BOT_TOKEN=...
 KIMI_API_KEY=...
 OPENAI_API_KEY=...
@@ -168,15 +168,6 @@ docker-compose down
 | `home` | `./home` | Persistent home directory (Neovim config, cache) |
 | `tailscale` | `./volumes/tailscale` | Tailscale state |
 
-**docker-compose.yml Overview:**
-
-- Runs Alfred in an isolated container with Tailscale networking
-- Mounts local `workspace` and `home` directories for persistence
-- Configures Git with GPG signing support
-- Uses host user's UID/GID for file permission compatibility
-
-See `docker-compose.yml` for complete configuration.
-
 ### Kubernetes
 
 ```yaml
@@ -204,8 +195,8 @@ spec:
         - name: config
           mountPath: /app/config.json
           subPath: config.json
-        - name: memory
-          mountPath: /app/memory
+        - name: data
+          mountPath: /app/data
         resources:
           requests:
             memory: "256Mi"
@@ -217,9 +208,9 @@ spec:
       - name: config
         configMap:
           name: alfred-config
-      - name: memory
+      - name: data
         persistentVolumeClaim:
-          claimName: alfred-memory
+          claimName: alfred-data
 ```
 
 ## Release Process
@@ -228,7 +219,7 @@ spec:
 
 Follows [Semantic Versioning](https://semver.org/):
 - `MAJOR.MINOR.PATCH`
-- Example: `0.1.0`
+- Version is managed via `hatch-vcs` from git tags
 
 ### Release Checklist
 
@@ -238,35 +229,31 @@ Before releasing:
 - [ ] Type checks pass (`uv run mypy src/`)
 - [ ] Linting passes (`uv run ruff check src/`)
 - [ ] Documentation updated
-- [ ] CHANGELOG.md updated
-- [ ] Version bumped in `pyproject.toml`
 
 ### Creating a Release
 
 ```bash
-# 1. Update version in pyproject.toml
-# 2. Update CHANGELOG.md
-# 3. Commit changes
-git add pyproject.toml CHANGELOG.md
-git commit -m "chore(release): bump version to 0.2.0"
+# 1. Commit changes
+git add .
+git commit -m "chore(release): prepare for v0.2.0"
 
-# 4. Create tag
+# 2. Create tag
 git tag -a v0.2.0 -m "Release version 0.2.0"
 
-# 5. Push
+# 3. Push
 git push origin main
 git push origin v0.2.0
 
-# 6. Build distribution
+# 4. Build distribution
 uv build
 
-# 7. Publish (if public package)
+# 5. Publish to PyPI (trusted publishing configured)
 uv publish
 ```
 
 ### Automated Releases
 
-Using GitHub Actions:
+Using GitHub Actions with PyPI trusted publishing:
 
 ```yaml
 name: Release
@@ -279,6 +266,9 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for trusted publishing
+      contents: read
     steps:
       - uses: actions/checkout@v4
       
@@ -293,50 +283,26 @@ jobs:
       - name: Build
         run: uv build
       
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-          generate_release_notes: true
+      - name: Publish to PyPI
+        run: uv publish
 ```
 
 ## Monitoring
 
-### Health Check
-
-Future implementation:
-
-```python
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "version": "0.1.0",
-        "memory_usage": get_memory_usage(),
-        "last_message": get_last_message_time(),
-    }
-```
-
 ### Logging
 
-Configure logging level via environment:
+Configure logging level via CLI:
 
 ```bash
 # Debug logging
-LOG_LEVEL=DEBUG uv run python -m alfred
+alfred --debug debug
 
-# Production logging
-LOG_LEVEL=INFO uv run python -m alfred
+# Info logging
+alfred --debug info
+
+# Default: warnings only
+alfred
 ```
-
-### Metrics (Future)
-
-Planned metrics:
-- Messages per minute
-- Response latency
-- Error rate
-- Memory usage
-- Active users
 
 ## Troubleshooting
 
@@ -353,28 +319,26 @@ curl -s "https://api.telegram.org/bot<TOKEN>/getMe"
 
 **Rate limiting:**
 ```bash
-# Check Kimi/OpenAI usage
-curl -s "https://api.moonshot.cn/v1/usage" \
-  -H "Authorization: Bearer $KIMI_API_KEY"
+# Wait and retry - Alfred has built-in exponential backoff
 ```
 
 **Memory issues:**
 ```bash
 # Check memory directory
-ls -la memory/
+ls -la data/memory/
 
-# Clear cache (restart required)
-rm -rf memory/cache/*
+# View memory count
+wc -l data/memory/memories.jsonl
 ```
 
 ### Debug Mode
 
 ```bash
 # Enable debug logging
-LOG_LEVEL=DEBUG uv run python -m alfred
+alfred --debug debug
 
 # Or in Docker
-docker run -e LOG_LEVEL=DEBUG alfred:latest
+docker run -e DEBUG=debug alfred:latest
 ```
 
 ## Security Considerations
@@ -399,3 +363,11 @@ docker pull alfred:0.1.0
 docker stop alfred
 docker run -d --name alfred alfred:0.1.0
 ```
+
+---
+
+## Related Documentation
+
+- [Architecture](ARCHITECTURE.md) — System design
+- [API Reference](API.md) — Module documentation
+- [Roadmap](ROADMAP.md) — Development progress

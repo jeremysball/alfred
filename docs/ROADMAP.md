@@ -36,23 +36,27 @@ Existing LLM assistants start fresh every conversation. Users repeat themselves,
 ### File Structure
 ```
 alfred/
-├── AGENTS.md              # Agent behavior rules
-├── SOUL.md               # Alfred's personality
-├── USER.md               # User preferences
-├── TOOLS.md              # LLM/environment config
-├── templates/            # Auto-created context templates
+├── templates/            # Context templates (copied to data/ on first run)
+│   ├── AGENTS.md
+│   ├── SOUL.md
+│   ├── USER.md
+│   ├── TOOLS.md
+│   └── MEMORY.md
 ├── src/
 │   ├── alfred.py         # Core engine
 │   ├── agent.py          # Streaming agent loop
-│   ├── llm.py            # Provider abstraction
+│   ├── llm.py            # Provider abstraction (Kimi)
 │   ├── memory.py         # Memory store (JSONL + embeddings)
 │   ├── session.py        # Session management
 │   ├── context.py        # Context assembly
 │   ├── embeddings.py     # OpenAI embeddings
-│   ├── search.py         # Semantic search (messages + sessions)
+│   ├── search.py         # Semantic search
 │   ├── templates.py      # Template auto-creation
 │   ├── cron/             # Cron jobs
-│   │   └── session_summarizer.py  # Auto-summarize sessions
+│   │   ├── scheduler.py
+│   │   ├── executor.py
+│   │   ├── store.py
+│   │   └── notifier.py
 │   ├── tools/            # Tool implementations
 │   │   ├── base.py       # Tool abstract class
 │   │   ├── read.py       # File reading
@@ -60,17 +64,26 @@ alfred/
 │   │   ├── edit.py       # File editing
 │   │   ├── bash.py       # Shell execution
 │   │   ├── remember.py   # Save to memory
-│   │   ├── search_memories.py    # Search individual messages
-│   │   ├── search_sessions.py    # Search session summaries
+│   │   ├── search_memories.py
 │   │   ├── update_memory.py
-│   │   └── forget.py     # Delete memories
+│   │   ├── forget.py     # Delete memories
+│   │   ├── schedule_job.py
+│   │   ├── list_jobs.py
+│   │   ├── approve_job.py
+│   │   └── reject_job.py
 │   └── interfaces/
 │       ├── cli.py        # CLI interface
 │       └── telegram.py   # Telegram bot
 ├── data/
-│   ├── memories.jsonl           # Individual messages (with session_id)
-│   ├── session_summaries.jsonl  # Session summaries with embeddings
-│   └── context/                 # Working copies of templates
+│   ├── memory/
+│   │   └── memories.jsonl    # Messages with embeddings
+│   ├── cron.jsonl            # Scheduled jobs
+│   ├── cron_history.jsonl    # Job execution history
+│   ├── cron_logs.jsonl       # Job output logs
+│   ├── AGENTS.md             # Agent behavior rules
+│   ├── SOUL.md               # Alfred's personality
+│   ├── USER.md               # User preferences
+│   └── TOOLS.md              # Tool definitions
 └── tests/
 ```
 
@@ -78,30 +91,24 @@ alfred/
 
 ## Memory Systems
 
-### 1. Conversation Memory (Automatic)
-Every interaction stored in `data/memories.jsonl` with:
+### Conversation Memory (Automatic)
+Every interaction stored in `data/memory/memories.jsonl` with:
 - Timestamp, role, content
 - OpenAI embedding vector
-- `session_id` for grouping into conversations
-- Importance score (0.0-1.0)
+- Entry ID for CRUD operations
 
 **Search:** `search_memories` tool for specific facts, commands, precise details.
 
-### 2. Session Summaries (Cron-Generated)
+### Future: Session Summaries (Planned)
 Auto-generated via cron job after 30 minutes of inactivity or 20 new messages:
-- Stored in `data/session_summaries.jsonl`
+- Will be stored in `data/session_summaries.jsonl`
 - LLM-generated narrative summary
 - Separate embedding for conversation-level search
-- Versioned (replaced on re-summarization, not appended)
 
-**Search:** `search_sessions` tool for themes, projects, conversation arcs.
-
-### 3. Dual Semantic Retrieval
-Query compared against both indexes:
+### Semantic Retrieval
+Query compared against memory embeddings:
 - **Messages:** Cosine similarity on individual memories
-- **Sessions:** Cosine similarity on summaries
-
-Two separate tools; Alfred chooses based on query intent.
+- Retrieves top-k relevant memories based on query
 
 ---
 
@@ -221,7 +228,7 @@ Two separate tools; Alfred chooses based on query intent.
 TELEGRAM_BOT_TOKEN=xxx
 OPENAI_API_KEY=xxx
 KIMI_API_KEY=xxx
-KIMI_BASE_URL=https://api.moonshot.cn/v1
+KIMI_BASE_URL=https://api.kimi.com/coding/v1
 
 # Optional
 DEFAULT_LLM_PROVIDER=kimi

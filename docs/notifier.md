@@ -54,7 +54,6 @@ The `ExecutionContext` class provides the `notify()` method to jobs:
 class ExecutionContext:
     job_id: str
     job_name: str
-    memory_store: Any | None = None
     notifier: Notifier | None = None
     chat_id: int | None = None  # Per-job routing
 
@@ -132,8 +131,6 @@ class CLINotifier(Notifier):
 ```python
 class Alfred:
     def __init__(self, config: Config, telegram_mode: bool = False):
-        # ... existing initialization ...
-
         # Create notifier based on mode
         if telegram_mode:
             self._telegram_bot = Bot(token=config.telegram_bot_token)
@@ -189,9 +186,14 @@ The notifier is injected rather than being a singleton to support:
 
 ## Related Code
 
-- `src/cron/notifier.py` - Notifier ABC, TelegramNotifier, CLINotifier
-- `src/cron/executor.py` - ExecutionContext implementation
-- `src/cron/scheduler.py` - CronScheduler, creates ExecutionContext
-- `src/alfred.py` - Creates and injects notifier
-- `src/interfaces/telegram.py` - Chat ID tracking
-- `docs/job-api.md` - User-facing job documentation
+- `src/cron/notifier.py` — Notifier ABC, TelegramNotifier, CLINotifier
+- `src/cron/executor.py` — ExecutionContext implementation
+- `src/cron/scheduler.py` — CronScheduler, creates ExecutionContext
+- `src/alfred.py` — Creates and injects notifier
+- `src/interfaces/telegram.py` — Chat ID tracking
+
+## Related Documentation
+
+- [Job API Reference](job-api.md) — Functions available to job code
+- [Cron Jobs](cron-jobs.md) — Overview of the cron system
+- [Architecture](ARCHITECTURE.md) — System design
