@@ -235,8 +235,6 @@ class KimiProvider(LLMProvider):
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=api_messages,
-                temperature=1.0,
-                max_tokens=32000,
             )
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
@@ -278,8 +276,6 @@ class KimiProvider(LLMProvider):
                 model=self.model,
                 messages=[{"role": m.role, "content": m.content} for m in messages],  # type: ignore[misc]
                 tools=tools,  # type: ignore[arg-type]
-                temperature=1.0,
-                max_tokens=32000,
             )
 
             message = response.choices[0].message
@@ -338,8 +334,6 @@ class KimiProvider(LLMProvider):
             return await self.client.chat.completions.create(
                 model=self.model,
                 messages=api_messages,
-                temperature=1.0,
-                max_tokens=32000,
                 stream=True,
             )
 
@@ -402,8 +396,6 @@ class KimiProvider(LLMProvider):
                 model=self.model,
                 messages=api_messages,  # type: ignore[arg-type]
                 tools=tools,  # type: ignore[arg-type]
-                temperature=1.0,
-                max_tokens=32000,
                 stream=True,
             )
 
