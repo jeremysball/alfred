@@ -177,7 +177,6 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-<<<<<<< HEAD
 | 16 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 17 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
 | 18 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
