@@ -162,6 +162,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | M10 | Memory System V2 - Full CRUD operations |
 | M11 | PyPI Trusted Publishing - Automated package distribution |
 | M12 | Rich Markdown Output - Streaming markdown rendering with Rich Live for CLI |
+| M13 | Code Health & Simplification - Removed 1,421 lines of dead code, duplication, over-engineering (PRD #82) |
 
 ### In Progress / Next Up 🔨
 
@@ -176,6 +177,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
+| 16 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 17 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
 | 18 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
 | 19 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
