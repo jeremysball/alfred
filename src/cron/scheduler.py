@@ -21,6 +21,7 @@ from src.cron.executor import ExecutionContext, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job, JobStatus, ResourceLimits
 from src.cron.notifier import Notifier
 from src.cron.observability import Alert, HealthStatus, Observability
+from src.cron.sandbox import SANDBOX_BUILTINS
 from src.cron.store import CronStore
 
 logger = logging.getLogger(__name__)
@@ -322,44 +323,7 @@ class CronScheduler:
         if sandbox_enabled:
             # Restricted builtins for sandboxed jobs
             namespace: dict[str, Any] = {
-                "__builtins__": {
-                    "print": print,
-                    "len": len,
-                    "str": str,
-                    "int": int,
-                    "float": float,
-                    "bool": bool,
-                    "list": list,
-                    "dict": dict,
-                    "set": set,
-                    "tuple": tuple,
-                    "range": range,
-                    "enumerate": enumerate,
-                    "zip": zip,
-                    "map": map,
-                    "filter": filter,
-                    "sum": sum,
-                    "min": min,
-                    "max": max,
-                    "abs": abs,
-                    "round": round,
-                    "any": any,
-                    "all": all,
-                    "isinstance": isinstance,
-                    "hasattr": hasattr,
-                    "getattr": getattr,
-                    "setattr": setattr,
-                    "Exception": Exception,
-                    "ValueError": ValueError,
-                    "TypeError": TypeError,
-                    "KeyError": KeyError,
-                    "IndexError": IndexError,
-                    "AttributeError": AttributeError,
-                    "RuntimeError": RuntimeError,
-                    "ImportError": ImportError,
-                    "NameError": NameError,
-                    "TimeoutError": TimeoutError,
-                },
+                "__builtins__": SANDBOX_BUILTINS,
                 "notify": _placeholder_notify,
             }
         else:
