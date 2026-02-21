@@ -91,37 +91,33 @@ alfred/
 
 ## Memory Systems
 
-### Session History (In-Memory)
-Current conversation held in memory during active session:
-- Stored in `SessionManager` singleton
-- Injected into every LLM call for context
-- Cleared when Alfred restarts
-
-### Persistent Memory (Automatic)
-Alfred autonomously remembers important information:
-- Uses `remember` tool when he learns something worth preserving
+### Memory Store (Implemented)
+Curated facts that Alfred explicitly remembers:
+- Alfred uses `remember` tool to store important information
 - Stored in `data/memory/memories.jsonl` with embeddings
 - Semantic search via `search_memories` tool
-- Model-driven: Alfred decides what to remember, not the user
+- Full CRUD: create, read, update, delete operations
 
-### Curated Memory
-Important memories curated into `MEMORY.md` (root directory):
-- Durable insights loaded into every context
-- Manually edited or distilled via prompts
+### Session History (In-Memory)
+Current conversation context:
+- Stored in `SessionManager` singleton during active session
+- Injected into every LLM call for multi-turn conversation
+- Cleared when Alfred restarts (not persistent)
 
-### Future: Session Summaries (PRD #76)
-Planned auto-generated session summaries:
-- Cron job summarizes after 30 min idle or 20 messages
-- Stored in `data/session_summaries.jsonl`
-- Enables searching conversation arcs
+### Future: Contextual Retrieval System (PRD #77)
+Planned triple-layer retrieval architecture:
+1. **Global Memory** - Curated facts (memories.jsonl) ✅ Implemented
+2. **Session Summaries** - Narrative arcs with embeddings (PRD #76)
+3. **Session-Local Messages** - Per-session message embeddings (PRD #77)
 
-### Future: Triple-Layer Retrieval (PRD #77)
-Planned contextual retrieval architecture:
-1. **Global Memory** - Explicitly remembered facts
-2. **Session Summaries** - Narrative arcs
-3. **Session-Local Messages** - Messages within session context
+This enables contextual narrowing: find relevant sessions, then search within them for higher precision.
 
-See PRDs #76 and #77 for details.
+### Curated Memory (MEMORY.md)
+Manually curated long-term insights:
+- Loaded into every context
+- Edited directly or via prompts
+
+See PRDs #76 and #77 for contextual retrieval details.
 
 ---
 
@@ -261,8 +257,8 @@ EMBEDDING_MODEL=text-embedding-3-small
 | 2026-02-18 | Streaming agent loop | Real-time feedback, better UX |
 | 2026-02-19 | Prompt-based learning | Learning is judgment-based; tools for deterministic ops |
 | 2026-02-19 | Templates → data/ | Keeps templates clean, allows user reset |
-| 2026-02-19 | Dual embeddings | Messages for facts, sessions for context |
-| 2026-02-19 | Cron-based summarization | Decoupled, handles idle detection cleanly |
+| 2026-02-19 | Model-driven memory | Alfred decides what to remember, not automatic logging |
+| 2026-02-19 | In-memory sessions | PRD #54; persistence planned for PRD #53 |
 
 ---
 
