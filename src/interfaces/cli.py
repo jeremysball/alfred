@@ -1,9 +1,5 @@
 """CLI interface for Alfred using prompt_toolkit for async input."""
 
-import sys
-from contextlib import redirect_stdout
-from typing import TextIO
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
@@ -12,6 +8,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from src.alfred import Alfred
+from src.utils.markdown import MarkdownRenderer
 
 # Styling for prompt_toolkit input
 PROMPT_STYLE = Style.from_dict({
@@ -20,32 +17,13 @@ PROMPT_STYLE = Style.from_dict({
 })
 
 
-class _StdoutTee:
-    """Tee stdout to both original stdout and a buffer."""
-
-    def __init__(self, original: TextIO) -> None:
-        self.original = original
-        self.buffer: list[str] = []
-
-    def write(self, s: str) -> int:
-        self.buffer.append(s)
-        result: int = self.original.write(s)
-        return result
-
-    def flush(self) -> None:
-        self.original.flush()
-
-    def isatty(self) -> bool:
-        result: bool = self.original.isatty()
-        return result
-
-
 class CLIInterface:
     """CLI interface with async prompt and streaming output capture."""
 
     def __init__(self, alfred: Alfred) -> None:
         self.alfred = alfred
         self.console = Console()
+        self.markdown_renderer = MarkdownRenderer(self.console)
         self.session: PromptSession[str] = PromptSession(
             message=[("class:prompt", "You: ")],
             style=PROMPT_STYLE,
@@ -97,16 +75,21 @@ class CLIInterface:
             # Stream response with stdout capture
             self.console.print("[bold magenta]Alfred:[/bold magenta] ", end="")
 
-            # Tee stdout to both display and buffer
-            original_stdout = sys.stdout
-            tee = _StdoutTee(original_stdout)
+            # Buffer for markdown rendering
+            response_buffer = ""
 
             try:
-                with redirect_stdout(tee):
-                    async for chunk in self.alfred.chat_stream(user_input):
-                        print(chunk, end="", flush=True)
+                async for chunk in self.alfred.chat_stream(user_input):
+                    # Print chunk for streaming feel
+                    print(chunk, end="", flush=True)
+                    response_buffer += chunk
+
+                # Render complete response as markdown
+                if response_buffer:
+                    rendered = self.markdown_renderer.render(response_buffer)
+                    # Clear current line and print rendered markdown
+                    print("\r\033[K", end="")  # Carriage return + clear line
+                    print(rendered, end="")
                 print("\n")  # New line after response
             except Exception as e:
                 self.console.print(f"\n[bold red][Error: {e}][/bold red]\n")
-            finally:
-                sys.stdout = original_stdout
