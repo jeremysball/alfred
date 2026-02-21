@@ -13,6 +13,7 @@ import pytest
 
 from src.cron.models import Job
 from src.cron.scheduler import CronScheduler, JobStatus, RunnableJob
+from src.cron.store import CronStore
 
 
 @pytest.fixture
@@ -24,7 +25,8 @@ def temp_data_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def scheduler(temp_data_dir: Path) -> CronScheduler:
     """Create CronScheduler with temp directory."""
-    return CronScheduler(check_interval=0.1)
+    store = CronStore(data_dir=temp_data_dir)
+    return CronScheduler(store=store, check_interval=0.1)
 
 
 class TestCronSchedulerInit:
