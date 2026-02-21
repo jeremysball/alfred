@@ -18,20 +18,12 @@ from typing import Any, cast
 
 from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
-from src.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
+from src.cron.models import ExecutionRecord, ExecutionStatus, Job, JobStatus, ResourceLimits
 from src.cron.notifier import Notifier
 from src.cron.observability import Alert, HealthStatus, Observability
 from src.cron.store import CronStore
 
 logger = logging.getLogger(__name__)
-
-
-class JobStatus(Enum):
-    """Job execution status."""
-
-    ACTIVE = "active"
-    PENDING = "pending"
-    PAUSED = "paused"
 
 
 @dataclass
