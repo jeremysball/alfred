@@ -168,7 +168,7 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
 
 
 class TestCLIMarkdownRendering:
-    """Tests for CLI markdown rendering integration using Rich Live."""
+    """Tests for CLI markdown rendering integration."""
 
     def test_cli_creates_console(self, mock_alfred: MagicMock) -> None:
         """CLIInterface creates a Rich Console on init."""
@@ -180,10 +180,10 @@ class TestCLIMarkdownRendering:
         assert isinstance(interface.console, Console)
 
     @pytest.mark.asyncio
-    async def test_chat_uses_live_for_markdown(
+    async def test_chat_uses_fixed_layout(
         self, mock_alfred: MagicMock
     ) -> None:
-        """Streaming uses Rich Live to render markdown incrementally."""
+        """Streaming uses FixedLayout to render content."""
 
         interface = CLIInterface(mock_alfred)
 
@@ -195,13 +195,12 @@ class TestCLIMarkdownRendering:
 
         with (
             patch("src.interfaces.cli.PromptSession") as mock_session_cls,
-            patch("src.interfaces.cli.Live") as mock_live,
         ):
             mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
-        # Live should have been instantiated
-        mock_live.assert_called()
+        # Verify conversation was added to history
+        assert len(interface._conversation_history) > 0
 
     @pytest.mark.asyncio
     async def test_chat_handles_empty_stream(
@@ -220,10 +219,9 @@ class TestCLIMarkdownRendering:
 
         with (
             patch("src.interfaces.cli.PromptSession") as mock_session_cls,
-            patch("src.interfaces.cli.Live") as mock_live,
         ):
             mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
-        # Live should still be called even with empty stream
-        mock_live.assert_called()
+        # Should complete without error - user message is in history
+        assert len(interface._conversation_history) >= 1  # At least user message

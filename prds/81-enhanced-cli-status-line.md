@@ -135,7 +135,7 @@ model_display = f"{provider}/{model_name}"  # From LLM config
 - [x] **M2: Status Line Display** — Implement Rich Live status bar showing model, activity, and token counts
 - [~] **M3: Context Summary** — DROPPED: User decided not to include context info (memories, messages, prompt sections) in status display
 - [x] **M4: Tool Panels with Toggle** — Implement collapsible tool output panels with `Ctrl-T` keybinding. Tool panels appear inline where they occur (not at end). No collapsed indicator shown.
-- [x] **M5: Persistent Input Prompt** — Fixed layout with header, scrollable body with scrollbar indicator, and input at bottom. Prompt is `>>> `.
+- [x] **M5: Persistent Input Prompt** — Fixed header layout using ANSI escape codes. Status line stays at top of terminal, content scrolls below. Scrollbar indicator on right edge. Prompt is `>>> `.
 - [ ] **M6: Manual Validation & Polish** — Test all features, verify token accuracy, refine layout
 
 ## Success Criteria
