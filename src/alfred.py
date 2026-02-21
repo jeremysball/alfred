@@ -1,13 +1,13 @@
 """Core Alfred engine - orchestrates memory, context, and LLM with agent loop."""
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any
 
 from telegram import Bot
 
-from src.agent import Agent
+from src.agent import Agent, ToolEvent
 from src.config import Config
 from src.context import ContextLoader
 from src.cron.notifier import CLINotifier, Notifier, TelegramNotifier
@@ -145,13 +145,19 @@ class Alfred:
 
         return response
 
-    async def chat_stream(self, message: str) -> AsyncIterator[str]:
+    async def chat_stream(
+        self,
+        message: str,
+        tool_callback: Callable[[ToolEvent], None] | None = None,
+    ) -> AsyncIterator[str]:
         """Process a message with streaming.
 
+        Args:
+            message: User message
+            tool_callback: Optional callback for tool execution events
+
         Yields:
-            - LLM response tokens
-            - Tool execution status
-            - Tool output in real-time
+            LLM response tokens
         """
         logger.info(f"Processing message: {message[:50]}...")
 
@@ -192,7 +198,10 @@ class Alfred:
         logger.debug("Starting agent loop...")
         full_response = []
         async for chunk in self.agent.run_stream(
-            messages, system_prompt, usage_callback=self._on_usage
+            messages,
+            system_prompt,
+            usage_callback=self._on_usage,
+            tool_callback=tool_callback,
         ):
             full_response.append(chunk)
             yield chunk

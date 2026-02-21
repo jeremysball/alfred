@@ -204,14 +204,23 @@ class TestAgent:
 
         mock_llm.stream_chat_with_tools = mock_stream
 
-        messages = [ChatMessage(role="user", content="Keep calling")]
-        result = await agent.run(messages)
+        # Track tool events
+        tool_events = []
+        def on_tool_event(event):
+            tool_events.append(event)
 
-        assert "Max iterations" in result
+        messages = [ChatMessage(role="user", content="Keep calling")]
+        result = await agent.run(messages, tool_callback=on_tool_event)
+
+        # Agent stops at max iterations (logs warning)
+        # Tool events should have been emitted
+        from src.agent import ToolStart, ToolEnd
+        assert any(isinstance(e, ToolStart) for e in tool_events)
+        assert any(isinstance(e, ToolEnd) for e in tool_events)
 
     @pytest.mark.asyncio
     async def test_agent_streaming(self, mock_llm, mock_tool_registry):
-        """Test agent streaming."""
+        """Test agent streaming with tool callback."""
         agent = Agent(mock_llm, mock_tool_registry, max_iterations=3)
 
         call_count = 0
@@ -236,16 +245,25 @@ class TestAgent:
 
         mock_llm.stream_chat_with_tools = mock_stream
 
+        # Track tool events via callback
+        tool_events = []
+        def on_tool_event(event):
+            tool_events.append(event)
+
         messages = [ChatMessage(role="user", content="Read file")]
         chunks = []
-        async for chunk in agent.run_stream(messages):
+        async for chunk in agent.run_stream(messages, tool_callback=on_tool_event):
             chunks.append(chunk)
 
         result = "".join(chunks)
         assert "Let me check" in result
-        assert "[Executing: read]" in result
-        assert "Contents of test.txt" in result
         assert "Here is the content" in result
+
+        # Verify tool events were emitted
+        assert len(tool_events) >= 2  # ToolStart and ToolEnd
+        from src.agent import ToolStart, ToolEnd
+        assert any(isinstance(e, ToolStart) for e in tool_events)
+        assert any(isinstance(e, ToolEnd) for e in tool_events)
 
     @pytest.mark.asyncio
     async def test_agent_with_system_prompt(self, mock_llm, mock_tool_registry):

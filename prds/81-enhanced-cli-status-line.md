@@ -99,7 +99,7 @@ Add an enhanced status line using Rich toolkit (already in use) that provides:
 
 | Key | Action |
 |-----|--------|
-| `T` | Toggle tool panel visibility (show/hide all tool output) |
+| `Ctrl-T` | Toggle tool panel visibility (show/hide all tool output) |
 | `Ctrl+C` | Cancel current stream / exit |
 
 ### Data Sources
@@ -133,8 +133,8 @@ model_display = f"{provider}/{model_name}"  # From LLM config
 
 - [x] **M1: Token Tracking Infrastructure** — Add TokenTracker class that accumulates usage from LLM responses, integrate with agent loop
 - [x] **M2: Status Line Display** — Implement Rich Live status bar showing model, activity, and token counts
-- [ ] **M3: Context Summary** — Add context info (memories, messages, prompt sections) to status display
-- [ ] **M4: Tool Panels with Toggle** — Implement collapsible tool output panels with `T` keybinding
+- [~] **M3: Context Summary** — DROPPED: User decided not to include context info (memories, messages, prompt sections) in status display
+- [x] **M4: Tool Panels with Toggle** — Implement collapsible tool output panels with `Ctrl-T` keybinding. Tool panels appear inline where they occur (not at end). No collapsed indicator shown.
 - [ ] **M5: Persistent Input Prompt** — Refactor CLI to keep input at bottom during streaming
 - [ ] **M6: Manual Validation & Polish** — Test all features, verify token accuracy, refine layout
 

@@ -1,6 +1,6 @@
 """Tests for CLI interface using prompt_toolkit."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from io import StringIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,8 +17,8 @@ def mock_alfred() -> MagicMock:
     alfred = MagicMock(spec=Alfred)
 
     # Create an async generator factory for chat_stream
-    def make_stream(*args: object, **kwargs: object) -> AsyncIterator[str]:
-        async def async_gen() -> AsyncIterator[str]:
+    def make_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
+        async def async_gen() -> AsyncGenerator[str, None]:
             yield "CLI response"
         return async_gen()
 
@@ -40,20 +40,34 @@ def mock_alfred() -> MagicMock:
     return alfred
 
 
+def make_mock_session(inputs: list[str]):
+    """Create a mock PromptSession that returns inputs sequentially."""
+    input_iter = iter(inputs)
+
+    async def mock_prompt(*args, **kwargs):
+        return next(input_iter)
+
+    mock_session = MagicMock()
+    mock_session.prompt_async = mock_prompt
+    return mock_session
+
+
 @pytest.mark.asyncio
 async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates chat to Alfred via chat_stream."""
     interface = CLIInterface(mock_alfred)
 
-    # Mock prompt_async to return inputs sequentially
-    inputs = iter(["Hello", "exit"])
     with (
-        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
         patch("sys.stdout", StringIO()),
     ):
+        mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
         await interface.run()
 
-    mock_alfred.chat_stream.assert_called_once_with("Hello")
+    mock_alfred.chat_stream.assert_called_once()
+    call_args = mock_alfred.chat_stream.call_args
+    assert call_args[0][0] == "Hello"
+    assert "tool_callback" in call_args[1]
 
 
 @pytest.mark.asyncio
@@ -61,11 +75,11 @@ async def test_compact_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     """Test that CLI delegates compact to Alfred."""
     interface = CLIInterface(mock_alfred)
 
-    inputs = iter(["compact", "exit"])
     with (
-        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
         patch("sys.stdout", StringIO()),
     ):
+        mock_session_cls.return_value = make_mock_session(["compact", "exit"])
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
@@ -77,9 +91,10 @@ async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
     interface = CLIInterface(mock_alfred)
 
     with (
-        patch.object(interface.session, "prompt_async", return_value="exit"),
+        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
         patch("sys.stdout", StringIO()),
     ):
+        mock_session_cls.return_value = make_mock_session(["exit"])
         await interface.run()
 
     # Should not call chat_stream
@@ -91,15 +106,17 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
     """Test that empty input is ignored."""
     interface = CLIInterface(mock_alfred)
 
-    inputs = iter(["", "", "Hello", "exit"])
     with (
-        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
         patch("sys.stdout", StringIO()),
     ):
+        mock_session_cls.return_value = make_mock_session(["", "", "Hello", "exit"])
         await interface.run()
 
     # Only one chat_stream call for "Hello"
-    mock_alfred.chat_stream.assert_called_once_with("Hello")
+    mock_alfred.chat_stream.assert_called_once()
+    call_args = mock_alfred.chat_stream.call_args
+    assert call_args[0][0] == "Hello"
 
 
 @pytest.mark.asyncio
@@ -107,7 +124,10 @@ async def test_eof_terminates_loop(mock_alfred: MagicMock) -> None:
     """Test that EOF terminates the loop gracefully."""
     interface = CLIInterface(mock_alfred)
 
-    with patch.object(interface.session, "prompt_async", side_effect=EOFError):
+    with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+        mock_session = MagicMock()
+        mock_session.prompt_async = AsyncMock(side_effect=EOFError)
+        mock_session_cls.return_value = mock_session
         await interface.run()
 
     # Should not call chat_stream
@@ -120,9 +140,12 @@ async def test_keyboard_interrupt_terminates_loop(mock_alfred: MagicMock) -> Non
     interface = CLIInterface(mock_alfred)
 
     with (
-        patch.object(interface.session, "prompt_async", side_effect=KeyboardInterrupt),
+        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
         patch("sys.stdout", StringIO()),
     ):
+        mock_session = MagicMock()
+        mock_session.prompt_async = AsyncMock(side_effect=KeyboardInterrupt)
+        mock_session_cls.return_value = mock_session
         await interface.run()
 
     # Should not call chat_stream
@@ -134,11 +157,11 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
     """Test that commands are case-insensitive."""
     interface = CLIInterface(mock_alfred)
 
-    inputs = iter(["COMPACT", "EXIT"])
     with (
-        patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
         patch("sys.stdout", StringIO()),
     ):
+        mock_session_cls.return_value = make_mock_session(["COMPACT", "EXIT"])
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
@@ -161,23 +184,20 @@ class TestCLIMarkdownRendering:
         self, mock_alfred: MagicMock
     ) -> None:
         """Streaming uses Rich Live to render markdown incrementally."""
-        from collections.abc import AsyncGenerator
 
         interface = CLIInterface(mock_alfred)
 
         # Create a proper async generator for chat_stream
-        async def mock_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
+        async def mock_stream(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             yield "CLI response"
 
         mock_alfred.chat_stream = mock_stream
 
-        inputs = iter(["Hello", "exit"])
-
-        # Patch Live to verify it's called
         with (
-            patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+            patch("src.interfaces.cli.PromptSession") as mock_session_cls,
             patch("src.interfaces.cli.Live") as mock_live,
         ):
+            mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
         # Live should have been instantiated
@@ -188,10 +208,9 @@ class TestCLIMarkdownRendering:
         self, mock_alfred: MagicMock
     ) -> None:
         """Empty streams are handled gracefully."""
-        from collections.abc import AsyncGenerator
 
         # Create mock that yields nothing
-        async def empty_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
+        async def empty_stream(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             return
             yield  # pragma: no cover
 
@@ -199,12 +218,11 @@ class TestCLIMarkdownRendering:
 
         interface = CLIInterface(mock_alfred)
 
-        inputs = iter(["Hello", "exit"])
-
         with (
-            patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+            patch("src.interfaces.cli.PromptSession") as mock_session_cls,
             patch("src.interfaces.cli.Live") as mock_live,
         ):
+            mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
         # Live should still be called even with empty stream
