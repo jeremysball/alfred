@@ -60,23 +60,24 @@ Instead of searching 10,000 messages globally, narrow to 2-3 relevant sessions, 
 
 ```
 data/
-├── memories.jsonl              # Global: All curated facts
-│   └── embedding: [0.1, -0.2, ...]
-│
-├── session_summaries.jsonl     # Layer 2: Session narratives
-│   ├── session_id: "sess_abc"
-│   ├── summary_text: "Auth refactor discussion..."
-│   └── embedding: [0.3, -0.1, ...]
+├── memory/
+│   └── memories.jsonl              # Layer 1: Curated facts Alfred remembers
+│       └── embedding: [0.1, -0.2, ...]
 │
 └── sessions/
-    └── sess_abc/
-        └── messages.jsonl      # Layer 3: In-session messages
-            ├── idx: 0
-            ├── content: "Starting auth refactor..."
-            └── embedding: [0.2, -0.3, ...]
+    └── sess_abc/                   # One folder per session
+        ├── messages.jsonl          # Layer 3: Session messages with embeddings
+        │   ├── idx: 0
+        │   ├── content: "Starting auth refactor..."
+        │   └── embedding: [0.2, -0.3, ...]
+        │
+        └── summary.json            # Layer 2: Session summary + embedding
+            ├── session_id: "sess_abc"
+            ├── summary_text: "Auth refactor discussion..."
+            └── embedding: [0.3, -0.1, ...]
 ```
 
-**Key insight**: Each session has its own embedded message index. Queries first find sessions, then drill down.
+**Key insight**: Each session has its own folder containing messages and summary. Queries first find sessions via summaries, then drill down into messages.
 
 ### Contextual Retrieval Flow
 
@@ -142,7 +143,7 @@ class ContextualRetrievalEngine:
 
 ### Session-Local Embedding Index
 
-Each session maintains its own vector index of messages:
+Each session maintains its own vector index of messages in `data/sessions/{session_id}/messages.jsonl`:
 
 ```python
 @dataclass
@@ -214,11 +215,12 @@ class RetrievalResult:
 
 | Component | PRD #76 | This PRD |
 |-----------|---------|----------|
-| Session summaries | ✅ Auto-generated via cron | Use for initial session retrieval |
-| Message storage | ✅ In `memories.jsonl` with `session_id` | Also in per-session index |
-| Search pattern | Global search or summary-only | Contextual narrowing |
+| Session folders | ✅ Creates `data/sessions/{id}/` | Same structure |
+| Session summaries | ✅ Auto-generated via cron to `summary.json` | Use for initial session retrieval |
+| Message storage | ✅ In `messages.jsonl` with embeddings | Same, adds contextual search |
+| Search pattern | Summary search only | Contextual narrowing (summary → messages) |
 
-**Migration path**: PRD #76 creates session summaries. This PRD adds per-session message embeddings on top.
+**Migration path**: PRD #76 creates session folders with summaries and messages. This PRD adds contextual search within sessions.
 
 ### Relationship to PRD #55 (Advanced Session Features)
 
@@ -298,7 +300,7 @@ Alfred: It was part of a larger debate. You initially considered
 
 | # | Milestone | Description | Success Criteria |
 |---|-----------|-------------|------------------|
-| 1 | **Session Index Storage** | Create per-session message storage with embeddings | Each session has embeddable message index |
+| 1 | **Session Index Storage** | Per-session message storage already exists from PRD #76 | Each session folder has messages.jsonl |
 | 2 | **Session-Local Search** | Search messages within single session only | O(session_size) search, not O(total_messages) |
 | 3 | **Two-Stage Retrieval** | Session summary search → in-session message search | Retrieve relevant sessions then drill down |
 | 4 | **Context Assembly** | Format retrieval results for LLM context | Hierarchical context with sessions and messages |
@@ -318,10 +320,10 @@ Alfred: It was part of a larger debate. You initially considered
 | Session summary search | O(s) where s = total sessions | O(s) |
 | **Contextual retrieval** | **O(s + m)** where m = avg session size | **O(s × m)** |
 
-**Typical scenario**: 10,000 messages, 200 sessions, 50 msgs/session
-- Global search: 10,000 comparisons
-- Contextual: 200 + (3 × 50) = 350 comparisons
-- **28x faster** with higher precision
+**Typical scenario**: 200 sessions, 50 msgs/session
+- Global summary search: 200 comparisons
+- Contextual (3 sessions × 50 messages): 350 comparisons total
+- Higher precision by narrowing to relevant sessions first
 
 ### Storage Overhead
 

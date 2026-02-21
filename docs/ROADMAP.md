@@ -76,7 +76,11 @@ alfred/
 │       └── telegram.py   # Telegram bot
 ├── data/
 │   ├── memory/
-│   │   └── memories.jsonl    # Messages with embeddings
+│   │   └── memories.jsonl    # Curated facts with embeddings
+│   ├── sessions/             # Session storage (PRD #76)
+│   │   └── {session_id}/
+│   │       ├── messages.jsonl    # Session messages with embeddings
+│   │       └── summary.json      # Session summary + embedding
 │   ├── cron.jsonl            # Scheduled jobs
 │   ├── cron_history.jsonl    # Job execution history
 │   ├── cron_logs.jsonl       # Job output logs
@@ -91,26 +95,45 @@ alfred/
 
 ## Memory Systems
 
-### Memory Store (Implemented)
-Curated facts that Alfred explicitly remembers:
+Alfred uses a three-layer memory architecture:
+
+```
+data/
+├── memory/
+│   └── memories.jsonl      # Layer 1: Curated facts
+│
+└── sessions/
+    └── {session_id}/
+        ├── messages.jsonl  # Layer 3: Session messages
+        └── summary.json    # Layer 2: Session summary
+```
+
+### Layer 1: Curated Memory (Implemented)
+Facts Alfred explicitly remembers:
 - Alfred uses `remember` tool to store important information
 - Stored in `data/memory/memories.jsonl` with embeddings
 - Semantic search via `search_memories` tool
 - Full CRUD: create, read, update, delete operations
+- Can link to sessions via optional `session_id` field
+
+### Layer 2: Session Summaries (PRD #76)
+Narrative summaries of conversations:
+- Auto-generated via cron (30 min idle or 20 messages)
+- Stored in `data/sessions/{session_id}/summary.json`
+- Has embedding for semantic search
+- Enables finding past conversations by theme
+
+### Layer 3: Session Messages (PRD #77)
+Individual messages within sessions:
+- Stored in `data/sessions/{session_id}/messages.jsonl`
+- Each message has embedding
+- Enables contextual narrowing: find session first, then search within
 
 ### Session History (In-Memory)
 Current conversation context:
 - Stored in `SessionManager` singleton during active session
 - Injected into every LLM call for multi-turn conversation
-- Cleared when Alfred restarts (not persistent)
-
-### Future: Contextual Retrieval System (PRD #77)
-Planned triple-layer retrieval architecture:
-1. **Global Memory** - Curated facts (memories.jsonl) ✅ Implemented
-2. **Session Summaries** - Narrative arcs with embeddings (PRD #76)
-3. **Session-Local Messages** - Per-session message embeddings (PRD #77)
-
-This enables contextual narrowing: find relevant sessions, then search within them for higher precision.
+- Persisted to session folders (PRD #76)
 
 ### Curated Memory (MEMORY.md)
 Manually curated long-term insights:
