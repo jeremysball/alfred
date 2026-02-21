@@ -1,11 +1,13 @@
-"""Cron job management commands."""
-
 from __future__ import annotations
 
 import asyncio
+import functools
+import json
+from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeVar
 
+import aiofiles
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -21,6 +23,16 @@ if TYPE_CHECKING:
 
 app = typer.Typer(help="Manage cron jobs")
 console = Console()
+
+T = TypeVar("T")
+
+
+def async_command[T](func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., T]:
+    """Decorator to run async Typer commands."""
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> T:
+        return asyncio.run(func(*args, **kwargs))
+    return wrapper
 
 
 def get_store() -> CronStore:
@@ -44,7 +56,8 @@ def get_scheduler() -> CronScheduler:
 
 
 @app.command("list")
-def list_jobs(
+@async_command
+async def list_jobs(
     status: str = typer.Option(
         "all",
         "--status",
@@ -52,22 +65,10 @@ def list_jobs(
         help="Filter by status: all, pending, active, paused",
     ),
 ) -> None:
-    """List all cron jobs.
-
-    Examples:
-        alfred cron list
-        alfred cron list --status pending
-        alfred cron list -s active
-    """
-    asyncio.run(_list_jobs_async(status))
-
-
-async def _list_jobs_async(status: str) -> None:
-    """Async implementation of list_jobs."""
+    """List all cron jobs."""
     store = get_store()
     jobs = await store.load_jobs()
 
-    # Normalize filter
     status_filter = status.lower().strip()
     valid_filters = ["all", "pending", "active", "paused"]
 
@@ -76,18 +77,14 @@ async def _list_jobs_async(status: str) -> None:
         console.print(f"[red]Error: Invalid status '{status}'. Use: {valid_list}[/red]")
         raise typer.Exit(1)
 
-    # Filter by status
     if status_filter != "all":
         jobs = [j for j in jobs if j.status == status_filter]
 
     if not jobs:
-        if status_filter == "all":
-            console.print("[yellow]No jobs found.[/yellow]")
-        else:
-            console.print(f"[yellow]No {status_filter} jobs found.[/yellow]")
+        msg = "No jobs found." if status_filter == "all" else f"No {status_filter} jobs found."
+        console.print(f"[yellow]{msg}[/yellow]")
         return
 
-    # Create table
     table = Table(title=f"Cron Jobs ({status_filter})" if status_filter != "all" else "Cron Jobs")
     table.add_column("ID", style="dim", width=8)
     table.add_column("Name", style="bold")
@@ -95,11 +92,7 @@ async def _list_jobs_async(status: str) -> None:
     table.add_column("Schedule")
     table.add_column("Last Run")
 
-    status_colors = {
-        "pending": "yellow",
-        "active": "green",
-        "paused": "dim",
-    }
+    status_colors = {"pending": "yellow", "active": "green", "paused": "dim"}
 
     for job in jobs:
         status_color = status_colors.get(job.status, "white")
@@ -117,46 +110,25 @@ async def _list_jobs_async(status: str) -> None:
 
 
 @app.command("submit")
-def submit_job(
+@async_command
+async def submit_job(
     name: str = typer.Argument(..., help="Job name"),
     cron: str = typer.Argument(..., help="Cron expression or natural language"),
-    code: str | None = typer.Option(
-        None,
-        "--code",
-        "-c",
-        help="Python code for the job (opens editor if not provided)",
-    ),
+    code: str | None = typer.Option(None, "--code", "-c", help="Python code for the job"),
 ) -> None:
-    """Submit a new cron job for approval.
-
-    Examples:
-        alfred cron submit "Daily Report" "0 9 * * *"
-        alfred cron submit "Weekly cleanup" "Sundays at 7pm" --code "print('hello')"
-    """
-    asyncio.run(_submit_job_async(name, cron, code))
-
-
-async def _submit_job_async(name: str, cron: str, code: str | None) -> None:
-    """Async implementation of submit_job."""
+    """Submit a new cron job for approval."""
     from src.cron import parser
     from src.cron.nlp_parser import NaturalLanguageCronParser
 
-    # Try to parse cron expression
     nlp_parser = NaturalLanguageCronParser()
     parsed = nlp_parser.parse(cron)
 
     if parsed is None:
-        # Not valid natural language, try strict cron
         if not parser.is_valid(cron):
             console.print(f"[red]Error: Invalid cron expression '{cron}'[/red]")
-            console.print("\nTry natural language:")
-            console.print("  'every morning at 8am'")
-            console.print("  'Sundays at 7pm'")
-            console.print("  'every 15 minutes'")
-            console.print("\nOr cron format: '0 9 * * *' for 9am daily")
+            console.print("\nTry: 'every morning at 8am', 'Sundays at 7pm', or '0 9 * * *'")
             raise typer.Exit(1)
-        cron_expression = cron
-        schedule_desc = cron
+        cron_expression = schedule_desc = cron
     elif parsed.confidence < 0.7:
         console.print(f"[yellow]Warning: Low confidence parsing '{cron}'[/yellow]")
         console.print(f"Parsed as: {parsed.cron_expression}")
@@ -166,9 +138,15 @@ async def _submit_job_async(name: str, cron: str, code: str | None) -> None:
         cron_expression = parsed.cron_expression
         schedule_desc = parsed.description
 
-    # Generate code if not provided
     if code is None:
-        code = _generate_default_code(name)
+        code = f'''"""Job: {name}"""
+
+async def run():
+    """Execute the job."""
+    # TODO: Implement job logic
+    print("Running: {name}")
+    pass
+'''
 
     try:
         compile(code, "<string>", "exec")
@@ -176,13 +154,8 @@ async def _submit_job_async(name: str, cron: str, code: str | None) -> None:
         console.print(f"[red]Error: Invalid Python code - {e}[/red]")
         raise typer.Exit(1) from None
 
-    # Submit job
     scheduler = get_scheduler()
-    job_id = await scheduler.submit_user_job(
-        name=name,
-        expression=cron_expression,
-        code=code,
-    )
+    job_id = await scheduler.submit_user_job(name=name, expression=cron_expression, code=code)
 
     console.print(Panel(
         f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
@@ -196,46 +169,18 @@ async def _submit_job_async(name: str, cron: str, code: str | None) -> None:
     ))
 
 
-def _generate_default_code(name: str) -> str:
-    """Generate default job code template."""
-    return f'''"""Job: {name}"""
-
-async def run():
-    """Execute the job."""
-    # TODO: Implement job logic
-    print("Running: {name}")
-    pass
-'''
-
-
 @app.command("review")
-def review_job(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Review a pending job's details.
-
-    Shows the job code, schedule, and status for review before approval.
-
-    Examples:
-        alfred cron review abc12345
-        alfred cron review "Daily Report"
-    """
-    asyncio.run(_review_job_async(job_id))
-
-
-async def _review_job_async(job_id: str) -> None:
-    """Async implementation of review_job."""
+@async_command
+async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
+    """Review a pending job's details."""
     store = get_store()
     jobs = await store.load_jobs()
-
-    # Find job by ID or name
     job = _find_job(jobs, job_id)
 
     if job is None:
         console.print(f"[red]Error: Job '{job_id}' not found[/red]")
         raise typer.Exit(1)
 
-    # Display job details
     console.print(Panel(
         f"[bold]{job.name}[/bold]\n"
         f"[dim]ID:[/dim] {job.job_id}\n"
@@ -246,12 +191,10 @@ async def _review_job_async(job_id: str) -> None:
         border_style="blue",
     ))
 
-    # Display code with syntax highlighting
     console.print("\n[bold]Code:[/bold]")
     syntax = Syntax(job.code, "python", theme="monokai", line_numbers=True)
     console.print(syntax)
 
-    # Show resource limits
     console.print("\n[bold]Resource Limits:[/bold]")
     console.print(f"  Timeout: {job.resource_limits.timeout_seconds}s")
     console.print(f"  Max Memory: {job.resource_limits.max_memory_mb}MB")
@@ -264,26 +207,12 @@ async def _review_job_async(job_id: str) -> None:
 
 
 @app.command("approve")
-def approve_job(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Approve a pending job.
-
-    Once approved, the job will run on its schedule.
-
-    Examples:
-        alfred cron approve abc12345
-        alfred cron approve "Daily Report"
-    """
-    asyncio.run(_approve_job_async(job_id))
-
-
-async def _approve_job_async(job_id: str) -> None:
-    """Async implementation of approve_job."""
+@async_command
+async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
+    """Approve a pending job."""
     store = get_store()
     scheduler = get_scheduler()
     jobs = await store.load_jobs()
-
     job = _find_job(jobs, job_id)
 
     if job is None:
@@ -309,23 +238,11 @@ async def _approve_job_async(job_id: str) -> None:
 
 
 @app.command("reject")
-def reject_job(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Reject and delete a pending job.
-
-    Examples:
-        alfred cron reject abc12345
-        alfred cron reject "Daily Report"
-    """
-    asyncio.run(_reject_job_async(job_id))
-
-
-async def _reject_job_async(job_id: str) -> None:
-    """Async implementation of reject_job."""
+@async_command
+async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
+    """Reject and delete a pending job."""
     store = get_store()
     jobs = await store.load_jobs()
-
     job = _find_job(jobs, job_id)
 
     if job is None:
@@ -344,75 +261,44 @@ async def _reject_job_async(job_id: str) -> None:
 
 
 @app.command("history")
-def show_history(
-    job_id: str | None = typer.Option(
-        None,
-        "--job-id",
-        "-j",
-        help="Filter by job ID",
-    ),
-    limit: int = typer.Option(
-        20,
-        "--limit",
-        "-l",
-        help="Maximum number of records to show",
-    ),
+@async_command
+async def show_history(
+    job_id: str | None = typer.Option(None, "--job-id", "-j", help="Filter by job ID"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Maximum records to show"),
 ) -> None:
-    """Show job execution history.
+    """Show job execution history."""
+    from src.cron.models import ExecutionRecord
 
-    Examples:
-        alfred cron history
-        alfred cron history --job-id abc12345
-        alfred cron history -j abc12345 -l 50
-    """
-    asyncio.run(_show_history_async(job_id, limit))
-
-
-async def _show_history_async(job_id: str | None, limit: int) -> None:
-    """Async implementation of show_history."""
     store = get_store()
-
-    # Load all history
     history_path = store.history_path
+
     if not history_path.exists():
         console.print("[yellow]No execution history found.[/yellow]")
         return
 
-    from src.cron.models import ExecutionRecord
+    async with aiofiles.open(history_path) as f:
+        content = await f.read()
 
     records = []
-    content = await _read_file_async(history_path)
-
     for line in content.strip().split("\n"):
         line = line.strip()
         if not line:
             continue
         try:
-            import json
-            data = json.loads(line)
-            records.append(ExecutionRecord.from_dict(data))
+            records.append(ExecutionRecord.from_dict(json.loads(line)))
         except (json.JSONDecodeError, KeyError):
             continue
 
-    # Filter by job_id if provided
     if job_id:
-        # Also support partial ID matching
         records = [r for r in records if r.job_id.startswith(job_id) or job_id in r.job_id]
 
-    # Sort by started_at descending
     records.sort(key=lambda r: r.started_at, reverse=True)
-
-    # Apply limit
     records = records[:limit]
 
     if not records:
-        if job_id:
-            console.print(f"[yellow]No history found for job '{job_id}'.[/yellow]")
-        else:
-            console.print("[yellow]No execution history found.[/yellow]")
+        console.print(f"[yellow]No history found{' for job ' + job_id if job_id else ''}.[/yellow]")
         return
 
-    # Create table
     table = Table(title="Execution History")
     table.add_column("Time", width=16)
     table.add_column("Job ID", width=8)
@@ -420,11 +306,7 @@ async def _show_history_async(job_id: str | None, limit: int) -> None:
     table.add_column("Duration", width=10)
     table.add_column("Memory", width=10)
 
-    status_colors = {
-        "success": "green",
-        "failed": "red",
-        "timeout": "yellow",
-    }
+    status_colors = {"success": "green", "failed": "red", "timeout": "yellow"}
 
     for record in records:
         status_color = status_colors.get(record.status.value, "white")
@@ -433,7 +315,6 @@ async def _show_history_async(job_id: str | None, limit: int) -> None:
         else:
             duration = f"{record.duration_ms // 1000}s"
         memory = f"{record.memory_peak_mb}MB" if record.memory_peak_mb else "—"
-
         table.add_row(
             record.started_at.strftime("%Y-%m-%d %H:%M"),
             record.job_id[:8],
@@ -443,41 +324,22 @@ async def _show_history_async(job_id: str | None, limit: int) -> None:
         )
 
     console.print(table)
+    console.print(f"\n[dim]Showing {len(records)} record(s)[/dim]")
 
-    if records:
-        console.print(f"\n[dim]Showing {len(records)} record(s)[/dim]")
-
-        # Show error details for failed jobs
-        failed = [r for r in records if r.status.value in ("failed", "timeout")]
-        if failed:
-            console.print("\n[bold red]Failed Executions:[/bold red]")
-            for record in failed[:3]:  # Show first 3 failures
-                console.print(f"\n[dim]{record.started_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
-                if record.error_message:
-                    console.print(f"[red]{record.error_message}[/red]")
-
-
-async def _read_file_async(path: Path) -> str:
-    """Read file asynchronously."""
-    import aiofiles
-
-    async with aiofiles.open(path) as f:
-        return await f.read()
+    failed = [r for r in records if r.status.value in ("failed", "timeout")]
+    if failed:
+        console.print("\n[bold red]Failed Executions:[/bold red]")
+        for record in failed[:3]:
+            console.print(f"\n[dim]{record.started_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
+            if record.error_message:
+                console.print(f"[red]{record.error_message}[/red]")
 
 
 def _find_job(jobs: list[Job], identifier: str) -> Job | None:
-    """Find job by ID or fuzzy name match.
-
-    Args:
-        jobs: List of jobs to search
-        identifier: Job ID or name to match
-
-    Returns:
-        Matching job or None
-    """
+    """Find job by ID or fuzzy name match."""
     identifier_lower = identifier.lower()
 
-    # Try exact ID match first
+    # Try exact ID match
     for job in jobs:
         if job.job_id == identifier:
             return job
@@ -494,7 +356,4 @@ def _find_job(jobs: list[Job], identifier: str) -> Job | None:
 
     # Try substring name match (must be unique)
     matches = [j for j in jobs if identifier_lower in j.name.lower()]
-    if len(matches) == 1:
-        return matches[0]
-
-    return None
+    return matches[0] if len(matches) == 1 else None
