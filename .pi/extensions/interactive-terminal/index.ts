@@ -397,57 +397,16 @@ export default function (pi: ExtensionAPI) {
           // Add screenshot command
           session.tapeCommands.push(`Screenshot ${path.basename(screenshotPath)}`);
 
-          // Build and execute tape
-          const tapeContent = buildTape(session.tapeCommands);
-
-          onUpdate?.({
-            content: [{ type: "text", text: "Capturing terminal state..." }],
-          });
-
-          const result = await executeVhs(tapeContent, session.tempDir, signal);
-
-          if (!result.success) {
-            return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: `Error: ${result.error}`,
-                },
-              ],
-              isError: true,
-            };
-          }
-
-          // Read and parse text output
-          let textOutput = "";
-          if (result.textPath && fs.existsSync(result.textPath)) {
-            const rawText = fs.readFileSync(result.textPath, "utf-8");
-            textOutput = truncateText(parseTextOutput(rawText));
-          }
-
-          // Verify screenshot exists
-          if (!fs.existsSync(screenshotPath)) {
-            return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: `Error: Screenshot was not created at ${screenshotPath}`,
-                },
-              ],
-              isError: true,
-            };
-          }
-
           return {
             content: [
               {
                 type: "text" as const,
-                text: `Capture complete.\n\nScreenshot: ${screenshotPath}\n\nText output:\n${textOutput}`,
+                text: `Screenshot queued: ${screenshotPath}`,
               },
             ],
             details: {
               screenshot: screenshotPath,
-              text: textOutput,
+              screenshotCount: session.screenshotCount,
             },
           };
         }
@@ -473,32 +432,54 @@ export default function (pi: ExtensionAPI) {
           const tapeContent = buildTape(session.tapeCommands);
 
           onUpdate?.({
-            content: [{ type: "text", text: "Closing session..." }],
+            content: [{ type: "text", text: "Running VHS tape..." }],
           });
 
-          await executeVhs(tapeContent, session.tempDir, signal);
+          const result = await executeVhs(tapeContent, session.tempDir, signal);
 
-          // Cleanup temp directory
-          try {
-            fs.rmSync(session.tempDir, { recursive: true, force: true });
-          } catch (err: any) {
-            // Non-fatal - just log
-            console.error(`Failed to cleanup temp dir: ${err.message}`);
+          // Collect screenshot paths before cleanup
+          const screenshots: string[] = [];
+          for (let i = 1; i <= session.screenshotCount; i++) {
+            const ssPath = path.join(session.tempDir, `screenshot_${i}.png`);
+            if (fs.existsSync(ssPath)) {
+              screenshots.push(ssPath);
+            }
+          }
+
+          // Collect text output if available
+          let textOutput = "";
+          const txtPath = path.join(session.tempDir, "output.txt");
+          if (result.success && fs.existsSync(txtPath)) {
+            textOutput = truncateText(parseTextOutput(fs.readFileSync(txtPath, "utf-8")));
           }
 
           const summary = {
             command: session.command,
             screenshots: session.screenshotCount,
             tempDir: session.tempDir,
+            screenshotPaths: screenshots,
           };
 
           session = null;
+
+          if (!result.success) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `VHS error: ${result.error}\n\nScreenshots saved to: ${summary.tempDir}`,
+                },
+              ],
+              isError: true,
+              details: summary,
+            };
+          }
 
           return {
             content: [
               {
                 type: "text" as const,
-                text: `Session closed.\nCommand: ${summary.command}\nScreenshots taken: ${summary.screenshots}\nTemp dir cleaned up.`,
+                text: `Session complete.\n\nCommand: ${summary.command}\nSession dir: ${summary.tempDir}\n\nContents:\n- session.tape\n- output.txt\n- ${screenshots.length} screenshot(s)\n\nText output:\n${textOutput}`,
               },
             ],
             details: summary,
@@ -519,15 +500,5 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // Cleanup on session shutdown
-  pi.on("session_shutdown", async () => {
-    if (session) {
-      try {
-        fs.rmSync(session.tempDir, { recursive: true, force: true });
-      } catch (err: any) {
-        console.error(`Failed to cleanup session on shutdown: ${err.message}`);
-      }
-      session = null;
-    }
-  });
+  // Note: temp dir is preserved for screenshots
 }

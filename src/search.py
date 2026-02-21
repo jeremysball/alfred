@@ -158,7 +158,7 @@ class ContextBuilder:
         memories: list[MemoryEntry],
         system_prompt: str,
         session_messages: list[tuple[str, str]] | None = None,
-    ) -> str:
+    ) -> tuple[str, int]:
         """Build full context with relevant memories and session history injected.
 
         Args:
@@ -168,7 +168,9 @@ class ContextBuilder:
             session_messages: Optional list of (role, content) tuples from current session
 
         Returns:
-            Combined context string ready for LLM
+            Tuple of (context_string, memories_count) where:
+            - context_string: Combined context ready for LLM
+            - memories_count: Number of memories included in context
         """
         logger.debug(f"Building context with {len(memories)} memories available")
 
@@ -206,13 +208,13 @@ class ContextBuilder:
             )
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
-            truncated = self._truncate_to_budget(
+            truncated, truncated_count = self._truncate_to_budget(
                 system_prompt, relevant, session_messages or [],
                 self.token_budget, similarities, scores
             )
-            return truncated
+            return truncated, truncated_count
 
-        return context
+        return context, mem_count
 
     def _format_session_messages(self, messages: list[tuple[str, str]]) -> str:
         """Format session messages for context.
@@ -277,7 +279,7 @@ class ContextBuilder:
         budget: int,
         similarities: dict[str, float] | None = None,
         scores: dict[str, float] | None = None,
-    ) -> str:
+    ) -> tuple[str, int]:
         """Truncate memories and session messages to fit within token budget."""
         similarities = similarities or {}
         scores = scores or {}
@@ -292,7 +294,7 @@ class ContextBuilder:
                     system_prompt,
                     "## CURRENT CONVERSATION\n",
                 ]
-            )
+            ), 0
 
         # First, include all session messages (they're critical for context)
         session_lines = ["## SESSION HISTORY\n"]
@@ -314,7 +316,7 @@ class ContextBuilder:
                     session_section,
                     "## CURRENT CONVERSATION\n",
                 ]
-            )
+            ), 0
 
         # Include memories until budget exhausted
         memory_lines = ["## RELEVANT MEMORIES\n"]
@@ -346,6 +348,9 @@ class ContextBuilder:
         if len(memory_lines) == 1:
             memory_lines.append("_No memories fit in context window._")
 
+        # Count actual memories included (excluding header line)
+        included_count = len(memory_lines) - 1
+
         return "\n\n".join(
             [
                 system_prompt,
@@ -353,4 +358,4 @@ class ContextBuilder:
                 session_section,
                 "## CURRENT CONVERSATION\n",
             ]
-        )
+        ), included_count

@@ -21,6 +21,23 @@ from src.session import SessionManager
 from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
 
+# Default prompt sections loaded by ContextLoader
+DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
+
+
+class ContextSummary:
+    """Summary of loaded context for status display."""
+
+    def __init__(self) -> None:
+        self.memories_count: int = 0
+        self.session_messages: int = 0
+        self.prompt_sections: list[str] = DEFAULT_PROMPT_SECTIONS.copy()
+
+    def update(self, memories_count: int, session_messages: int) -> None:
+        """Update context summary values."""
+        self.memories_count = memories_count
+        self.session_messages = session_messages
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,6 +110,9 @@ class Alfred:
 
         # Token tracking for usage display
         self.token_tracker = TokenTracker()
+
+        # Context summary for status display
+        self.context_summary = ContextSummary()
 
     @property
     def model_name(self) -> str:
@@ -183,7 +203,7 @@ class Alfred:
         # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
         session_messages = self._get_session_messages_for_context()
-        system_prompt = self.context_loader.assemble_with_search(
+        system_prompt, memories_count = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
             session_messages=session_messages,
@@ -194,6 +214,12 @@ class Alfred:
 
         # Update context token estimate for status display
         self._update_context_tokens(system_prompt, messages)
+
+        # Update context summary for status display
+        self.context_summary.update(
+            memories_count=memories_count,
+            session_messages=len(session_messages),
+        )
 
         logger.debug("Starting agent loop...")
         full_response = []

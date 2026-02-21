@@ -127,6 +127,9 @@ class CLIInterface:
             model_name=self.alfred.model_name,
             usage=self.alfred.token_tracker.usage,
             context_tokens=self.alfred.token_tracker.context_tokens,
+            memories_count=self.alfred.context_summary.memories_count,
+            session_messages=self.alfred.context_summary.session_messages,
+            prompt_sections=self.alfred.context_summary.prompt_sections,
             is_streaming=is_streaming,
         )
         return StatusRenderer(status_data).render()

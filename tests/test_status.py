@@ -1,6 +1,8 @@
 """Tests for status line rendering."""
 
 import pytest
+from rich.console import Group
+from rich.text import Text
 
 from src.interfaces.status import SPINNER_FRAMES, StatusData, StatusRenderer
 from src.token_tracker import TokenUsage
@@ -24,6 +26,26 @@ class TestStatusData:
         assert status.usage.output_tokens == 50
         assert status.context_tokens == 500
         assert status.is_streaming is True
+        # Defaults for context fields
+        assert status.memories_count == 0
+        assert status.session_messages == 0
+        assert status.prompt_sections == []
+
+    def test_status_data_with_context_fields(self) -> None:
+        """StatusData initializes with context summary fields."""
+        usage = TokenUsage(input_tokens=100, output_tokens=50)
+        status = StatusData(
+            model_name="kimi/moonshot-v1-128k",
+            usage=usage,
+            context_tokens=500,
+            memories_count=3,
+            session_messages=28,
+            prompt_sections=["SOUL", "USER", "TOOLS"],
+        )
+
+        assert status.memories_count == 3
+        assert status.session_messages == 28
+        assert status.prompt_sections == ["SOUL", "USER", "TOOLS"]
 
     def test_spinner_frame_when_streaming(self) -> None:
         """Spinner returns frames when streaming."""
@@ -77,6 +99,28 @@ class TestStatusData:
 class TestStatusRenderer:
     """Tests for StatusRenderer."""
 
+    def _get_token_line(self, group: Group) -> Text:
+        """Extract the token line (first renderable) from the Group."""
+        return group.renderables[0]  # type: ignore[no-any-return]
+
+    def _get_context_line(self, group: Group) -> Text:
+        """Extract the context line (second renderable) from the Group."""
+        return group.renderables[1]  # type: ignore[no-any-return]
+
+    def test_render_returns_group(self) -> None:
+        """Renderer returns a Group with two lines."""
+        usage = TokenUsage()
+        status = StatusData(
+            model_name="test/model",
+            usage=usage,
+            context_tokens=0,
+        )
+        renderer = StatusRenderer(status)
+        result = renderer.render()
+
+        assert isinstance(result, Group)
+        assert len(result.renderables) == 2
+
     def test_render_basic(self) -> None:
         """Renderer produces text with model name and tokens."""
         usage = TokenUsage(input_tokens=1000, output_tokens=500)
@@ -87,7 +131,8 @@ class TestStatusRenderer:
             is_streaming=False,
         )
         renderer = StatusRenderer(status)
-        text = renderer.render()
+        group = renderer.render()
+        text = self._get_token_line(group)
 
         # Check plain text contains expected elements
         plain = text.plain
@@ -111,7 +156,8 @@ class TestStatusRenderer:
             is_streaming=False,
         )
         renderer = StatusRenderer(status)
-        text = renderer.render()
+        group = renderer.render()
+        text = self._get_token_line(group)
 
         plain = text.plain
         assert "2.0K" in plain  # input
@@ -134,7 +180,8 @@ class TestStatusRenderer:
             is_streaming=False,
         )
         renderer = StatusRenderer(status)
-        text = renderer.render()
+        group = renderer.render()
+        text = self._get_token_line(group)
 
         plain = text.plain
         # Should have input/output labels
@@ -143,6 +190,48 @@ class TestStatusRenderer:
         # Cache/reasoning with zero values should not appear
         assert "cache:" not in plain
         assert "reason:" not in plain
+
+    def test_render_context_line_with_data(self) -> None:
+        """Context line shows memories, messages, and sections."""
+        usage = TokenUsage()
+        status = StatusData(
+            model_name="test/model",
+            usage=usage,
+            context_tokens=100,
+            memories_count=3,
+            session_messages=28,
+            prompt_sections=["SOUL", "USER", "TOOLS"],
+        )
+        renderer = StatusRenderer(status)
+        group = renderer.render()
+        text = self._get_context_line(group)
+
+        plain = text.plain
+        assert "3" in plain  # memories count
+        assert "memories" in plain
+        assert "28" in plain  # session messages
+        assert "msgs" in plain
+        assert "SOUL,USER,TOOLS" in plain  # sections
+
+    def test_render_context_line_with_defaults(self) -> None:
+        """Context line shows zeros and 'none' when empty."""
+        usage = TokenUsage()
+        status = StatusData(
+            model_name="test/model",
+            usage=usage,
+            context_tokens=100,
+            memories_count=0,
+            session_messages=0,
+            prompt_sections=[],
+        )
+        renderer = StatusRenderer(status)
+        group = renderer.render()
+        text = self._get_context_line(group)
+
+        plain = text.plain
+        assert "0 memories" in plain
+        assert "0 msgs" in plain
+        assert "none" in plain  # no sections
 
     def test_format_number_small(self) -> None:
         """Numbers under 1000 are not abbreviated."""
@@ -166,7 +255,8 @@ class TestStatusRenderer:
             is_streaming=True,
         )
         renderer = StatusRenderer(status)
-        text = renderer.render()
+        group = renderer.render()
+        text = self._get_token_line(group)
 
         # First span should be cyan spinner
         assert len(text.spans) > 0
@@ -183,7 +273,8 @@ class TestStatusRenderer:
             is_streaming=False,
         )
         renderer = StatusRenderer(status)
-        text = renderer.render()
+        group = renderer.render()
+        text = self._get_token_line(group)
 
         # First span should be green indicator
         assert len(text.spans) > 0

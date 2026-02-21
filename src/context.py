@@ -130,7 +130,7 @@ class ContextLoader:
         query_embedding: list[float],
         memories: list[MemoryEntry],
         session_messages: list[tuple[str, str]] | None = None,
-    ) -> str:
+    ) -> tuple[str, int]:
         """Assemble context with semantic memory search.
 
         Uses the MemorySearcher to find and rank relevant memories,
@@ -139,9 +139,12 @@ class ContextLoader:
         Args:
             query_embedding: Pre-computed embedding of the user's query
             memories: All available memories (caller loads these)
+            session_messages: Optional list of (role, content) tuples from session history
 
         Returns:
-            Complete context string ready for the LLM
+            Tuple of (context_string, memories_count) where:
+            - context_string: Complete context ready for the LLM
+            - memories_count: Number of memories included in context
 
         Raises:
             RuntimeError: If no MemorySearcher was provided to ContextLoader

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from itertools import cycle
 
+from rich.console import Group, RenderableType
 from rich.text import Text
 
 from src.token_tracker import TokenUsage
@@ -18,10 +19,15 @@ class StatusData:
     model_name: str
     usage: TokenUsage
     context_tokens: int
+    memories_count: int = 0
+    session_messages: int = 0
+    prompt_sections: list[str] = None  # type: ignore[assignment]
     is_streaming: bool = False
 
     def __post_init__(self) -> None:
-        """Initialize spinner cycle."""
+        """Initialize defaults and spinner cycle."""
+        if self.prompt_sections is None:
+            self.prompt_sections = []
         self._spinner_cycle = cycle(SPINNER_FRAMES)
         self._current_frame = ">"
 
@@ -39,13 +45,18 @@ class StatusRenderer:
 
     Format:
     > kimi/moonshot-v1-128k │ in:12K out:3K cache:8K reason:1K │ ctx:45
+    📚 3 memories │ 💬 28 msgs │ 📋 SOUL,USER,TOOLS
     """
 
     def __init__(self, status_data: StatusData) -> None:
         self.status = status_data
 
-    def render(self) -> Text:
-        """Render the status line as Rich Text."""
+    def render(self) -> RenderableType:
+        """Render the status display as a Group of lines."""
+        return Group(self._render_token_line(), self._render_context_line())
+
+    def _render_token_line(self) -> Text:
+        """Render the token/model status line."""
         text = Text()
 
         # Activity indicator
@@ -85,6 +96,33 @@ class StatusRenderer:
 
         text.append("| ctx:", style="dim")
         text.append(f"{self._format_number(self.status.context_tokens)}", style="white")
+
+        return text
+
+    def _render_context_line(self) -> Text:
+        """Render the context summary line."""
+        text = Text()
+
+        # Memories count
+        text.append("📚 ", style="white")
+        text.append(f"{self.status.memories_count}", style="yellow")
+        text.append(" memories", style="dim")
+
+        text.append(" | ", style="dim")
+
+        # Session messages
+        text.append("💬 ", style="white")
+        text.append(f"{self.status.session_messages}", style="cyan")
+        text.append(" msgs", style="dim")
+
+        text.append(" | ", style="dim")
+
+        # Prompt sections
+        text.append("📋 ", style="white")
+        if self.status.prompt_sections:
+            text.append(",".join(self.status.prompt_sections), style="green")
+        else:
+            text.append("none", style="dim")
 
         return text
 

@@ -35,6 +35,13 @@ def mock_alfred() -> MagicMock:
     mock_token_tracker.context_tokens = 500
     alfred.token_tracker = mock_token_tracker
 
+    # Mock context_summary for status display
+    mock_context_summary = MagicMock()
+    mock_context_summary.memories_count = 0
+    mock_context_summary.session_messages = 0
+    mock_context_summary.prompt_sections = ["SOUL", "USER", "TOOLS"]
+    alfred.context_summary = mock_context_summary
+
     return alfred
 
 
