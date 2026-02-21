@@ -91,24 +91,37 @@ alfred/
 
 ## Memory Systems
 
-### Conversation Memory (Automatic)
-Every interaction stored in `data/memory/memories.jsonl` with:
-- Timestamp, role, content
-- OpenAI embedding vector
-- Entry ID for CRUD operations
+### Session History (In-Memory)
+Current conversation held in memory during active session:
+- Stored in `SessionManager` singleton
+- Injected into every LLM call for context
+- Cleared when Alfred restarts
 
-**Search:** `search_memories` tool for specific facts, commands, precise details.
+### Persistent Memory (Automatic)
+Alfred autonomously remembers important information:
+- Uses `remember` tool when he learns something worth preserving
+- Stored in `data/memory/memories.jsonl` with embeddings
+- Semantic search via `search_memories` tool
+- Model-driven: Alfred decides what to remember, not the user
 
-### Future: Session Summaries (Planned)
-Auto-generated via cron job after 30 minutes of inactivity or 20 new messages:
-- Will be stored in `data/session_summaries.jsonl`
-- LLM-generated narrative summary
-- Separate embedding for conversation-level search
+### Curated Memory
+Important memories curated into `MEMORY.md` (root directory):
+- Durable insights loaded into every context
+- Manually edited or distilled via prompts
 
-### Semantic Retrieval
-Query compared against memory embeddings:
-- **Messages:** Cosine similarity on individual memories
-- Retrieves top-k relevant memories based on query
+### Future: Session Summaries (PRD #76)
+Planned auto-generated session summaries:
+- Cron job summarizes after 30 min idle or 20 messages
+- Stored in `data/session_summaries.jsonl`
+- Enables searching conversation arcs
+
+### Future: Triple-Layer Retrieval (PRD #77)
+Planned contextual retrieval architecture:
+1. **Global Memory** - Explicitly remembered facts
+2. **Session Summaries** - Narrative arcs
+3. **Session-Local Messages** - Messages within session context
+
+See PRDs #76 and #77 for details.
 
 ---
 

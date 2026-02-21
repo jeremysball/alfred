@@ -48,7 +48,7 @@ On first run, Alfred creates default context files in `data/` from built-in temp
 
 LLMs forget everything when you close the chat. Alfred solves this by:
 
-1. **Storing** every conversation to `data/memory/memories.jsonl` with embeddings
+1. **Remembering** what matters — Alfred autonomously decides what to store
 2. **Searching** semantically when you ask a question
 3. **Injecting** relevant context into the LLM prompt automatically
 
@@ -80,7 +80,7 @@ alfred --debug info # Run with info logging
 ```
 data/
 ├── memory/
-│   └── memories.jsonl      # Conversations with embeddings
+│   └── memories.jsonl      # Remembered facts with embeddings
 ├── cron.jsonl              # Scheduled jobs
 ├── cron_history.jsonl      # Job execution history
 ├── cron_logs.jsonl         # Job output logs
