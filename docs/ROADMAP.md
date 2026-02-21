@@ -193,14 +193,15 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 26 | HTTP API + Cron | Local API for scheduled actions |
 | 27 | Config TOML Migration | Replace config.json with alfred.toml |
 | 28 | Observability & Logging | Structured logging, tracing, metrics |
+| 29 | Enhanced CLI Status Line | Token usage, model display, context summary, collapsible tool panels (PRD #81) |
 
 ### Long-term 🔮
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 29 | Vector Database Evaluation | SQLite-vec or Chroma if JSONL performance degrades |
-| 30 | Multi-user Support | Proper user isolation and authentication |
-| 31 | Plugin System | Extensible tool and skill architecture |
+| 30 | Vector Database Evaluation | SQLite-vec or Chroma if JSONL performance degrades |
+| 31 | Multi-user Support | Proper user isolation and authentication |
+| 32 | Plugin System | Extensible tool and skill architecture |
 
 ---
 
