@@ -1,6 +1,5 @@
 """Tests for system jobs."""
 
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -86,7 +85,9 @@ class TestSystemJobExecution:
         yield scheduler
         await scheduler.stop()
 
-    async def test_system_job_executes_on_schedule(self, running_scheduler: CronScheduler, tmp_path: Path) -> None:
+    async def test_system_job_executes_on_schedule(
+        self, running_scheduler: CronScheduler, tmp_path: Path
+    ) -> None:
         """System job should execute when scheduler runs."""
         # Wait for job to execute (runs every 5 min, but we use 0.1s check interval)
         # Since it's */5 * * * *, it won't run immediately
@@ -97,15 +98,14 @@ class TestSystemJobExecution:
         code = running_scheduler._job_code["session_ttl"]
         compile(code, "<string>", "exec")
 
-    async def test_system_job_logs_execution(self, running_scheduler: CronScheduler, tmp_path: Path) -> None:
+    async def test_system_job_logs_execution(
+        self, running_scheduler: CronScheduler, tmp_path: Path
+    ) -> None:
         """System job execution should be logged."""
-        # Check that observability is tracking the job
+        # Check that the job is registered
         assert "session_ttl" in running_scheduler._jobs
 
-        # Get metrics
-        metrics = running_scheduler.get_metrics()
-        assert "jobs_executed" in metrics
+        # Verify the job is active
+        job = running_scheduler._jobs["session_ttl"]
+        assert job.status.value == "active"
 
-        # Health check should show system running
-        health = await running_scheduler.health_check()
-        assert health.scheduler_running is True

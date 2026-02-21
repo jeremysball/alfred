@@ -20,7 +20,7 @@ from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job, JobStatus, ResourceLimits
 from src.cron.notifier import Notifier
-from src.cron.observability import Alert, HealthStatus, Observability
+from src.cron.observability import StructuredLogger
 from src.cron.sandbox import SANDBOX_BUILTINS
 from src.cron.store import CronStore
 
@@ -76,7 +76,6 @@ class CronScheduler:
         store: CronStore | None = None,
         check_interval: float = 60.0,
         data_dir: Path | None = None,
-        observability: Observability | None = None,
         notifier: Notifier | None = None,
     ) -> None:
         """Initialize scheduler.
@@ -85,7 +84,6 @@ class CronScheduler:
             store: CronStore for persistence (creates default if None)
             check_interval: Seconds between schedule checks
             data_dir: Directory for log files (default: data/)
-            observability: Observability instance (creates default if None)
             notifier: Notifier for sending messages to users (optional)
         """
         self._store = store or CronStore(data_dir)
@@ -96,12 +94,9 @@ class CronScheduler:
         self._check_interval = check_interval
         self._notifier = notifier
 
-        # Initialize observability
-        if observability:
-            self._observability = observability
-        else:
-            log_file = (data_dir or Path("data")) / "cron_logs.jsonl"
-            self._observability = Observability(log_file)
+        # Initialize logger
+        log_file = (data_dir or Path("data")) / "cron_logs.jsonl"
+        self._logger = StructuredLogger(log_file)
 
     async def start(self) -> None:
         """Start the scheduler monitoring loop.
@@ -119,16 +114,12 @@ class CronScheduler:
 
         self._shutdown_event.clear()
         self._task = asyncio.create_task(self._monitor_loop())
-        self._observability.health.set_scheduler_running(True)
-        await self._observability.logger.log_scheduler_event(
-            "scheduler_start", "Cron scheduler started"
-        )
+        await self._logger.log_scheduler_event("scheduler_start", "Cron scheduler started")
         logger.info("Cron scheduler started")
 
     async def stop(self) -> None:
         """Stop the scheduler gracefully."""
         self._shutdown_event.set()
-        self._observability.health.set_scheduler_running(False)
 
         if self._task is not None:
             self._task.cancel()
@@ -136,9 +127,7 @@ class CronScheduler:
                 await self._task
             self._task = None
 
-        await self._observability.logger.log_scheduler_event(
-            "scheduler_stop", "Cron scheduler stopped"
-        )
+        await self._logger.log_scheduler_event("scheduler_stop", "Cron scheduler stopped")
         logger.info("Cron scheduler stopped")
 
     async def register_job(self, job: Job) -> None:
@@ -386,7 +375,7 @@ class CronScheduler:
         """Execute a single job with resource limits.
 
         Uses JobExecutor for timeout, memory monitoring, and output capture.
-        Records execution to store and observability systems.
+        Records execution to store and logs.
         """
         if job._running.locked():
             logger.debug(f"Job already running, skipping: {job.name} ({job.job_id})")
@@ -423,12 +412,8 @@ class CronScheduler:
                 context=context,
             )
 
-            # Record start in observability
-            await self._observability.health.record_job_start(job.job_id)
-            await self._observability.logger.log_job_start(
-                job.job_id, job.name, code_snapshot
-            )
-
+            # Log start
+            await self._logger.log_job_start(job.job_id, job.name, code_snapshot)
             logger.debug(f"Executing job: {job.name} ({job.job_id})")
 
             # Execute with resource limits
@@ -466,58 +451,5 @@ class CronScheduler:
             )
             await self._store.record_execution(record)
 
-            # Record end in observability
-            await self._observability.health.record_job_end(job.job_id)
-            await self._observability.logger.log_job_end(
-                job.job_id, job.name, record, code_snapshot
-            )
-
-            # Update metrics
-            await self._observability.metrics.jobs_executed.increment()
-            await self._observability.metrics.job_duration_ms.observe(result.duration_ms)
-            if result.status == ExecutionStatus.FAILED:
-                await self._observability.metrics.job_failures.increment()
-
-            # Check for alerts
-            alerts = await self._observability.alerts.record_execution(
-                job.job_id, result.status == ExecutionStatus.SUCCESS, result.duration_ms
-            )
-            for alert in alerts:
-                logger.warning(f"Alert: {alert.message}")
-
-    def get_metrics(self) -> dict[str, Any]:
-        """Get current metrics from the observability system.
-
-        Returns:
-            Dictionary containing all metrics
-        """
-        return self._observability.metrics.to_dict()
-
-    async def health_check(self) -> HealthStatus:
-        """Perform a health check on the scheduler.
-
-        Returns:
-            HealthStatus with current health information
-        """
-        # Update stuck jobs from health checker
-        health = await self._observability.health.check_health()
-
-        # Generate any alerts from health issues
-        alerts = await self._observability.alerts.check_stuck_jobs(
-            health.stuck_jobs, health
-        )
-        for alert in alerts:
-            logger.warning(f"Health alert: {alert.message}")
-
-        return health
-
-    async def check_and_alert(self) -> list[Alert]:
-        """Check health and generate alerts.
-
-        Returns:
-            List of alerts generated
-        """
-        health = await self.health_check()
-        return await self._observability.alerts.check_stuck_jobs(
-            health.stuck_jobs, health
-        )
+            # Log end
+            await self._logger.log_job_end(job.job_id, job.name, record, code_snapshot)
