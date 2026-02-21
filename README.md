@@ -118,6 +118,65 @@ Optional:
 - [Cron Jobs](docs/cron-jobs.md) — Scheduled tasks
 - [Roadmap](docs/ROADMAP.md) — Development progress
 
+## Contributing
+
+### Development Setup
+
+1. **Clone and install dependencies:**
+   ```bash
+   git clone https://github.com/jeremysball/alfred.git
+   cd alfred
+   uv sync
+   ```
+
+2. **Install git hooks:**
+   ```bash
+   git config core.hooksPath .githooks
+   ```
+
+3. **Run quality checks:**
+   ```bash
+   uv run ruff check src/
+   uv run ruff format src/
+   uv run mypy src/
+   uv run pytest
+   ```
+
+### Terminal Tool Development
+
+The terminal tool (`.pi/extensions/terminal.ts`) enables E2E testing of Alfred's TUI. To use it:
+
+1. **Install VHS:**
+   ```bash
+   # Requires Go
+   go install github.com/charmbracelet/vhs@latest
+   
+   # Add to PATH (if not already)
+   export PATH="$PATH:$(go env GOPATH)/bin"
+   ```
+
+2. **Install ttyd and ffmpeg** (VHS dependencies):
+   ```bash
+   # Arch Linux
+   sudo pacman -S ttyd ffmpeg
+   
+   # macOS
+   brew install ttyd ffmpeg
+   
+   # Ubuntu/Debian
+   sudo apt install ttyd ffmpeg
+   ```
+
+3. **Set environment for containers:**
+   ```bash
+   export VHS_NO_SANDBOX=true
+   ```
+
+4. **Test the extension:**
+   ```bash
+   pi --no-session -e .pi/extensions/terminal.ts -p "test terminal tool"
+   ```
+
 ## Community
 
 - [GitHub Discussions](https://github.com/jeremysball/alfred/discussions)
