@@ -1,11 +1,13 @@
 # PRD: Advanced Session Features - LLM Context Control
 
 **Issue**: #55
-**Status**: Ready for Implementation
+**Status**: SUPERSEDED by #76 and #77
 **Priority**: Medium
 **Created**: 2026-02-18
 **Depends on**: #54 (✅ Complete - In-Memory Session Storage)
-**Related**: #76 (Session Summarization with Cron)
+**Related**: #76 (Session Summarization with Cron), #77 (Contextual Retrieval System)
+
+> **Note**: This PRD has been superseded. The session storage and retrieval approach has been redesigned in PRD #76 (Session Summarization with Cron) and PRD #77 (Contextual Retrieval System), which implement a cleaner three-layer memory architecture with session folders containing both messages and summaries.
 
 ---
 

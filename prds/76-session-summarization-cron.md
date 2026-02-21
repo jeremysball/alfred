@@ -47,8 +47,12 @@ Create automatic session summarization:
 
 ```
 data/
-├── memories.jsonl           # Individual messages (with session_id)
-└── session_summaries.jsonl  # Session summaries with embeddings
+├── memory/
+│   └── memories.jsonl           # Curated facts (can link to sessions via session_id)
+└── sessions/
+    └── {session_id}/
+        ├── messages.jsonl       # All session messages with embeddings
+        └── summary.json         # Session summary + embedding
 ```
 
 ---
@@ -98,11 +102,13 @@ def assign_session_id(
 
 ## Session Summary Storage
 
+Summaries live alongside their session's messages in `data/sessions/{session_id}/summary.json`.
+
 ```python
 @dataclass
 class SessionSummary:
     id: str                    # Unique summary ID
-    session_id: str            # Links to messages
+    session_id: str            # Links to session folder
     timestamp: datetime        # When summary created
     message_range: tuple[int, int]  # (first_msg_idx, last_msg_idx) in session
     message_count: int         # How many messages summarized
@@ -114,7 +120,7 @@ class SessionSummary:
     last_summarized_count: int  # Messages at last summary
 ```
 
-**Storage format (session_summaries.jsonl):**
+**Storage format (data/sessions/{session_id}/summary.json):**
 ```json
 {
   "id": "sum_abc123",
@@ -187,7 +193,7 @@ async def generate_session_summary(session: Session) -> SessionSummary:
         last_summarized_count=len(messages),
     )
     
-    # Write to session_summaries.jsonl (append-only file, but conceptually replaces)
+    # Write to session folder (data/sessions/{session_id}/summary.json)
     await store_summary(summary)
     
     return summary
@@ -205,19 +211,19 @@ async def generate_session_summary(session: Session) -> SessionSummary:
 Two separate tools, no merging:
 
 ### 1. search_memories (existing)
-Searches individual messages.
+Searches curated facts that Alfred has explicitly remembered.
 
 ```python
 class SearchMemoriesTool:
-    """Search individual memory entries."""
+    """Search curated memory entries."""
     
     async def execute(self, query: str, top_k: int = 5) -> ToolResult:
         query_embedding = await embedder.create_embedding(query)
         
-        # Search memories.jsonl
+        # Search memories.jsonl (curated facts only)
         results = await search_by_similarity(
             query_embedding=query_embedding,
-            index_path="data/memories.jsonl",
+            index_path="data/memory/memories.jsonl",
             top_k=top_k,
         )
         
@@ -244,10 +250,10 @@ class SearchSessionsTool:
     async def execute(self, query: str, top_k: int = 3) -> ToolResult:
         query_embedding = await embedder.create_embedding(query)
         
-        # Search session_summaries.jsonl
-        results = await search_by_similarity(
+        # Search all summary.json files in sessions folder
+        results = await search_session_summaries(
             query_embedding=query_embedding,
-            index_path="data/session_summaries.jsonl",
+            sessions_dir="data/sessions",
             top_k=top_k,
         )
         
@@ -255,8 +261,8 @@ class SearchSessionsTool:
 ```
 
 **When to use which:**
-- **search_memories:** Specific facts, commands, precise details
-- **search_sessions:** Themes, projects, decisions, conversation flow
+- **search_memories:** Specific facts Alfred has curated (via `remember` tool)
+- **search_sessions:** Themes, projects, decisions, conversation arcs
 
 ---
 
@@ -298,7 +304,7 @@ summarize_message_threshold = 20 # Trigger after N new messages
 cron_interval_minutes = 5        # How often to check
 
 [storage]
-session_summaries_path = "data/session_summaries.jsonl"
+sessions_dir = "data/sessions"   # Each session is a folder
 ```
 
 ---
@@ -326,11 +332,11 @@ session_summaries_path = "data/session_summaries.jsonl"
 
 ## Future: Triple-Layer Memory Architecture
 
-This PRD implements dual search (messages + session summaries). A future enhancement adds **per-session message embeddings** for contextual retrieval:
+This PRD implements dual search (curated memories + session summaries). PRD #77 adds **per-session message embeddings** for contextual retrieval:
 
-1. **Global Memory** (messages.jsonl) — Facts across all time
-2. **Session Summaries** (session_summaries.jsonl) — Narrative arcs with embeddings ← THIS PRD
-3. **Session-Local Messages** — Individual messages embedded WITHIN session context
+1. **Curated Memory** (data/memory/memories.jsonl) — Facts Alfred explicitly remembers
+2. **Session Summaries** (data/sessions/{id}/summary.json) — Narrative arcs with embeddings ← THIS PRD
+3. **Session Messages** (data/sessions/{id}/messages.jsonl) — Individual messages with embeddings
 
 **The Hyperweb Retrieval Pattern:**
 ```
@@ -341,7 +347,7 @@ Query → Find relevant sessions (via summary similarity)
     Higher precision, natural context expansion
 ```
 
-Instead of searching 10,000 messages globally, narrow to 2-3 relevant sessions, then find specifics. See PRD #[TBD - Contextual Retrieval System] for implementation.
+Instead of searching all messages globally, narrow to 2-3 relevant sessions, then find specifics. See PRD #77 (Contextual Retrieval System) for implementation.
 
 ## Vector Database Discussion
 

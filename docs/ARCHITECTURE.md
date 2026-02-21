@@ -160,16 +160,39 @@ Pydantic models for type safety across the application.
 
 ### Memory Storage
 
-**Current:** JSONL with vector embeddings
+Alfred uses a three-layer memory architecture:
+
 ```
-data/memory/
-└── memories.jsonl      # All conversations with embeddings
+data/
+├── memory/
+│   └── memories.jsonl      # Layer 1: Curated facts (via remember tool)
+│
+└── sessions/
+    └── {session_id}/
+        ├── messages.jsonl  # Layer 3: Session messages with embeddings
+        └── summary.json    # Layer 2: Session summary + embedding
 ```
 
-Each entry contains:
+**Layer 1: Curated Memory** (`data/memory/memories.jsonl`)
+- Facts Alfred explicitly remembers via `remember` tool
+- Has embeddings for semantic search
+- Can link to sessions via optional `session_id` field
+
+**Layer 2: Session Summaries** (`data/sessions/{id}/summary.json`)
+- LLM-generated narrative summaries of conversations
+- Auto-created via cron job (30 min idle or 20 messages)
+- Has embeddings for semantic search
+
+**Layer 3: Session Messages** (`data/sessions/{id}/messages.jsonl`)
+- Raw conversation messages
+- Each message has embedding for contextual search
+- Enables "hyperweb retrieval": find session first, then search within
+
+Each memory entry contains:
 - Timestamp, role, content
 - OpenAI embedding vector
 - Entry ID for CRUD operations
+- Optional session_id for linking
 
 ## Error Handling Strategy
 
@@ -214,9 +237,9 @@ When making decisions—what to remember, when to summarize, how to respond—pr
 
 ### Memory Behavior
 
-- **Memory Store**: Alfred autonomously decides what to remember using the `remember` tool, storing curated facts to `data/memory/memories.jsonl`
-- **Session History**: Current conversation held in-memory via `SessionManager`, injected into context
-- **Contextual Retrieval**: Future system (PRD #77) for session summaries and per-session message search
+- **Curated Memory**: Alfred autonomously decides what to remember using the `remember` tool, storing curated facts to `data/memory/memories.jsonl`
+- **Session Storage**: Conversations stored in `data/sessions/{session_id}/` with messages and auto-generated summaries (PRD #76)
+- **Contextual Retrieval**: PRD #77 enables searching within relevant sessions for higher precision
 
 ## Related Documentation
 
