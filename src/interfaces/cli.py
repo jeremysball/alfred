@@ -4,11 +4,12 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
 from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
 
 from src.alfred import Alfred
-from src.utils.markdown import MarkdownRenderer
 
 # Styling for prompt_toolkit input
 PROMPT_STYLE = Style.from_dict({
@@ -23,7 +24,6 @@ class CLIInterface:
     def __init__(self, alfred: Alfred) -> None:
         self.alfred = alfred
         self.console = Console()
-        self.markdown_renderer = MarkdownRenderer(self.console)
         self.session: PromptSession[str] = PromptSession(
             message=[("class:prompt", "You: ")],
             style=PROMPT_STYLE,
@@ -72,24 +72,20 @@ class CLIInterface:
                 self.console.print(f"[bold green]Alfred:[/bold green] {result}\n")
                 continue
 
-            # Stream response with stdout capture
-            self.console.print("[bold magenta]Alfred:[/bold magenta] ", end="")
+            # Stream response with Rich Live for proper markdown rendering
+            self.console.print("[bold magenta]Alfred:[/bold magenta]")
 
-            # Buffer for markdown rendering
-            response_buffer = ""
-
+            buffer = ""
             try:
-                async for chunk in self.alfred.chat_stream(user_input):
-                    # Print chunk for streaming feel
-                    print(chunk, end="", flush=True)
-                    response_buffer += chunk
+                with Live(
+                    console=self.console,
+                    refresh_per_second=10,
+                    vertical_overflow="visible",
+                ) as live:
+                    async for chunk in self.alfred.chat_stream(user_input):
+                        buffer += chunk
+                        live.update(Markdown(buffer))
 
-                # Render complete response as markdown
-                if response_buffer:
-                    rendered = self.markdown_renderer.render(response_buffer)
-                    # Clear current line and print rendered markdown
-                    print("\r\033[K", end="")  # Carriage return + clear line
-                    print(rendered, end="")
-                print("\n")  # New line after response
+                self.console.print()  # Final newline
             except Exception as e:
                 self.console.print(f"\n[bold red][Error: {e}][/bold red]\n")

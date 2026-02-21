@@ -4,6 +4,7 @@ TDD approach: write tests first, then implement to make them pass.
 """
 
 import asyncio
+import inspect
 from datetime import UTC, datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -102,7 +103,7 @@ class TestCronSchedulerRegisterJob:
         await scheduler.register_job(job)
         
         # Handler should be compiled and callable
-        assert asyncio.iscoroutinefunction(scheduler._jobs["test-1"].handler)
+        assert inspect.iscoroutinefunction(scheduler._jobs["test-1"].handler)
 
     async def test_register_job_overwrites_existing(self, scheduler: CronScheduler):
         """register_job() replaces job with same ID."""
@@ -330,7 +331,7 @@ async def run():
 """
         handler = scheduler._compile_handler(code)
         
-        assert asyncio.iscoroutinefunction(handler)
+        assert inspect.iscoroutinefunction(handler)
 
     def test_compile_missing_run_function(self, scheduler: CronScheduler):
         """Code without run() function raises error."""

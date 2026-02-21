@@ -131,28 +131,25 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
 
 
 class TestCLIMarkdownRendering:
-    """Tests for CLI markdown rendering integration."""
+    """Tests for CLI markdown rendering integration using Rich Live."""
 
-    def test_cli_creates_markdown_renderer(self, mock_alfred: MagicMock) -> None:
-        """CLIInterface creates a MarkdownRenderer on init."""
-        from src.utils.markdown import MarkdownRenderer
+    def test_cli_creates_console(self, mock_alfred: MagicMock) -> None:
+        """CLIInterface creates a Rich Console on init."""
+        from rich.console import Console
 
         interface = CLIInterface(mock_alfred)
 
-        assert hasattr(interface, "markdown_renderer")
-        assert isinstance(interface.markdown_renderer, MarkdownRenderer)
+        assert hasattr(interface, "console")
+        assert isinstance(interface.console, Console)
 
     @pytest.mark.asyncio
-    async def test_chat_renders_markdown_after_stream(
+    async def test_chat_uses_live_for_markdown(
         self, mock_alfred: MagicMock
     ) -> None:
-        """After streaming, response is rendered as markdown."""
+        """Streaming uses Rich Live to render markdown incrementally."""
         from collections.abc import AsyncGenerator
 
         interface = CLIInterface(mock_alfred)
-
-        # Mock the markdown renderer
-        interface.markdown_renderer.render = MagicMock(return_value="rendered output")
 
         # Create a proper async generator for chat_stream
         async def mock_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
@@ -161,20 +158,22 @@ class TestCLIMarkdownRendering:
         mock_alfred.chat_stream = mock_stream
 
         inputs = iter(["Hello", "exit"])
+
+        # Patch Live to verify it's called
         with (
             patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
-            patch("sys.stdout", StringIO()),
+            patch("src.interfaces.cli.Live") as mock_live,
         ):
             await interface.run()
 
-        # The streamed response "CLI response" should be passed to render
-        interface.markdown_renderer.render.assert_called_once_with("CLI response")
+        # Live should have been instantiated
+        mock_live.assert_called()
 
     @pytest.mark.asyncio
-    async def test_chat_does_not_render_empty_response(
+    async def test_chat_handles_empty_stream(
         self, mock_alfred: MagicMock
     ) -> None:
-        """Empty responses are not rendered."""
+        """Empty streams are handled gracefully."""
         from collections.abc import AsyncGenerator
 
         # Create mock that yields nothing
@@ -185,14 +184,14 @@ class TestCLIMarkdownRendering:
         mock_alfred.chat_stream = empty_stream
 
         interface = CLIInterface(mock_alfred)
-        interface.markdown_renderer.render = MagicMock(return_value="")
 
         inputs = iter(["Hello", "exit"])
+
         with (
             patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
-            patch("sys.stdout", StringIO()),
+            patch("src.interfaces.cli.Live") as mock_live,
         ):
             await interface.run()
 
-        # Empty response should not trigger render
-        interface.markdown_renderer.render.assert_not_called()
+        # Live should still be called even with empty stream
+        mock_live.assert_called()

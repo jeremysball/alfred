@@ -1,0 +1,135 @@
+# Codebase Review Findings
+
+Date: 2026-02-20
+
+## Summary
+
+- **Total source files**: 46
+- **Ruff**: ✅ All checks passed
+- **Mypy**: ✅ No issues found
+- **Tests**: ✅ 576 passed, 4 skipped
+- **Warnings**: 183 (mostly deprecation + pytest marks)
+
+---
+
+## 🔴 High Priority (Deprecation/Bugs)
+
+### 1. Python 3.16 Deprecation: `asyncio.iscoroutinefunction`
+
+- **Location**: `src/cron/scheduler.py:306`, `src/cron/scheduler.py:387`
+- **Issue**: Using deprecated `asyncio.iscoroutinefunction` which will be removed in Python 3.16
+- **Fix**: Replace with `inspect.iscoroutinefunction`
+
+```python
+# Before:
+if not asyncio.iscoroutinefunction(handler):
+
+# After:
+import inspect
+if not inspect.iscoroutinefunction(handler):
+```
+
+### 2. Unregistered pytest mark: `@pytest.mark.slow`
+
+- **Location**: `tests/tools/test_schedule_job_e2e.py:18`, `tests/tools/test_schedule_job_e2e.py:75`
+- **Issue**: Custom pytest mark `slow` not registered in `pyproject.toml`
+- **Fix**: Add to `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests that hit real external APIs",
+    "slow: marks tests as slow running",
+]
+```
+
+### 3. CLI markdown rendering broken for multi-line responses
+
+- **Location**: `src/interfaces/cli.py:82-92`
+- **Issue**: `\r\033[K` only clears ONE line but responses are multi-line. Raw streaming text pollutes scrollback.
+- **Fix**: Use Rich's `Live` display to re-render markdown in-place during streaming.
+
+---
+
+## 🟡 Medium Priority (Style Inconsistencies)
+
+### 4. Inconsistent string concatenation in `alfred.py`
+
+- **Location**: `src/alfred.py:167-176`
+- **Issue**: String literal is split across lines in an awkward way with extra quotes:
+
+```python
+"To use a tool, respond with a tool call. The system will execute the tool "
+            "and return the results to you.
+```
+
+- **Fix**: Join the broken string properly
+
+### 5. Inconsistent docstring styles
+
+- Some tools use Google-style docstrings with Args/Yields sections
+- Others have minimal or missing docstrings
+- **Examples**: Compare `src/tools/read.py` vs `src/tools/remember.py`
+
+### 6. Mixed use of `Field(...)` vs `Field(default=...)`
+
+- **Location**: Various tool param classes
+- **Issue**: Inconsistent style between `Field(..., description=...)` vs just `Field(...)` for required fields
+- Not a bug, but inconsistent style
+
+### 7. Tool `execute` methods returning error messages for async-only tools
+
+- **Location**: Multiple tools (`remember.py`, `search_memories.py`, `update_memory.py`, `forget.py`, `schedule_job.py`, `list_jobs.py`, `approve_job.py`, `reject_job.py`)
+- **Issue**: All return `"Error: X must be called via execute_stream"` from sync `execute()`
+- **Pattern**: This is intentional but verbose - could be a base class pattern
+
+### 8. Missing type hints for `Any` types
+
+- **Location**: `src/cron/executor.py:230-248` (`_create_safe_globals`)
+- **Issue**: The safe builtins dict uses `Any` for values but could be more specific
+
+---
+
+## 🟢 Low Priority (Minor Issues / Suggestions)
+
+### 9. Duplicate `JobStatus` enum
+
+- **Location**: `src/cron/models.py:17-21` and `src/cron/scheduler.py:46-50`
+- **Issue**: Same enum defined in two places
+- **Fix**: Import from models.py in scheduler.py
+
+### 10. Dead code in `alfred.py`
+
+- **Location**: `src/alfred.py:179`
+- **Issue**: `compact()` method returns "not yet implemented" - TODO since M9 (per PRD)
+- **Status**: Acknowledged as incomplete, not a bug
+
+### 11. Missing `__all__` exports in `__init__.py` files
+
+- **Location**: `src/tools/__init__.py`, `src/cron/__init__.py`
+- **Issue**: No explicit `__all__` to control public API surface
+
+### 12. Inconsistent error message patterns
+
+- Some tools return `f"Error: {e}"`
+- Some return `f"Failed to X: {e}"`
+- Some return `{"success": False, "error": str(e)}`
+- **Suggestion**: Standardize error response format
+
+### 13. Memory store singleton pattern in tools
+
+- **Location**: All memory tools use `set_memory_store()` pattern
+- **Issue**: Each tool needs to call this after instantiation
+- **Suggestion**: Could use dependency injection or factory pattern
+
+---
+
+## 📊 Test Coverage Gaps
+
+Based on the coverage report:
+
+| File | Coverage | Notes |
+|------|----------|-------|
+| `src/llm.py` | 34% | Many untested paths for different providers |
+| `src/interfaces/telegram.py` | 66% | Partial coverage |
+| `src/tools/base.py` | 60% | Some edge cases untested |
