@@ -121,6 +121,7 @@ def retry_with_backoff(
 
     Uses _retry_async internally for consistent retry logic.
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             return await _retry_async(
@@ -132,6 +133,7 @@ def retry_with_backoff(
                 jitter=jitter,
                 operation_name=func.__name__,
             )
+
         return wrapper  # type: ignore[return-value]
 
     return decorator

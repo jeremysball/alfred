@@ -62,10 +62,7 @@ class SearchMemoriesTool(Tool):
                     return
 
                 date_str = entry.timestamp.strftime("%Y-%m-%d")
-                result = (
-                    f"- [{date_str}] {entry.content} "
-                    f"(id: {entry.entry_id})"
-                )
+                result = f"- [{date_str}] {entry.content} (id: {entry.entry_id})"
                 yield result
                 return
             except Exception as e:

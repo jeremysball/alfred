@@ -69,9 +69,7 @@ class MemorySearcher:
         similarities = {
             memory.entry_id or "": sim for _, memory, sim in scored[: self.context_limit]
         }
-        scores = {
-            memory.entry_id or "": scr for scr, memory, _ in scored[: self.context_limit]
-        }
+        scores = {memory.entry_id or "": scr for scr, memory, _ in scored[: self.context_limit]}
         logger.info(
             f"Memory search: {len(memories)} total, {len(scored)} scored, {len(results)} returned"
         )
@@ -209,8 +207,12 @@ class ContextBuilder:
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
             truncated, truncated_count = self._truncate_to_budget(
-                system_prompt, relevant, session_messages or [],
-                self.token_budget, similarities, scores
+                system_prompt,
+                relevant,
+                session_messages or [],
+                self.token_budget,
+                similarities,
+                scores,
             )
             return truncated, truncated_count
 
@@ -265,8 +267,7 @@ class ContextBuilder:
             scr_pct = int(scr * 100)
             mid = memory.entry_id
             lines.append(
-                f"- [{date}] {prefix}: {content} "
-                f"(sim: {sim_pct}%, score: {scr_pct}%, id: {mid})"
+                f"- [{date}] {prefix}: {content} (sim: {sim_pct}%, score: {scr_pct}%, id: {mid})"
             )
 
         return "\n".join(lines)

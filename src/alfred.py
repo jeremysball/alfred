@@ -38,6 +38,7 @@ class ContextSummary:
         self.memories_count = memories_count
         self.session_messages = session_messages
 
+
 logger = logging.getLogger(__name__)
 
 

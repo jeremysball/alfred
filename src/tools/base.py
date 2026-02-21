@@ -94,8 +94,7 @@ class Tool(ABC):
             Either a string or a dict (will be JSON-serialized)
         """
         return (
-            f"Error: {self.__class__.__name__} must be called via "
-            "execute_stream in async context"
+            f"Error: {self.__class__.__name__} must be called via execute_stream in async context"
         )
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:

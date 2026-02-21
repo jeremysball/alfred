@@ -23,9 +23,11 @@ class ToolCall:
 
 # Tool event types for callback-based rendering
 
+
 @dataclass
 class ToolEvent:
     """Base event for tool execution."""
+
     tool_call_id: str
     tool_name: str
 
@@ -33,18 +35,21 @@ class ToolEvent:
 @dataclass
 class ToolStart(ToolEvent):
     """Tool started executing."""
+
     arguments: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ToolOutput(ToolEvent):
     """Chunk of tool output."""
+
     chunk: str = ""
 
 
 @dataclass
 class ToolEnd(ToolEvent):
     """Tool finished."""
+
     result: str = ""
     is_error: bool = False
 
@@ -176,17 +181,21 @@ class Agent:
                 if not tool:
                     error_msg = f"Error: Tool '{call.name}' not found"
                     if tool_callback:
-                        tool_callback(ToolStart(
-                            tool_call_id=call.id,
-                            tool_name=call.name,
-                            arguments={},
-                        ))
-                        tool_callback(ToolEnd(
-                            tool_call_id=call.id,
-                            tool_name=call.name,
-                            result=error_msg,
-                            is_error=True,
-                        ))
+                        tool_callback(
+                            ToolStart(
+                                tool_call_id=call.id,
+                                tool_name=call.name,
+                                arguments={},
+                            )
+                        )
+                        tool_callback(
+                            ToolEnd(
+                                tool_call_id=call.id,
+                                tool_name=call.name,
+                                result=error_msg,
+                                is_error=True,
+                            )
+                        )
                     messages.append(
                         ChatMessage(
                             role="tool",
@@ -198,11 +207,13 @@ class Agent:
 
                 # Emit tool start event
                 if tool_callback:
-                    tool_callback(ToolStart(
-                        tool_call_id=call.id,
-                        tool_name=call.name,
-                        arguments=call.arguments,
-                    ))
+                    tool_callback(
+                        ToolStart(
+                            tool_call_id=call.id,
+                            tool_name=call.name,
+                            arguments=call.arguments,
+                        )
+                    )
 
                 tool_output = ""
                 try:
@@ -210,29 +221,35 @@ class Agent:
                         tool_output += chunk
                         # Emit output event
                         if tool_callback:
-                            tool_callback(ToolOutput(
-                                tool_call_id=call.id,
-                                tool_name=call.name,
-                                chunk=chunk,
-                            ))
+                            tool_callback(
+                                ToolOutput(
+                                    tool_call_id=call.id,
+                                    tool_name=call.name,
+                                    chunk=chunk,
+                                )
+                            )
                 except Exception as e:
                     error_msg = f"Error executing {call.name}: {e}"
                     tool_output += error_msg
                     if tool_callback:
-                        tool_callback(ToolOutput(
-                            tool_call_id=call.id,
-                            tool_name=call.name,
-                            chunk=error_msg,
-                        ))
+                        tool_callback(
+                            ToolOutput(
+                                tool_call_id=call.id,
+                                tool_name=call.name,
+                                chunk=error_msg,
+                            )
+                        )
 
                 # Emit tool end event
                 if tool_callback:
-                    tool_callback(ToolEnd(
-                        tool_call_id=call.id,
-                        tool_name=call.name,
-                        result=tool_output,
-                        is_error=self._is_error(tool_output),
-                    ))
+                    tool_callback(
+                        ToolEnd(
+                            tool_call_id=call.id,
+                            tool_name=call.name,
+                            result=tool_output,
+                            is_error=self._is_error(tool_output),
+                        )
+                    )
 
                 # Add tool result to messages
                 messages.append(

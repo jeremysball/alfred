@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class NotifierError(Exception):
     """Base exception for notifier failures."""
+
     pass
 
 

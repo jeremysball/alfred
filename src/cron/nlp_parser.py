@@ -436,15 +436,11 @@ class NaturalLanguageCronParser:
             )
 
         if not has_time and has_frequency:
-            return (
-                f"You said '{text}' but I need to know what time. "
-                "What time should this run?"
-            )
+            return f"You said '{text}' but I need to know what time. What time should this run?"
 
         if has_time and not has_frequency and not has_day:
             return (
-                "You want this at a specific time, but how often? "
-                "Every day, or just certain days?"
+                "You want this at a specific time, but how often? Every day, or just certain days?"
             )
 
         return (

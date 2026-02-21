@@ -19,10 +19,12 @@ from src.agent import ToolEnd, ToolEvent, ToolStart
 from src.alfred import Alfred
 from src.interfaces.status import StatusData, StatusRenderer
 
-PROMPT_STYLE = Style.from_dict({
-    "prompt": "ansicyan bold",
-    "cursor": "ansigreen",
-})
+PROMPT_STYLE = Style.from_dict(
+    {
+        "prompt": "ansicyan bold",
+        "cursor": "ansigreen",
+    }
+)
 
 
 @dataclass
@@ -56,11 +58,13 @@ class ConversationBuffer:
             self._current_text = ""
 
     def on_tool_end(self, tool_name: str, result: str, is_error: bool) -> None:
-        self.segments.append(ToolCallSegment(
-            tool_name=tool_name,
-            result=result,
-            is_error=is_error,
-        ))
+        self.segments.append(
+            ToolCallSegment(
+                tool_name=tool_name,
+                result=result,
+                is_error=is_error,
+            )
+        )
 
     def toggle_panels(self) -> None:
         self.panels_visible = not self.panels_visible

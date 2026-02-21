@@ -49,8 +49,7 @@ class ApproveJobTool(Tool):
 
     name = "approve_job"
     description = (
-        "Approve a pending cron job. "
-        "The job will be activated and start running on its schedule."
+        "Approve a pending cron job. The job will be activated and start running on its schedule."
     )
     param_model = ApproveJobParams
 
@@ -102,8 +101,7 @@ class ApproveJobTool(Tool):
             # Check if not pending
             if job.status != "pending":
                 yield (
-                    f"Cannot approve job '{job.name}' - "
-                    f"it's currently {job.status} (not pending)."
+                    f"Cannot approve job '{job.name}' - it's currently {job.status} (not pending)."
                 )
                 return
 
@@ -111,7 +109,7 @@ class ApproveJobTool(Tool):
             result = await self.scheduler.approve_job(job.job_id, "user")
 
             if result["success"]:
-                base_msg = result['message']
+                base_msg = result["message"]
                 full_message = f"✓ {base_msg}. The job is now active and will run on schedule."
                 approve_result = ApproveJobResult(
                     success=True,

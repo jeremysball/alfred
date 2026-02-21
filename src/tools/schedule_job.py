@@ -28,13 +28,16 @@ class ScheduleJobParams(BaseModel):
         max_length=500,
     )
     cron_expression: str = Field(
-        description=("When to run the job. Can be natural language: 'every morning at 8am', "
-                     "'Sundays at 7pm', 'every 15 minutes', or cron format: '0 9 * * *'"),
+        description=(
+            "When to run the job. Can be natural language: 'every morning at 8am', "
+            "'Sundays at 7pm', 'every 15 minutes', or cron format: '0 9 * * *'"
+        ),
     )
     code: str | None = Field(
         default=None,
-        description=("Optional Python code. If not provided, code will be "
-                     "generated from description"),
+        description=(
+            "Optional Python code. If not provided, code will be generated from description"
+        ),
     )
 
     @field_validator("name")

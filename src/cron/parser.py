@@ -125,7 +125,6 @@ def should_run(
     # 1. There's a scheduled time <= current time
     # 2. That scheduled time is strictly after the last run minute
     result: bool = (
-        next_scheduled_minute <= current_minute
-        and next_scheduled_minute > last_run_minute
+        next_scheduled_minute <= current_minute and next_scheduled_minute > last_run_minute
     )
     return result

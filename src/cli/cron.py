@@ -29,9 +29,11 @@ T = TypeVar("T")
 
 def async_command[T](func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., T]:
     """Decorator to run async Typer commands."""
+
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> T:
         return asyncio.run(func(*args, **kwargs))
+
     return wrapper
 
 
@@ -157,16 +159,18 @@ async def run():
     scheduler = get_scheduler()
     job_id = await scheduler.submit_user_job(name=name, expression=cron_expression, code=code)
 
-    console.print(Panel(
-        f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
-        f"[dim]Schedule:[/dim] {schedule_desc}\n"
-        f"[dim]Cron:[/dim] {cron_expression}\n"
-        f"[dim]Job ID:[/dim] {job_id}\n\n"
-        f"[yellow]This job requires approval before it will run.[/yellow]\n"
-        f"Run: [bold]alfred cron approve {job_id[:8]}[/bold]",
-        title="Job Submitted",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
+            f"[dim]Schedule:[/dim] {schedule_desc}\n"
+            f"[dim]Cron:[/dim] {cron_expression}\n"
+            f"[dim]Job ID:[/dim] {job_id}\n\n"
+            f"[yellow]This job requires approval before it will run.[/yellow]\n"
+            f"Run: [bold]alfred cron approve {job_id[:8]}[/bold]",
+            title="Job Submitted",
+            border_style="green",
+        )
+    )
 
 
 @app.command("review")
@@ -181,15 +185,17 @@ async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
         console.print(f"[red]Error: Job '{job_id}' not found[/red]")
         raise typer.Exit(1)
 
-    console.print(Panel(
-        f"[bold]{job.name}[/bold]\n"
-        f"[dim]ID:[/dim] {job.job_id}\n"
-        f"[dim]Status:[/dim] {job.status}\n"
-        f"[dim]Schedule:[/dim] {job.expression}\n"
-        f"[dim]Created:[/dim] {job.created_at.strftime('%Y-%m-%d %H:%M')}",
-        title="Job Details",
-        border_style="blue",
-    ))
+    console.print(
+        Panel(
+            f"[bold]{job.name}[/bold]\n"
+            f"[dim]ID:[/dim] {job.job_id}\n"
+            f"[dim]Status:[/dim] {job.status}\n"
+            f"[dim]Schedule:[/dim] {job.expression}\n"
+            f"[dim]Created:[/dim] {job.created_at.strftime('%Y-%m-%d %H:%M')}",
+            title="Job Details",
+            border_style="blue",
+        )
+    )
 
     console.print("\n[bold]Code:[/bold]")
     syntax = Syntax(job.code, "python", theme="monokai", line_numbers=True)
@@ -229,12 +235,14 @@ async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) 
 
     await scheduler.approve_job(job.job_id, "cli")
 
-    console.print(Panel(
-        f"[green]✓[/green] Approved '[bold]{job.name}[/bold]'\n"
-        f"The job is now active and will run on schedule.",
-        title="Job Approved",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            f"[green]✓[/green] Approved '[bold]{job.name}[/bold]'\n"
+            f"The job is now active and will run on schedule.",
+            title="Job Approved",
+            border_style="green",
+        )
+    )
 
 
 @app.command("reject")
@@ -252,12 +260,13 @@ async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
     job_name = job.name
     await store.delete_job(job.job_id)
 
-    console.print(Panel(
-        f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\n"
-        f"The job has been removed.",
-        title="Job Rejected",
-        border_style="yellow",
-    ))
+    console.print(
+        Panel(
+            f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\nThe job has been removed.",
+            title="Job Rejected",
+            border_style="yellow",
+        )
+    )
 
 
 @app.command("history")
