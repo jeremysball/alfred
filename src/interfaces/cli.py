@@ -1,13 +1,11 @@
 """CLI interface for Alfred using prompt_toolkit for async input."""
 
-import sys
-from contextlib import redirect_stdout
-from typing import TextIO
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
 from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
 
@@ -18,26 +16,6 @@ PROMPT_STYLE = Style.from_dict({
     "prompt": "ansicyan bold",
     "cursor": "ansigreen",
 })
-
-
-class _StdoutTee:
-    """Tee stdout to both original stdout and a buffer."""
-
-    def __init__(self, original: TextIO) -> None:
-        self.original = original
-        self.buffer: list[str] = []
-
-    def write(self, s: str) -> int:
-        self.buffer.append(s)
-        result: int = self.original.write(s)
-        return result
-
-    def flush(self) -> None:
-        self.original.flush()
-
-    def isatty(self) -> bool:
-        result: bool = self.original.isatty()
-        return result
 
 
 class CLIInterface:
@@ -94,19 +72,20 @@ class CLIInterface:
                 self.console.print(f"[bold green]Alfred:[/bold green] {result}\n")
                 continue
 
-            # Stream response with stdout capture
-            self.console.print("[bold magenta]Alfred:[/bold magenta] ", end="")
+            # Stream response with Rich Live for proper markdown rendering
+            self.console.print("[bold magenta]Alfred:[/bold magenta]")
 
-            # Tee stdout to both display and buffer
-            original_stdout = sys.stdout
-            tee = _StdoutTee(original_stdout)
-
+            buffer = ""
             try:
-                with redirect_stdout(tee):
+                with Live(
+                    console=self.console,
+                    refresh_per_second=10,
+                    vertical_overflow="visible",
+                ) as live:
                     async for chunk in self.alfred.chat_stream(user_input):
-                        print(chunk, end="", flush=True)
-                print("\n")  # New line after response
+                        buffer += chunk
+                        live.update(Markdown(buffer))
+
+                self.console.print()  # Final newline
             except Exception as e:
                 self.console.print(f"\n[bold red][Error: {e}][/bold red]\n")
-            finally:
-                sys.stdout = original_stdout

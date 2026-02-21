@@ -161,6 +161,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | M9 | Agent Loop - Streaming with tool execution |
 | M10 | Memory System V2 - Full CRUD operations |
 | M11 | PyPI Trusted Publishing - Automated package distribution |
+| M12 | Rich Markdown Output - Streaming markdown rendering with Rich Live for CLI |
 
 ### In Progress / Next Up 🔨
 
@@ -169,8 +170,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
 | 13 | Learning System | Prompt-based learning to update USER.md/SOUL.md |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
-| 15 | Rich Markdown Output | Streaming markdown-to-ANSI rendering for CLI |
-| 16 | README Landing Page | Transform README into compelling OSS landing page |
+| 15 | README Landing Page | Transform README into compelling OSS landing page |
 
 ### Short-term 📋
 
@@ -282,6 +282,7 @@ EMBEDDING_MODEL=text-embedding-3-small
 | 2026-02-19 | Templates → data/ | Keeps templates clean, allows user reset |
 | 2026-02-19 | Model-driven memory | Alfred decides what to remember, not automatic logging |
 | 2026-02-19 | In-memory sessions | PRD #54; persistence planned for PRD #53 |
+| 2026-02-20 | Rich Live for CLI markdown | Proper in-place markdown rendering without scrollback pollution |
 
 ---
 

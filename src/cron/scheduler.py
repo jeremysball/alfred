@@ -6,6 +6,7 @@ and triggers execution on time.
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -303,7 +304,7 @@ class CronScheduler:
 
         if "run" not in namespace:
             raise ValueError("Job code must define a run() function")
-        if not asyncio.iscoroutinefunction(namespace["run"]):
+        if not inspect.iscoroutinefunction(namespace["run"]):
             raise ValueError("Job run() function must be async (defined with 'async def')")
 
     def _compile_handler(
@@ -384,7 +385,7 @@ class CronScheduler:
             raise ValueError("Job code must define an async run() function")
 
         handler = cast(Callable[[], Awaitable[None]], namespace["run"])
-        if not asyncio.iscoroutinefunction(handler):
+        if not inspect.iscoroutinefunction(handler):
             raise ValueError("Job run() function must be async")
 
         return handler
