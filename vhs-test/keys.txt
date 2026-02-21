@@ -1,0 +1,304 @@
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+> cd /workspace/alfred-prd/vhs-test && python3 keys_demo.py
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+  > Option A
+    Option B
+    Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+  > Option A
+    Option B
+    Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+  > Option B
+    Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+  > Option B
+    Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+    Option B
+  > Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+    Option B
+  > Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+    Option B
+  > Option C
+
+Use arrows, Enter to select, q to quit
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+    Option B
+  > Option C
+
+Use arrows, Enter to select, q to quit
+
+Selected: Option C
+>
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+    Option B
+  > Option C
+
+Use arrows, Enter to select, q to quit
+
+Selected: Option C
+>
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+=== Menu Demo ===
+
+    Option A
+    Option B
+  > Option C
+
+Use arrows, Enter to select, q to quit
+
+Selected: Option C
+>
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────

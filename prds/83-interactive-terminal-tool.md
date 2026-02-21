@@ -1,6 +1,6 @@
 # PRD #83: Interactive Terminal Tool for AI Agent E2E Testing
 
-**Status**: Planning
+**Status**: In Progress
 **Priority**: High
 **Issue**: https://github.com/jeremysball/alfred/issues/83
 **Created**: 2026-02-21
@@ -126,7 +126,7 @@ The agent can then:
 
 ## Milestones
 
-- [ ] **M1: Research & Prototype** — Evaluate VHS integration, test keystroke sending and capture capabilities
+- [x] **M1: Research & Prototype** — Evaluate VHS integration, test keystroke sending and capture capabilities
 - [ ] **M2: Core Tool Implementation** — Build `terminal` tool with start/send/capture/exit actions
 - [ ] **M3: Screenshot Capture** — Implement PNG capture with proper terminal emulation
 - [ ] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
@@ -168,10 +168,20 @@ The agent can then:
 
 ## Open Questions
 
-1. Should the tool support multiple concurrent sessions, or is single-session sufficient?
+1. ~~Should the tool support multiple concurrent sessions, or is single-session sufficient?~~ → **Resolved**: Single-session sufficient for MVP
 2. What's the optimal screenshot resolution for vision models?
-3. Should there be a "wait" action for slow-rendering TUIs?
+3. ~~Should there be a "wait" action for slow-rendering TUIs?~~ → **Resolved**: Use VHS `Wait /pattern/` command
 4. Do we need to support mouse interactions (rare for CLIs but possible)?
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-02-21 | Use `VHS_NO_SANDBOX=true` | Required in containerized/restricted environments where Chrome sandbox fails |
+| 2026-02-21 | Single-session for MVP | Tape file approach generates one session at a time; simpler implementation |
+| 2026-02-21 | Use `Wait /pattern/` for timing | VHS supports regex-based waiting; better than fixed delays for slow TUIs |
 
 ---
 
