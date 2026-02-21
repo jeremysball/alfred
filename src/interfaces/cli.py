@@ -1,5 +1,6 @@
 """CLI interface for Alfred using prompt_toolkit for async input."""
 
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -8,6 +9,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
 from rich.console import Console, Group, RenderableType
+from rich.layout import Layout
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -124,6 +126,124 @@ class ConversationBuffer:
         return result
 
 
+class LayoutManager:
+    """Manages fixed layout with header, scrollable body, and input footer."""
+
+    def __init__(self, console: Console) -> None:
+        self.console = console
+        self._scroll_offset: int = 0
+        self._total_lines: int = 0
+
+    def get_terminal_size(self) -> tuple[int, int]:
+        """Get terminal dimensions (height, width)."""
+        try:
+            size = os.get_terminal_size()
+            return size.lines, size.columns
+        except OSError:
+            return 24, 80  # Fallback
+
+    def render_frame(
+        self,
+        header: RenderableType,
+        body: list[RenderableType],
+    ) -> Layout:
+        """Create layout with header, body, and scrollbar."""
+        height, width = self.get_terminal_size()
+
+        # Reserve lines: 2 for header, 3 for input area, 1 for scrollbar
+        body_height = max(height - 5, 5)
+
+        layout = Layout()
+        layout.split_column(
+            Layout(header, name="header", size=2),
+            Layout(name="body", size=body_height),
+            Layout(name="input", size=3),
+        )
+
+        # Add scrollbar to body
+        body_content = self._add_scrollbar(body, body_height, width)
+        layout["body"].update(body_content)
+        layout["header"].update(header)
+
+        return layout
+
+    def _add_scrollbar(
+        self,
+        body: list[RenderableType],
+        body_height: int,
+        width: int,
+    ) -> RenderableType:
+        """Add scrollbar indicator to body content."""
+        # Estimate total lines from body content
+        # (This is approximate - actual rendering may differ)
+        total_segments = len(body)
+        estimated_lines = total_segments * 3  # Rough estimate
+
+        if estimated_lines <= body_height:
+            # No scrollbar needed
+            return Group(*body)
+
+        # Calculate scroll position
+        if self._scroll_offset + body_height >= estimated_lines:
+            # At bottom
+            scroll_percent = 100
+        else:
+            max_scroll = max(estimated_lines - body_height, 1)
+            scroll_percent = int((self._scroll_offset / max_scroll) * 100)
+
+        # Create scrollbar indicator
+        scrollbar = self._create_scrollbar(scroll_percent, body_height)
+
+        # Create layout with content and scrollbar
+        inner = Layout()
+        inner.split_row(
+            Layout(Group(*body), name="content", ratio=1),
+            Layout(scrollbar, name="scrollbar", size=1),
+        )
+        return inner
+
+    def _create_scrollbar(self, percent: int, height: int) -> Text:
+        """Create a vertical scrollbar indicator."""
+        # Use block characters for scrollbar
+        # █ = full, ░ = empty, ▓ = thumb
+        thumb_pos = int((percent / 100) * (height - 1))
+
+        lines = []
+        for i in range(height):
+            if i == thumb_pos:
+                lines.append("▓")
+            elif i < thumb_pos:
+                lines.append("░")
+            else:
+                lines.append("░")
+
+        return Text("\n".join(lines), style="dim")
+
+    def scroll_to_bottom(self) -> None:
+        """Reset scroll to bottom (newest content)."""
+        self._scroll_offset = 0
+
+    def position_cursor_for_input(self) -> None:
+        """Move cursor to input area at bottom of screen."""
+        height, _ = self.get_terminal_size()
+        # Move cursor to input line (height - 2)
+        self.console.print(f"\033[{height - 2};1H", end="")
+
+    def clear_input_area(self) -> None:
+        """Clear the input area."""
+        height, width = self.get_terminal_size()
+        # Clear the input lines
+        self.console.print(f"\033[{height - 2};1H\033[2K", end="")
+        self.console.print(f"\033[{height - 1};1H\033[2K", end="")
+
+    def render_input_prompt(self) -> None:
+        """Render the input prompt at bottom."""
+        height, _ = self.get_terminal_size()
+        # Move to input line and show prompt
+        self.console.print(f"\033[{height - 2};1H", end="")
+        self.console.print("[bold cyan]>>>[/] ", end="")
+
+
 class CLIInterface:
     """CLI interface with async prompt and streaming output capture."""
 
@@ -131,8 +251,9 @@ class CLIInterface:
         self.alfred = alfred
         self.console = Console()
         self.buffer = ConversationBuffer()
+        self.layout = LayoutManager(self.console)
         self.session: PromptSession[str] = PromptSession(
-            message=[("class:prompt", "You: ")],
+            message=">>> ",
             style=PROMPT_STYLE,
         )
 
@@ -144,9 +265,9 @@ class CLIInterface:
                 style="bold cyan",
                 justify="center",
             ),
-            subtitle="Type 'exit' to quit • 'compact' to compact memory • Ctrl-T to toggle tools",
+            subtitle="exit to quit • compact for memory • Ctrl-T toggle tools",
             border_style="cyan",
-            padding=(1, 2),
+            padding=(0, 2),
         )
         self.console.print(banner)
         self.console.print()
@@ -162,11 +283,21 @@ class CLIInterface:
                 is_error=event.is_error,
             )
 
+    def _render_header(self, is_streaming: bool = False) -> RenderableType:
+        """Render the status header."""
+        status_data = StatusData(
+            model_name=self.alfred.model_name,
+            usage=self.alfred.token_tracker.usage,
+            context_tokens=self.alfred.token_tracker.context_tokens,
+            is_streaming=is_streaming,
+        )
+        return StatusRenderer(status_data).render()
+
     async def run(self) -> None:
-        """Run interactive CLI with async input and streaming output."""
+        """Run interactive CLI with fixed layout and streaming output."""
         self._print_banner()
 
-        # Set up keybindings for Ctrl-t
+        # Set up keybindings
         kb = KeyBindings()
 
         @kb.add("c-t")
@@ -174,16 +305,16 @@ class CLIInterface:
             """Toggle tool panels on Ctrl-T."""
             self.buffer.toggle_panels()
 
-        # Update session with keybindings
+        # Update session with keybindings and new prompt
         self.session = PromptSession(
-            message=[("class:prompt", "You: ")],
+            message=">>> ",
             style=PROMPT_STYLE,
             key_bindings=kb,
         )
 
         while True:
             try:
-                # Use patch_stdout to allow streaming output during prompt
+                # Get input (prompt_toolkit handles display)
                 with patch_stdout():
                     user_input = await self.session.prompt_async()
                 user_input = user_input.strip()
@@ -208,43 +339,41 @@ class CLIInterface:
             # Clear previous conversation for this turn
             self.buffer.clear()
 
-            # Stream response with Rich Live for proper markdown rendering + status
-            self.console.print("[bold magenta]Alfred:[/bold magenta]")
-
+            # Stream response with fixed layout
             try:
-                # Create status data and renderer
-                status_data = StatusData(
-                    model_name=self.alfred.model_name,
-                    usage=self.alfred.token_tracker.usage,
-                    context_tokens=self.alfred.token_tracker.context_tokens,
-                    is_streaming=True,
-                )
-                status_renderer = StatusRenderer(status_data)
-
                 with Live(
                     console=self.console,
                     refresh_per_second=10,
                     vertical_overflow="visible",
                 ) as live:
+                    # Initial frame with streaming header
+                    live.update(Group(
+                        self._render_header(is_streaming=True),
+                        Text(),
+                        Text("[dim]Waiting for response...[/]"),
+                    ))
+
                     async for chunk in self.alfred.chat_stream(
                         user_input,
                         tool_callback=self._on_tool_event,
                     ):
                         self.buffer.add_text(chunk)
-                        # Update usage reference for latest counts
-                        status_data.usage = self.alfred.token_tracker.usage
-                        status_data.context_tokens = self.alfred.token_tracker.context_tokens
 
-                        # Render segments + status line
-                        segments = self.buffer.render()
-                        status_text = status_renderer.render()
-                        live.update(Group(*segments, Text(), status_text))
+                        # Render with header + body + scrollbar
+                        body = self.buffer.render()
+                        layout = self.layout.render_frame(
+                            header=self._render_header(is_streaming=True),
+                            body=body,
+                        )
+                        live.update(layout)
 
                     # Final update with idle state
-                    status_data.is_streaming = False
-                    segments = self.buffer.render()
-                    status_text = status_renderer.render()
-                    live.update(Group(*segments, Text(), status_text))
+                    body = self.buffer.render()
+                    layout = self.layout.render_frame(
+                        header=self._render_header(is_streaming=False),
+                        body=body,
+                    )
+                    live.update(layout)
 
                 self.console.print()  # Final newline
             except Exception as e:
