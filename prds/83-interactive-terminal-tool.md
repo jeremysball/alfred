@@ -127,10 +127,10 @@ The agent can then:
 ## Milestones
 
 - [x] **M1: Research & Prototype** — Evaluate VHS integration, test keystroke sending and capture capabilities
-- [ ] **M2: Core Tool Implementation** — Build `terminal` tool with start/send/capture/exit actions
-- [ ] **M3: Screenshot Capture** — Implement PNG capture with proper terminal emulation
-- [ ] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
-- [ ] **M5: Integration with pi** — Add tool to the agent's available tools
+- [x] **M2: Core Tool Implementation** — Build `terminal` tool with start/send/capture/exit actions
+- [x] **M3: Screenshot Capture** — Implement PNG capture with proper terminal emulation
+- [x] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
+- [x] **M5: Integration with pi** — Add tool to the agent's available tools
 - [ ] **M6: Documentation** — Document tool usage with examples
 - [ ] **M7: Test with Alfred** — Verify the tool works with Alfred CLI for real workflows
 
@@ -182,6 +182,7 @@ The agent can then:
 | 2026-02-21 | Use `VHS_NO_SANDBOX=true` | Required in containerized/restricted environments where Chrome sandbox fails |
 | 2026-02-21 | Single-session for MVP | Tape file approach generates one session at a time; simpler implementation |
 | 2026-02-21 | Use `Wait /pattern/` for timing | VHS supports regex-based waiting; better than fixed delays for slow TUIs |
+| 2026-02-21 | Add `wait_pattern` parameter to capture | Allows optional regex-based waiting before screenshot; falls back to 500ms sleep |
 
 ---
 
