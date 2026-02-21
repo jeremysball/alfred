@@ -1,99 +1,152 @@
 ---
 name: git-switch-commit
-description: Stash changes, switch to main, commit, push, then return to your branch and restore stashed changes. Perfect for quickly committing fixes to main while working on a feature branch.
+description: Interactively commit specific files to main (or another branch) while working on a dirty feature branch. Preserves all other uncommitted changes.
 ---
 
 # 🔄 Git Switch Commit
 
-Quickly commit changes to main while working on a feature branch without losing your work-in-progress.
+Commit selected files to another branch without losing work-in-progress on your current branch.
 
-## ✨ What It Does
+## 🎯 When to Use
 
-```
-Feature Branch ──► Stash ──► Main ──► Edit/Apply ──► Commit ──► Push ──► Feature Branch ──► Pop
-```
+- Working on a feature branch with dirty work tree
+- Another agent or process is editing files
+- Need to commit a specific file or two to main quickly
+- Don't want to lose or disturb other uncommitted changes
 
-## 🚨 Key Insight
+## 📋 Interactive Workflow
 
-**Git stash is global** - stashes are not per-branch. After stashing on feature branch and switching to main, the stash is still accessible. Pop it on main to bring the changes with you.
+Execute these steps in order:
 
-## 🎯 Two Scenarios
-
-### Scenario A: Transfer Files from Feature to Main
-
-You have uncommitted changes on feature branch and want to commit some of them to main.
-
-**Two-Stash Approach** (handles partial files cleanly):
+### Step 1: List Dirty Files
 
 ```bash
-# 1. Stage only the files you want to transfer
-git add <files-to-transfer>
-
-# 2. Stash staged files (named for clarity)
-git stash push -m "transfer-to-main" --staged
-
-# 3. Stash remaining changes
-git stash push -m "wip-feature" -u
-
-# 4. Switch to main
-git checkout main
-
-# 5. Pop the transfer stash (stash@{1} because "wip-feature" is now stash@{0})
-git stash pop stash@{1}
-
-# 6. Commit and push
-git commit -m "fix: something urgent"
-git push origin main
-
-# 7. Return to feature branch
-git checkout feature/my-branch
-
-# 8. Restore remaining work
-git stash pop
+git status --short
 ```
 
-**Stash Order After Step 3:**
-- `stash@{0}` = "wip-feature" (most recent)
-- `stash@{1}` = "transfer-to-main"
+Present the list to the user and ask: **"Which files should be committed to the target branch?"**
 
-### Scenario B: Edit Files Directly on Main
+Wait for user to select files (by number, path, or glob).
 
-You want to edit a file on main (not transfer from feature branch).
+### Step 2: Stash All Changes
 
 ```bash
-# 1. Stash all feature branch work
-git stash push -m "wip-feature" -u
+git stash push -m "switch-commit-temp" -u
+```
 
-# 2. Switch to main
-git checkout main
+This captures ALL uncommitted changes (including untracked files) into a named stash.
 
-# 3. Make your edits
-# (use edit tool, vim, etc.)
+### Step 3: Switch to Target Branch
 
-# 4. Commit and push
+```bash
+git checkout main  # or user-specified branch
+```
+
+Default is `main`. Ask user if they want a different branch.
+
+### Step 4: Extract Only Selected Files from Stash
+
+```bash
+git checkout stash@{0} -- <file1> <file2> ...
+```
+
+**Important**: Use `checkout` not `pop` - this extracts specific files without removing the stash.
+
+### Step 5: Infer Commit Message and Confirm
+
+Read the diffs of the selected files:
+
+```bash
+git diff --cached <files>  # if staged
+git diff <files>           # if unstaged
+```
+
+Generate a conventional commit message based on the changes. Present to user:
+
+> **Inferred commit message:**
+> ```
+> fix: update authentication timeout handling
+> ```
+>
+> Use this message? **[Y/n/edit]**
+
+- **Y** (default): Proceed with this message
+- **n**: Prompt user to enter a custom message
+- **edit**: Let user type a modified message
+
+### Step 6: Commit and Push
+
+```bash
 git add <files>
-git commit -m "chore: update todo"
-git push origin main
+git commit -m "<message>"
+git push origin <branch>
+```
 
-# 5. Return to feature branch
-git checkout feature/my-branch
+### Step 7: Switch Back to Original Branch
 
-# 6. Restore your work
+```bash
+git checkout <original-branch>
+```
+
+### Step 8: Pop Stash
+
+```bash
 git stash pop
 ```
 
-## 📋 Commands Reference
+This restores all your work-in-progress.
+
+### Step 9: Cleanup (if needed)
+
+If the stash wasn't fully popped (conflict or partial extraction):
+
+```bash
+git stash drop stash@{0}
+```
+
+## 🛡️ Safety Rules
+
+| Situation | Action |
+|-----------|--------|
+| Stash pop conflict | **Abort immediately**. Notify user with file paths. Do not force resolution. |
+| Push rejected (non-fast-forward) | Abort. Notify user to pull first. |
+| File not in stash | Skip file, warn user, continue with remaining files. |
+| User cancels at any step | Restore original state: switch back, pop stash. |
+
+## 📝 Example Session
+
+```
+Agent: I see these dirty files:
+       1. src/auth.py
+       2. src/utils.py
+       3. tests/test_auth.py
+       4. README.md
+
+       Which files should be committed to main?
+
+User:   1 and 4
+
+Agent: Switching to main with src/auth.py and README.md...
+       [stashes, switches, extracts files]
+
+       Inferred commit message:
+       "fix: update auth timeout and docs"
+
+       Use this message? [Y/n/edit]
+
+User:   Y
+
+Agent: [commits, pushes, switches back, pops stash]
+       Done! Committed to main, all other changes restored on feature branch.
+```
+
+## 🔧 Quick Reference
 
 | Command | Purpose |
 |---------|---------|
-| `git stash push -m "name" -u` | Stash all changes (including untracked) with name |
-| `git stash push -m "name" --staged` | Stash only staged files |
-| `git stash list` | Show all stashes with names |
-| `git stash pop stash@{N}` | Pop specific stash by index |
-| `git stash drop stash@{N}` | Drop specific stash |
-
-## 🛡️ Safety
-
-- Use named stashes (`-m "description"`) for clarity
-- Verify stash index before popping - order changes after each push
-- Clean up leftover stashes with `git stash drop`
+| `git status --short` | List dirty files concisely |
+| `git stash push -m "name" -u` | Stash all changes (including untracked) |
+| `git checkout stash@{0} -- <files>` | Extract specific files from stash |
+| `git stash pop` | Restore all stashed changes |
+| `git stash list` | Show all stashes |
+| `git stash drop stash@{0}` | Remove a stash |
