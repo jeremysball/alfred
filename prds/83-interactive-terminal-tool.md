@@ -1,6 +1,6 @@
 # PRD #83: Interactive Terminal Tool for AI Agent E2E Testing
 
-**Status**: In Progress
+**Status**: Complete
 **Priority**: High
 **Issue**: https://github.com/jeremysball/alfred/issues/83
 **Created**: 2026-02-21
@@ -133,7 +133,7 @@ The agent can then:
 - [x] **M3: Screenshot Capture** — Implement PNG capture with proper terminal emulation
 - [x] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
 - [x] **M5: Integration with pi** — Add tool to the agent's available tools
-- [ ] **M6: Documentation** — Document tool usage with examples
+- [x] **M6: Documentation** — Document tool usage with examples
 - [x] **M7: Test with Alfred** — Verify the tool works with Alfred CLI for real workflows
 
 ---
