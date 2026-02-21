@@ -8,6 +8,7 @@ import pytest
 
 from src.alfred import Alfred
 from src.interfaces.cli import CLIInterface
+from src.token_tracker import TokenUsage
 
 
 @pytest.fixture
@@ -23,6 +24,19 @@ def mock_alfred() -> MagicMock:
 
     alfred.chat_stream = AsyncMock(side_effect=make_stream)
     alfred.compact = AsyncMock(return_value="Compacted")
+
+    # Add token tracker mock for status display
+    alfred.model_name = "kimi/moonshot-v1-128k"
+    mock_token_tracker = MagicMock()
+    mock_token_tracker.usage = TokenUsage(
+        input_tokens=100,
+        output_tokens=50,
+        cache_read_tokens=0,
+        reasoning_tokens=0,
+    )
+    mock_token_tracker.context_tokens = 500
+    alfred.token_tracker = mock_token_tracker
+
     return alfred
 
 

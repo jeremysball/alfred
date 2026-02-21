@@ -94,9 +94,37 @@ class Alfred:
         # Token tracking for usage display
         self.token_tracker = TokenTracker()
 
+    @property
+    def model_name(self) -> str:
+        """Get full model display name (provider/model)."""
+        return f"{self.config.default_llm_provider}/{self.config.chat_model}"
+
     def _on_usage(self, usage: dict[str, Any]) -> None:
         """Callback for LLM usage updates."""
         self.token_tracker.add(usage)
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        """Estimate token count from character count.
+
+        Uses 4 chars per token as rough approximation.
+        """
+        return len(text) // 4
+
+    def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
+        """Update context token estimate.
+
+        Args:
+            system_prompt: Full system prompt text
+            messages: Conversation messages
+        """
+        total_chars = len(system_prompt)
+        for msg in messages:
+            total_chars += len(msg.content)
+            if msg.tool_calls:
+                total_chars += len(str(msg.tool_calls))
+
+        self.token_tracker.set_context_tokens(self._estimate_tokens(system_prompt + str(messages)))
 
     async def chat(self, message: str) -> str:
         """Process a message with full agent loop (non-streaming).
@@ -157,6 +185,9 @@ class Alfred:
         system_prompt = self._build_system_prompt(system_prompt)
 
         messages = [ChatMessage(role="user", content=message)]
+
+        # Update context token estimate for status display
+        self._update_context_tokens(system_prompt, messages)
 
         logger.debug("Starting agent loop...")
         full_response = []
