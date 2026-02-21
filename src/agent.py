@@ -2,7 +2,7 @@
 
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -38,8 +38,14 @@ class Agent:
         self,
         messages: list[ChatMessage],
         system_prompt: str | None = None,
+        usage_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> AsyncIterator[str]:
         """Run agent loop with full streaming.
+
+        Args:
+            messages: Conversation messages
+            system_prompt: Optional system prompt
+            usage_callback: Optional callback for token usage updates
 
         Yields:
             - LLM response tokens as they arrive
@@ -69,6 +75,16 @@ class Agent:
                 messages,
                 tools=tool_schemas if tool_schemas else None,
             ):
+                # Check for usage marker
+                if chunk.startswith("[USAGE]"):
+                    try:
+                        usage_data = json.loads(chunk[7:])
+                        if usage_callback:
+                            usage_callback(usage_data)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse usage data: {chunk}")
+                    continue
+
                 # Check for tool call markers in stream
                 if chunk.startswith("[TOOL_CALLS]"):
                     # Parse tool calls from marker

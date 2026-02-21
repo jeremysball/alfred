@@ -392,11 +392,12 @@ class KimiProvider(LLMProvider):
             api_messages.append(msg)
 
         async def _create_stream() -> Any:
-            return await self.client.chat.completions.create(
+            return await self.client.chat.completions.create(  # type: ignore[call-overload]
                 model=self.model,
-                messages=api_messages,  # type: ignore[arg-type]
-                tools=tools,  # type: ignore[arg-type]
+                messages=api_messages,
+                tools=tools,
                 stream=True,
+                stream_options={"include_usage": True},
             )
 
         try:
@@ -426,8 +427,25 @@ class KimiProvider(LLMProvider):
 
         try:
             async for chunk in stream:
-                # Skip chunks with no choices (can happen with some providers)
+                # Handle usage chunk (comes when choices is empty)
                 if not chunk.choices:
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        usage_data = {
+                            "prompt_tokens": chunk.usage.prompt_tokens,
+                            "completion_tokens": chunk.usage.completion_tokens,
+                        }
+                        # Extract optional detailed usage
+                        if chunk.usage.prompt_tokens_details:
+                            cached = chunk.usage.prompt_tokens_details.cached_tokens or 0
+                            usage_data["prompt_tokens_details"] = {
+                                "cached_tokens": cached,
+                            }
+                        if chunk.usage.completion_tokens_details:
+                            reasoning = chunk.usage.completion_tokens_details.reasoning_tokens or 0
+                            usage_data["completion_tokens_details"] = {
+                                "reasoning_tokens": reasoning,
+                            }
+                        yield f"[USAGE]{json.dumps(usage_data)}"
                     continue
 
                 delta = chunk.choices[0].delta

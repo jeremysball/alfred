@@ -7,8 +7,10 @@
 **STOP.** Before responding to any user message or command, you **MUST**:
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
-2. Read `/workspace/alfred-prd/prds/48-alfred-v1-vision.md` (parent PRD)
-3. Confirm completion in your first response: "✅ Writing skill and parent PRD loaded"
+2. Read `/workspace/alfred-prd/.pi/skills/ntfy/SKILL.md`
+3. Read `/workspace/alfred-prd/.pi/skills/serper-search/SKILL.md`
+4. Read `/workspace/alfred-prd/docs/ROADMAP.md` (project roadmap)
+5. Confirm completion in your first response: "✅ Skills and parent PRD loaded"
 
 **No exceptions.** This applies to:
 - The first message of every conversation
@@ -149,19 +151,101 @@ todo-sidebar action: toggle, id: 1
 ### 4. Encourage Test-Driven Development (TDD)
 **ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
 
+This is **not strictly required** but STRONGLY encouraged and you will be expected to justify deciding not to.
 
-This is **not strictly required** but STRONGLY encouraged and you 
-will be expected to justify deciding
-not to.
+### 5. Testing Edge Cases — MANDATORY
+**ALWAYS** test edge cases, not just happy paths:
 
-### 5. Always Verify Before Done
+- **Input validation**: null, empty strings, wrong types, malformed data
+- **Boundary conditions**: off-by-one, empty collections, max/min values, integer overflow
+- **Error handling**: network failures, timeouts, missing files, permission denied
+- **Async edge cases**: race conditions, concurrent access, timeout handling
+
+**Example:**
+```python
+# ✅ Test edge cases
+def test_parse_config():
+    assert parse_config('{"key": "value"}') == {"key": "value"}  # happy
+    assert parse_config('{}') == {}                               # empty
+    assert parse_config('invalid') raises ValueError              # malformed
+    assert parse_config(None) raises TypeError                    # null
+```
+
+### 6. Defensive Programming — MANDATORY
+**ALWAYS** write defensive code:
+
+- **Validate inputs at boundaries**: Check args at function/class entry points
+- **Fail fast with explicit errors**: Raise specific exceptions early, not cryptic ones later
+- **Type safety**: Use type hints + runtime validation (Pydantic, asserts)
+- **Assertions for invariants**: `assert` conditions that must always hold
+- **Follow PEP 8**: Adhere to [Python style conventions](https://peps.python.org/pep-0008/)
+
+**WRONG — Do NOT do this:**
+```python
+def process(data):
+    return data["items"][0]["name"]  # ❌ Multiple silent failure points
+```
+
+**CORRECT — Do this instead:**
+```python
+def process(data: dict) -> str:
+    if not data:
+        raise ValueError("data cannot be empty")
+    if "items" not in data:
+        raise KeyError("data must contain 'items'")
+    if not data["items"]:
+        raise ValueError("items list cannot be empty")
+    return data["items"][0]["name"]
+```
+
+### 7. Notify on Long-Running Tasks
+**ALWAYS** send an ntfy notification when:
+
+- **Long-running tasks complete** — Tests, builds, deployments, large refactors
+- **User input required** — Design questions, decisions needed, blocked waiting for response
+- **Workflow milestones** — PR created, PR merged, issue closed
+- **Errors needing attention** — Test failures, CI/CD failures, critical errors
+
+**Use the ntfy skill:**
+```bash
+# Simple notification
+curl -s -d "Task complete" ntfy.sh/pi-agent-prometheus
+
+# High priority for input needed
+curl -s -H "Priority: high" -d "Input needed: Which approach?" ntfy.sh/pi-agent-prometheus
+```
+
+**Don't notify for:**
+- Simple file reads
+- Intermediate steps
+- Quick acknowledgments
+
+### 8. Use Serper for Web Search
+**USE** the Serper API when you need to search the web:
+
+```bash
+curl -X POST https://google.serper.dev/search \
+  -H "X-API-KEY: $SERPER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "your search query"}'
+```
+
+**Use for:**
+- Looking up documentation or APIs
+- Finding current library versions
+- Researching best practices
+- Checking recent news or updates
+
+**Remember:** Use `uv run dotenv` or ensure `SERPER_API_KEY` is set.
+
+### 9. Always Verify Before Done
 After any code change, run:
 ```bash
 uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
 Show results. Fix issues. Then it's done.
 
-### 6. ALWAYS Use Conventional Commits
+### 10. ALWAYS Use Conventional Commits
 **CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -189,7 +273,7 @@ Show results. Fix issues. Then it's done.
 - Reference issues in footer when applicable
 
 
-### 8. NEVER Use Hardcoded Absolute Paths
+### 11. NEVER Use Hardcoded Absolute Paths
 **CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
 
 **WRONG — Do NOT do this:**

@@ -131,7 +131,7 @@ model_display = f"{provider}/{model_name}"  # From LLM config
 
 ## Milestones
 
-- [ ] **M1: Token Tracking Infrastructure** — Add TokenTracker class that accumulates usage from LLM responses, integrate with agent loop
+- [x] **M1: Token Tracking Infrastructure** — Add TokenTracker class that accumulates usage from LLM responses, integrate with agent loop
 - [ ] **M2: Status Line Display** — Implement Rich Live status bar showing model, activity, and token counts
 - [ ] **M3: Context Summary** — Add context info (memories, messages, prompt sections) to status display
 - [ ] **M4: Tool Panels with Toggle** — Implement collapsible tool output panels with `T` keybinding

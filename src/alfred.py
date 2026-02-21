@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
 from telegram import Bot
 
@@ -17,6 +18,7 @@ from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
 from src.search import MemorySearcher
 from src.session import SessionManager
+from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
 
 logger = logging.getLogger(__name__)
@@ -89,6 +91,13 @@ class Alfred:
         # Session manager for conversation history
         self.session_manager = SessionManager.get_instance()
 
+        # Token tracking for usage display
+        self.token_tracker = TokenTracker()
+
+    def _on_usage(self, usage: dict[str, Any]) -> None:
+        """Callback for LLM usage updates."""
+        self.token_tracker.add(usage)
+
     async def chat(self, message: str) -> str:
         """Process a message with full agent loop (non-streaming).
 
@@ -151,7 +160,9 @@ class Alfred:
 
         logger.debug("Starting agent loop...")
         full_response = []
-        async for chunk in self.agent.run_stream(messages, system_prompt):
+        async for chunk in self.agent.run_stream(
+            messages, system_prompt, usage_callback=self._on_usage
+        ):
             full_response.append(chunk)
             yield chunk
 
