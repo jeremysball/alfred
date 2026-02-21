@@ -76,3 +76,6 @@ MEMORY.md
 node_modules/
 .pi/extensions/*/package-lock.json
 .pi/extensions/*/.vite/
+
+# Screenshots from interactive terminal testing
+screenshots/

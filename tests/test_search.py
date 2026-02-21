@@ -294,7 +294,7 @@ class TestContextBuilder:
         ]
 
         query = [1.0, 0.0]
-        context = builder.build_context(
+        context, count = builder.build_context(
             query_embedding=query,
             memories=memories,
             system_prompt="You are Alfred.",
@@ -304,6 +304,7 @@ class TestContextBuilder:
         assert "## RELEVANT MEMORIES" in context
         assert "I love Python" in context
         assert "## CURRENT CONVERSATION" in context
+        assert count == 1
 
     def test_handles_no_relevant_memories(self):
         """Test context building when no memories match."""
@@ -321,7 +322,7 @@ class TestContextBuilder:
         ]
 
         query = [1.0, 0.0]
-        context = builder.build_context(
+        context, count = builder.build_context(
             query_embedding=query,
             memories=memories,
             system_prompt="You are Alfred.",
@@ -330,6 +331,7 @@ class TestContextBuilder:
         assert "You are Alfred." in context
         assert "## RELEVANT MEMORIES" in context
         assert "_No relevant memories found._" in context
+        assert count == 0
 
     def test_truncates_long_content(self):
         """Test that long memory content is truncated."""
@@ -347,7 +349,7 @@ class TestContextBuilder:
         ]
 
         query = [1.0, 0.0]
-        context = builder.build_context(
+        context, count = builder.build_context(
             query_embedding=query,
             memories=memories,
             system_prompt="You are Alfred.",
@@ -357,6 +359,7 @@ class TestContextBuilder:
         assert "..." in context
         # Should not contain the full 500 chars
         assert len(context) < 1000
+        assert count == 1
 
     def test_respects_token_budget(self):
         """Test that context respects token budget."""
@@ -375,7 +378,7 @@ class TestContextBuilder:
         ]
 
         query = [1.0, 0.0]
-        context = builder.build_context(
+        context, count = builder.build_context(
             query_embedding=query,
             memories=memories,
             system_prompt="System prompt.",
@@ -428,7 +431,7 @@ class TestIntegration:
 
         # Search for "Python programming"
         query = [1.0, 0.0, 0.0]
-        context = builder.build_context(
+        context, count = builder.build_context(
             query_embedding=query,
             memories=memories,
             system_prompt="You are a helpful assistant.",
@@ -441,6 +444,7 @@ class TestIntegration:
 
         # Python memory should be included
         assert "Python" in context
+        assert count >= 1
 
         # Should not have both duplicates
         python_count = context.count("Python")

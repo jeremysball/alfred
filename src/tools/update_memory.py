@@ -35,21 +35,6 @@ class UpdateMemoryTool(Tool):
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(self, **kwargs: Any) -> str:
-        """Update a memory (sync wrapper - use execute_stream).
-
-        Args:
-            **kwargs: Tool parameters including:
-                - search_query: Query to find the memory to update
-                - entry_id: Direct lookup by memory ID
-                - new_content: New content for the memory (empty = no change)
-                - confirm: Set to True to actually update (False = preview)
-
-        Returns:
-            Error message directing to use async method
-        """
-        return "Error: UpdateMemoryTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Update a memory or show preview.
 

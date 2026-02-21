@@ -50,8 +50,7 @@ class RejectJobTool(Tool):
 
     name = "reject_job"
     description = (
-        "Reject and delete a pending cron job. "
-        "The job will be permanently removed from the system."
+        "Reject and delete a pending cron job. The job will be permanently removed from the system."
     )
     param_model = RejectJobParams
 
@@ -59,10 +58,6 @@ class RejectJobTool(Tool):
         """Initialize with CronScheduler instance."""
         super().__init__()
         self.scheduler = scheduler
-
-    def execute(self, **kwargs: Any) -> str:
-        """Execute the reject_job tool (sync - not supported)."""
-        return "Error: RejectJobTool must be called via execute_stream in async context"
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the reject_job tool (async)."""

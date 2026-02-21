@@ -27,12 +27,8 @@ class Config(BaseSettings):
     )
 
     # Kimi (required - no defaults)
-    kimi_api_key: str = Field(
-        ..., validation_alias=AliasChoices("KIMI_API_KEY", "kimi_api_key")
-    )
-    kimi_base_url: str = Field(
-        ..., validation_alias=AliasChoices("KIMI_BASE_URL", "kimi_base_url")
-    )
+    kimi_api_key: str = Field(..., validation_alias=AliasChoices("KIMI_API_KEY", "kimi_api_key"))
+    kimi_base_url: str = Field(..., validation_alias=AliasChoices("KIMI_BASE_URL", "kimi_base_url"))
 
     # Runtime settings (no defaults - from config.json)
     default_llm_provider: str

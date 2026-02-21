@@ -5,9 +5,9 @@ TDD approach: write tests first, then implement to make them pass.
 
 import asyncio
 import inspect
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -32,10 +32,11 @@ def scheduler(temp_data_dir: Path) -> CronScheduler:
 class TestCronSchedulerInit:
     """Tests for CronScheduler initialization."""
 
-    def test_scheduler_initializes_empty(self):
+    def test_scheduler_initializes_empty(self, temp_data_dir: Path):
         """Scheduler starts with no jobs."""
-        scheduler = CronScheduler()
-        
+        store = CronStore(data_dir=temp_data_dir)
+        scheduler = CronScheduler(store=store)
+
         assert scheduler._jobs == {}
         assert scheduler._task is None
         assert not scheduler._shutdown_event.is_set()
@@ -44,33 +45,36 @@ class TestCronSchedulerInit:
 class TestCronSchedulerStartStop:
     """Tests for start/stop lifecycle."""
 
-    async def test_start_starts_monitor_loop(self):
+    async def test_start_starts_monitor_loop(self, temp_data_dir: Path):
         """start() launches background monitoring task."""
-        scheduler = CronScheduler()
-        
+        store = CronStore(data_dir=temp_data_dir)
+        scheduler = CronScheduler(store=store, check_interval=0.1)
+
         await scheduler.start()
-        
+
         assert scheduler._task is not None
         assert not scheduler._task.done()
-        
+
         await scheduler.stop()
 
-    async def test_stop_graceful_shutdown(self):
+    async def test_stop_graceful_shutdown(self, temp_data_dir: Path):
         """stop() cancels monitor loop cleanly."""
-        scheduler = CronScheduler()
+        store = CronStore(data_dir=temp_data_dir)
+        scheduler = CronScheduler(store=store, check_interval=0.1)
         await scheduler.start()
-        
+
         await scheduler.stop()
-        
+
         assert scheduler._shutdown_event.is_set()
         assert scheduler._task is None or scheduler._task.done()
 
-    async def test_stop_without_start_succeeds(self):
+    async def test_stop_without_start_succeeds(self, temp_data_dir: Path):
         """stop() can be called even if start() was never called."""
-        scheduler = CronScheduler()
-        
+        store = CronStore(data_dir=temp_data_dir)
+        scheduler = CronScheduler(store=store, check_interval=0.1)
+
         await scheduler.stop()  # Should not raise
-        
+
         assert scheduler._shutdown_event.is_set()
 
 
@@ -86,9 +90,9 @@ class TestCronSchedulerRegisterJob:
             code="async def run(): pass",
             status="active",
         )
-        
+
         await scheduler.register_job(job)
-        
+
         assert "test-1" in scheduler._jobs
         assert scheduler._jobs["test-1"].name == "Test Job"
 
@@ -101,9 +105,9 @@ class TestCronSchedulerRegisterJob:
             code="async def run(): return 'executed'",
             status="active",
         )
-        
+
         await scheduler.register_job(job)
-        
+
         # Handler should be compiled and callable
         assert inspect.iscoroutinefunction(scheduler._jobs["test-1"].handler)
 
@@ -123,10 +127,10 @@ class TestCronSchedulerRegisterJob:
             code="async def run(): pass",
             status="active",
         )
-        
+
         await scheduler.register_job(job1)
         await scheduler.register_job(job2)
-        
+
         assert scheduler._jobs["test-1"].name == "Job 2"
 
 
@@ -148,15 +152,15 @@ async def run():
             status="active",
             last_run=None,  # Never run
         )
-        
+
         await scheduler.register_job(job)
         await scheduler.start()
-        
+
         # Wait for at least one check cycle
         await asyncio.sleep(0.15)
-        
+
         await scheduler.stop()
-        
+
         # Job should have been marked as executed
         # (we check by seeing if last_run was updated)
         assert scheduler._jobs["test-exec"].last_run is not None
@@ -171,17 +175,17 @@ async def run():
             status="active",
             last_run=datetime.now(UTC),  # Just ran
         )
-        
+
         await scheduler.register_job(job)
         original_last_run = scheduler._jobs["test-noexec"].last_run
-        
+
         await scheduler.start()
-        
+
         # Wait for check cycle
         await asyncio.sleep(0.15)
-        
+
         await scheduler.stop()
-        
+
         # last_run should not have changed
         assert scheduler._jobs["test-noexec"].last_run == original_last_run
 
@@ -196,17 +200,17 @@ async def run():
             status="active",
             last_run=None,
         )
-        
+
         await scheduler.register_job(job)
-        
+
         # Acquire the lock to simulate job currently running
         async with scheduler._jobs["test-queue"]._running:
             # Try to execute while locked - should skip
             await scheduler._execute_job(scheduler._jobs["test-queue"])
-            
+
             # last_run should still be None (execution was skipped)
             assert scheduler._jobs["test-queue"].last_run is None
-        
+
         # Now execute without lock - should succeed
         await scheduler._execute_job(scheduler._jobs["test-queue"])
         assert scheduler._jobs["test-queue"].last_run is not None
@@ -223,14 +227,14 @@ async def run():
             status=JobStatus.PENDING,
             last_run=None,
         )
-        
+
         scheduler._jobs["test-pending"] = runnable
         await scheduler.start()
-        
+
         await asyncio.sleep(0.15)
-        
+
         await scheduler.stop()
-        
+
         runnable.handler.assert_not_called()
 
 
@@ -255,15 +259,15 @@ class TestCronSchedulerMultipleJobs:
             status="active",
             last_run=None,
         )
-        
+
         await scheduler.register_job(job1)
         await scheduler.register_job(job2)
         await scheduler.start()
-        
+
         await asyncio.sleep(0.15)
-        
+
         await scheduler.stop()
-        
+
         # Both should have last_run set
         assert scheduler._jobs["job-1"].last_run is not None
         assert scheduler._jobs["job-2"].last_run is not None
@@ -282,17 +286,17 @@ class TestCronSchedulerErrorHandling:
             status="active",
             last_run=None,
         )
-        
+
         await scheduler.register_job(job)
         await scheduler.start()
-        
+
         # Wait for check cycles
         await asyncio.sleep(0.25)
-        
+
         # Scheduler should still be running
         assert scheduler._task is not None
         assert not scheduler._task.done()
-        
+
         await scheduler.stop()
 
 
@@ -309,15 +313,15 @@ class TestCronSchedulerUpdateLastRun:
             status="active",
             last_run=None,
         )
-        
+
         await scheduler.register_job(job)
-        
+
         before = datetime.now(UTC)
         await scheduler.start()
         await asyncio.sleep(0.15)
         await scheduler.stop()
         after = datetime.now(UTC)
-        
+
         assert scheduler._jobs["test-lastrun"].last_run is not None
         assert before <= scheduler._jobs["test-lastrun"].last_run <= after
 
@@ -332,7 +336,7 @@ async def run():
     return "hello"
 """
         handler = scheduler._compile_handler(code)
-        
+
         assert inspect.iscoroutinefunction(handler)
 
     def test_compile_missing_run_function(self, scheduler: CronScheduler):
@@ -357,18 +361,20 @@ def run():
 class TestCronSchedulerNotifier:
     """Tests for notifier integration."""
 
-    def test_scheduler_accepts_notifier_parameter(self):
+    def test_scheduler_accepts_notifier_parameter(self, temp_data_dir: Path):
         """CronScheduler accepts notifier in constructor."""
         from src.cron.notifier import CLINotifier
 
+        store = CronStore(data_dir=temp_data_dir)
         notifier = CLINotifier()
-        scheduler = CronScheduler(notifier=notifier)
+        scheduler = CronScheduler(store=store, notifier=notifier)
 
         assert scheduler._notifier is notifier
 
-    def test_scheduler_notifier_defaults_to_none(self):
+    def test_scheduler_notifier_defaults_to_none(self, temp_data_dir: Path):
         """CronScheduler notifier defaults to None."""
-        scheduler = CronScheduler()
+        store = CronStore(data_dir=temp_data_dir)
+        scheduler = CronScheduler(store=store)
 
         assert scheduler._notifier is None
 
@@ -378,9 +384,10 @@ class TestCronSchedulerNotifier:
 
         from src.cron.notifier import CLINotifier
 
+        store = CronStore(data_dir=temp_data_dir)
         output = io.StringIO()
         notifier = CLINotifier(output_stream=output)
-        scheduler = CronScheduler(check_interval=0.1, notifier=notifier)
+        scheduler = CronScheduler(store=store, check_interval=0.1, notifier=notifier)
 
         # Register job that calls notify
         job_code = """

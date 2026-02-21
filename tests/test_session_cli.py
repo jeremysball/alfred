@@ -101,7 +101,7 @@ class TestAlfredSessionIntegration:
         mock_memory_store.get_all_entries.return_value = []
         
         mock_context_loader = Mock()
-        mock_context_loader.assemble_with_search.return_value = "system prompt"
+        mock_context_loader.assemble_with_search.return_value = ("system prompt", 0)
         
         mock_registry = Mock()
         mock_registry.list_tools.return_value = []

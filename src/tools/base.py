@@ -1,7 +1,7 @@
 """Base tool class with Pydantic schema generation."""
 
 import json
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar
 
@@ -80,9 +80,12 @@ class Tool(ABC):
             f"{self.__class__.__name__}Params", __base__=ToolParameter, **fields
         )
 
-    @abstractmethod
     def execute(self, **kwargs: Any) -> str | dict[str, Any]:
         """Execute the tool with the given parameters (non-streaming).
+
+        Default implementation returns an error message. Override this method
+        if the tool supports synchronous execution, or override execute_stream()
+        for async-only tools.
 
         Args:
             **kwargs: Parameters as defined by the tool's schema
@@ -90,7 +93,9 @@ class Tool(ABC):
         Returns:
             Either a string or a dict (will be JSON-serialized)
         """
-        pass
+        return (
+            f"Error: {self.__class__.__name__} must be called via execute_stream in async context"
+        )
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the tool with streaming output.

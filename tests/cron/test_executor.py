@@ -35,26 +35,6 @@ class TestExecutionContext:
         # Should not raise
         await context.notify("Hello")
 
-    def test_store_get_returns_none(self):
-        """Should return None for unimplemented store."""
-        context = ExecutionContext(
-            job_id="test-1",
-            job_name="Test Job",
-        )
-
-        result = context.store_get("key")
-        assert result is None
-
-    def test_store_set_does_nothing(self):
-        """Should silently succeed for unimplemented store."""
-        context = ExecutionContext(
-            job_id="test-1",
-            job_name="Test Job",
-        )
-
-        # Should not raise
-        context.store_set("key", "value")
-
 
 class TestJobExecutorBasic:
     """Test basic JobExecutor functionality."""

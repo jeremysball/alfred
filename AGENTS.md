@@ -7,8 +7,10 @@
 **STOP.** Before responding to any user message or command, you **MUST**:
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
-2. Read `/workspace/alfred-prd/prds/48-alfred-v1-vision.md` (parent PRD)
-3. Confirm completion in your first response: "✅ Writing skill and parent PRD loaded"
+2. Read `/workspace/alfred-prd/.pi/skills/ntfy/SKILL.md`
+3. Read `/workspace/alfred-prd/.pi/skills/serper-search/SKILL.md`
+4. Read `/workspace/alfred-prd/docs/ROADMAP.md` (project roadmap)
+5. Confirm completion in your first response: "✅ Skills and parent PRD loaded"
 
 **No exceptions.** This applies to:
 - The first message of every conversation
@@ -50,15 +52,10 @@ Understand → Ask Questions → Discuss Options → User Decides → Confirm �
 
 ---
 
-## ⚠️ SECRETS & API KEYS — READ THIS
+## ⚠️ SECRETS & AUTHENTICATION — READ THIS
 
-**ANY command that needs secrets (GH_TOKEN, API keys, etc.) MUST use:**
+**ANY command needing secrets MUST use `uv run dotenv`:**
 
-```bash
-uv run dotenv <command>
-```
-
-**Examples:**
 ```bash
 uv run dotenv gh pr create --title "..." --body "..."
 uv run dotenv gh issue close 23
@@ -67,53 +64,33 @@ uv run dotenv python script_using_api.py
 
 **WRONG — Do NOT do this:**
 ```bash
-gh pr create --title "..." --body "..."     # ❌ Will fail - no GH_TOKEN
-source .env && gh pr create                 # ❌ Pollutes shell
+gh pr create --title "..."                          # ❌ No GH_TOKEN
+source .env && gh pr create                          # ❌ Pollutes shell
+export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
 ```
 
-If a command fails with "authentication required" or "token not found", you forgot `uv run dotenv`.
-
----
-
-## ⚠️ GITHUB CLI — READ THIS
-
-**ALWAYS, ALWAYS, ALWAYS run `gh` commands with `uv run dotenv gh`:**
-
-```bash
-uv run dotenv gh issue create --title "..." --body "..."
-uv run dotenv gh issue edit 123 --body "..."
-uv run dotenv gh pr create --title "..." --body "..."
-uv run dotenv gh pr merge 456
-```
-
-**WRONG — Do NOT do this:**
-```bash
-gh issue create --title "..."               # ❌ Will fail - no GH_TOKEN
-export $(cat .env | grep GH_TOKEN | xargs) && gh issue create  # ❌ Pollutes shell
-```
-
-**NO EXCEPTIONS.** Every `gh` command must use `uv run dotenv gh`.
+**NO EXCEPTIONS.** Every command requiring tokens (GitHub CLI, Serper API, etc.) must use `uv run dotenv`.
 
 ---
 
 ### 1. Permission First
-ALWAYS, ALWAYS ask before:
-- Editing files
-- Deleting data
-- Writing tests / production code
-- EVEN when a skill tells you to edit a file
-you MUST offer a changelog and ask for permission
-- Running any commands that effect state (such as git commands, etc.)
+**ALWAYS** ask before editing files, deleting data, writing tests/production code, or running state-changing commands (git, etc.).
+
+**EVEN when a skill tells you to edit a file**, you MUST offer a changelog and ask for permission.
 
 **Changelog Requirements:**
-When proposing changes, you MUST articulate:
 1. **Approach**: What you're doing and how
 2. **Alternatives Considered**: Other approaches you rejected
-3. **Tradeoffs Made**: What you sacrificed for this choice (performance, simplicity, etc.)
-
+3. **Tradeoffs Made**: What you sacrificed for this choice
 
 ### 2. ALWAYS Ask Questions When Creating PRDs
 **CRITICAL**: When using the `prd-create` skill, you **MUST**:
+
+- Ask clarifying design questions before writing anything
+- Present alternatives with tradeoffs
+- Get explicit user confirmation before proceeding
+
+This applies the design-first rule from above.
 
 ### 3. Use Todo Sidebar for Task Tracking — MANDATORY
 **ALWAYS use the `todo-sidebar` tool** when outlining or tracking multi-step work. **NEVER use numbered lists in prose** when tasks need to be tracked.
@@ -149,19 +126,86 @@ todo-sidebar action: toggle, id: 1
 ### 4. Encourage Test-Driven Development (TDD)
 **ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
 
+This is **not strictly required** but STRONGLY encouraged and you will be expected to justify deciding not to.
 
-This is **not strictly required** but STRONGLY encouraged and you 
-will be expected to justify deciding
-not to.
+### 5. Testing Edge Cases — MANDATORY
+**ALWAYS** test edge cases, not just happy paths:
 
-### 5. Always Verify Before Done
+- **Input validation**: null, empty strings, wrong types, malformed data
+- **Boundary conditions**: off-by-one, empty collections, max/min values, integer overflow
+- **Error handling**: network failures, timeouts, missing files, permission denied
+- **Async edge cases**: race conditions, concurrent access, timeout handling
+
+**Example:**
+```python
+# ✅ Test edge cases
+def test_parse_config():
+    assert parse_config('{"key": "value"}') == {"key": "value"}  # happy
+    assert parse_config('{}') == {}                               # empty
+    assert parse_config('invalid') raises ValueError              # malformed
+    assert parse_config(None) raises TypeError                    # null
+```
+
+### 6. Defensive Programming — MANDATORY
+**ALWAYS** write defensive code:
+
+- **Validate inputs at boundaries**: Check args at function/class entry points
+- **Fail fast with explicit errors**: Raise specific exceptions early, not cryptic ones later
+- **Type safety**: Use type hints + runtime validation (Pydantic, asserts)
+- **Assertions for invariants**: `assert` conditions that must always hold
+- **Follow PEP 8**: Adhere to [Python style conventions](https://peps.python.org/pep-0008/)
+
+**WRONG — Do NOT do this:**
+```python
+def process(data):
+    return data["items"][0]["name"]  # ❌ Multiple silent failure points
+```
+
+**CORRECT — Do this instead:**
+```python
+def process(data: dict) -> str:
+    if not data:
+        raise ValueError("data cannot be empty")
+    if "items" not in data:
+        raise KeyError("data must contain 'items'")
+    if not data["items"]:
+        raise ValueError("items list cannot be empty")
+    return data["items"][0]["name"]
+```
+
+### 7. Notify on Long-Running Tasks — MANDATORY
+**ALWAYS** send an ntfy notification when: long-running tasks complete, user input required, workflow milestones (PR created/merged), or errors needing attention.
+
+```bash
+# Simple notification
+curl -s -d "Task complete" ntfy.sh/pi-agent-prometheus
+
+# High priority for input needed
+curl -s -H "Priority: high" -d "Input needed" ntfy.sh/pi-agent-prometheus
+```
+
+**Don't notify for:** simple file reads, intermediate steps, quick acknowledgments.
+
+### 8. Use Serper for Web Search — MANDATORY
+**USE** Serper API (not your training data) for web searches:
+
+```bash
+uv run dotenv curl -X POST https://google.serper.dev/search \
+  -H "X-API-KEY: $SERPER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "your search query"}'
+```
+
+**Use for:** documentation, library versions, best practices, recent news.
+
+### 9. Always Verify Before Done
 After any code change, run:
 ```bash
 uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
 Show results. Fix issues. Then it's done.
 
-### 6. ALWAYS Use Conventional Commits
+### 10. ALWAYS Use Conventional Commits
 **CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -189,7 +233,7 @@ Show results. Fix issues. Then it's done.
 - Reference issues in footer when applicable
 
 
-### 8. NEVER Use Hardcoded Absolute Paths
+### 11. NEVER Use Hardcoded Absolute Paths
 **CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
 
 **WRONG — Do NOT do this:**
@@ -220,6 +264,3 @@ def test_something():
     project_root = Path(__file__).parent.parent
     config = load_config(project_root / "config.json")
 ```
-
-### ALWAYS ASK DESIGN QUESTIONS!!!
-### PRESENT TRADEOFFS AND ALTERNATIVES

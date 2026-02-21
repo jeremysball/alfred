@@ -28,13 +28,16 @@ class ScheduleJobParams(BaseModel):
         max_length=500,
     )
     cron_expression: str = Field(
-        description=("When to run the job. Can be natural language: 'every morning at 8am', "
-                     "'Sundays at 7pm', 'every 15 minutes', or cron format: '0 9 * * *'"),
+        description=(
+            "When to run the job. Can be natural language: 'every morning at 8am', "
+            "'Sundays at 7pm', 'every 15 minutes', or cron format: '0 9 * * *'"
+        ),
     )
     code: str | None = Field(
         default=None,
-        description=("Optional Python code. If not provided, code will be "
-                     "generated from description"),
+        description=(
+            "Optional Python code. If not provided, code will be generated from description"
+        ),
     )
 
     @field_validator("name")
@@ -99,17 +102,6 @@ class ScheduleJobTool(Tool):
         """
         super().__init__()
         self.scheduler = scheduler
-
-    def execute(self, **kwargs: Any) -> str:
-        """Execute the schedule_job tool (sync - not supported).
-
-        Args:
-            **kwargs: Tool parameters matching ScheduleJobParams
-
-        Returns:
-            Error message directing to use async execution
-        """
-        return "Error: ScheduleJobTool must be called via execute_stream in async context"
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the schedule_job tool (async).

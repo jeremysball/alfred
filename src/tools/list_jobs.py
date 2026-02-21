@@ -53,10 +53,6 @@ class ListJobsTool(Tool):
         super().__init__()
         self.scheduler = scheduler
 
-    def execute(self, **kwargs: Any) -> str:
-        """Execute the list_jobs tool (sync - not supported)."""
-        return "Error: ListJobsTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the list_jobs tool (async).
 

@@ -2,8 +2,8 @@
 
 import json
 import logging
-from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.llm import ChatMessage, LLMProvider
@@ -19,6 +19,39 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+
+
+# Tool event types for callback-based rendering
+
+
+@dataclass
+class ToolEvent:
+    """Base event for tool execution."""
+
+    tool_call_id: str
+    tool_name: str
+
+
+@dataclass
+class ToolStart(ToolEvent):
+    """Tool started executing."""
+
+    arguments: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ToolOutput(ToolEvent):
+    """Chunk of tool output."""
+
+    chunk: str = ""
+
+
+@dataclass
+class ToolEnd(ToolEvent):
+    """Tool finished."""
+
+    result: str = ""
+    is_error: bool = False
 
 
 class Agent:
@@ -38,14 +71,19 @@ class Agent:
         self,
         messages: list[ChatMessage],
         system_prompt: str | None = None,
+        usage_callback: Callable[[dict[str, Any]], None] | None = None,
+        tool_callback: Callable[[ToolEvent], None] | None = None,
     ) -> AsyncIterator[str]:
         """Run agent loop with full streaming.
 
+        Args:
+            messages: Conversation messages
+            system_prompt: Optional system prompt
+            usage_callback: Optional callback for token usage updates
+            tool_callback: Optional callback for tool execution events
+
         Yields:
             - LLM response tokens as they arrive
-            - Tool execution status markers
-            - Tool output chunks in real-time
-            - Final response after tool results
         """
         if system_prompt:
             messages = [ChatMessage(role="system", content=system_prompt)] + messages
@@ -69,6 +107,16 @@ class Agent:
                 messages,
                 tools=tool_schemas if tool_schemas else None,
             ):
+                # Check for usage marker
+                if chunk.startswith("[USAGE]"):
+                    try:
+                        usage_data = json.loads(chunk[7:])
+                        if usage_callback:
+                            usage_callback(usage_data)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse usage data: {chunk}")
+                    continue
+
                 # Check for tool call markers in stream
                 if chunk.startswith("[TOOL_CALLS]"):
                     # Parse tool calls from marker
@@ -131,28 +179,77 @@ class Agent:
                 tool = self.tools.get(call.name)
 
                 if not tool:
-                    yield f"\n[Tool '{call.name}' not found]\n"
+                    error_msg = f"Error: Tool '{call.name}' not found"
+                    if tool_callback:
+                        tool_callback(
+                            ToolStart(
+                                tool_call_id=call.id,
+                                tool_name=call.name,
+                                arguments={},
+                            )
+                        )
+                        tool_callback(
+                            ToolEnd(
+                                tool_call_id=call.id,
+                                tool_name=call.name,
+                                result=error_msg,
+                                is_error=True,
+                            )
+                        )
                     messages.append(
                         ChatMessage(
                             role="tool",
-                            content=f"Error: Tool '{call.name}' not found",
+                            content=error_msg,
                             tool_call_id=call.id,
                         )
                     )
                     continue
 
-                # Stream tool execution
-                yield f"\n[Executing: {call.name}]\n"
+                # Emit tool start event
+                if tool_callback:
+                    tool_callback(
+                        ToolStart(
+                            tool_call_id=call.id,
+                            tool_name=call.name,
+                            arguments=call.arguments,
+                        )
+                    )
 
                 tool_output = ""
                 try:
                     async for chunk in tool.validate_and_run_stream(call.arguments):
                         tool_output += chunk
-                        yield chunk  # Stream tool output in real-time!
+                        # Emit output event
+                        if tool_callback:
+                            tool_callback(
+                                ToolOutput(
+                                    tool_call_id=call.id,
+                                    tool_name=call.name,
+                                    chunk=chunk,
+                                )
+                            )
                 except Exception as e:
                     error_msg = f"Error executing {call.name}: {e}"
-                    yield f"\n{error_msg}\n"
                     tool_output += error_msg
+                    if tool_callback:
+                        tool_callback(
+                            ToolOutput(
+                                tool_call_id=call.id,
+                                tool_name=call.name,
+                                chunk=error_msg,
+                            )
+                        )
+
+                # Emit tool end event
+                if tool_callback:
+                    tool_callback(
+                        ToolEnd(
+                            tool_call_id=call.id,
+                            tool_name=call.name,
+                            result=tool_output,
+                            is_error=self._is_error(tool_output),
+                        )
+                    )
 
                 # Add tool result to messages
                 messages.append(
@@ -163,15 +260,25 @@ class Agent:
                     )
                 )
 
-                yield f"\n[{call.name} complete]\n"
-
         # Max iterations reached
-        yield "\n[Max iterations reached]\n"
+        logger.warning(f"Agent reached max iterations ({self.max_iterations})")
+
+    def _is_error(self, output: str) -> bool:
+        """Detect if tool output indicates an error."""
+        error_indicators = [
+            "Error:",
+            "Exception:",
+            "Traceback",
+            "Failed",
+            "❌",
+        ]
+        return any(indicator in output for indicator in error_indicators)
 
     async def run(
         self,
         messages: list[ChatMessage],
         system_prompt: str | None = None,
+        tool_callback: Callable[[ToolEvent], None] | None = None,
     ) -> str:
         """Run agent loop (non-streaming, collects full response).
 
@@ -179,6 +286,6 @@ class Agent:
             Complete response as string
         """
         result = ""
-        async for chunk in self.run_stream(messages, system_prompt):
+        async for chunk in self.run_stream(messages, system_prompt, tool_callback=tool_callback):
             result += chunk
         return result

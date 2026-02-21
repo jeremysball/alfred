@@ -34,20 +34,6 @@ class SearchMemoriesTool(Tool):
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(self, **kwargs: Any) -> str:
-        """Search memories (sync wrapper - use execute_stream).
-
-        Args:
-            **kwargs: Tool parameters including:
-                - query: Search query to find relevant memories
-                - entry_id: Direct lookup by memory ID
-                - top_k: Maximum number of results to return
-
-        Returns:
-            Error message directing to use async method
-        """
-        return "Error: SearchMemoriesTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Search memories and return formatted results.
 
@@ -76,10 +62,7 @@ class SearchMemoriesTool(Tool):
                     return
 
                 date_str = entry.timestamp.strftime("%Y-%m-%d")
-                result = (
-                    f"- [{date_str}] {entry.content} "
-                    f"(id: {entry.entry_id})"
-                )
+                result = f"- [{date_str}] {entry.content} (id: {entry.entry_id})"
                 yield result
                 return
             except Exception as e:

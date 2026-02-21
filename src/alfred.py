@@ -1,12 +1,13 @@
 """Core Alfred engine - orchestrates memory, context, and LLM with agent loop."""
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import Any
 
 from telegram import Bot
 
-from src.agent import Agent
+from src.agent import Agent, ToolEvent
 from src.config import Config
 from src.context import ContextLoader
 from src.cron.notifier import CLINotifier, Notifier, TelegramNotifier
@@ -17,7 +18,26 @@ from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
 from src.search import MemorySearcher
 from src.session import SessionManager
+from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
+
+# Default prompt sections loaded by ContextLoader
+DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
+
+
+class ContextSummary:
+    """Summary of loaded context for status display."""
+
+    def __init__(self) -> None:
+        self.memories_count: int = 0
+        self.session_messages: int = 0
+        self.prompt_sections: list[str] = DEFAULT_PROMPT_SECTIONS.copy()
+
+    def update(self, memories_count: int, session_messages: int) -> None:
+        """Update context summary values."""
+        self.memories_count = memories_count
+        self.session_messages = session_messages
+
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +109,44 @@ class Alfred:
         # Session manager for conversation history
         self.session_manager = SessionManager.get_instance()
 
+        # Token tracking for usage display
+        self.token_tracker = TokenTracker()
+
+        # Context summary for status display
+        self.context_summary = ContextSummary()
+
+    @property
+    def model_name(self) -> str:
+        """Get full model display name (provider/model)."""
+        return f"{self.config.default_llm_provider}/{self.config.chat_model}"
+
+    def _on_usage(self, usage: dict[str, Any]) -> None:
+        """Callback for LLM usage updates."""
+        self.token_tracker.add(usage)
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        """Estimate token count from character count.
+
+        Uses 4 chars per token as rough approximation.
+        """
+        return len(text) // 4
+
+    def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
+        """Update context token estimate.
+
+        Args:
+            system_prompt: Full system prompt text
+            messages: Conversation messages
+        """
+        total_chars = len(system_prompt)
+        for msg in messages:
+            total_chars += len(msg.content)
+            if msg.tool_calls:
+                total_chars += len(str(msg.tool_calls))
+
+        self.token_tracker.set_context_tokens(self._estimate_tokens(system_prompt + str(messages)))
+
     async def chat(self, message: str) -> str:
         """Process a message with full agent loop (non-streaming).
 
@@ -108,13 +166,19 @@ class Alfred:
 
         return response
 
-    async def chat_stream(self, message: str) -> AsyncIterator[str]:
+    async def chat_stream(
+        self,
+        message: str,
+        tool_callback: Callable[[ToolEvent], None] | None = None,
+    ) -> AsyncIterator[str]:
         """Process a message with streaming.
 
+        Args:
+            message: User message
+            tool_callback: Optional callback for tool execution events
+
         Yields:
-            - LLM response tokens
-            - Tool execution status
-            - Tool output in real-time
+            LLM response tokens
         """
         logger.info(f"Processing message: {message[:50]}...")
 
@@ -140,7 +204,7 @@ class Alfred:
         # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
         session_messages = self._get_session_messages_for_context()
-        system_prompt = self.context_loader.assemble_with_search(
+        system_prompt, memories_count = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
             session_messages=session_messages,
@@ -149,9 +213,23 @@ class Alfred:
 
         messages = [ChatMessage(role="user", content=message)]
 
+        # Update context token estimate for status display
+        self._update_context_tokens(system_prompt, messages)
+
+        # Update context summary for status display
+        self.context_summary.update(
+            memories_count=memories_count,
+            session_messages=len(session_messages),
+        )
+
         logger.debug("Starting agent loop...")
         full_response = []
-        async for chunk in self.agent.run_stream(messages, system_prompt):
+        async for chunk in self.agent.run_stream(
+            messages,
+            system_prompt,
+            usage_callback=self._on_usage,
+            tool_callback=tool_callback,
+        ):
             full_response.append(chunk)
             yield chunk
 
