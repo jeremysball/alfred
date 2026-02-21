@@ -214,9 +214,9 @@ When making decisions—what to remember, when to summarize, how to respond—pr
 
 ### Memory Behavior
 
-- Alfred autonomously decides what to remember using the `remember` tool
-- Retrieve context without requiring explicit commands
-- Learn patterns and update agent files (USER.md, SOUL.md) over time
+- **Memory Store**: Alfred autonomously decides what to remember using the `remember` tool, storing curated facts to `data/memory/memories.jsonl`
+- **Session History**: Current conversation held in-memory via `SessionManager`, injected into context
+- **Contextual Retrieval**: Future system (PRD #77) for session summaries and per-session message search
 
 ## Related Documentation
 
