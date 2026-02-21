@@ -69,15 +69,17 @@ Single tool with actions (following established patterns):
 ```python
 terminal(
     action: "start" | "send" | "capture" | "exit",
-    command: str = None,      # for "start"
-    keys: list[str] = None,   # for "send" - keystrokes
-    text: str = None,         # for "send" - text input
+    command: str = None,       # for "start"
+    keys: list[str] = None,    # for "send" - keystrokes
+    text: str = None,          # for "send" - text input
+    sleep_ms: int = None,      # for "send" - sleep duration in milliseconds
+    wait_pattern: str = None,  # for "capture" - regex to wait for
 )
 ```
 
 **Actions:**
 - `start` — Spawn a terminal session with the given command
-- `send` — Send keystrokes or text to the running session
+- `send` — Send keystrokes, text, and/or sleep to the running session
 - `capture` — Take a screenshot (PNG) and extract text; returns both
 - `exit` — Terminate the session
 
@@ -132,7 +134,7 @@ The agent can then:
 - [x] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
 - [x] **M5: Integration with pi** — Add tool to the agent's available tools
 - [ ] **M6: Documentation** — Document tool usage with examples
-- [ ] **M7: Test with Alfred** — Verify the tool works with Alfred CLI for real workflows
+- [x] **M7: Test with Alfred** — Verify the tool works with Alfred CLI for real workflows
 
 ---
 
@@ -183,6 +185,15 @@ The agent can then:
 | 2026-02-21 | Single-session for MVP | Tape file approach generates one session at a time; simpler implementation |
 | 2026-02-21 | Use `Wait /pattern/` for timing | VHS supports regex-based waiting; better than fixed delays for slow TUIs |
 | 2026-02-21 | Add `wait_pattern` parameter to capture | Allows optional regex-based waiting before screenshot; falls back to 500ms sleep |
+| 2026-02-21 | Add `sleep_ms` parameter to send | Allows timing control for slow operations (e.g., LLM responses need 10+ seconds) |
+| 2026-02-21 | Document arrow key limitation | VHS sends escape codes that prompt_toolkit doesn't interpret; use text input only |
+
+## Known Limitations
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| Arrow key navigation | Escape codes not interpreted by prompt_toolkit in VHS terminal | Use text input only; avoid line editing |
+| LLM response timing | Requires explicit sleep for responses | Use `sleep_ms=10000+` for LLM calls |
 
 ---
 

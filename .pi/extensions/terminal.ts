@@ -28,6 +28,9 @@ const TerminalToolParams = Type.Object({
   text: Type.Optional(
     Type.String({ description: "Text to type (for send action)" })
   ),
+  sleep_ms: Type.Optional(
+    Type.Number({ description: "Milliseconds to sleep (for send action)" })
+  ),
   wait_pattern: Type.Optional(
     Type.String({ description: "Regex pattern to wait for before capture (for capture action)" })
   ),
@@ -220,7 +223,7 @@ export default function (pi: ExtensionAPI) {
     parameters: TerminalToolParams,
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      const { action, command, keys, text, wait_pattern } = params;
+      const { action, command, keys, text, sleep_ms, wait_pattern } = params;
 
       switch (action) {
         case "start": {
@@ -292,7 +295,14 @@ export default function (pi: ExtensionAPI) {
 
           const commands: string[] = [];
 
-          // Process keystrokes
+          // Process text input FIRST (type before pressing keys)
+          if (text) {
+            // Escape quotes in text
+            const escaped = text.replace(/"/g, '\\"');
+            commands.push(`Type "${escaped}"`);
+          }
+
+          // Process keystrokes AFTER text (e.g., Enter to submit)
           if (keys && keys.length > 0) {
             for (const key of keys) {
               const normalized = key.toLowerCase().replace(/[-_]/g, "_");
@@ -320,11 +330,9 @@ export default function (pi: ExtensionAPI) {
             }
           }
 
-          // Process text input
-          if (text) {
-            // Escape quotes in text
-            const escaped = text.replace(/"/g, '\\"');
-            commands.push(`Type "${escaped}"`);
+          // Process sleep LAST (wait for response)
+          if (sleep_ms) {
+            commands.push(`Sleep ${sleep_ms}ms`);
           }
 
           if (commands.length === 0) {
@@ -332,7 +340,7 @@ export default function (pi: ExtensionAPI) {
               content: [
                 {
                   type: "text" as const,
-                  text: "Error: Either keys or text is required for send action.",
+                  text: "Error: At least one of keys, text, or sleep_ms is required for send action.",
                 },
               ],
               isError: true,
@@ -345,7 +353,7 @@ export default function (pi: ExtensionAPI) {
             content: [
               {
                 type: "text" as const,
-                text: `Sent: ${keys?.length ? `${keys.length} keystrokes` : ""}${keys?.length && text ? " + " : ""}${text ? `text "${text}"` : ""}`,
+                text: `Sent: ${keys?.length ? `${keys.length} keystrokes` : ""}${keys?.length && text ? " + " : ""}${text ? `text "${text}"` : ""}${(keys?.length || text) && sleep_ms ? " + " : ""}${sleep_ms ? `sleep ${sleep_ms}ms` : ""}`,
               },
             ],
             details: {
