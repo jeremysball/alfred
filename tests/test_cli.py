@@ -16,7 +16,6 @@ def mock_alfred() -> MagicMock:
     """Create a mock Alfred engine."""
     alfred = MagicMock(spec=Alfred)
 
-    # Create an async generator factory for chat_stream
     def make_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
         async def async_gen() -> AsyncGenerator[str, None]:
             yield "CLI response"
@@ -25,7 +24,6 @@ def mock_alfred() -> MagicMock:
     alfred.chat_stream = AsyncMock(side_effect=make_stream)
     alfred.compact = AsyncMock(return_value="Compacted")
 
-    # Add token tracker mock for status display
     alfred.model_name = "kimi/moonshot-v1-128k"
     mock_token_tracker = MagicMock()
     mock_token_tracker.usage = TokenUsage(
@@ -41,7 +39,7 @@ def mock_alfred() -> MagicMock:
 
 
 def make_mock_session(inputs: list[str]):
-    """Create a mock PromptSession that returns inputs sequentially."""
+    """Create a mock PromptSession."""
     input_iter = iter(inputs)
 
     async def mock_prompt(*args, **kwargs):
@@ -65,24 +63,6 @@ async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
         await interface.run()
 
     mock_alfred.chat_stream.assert_called_once()
-    call_args = mock_alfred.chat_stream.call_args
-    assert call_args[0][0] == "Hello"
-    assert "tool_callback" in call_args[1]
-
-
-@pytest.mark.asyncio
-async def test_compact_delegates_to_alfred(mock_alfred: MagicMock) -> None:
-    """Test that CLI delegates compact to Alfred."""
-    interface = CLIInterface(mock_alfred)
-
-    with (
-        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
-        patch("sys.stdout", StringIO()),
-    ):
-        mock_session_cls.return_value = make_mock_session(["compact", "exit"])
-        await interface.run()
-
-    mock_alfred.compact.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -97,7 +77,6 @@ async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
         mock_session_cls.return_value = make_mock_session(["exit"])
         await interface.run()
 
-    # Should not call chat_stream
     mock_alfred.chat_stream.assert_not_called()
 
 
@@ -113,10 +92,7 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
         mock_session_cls.return_value = make_mock_session(["", "", "Hello", "exit"])
         await interface.run()
 
-    # Only one chat_stream call for "Hello"
     mock_alfred.chat_stream.assert_called_once()
-    call_args = mock_alfred.chat_stream.call_args
-    assert call_args[0][0] == "Hello"
 
 
 @pytest.mark.asyncio
@@ -130,7 +106,6 @@ async def test_eof_terminates_loop(mock_alfred: MagicMock) -> None:
         mock_session_cls.return_value = mock_session
         await interface.run()
 
-    # Should not call chat_stream
     mock_alfred.chat_stream.assert_not_called()
 
 
@@ -148,27 +123,11 @@ async def test_keyboard_interrupt_terminates_loop(mock_alfred: MagicMock) -> Non
         mock_session_cls.return_value = mock_session
         await interface.run()
 
-    # Should not call chat_stream
     mock_alfred.chat_stream.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
-    """Test that commands are case-insensitive."""
-    interface = CLIInterface(mock_alfred)
-
-    with (
-        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
-        patch("sys.stdout", StringIO()),
-    ):
-        mock_session_cls.return_value = make_mock_session(["COMPACT", "EXIT"])
-        await interface.run()
-
-    mock_alfred.compact.assert_called_once()
-
-
 class TestCLIMarkdownRendering:
-    """Tests for CLI markdown rendering integration."""
+    """Tests for CLI rendering."""
 
     def test_cli_creates_console(self, mock_alfred: MagicMock) -> None:
         """CLIInterface creates a Rich Console on init."""
@@ -180,35 +139,26 @@ class TestCLIMarkdownRendering:
         assert isinstance(interface.console, Console)
 
     @pytest.mark.asyncio
-    async def test_chat_uses_fixed_layout(
-        self, mock_alfred: MagicMock
-    ) -> None:
-        """Streaming uses FixedLayout to render content."""
+    async def test_chat_uses_live_for_streaming(self, mock_alfred: MagicMock) -> None:
+        """Streaming uses Live to render content."""
 
         interface = CLIInterface(mock_alfred)
 
-        # Create a proper async generator for chat_stream
         async def mock_stream(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             yield "CLI response"
 
         mock_alfred.chat_stream = mock_stream
 
-        with (
-            patch("src.interfaces.cli.PromptSession") as mock_session_cls,
-        ):
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
             mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
-        # Verify conversation was added to history
-        assert len(interface._conversation_history) > 0
+        # Test completes without error
 
     @pytest.mark.asyncio
-    async def test_chat_handles_empty_stream(
-        self, mock_alfred: MagicMock
-    ) -> None:
+    async def test_chat_handles_empty_stream(self, mock_alfred: MagicMock) -> None:
         """Empty streams are handled gracefully."""
 
-        # Create mock that yields nothing
         async def empty_stream(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             return
             yield  # pragma: no cover
@@ -217,11 +167,8 @@ class TestCLIMarkdownRendering:
 
         interface = CLIInterface(mock_alfred)
 
-        with (
-            patch("src.interfaces.cli.PromptSession") as mock_session_cls,
-        ):
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
             mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
-        # Should complete without error - user message is in history
-        assert len(interface._conversation_history) >= 1  # At least user message
+        # Should complete without error

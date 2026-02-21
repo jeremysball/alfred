@@ -7,7 +7,7 @@ from rich.text import Text
 
 from src.token_tracker import TokenUsage
 
-# Spinner frames for activity indicator
+# Spinner frames for activity indicator (braille dots)
 SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
@@ -23,14 +23,14 @@ class StatusData:
     def __post_init__(self) -> None:
         """Initialize spinner cycle."""
         self._spinner_cycle = cycle(SPINNER_FRAMES)
-        self._current_frame = "●"
+        self._current_frame = ">"
 
     def next_spinner_frame(self) -> str:
         """Get next spinner frame for animation."""
         if self.is_streaming:
             self._current_frame = next(self._spinner_cycle)
         else:
-            self._current_frame = "●"
+            self._current_frame = ">"
         return self._current_frame
 
 
@@ -38,7 +38,7 @@ class StatusRenderer:
     """Renders status line for CLI display.
 
     Format:
-    🔄 kimi/moonshot-v1-128k │ 📥 12,847 📤 3,291 💾 8,420 🧠 1,200 │ Context: 45
+    > kimi/moonshot-v1-128k │ in:12K out:3K cache:8K reason:1K │ ctx:45
     """
 
     def __init__(self, status_data: StatusData) -> None:
@@ -58,34 +58,32 @@ class StatusRenderer:
 
         # Model name
         text.append(self.status.model_name, style="bold white")
-        text.append(" │ ", style="dim")
+        text.append(" | ", style="dim")
 
         # Token counts
-        text.append("📥 ", style="default")
+        text.append("in:", style="dim")
         text.append(f"{self._format_number(self.status.usage.input_tokens)}", style="blue")
         text.append(" ")
 
-        text.append("📤 ", style="default")
+        text.append("out:", style="dim")
         text.append(f"{self._format_number(self.status.usage.output_tokens)}", style="green")
         text.append(" ")
 
         # Cache read (only if non-zero)
         if self.status.usage.cache_read_tokens > 0:
-            text.append("💾 ", style="default")
-            text.append(
-                f"{self._format_number(self.status.usage.cache_read_tokens)}", style="yellow"
-            )
+            text.append("cache:", style="dim")
+            val = self._format_number(self.status.usage.cache_read_tokens)
+            text.append(val, style="yellow")
             text.append(" ")
 
         # Reasoning tokens (only if non-zero)
         if self.status.usage.reasoning_tokens > 0:
-            text.append("🧠 ", style="default")
-            text.append(
-                f"{self._format_number(self.status.usage.reasoning_tokens)}", style="magenta"
-            )
+            text.append("reason:", style="dim")
+            val = self._format_number(self.status.usage.reasoning_tokens)
+            text.append(val, style="magenta")
             text.append(" ")
 
-        text.append("│ Context: ", style="dim")
+        text.append("| ctx:", style="dim")
         text.append(f"{self._format_number(self.status.context_tokens)}", style="white")
 
         return text

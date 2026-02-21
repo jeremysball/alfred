@@ -41,7 +41,7 @@ class TestStatusData:
         assert all(f in SPINNER_FRAMES for f in frames)
 
     def test_spinner_frame_when_idle(self) -> None:
-        """Spinner returns static dot when idle."""
+        """Spinner returns static > when idle."""
         usage = TokenUsage()
         status = StatusData(
             model_name="test/model",
@@ -51,8 +51,8 @@ class TestStatusData:
         )
 
         # Should always return idle indicator
-        assert status.next_spinner_frame() == "●"
-        assert status.next_spinner_frame() == "●"
+        assert status.next_spinner_frame() == ">"
+        assert status.next_spinner_frame() == ">"
 
     def test_spinner_transitions_to_idle(self) -> None:
         """Spinner transitions to idle when is_streaming changes."""
@@ -71,7 +71,7 @@ class TestStatusData:
         # Transition to idle
         status.is_streaming = False
         frame2 = status.next_spinner_frame()
-        assert frame2 == "●"
+        assert frame2 == ">"
 
 
 class TestStatusRenderer:
@@ -94,7 +94,7 @@ class TestStatusRenderer:
         assert "kimi/moonshot-v1-128k" in plain
         assert "1.0K" in plain  # input tokens formatted
         assert "500" in plain  # output tokens
-        assert "Context: 200" in plain
+        assert "ctx:200" in plain
 
     def test_render_with_cache_and_reasoning(self) -> None:
         """Renderer includes cache and reasoning tokens when present."""
@@ -116,8 +116,8 @@ class TestStatusRenderer:
         plain = text.plain
         assert "2.0K" in plain  # input
         assert "1.0K" in plain  # output
-        assert "500" in plain  # cache
-        assert "200" in plain  # reasoning
+        assert "cache:500" in plain  # cache
+        assert "reason:200" in plain  # reasoning
 
     def test_render_hides_zero_cache_and_reasoning(self) -> None:
         """Renderer omits cache/reasoning when zero."""
@@ -137,11 +137,12 @@ class TestStatusRenderer:
         text = renderer.render()
 
         plain = text.plain
-        # Should have input/output but not cache/reasoning labels
-        assert "📥" in plain
-        assert "📤" in plain
+        # Should have input/output labels
+        assert "in:" in plain
+        assert "out:" in plain
         # Cache/reasoning with zero values should not appear
-        # (The emojis 💾 and 🧠 should not be in the output)
+        assert "cache:" not in plain
+        assert "reason:" not in plain
 
     def test_format_number_small(self) -> None:
         """Numbers under 1000 are not abbreviated."""
@@ -173,7 +174,7 @@ class TestStatusRenderer:
         assert "cyan" in str(first_span.style)
 
     def test_render_idle_style(self) -> None:
-        """Idle state applies green color to dot."""
+        """Idle state applies green color to indicator."""
         usage = TokenUsage()
         status = StatusData(
             model_name="test/model",
@@ -184,7 +185,7 @@ class TestStatusRenderer:
         renderer = StatusRenderer(status)
         text = renderer.render()
 
-        # First span should be green dot
+        # First span should be green indicator
         assert len(text.spans) > 0
         first_span = text.spans[0]
         assert "green" in str(first_span.style)
