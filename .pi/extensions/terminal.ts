@@ -217,9 +217,12 @@ export default function (pi: ExtensionAPI) {
     name: "terminal",
     label: "Interactive Terminal",
     description:
-      "Control a terminal session with keystroke simulation and visual capture. " +
-      "Actions: start (begin session), send (keystrokes/text), capture (screenshot + text), exit (end session). " +
-      "Use this for end-to-end testing of TUI applications.",
+      "Interactive terminal control for E2E testing of TUI applications. " +
+      "Actions: start(command) to begin, send(text?, keys?, sleep_ms?) to input, " +
+      "capture(wait_pattern?) for screenshot+text, exit to cleanup. " +
+      "Example: start('alfred') -> send('hello', ['Enter'], 10000) -> capture() -> exit(). " +
+      "Use sleep_ms for slow operations (LLM responses need 10s+). " +
+      "Supported keys: Enter, Tab, Space, Backspace, Escape, Up, Down, Left, Right, Ctrl+C, Ctrl+D, etc.",
     parameters: TerminalToolParams,
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {
