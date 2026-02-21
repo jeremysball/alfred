@@ -214,7 +214,7 @@ When making decisions—what to remember, when to summarize, how to respond—pr
 
 ### Memory Behavior
 
-- Capture interactions automatically
+- Alfred autonomously decides what to remember using the `remember` tool
 - Retrieve context without requiring explicit commands
 - Learn patterns and update agent files (USER.md, SOUL.md) over time
 
