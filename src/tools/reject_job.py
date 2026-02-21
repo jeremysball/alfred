@@ -60,10 +60,6 @@ class RejectJobTool(Tool):
         super().__init__()
         self.scheduler = scheduler
 
-    def execute(self, **kwargs: Any) -> str:
-        """Execute the reject_job tool (sync - not supported)."""
-        return "Error: RejectJobTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the reject_job tool (async)."""
         try:

@@ -41,20 +41,6 @@ class RememberTool(Tool):
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(self, **kwargs: Any) -> str:
-        """Save a memory to the unified store (sync wrapper - use execute_stream).
-
-        Args:
-            **kwargs: Tool parameters including:
-                - content: The distilled insight or fact to remember
-                - tags: Comma-separated list of category tags
-
-        Returns:
-            Confirmation that the memory was saved
-        """
-        # This method should not be called directly - use execute_stream
-        return "Error: RememberTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Save a memory to the unified store (async).
 

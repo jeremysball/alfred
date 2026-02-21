@@ -63,10 +63,6 @@ class ApproveJobTool(Tool):
         super().__init__()
         self.scheduler = scheduler
 
-    def execute(self, **kwargs: Any) -> str:
-        """Execute the approve_job tool (sync - not supported)."""
-        return "Error: ApproveJobTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the approve_job tool (async).
 

@@ -34,20 +34,6 @@ class SearchMemoriesTool(Tool):
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(self, **kwargs: Any) -> str:
-        """Search memories (sync wrapper - use execute_stream).
-
-        Args:
-            **kwargs: Tool parameters including:
-                - query: Search query to find relevant memories
-                - entry_id: Direct lookup by memory ID
-                - top_k: Maximum number of results to return
-
-        Returns:
-            Error message directing to use async method
-        """
-        return "Error: SearchMemoriesTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Search memories and return formatted results.
 

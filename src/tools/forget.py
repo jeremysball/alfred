@@ -78,17 +78,6 @@ class ForgetTool(Tool):
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def execute(self, **kwargs: Any) -> str:
-        """Sync execute returns error message.
-
-        Args:
-            **kwargs: Tool parameters (ignored in sync mode)
-
-        Returns:
-            Error message directing to use async method
-        """
-        return "Error: ForgetTool must be called via execute_stream in async context"
-
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Delete memories or show candidates.
 
