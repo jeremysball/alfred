@@ -15,11 +15,13 @@ def mock_alfred() -> MagicMock:
     """Create a mock Alfred engine."""
     alfred = MagicMock(spec=Alfred)
 
-    # Create an async generator mock for chat_stream
-    async def async_gen(*args: object, **kwargs: object) -> AsyncIterator[str]:
-        yield "CLI response"
+    # Create an async generator factory for chat_stream
+    def make_stream(*args: object, **kwargs: object) -> AsyncIterator[str]:
+        async def async_gen() -> AsyncIterator[str]:
+            yield "CLI response"
+        return async_gen()
 
-    alfred.chat_stream = AsyncMock(side_effect=async_gen)
+    alfred.chat_stream = AsyncMock(side_effect=make_stream)
     alfred.compact = AsyncMock(return_value="Compacted")
     return alfred
 
@@ -126,3 +128,70 @@ async def test_case_insensitive_commands(mock_alfred: MagicMock) -> None:
         await interface.run()
 
     mock_alfred.compact.assert_called_once()
+
+
+class TestCLIMarkdownRendering:
+    """Tests for CLI markdown rendering integration using Rich Live."""
+
+    def test_cli_creates_console(self, mock_alfred: MagicMock) -> None:
+        """CLIInterface creates a Rich Console on init."""
+        from rich.console import Console
+
+        interface = CLIInterface(mock_alfred)
+
+        assert hasattr(interface, "console")
+        assert isinstance(interface.console, Console)
+
+    @pytest.mark.asyncio
+    async def test_chat_uses_live_for_markdown(
+        self, mock_alfred: MagicMock
+    ) -> None:
+        """Streaming uses Rich Live to render markdown incrementally."""
+        from collections.abc import AsyncGenerator
+
+        interface = CLIInterface(mock_alfred)
+
+        # Create a proper async generator for chat_stream
+        async def mock_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
+            yield "CLI response"
+
+        mock_alfred.chat_stream = mock_stream
+
+        inputs = iter(["Hello", "exit"])
+
+        # Patch Live to verify it's called
+        with (
+            patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+            patch("src.interfaces.cli.Live") as mock_live,
+        ):
+            await interface.run()
+
+        # Live should have been instantiated
+        mock_live.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_chat_handles_empty_stream(
+        self, mock_alfred: MagicMock
+    ) -> None:
+        """Empty streams are handled gracefully."""
+        from collections.abc import AsyncGenerator
+
+        # Create mock that yields nothing
+        async def empty_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
+            return
+            yield  # pragma: no cover
+
+        mock_alfred.chat_stream = empty_stream
+
+        interface = CLIInterface(mock_alfred)
+
+        inputs = iter(["Hello", "exit"])
+
+        with (
+            patch.object(interface.session, "prompt_async", side_effect=lambda: next(inputs)),
+            patch("src.interfaces.cli.Live") as mock_live,
+        ):
+            await interface.run()
+
+        # Live should still be called even with empty stream
+        mock_live.assert_called()
