@@ -65,11 +65,13 @@ async def _retry_async(
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
+    jitter: bool = True,
     operation_name: str = "operation",
 ) -> Any:
     """Retry an async operation with exponential backoff.
 
-    For use inside async generators where decorators don't work.
+    Used both as a standalone function and as the core logic
+    for the retry_with_backoff decorator.
     """
     last_exception: BaseException | None = None
 
@@ -91,7 +93,10 @@ async def _retry_async(
 
             # Calculate delay with exponential backoff
             delay = min(base_delay * (exponential_base**attempt), max_delay)
-            delay = delay * (0.5 + random.random())  # Add jitter
+
+            # Add jitter to avoid thundering herd
+            if jitter:
+                delay = delay * (0.5 + random.random())
 
             logger.warning(
                 f"Attempt {attempt + 1}/{max_retries + 1} failed for {operation_name}: {e}. "
@@ -114,55 +119,19 @@ def retry_with_backoff(
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator for retrying async functions with exponential backoff.
 
-    Args:
-        max_retries: Maximum number of retry attempts
-        base_delay: Initial delay between retries in seconds
-        max_delay: Maximum delay between retries in seconds
-        exponential_base: Base for exponential backoff calculation
-        jitter: Whether to add random jitter to delay
+    Uses _retry_async internally for consistent retry logic.
     """
-
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            last_exception: BaseException | None = None
-
-            for attempt in range(max_retries + 1):
-                try:
-                    return await func(*args, **kwargs)  # type: ignore[misc]
-                except Exception as e:
-                    last_exception = e
-
-                    # Don't retry on certain errors (programming errors)
-                    if isinstance(e, (ValueError, TypeError, AttributeError)):
-                        raise
-
-                    if attempt >= max_retries:
-                        logger.error(
-                            f"Max retries ({max_retries}) exceeded for {func.__name__}: {e}"
-                        )
-                        if last_exception:
-                            raise last_exception from e
-                        raise
-
-                    # Calculate delay with exponential backoff
-                    delay = min(base_delay * (exponential_base**attempt), max_delay)
-
-                    # Add jitter to avoid thundering herd (0.5x to 1.5x)
-                    if jitter:
-                        delay = delay * (0.5 + random.random())
-
-                    logger.warning(
-                        f"Attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: {e}. "
-                        f"Retrying in {delay:.2f}s..."
-                    )
-
-                    await asyncio.sleep(delay)
-
-            # Should never reach here, but mypy needs it
-            if last_exception:
-                raise last_exception
-            raise RuntimeError(f"All retries exhausted for {func.__name__}")
-
+            return await _retry_async(
+                operation=lambda: func(*args, **kwargs),
+                max_retries=max_retries,
+                base_delay=base_delay,
+                max_delay=max_delay,
+                exponential_base=exponential_base,
+                jitter=jitter,
+                operation_name=func.__name__,
+            )
         return wrapper  # type: ignore[return-value]
 
     return decorator
