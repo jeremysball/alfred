@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
@@ -13,11 +14,13 @@ from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 from src.agent import ToolEnd, ToolEvent, ToolStart
 from src.alfred import Alfred
 from src.interfaces.status import StatusData, StatusRenderer
+from src.session import Session
 
 PROMPT_STYLE = Style.from_dict(
     {
@@ -110,6 +113,7 @@ class CLIInterface:
         self.console = Console()
         self.buffer = ConversationBuffer()
         self.session: PromptSession[str] = PromptSession(message=">>> ", style=PROMPT_STYLE)
+        self._is_streaming = False
 
     def _print_banner(self) -> None:
         banner = Panel(
@@ -120,37 +124,186 @@ class CLIInterface:
         )
         self.console.print(banner)
 
+    def _display_session_history(self, session: Session) -> None:
+        """Display conversation history from a session in the terminal."""
+        if not session.messages:
+            return
+
+        self.console.print("\n[bold dim]─── Conversation History ───[/]\n")
+
+        for msg in session.messages:
+            if msg.role.value == "user":
+                self.console.print(f"[bold blue]You:[/] {msg.content}")
+            elif msg.role.value == "assistant":
+                self.console.print("[bold green]Alfred:[/]")
+                self.console.print(Markdown(msg.content))
+            elif msg.role.value == "system":
+                self.console.print(f"[dim italic][System: {msg.content}][/]")
+            self.console.print()
+
+        self.console.print("[bold dim]─── End of History ───[/]\n")
+
     def _on_tool_event(self, event: ToolEvent) -> None:
         if isinstance(event, ToolStart):
             self.buffer.on_tool_start(event.tool_name)
         elif isinstance(event, ToolEnd):
             self.buffer.on_tool_end(event.tool_name, event.result, event.is_error)
 
-    def _render_status(self, is_streaming: bool = False) -> RenderableType:
-        status_data = StatusData(
+    def _get_status_data(self) -> StatusData:
+        return StatusData(
             model_name=self.alfred.model_name,
             usage=self.alfred.token_tracker.usage,
             context_tokens=self.alfred.token_tracker.context_tokens,
             memories_count=self.alfred.context_summary.memories_count,
             session_messages=self.alfred.context_summary.session_messages,
             prompt_sections=self.alfred.context_summary.prompt_sections,
-            is_streaming=is_streaming,
+            is_streaming=self._is_streaming,
         )
-        return StatusRenderer(status_data).render()
+
+    def _bottom_toolbar(self) -> Any:
+        """Return status as prompt_toolkit bottom toolbar."""
+        status_data = self._get_status_data()
+        renderer = StatusRenderer(status_data)
+        return renderer.to_prompt_toolkit()
 
     @contextmanager
     def _patch_stdout_with_status(self) -> Iterator[None]:
-        """Patch stdout but print status line before prompt."""
-        # Print status line before entering prompt
-        self.console.print()
-        self.console.print(self._render_status(is_streaming=False))
-        self.console.print()
-
+        """Patch stdout for prompt_toolkit compatibility."""
         with original_patch_stdout():
             yield
 
+    # === Session Commands ===
+
+    def _handle_session_command(self, input: str) -> bool:
+        """Handle session commands. Returns True if handled."""
+        parts = input.split(maxsplit=1)
+        cmd = parts[0].lower()
+        arg = parts[1].strip() if len(parts) > 1 else None
+
+        if cmd == "/new":
+            return self._cmd_new_session()
+        elif cmd == "/resume":
+            return self._cmd_resume_session(arg)
+        elif cmd == "/sessions":
+            return self._cmd_list_sessions()
+        elif cmd == "/session":
+            return self._cmd_show_current_session()
+        return False
+
+    def _cmd_new_session(self) -> bool:
+        """Create a new session."""
+        session = self.alfred.session_manager.new_session()
+        self.buffer.clear()
+        self.console.print(
+            Panel(
+                f"Session ID: [bold cyan]{session.meta.session_id}[/]",
+                title="New Session Created",
+                border_style="green",
+            )
+        )
+        return True
+
+    def _cmd_resume_session(self, session_id: str | None) -> bool:
+        """Resume an existing session."""
+        if not session_id:
+            self.console.print(
+                "[bold red]Usage: /resume <session_id>[/]\n"
+                "Use [bold]/sessions[/] to see available sessions.\n"
+            )
+            return True
+
+        try:
+            session = self.alfred.session_manager.resume_session(session_id)
+            self.buffer.clear()
+            msg_count = len(session.messages)
+            self.console.print(
+                Panel(
+                    f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
+                    title="Session Resumed",
+                    border_style="green",
+                )
+            )
+
+            # Display conversation history
+            if session.messages:
+                self._display_session_history(session)
+
+        except ValueError as e:
+            self.console.print(f"[bold red]Error: {e}[/]\n")
+        return True
+
+    def _cmd_list_sessions(self) -> bool:
+        """List all sessions."""
+        sessions = self.alfred.session_manager.list_sessions()
+
+        if not sessions:
+            self.console.print("[bold yellow]No sessions found.[/]\n")
+            return True
+
+        table = Table(title="Sessions", border_style="dim blue")
+        table.add_column("ID", style="cyan")
+        table.add_column("Created", style="dim")
+        table.add_column("Last Active", style="dim")
+        table.add_column("Messages", justify="right")
+
+        current_id = None
+        if self.alfred.session_manager.has_active_session():
+            current = self.alfred.session_manager.get_current_cli_session()
+            if current:
+                current_id = current.meta.session_id
+
+        for meta in sessions:
+            # Format timestamps
+            created = meta.created_at.strftime("%Y-%m-%d %H:%M")
+            last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
+
+            # Mark current session
+            id_str = meta.session_id
+            if meta.session_id == current_id:
+                id_str = f"[bold]{meta.session_id}[/] *"
+
+            table.add_row(id_str, created, last_active, str(meta.message_count))
+
+        self.console.print(table)
+        self.console.print()
+        return True
+
+    def _cmd_show_current_session(self) -> bool:
+        """Show current session details."""
+        if not self.alfred.session_manager.has_active_session():
+            self.console.print("[bold yellow]No active session.[/]\n")
+            return True
+
+        session = self.alfred.session_manager.get_current_cli_session()
+        if not session:
+            self.console.print("[bold yellow]No active session.[/]\n")
+            return True
+
+        meta = session.meta
+        created = meta.created_at.strftime("%Y-%m-%d %H:%M")
+        last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
+
+        self.console.print(
+            Panel(
+                f"ID: [bold cyan]{meta.session_id}[/]\n"
+                f"Status: {meta.status}\n"
+                f"Created: {created}\n"
+                f"Last Active: {last_active}\n"
+                f"Messages: {meta.message_count}",
+                title="Current Session",
+                border_style="cyan",
+            )
+        )
+        return True
+
     async def run(self) -> None:
         self._print_banner()
+
+        # Display session history if resuming an existing session
+        if self.alfred.session_manager.has_active_session():
+            session = self.alfred.session_manager.get_current_cli_session()
+            if session and session.messages:
+                self._display_session_history(session)
 
         kb = KeyBindings()
 
@@ -158,7 +311,12 @@ class CLIInterface:
         def _toggle(event: object) -> None:
             self.buffer.toggle_panels()
 
-        self.session = PromptSession(message=">>> ", style=PROMPT_STYLE, key_bindings=kb)
+        self.session = PromptSession(
+            message=">>> ",
+            style=PROMPT_STYLE,
+            key_bindings=kb,
+            bottom_toolbar=self._bottom_toolbar,
+        )
 
         while True:
             try:
@@ -183,7 +341,12 @@ class CLIInterface:
                 self.console.print(f"[bold green]Alfred:[/bold green] {result}\n")
                 continue
 
+            # Session commands
+            if user_input.startswith("/") and self._handle_session_command(user_input):
+                continue
+
             self.buffer.clear()
+            self._is_streaming = True
 
             try:
                 with Live(
@@ -197,14 +360,9 @@ class CLIInterface:
                     ):
                         self.buffer.add_text(chunk)
                         body = self.buffer.render()
-                        status = self._render_status(True)
-                        live.update(Group(*body, Text(), Text("─" * 50, style="dim"), status))
-
-                    body = self.buffer.render()
-                    status = self._render_status(False)
-                    live.update(Group(*body, Text(), Text("─" * 50, style="dim"), status))
-
-                self.console.print()
+                        live.update(Group(*body))
 
             except Exception as e:
                 self.console.print(f"\n[bold red]Error: {e}[/]\n")
+            finally:
+                self._is_streaming = False

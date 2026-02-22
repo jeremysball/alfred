@@ -81,11 +81,23 @@ class TelegramInterface:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""
-        if not update.message:
+        if not update.message or not update.effective_chat:
             return
 
         self._track_chat_id(update)
-        await update.message.reply_text("Hello, I'm Alfred. I remember our conversations.")
+        chat_id = str(update.effective_chat.id)
+
+        # Initialize session for this chat
+        session = self.alfred.session_manager.get_or_create_session(chat_id)
+        msg_count = len(session.messages) if session else 0
+
+        if msg_count > 0:
+            await update.message.reply_text(
+                f"Hello, I'm Alfred. Welcome back! "
+                f"I remember our last conversation ({msg_count} messages)."
+            )
+        else:
+            await update.message.reply_text("Hello, I'm Alfred. I'll remember our conversations.")
 
     async def compact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /compact command."""
@@ -98,21 +110,22 @@ class TelegramInterface:
 
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle text messages with streaming."""
-        if not update.message or not update.message.text:
+        if not update.message or not update.message.text or not update.effective_chat:
             return
 
         self._track_chat_id(update)
+        chat_id = str(update.effective_chat.id)
 
         # Send initial message
         response_message = await update.message.reply_text("Thinking...")
 
-        # Stream response
+        # Stream response with session_id for this chat
         full_response = ""
         last_update_len = 0
         update_threshold = 50  # Update every 50 chars
 
         try:
-            async for chunk in self.alfred.chat_stream(update.message.text):
+            async for chunk in self.alfred.chat_stream(update.message.text, session_id=chat_id):
                 full_response += chunk
 
                 # Update message periodically

@@ -26,9 +26,25 @@ async def mock_chat_stream(message: str) -> AsyncIterator[str]:
 @pytest.fixture
 def mock_alfred() -> MagicMock:
     """Create a mock Alfred engine."""
+    from src.session import Session, SessionMeta
+    from datetime import datetime
+
     alfred = MagicMock(spec=Alfred)
     alfred.chat_stream.side_effect = mock_chat_stream
     alfred.compact = AsyncMock(return_value="Compacted successfully")
+
+    # Mock session_manager
+    mock_session_manager = MagicMock()
+    meta = SessionMeta(
+        session_id="test_chat_12345",
+        created_at=datetime.now(),
+        last_active=datetime.now(),
+        status="active",
+    )
+    session = Session(meta=meta, messages=[])
+    mock_session_manager.get_or_create_session.return_value = session
+    alfred.session_manager = mock_session_manager
+
     return alfred
 
 
@@ -39,6 +55,8 @@ def mock_update() -> MagicMock:
     update.message = MagicMock()
     update.message.text = "Hello Alfred"
     update.message.reply_text = AsyncMock()
+    update.effective_chat = MagicMock()
+    update.effective_chat.id = 12345
     return update
 
 

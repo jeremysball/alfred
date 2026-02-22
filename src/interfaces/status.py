@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from itertools import cycle
+from typing import Any
 
+from prompt_toolkit.formatted_text import FormattedText
 from rich.console import Group, RenderableType
 from rich.text import Text
 
@@ -55,6 +57,39 @@ class StatusRenderer:
         """Render the status display as a Group of lines."""
         return Group(self._render_token_line(), self._render_context_line())
 
+    def to_prompt_toolkit(self) -> Any:
+        """Render status for prompt_toolkit bottom toolbar.
+
+        Returns FormattedText tuple list for bottom_toolbar.
+        """
+        frame = self.status.next_spinner_frame()
+        spinner_style = "cyan" if self.status.is_streaming else "green"
+
+        sections_str = (
+            ",".join(self.status.prompt_sections) if self.status.prompt_sections else "none"
+        )
+        # Truncate sections if too long to fit in toolbar
+        if len(sections_str) > 20:
+            sections_str = sections_str[:17] + "..."
+
+        # Build as single line for toolbar
+        parts = [
+            (spinner_style, f"{frame} "),
+            ("bold", self.status.model_name),
+            ("", " | "),
+            ("", f"in:{self._format_number(self.status.usage.input_tokens)} "),
+            ("", f"out:{self._format_number(self.status.usage.output_tokens)} "),
+            ("", f"cache:{self._format_number(self.status.usage.cache_read_tokens)} "),
+            ("", f"reason:{self._format_number(self.status.usage.reasoning_tokens)}"),
+        ]
+
+        parts.append(("", f" | ctx:{self._format_number(self.status.context_tokens)}"))
+        m = self.status.memories_count
+        s = self.status.session_messages
+        parts.append(("", f"  📚 {m} | 💬 {s} | 📋 {sections_str}"))
+
+        return FormattedText(parts)
+
     def _render_token_line(self) -> Text:
         """Render the token/model status line."""
         text = Text()
@@ -87,7 +122,7 @@ class StatusRenderer:
             text.append(val, style="yellow")
             text.append(" ")
 
-        # Reasoning tokens (only if non-zero)
+        # Reasoning_tokens (only if non-zero)
         if self.status.usage.reasoning_tokens > 0:
             text.append("reason:", style="dim")
             val = self._format_number(self.status.usage.reasoning_tokens)

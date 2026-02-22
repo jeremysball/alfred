@@ -1,7 +1,0 @@
-{
-  "name": "pi-interactive-terminal",
-  "version": "1.0.0",
-  "description": "Interactive Terminal Extension for Pi - E2E testing with VHS",
-  "main": "index.ts",
-  "types": "index.ts"
-}
