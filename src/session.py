@@ -181,19 +181,28 @@ class SessionManager:
         """Create new CLI session. Backwards-compatible."""
         return self.new_session()
 
-    def add_message(self, role: str, content: str) -> None:
-        """Append message to current CLI session.
+    def add_message(
+        self, role: str, content: str, session_id: str | None = None
+    ) -> None:
+        """Append message to session.
 
         Args:
             role: "user", "assistant", or "system"
             content: Message content
+            session_id: Optional session ID. If None, uses current CLI session.
 
         Raises:
-            RuntimeError: If no active CLI session exists
+            RuntimeError: If no active session exists
         """
-        session = self.get_current_cli_session()
-        if session is None:
-            raise RuntimeError("No active session")
+        session: Session | None
+        if session_id:
+            # Telegram mode - get specific session
+            session = self.get_or_create_session(session_id)
+        else:
+            # CLI mode - get current CLI session
+            session = self.get_current_cli_session()
+            if session is None:
+                raise RuntimeError("No active session")
 
         role_enum = Role(role)
         idx = session.meta.current_count
@@ -209,6 +218,31 @@ class SessionManager:
 
         # Persist to storage (spawn background task if event loop running)
         self._spawn_persist_task(session.meta.session_id, message)
+
+    def get_session_messages(self, session_id: str | None = None) -> list[Message]:
+        """Get all messages from a session.
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
+
+        Raises:
+            RuntimeError: If no active session exists
+        """
+        session: Session | None
+        if session_id:
+            # Telegram mode - get specific session
+            session = self.get_or_create_session(session_id)
+            return list(session.messages)
+        else:
+            # CLI mode - get current CLI session
+            session = self.get_current_cli_session()
+            if session is None:
+                raise RuntimeError("No active session")
+            return list(session.messages)
+
+    def get_messages(self) -> list[Message]:
+        """Get all messages from current CLI session. Backwards-compatible."""
+        return self.get_session_messages()
 
     def _spawn_persist_task(self, session_id: str, message: Message) -> None:
         """Spawn background task to persist message (if event loop running)."""
@@ -229,18 +263,6 @@ class SessionManager:
             self.storage.save_meta(meta)
         # Spawn embedding task
         self.storage.spawn_embed_task(session_id, message.idx, message.content)
-
-    def get_messages(self) -> list[Message]:
-        """Get all messages from current CLI session.
-
-        Raises:
-            RuntimeError: If no active CLI session exists
-        """
-        session = self.get_current_cli_session()
-        if session is None:
-            raise RuntimeError("No active session")
-
-        return list(session.messages)
 
     def clear_session(self) -> None:
         """Clear current CLI session reference (doesn't delete)."""

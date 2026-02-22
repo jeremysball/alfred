@@ -173,26 +173,33 @@ class Alfred:
         self,
         message: str,
         tool_callback: Callable[[ToolEvent], None] | None = None,
+        session_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Process a message with streaming.
 
         Args:
             message: User message
             tool_callback: Optional callback for tool execution events
+            session_id: Optional session ID (for Telegram chat_id). If None, uses CLI session.
 
         Yields:
             LLM response tokens
         """
         logger.info(f"Processing message: {message[:50]}...")
 
-        # Start session on first message
-        if not self.session_manager.has_active_session():
-            logger.debug("Starting new session...")
-            self.session_manager.start_session()
+        # Handle session based on mode
+        if session_id:
+            # Telegram mode - use provided session_id (chat_id)
+            self.session_manager.get_or_create_session(session_id)
+        else:
+            # CLI mode - use singleton session
+            if not self.session_manager.has_active_session():
+                logger.debug("Starting new session...")
+                self.session_manager.start_session()
 
         # Add user message to session
-        self.session_manager.add_message("user", message)
-        msg_count = len(self.session_manager.get_messages())
+        self.session_manager.add_message("user", message, session_id=session_id)
+        msg_count = len(self.session_manager.get_session_messages(session_id))
         logger.debug(f"Added user message. Session now has {msg_count} messages")
 
         # Get query embedding for memory search
@@ -206,7 +213,7 @@ class Alfred:
 
         # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
-        session_messages = self._get_session_messages_for_context()
+        session_messages = self._get_session_messages_for_context(session_id)
         system_prompt, memories_count = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
@@ -238,8 +245,8 @@ class Alfred:
 
         # Add assistant response to session
         assistant_message = "".join(full_response)
-        self.session_manager.add_message("assistant", assistant_message)
-        msg_count = len(self.session_manager.get_messages())
+        self.session_manager.add_message("assistant", assistant_message, session_id=session_id)
+        msg_count = len(self.session_manager.get_session_messages(session_id))
         logger.debug(f"Added assistant message. Session now has {msg_count} messages")
 
     def _build_system_prompt(self, base_prompt: str) -> str:
@@ -285,16 +292,26 @@ You can then continue the conversation with the tool results.
         # TODO: Implement in M9
         return "Compaction not yet implemented"
 
-    def _get_session_messages_for_context(self) -> list[tuple[str, str]]:
+    def _get_session_messages_for_context(
+        self, session_id: str | None = None
+    ) -> list[tuple[str, str]]:
         """Get session messages formatted for context injection.
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
 
         Returns:
             List of (role, content) tuples for session history.
         """
-        if not self.session_manager.has_active_session():
-            return []
+        if session_id:
+            # Telegram mode - get specific session
+            messages = self.session_manager.get_session_messages(session_id)
+        else:
+            # CLI mode - get current CLI session
+            if not self.session_manager.has_active_session():
+                return []
+            messages = self.session_manager.get_messages()
 
-        messages = self.session_manager.get_messages()
         # Convert to (role, content) tuples, excluding the most recent user message
         # (which is the current query being processed)
         result = []

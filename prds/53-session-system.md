@@ -1,7 +1,7 @@
 # PRD: Conversation Session System
 
 **Issue**: #53
-**Status**: Ready for Implementation
+**Status**: Complete
 **Priority**: High
 **Created**: 2026-02-18
 **Updated**: 2026-02-22
@@ -158,7 +158,7 @@ LLM Response
 | 3 | **Message Persistence** | ✅ Complete | `current.jsonl` per session, async embedding |
 | 4 | **CLI Commands** | ✅ Complete | `/new`, `/resume`, `/sessions`, `/session` commands implemented |
 | 5 | **Context Integration** | ✅ Complete | Session messages injected into LLM context via `ContextBuilder` |
-| 6 | **Telegram Integration** | Wire session manager to Telegram handler | Per-chat sessions via Telegram chat_id |
+| 6 | **Telegram Integration** | ✅ Complete | Per-chat sessions via Telegram chat_id |
 | 7 | **Testing** | ✅ Complete | 564 tests passing, session storage and CLI tested |
 
 **Note**: Summarization via cron (PRD #76) and contextual retrieval (PRD #77) are separate PRDs that build on this foundation.
@@ -257,7 +257,7 @@ A: By `last_active` descending (most recent first).
 - [x] `/sessions` lists all sessions with summaries
 - [ ] Every message stored with embedding in `current.jsonl`
 - [x] Sessions persist across bot restarts
-- [ ] CLI and Telegram both use `chat_id` system
+- [x] CLI and Telegram both use session system
 - [ ] No perceptible latency increase (<100ms overhead)
 
 ---
