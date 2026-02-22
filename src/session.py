@@ -181,9 +181,7 @@ class SessionManager:
         """Create new CLI session. Backwards-compatible."""
         return self.new_session()
 
-    def add_message(
-        self, role: str, content: str, session_id: str | None = None
-    ) -> None:
+    def add_message(self, role: str, content: str, session_id: str | None = None) -> None:
         """Append message to session.
 
         Args:

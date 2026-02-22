@@ -284,7 +284,8 @@ EMBEDDING_MODEL=text-embedding-3-small
 | 2026-02-19 | Prompt-based learning | Learning is judgment-based; tools for deterministic ops |
 | 2026-02-19 | Templates → data/ | Keeps templates clean, allows user reset |
 | 2026-02-19 | Model-driven memory | Alfred decides what to remember, not automatic logging |
-| 2026-02-19 | In-memory sessions | PRD #54; persistence planned for PRD #53 |
+| 2026-02-19 | In-memory sessions | PRD #54 |
+| 2026-02-22 | Persistent sessions | PRD #53 - CLI commands, Telegram integration, context injection |
 | 2026-02-20 | Rich Live for CLI markdown | Proper in-place markdown rendering without scrollback pollution |
 
 ---

@@ -66,9 +66,7 @@ class StatusRenderer:
         spinner_style = "cyan" if self.status.is_streaming else "green"
 
         sections_str = (
-            ",".join(self.status.prompt_sections)
-            if self.status.prompt_sections
-            else "none"
+            ",".join(self.status.prompt_sections) if self.status.prompt_sections else "none"
         )
         # Truncate sections if too long to fit in toolbar
         if len(sections_str) > 20:
@@ -110,15 +108,11 @@ class StatusRenderer:
 
         # Token counts
         text.append("in:", style="dim")
-        text.append(
-            f"{self._format_number(self.status.usage.input_tokens)}", style="blue"
-        )
+        text.append(f"{self._format_number(self.status.usage.input_tokens)}", style="blue")
         text.append(" ")
 
         text.append("out:", style="dim")
-        text.append(
-            f"{self._format_number(self.status.usage.output_tokens)}", style="green"
-        )
+        text.append(f"{self._format_number(self.status.usage.output_tokens)}", style="green")
         text.append(" ")
 
         # Cache read (only if non-zero)

@@ -218,8 +218,7 @@ class CLIInterface:
             msg_count = len(session.messages)
             self.console.print(
                 Panel(
-                    f"Session ID: [bold cyan]{session_id}[/]\n"
-                    f"Messages: {msg_count}",
+                    f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
                     title="Session Resumed",
                     border_style="green",
                 )

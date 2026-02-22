@@ -97,9 +97,7 @@ class TelegramInterface:
                 f"I remember our last conversation ({msg_count} messages)."
             )
         else:
-            await update.message.reply_text(
-                "Hello, I'm Alfred. I'll remember our conversations."
-            )
+            await update.message.reply_text("Hello, I'm Alfred. I'll remember our conversations.")
 
     async def compact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /compact command."""
@@ -127,9 +125,7 @@ class TelegramInterface:
         update_threshold = 50  # Update every 50 chars
 
         try:
-            async for chunk in self.alfred.chat_stream(
-                update.message.text, session_id=chat_id
-            ):
+            async for chunk in self.alfred.chat_stream(update.message.text, session_id=chat_id):
                 full_response += chunk
 
                 # Update message periodically
