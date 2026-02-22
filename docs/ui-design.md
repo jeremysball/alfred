@@ -29,18 +29,7 @@ Alfred's CLI interface uses **Rich** for rendering and **prompt_toolkit** for in
 
 ## Screenshots
 
-### 1. Startup State
-
-The initial view when Alfred launches - banner, empty prompt, and status line.
-
-![Startup State](assets/ui-screenshots/01_startup.png)
-
-**Key elements:**
-- Banner panel with title and keybindings hint
-- Empty prompt (`>>> `)
-- Status line showing model, tokens, and context
-
-### 2. Conversation State
+### 1. Conversation State
 
 Messages displayed as colored panels during conversation. Note the `⠴ Computing...` throbber in the bottom-right during streaming.
 
@@ -51,7 +40,7 @@ Messages displayed as colored panels during conversation. Note the `⠴ Computin
 - **Assistant messages**: Dark teal border (`color(24)`)
 - Left-aligned titles ("You" / "Alfred")
 
-### 3. Session Commands
+### 2. Session Commands
 
 The `/sessions` command shows all available sessions in a table.
 
@@ -63,7 +52,7 @@ The `/sessions` command shows all available sessions in a table.
 - `/sessions` - List all sessions
 - `/session` - Show current session info
 
-### 4. Command Completion
+### 3. Command Completion
 
 Tab completion shows available commands.
 
