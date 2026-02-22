@@ -156,10 +156,10 @@ LLM Response
 | 1 | **Session Data Model** | ✅ Complete in PRD #54 | `Session`, `Message` dataclasses in `src/session.py` |
 | 2 | **Session Manager V2** | ✅ Complete | Multi-session manager with per-session folders, `SessionStorage` class |
 | 3 | **Message Persistence** | ✅ Complete | `current.jsonl` per session, async embedding |
-| 4 | **CLI Commands** | `/new`, `/resume <id>`, `/sessions` commands | User controls session lifecycle |
+| 4 | **CLI Commands** | ✅ Complete | `/new`, `/resume`, `/sessions`, `/session` commands implemented |
 | 5 | **Context Integration** | Inject active session into LLM context | LLM sees conversation history |
 | 6 | **Telegram Integration** | Wire session manager to Telegram handler | Per-chat sessions via Telegram chat_id |
-| 7 | **Testing** | ✅ Complete | 558 tests passing, session storage tested |
+| 7 | **Testing** | ✅ Complete | 564 tests passing, session storage and CLI tested |
 
 **Note**: Summarization via cron (PRD #76) and contextual retrieval (PRD #77) are separate PRDs that build on this foundation.
 
@@ -252,9 +252,9 @@ A: By `last_active` descending (most recent first).
 
 ## Success Criteria
 
-- [ ] `/new` creates a new session with unique ID
-- [ ] `/resume <id>` loads and continues a previous session
-- [ ] `/sessions` lists all sessions with summaries
+- [x] `/new` creates a new session with unique ID
+- [x] `/resume <id>` loads and continues a previous session
+- [x] `/sessions` lists all sessions with summaries
 - [ ] Every message stored with embedding in `current.jsonl`
 - [x] Sessions persist across bot restarts
 - [ ] CLI and Telegram both use `chat_id` system

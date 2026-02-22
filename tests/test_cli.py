@@ -1,6 +1,7 @@
 """Tests for CLI interface using prompt_toolkit."""
 
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from io import StringIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -179,3 +180,112 @@ class TestCLIMarkdownRendering:
             await interface.run()
 
         # Should complete without error
+
+
+class TestSessionCommands:
+    """Tests for CLI session commands."""
+
+    @pytest.fixture
+    def mock_session_manager(self):
+        """Create a mock session manager."""
+        from src.session import Session, SessionMeta
+
+        manager = MagicMock()
+
+        # Mock session
+        meta = SessionMeta(
+            session_id="sess_test123",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            current_count=5,
+            archive_count=0,
+        )
+        session = Session(meta=meta, messages=[])
+
+        manager.new_session.return_value = session
+        manager.resume_session.return_value = session
+        manager.list_sessions.return_value = [meta]
+        manager.has_active_session.return_value = True
+        manager.get_current_cli_session.return_value = session
+
+        return manager
+
+    @pytest.mark.asyncio
+    async def test_new_session_command(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+        """/new creates a new session."""
+        mock_alfred.session_manager = mock_session_manager
+
+        interface = CLIInterface(mock_alfred)
+
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+            mock_session_cls.return_value = make_mock_session(["/new", "exit"])
+            await interface.run()
+
+        mock_session_manager.new_session.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_resume_session_command(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+        """/resume <id> resumes a session."""
+        mock_alfred.session_manager = mock_session_manager
+
+        interface = CLIInterface(mock_alfred)
+
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+            mock_session_cls.return_value = make_mock_session(["/resume sess_test123", "exit"])
+            await interface.run()
+
+        mock_session_manager.resume_session.assert_called_once_with("sess_test123")
+
+    @pytest.mark.asyncio
+    async def test_resume_without_id_shows_usage(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+        """/resume without ID shows usage error."""
+        mock_alfred.session_manager = mock_session_manager
+
+        interface = CLIInterface(mock_alfred)
+
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+            mock_session_cls.return_value = make_mock_session(["/resume", "exit"])
+            await interface.run()
+
+        mock_session_manager.resume_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sessions_command(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+        """/sessions lists all sessions."""
+        mock_alfred.session_manager = mock_session_manager
+
+        interface = CLIInterface(mock_alfred)
+
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+            mock_session_cls.return_value = make_mock_session(["/sessions", "exit"])
+            await interface.run()
+
+        mock_session_manager.list_sessions.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_session_command_shows_current(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+        """/session shows current session details."""
+        mock_alfred.session_manager = mock_session_manager
+
+        interface = CLIInterface(mock_alfred)
+
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+            mock_session_cls.return_value = make_mock_session(["/session", "exit"])
+            await interface.run()
+
+        mock_session_manager.get_current_cli_session.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_unknown_command_passes_through(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+        """Unknown /commands are passed through as regular input."""
+        mock_alfred.session_manager = mock_session_manager
+
+        interface = CLIInterface(mock_alfred)
+
+        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
+            mock_session_cls.return_value = make_mock_session(["/unknowncommand", "exit"])
+            await interface.run()
+
+        # Should be treated as regular input, not a session command
+        mock_alfred.chat_stream.assert_called_once()
