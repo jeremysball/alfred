@@ -264,3 +264,33 @@ def test_something():
     project_root = Path(__file__).parent.parent
     config = load_config(project_root / "config.json")
 ```
+
+### 12. Use tmux-tape for CLI/TUI Testing
+**USE** the tmux-tape skill for E2E testing of interactive or visual CLI applications:
+
+- **Asyncio apps** — Alfred, bots, servers (can't use VHS)
+- **TUI frameworks** — Textual, Rich Live, ncurses apps
+- **Visual verification** — Box-drawing, colors, layout
+
+**Not needed for:** simple scripts, unit tests, `--help` output.
+
+**Workflow:**
+```bash
+mkdir -p /tmp/pi-tmux && cp .pi/skills/tmux-tape/tmux_tool.py /tmp/pi-tmux/
+cd /tmp/pi-tmux && uv run python script.py
+```
+
+**Example:**
+```python
+from tmux_tool import TerminalSession
+
+with TerminalSession("alfred", port=7681) as s:
+    s.send("alfred")
+    s.send_key("Enter")
+    s.sleep(3)  # Wait for startup
+
+    result = s.capture("startup.png")
+    assert "Alfred ready" in result["text"]
+```
+
+See `.pi/skills/tmux-tape/SKILL.md` for full API.
