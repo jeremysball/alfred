@@ -31,139 +31,45 @@ Alfred's CLI interface uses **Rich** for rendering and **prompt_toolkit** for in
 
 ### 1. Startup State
 
-The initial view when Alfred launches:
+The initial view when Alfred launches - banner, empty prompt, and status line.
 
-- Banner panel with title and keybindings
+![Startup State](assets/ui-screenshots/01_startup.png)
+
+**Key elements:**
+- Banner panel with title and keybindings hint
 - Empty prompt (`>>> `)
-- Status line at bottom showing model and context
-
-```
-╭──────────────────────────────────────────────────────────────────────────────────────╮
-│                                      Alfred - Your Persistent Memory Assistant       │
-╰────────────────────── exit to quit | compact for memory | Ctrl-T toggle tools ───────╯
->>>
-> kimi/kimi-k2-5 | in:0 out:0 cache:0 reason:0 | ctx:0  📚 0 | 💬 0 | 📋 AGENTS,SOUL,USER,...
-```
+- Status line showing model, tokens, and context
 
 ### 2. Conversation State
 
-Messages displayed as colored panels:
+Messages displayed as colored panels after a conversation.
 
+![Conversation State](assets/ui-screenshots/02_conversation.png)
+
+**Panel styling:**
 - **User messages**: Slate blue border (`color(23)`)
 - **Assistant messages**: Dark teal border (`color(24)`)
-- **Tool calls**: Dim blue (success) or red (error) borders
+- Left-aligned titles ("You" / "Alfred")
 
-```
-╭─ You ────────────────────────────────────────────────────────────────────────────────╮
-│ What can you help me with today?                                                      │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Alfred ──────────────────────────────────────────────────────────────────────────────╮
-│ I can help you with many things!                                                      │
-│                                                                                       │
-│ - **Remember information** for future conversations                                   │
-│ - **Search your memories** to recall past discussions                                 │
-│ - **Schedule reminders** using the cron system                                        │
-│ - **Run shell commands** to interact with your system                                 │
-│                                                                                       │
-│ What would you like to do?                                                            │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
-```
+### 3. Session Commands
 
-### 3. Streaming State
+The `/sessions` command shows all available sessions in a table.
 
-During LLM response generation:
+![Session Commands](assets/ui-screenshots/03_sessions.png)
 
-- Status line hides (prompt_toolkit behavior)
-- Throbber animates in bottom-right corner
-- Content streams into assistant panel
+**Commands:**
+- `/new` - Create new session
+- `/resume <id>` - Resume existing session
+- `/sessions` - List all sessions
+- `/session` - Show current session info
 
-```
->>> tell me a joke
+### 4. Command Completion
 
-╭─ Alfred ──────────────────────────────────────────────────────────────────────────────╮
-│ Why do programmers prefer dark mode?                                                   │
-│                                                                                       │
-│ Because light attracts bugs! 🐛                                                       │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
+Tab completion shows available commands.
 
-                                                   ⠋ Working...
-```
+![Command Completion](assets/ui-screenshots/04_completion.png)
 
-**Throbber**: Uses `dots` spinner frames (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) at 80ms interval.
-
-### 4. Tool Execution
-
-Tool calls appear as panels between conversation turns:
-
-```
-╭─ Tool: read ─────────────────────────────────────────────────────────────────────────╮
-│ {                                                                                     │
-│   "content": "file contents here...",                                                 │
-│   "path": "/path/to/file.txt"                                                        │
-│ }                                                                                     │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
-```
-
-- **Success**: Dim blue border
-- **Error**: Red border
-- **Truncation**: Long results truncated with "... (N more lines)" indicator
-
-### 5. Session Commands
-
-#### /new - Create New Session
-
-```
->>> /new
-╭─────────────────────────────────────────────── New Session Created ──────────────────╮
-│ Session ID: sess_a8f2370e0eaf                                                         │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
-```
-
-#### /sessions - List Sessions
-
-```
->>> /sessions
-                                Sessions
-┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
-┃ ID                  ┃ Created          ┃ Last Active      ┃ Messages ┃
-┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
-│ sess_a8f2370e0eaf * │ 2026-02-22 20:46 │ 2026-02-22 20:46 │        0 │
-│ sess_e74ff24bc129   │ 2026-02-22 15:41 │ 2026-02-22 15:41 │        0 │
-└─────────────────────┴──────────────────┴──────────────────┴──────────┘
-```
-
-#### Command Completion
-
-Tab completion shows available commands:
-
-```
->>> /
-      /new
-      /resume
-      /sessions
-      /session
-```
-
-### 6. Status Line
-
-Bottom toolbar showing context:
-
-```
-> kimi/kimi-k2-5 | in:4.0K out:36 cache:0 reason:0 | ctx:2.9K  📚 1 | 💬 40 | 📋 AGENTS,SOUL,USER,...
-```
-
-| Field | Description |
-|-------|-------------|
-| `>` | Activity indicator (streaming: animated spinner) |
-| `kimi/kimi-k2-5` | Current model name |
-| `in:X` | Input tokens consumed |
-| `out:X` | Output tokens generated |
-| `cache:X` | Cache read tokens (if any) |
-| `reason:X` | Reasoning tokens (if any) |
-| `ctx:X` | Estimated context size |
-| `📚 N` | Memories in context |
-| `💬 N` | Session messages |
-| `📋 ...` | Prompt sections loaded |
+Type `/` then press `Tab` to see: `/new`, `/resume`, `/sessions`, `/session`.
 
 ---
 
@@ -193,28 +99,47 @@ Panel(
 )
 ```
 
-### Status Line
+### Tool Panels
 
-Implemented via `prompt_toolkit` `bottom_toolbar`:
+Tool calls appear with their results:
 
 ```python
-def _bottom_toolbar(self) -> Any:
-    status_data = self._get_status_data()
-    renderer = StatusRenderer(status_data)
-    return renderer.to_prompt_toolkit()
+Panel(
+    content,
+    title=f"Tool: {tool_name}",
+    title_align="left",
+    border_style="red" if is_error else "dim blue",
+    padding=(0, 1),
+)
 ```
+
+### Status Line
+
+Bottom toolbar showing context (via `prompt_toolkit` `bottom_toolbar`):
+
+```
+> kimi/kimi-k2-5 | in:4.0K out:36 cache:0 reason:0 | ctx:2.9K  📚 1 | 💬 40 | 📋 AGENTS,SOUL,USER,...
+```
+
+| Field | Description |
+|-------|-------------|
+| `>` | Activity indicator (streaming: animated spinner) |
+| `kimi/kimi-k2-5` | Current model name |
+| `in:X` | Input tokens consumed |
+| `out:X` | Output tokens generated |
+| `cache:X` | Cache read tokens (if any) |
+| `reason:X` | Reasoning tokens (if any) |
+| `ctx:X` | Estimated context size |
+| `📚 N` | Memories in context |
+| `💬 N` | Session messages |
+| `📋 ...` | Prompt sections loaded |
 
 ### Throbber
 
-Right-aligned animated spinner during streaming:
+Right-aligned animated spinner during streaming. Uses `dots` spinner frames at 80ms interval:
 
 ```python
-def _render_throbber(self) -> Text:
-    frame = self._throbber.advance()
-    width = self.console.width
-    text = f"{frame} Working..."
-    padding = width - len(text) - 1
-    return Text(" " * max(0, padding) + text, style="cyan bold")
+SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ```
 
 ---
@@ -240,6 +165,16 @@ def _render_throbber(self) -> Text:
 | `/session` | Show current session info |
 | `exit` | Quit Alfred |
 | `compact` | Compact context |
+
+---
+
+## Implementation Files
+
+| File | Purpose |
+|------|---------|
+| `src/interfaces/cli.py` | Main CLI interface, panels, completer |
+| `src/interfaces/status.py` | Status line rendering |
+| `src/interfaces/notification_buffer.py` | Job notification queuing |
 
 ---
 
