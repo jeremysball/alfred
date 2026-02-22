@@ -90,6 +90,9 @@ class Alfred:
             notifier = CLINotifier()
             logger.info("CLINotifier initialized")
 
+        # Store notifier for buffer configuration
+        self.notifier = notifier
+
         # Initialize cron scheduler with notifier
         self.cron_scheduler = CronScheduler(
             store=CronStore(data_dir),

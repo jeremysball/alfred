@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, TextIO
 if TYPE_CHECKING:
     from telegram import Bot
 
+from src.interfaces.notification_buffer import NotificationBuffer
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,20 +53,41 @@ class CLINotifier(Notifier):
     """Send notifications to CLI output.
 
     Outputs formatted messages to stdout or a configurable stream.
+    When a NotificationBuffer is set and active, notifications are queued
+    instead of printed immediately. This prevents notifications from
+    clobbering the prompt line during user input or LLM streaming.
+
     Format: [2026-02-19 10:30:00 JOB NOTIFICATION] Message here
             Continuation lines are indented
     """
 
-    def __init__(self, output_stream: TextIO | None = None) -> None:
+    def __init__(
+        self,
+        output_stream: TextIO | None = None,
+        buffer: NotificationBuffer | None = None,
+    ) -> None:
         """Initialize CLI notifier.
 
         Args:
             output_stream: Stream to write to (default: sys.stdout)
+            buffer: Optional notification buffer for queuing during active states
         """
         self.output = output_stream or sys.stdout
+        self.buffer = buffer
+
+    def set_buffer(self, buffer: NotificationBuffer | None) -> None:
+        """Set or clear the notification buffer.
+
+        Args:
+            buffer: The buffer to use, or None to disable buffering.
+        """
+        self.buffer = buffer
 
     async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send notification to CLI output.
+
+        If buffer is active, queues the notification for later display.
+        Otherwise, displays immediately.
 
         Args:
             message: Message to display
@@ -74,21 +97,57 @@ class CLINotifier(Notifier):
             None
         """
         try:
-            timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-            lines = message.splitlines() if message else [""]
+            # Queue if buffer exists and is active
+            if self.buffer and self.buffer.is_active:
+                self.buffer.queue(message)
+                logger.debug(f"Queued notification (buffer active): {message[:50]}...")
+                return
 
-            for i, line in enumerate(lines):
-                if i == 0:
-                    formatted = f"[{timestamp} JOB NOTIFICATION] {line}\n"
-                else:
-                    # Indent continuation lines to align with first line
-                    formatted = f"{' ' * 32}{line}\n"
-                self.output.write(formatted)
-
-            self.output.flush()
+            # Display immediately
+            self._display(message)
         except Exception as e:
             # Log error but don't fail the job
             logger.error(f"Failed to send CLI notification: {e}")
+
+    def _display(self, message: str) -> None:
+        """Display a notification immediately to output stream.
+
+        Args:
+            message: The message to display.
+        """
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        lines = message.splitlines() if message else [""]
+
+        for i, line in enumerate(lines):
+            if i == 0:
+                formatted = f"[{timestamp} JOB NOTIFICATION] {line}\n"
+            else:
+                # Indent continuation lines to align with first line
+                formatted = f"{' ' * 32}{line}\n"
+            self.output.write(formatted)
+
+        self.output.flush()
+
+    def flush_buffer(self) -> None:
+        """Flush all pending notifications from buffer.
+
+        Displays queued notifications with a visual separator.
+        Called by CLI after LLM response completes.
+        """
+        if not self.buffer or not self.buffer.has_pending():
+            return
+
+        notifications = self.buffer.flush()
+        count = len(notifications)
+
+        # Visual separator
+        self.output.write(f"\n{'─' * 20} Jobs ({count}) {'─' * 20}\n")
+
+        for notification in notifications:
+            self._display(notification.message)
+
+        self.output.write(f"{'─' * 52}\n\n")
+        self.output.flush()
 
 
 class TelegramNotifier(Notifier):

@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from itertools import cycle
 from typing import Any
 
 from prompt_toolkit import PromptSession
@@ -19,8 +20,30 @@ from rich.text import Text
 
 from src.agent import ToolEnd, ToolEvent, ToolStart
 from src.alfred import Alfred
+from src.cron.notifier import CLINotifier
+from src.interfaces.notification_buffer import NotificationBuffer
 from src.interfaces.status import StatusData, StatusRenderer
 from src.session import Session
+
+# Braille dots spinner (80ms interval)
+SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+class Throbber:
+    """Animated spinner for activity indication in bottom-right corner."""
+
+    def __init__(self) -> None:
+        self._cycle = cycle(SPINNER_FRAMES)
+        self._frame = " "
+
+    def advance(self) -> str:
+        """Advance to next frame and return it."""
+        self._frame = next(self._cycle)
+        return self._frame
+
+    def reset(self) -> None:
+        """Reset to initial state."""
+        self._frame = " "
 
 PROMPT_STYLE = Style.from_dict(
     {
@@ -114,6 +137,32 @@ class CLIInterface:
         self.buffer = ConversationBuffer()
         self.session: PromptSession[str] = PromptSession(message=">>> ", style=PROMPT_STYLE)
         self._is_streaming = False
+        self._throbber = Throbber()
+
+        # Set up notification buffer for CLI mode
+        self._notification_buffer = NotificationBuffer(
+            is_active_callback=lambda: self._is_active_state
+        )
+
+        # Wire buffer to notifier if using CLINotifier
+        if isinstance(alfred.notifier, CLINotifier):
+            alfred.notifier.set_buffer(self._notification_buffer)
+            self._cli_notifier = alfred.notifier
+        else:
+            self._cli_notifier = None
+
+    @property
+    def _is_active_state(self) -> bool:
+        """Check if CLI is in an active state where notifications should be queued.
+
+        Active states:
+        - Streaming: LLM is generating response
+        - Prompt waiting: Handled by prompt_toolkit, but we set active during streaming
+
+        Note: We don't track "prompt waiting" as active because prompt_toolkit
+        handles stdout patching. The buffer is primarily for during streaming.
+        """
+        return self._is_streaming
 
     def _print_banner(self) -> None:
         banner = Panel(
@@ -347,6 +396,7 @@ class CLIInterface:
 
             self.buffer.clear()
             self._is_streaming = True
+            self._throbber.reset()
 
             try:
                 with Live(
@@ -354,15 +404,40 @@ class CLIInterface:
                     refresh_per_second=10,
                     vertical_overflow="visible",
                 ) as live:
+                    # Show throbber immediately before streaming starts
+                    live.update(Group(self._render_throbber()))
+
                     async for chunk in self.alfred.chat_stream(
                         user_input,
                         tool_callback=self._on_tool_event,
                     ):
                         self.buffer.add_text(chunk)
                         body = self.buffer.render()
-                        live.update(Group(*body))
+                        # Add throbber at the bottom
+                        live.update(Group(*body, self._render_throbber()))
+
+                    # Final update without throbber
+                    body = self.buffer.render()
+                    live.update(Group(*body))
 
             except Exception as e:
                 self.console.print(f"\n[bold red]Error: {e}[/]\n")
             finally:
                 self._is_streaming = False
+
+                # Flush any queued notifications
+                self._flush_notifications()
+
+    def _render_throbber(self) -> Text:
+        """Render throbber for bottom-right corner."""
+        frame = self._throbber.advance()
+        # Right-align by padding with spaces - use terminal width
+        width = self.console.width
+        text = f"{frame} Working..."
+        padding = width - len(text) - 1
+        return Text(" " * max(0, padding) + text, style="cyan bold")
+
+    def _flush_notifications(self) -> None:
+        """Flush queued notifications from buffer."""
+        if self._cli_notifier and self._notification_buffer.has_pending():
+            self._cli_notifier.flush_buffer()
