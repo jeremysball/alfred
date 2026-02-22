@@ -37,17 +37,23 @@ Alfred's response here...
 
 ### Desired Behavior
 
-All notifications should appear in the same visual format, and the prompt should always be preserved below them with user text intact:
+When a notification arrives while the user is typing, the notification appears **above** the prompt, and the prompt is redrawn below with user text intact:
 
+**Before notification:**
 ```
->>> user typing here
+>>> hello how are|
+```
 
+**After notification:**
+```
 ────────────────────── Jobs (1) ──────────────────────
 [2026-02-22 15:30:00 JOB NOTIFICATION] Message here
 ──────────────────────────────────────────────────────
 
->>> user typing here|   (cursor preserved)
+>>> hello how are|
 ```
+
+The prompt stays at the bottom. User text and cursor position are preserved automatically.
 
 ---
 
@@ -88,18 +94,15 @@ The primary challenge is integrating with **prompt_toolkit** to:
 ### Solution Approach
 
 **Prompt Toolkit Integration**:
-- Access the `PromptSession`'s `app` instance to get the current input buffer
-- Use `run_in_terminal()` to temporarily exit the prompt, print notification, then return
-- Alternative: Use `patch_stdout` context manager adjustments for notification handling
-
-**State Management**:
-- Capture current input buffer content and cursor position before displaying
-- Display notification using Rich console (for consistent formatting with streaming)
-- Restore input buffer and cursor position after display
+- Use `run_in_terminal()` from prompt_toolkit — it handles everything automatically:
+  1. Hides the prompt temporarily
+  2. Runs a function that prints the notification
+  3. Re-renders the prompt below with input buffer and cursor preserved
+- No manual state capture/restore needed
 
 **Visual Format Unification**:
 - Extract notification formatting into a shared method
-- Use Rich Panels/Tables for consistent visual style
+- Use Rich console for consistent formatting
 - Both streaming (batched) and non-streaming (immediate) use same formatter
 
 ---
@@ -111,8 +114,8 @@ The primary challenge is integrating with **prompt_toolkit** to:
 **Goal**: Create a unified formatting utility used by both streaming and non-streaming paths
 
 **Tasks**:
-- Create `format_notification()` function in `src/cron/notifier.py` or new module
-- Accept notification message(s) and return Rich renderable(s)
+- Create `format_notifications()` function in `src/cron/notifier.py`
+- Accept list of notification messages and return Rich renderable
 - Format: Visual separator with "Jobs (N)" header, timestamped messages, closing separator
 - Support single message (immediate) and batch (streaming) modes
 
@@ -121,42 +124,27 @@ The primary challenge is integrating with **prompt_toolkit** to:
 - Unit test: Multiple messages format with correct count in header
 - Visual inspection: Output matches streaming format exactly
 
-### Milestone 2: Prompt State Capture and Restoration
+### Milestone 2: Non-Streaming Notification Display with `run_in_terminal`
 
-**Goal**: Capture and restore prompt state without losing user input
-
-**Tasks**:
-- Implement `capture_prompt_state()` to get input buffer content and cursor position
-- Implement `restore_prompt_state()` to redraw prompt with preserved state
-- Handle multi-line input correctly
-- Handle edge cases: empty input, input at column 0, etc.
-
-**Validation**:
-- Test: Type text, trigger notification, verify text preserved
-- Test: Type text with cursor in middle, trigger notification, verify cursor position
-- Test: Multi-line input preservation
-
-### Milestone 3: Non-Streaming Notification Display
-
-**Goal**: Display immediate notifications in unified format without clobbering prompt
+**Goal**: Display immediate notifications above prompt without clobbering user input
 
 **Tasks**:
-- Modify `CLINotifier._display()` to use new formatter
-- Integrate with prompt_toolkit's `run_in_terminal()` or equivalent
-- Display notification below prompt, then redraw prompt with preserved input
-- Handle concurrent notifications (queue if display in progress)
+- Modify `CLINotifier` to hold reference to `PromptSession` (or use callback pattern)
+- Create `_display_with_prompt()` method that uses `run_in_terminal()`
+- Print notification using shared formatter inside `run_in_terminal()` callback
+- Update `CLINotifier.send()` to use new display method when prompt is active
 
 **Validation**:
-- Manual test: Schedule a job, wait for notification while typing
-- Verify visual format matches streaming batch format
-- Verify prompt redraws correctly with user text
+- Manual test: Schedule a job, type text at prompt, wait for notification
+- Verify: Notification appears above prompt, user text preserved
+- Verify: Cursor position maintained
 
-### Milestone 4: Unified Batching for Streaming
+### Milestone 3: Unified Batching for Streaming
 
 **Goal**: Update streaming notification flush to use same formatter
 
 **Tasks**:
-- Modify `CLINotifier.flush_buffer()` to use shared formatter
+- Modify `CLINotifier.flush_buffer()` to use shared `format_notifications()`
 - Ensure visual output is identical to non-streaming path
 - Remove old formatting code
 
@@ -164,35 +152,31 @@ The primary challenge is integrating with **prompt_toolkit** to:
 - Test: Verify streaming batch output unchanged (regression test)
 - Test: Both paths produce identical visual output
 
-### Milestone 5: Edge Cases and Polish
+### Milestone 4: Edge Cases and Polish
 
 **Goal**: Handle edge cases and ensure production readiness
 
 **Tasks**:
 - Handle very long notifications (wrapping, truncation)
-- Handle rapid successive notifications (debounce or queue)
-- Handle terminal resize during notification display
-- Handle Ctrl+C during notification display
+- Handle rapid successive notifications (queue in buffer, display together)
+- Handle notification when prompt not active (startup, between interactions)
 - Performance: No perceptible delay in prompt redisplay
 
 **Validation**:
 - Test: 1000-character notification displays properly
-- Test: 5 notifications arrive within 1 second (queue behavior)
-- Test: Resize terminal, trigger notification
-- Test: Ctrl+C during notification display (graceful handling)
+- Test: 5 notifications arrive within 1 second (batched display)
+- Test: Notification during startup (graceful fallback)
 
-### Milestone 6: Documentation Update
+### Milestone 5: Documentation Update
 
 **Goal**: Update relevant documentation
 
 **Tasks**:
-- Update `docs/API.md` if notification interfaces changed
-- Update README.md "Features" section if needed
-- Add code comments explaining prompt state management
+- Add code comments explaining `run_in_terminal()` usage
+- Update README.md if needed
 
 **Validation**:
-- Documentation accurately reflects new behavior
-- Code comments explain the "why" of prompt toolkit integration
+- Code comments explain the "why" of prompt_toolkit integration
 
 ---
 
@@ -203,19 +187,12 @@ The primary challenge is integrating with **prompt_toolkit** to:
 1. **Notification Formatting**:
    ```python
    def test_format_single_notification():
-       result = format_notification("Test message")
+       result = format_notifications(["Test message"])
        # Assert Rich renderable with correct structure
    
    def test_format_multiple_notifications():
        result = format_notifications(["Msg1", "Msg2"])
        # Assert header shows "Jobs (2)"
-   ```
-
-2. **Prompt State**:
-   ```python
-   def test_capture_restore_prompt_state():
-       # Mock prompt_toolkit state
-       # Capture, modify, restore, verify
    ```
 
 ### Integration Tests
@@ -230,12 +207,11 @@ The primary challenge is integrating with **prompt_toolkit** to:
 
 - [ ] Single notification while typing short text
 - [ ] Single notification while typing long text (wraps)
-- [ ] Multiple rapid notifications
+- [ ] Multiple rapid notifications (verify batching)
 - [ ] Notification during multi-line input
 - [ ] Notification with cursor at start/middle/end of input
-- [ ] Notification during streaming (existing behavior)
-- [ ] Terminal resize during notification
-- [ ] Ctrl+C during notification display
+- [ ] Notification during streaming (existing behavior unchanged)
+- [ ] Notification when prompt not active (startup, between interactions)
 
 ---
 
@@ -251,9 +227,8 @@ The primary challenge is integrating with **prompt_toolkit** to:
 
 ## Open Questions
 
-1. **prompt_toolkit Integration**: Should we use `run_in_terminal()` or manipulate the renderer directly?
-2. **Multi-line Input**: How to handle input that spans multiple terminal lines?
-3. **Concurrent Notifications**: Queue or debounce when multiple arrive simultaneously?
+1. **Multi-line Input**: How does `run_in_terminal()` handle input that spans multiple terminal lines? (Test during implementation)
+2. **Concurrent Notifications**: Queue in buffer and display together, or display each immediately? (Recommend: queue in buffer)
 
 ---
 
@@ -261,7 +236,8 @@ The primary challenge is integrating with **prompt_toolkit** to:
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-02-22 | Option B (immediate display + redraw) | User wants real-time feedback, accepts complexity |
+| 2026-02-22 | Use `run_in_terminal()` | prompt_toolkit API handles hide/show prompt, preserves input buffer automatically |
+| 2026-02-22 | Notification above prompt (Option B) | Cleaner UX — prompt stays at bottom, notification scrolls above |
 | 2026-02-22 | Unified format for all notifications | Consistency is primary goal |
 | 2026-02-22 | Preserve cursor position | Complete UX fidelity |
 
