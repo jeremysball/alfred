@@ -157,7 +157,7 @@ LLM Response
 | 2 | **Session Manager V2** | ✅ Complete | Multi-session manager with per-session folders, `SessionStorage` class |
 | 3 | **Message Persistence** | ✅ Complete | `current.jsonl` per session, async embedding |
 | 4 | **CLI Commands** | ✅ Complete | `/new`, `/resume`, `/sessions`, `/session` commands implemented |
-| 5 | **Context Integration** | Inject active session into LLM context | LLM sees conversation history |
+| 5 | **Context Integration** | ✅ Complete | Session messages injected into LLM context via `ContextBuilder` |
 | 6 | **Telegram Integration** | Wire session manager to Telegram handler | Per-chat sessions via Telegram chat_id |
 | 7 | **Testing** | ✅ Complete | 564 tests passing, session storage and CLI tested |
 
