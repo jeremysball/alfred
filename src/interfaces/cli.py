@@ -278,6 +278,13 @@ class CLIInterface:
         """Create a new session."""
         session = self.alfred.session_manager.new_session()
         self.buffer.clear()
+
+        # Update context summary for status line refresh
+        self.alfred.context_summary.update(
+            memories_count=self.alfred.context_summary.memories_count,
+            session_messages=0,  # New session has no messages
+        )
+
         self.console.print(
             Panel(
                 f"Session ID: [bold cyan]{session.meta.session_id}[/]",
@@ -300,6 +307,13 @@ class CLIInterface:
             session = self.alfred.session_manager.resume_session(session_id)
             self.buffer.clear()
             msg_count = len(session.messages)
+
+            # Update context summary for status line refresh
+            self.alfred.context_summary.update(
+                memories_count=self.alfred.context_summary.memories_count,
+                session_messages=msg_count,
+            )
+
             self.console.print(
                 Panel(
                     f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
