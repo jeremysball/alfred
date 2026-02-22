@@ -196,7 +196,7 @@ def render_throbber(frame: str) -> Text:
 | 3 | **Status Line Refresh** | Update on `/new` | ✅ Done |
 | 4 | **Command Completion** | Autocomplete for `/` commands | ✅ Done |
 | 5 | **Throbber Fix** | Add animated throbber to bottom-right during streaming | ✅ Done |
-| 6 | **UI Documentation** | Capture and document current UI with tmux-tape screenshots | 🔲 Todo |
+| 6 | **UI Documentation** | Capture and document current UI with tmux-tape screenshots | ✅ Done |
 
 ---
 
@@ -221,7 +221,7 @@ def render_throbber(frame: str) -> Text:
 - [x] `/new` immediately updates status line
 - [x] Tab completes `/new`, `/resume`, `/sessions`, `/session`
 - [x] Animated throbber visible in bottom-right during streaming
-- [ ] UI design document created with tmux-tape screenshots
+- [x] UI design document created with tmux-tape screenshots
 
 ---
 
