@@ -13,6 +13,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout as original_patch_stdout
 from prompt_toolkit.styles import Style
 from rich.console import Console, Group, RenderableType
+from rich.layout import Layout
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -25,26 +26,6 @@ from src.cron.notifier import CLINotifier
 from src.interfaces.notification_buffer import NotificationBuffer
 from src.interfaces.status import StatusData, StatusRenderer
 from src.session import Session
-
-# Braille dots spinner (80ms interval)
-SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-
-
-class Throbber:
-    """Animated spinner for activity indication in bottom-right corner."""
-
-    def __init__(self) -> None:
-        self._cycle = cycle(SPINNER_FRAMES)
-        self._frame = " "
-
-    def advance(self) -> str:
-        """Advance to next frame and return it."""
-        self._frame = next(self._cycle)
-        return self._frame
-
-    def reset(self) -> None:
-        """Reset to initial state."""
-        self._frame = " "
 
 
 class SessionCommandCompleter(Completer):
@@ -194,13 +175,16 @@ class ConversationBuffer:
 
 
 class CLIInterface:
+    # Spinner frames for streaming indicator
+    _SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
     def __init__(self, alfred: Alfred) -> None:
         self.alfred = alfred
         self.console = Console()
         self.buffer = ConversationBuffer()
         self.session: PromptSession[str] = PromptSession(message=">>> ", style=PROMPT_STYLE)
         self._is_streaming = False
-        self._throbber = Throbber()
+        self._spinner_cycle = cycle(self._SPINNER_FRAMES)
 
         # Set up notification buffer for CLI mode
         self._notification_buffer = NotificationBuffer(
@@ -208,11 +192,10 @@ class CLIInterface:
         )
 
         # Wire buffer to notifier if using CLINotifier
+        self._cli_notifier: CLINotifier | None = None
         if isinstance(alfred.notifier, CLINotifier):
             alfred.notifier.set_buffer(self._notification_buffer)
             self._cli_notifier = alfred.notifier
-        else:
-            self._cli_notifier = None
 
     @property
     def _is_active_state(self) -> bool:
@@ -492,16 +475,22 @@ class CLIInterface:
 
             self.buffer.clear()
             self._is_streaming = True
-            self._throbber.reset()
 
             try:
+                # Create layout with fixed footer for status
+                layout = Layout()
+                layout.split(
+                    Layout(name="body", ratio=1),
+                    Layout(name="footer", size=1),
+                )
+
                 with Live(
+                    layout,
                     console=self.console,
-                    refresh_per_second=10,
-                    vertical_overflow="visible",
-                ) as live:
-                    # Show throbber immediately before streaming starts
-                    live.update(Group(self._render_throbber()))
+                    refresh_per_second=12,
+                ):
+                    # Initial state
+                    layout["footer"].update(self._render_streaming_status())
 
                     async for chunk in self.alfred.chat_stream(
                         user_input,
@@ -509,12 +498,12 @@ class CLIInterface:
                     ):
                         self.buffer.add_text(chunk)
                         body = self.buffer.render()
-                        # Add throbber at the bottom
-                        live.update(Group(*body, self._render_throbber()))
+                        layout["body"].update(Group(*body))
+                        layout["footer"].update(self._render_streaming_status())
 
-                    # Final update without throbber
+                    # Final update - just the content
                     body = self.buffer.render()
-                    live.update(Group(*body))
+                    layout["body"].update(Group(*body))
 
             except Exception as e:
                 self.console.print(f"\n[bold red]Error: {e}[/]\n")
@@ -524,14 +513,66 @@ class CLIInterface:
                 # Flush any queued notifications
                 self._flush_notifications()
 
-    def _render_throbber(self) -> Text:
-        """Render throbber for bottom-right corner."""
-        frame = self._throbber.advance()
-        # Right-align by padding with spaces - use terminal width
-        width = self.console.width
-        text = f"{frame} Computing..."
-        padding = width - len(text) - 1
-        return Text(" " * max(0, padding) + text, style="cyan bold")
+    def _render_streaming_status(self) -> Text:
+        """Render streaming status line matching the toolbar format.
+
+        Shows: ⠋ kimi | in:12K out:3K | ctx:45  📚 0 | 💬 0 | 📋 sections
+        """
+        status_data = self._get_status_data()
+        usage = status_data.usage
+
+        text = Text()
+
+        # Spinner frame (cycle through)
+        frame = next(self._spinner_cycle) if self._is_streaming else ">"
+        text.append(frame, style="cyan")
+        text.append(" ")
+
+        # Model name
+        text.append(status_data.model_name, style="bold white")
+        text.append(" | ", style="dim")
+
+        # Token counts
+        text.append(f"in:{self._format_number(usage.input_tokens)} ", style="blue")
+        text.append(f"out:{self._format_number(usage.output_tokens)}", style="green")
+
+        # Cache read (only if non-zero)
+        if usage.cache_read_tokens > 0:
+            text.append(" ", style="dim")
+            text.append(f"cache:{self._format_number(usage.cache_read_tokens)}", style="yellow")
+
+        # Reasoning (only if non-zero)
+        if usage.reasoning_tokens > 0:
+            text.append(" ", style="dim")
+            text.append(f"reason:{self._format_number(usage.reasoning_tokens)}", style="magenta")
+
+        text.append(" | ", style="dim")
+        text.append(f"ctx:{self._format_number(status_data.context_tokens)}", style="white")
+
+        # Context summary
+        text.append("  📚 ", style="white")
+        text.append(f"{status_data.memories_count}", style="yellow")
+        text.append(" | 💬 ", style="dim")
+        text.append(f"{status_data.session_messages}", style="cyan")
+        text.append(" | 📋 ", style="dim")
+
+        sections = (
+            ",".join(status_data.prompt_sections[:3])
+            if status_data.prompt_sections
+            else "none"
+        )
+        if len(sections) > 20:
+            sections = sections[:17] + "..."
+        text.append(sections, style="green")
+
+        return text
+
+    @staticmethod
+    def _format_number(n: int) -> str:
+        """Format number with K suffix for thousands."""
+        if n >= 1000:
+            return f"{n / 1000:.1f}K"
+        return str(n)
 
     def _flush_notifications(self) -> None:
         """Flush queued notifications from buffer."""
