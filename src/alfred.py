@@ -18,6 +18,7 @@ from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
 from src.search import MemorySearcher
 from src.session import SessionManager
+from src.session_storage import SessionStorage
 from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
 
@@ -106,7 +107,9 @@ class Alfred:
         # Create agent
         self.agent = Agent(self.llm, self.tools, max_iterations=10)
 
-        # Session manager for conversation history
+        # Initialize session storage and manager
+        session_storage = SessionStorage(self.embedder, data_dir=data_dir)
+        SessionManager.initialize(session_storage)
         self.session_manager = SessionManager.get_instance()
 
         # Token tracking for usage display

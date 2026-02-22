@@ -1,10 +1,12 @@
 # PRD: Conversation Session System
 
-**Issue**: #53  
-**Status**: Ready for Implementation  
-**Priority**: High  
+**Issue**: #53
+**Status**: Ready for Implementation
+**Priority**: High
 **Created**: 2026-02-18
+**Updated**: 2026-02-22
 **Depends on**: #54 (✅ Complete - In-Memory Session Storage)
+**Related**: #76 (Session Summarization), #77 (Contextual Retrieval)
 
 ---
 
@@ -16,16 +18,16 @@ Alfred has no conversation memory. Each Telegram message starts a fresh session�
 
 ## Solution Overview
 
-Implement persistent conversation sessions with automatic summarization and semantic retrieval. Every conversation is stored, summarized after inactivity, and made searchable. The system loads relevant past conversations into context alongside the current session.
+Implement persistent conversation sessions with explicit user control and automatic summarization. Every conversation is stored with embeddings, summarized after idle time, and made searchable. Users explicitly create and resume sessions.
 
 ### Key Behaviors
 
-1. **Active Session Tracking**: Current conversation held in memory, injected into every LLM call
-2. **Immediate Persistence**: Every exchange appended to sessions.jsonl immediately (durability)
-3. **Smart Summarization**: LLM extracts key topics/facts after 1 hour of inactivity
-4. **Semantic Retrieval**: Past conversation summaries searchable by current query
-5. **Dual Storage**: Raw exchanges preserved + distilled insights extracted
-6. **CLI Control**: Commands to start new session or resume old ones
+1. **Explicit Session Control**: `/new` creates session, `/resume <id>` continues previous session
+2. **Immediate Persistence**: Every message stored with embedding immediately (durability)
+3. **Auto-Summarization**: LLM summarizes session after 30 min idle (cron job)
+4. **Forever Retention**: Sessions persist indefinitely, never auto-deleted
+5. **Triple-Layer Memory**: Curated facts + session summaries + session messages (see PRD #77)
+6. **Unified Chat ID**: Both Telegram and CLI use `chat_id` for session isolation
 
 ---
 
@@ -34,60 +36,96 @@ Implement persistent conversation sessions with automatic summarization and sema
 ### Session Lifecycle
 
 ```
-User Message → Load/Create Session → Inject History → LLM Response
-                                    ↓
-                              Store Exchange
-                                    ↓
-                         Append to sessions.jsonl (durability)
-                                    ↓
-                    [10min timeout] → Summarize → Embed → Update record
+/new command → Create new session → Set as active for chat_id
+                                        ↓
+User Message → Load active session → Inject history → LLM Response
+                                        ↓
+                                 Store Message with Embedding
+                                        ↓
+                         Append to data/sessions/{id}/messages.jsonl
+                                        ↓
+                    [30 min idle] → Cron summarizes → summary.json (via PRD #76)
+
+/resume <id> → Load session → Set as active → Continue conversation
 ```
+
+**Key principle**: Sessions are user-controlled, not auto-detected. No automatic session boundaries.
 
 ### Data Schema
 
-#### Active Session (In-Memory)
+#### Session
 ```python
 @dataclass
 class Session:
-    session_id: str          # UUID
-    chat_id: str             # Telegram chat ID
+    session_id: str          # Telegram thread ID OR CLI-generated UUID
     created_at: datetime
     last_active: datetime
-    exchanges: list[Exchange]  # Raw conversation
-    status: "active" | "paused"
-
-@dataclass
-class Exchange:
-    timestamp: datetime
-    role: "user" | "assistant"
-    content: str
+    status: "active" | "idle"  # idle = summarized, still resumable
 ```
 
-#### Persistent Session Record (JSONL)
-```json
-{
-  "session_id": "uuid",
-  "chat_id": "123456",
-  "created_at": "2026-02-18T10:00:00",
-  "ended_at": "2026-02-18T11:30:00",
-  "summary": "User discussed Python async patterns...",
-  "summary_embedding": [0.1, -0.2, ...],
-  "exchanges": [
-    {"timestamp": "...", "role": "user", "content": "..."},
-    {"timestamp": "...", "role": "assistant", "content": "..."}
-  ],
-  "key_facts": ["User prefers asyncio over threading"],
-  "tags": ["python", "async"]
-}
+**Session ID assignment:**
+- **Telegram**: `session_id` = Telegram thread ID (implicit, automatic)
+- **CLI**: `session_id` = UUID, controlled via `/new` and `/resume`
+
+#### Message (with embedding)
+```python
+@dataclass
+class Message:
+    idx: int                 # Position in file (local to current.jsonl or archive.jsonl)
+    role: "user" | "assistant"
+    content: str
+    timestamp: datetime
+    embedding: list[float] | None  # None until async embedding completes
+```
+
+**Indexing**: Each file (`current.jsonl`, `archive.jsonl`) has its own indices starting from 0. Archive represents messages before the last summary point.
+
+#### Session Summary (separate file)
+```python
+@dataclass
+class SessionSummary:
+    session_id: str
+    summary_text: str
+    embedding: list[float]   # For finding relevant sessions
+    message_count: int
+    created_at: datetime
+    last_summarized: datetime
 ```
 
 ### File Structure
 
 ```
 data/
-├── memories.jsonl       # Curated facts extracted from all sessions
-└── sessions.jsonl       # All sessions (active + archived)
+├── memory/
+│   └── memories.jsonl           # Layer 1: Curated facts Alfred remembers
+│
+└── sessions/
+    ├── current.json             # CLI current session_id (persists across restarts)
+    │
+    └── {session_id}/            # One folder per session
+        ├── meta.json            # Session metadata
+        ├── current.jsonl        # Recent messages (loaded for context)
+        ├── archive.jsonl        # Older messages (post-compaction)
+        └── summary.json         # Layer 2: Summary + embedding (PRD #76)
 ```
+
+#### Session Metadata (meta.json)
+```json
+{
+  "session_id": "sess_abc123",
+  "created_at": "2026-02-22T10:00:00Z",
+  "last_active": "2026-02-22T12:30:00Z",
+  "message_count": 47,
+  "current_count": 20,
+  "archive_count": 27
+}
+```
+
+**Context loading**: Always load from `current.jsonl`. Compaction (future) moves older messages to `archive.jsonl`, keeping context bounded.
+
+**Embedding**: Simple `asyncio.create_task()` after message written. No queue infrastructure.
+
+**SessionManager**: Keep as singleton (per PRD #54).
 
 ---
 
@@ -96,22 +134,18 @@ data/
 ```
 User Query
     ↓
-[1] Load active session for chat_id
-[2] Get all exchanges from active session (no limit - fills context)
-[3] Embed query → search past session summaries
-[4] Top 3 relevant past sessions → inject summaries
-[5] Combine: System Prompt + Past Context + Active Session + Current Query
+[1] Get session_id: Telegram thread ID OR CLI current session
+[2] If session folder doesn't exist → auto-create, inform user
+[3] Load messages from data/sessions/{session_id}/current.jsonl
+[4] Combine: System Prompt + Session Messages + Current Query
     ↓
 LLM Response
     ↓
-Store exchange to active session
-    ↓
-Append to sessions.jsonl (immediate durability)
-    ↓
-Check timeout → Summarize if > 10min inactive
+[5] Write message to current.jsonl (no embedding yet)
+[6] asyncio.create_task(): Generate embedding, update message record
 ```
 
-**Note on Long Conversations**: Active session exchanges fill the available context window without artificial limits. Token budget management and compaction (intelligent summarization of older exchanges) will be implemented in a future milestone.
+**No auto-injection of past sessions**: The LLM uses `search_sessions` tool (PRD #77) when it needs relevant past context. Past sessions are not automatically injected into context.
 
 ---
 
@@ -120,97 +154,111 @@ Check timeout → Summarize if > 10min inactive
 | # | Milestone | Description | Success Criteria |
 |---|-----------|-------------|------------------|
 | 1 | **Session Data Model** | ✅ Complete in PRD #54 | `Session`, `Message` dataclasses in `src/session.py` |
-| 2 | **Session Manager** | In-memory session tracking with TTL; auto-archive on timeout | Sessions persist 10min, auto-summarize |
-| 3 | **Summarization Engine** | LLM prompt to summarize session; extract key facts | Quality summaries with facts extraction |
-| 4 | **Context Integration** | Inject active session + relevant past sessions into LLM context | LLM sees conversation history |
-| 5 | **Telegram Integration** | Wire session manager to Telegram handler; per-chat sessions | Each chat has isolated session |
-| 6 | **CLI Commands** | `/sessions` list, `/resume <id>`, `/newsession` commands | User can manage sessions |
-| 7 | **Testing** | Unit tests for session lifecycle; integration test for full flow | >90% coverage, all tests pass |
+| 2 | **Session Manager V2** | ✅ Complete | Multi-session manager with per-session folders, `SessionStorage` class |
+| 3 | **Message Persistence** | ✅ Complete | `current.jsonl` per session, async embedding |
+| 4 | **CLI Commands** | `/new`, `/resume <id>`, `/sessions` commands | User controls session lifecycle |
+| 5 | **Context Integration** | Inject active session into LLM context | LLM sees conversation history |
+| 6 | **Telegram Integration** | Wire session manager to Telegram handler | Per-chat sessions via Telegram chat_id |
+| 7 | **Testing** | ✅ Complete | 558 tests passing, session storage tested |
+
+**Note**: Summarization via cron (PRD #76) and contextual retrieval (PRD #77) are separate PRDs that build on this foundation.
 
 ---
 
 ## CLI Commands
 
+**Telegram**: Session is tied to thread ID. No commands needed — user is always in that thread's session.
+
+**CLI**: User manages multiple sessions:
+
 ```bash
-# List recent sessions
-alfred sessions
+# Create a new session
+/new
+# Output: Created session sess_abc123
+
+# List all CLI sessions
+/sessions
 # Output:
-# ID        Date        Summary
-# sess_abc  2026-02-18  Discussed Python async patterns
-# sess_def  2026-02-17  Planned vacation to Japan
+# ID            Created     Last Active  Messages  Summary
+# sess_abc123   2026-02-22  2 hours ago  47        Discussed Python async patterns
+# sess_def456   2026-02-21  1 day ago    23        Planned vacation to Japan
 
 # Resume a specific session
-alfred resume sess_abc
+/resume sess_abc123
+# Output: Resumed session sess_abc123 (47 messages)
 
-# Force new session (even if active one exists)
-alfred newsession
-
-# Show session details
-alfred session sess_abc
+# Show current session
+/session
+# Output: Current session: sess_abc123 (started 2 hours ago, 47 messages)
 ```
+
+**First-time user**: Auto-create session + inform: *"Created session sess_abc. Use /new to start fresh or /sessions to resume a past conversation."*
 
 ---
 
 ## Configuration
 
-```python
-SESSION_TIMEOUT_MINUTES = 10      # Auto-summarize after inactivity
-SESSION_MAX_EXCHANGES = 100       # Force summarize after N turns
-PAST_SESSIONS_IN_CONTEXT = 3      # Number of relevant past sessions
-# Note: No limit on recent exchanges - fills context until token budget hit
-# Compaction (future milestone) will handle long conversations
+```toml
+[session]
+idle_minutes = 30              # Summarize after idle (PRD #76 cron)
+sessions_dir = "data/sessions" # Session folder storage
 ```
+
+**Note**: Secrets (API keys, tokens) go in environment variables, not config file.
 
 ---
 
 ## Memory System Integration
 
-### Relationship to Existing Memory
+### Triple-Layer Architecture (with PRDs #76, #77)
 
-| System | Stores | Use Case | Status |
-|--------|--------|----------|--------|
-| **Session System** | Full conversations, summaries | Context for current conversation, finding relevant past chats | **New** |
-| **memories.jsonl** | Curated facts from all interactions | Long-term curated knowledge + semantic search | **Active** - populated from session key_facts |
+| Layer | Location | Stores | Search Pattern |
+|-------|----------|--------|----------------|
+| **Global Memory** | `data/memory/memories.jsonl` | Curated facts | Semantic similarity |
+| **Session Summaries** | `data/sessions/{id}/summary.json` | Narrative arcs | Semantic similarity |
+| **Session Messages** | `data/sessions/{id}/messages.jsonl` | Every message | Contextual (session-scoped) |
 
 ### Data Flow
 
 ```
 During Conversation (every message):
-    User Message → LLM Response → Append exchange to sessions.jsonl
+    User Message → LLM Response → Store to current.jsonl → Async embed
 
-When Session Ends (10min timeout):
-    Session Summarized
-        ↓
-    ├─→ Update session record in sessions.jsonl with summary + embedding
-    └─→ Extract key facts → add to memories.jsonl
+When Session Idle (30 min, via cron PRD #76):
+    Generate Summary → Embed → Write to summary.json
+
+When Compaction Needed (future):
+    Move older messages from current.jsonl → archive.jsonl
 ```
 
-- **sessions.jsonl**: Complete session history (written immediately per message), summaries added on timeout
-- **memories.jsonl**: Curated facts extracted from sessions (long-term knowledge store)
+**This PRD (#53)**: Session storage, message persistence, `/new`, `/resume`, `/sessions`
+**PRD #76**: Cron-based summarization after idle
+**PRD #77**: Contextual retrieval across layers
 
 ---
 
-## Open Questions (Resolved)
+## Open Questions
 
-**Q: How does this relate to the existing memory system?**  
-A: Sessions handle conversation context. memories.jsonl is the curated long-term knowledge store. Key facts extracted from session summaries feed into memories.jsonl.
+**Q: What happens on first message if no session exists?**
+A: Alfred prompts user to `/new` or `/sessions`. No auto-creation.
 
-**Q: What triggers session summarization?**  
-A: 1 hour of inactivity OR 100 exchanges (configurable).
+**Q: Can multiple sessions be active simultaneously?**
+A: One active session per `chat_id`. Different chats (Telegram) or CLI have independent active sessions.
 
-**Q: Can users manually control sessions?**  
-A: Yes, via CLI commands to list, resume, or start fresh.
+**Q: How are sessions ordered in `/sessions` output?**
+A: By `last_active` descending (most recent first).
 
 ---
 
 ## Success Criteria
 
-- [ ] Alfred remembers the current conversation across multiple messages
-- [ ] Relevant past conversations appear in context automatically
-- [ ] Sessions survive bot restarts
-- [ ] Users can list and resume past sessions via CLI
+- [ ] `/new` creates a new session with unique ID
+- [ ] `/resume <id>` loads and continues a previous session
+- [ ] `/sessions` lists all sessions with summaries
+- [ ] Every message stored with embedding in `current.jsonl`
+- [x] Sessions persist across bot restarts
+- [ ] CLI and Telegram both use `chat_id` system
 - [ ] No perceptible latency increase (<100ms overhead)
-- [ ] Storage grows linearly with actual conversations (not unbounded)
 
 ---
 
@@ -218,7 +266,7 @@ A: Yes, via CLI commands to list, resume, or start fresh.
 
 - ✅ PRD #54 (In-Memory Session Storage) - Complete
 - Existing memory system (memories.jsonl, embeddings)
-- LLM provider for summarization
+- LLM provider for embeddings on each message
 - Telegram chat ID for session isolation
 
 ---
@@ -228,6 +276,21 @@ A: Yes, via CLI commands to list, resume, or start fresh.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-02-18 | JSONL storage for sessions | Consistent with existing memory system |
-| 2026-02-18 | 10-minute timeout for summarization | Faster session turnover, more granular summaries |
 | 2026-02-18 | Dual storage (raw + summary) | Enables both full replay and fast retrieval |
 | 2026-02-18 | Per-chat session isolation | Telegram users don't share context |
+| 2026-02-22 | Explicit session control (`/new`, `/resume`) for CLI | User decides when to start fresh |
+| 2026-02-22 | Sessions persist forever | Never lose conversation history |
+| 2026-02-22 | Per-session folder structure | Enables contextual retrieval (PRD #77) |
+| 2026-02-22 | Every message with embedding (async) | Semantic search without latency impact |
+| 2026-02-22 | Config file, not env vars | Secrets in env, config in TOML |
+| 2026-02-22 | No auto-injection of past sessions | LLM uses tools to fetch relevant context |
+| 2026-02-22 | Telegram thread ID = session_id | Natural mapping, no management needed |
+| 2026-02-22 | CLI uses UUID session_ids with `/new`/`/resume` | Multiple sessions over time |
+| 2026-02-22 | Session discovery via folder scan | Simple, no index file to maintain |
+| 2026-02-22 | First-time user: auto-create + inform | No friction, but user knows what happened |
+| 2026-02-22 | CLI current session persisted in `current.json` | Survives restarts |
+| 2026-02-22 | `meta.json` per session for metadata | Fast access to created_at, last_active, message_count |
+| 2026-02-22 | `current.jsonl` + `archive.jsonl` split | Compaction keeps context bounded |
+| 2026-02-22 | Local indices per file | Archive starts from summary, separate index space |
+| 2026-02-22 | Async embedding via `asyncio.create_task()` | No queue infrastructure needed |
+| 2026-02-22 | SessionManager remains singleton | Simplicity, per PRD #54 |
