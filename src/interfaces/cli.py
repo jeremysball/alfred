@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
@@ -110,6 +111,7 @@ class CLIInterface:
         self.console = Console()
         self.buffer = ConversationBuffer()
         self.session: PromptSession[str] = PromptSession(message=">>> ", style=PROMPT_STYLE)
+        self._is_streaming = False
 
     def _print_banner(self) -> None:
         banner = Panel(
@@ -126,26 +128,26 @@ class CLIInterface:
         elif isinstance(event, ToolEnd):
             self.buffer.on_tool_end(event.tool_name, event.result, event.is_error)
 
-    def _render_status(self, is_streaming: bool = False) -> RenderableType:
-        status_data = StatusData(
+    def _get_status_data(self) -> StatusData:
+        return StatusData(
             model_name=self.alfred.model_name,
             usage=self.alfred.token_tracker.usage,
             context_tokens=self.alfred.token_tracker.context_tokens,
             memories_count=self.alfred.context_summary.memories_count,
             session_messages=self.alfred.context_summary.session_messages,
             prompt_sections=self.alfred.context_summary.prompt_sections,
-            is_streaming=is_streaming,
+            is_streaming=self._is_streaming,
         )
-        return StatusRenderer(status_data).render()
+
+    def _bottom_toolbar(self) -> Any:
+        """Return status as prompt_toolkit bottom toolbar."""
+        status_data = self._get_status_data()
+        renderer = StatusRenderer(status_data)
+        return renderer.to_prompt_toolkit()
 
     @contextmanager
     def _patch_stdout_with_status(self) -> Iterator[None]:
-        """Patch stdout but print status line before prompt."""
-        # Print status line before entering prompt
-        self.console.print()
-        self.console.print(self._render_status(is_streaming=False))
-        self.console.print()
-
+        """Patch stdout for prompt_toolkit compatibility."""
         with original_patch_stdout():
             yield
 
@@ -158,7 +160,12 @@ class CLIInterface:
         def _toggle(event: object) -> None:
             self.buffer.toggle_panels()
 
-        self.session = PromptSession(message=">>> ", style=PROMPT_STYLE, key_bindings=kb)
+        self.session = PromptSession(
+            message=">>> ",
+            style=PROMPT_STYLE,
+            key_bindings=kb,
+            bottom_toolbar=self._bottom_toolbar,
+        )
 
         while True:
             try:
@@ -184,6 +191,7 @@ class CLIInterface:
                 continue
 
             self.buffer.clear()
+            self._is_streaming = True
 
             try:
                 with Live(
@@ -197,14 +205,9 @@ class CLIInterface:
                     ):
                         self.buffer.add_text(chunk)
                         body = self.buffer.render()
-                        status = self._render_status(True)
-                        live.update(Group(*body, Text(), Text("─" * 50, style="dim"), status))
-
-                    body = self.buffer.render()
-                    status = self._render_status(False)
-                    live.update(Group(*body, Text(), Text("─" * 50, style="dim"), status))
-
-                self.console.print()
+                        live.update(Group(*body))
 
             except Exception as e:
                 self.console.print(f"\n[bold red]Error: {e}[/]\n")
+            finally:
+                self._is_streaming = False

@@ -31,6 +31,8 @@ Example screenshots from Alfred CLI:
 
 ## Quick Start
 
+**Always use `uv run python script.py` to run scripts.**
+
 ### 1. Install Dependencies
 
 ```bash
@@ -252,20 +254,25 @@ url = s.upload("existing.png")
 
 ## Output Format
 
-After running, report:
+After running, report terminal text output and list uploaded URLs at the bottom.
+
+**Always output uploaded URLs at the bottom of your response** so they're easy to find and click.
+
+Example:
 
 ```
-tmux session complete.
-
 Session dir: /tmp/pi-tmux/2026-02-22_01-45-00
 Script: script.py
-Screenshots: startup.png, response.png
 
 Text:
 [terminal text output]
-```
 
-If screenshots were uploaded, include URLs.
+---
+
+Screenshots:
+https://0x0.st/xxx.png
+https://0x0.st/yyy.png
+```
 
 ---
 
@@ -315,11 +322,12 @@ if __name__ == "__main__":
 
 ## Tips
 
-1. **Unique ports** — Use different ports for concurrent sessions (7681, 7682, etc.)
-2. **Estimate waits** — LLM responses need 10s+
-3. **Use bash** — Avoid fish/shell compatibility issues
-4. **Upload selectively** — Use `upload=True` only when you need shareable URLs
-5. **Check text** — Always print `result["text"]` for verification
+1. **Use `uv run`** — Always run scripts with `uv run python script.py`
+2. **Unique ports** — Use different ports for concurrent sessions (7681, 7682, etc.)
+3. **Estimate waits** — LLM responses need 10s+
+4. **Use bash** — Avoid fish/shell compatibility issues
+5. **Upload selectively** — Use `upload=True` only when you need shareable URLs
+6. **Check text** — Always print `result["text"]` for verification
 
 ---
 
