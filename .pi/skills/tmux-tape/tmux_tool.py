@@ -6,12 +6,15 @@ Features:
 - Pixel-perfect screenshots via browser rendering
 - Text capture via tmux
 - Keystroke sending via tmux
-- Image upload to 0x0.st (no API key)
+- Image upload to imgbb (requires IMGBB_API_KEY)
 
 Requirements:
     pip install pyte pillow
     npx playwright install chromium
     # System: ttyd, tmux, curl
+
+Environment:
+    IMGBB_API_KEY - API key for imgbb image hosting
 
 Usage:
     from tmux_tool import TerminalSession
@@ -25,6 +28,7 @@ Usage:
         print(result["url"])
 """
 
+import os
 import subprocess
 import time
 import re
@@ -213,25 +217,42 @@ class TerminalSession:
     
     def upload(self, filepath: str) -> str:
         """
-        Upload image to 0x0.st (free, no API key).
-        
+        Upload image to imgbb.
+
         Args:
             filepath: Path to image file
-        
+
         Returns:
             URL of uploaded image
         """
+        api_key = os.environ.get("IMGBB_API_KEY")
+        if not api_key:
+            print("IMGBB_API_KEY not set, skipping upload")
+            return None
+
         result = subprocess.run(
-            ["curl", "-s", "-F", f"file=@{filepath}", "https://0x0.st"],
+            [
+                "curl", "-s", "-X", "POST",
+                f"https://api.imgbb.com/1/upload?key={api_key}",
+                "-F", f"image=@{filepath}"
+            ],
             capture_output=True, text=True
         )
-        url = result.stdout.strip()
-        
-        if url.startswith("http"):
-            print(f"Uploaded: {url}")
-            return url
-        else:
-            print(f"Upload failed: {url}")
+
+        # Parse JSON response
+        import json
+        try:
+            data = json.loads(result.stdout)
+            if data.get("success"):
+                url = data["data"]["url"]
+                print(f"Uploaded: {url}")
+                return url
+            else:
+                error = data.get("error", {}).get("message", "Unknown error")
+                print(f"Upload failed: {error}")
+                return None
+        except json.JSONDecodeError:
+            print(f"Upload failed: {result.stderr or result.stdout}")
             return None
 
 

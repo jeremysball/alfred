@@ -529,7 +529,7 @@ class CLIInterface:
         frame = self._throbber.advance()
         # Right-align by padding with spaces - use terminal width
         width = self.console.width
-        text = f"{frame} Working..."
+        text = f"{frame} Computing..."
         padding = width - len(text) - 1
         return Text(" " * max(0, padding) + text, style="cyan bold")
 

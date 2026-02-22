@@ -234,21 +234,26 @@ uv run python script.py
 
 ## Image Upload
 
-Upload uses **0x0.st** — free, no API key required.
+Upload uses **imgbb** — requires `IMGBB_API_KEY` in environment.
 
 ```python
 # Upload during capture
 result = s.capture("screen.png", upload=True)
-url = result["url"]  # https://0x0.st/xxx.png
+url = result["url"]  # https://i.ibb.co/xxx/xxx.png
 
 # Upload existing file
 url = s.upload("existing.png")
 ```
 
+**Setup:**
+Add to your `.env` file:
+```bash
+IMGBB_API_KEY=your_api_key_here
+```
+
 **Features:**
-- No registration or API key
 - Direct image URLs
-- Files kept indefinitely (30 day inactivity purge)
+- Reliable hosting
 
 ---
 

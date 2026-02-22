@@ -42,7 +42,7 @@ The initial view when Alfred launches - banner, empty prompt, and status line.
 
 ### 2. Conversation State
 
-Messages displayed as colored panels after a conversation.
+Messages displayed as colored panels during conversation. Note the `⠴ Computing...` throbber in the bottom-right during streaming.
 
 ![Conversation State](assets/ui-screenshots/02_conversation.png)
 
@@ -141,6 +141,8 @@ Right-aligned animated spinner during streaming. Uses `dots` spinner frames at 8
 ```python
 SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ```
+
+**Display format:** `{frame} Computing...` (e.g., `⠋ Computing...`)
 
 ---
 
