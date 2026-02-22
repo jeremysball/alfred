@@ -4,7 +4,6 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from itertools import cycle
 from typing import Any
 
 from prompt_toolkit import PromptSession
@@ -12,11 +11,12 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout as original_patch_stdout
 from prompt_toolkit.styles import Style
+from rich.columns import Columns
 from rich.console import Console, Group, RenderableType
-from rich.layout import Layout
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 
@@ -175,16 +175,12 @@ class ConversationBuffer:
 
 
 class CLIInterface:
-    # Spinner frames for streaming indicator
-    _SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-
     def __init__(self, alfred: Alfred) -> None:
         self.alfred = alfred
         self.console = Console()
         self.buffer = ConversationBuffer()
         self.session: PromptSession[str] = PromptSession(message=">>> ", style=PROMPT_STYLE)
         self._is_streaming = False
-        self._spinner_cycle = cycle(self._SPINNER_FRAMES)
 
         # Set up notification buffer for CLI mode
         self._notification_buffer = NotificationBuffer(
@@ -477,20 +473,13 @@ class CLIInterface:
             self._is_streaming = True
 
             try:
-                # Create layout with fixed footer for status
-                layout = Layout()
-                layout.split(
-                    Layout(name="body", ratio=1),
-                    Layout(name="footer", size=1),
-                )
-
                 with Live(
-                    layout,
                     console=self.console,
                     refresh_per_second=12,
-                ):
-                    # Initial state
-                    layout["footer"].update(self._render_streaming_status())
+                    vertical_overflow="visible",
+                ) as live:
+                    # Initial state with just status
+                    live.update(Group(self._render_streaming_status()))
 
                     async for chunk in self.alfred.chat_stream(
                         user_input,
@@ -498,12 +487,12 @@ class CLIInterface:
                     ):
                         self.buffer.add_text(chunk)
                         body = self.buffer.render()
-                        layout["body"].update(Group(*body))
-                        layout["footer"].update(self._render_streaming_status())
+                        # Status line at bottom of content
+                        live.update(Group(*body, self._render_streaming_status()))
 
-                    # Final update - just the content
+                    # Final update - just content, no status
                     body = self.buffer.render()
-                    layout["body"].update(Group(*body))
+                    live.update(Group(*body))
 
             except Exception as e:
                 self.console.print(f"\n[bold red]Error: {e}[/]\n")
@@ -513,59 +502,51 @@ class CLIInterface:
                 # Flush any queued notifications
                 self._flush_notifications()
 
-    def _render_streaming_status(self) -> Text:
+    def _render_streaming_status(self) -> RenderableType:
         """Render streaming status line matching the toolbar format.
 
+        Uses Rich Spinner widget for auto-animation inside Live.
         Shows: ⠋ kimi | in:12K out:3K | ctx:45  📚 0 | 💬 0 | 📋 sections
         """
         status_data = self._get_status_data()
         usage = status_data.usage
 
+        # Build status text (Spinner auto-animates)
         text = Text()
-
-        # Spinner frame (cycle through)
-        frame = next(self._spinner_cycle) if self._is_streaming else ">"
-        text.append(frame, style="cyan")
-        text.append(" ")
-
-        # Model name
+        # Model name (spinner takes 1 char, add space like toolbar)
         text.append(status_data.model_name, style="bold white")
         text.append(" | ", style="dim")
 
-        # Token counts
+        # Token counts - match toolbar format exactly
         text.append(f"in:{self._format_number(usage.input_tokens)} ", style="blue")
         text.append(f"out:{self._format_number(usage.output_tokens)}", style="green")
 
         # Cache read (only if non-zero)
         if usage.cache_read_tokens > 0:
-            text.append(" ", style="dim")
-            text.append(f"cache:{self._format_number(usage.cache_read_tokens)}", style="yellow")
+            text.append(f" cache:{self._format_number(usage.cache_read_tokens)}", style="yellow")
 
         # Reasoning (only if non-zero)
         if usage.reasoning_tokens > 0:
-            text.append(" ", style="dim")
-            text.append(f"reason:{self._format_number(usage.reasoning_tokens)}", style="magenta")
+            text.append(f" reason:{self._format_number(usage.reasoning_tokens)}", style="magenta")
 
-        text.append(" | ", style="dim")
-        text.append(f"ctx:{self._format_number(status_data.context_tokens)}", style="white")
+        text.append(f" | ctx:{self._format_number(status_data.context_tokens)}", style="dim")
 
-        # Context summary
-        text.append("  📚 ", style="white")
-        text.append(f"{status_data.memories_count}", style="yellow")
-        text.append(" | 💬 ", style="dim")
-        text.append(f"{status_data.session_messages}", style="cyan")
-        text.append(" | 📋 ", style="dim")
-
-        sections = (
+        # Context summary - match toolbar format
+        m = status_data.memories_count
+        s = status_data.session_messages
+        sections_str = (
             ",".join(status_data.prompt_sections[:3])
             if status_data.prompt_sections
             else "none"
         )
-        if len(sections) > 20:
-            sections = sections[:17] + "..."
-        text.append(sections, style="green")
+        if len(sections_str) > 20:
+            sections_str = sections_str[:17] + "..."
+        text.append(f"  📚 {m} | 💬 {s} | 📋 {sections_str}", style="white")
 
-        return text
+        # Combine auto-animating spinner with status text
+        spinner = Spinner("dots", style="cyan")
+        return Columns([spinner, text])
+        return Columns([spinner, text])
 
     @staticmethod
     def _format_number(n: int) -> str:
