@@ -1,6 +1,6 @@
 """CLI interface for Alfred using prompt_toolkit with patched stdout."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -8,6 +8,7 @@ from itertools import cycle
 from typing import Any
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout as original_patch_stdout
 from prompt_toolkit.styles import Style
@@ -44,6 +45,45 @@ class Throbber:
     def reset(self) -> None:
         """Reset to initial state."""
         self._frame = " "
+
+
+class SessionCommandCompleter(Completer):
+    """Completer for session commands (/new, /resume, /sessions, /session)."""
+
+    def __init__(self, get_session_ids: Callable[[], list[str]]) -> None:
+        """Initialize the completer.
+
+        Args:
+            get_session_ids: Callable that returns list of session IDs for /resume completion.
+        """
+        self._get_session_ids = get_session_ids
+        self._commands = ["/new", "/resume", "/sessions", "/session"]
+
+    def get_completions(self, document: Any, complete_event: Any) -> Any:
+        """Yield completions for session commands."""
+        text = document.text_before_cursor
+
+        # Only complete if text starts with /
+        if not text.startswith("/"):
+            return
+
+        # Handle /resume <id> - complete session IDs
+        if text.startswith("/resume "):
+            session_id_part = text[8:]  # Text after "/resume "
+            for session_id in self._get_session_ids():
+                if session_id.startswith(session_id_part):
+                    yield Completion(
+                        session_id,
+                        start_position=-len(session_id_part),
+                        display=f"session:{session_id}",
+                    )
+            return
+
+        # Complete command names
+        for cmd in self._commands:
+            if cmd.startswith(text):
+                yield Completion(cmd, start_position=-len(text))
+
 
 PROMPT_STYLE = Style.from_dict(
     {
@@ -409,11 +449,18 @@ class CLIInterface:
         def _toggle(event: object) -> None:
             self.buffer.toggle_panels()
 
+        # Create completer with callback to get session IDs
+        def get_session_ids() -> list[str]:
+            return [meta.session_id for meta in self.alfred.session_manager.list_sessions()]
+
+        completer = SessionCommandCompleter(get_session_ids)
+
         self.session = PromptSession(
             message=">>> ",
             style=PROMPT_STYLE,
             key_bindings=kb,
             bottom_toolbar=self._bottom_toolbar,
+            completer=completer,
         )
 
         while True:

@@ -194,7 +194,7 @@ def render_throbber(frame: str) -> Text:
 | 1 | **Job Notification Buffer** | Suppress during active input, display after | ✅ Done |
 | 2 | **Message Block Styling** | Background colors for user/assistant | ✅ Done |
 | 3 | **Status Line Refresh** | Update on `/new` | ✅ Done |
-| 4 | **Command Completion** | Autocomplete for `/` commands | 🔲 Todo |
+| 4 | **Command Completion** | Autocomplete for `/` commands | ✅ Done |
 | 5 | **Throbber Fix** | Add animated throbber to bottom-right during streaming | ✅ Done |
 | 6 | **UI Documentation** | Capture and document current UI with tmux-tape screenshots | 🔲 Todo |
 
@@ -219,7 +219,7 @@ def render_throbber(frame: str) -> Text:
 - [x] Resumed session displays as natural conversation blocks
 - [x] User and assistant messages have distinct background colors
 - [x] `/new` immediately updates status line
-- [ ] Tab completes `/new`, `/resume`, `/sessions`, `/session`
+- [x] Tab completes `/new`, `/resume`, `/sessions`, `/session`
 - [x] Animated throbber visible in bottom-right during streaming
 - [ ] UI design document created with tmux-tape screenshots
 
