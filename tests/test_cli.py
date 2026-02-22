@@ -43,6 +43,11 @@ def mock_alfred() -> MagicMock:
     mock_context_summary.prompt_sections = ["SOUL", "USER", "TOOLS"]
     alfred.context_summary = mock_context_summary
 
+    # Mock session_manager
+    mock_session_manager = MagicMock()
+    mock_session_manager.has_active_session.return_value = False
+    alfred.session_manager = mock_session_manager
+
     return alfred
 
 

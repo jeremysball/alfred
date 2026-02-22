@@ -20,6 +20,7 @@ from rich.text import Text
 from src.agent import ToolEnd, ToolEvent, ToolStart
 from src.alfred import Alfred
 from src.interfaces.status import StatusData, StatusRenderer
+from src.session import Session
 
 PROMPT_STYLE = Style.from_dict(
     {
@@ -123,6 +124,25 @@ class CLIInterface:
         )
         self.console.print(banner)
 
+    def _display_session_history(self, session: Session) -> None:
+        """Display conversation history from a session in the terminal."""
+        if not session.messages:
+            return
+
+        self.console.print("\n[bold dim]─── Conversation History ───[/]\n")
+
+        for msg in session.messages:
+            if msg.role.value == "user":
+                self.console.print(f"[bold blue]You:[/] {msg.content}")
+            elif msg.role.value == "assistant":
+                self.console.print("[bold green]Alfred:[/]")
+                self.console.print(Markdown(msg.content))
+            elif msg.role.value == "system":
+                self.console.print(f"[dim italic][System: {msg.content}][/]")
+            self.console.print()
+
+        self.console.print("[bold dim]─── End of History ───[/]\n")
+
     def _on_tool_event(self, event: ToolEvent) -> None:
         if isinstance(event, ToolStart):
             self.buffer.on_tool_start(event.tool_name)
@@ -204,6 +224,11 @@ class CLIInterface:
                     border_style="green",
                 )
             )
+
+            # Display conversation history
+            if session.messages:
+                self._display_session_history(session)
+
         except ValueError as e:
             self.console.print(f"[bold red]Error: {e}[/]\n")
         return True
@@ -274,6 +299,12 @@ class CLIInterface:
 
     async def run(self) -> None:
         self._print_banner()
+
+        # Display session history if resuming an existing session
+        if self.alfred.session_manager.has_active_session():
+            session = self.alfred.session_manager.get_current_cli_session()
+            if session and session.messages:
+                self._display_session_history(session)
 
         kb = KeyBindings()
 
