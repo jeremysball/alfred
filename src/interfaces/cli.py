@@ -56,6 +56,7 @@ PROMPT_STYLE = Style.from_dict(
 @dataclass
 class TextSegment:
     content: str
+    role: str = "assistant"  # "user" or "assistant"
 
 
 @dataclass
@@ -73,14 +74,16 @@ class ConversationBuffer:
     def __init__(self) -> None:
         self.segments: list[Segment] = []
         self._current_text: str = ""
+        self._current_role: str = "assistant"
         self.panels_visible: bool = True
 
-    def add_text(self, chunk: str) -> None:
+    def add_text(self, chunk: str, role: str = "assistant") -> None:
         self._current_text += chunk
+        self._current_role = role
 
     def on_tool_start(self, tool_name: str) -> None:
         if self._current_text:
-            self.segments.append(TextSegment(content=self._current_text))
+            self.segments.append(TextSegment(content=self._current_text, role=self._current_role))
             self._current_text = ""
 
     def on_tool_end(self, tool_name: str, result: str, is_error: bool) -> None:
@@ -98,25 +101,45 @@ class ConversationBuffer:
     def clear(self) -> None:
         self.segments = []
         self._current_text = ""
+        self._current_role = "assistant"
 
     def render(self) -> list[RenderableType]:
         renderables: list[RenderableType] = []
 
         for segment in self.segments:
             if isinstance(segment, TextSegment) and segment.content:
-                renderables.append(Markdown(segment.content))
+                renderables.append(self._render_message_panel(segment))
             elif isinstance(segment, ToolCallSegment) and self.panels_visible:
                 renderables.append(self._render_tool_panel(segment))
 
         if self._current_text:
-            renderables.append(Markdown(self._current_text))
+            segment = TextSegment(content=self._current_text, role=self._current_role)
+            renderables.append(self._render_message_panel(segment))
 
         return renderables
+
+    def _render_message_panel(self, segment: TextSegment) -> Panel:
+        """Render a message as a styled Panel."""
+        title = "You" if segment.role == "user" else "Alfred"
+        style = "color(23)" if segment.role == "user" else "color(24)"  # Slate blue / Dark teal
+        return Panel(
+            Markdown(segment.content),
+            title=title,
+            title_align="left",
+            border_style=style,
+            padding=(0, 1),
+        )
 
     def _render_tool_panel(self, tool: ToolCallSegment) -> Panel:
         content = self._truncate_result(tool.result, tool.is_error)
         style = "red" if tool.is_error else "dim blue"
-        return Panel(content, title=f"Tool: {tool.tool_name}", border_style=style, padding=(0, 1))
+        return Panel(
+            content,
+            title=f"Tool: {tool.tool_name}",
+            title_align="left",
+            border_style=style,
+            padding=(0, 1),
+        )
 
     @staticmethod
     def _truncate_result(result: str, is_error: bool) -> str:
@@ -178,19 +201,31 @@ class CLIInterface:
         if not session.messages:
             return
 
-        self.console.print("\n[bold dim]─── Conversation History ───[/]\n")
+        self.console.print()
 
         for msg in session.messages:
             if msg.role.value == "user":
-                self.console.print(f"[bold blue]You:[/] {msg.content}")
+                panel = Panel(
+                    msg.content,
+                    title="You",
+                    title_align="left",
+                    border_style="color(23)",  # Dark slate blue
+                    padding=(0, 1),
+                )
+                self.console.print(panel)
             elif msg.role.value == "assistant":
-                self.console.print("[bold green]Alfred:[/]")
-                self.console.print(Markdown(msg.content))
+                panel = Panel(
+                    Markdown(msg.content),
+                    title="Alfred",
+                    title_align="left",
+                    border_style="color(24)",  # Dark teal
+                    padding=(0, 1),
+                )
+                self.console.print(panel)
             elif msg.role.value == "system":
                 self.console.print(f"[dim italic][System: {msg.content}][/]")
-            self.console.print()
 
-        self.console.print("[bold dim]─── End of History ───[/]\n")
+        self.console.print()
 
     def _on_tool_event(self, event: ToolEvent) -> None:
         if isinstance(event, ToolStart):

@@ -192,7 +192,7 @@ def render_throbber(frame: str) -> Text:
 | # | Milestone | Description | Status |
 |---|-----------|-------------|--------|
 | 1 | **Job Notification Buffer** | Suppress during active input, display after | ✅ Done |
-| 2 | **Message Block Styling** | Background colors for user/assistant | 🔲 Todo |
+| 2 | **Message Block Styling** | Background colors for user/assistant | ✅ Done |
 | 3 | **Status Line Refresh** | Update on `/new` | 🔲 Todo |
 | 4 | **Command Completion** | Autocomplete for `/` commands | 🔲 Todo |
 | 5 | **Throbber Fix** | Add animated throbber to bottom-right during streaming | ✅ Done |
@@ -216,8 +216,8 @@ def render_throbber(frame: str) -> Text:
 ## Success Criteria
 
 - [x] Job notifications never appear next to active prompt
-- [ ] Resumed session displays as natural conversation blocks
-- [ ] User and assistant messages have distinct background colors
+- [x] Resumed session displays as natural conversation blocks
+- [x] User and assistant messages have distinct background colors
 - [ ] `/new` immediately updates status line
 - [ ] Tab completes `/new`, `/resume`, `/sessions`, `/session`
 - [x] Animated throbber visible in bottom-right during streaming
@@ -242,3 +242,4 @@ def render_throbber(frame: str) -> Text:
 | 2026-02-22 | Throbber in bottom-right corner | Status line hides during streaming (desired), throbber provides activity feedback |
 | 2026-02-22 | Rename workflow milestone removed | Already completed |
 | 2026-02-22 | NotificationBuffer with callback | Callback pattern allows CLIInterface to control active state without tight coupling |
+| 2026-02-22 | Panel-based message styling | Rich Panel with colored borders instead of text background; matches tool call styling for visual consistency |

@@ -48,6 +48,9 @@ def mock_alfred() -> MagicMock:
     mock_session_manager.has_active_session.return_value = False
     alfred.session_manager = mock_session_manager
 
+    # Mock notifier (for notification buffer)
+    alfred.notifier = None
+
     return alfred
 
 
