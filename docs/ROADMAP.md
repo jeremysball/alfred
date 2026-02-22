@@ -178,11 +178,12 @@ See PRDs #76 and #77 for contextual retrieval details.
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 16 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
-| 17 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
-| 18 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
-| 19 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
-| 20 | Type Safety | Fix Tool class type safety, complete type annotations |
-| 21 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
+| 17 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
+| 18 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
+| 19 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
+| 20 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
+| 21 | Type Safety | Fix Tool class type safety, complete type annotations |
+| 22 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
 
 ### Medium-term 📅
 
