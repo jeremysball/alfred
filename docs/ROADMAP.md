@@ -204,6 +204,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 30 | Vector Database Evaluation | SQLite-vec or Chroma if JSONL performance degrades |
 | 31 | Multi-user Support | Proper user isolation and authentication |
 | 32 | Plugin System | Extensible tool and skill architecture |
+| 33 | Programmatic Tool Calling | LLM writes Python code to orchestrate multiple tool calls in sandbox, reducing token consumption 30-50% (PRD #88) |
 
 ---
 
