@@ -405,14 +405,22 @@ class KimiProvider(LLMProvider):
                             "prompt_tokens": chunk.usage.prompt_tokens,
                             "completion_tokens": chunk.usage.completion_tokens,
                         }
-                        # Extract optional detailed usage
-                        if chunk.usage.prompt_tokens_details:
+                        # Extract cache tokens (Kimi puts them at top level)
+                        cached = 0
+                        if hasattr(chunk.usage, "cached_tokens") and chunk.usage.cached_tokens:
+                            cached = chunk.usage.cached_tokens
+                        elif chunk.usage.prompt_tokens_details:
                             cached = chunk.usage.prompt_tokens_details.cached_tokens or 0
+                        if cached > 0:
                             usage_data["prompt_tokens_details"] = {
                                 "cached_tokens": cached,
                             }
+
+                        # Extract reasoning tokens (nested in completion_tokens_details)
+                        reasoning = 0
                         if chunk.usage.completion_tokens_details:
                             reasoning = chunk.usage.completion_tokens_details.reasoning_tokens or 0
+                        if reasoning > 0:
                             usage_data["completion_tokens_details"] = {
                                 "reasoning_tokens": reasoning,
                             }
