@@ -145,56 +145,56 @@ class TestClear:
         assert "\033[K" in output
 
 
-class TestDiffLines:
-    """Tests for _diff_lines method."""
+class TestDiffChangedIndices:
+    """Tests for _diff_changed_indices method."""
 
     def test_identical_lines_returns_empty(self, renderer: StreamingRenderer) -> None:
         """Identical lines return empty list (no diff)."""
         old = ["line 1", "line 2", "line 3"]
         new = ["line 1", "line 2", "line 3"]
-        assert renderer._diff_lines(old, new) == []
+        assert renderer._diff_changed_indices(old, new) == []
 
     def test_first_line_differs(self, renderer: StreamingRenderer) -> None:
         """Returns [0] if first line differs."""
         old = ["line 1", "line 2", "line 3"]
         new = ["different", "line 2", "line 3"]
-        assert renderer._diff_lines(old, new) == [0]
+        assert renderer._diff_changed_indices(old, new) == [0]
 
     def test_middle_line_differs(self, renderer: StreamingRenderer) -> None:
         """Returns index of differing line."""
         old = ["line 1", "line 2", "line 3"]
         new = ["line 1", "modified", "line 3"]
-        assert renderer._diff_lines(old, new) == [1]
+        assert renderer._diff_changed_indices(old, new) == [1]
 
     def test_multiple_lines_differ(self, renderer: StreamingRenderer) -> None:
         """Returns all differing indices."""
         old = ["line 1", "line 2", "line 3"]
         new = ["changed", "line 2", "also changed"]
-        assert renderer._diff_lines(old, new) == [0, 2]
+        assert renderer._diff_changed_indices(old, new) == [0, 2]
 
     def test_new_shorter(self, renderer: StreamingRenderer) -> None:
         """Returns indices of removed lines."""
         old = ["line 1", "line 2", "line 3"]
         new = ["line 1", "line 2"]
-        assert renderer._diff_lines(old, new) == [2]  # Line 2 was removed
+        assert renderer._diff_changed_indices(old, new) == [2]  # Line 2 was removed
 
     def test_new_longer(self, renderer: StreamingRenderer) -> None:
         """Returns indices of new lines."""
         old = ["line 1", "line 2"]
         new = ["line 1", "line 2", "line 3"]
-        assert renderer._diff_lines(old, new) == [2]  # Line 2 is new
+        assert renderer._diff_changed_indices(old, new) == [2]  # Line 2 is new
 
     def test_both_empty(self, renderer: StreamingRenderer) -> None:
         """Empty lists return empty."""
-        assert renderer._diff_lines([], []) == []
+        assert renderer._diff_changed_indices([], []) == []
 
     def test_old_empty(self, renderer: StreamingRenderer) -> None:
         """Old empty returns all new indices."""
-        assert renderer._diff_lines([], ["new"]) == [0]
+        assert renderer._diff_changed_indices([], ["new"]) == [0]
 
     def test_new_empty(self, renderer: StreamingRenderer) -> None:
         """New empty returns all old indices."""
-        assert renderer._diff_lines(["old"], []) == [0]
+        assert renderer._diff_changed_indices(["old"], []) == [0]
 
     def test_ansi_codes_ignored(self, renderer: StreamingRenderer) -> None:
         """ANSI codes are stripped before comparison."""
@@ -202,14 +202,14 @@ class TestDiffLines:
         old = ["\x1b[1mline 1\x1b[0m", "\x1b[32mline 2\x1b[0m"]
         new = ["\x1b[1;3mline 1\x1b[0m", "\x1b[32;1mline 2\x1b[0m"]
         # Should return empty (all lines match content-wise)
-        assert renderer._diff_lines(old, new) == []
+        assert renderer._diff_changed_indices(old, new) == []
 
     def test_ansi_codes_with_content_change(self, renderer: StreamingRenderer) -> None:
         """Content change detected even with ANSI codes present."""
         old = ["\x1b[1mline 1\x1b[0m", "\x1b[32mline 2\x1b[0m"]
         new = ["\x1b[1mline 1\x1b[0m", "\x1b[32mCHANGED\x1b[0m"]
         # Should return [1] (second line content differs)
-        assert renderer._diff_lines(old, new) == [1]
+        assert renderer._diff_changed_indices(old, new) == [1]
 
 
 class TestRenderMarkdown:

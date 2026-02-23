@@ -57,7 +57,7 @@ class StreamingRenderer:
         """
         self.console = console
         self._content_buffer: str = ""
-        self._rendered_lines: list[str] = []
+        self._rendered_lines: list[str] = []  # ANSI lines we've drawn
         self._segments: list[RenderSegment] = []
         self._last_render_time: float = 0.0
         self._pending_render: bool = False
@@ -105,14 +105,11 @@ class StreamingRenderer:
         # Clear existing rendered content from terminal if any
         if self._rendered_lines:
             with patch_stdout():
-                # Move cursor up to the start of rendered content
                 lines_to_move = len(self._rendered_lines)
                 if lines_to_move > 0:
                     self._write_ansi(f"\033[{lines_to_move}A")
-                # Clear each line
                 for _ in range(lines_to_move):
                     self._write_ansi("\033[K\n")
-                # Move cursor back up to where prompt should be
                 if lines_to_move > 0:
                     self._write_ansi(f"\033[{lines_to_move}A")
                 sys.stdout.flush()
@@ -150,33 +147,16 @@ class StreamingRenderer:
             self._pending_render = False
 
     def _do_render(self) -> None:
-        """Internal render method that actually draws to terminal."""
+        """Render full content, diff against previous, only redraw changed lines."""
+        # Render entire content to ANSI
         new_lines = self._render_full()
+
+        # Diff and draw
         self._draw_diff(new_lines)
         self._rendered_lines = new_lines
 
-    def finalize(self) -> None:
-        """Finalize rendering and reset state for next message.
-
-        Ensures all content is rendered one final time, then clears
-        the internal state for the next message.
-        """
-        # Flush any pending render and force final render
-        self.flush()
-        # Reset state but keep rendered lines on screen
-        self._content_buffer = ""
-        self._segments = []
-        self._rendered_lines = []
-        self._pending_render = False
-
-    # === Private Methods ===
-
     def _render_full(self) -> list[str]:
-        """Render all segments to a list of ANSI-styled lines.
-
-        Returns:
-            List of lines with ANSI escape codes for styling.
-        """
+        """Render all content to a list of ANSI-styled lines."""
         lines: list[str] = []
 
         # Render text segments
@@ -189,6 +169,76 @@ class StreamingRenderer:
             lines.extend(self._render_markdown(self._content_buffer))
 
         return lines
+
+    def _diff_changed_indices(self, old: list[str], new: list[str]) -> list[int]:
+        """Find indices of lines where TEXT content differs (ignoring ANSI)."""
+        changed: list[int] = []
+        max_len = max(len(old), len(new))
+
+        for i in range(max_len):
+            old_line = old[i] if i < len(old) else ""
+            new_line = new[i] if i < len(new) else ""
+
+            # Strip ANSI to compare text only
+            old_text = ANSI_ESCAPE.sub("", old_line)
+            new_text = ANSI_ESCAPE.sub("", new_line)
+
+            if old_text != new_text:
+                changed.append(i)
+
+        return changed
+
+    def _draw_diff(self, new_lines: list[str]) -> None:
+        """Draw changed lines using ANSI cursor control."""
+        if not new_lines and not self._rendered_lines:
+            return
+
+        old_count = len(self._rendered_lines)
+        new_count = len(new_lines)
+
+        # Find lines where text changed
+        changed = self._diff_changed_indices(self._rendered_lines, new_lines)
+
+        # Case 1: Pure append (all old lines match, only new lines added)
+        old_lines_unchanged = not any(i < old_count for i in changed)
+        if new_count > old_count and old_lines_unchanged:
+            with patch_stdout():
+                # Just print new lines - no cursor movement
+                for i in range(old_count, new_count):
+                    self._write_ansi(f"{new_lines[i]}\033[K\n")
+                sys.stdout.flush()
+            return
+
+        # Case 2: Some content changed - redraw from first change
+        if changed:
+            with patch_stdout():
+                first_change = min(changed)
+                lines_up = old_count - first_change
+
+                if lines_up > 0:
+                    self._write_ansi(f"\033[{lines_up}A")
+
+                # Redraw from first change to end
+                for i in range(first_change, new_count):
+                    self._write_ansi(f"{new_lines[i]}\033[K\n")
+
+                # Clear orphans if shrunk
+                orphans = old_count - new_count
+                for _ in range(orphans):
+                    self._write_ansi("\033[K\n")
+
+                sys.stdout.flush()
+            return
+
+    def finalize(self) -> None:
+        """Finalize rendering and reset state for next message."""
+        self.flush()
+        self._content_buffer = ""
+        self._segments = []
+        self._rendered_lines = []
+        self._pending_render = False
+
+    # === Private Methods ===
 
     def _render_markdown(self, content: str) -> list[str]:
         """Render markdown content to ANSI-styled lines.
@@ -208,99 +258,6 @@ class StreamingRenderer:
 
         output = capture.get()
         return output.splitlines()
-
-    def _diff_lines(self, old: list[str], new: list[str]) -> list[int]:
-        """Find indices of all lines that differ.
-
-        Compares text content by stripping ANSI codes, so formatting
-        differences don't trigger false positives.
-
-        Args:
-            old: Previously rendered lines.
-            new: Newly rendered lines.
-
-        Returns:
-            List of indices where lines differ.
-        """
-        changed: list[int] = []
-        max_len = max(len(old), len(new))
-
-        for i in range(max_len):
-            old_line = old[i] if i < len(old) else ""
-            new_line = new[i] if i < len(new) else ""
-
-            # Strip ANSI codes to compare actual text content
-            old_text = ANSI_ESCAPE.sub("", old_line)
-            new_text = ANSI_ESCAPE.sub("", new_line)
-
-            if old_text != new_text:
-                changed.append(i)
-
-        return changed
-
-    def _draw_diff(self, new_lines: list[str]) -> None:
-        """Draw only changed lines using ANSI cursor control.
-
-        Optimized for streaming: if only appending new lines, just print them
-        without moving cursor. For mid-content changes, redraw specific lines.
-
-        Args:
-            new_lines: New lines to render.
-        """
-        if not new_lines and not self._rendered_lines:
-            return  # Nothing to render
-
-        old_count = len(self._rendered_lines)
-        new_count = len(new_lines)
-
-        # Find changed lines
-        changed_indices = self._diff_lines(self._rendered_lines, new_lines)
-
-        # Case 1: Pure append (new lines, all old lines unchanged)
-        if new_count > old_count and not any(i < old_count for i in changed_indices):
-            with patch_stdout():
-                # Just print the new lines - cursor is already at bottom
-                for i in range(old_count, new_count):
-                    self._write_ansi(f"{new_lines[i]}\033[K\n")
-                sys.stdout.flush()
-            return
-
-        # Case 2: Content shrunk - need to clear orphans
-        if new_count < old_count:
-            with patch_stdout():
-                # Move up to first line that differs
-                first_change = changed_indices[0] if changed_indices else 0
-                lines_to_move = old_count - first_change
-                if lines_to_move > 0:
-                    self._write_ansi(f"\033[{lines_to_move}A")
-
-                # Redraw from first change
-                for i in range(first_change, new_count):
-                    self._write_ansi(f"{new_lines[i]}\033[K\n")
-
-                # Clear orphans
-                orphan_count = old_count - new_count
-                for _ in range(orphan_count):
-                    self._write_ansi("\033[K\n")
-
-                sys.stdout.flush()
-            return
-
-        # Case 3: Same size, some lines changed - redraw only changed lines
-        if changed_indices:
-            with patch_stdout():
-                # Move to first changed line
-                first_change = min(changed_indices)
-                lines_to_move = old_count - first_change
-                if lines_to_move > 0:
-                    self._write_ansi(f"\033[{lines_to_move}A")
-
-                # Redraw all lines from first change (simpler than per-line updates)
-                for i in range(first_change, new_count):
-                    self._write_ansi(f"{new_lines[i]}\033[K\n")
-
-                sys.stdout.flush()
-            return
 
     def _write_ansi(self, code: str) -> None:
         """Write ANSI escape code to stdout.
