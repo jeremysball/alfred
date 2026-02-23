@@ -158,6 +158,41 @@ panel = Panel(content, border_style=Theme.success)
 
 This ensures colors automatically adapt when users change their rich console theme via `RICH_STYLE` environment variable.
 
+### Theme Presets
+
+Multiple built-in themes are available via `src/themes.py`:
+
+```python
+from src.themes import get_theme, apply_theme
+
+# Available themes: dark, light, high_contrast, minimal, solarized_dark, solarized_light
+theme = get_theme("light")
+apply_theme(theme)
+```
+
+**Usage:**
+```bash
+# Set theme via environment variable
+export ALFRED_THEME=light
+
+# Or switch dynamically in the CLI
+/theme              # Show available themes
+/theme light        # Switch to light theme
+/theme dark         # Switch back to dark theme
+/theme high_contrast  # Accessibility-friendly high contrast
+```
+
+**Theme Descriptions:**
+
+| Theme | Description | Best For |
+|-------|-------------|----------|
+| `dark` | Default dark theme with cyan/blue accents | Dark terminal backgrounds (default) |
+| `light` | Light theme with dark blue/green accents | Light terminal backgrounds |
+| `high_contrast` | Bold bright colors for maximum visibility | Accessibility, visibility challenges |
+| `minimal` | Black, white, and grays only | Distraction-free, focus mode |
+| `solarized_dark` | Solarized color palette | Consistency with solarized terminals |
+| `solarized_light` | Light solarized variant | Light solarized terminal setups |
+
 ### Job Notification Buffer
 
 ```python
@@ -237,6 +272,7 @@ def render_throbber(frame: str) -> Text:
 | `src/interfaces/status.py` | May need refresh trigger |
 | `docs/ui-design.md` | New file: Visual UI documentation with screenshots |
 | `src/theme.py` | New file: Centralized theme system for rich style-derived colors |
+| `src/themes.py` | New file: Predefined themes (dark, light, high_contrast, minimal, solarized) |
 
 ---
 
@@ -249,6 +285,7 @@ def render_throbber(frame: str) -> Text:
 - [x] Tab completes `/new`, `/resume`, `/sessions`, `/session`
 - [x] Animated throbber visible in bottom-right during streaming
 - [x] UI design document created with tmux-tape screenshots
+- [x] Theme system with `/theme` command and multiple presets (dark, light, high_contrast, minimal, solarized)
 
 ---
 

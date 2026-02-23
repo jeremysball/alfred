@@ -10,6 +10,13 @@ Usage:
     # Use semantic styles
     text.append("Hello", style=Theme.accent)
     panel = Panel(content, border_style=Theme.border_primary)
+
+Environment Variables:
+    ALFRED_THEME: Set to "dark", "light", "high_contrast", "minimal",
+                  "solarized_dark", or "solarized_light" to select a theme.
+
+    RICH_STYLE: Set to a rich style name to customize the underlying
+                rich console theme.
 """
 
 

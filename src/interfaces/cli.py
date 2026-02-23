@@ -18,6 +18,7 @@ from src.interfaces.notification_buffer import NotificationBuffer
 from src.interfaces.status import StatusData
 from src.session import Session
 from src.theme import Theme
+from src.themes import apply_theme, get_theme, list_themes
 
 
 @dataclass
@@ -175,6 +176,10 @@ class CLIInterface:
     """CLI interface using Rich Live with custom prompt input."""
 
     def __init__(self, alfred: Alfred) -> None:
+        # Load theme from environment variable before anything else
+        theme_config = get_theme()
+        apply_theme(theme_config)
+
         self.alfred = alfred
         self.console = Console()
         self.buffer = ConversationBuffer()
@@ -285,6 +290,8 @@ class CLIInterface:
             return self._cmd_list_sessions()
         elif cmd == "/session":
             return self._cmd_show_current_session()
+        elif cmd == "/theme":
+            return self._cmd_theme(arg)
         return False
 
     def _cmd_new_session(self) -> bool:
@@ -419,6 +426,56 @@ class CLIInterface:
                 f"Messages: {meta.message_count}",
                 title="Current Session",
                 border_style=Theme.primary,
+            )
+        )
+        return True
+
+    def _cmd_theme(self, theme_name: str | None) -> bool:
+        """Show or change the current theme."""
+        if theme_name is None:
+            # Show current theme and available options
+            import os
+
+            from src.themes import THEMES
+
+            current = os.environ.get("ALFRED_THEME", "dark")
+
+            table = Table(title="Available Themes", border_style=Theme.border_secondary)
+            table.add_column("Name", style=Theme.primary)
+            table.add_column("Status", style=Theme.text_secondary)
+
+            for name in sorted(THEMES.keys()):
+                status = "current" if name == current else ""
+                table.add_row(name, status)
+
+            self.console.print(table)
+            self.console.print(f"\n[{Theme.text_secondary}]Usage: /theme <name>[/]")
+            self.console.print(
+                f"[{Theme.text_secondary}]Set ALFRED_THEME env var to change default[/]"
+            )
+            return True
+
+        # Try to apply the theme
+        theme_name = theme_name.lower().strip()
+        available = list_themes()
+
+        if theme_name not in available:
+            self.console.print(
+                f"[{Theme.error}]Unknown theme: {theme_name}[/]\n"
+                f"[{Theme.text_secondary}]Available: {', '.join(sorted(available))}[/]\n"
+            )
+            return True
+
+        # Apply the theme
+        theme_config = get_theme(theme_name)
+        apply_theme(theme_config)
+
+        self.console.print(
+            Panel(
+                f"Theme changed to: [bold {Theme.primary}]{theme_name}[/]\n"
+                f"[{Theme.text_secondary}]Note: Set ALFRED_THEME={theme_name} to persist.[/]",
+                title="Theme Applied",
+                border_style=Theme.success,
             )
         )
         return True
