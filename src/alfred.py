@@ -138,6 +138,48 @@ class Alfred:
         """
         return len(text) // 4
 
+    def restore_session_tokens(self, session_id: str | None = None) -> int:
+        """Restore token counts from session history.
+
+        Called on startup when resuming a session to display accurate
+        token usage in the status line.
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
+
+        Returns:
+            Number of messages in the session.
+        """
+        messages = self.session_manager.get_session_messages(session_id)
+        if not messages:
+            return 0
+
+        input_tokens = 0
+        output_tokens = 0
+        context_chars = 0
+
+        for msg in messages:
+            token_count = self._estimate_tokens(msg.content)
+            context_chars += len(msg.content)
+
+            if msg.role.value == "user":
+                input_tokens += token_count
+            elif msg.role.value == "assistant":
+                output_tokens += token_count
+
+        # Set the token tracker values
+        self.token_tracker._usage.input_tokens = input_tokens
+        self.token_tracker._usage.output_tokens = output_tokens
+
+        # Estimate context tokens - need to include system prompt overhead
+        # The system prompt adds ~10-20K chars for AGENTS.md, SOUL.md, tools, etc.
+        # We estimate this by loading the base context and adding message content
+        base_context_chars = 15000  # Rough estimate for prompt templates
+        total_context_chars = base_context_chars + context_chars
+        self.token_tracker.set_context_tokens(self._estimate_tokens(" " * total_context_chars))
+
+        return len(messages)
+
     def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
         """Update context token estimate.
 

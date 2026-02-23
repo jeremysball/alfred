@@ -1,6 +1,7 @@
 """Rich Live display with custom prompt input."""
 
 import asyncio
+import signal
 import sys
 import termios
 from collections.abc import Callable
@@ -68,21 +69,39 @@ class LiveDisplay:
         """Refresh Live display if active."""
         if self._live is not None:
             self._live.update(self._render())
+            self._live.refresh()
 
     def start(self) -> None:
         """Start Live display."""
         self._live = Live(
             self._render(),
             console=self.console,
-            refresh_per_second=20,
+            refresh_per_second=10,
+            vertical_overflow="visible",
         )
         self._live.start()
+        # Handle terminal resize to force redraw
+        self._setup_resize_handler()
+
+    def _setup_resize_handler(self) -> None:
+        """Setup handler for terminal resize events."""
+        if sys.stdin.isatty():
+            # Save original handler
+            self._original_sigwinch = signal.signal(signal.SIGWINCH, self._on_resize)
+
+    def _on_resize(self, signum: int, frame: object) -> None:
+        """Handle terminal resize - force a refresh."""
+        # Force a refresh on resize
+        self._refresh()
 
     def stop(self) -> None:
         """Stop Live display."""
         if self._live is not None:
             self._live.stop()
             self._live = None
+        # Restore original resize handler
+        if hasattr(self, '_original_sigwinch'):
+            signal.signal(signal.SIGWINCH, self._original_sigwinch)
 
     def update(self) -> None:
         """Force refresh of Live display."""

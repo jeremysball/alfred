@@ -323,11 +323,13 @@ class CLIInterface:
         try:
             session = self.alfred.session_manager.resume_session(session_id)
             self.buffer.clear()
-            msg_count = len(session.messages)
 
             # Clear LiveDisplay content to remove old messages
             if self._live_display:
                 self._live_display.clear_content()
+
+            # Restore token counts and context from session history
+            msg_count = self.alfred.restore_session_tokens()
 
             # Update context summary for status line
             self.alfred.context_summary.update(
@@ -442,8 +444,10 @@ class CLIInterface:
         if self.alfred.session_manager.has_active_session():
             session = self.alfred.session_manager.get_current_cli_session()
             if session:
-                # Update context summary with session message count for status line
-                msg_count = len(session.messages)
+                # Restore token counts and context from session history
+                msg_count = self.alfred.restore_session_tokens()
+
+                # Update context summary for status line
                 self.alfred.context_summary.update(
                     memories_count=self.alfred.context_summary.memories_count,
                     session_messages=msg_count,
@@ -462,10 +466,10 @@ class CLIInterface:
             get_session_ids=get_session_ids,
         )
 
-        with self._live_display:
-            # Set initial status before first prompt
-            self._live_display.set_status(self._render_status_line())
+        # Set initial status BEFORE entering context so first render is correct
+        self._live_display.set_status(self._render_status_line())
 
+        with self._live_display:
             while True:
                 # Update status line (idle state)
                 self._live_display.set_status(self._render_status_line())
