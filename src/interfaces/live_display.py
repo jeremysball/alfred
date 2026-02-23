@@ -37,6 +37,7 @@ class KeyAction(Enum):
     """Actions triggered by keypresses."""
 
     INSERT = auto()
+    INSERT_NEWLINE = auto()  # Shift+Enter for multi-line
     BACKSPACE = auto()
     DELETE = auto()
     DELETE_TO_END = auto()  # Ctrl+K
@@ -52,7 +53,8 @@ class KeyAction(Enum):
     DOWN = auto()  # History down
     TAB = auto()
     SHIFT_TAB = auto()
-    ENTER = auto()
+    ENTER = auto()  # Submit
+    SHIFT_ENTER = auto()  # Insert newline (multi-line)
     ESC = auto()
     SUBMIT = auto()
 
@@ -82,6 +84,8 @@ class InputReader:
             return (KeyAction.DOWN, "")
         elif key == ENTER:
             return (KeyAction.ENTER, "")
+        elif key == "\x1b[13;2u" or key == "\x1b[13;2~":  # Shift+Enter (kitty and other protocols)
+            return (KeyAction.SHIFT_ENTER, "")
         elif key == ESC:
             return (KeyAction.ESC, "")
         elif key == TAB:
@@ -109,9 +113,13 @@ class InputReader:
                 return (KeyAction.WORD_LEFT, "")
             elif rest == "f":  # Alt+F - forward word
                 return (KeyAction.WORD_RIGHT, "")
-            elif rest in ("[1;3D", "[1;5D"):  # Various Alt+Left encodings
+            elif rest == "[1;3D":  # Alt+Left
                 return (KeyAction.WORD_LEFT, "")
-            elif rest in ("[1;3C", "[1;5C"):  # Various Alt+Right encodings
+            elif rest == "[1;3C":  # Alt+Right
+                return (KeyAction.WORD_RIGHT, "")
+            elif rest == "[1;5D":  # Ctrl+Left
+                return (KeyAction.WORD_LEFT, "")
+            elif rest == "[1;5C":  # Ctrl+Right
                 return (KeyAction.WORD_RIGHT, "")
             return (KeyAction.ESC, "")
 
@@ -746,6 +754,10 @@ class LiveDisplay:
         # Normal input handling
         if action == KeyAction.INSERT:
             self.prompt.insert(char)
+            self.completer.hide()
+        elif action == KeyAction.SHIFT_ENTER:
+            # Insert newline for multi-line input
+            self.prompt.insert("\n")
             self.completer.hide()
         elif action == KeyAction.BACKSPACE:
             self.prompt.delete_left()

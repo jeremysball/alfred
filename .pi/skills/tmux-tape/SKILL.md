@@ -18,6 +18,7 @@ Run terminal sessions programmatically using ttyd (browser terminal) + tmux (ses
 - Works with asyncio apps (Alfred, etc.)
 - Pixel-perfect rendering (box chars connect, proper colors)
 - Real terminal emulation (xterm.js)
+- **Wait for patterns instead of sleeping** (see `wait_for()` below)
 
 ## Test Images
 
@@ -51,21 +52,38 @@ npx playwright install chromium
 Copy the module to your working directory:
 
 ```bash
+mkdir -p /tmp/pi-tmux
 cp .pi/skills/tmux-tape/tmux_tool.py /tmp/pi-tmux/
+cd /tmp/pi-tmux
 ```
 
 ### 3. Write Your Script
 
+**Recommended: Add logging so you can see what's happening:**
+
 ```python
 #!/usr/bin/env python3
+import time
 from tmux_tool import TerminalSession
 
+def log(msg):
+    """Print with timestamp for visibility."""
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
+
 with TerminalSession("test", port=7681) as s:
+    log("Starting test...")
+    
     s.send("echo hello")
     s.send_key("Enter")
-    s.sleep(1)
     
-    result = s.capture("output.png")  # upload=False by default
+    # RECOMMENDED: Use wait_for() instead of sleep()
+    # This waits until "hello" appears in terminal text
+    if s.wait_for(r"hello", timeout=5):
+        log("Found expected output!")
+    else:
+        log("Timeout waiting for output")
+    
+    result = s.capture("output.png")
     print(result["text"])
 ```
 
@@ -97,10 +115,16 @@ class TerminalSession:
         """Send text to terminal."""
     
     def send_key(self, key: str) -> None:
-        """Send special key: Enter, C-c, C-d, C-l, Escape, Tab, Up, Down, etc."""
+        """Send special key: Enter, C-c, C-d, C-l, Escape, Tab, Up, Down, C-Left, C-Right, etc."""
     
     def sleep(self, seconds: float) -> None:
-        """Wait for duration."""
+        """Wait for duration. Use wait_for() instead when possible."""
+    
+    def wait_for(self, pattern: str, timeout: float = 10.0, interval: float = 0.1) -> bool:
+        """Wait for regex pattern to appear in terminal. RECOMMENDED over sleep()."""
+    
+    def wait_for_content(self, check_fn, timeout: float = 10.0, interval: float = 0.1) -> bool:
+        """Wait for custom condition on terminal content."""
     
     def capture_text(self) -> str:
         """Get terminal text (ANSI-stripped)."""
@@ -115,8 +139,36 @@ class TerminalSession:
         """Capture both text and screenshot. Returns {text, screenshot, url?}."""
     
     def upload(self, filepath: str) -> str:
-        """Upload image to 0x0.st, returns URL."""
+        """Upload image to imgbb, returns URL."""
 ```
+
+### Use wait_for() Instead of sleep()
+
+**❌ AVOID: Using sleep() with fixed durations**
+```python
+s.send("some command")
+s.sleep(5)  # Wastes time if command finishes in 1s
+# Or fails if command takes 6s
+```
+
+**✅ RECOMMENDED: Use wait_for() to wait for actual output**
+```python
+s.send("some command")
+s.send_key("Enter")
+
+# Wait until specific text appears
+if s.wait_for(r"Ready|Done|prompt>", timeout=10):
+    print("Command completed!")
+else:
+    print("Timeout - command didn't complete")
+
+result = s.capture("result.png")
+```
+
+**Benefits of wait_for():**
+- Tests run faster (no wasted sleep time)
+- More reliable (waits for actual condition)
+- Better debugging (knows when things fail)
 
 ### Debugging with Raw ANSI
 
@@ -137,8 +189,10 @@ print(repr(raw[:500]))  # Show escaped ANSI codes
 | `C-c` | Ctrl+C (interrupt) |
 | `C-d` | Ctrl+D (EOF) |
 | `C-l` | Clear screen |
+| `C-Left` / `C-Right` | Ctrl+Arrow (word navigation) |
 | `Escape` | Escape key |
 | `Tab` | Tab key |
+| `Shift-Tab` | Shift+Tab |
 | `Space` | Space bar |
 | `Up` / `Down` / `Left` / `Right` | Arrow keys |
 
@@ -148,14 +202,24 @@ print(repr(raw[:500]))  # Show escaped ANSI codes
 
 ### Start Alfred (asyncio app)
 ```python
+import time
+from tmux_tool import TerminalSession
+
+def log(msg):
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
+
 with TerminalSession("alfred", port=7681) as s:
+    log("Starting Alfred...")
     s.send("bash")
     s.send_key("Enter")
     s.sleep(0.3)
     
     s.send("cd /workspace/alfred-prd && export $(grep -v '^#' .env | xargs) && .venv/bin/alfred")
     s.send_key("Enter")
-    s.sleep(3)
+    
+    # Wait for startup banner instead of fixed sleep
+    if s.wait_for(r"Alfred.*Your Persistent Memory Assistant", timeout=5):
+        log("Alfred started!")
     
     result = s.capture("startup.png")
     print(result["text"])
@@ -165,7 +229,10 @@ with TerminalSession("alfred", port=7681) as s:
 ```python
 s.send("what is 2+2?")
 s.send_key("Enter")
-s.sleep(12)  # LLM needs time
+
+# Wait for response (look for any output after the prompt)
+if s.wait_for(r"\n[^>].+", timeout=15):  # Any non-prompt line
+    print("Got response!")
 
 result = s.capture("response.png")
 print(result["text"])
@@ -197,8 +264,34 @@ cp .pi/skills/tmux-tape/tmux_tool.py "$SESSION_DIR/"
 cd "$SESSION_DIR"
 ```
 
-### 2. Write Script
-Create `script.py` using the `write` tool.
+### 2. Write Script with Logging
+Create `script.py` with timestamps for visibility:
+
+```python
+#!/usr/bin/env python3
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from tmux_tool import TerminalSession
+
+def log(msg):
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
+
+def main():
+    log("Starting test...")
+    
+    with TerminalSession("mytest", port=7681) as s:
+        log("Session created")
+        
+        # Your test steps here with logging...
+        
+        log("Test complete!")
+
+if __name__ == "__main__":
+    main()
+```
 
 ### 3. Run
 ```bash
@@ -206,7 +299,7 @@ uv run python script.py
 ```
 
 ### 4. Check Results
-- Text output printed to stdout
+- Text output printed to stdout (with timestamps if you added logging)
 - Screenshots saved in session directory
 - Use `upload=True` to get shareable URLs
 
@@ -227,7 +320,7 @@ uv run python script.py
 |-------|-------|-----|
 | `ERR_CONNECTION_REFUSED` | ttyd not running | Check port, wait longer |
 | `tmux: command not found` | tmux not installed | Install tmux |
-| Empty screenshot | Page didn't load | Increase wait-for-timeout |
+| Empty screenshot | Page didn't load | Increase timeout in wait_for() |
 | Upload failed | Network issue | Retry or skip upload |
 
 ---
@@ -285,38 +378,60 @@ https://0x0.st/yyy.png
 
 ```python
 #!/usr/bin/env python3
-"""Test Alfred CLI."""
+"""Test Alfred CLI with proper logging and wait_for."""
 
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
 from tmux_tool import TerminalSession
 
+
+def log(msg):
+    """Print with timestamp."""
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
+
+
 def main():
-    print("=== Alfred Test ===\n")
+    log("=== Alfred Test ===")
     
     with TerminalSession("alfred", port=7681) as s:
-        print("Starting Alfred...")
+        log("Starting bash...")
         s.send("bash")
         s.send_key("Enter")
         s.sleep(0.3)
-        s.send("cd /workspace/alfred-prd && export $(grep -v '^#' .env | xargs) && .venv/bin/alfred")
+        
+        log("Starting Alfred...")
+        s.send("cd /workspace/alfred-prd && .venv/bin/alfred")
         s.send_key("Enter")
-        s.sleep(3)
+        
+        # Wait for startup instead of fixed sleep
+        if s.wait_for(r"Alfred.*Assistant", timeout=5):
+            log("Alfred ready!")
+        else:
+            log("WARNING: Alfred startup timeout")
         
         result = s.capture("startup.png")
-        print(result["text"])
+        print(result["text"][:500])
         
-        print("\nSending message...")
+        log("Sending message...")
         s.send("what is 2+2?")
         s.send_key("Enter")
-        s.sleep(12)
+        
+        # Wait for response
+        if s.wait_for(r"4|four", timeout=15):
+            log("Got answer!")
         
         result = s.capture("response.png")
-        print(result["text"])
+        print(result["text"][-500:])  # Last 500 chars
         
+        log("Cleaning up...")
         s.send_key("C-c")
         s.send("exit")
         s.send_key("Enter")
     
-    print("\n=== Done ===")
+    log("=== Done ===")
 
 
 if __name__ == "__main__":
@@ -328,11 +443,12 @@ if __name__ == "__main__":
 ## Tips
 
 1. **Use `uv run`** — Always run scripts with `uv run python script.py`
-2. **Unique ports** — Use different ports for concurrent sessions (7681, 7682, etc.)
-3. **Estimate waits** — LLM responses need 10s+
-4. **Use bash** — Avoid fish/shell compatibility issues
-5. **Upload selectively** — Use `upload=True` only when you need shareable URLs
-6. **Check text** — Always print `result["text"]` for verification
+2. **Add logging** — Use `log()` function with timestamps to track progress
+3. **Use `wait_for()`** — Instead of `sleep()`, wait for actual output patterns
+4. **Unique ports** — Use different ports for concurrent sessions (7681, 7682, etc.)
+5. **Use bash** — Avoid fish/shell compatibility issues
+6. **Upload selectively** — Use `upload=True` only when you need shareable URLs
+7. **Check text** — Always print `result["text"]` for verification
 
 ---
 

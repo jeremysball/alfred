@@ -6,6 +6,7 @@ Features:
 - Pixel-perfect screenshots via browser rendering
 - Text capture via tmux
 - Keystroke sending via tmux
+- Wait for text/regex patterns
 - Image upload to imgbb (requires IMGBB_API_KEY)
 
 Requirements:
@@ -22,7 +23,7 @@ Usage:
     with TerminalSession("test", port=7681) as s:
         s.send("echo hello")
         s.send_key("Enter")
-        s.sleep(1)
+        s.wait_for("hello", timeout=5)  # Wait for text instead of sleep
         result = s.capture("output.png", upload=True)
         print(result["text"])
         print(result["url"])
@@ -109,7 +110,7 @@ class TerminalSession:
         Send special key to the terminal.
         
         Args:
-            key: Key name (Enter, C-c, C-d, C-l, Escape, Tab, Space, Up, Down, Left, Right)
+            key: Key name (Enter, C-c, C-d, C-l, Escape, Tab, Space, Up, Down, Left, Right, C-Left, C-Right)
         """
         subprocess.run(["tmux", "send-keys", "-t", self.name, key], check=True)
     
@@ -121,6 +122,53 @@ class TerminalSession:
             seconds: Time to wait
         """
         time.sleep(seconds)
+    
+    def wait_for(self, pattern: str, timeout: float = 10.0, interval: float = 0.1) -> bool:
+        """
+        Wait for text matching pattern to appear in terminal.
+        
+        Args:
+            pattern: Regex pattern to search for
+            timeout: Maximum time to wait (seconds)
+            interval: Polling interval (seconds)
+        
+        Returns:
+            True if pattern found, False if timeout
+        
+        Example:
+            s.wait_for(r">>>")
+            s.wait_for(r"Alfred.*ready", timeout=5)
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            text = self.capture_text()
+            if re.search(pattern, text):
+                return True
+            time.sleep(interval)
+        return False
+    
+    def wait_for_content(self, check_fn, timeout: float = 10.0, interval: float = 0.1) -> bool:
+        """
+        Wait for custom condition on terminal content.
+        
+        Args:
+            check_fn: Function that takes text and returns True/False
+            timeout: Maximum time to wait (seconds)
+            interval: Polling interval (seconds)
+        
+        Returns:
+            True if condition met, False if timeout
+        
+        Example:
+            s.wait_for_content(lambda t: ">>>" in t and "kimi" in t)
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            text = self.capture_text()
+            if check_fn(text):
+                return True
+            time.sleep(interval)
+        return False
     
     def capture_text(self) -> str:
         """
