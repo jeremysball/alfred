@@ -179,12 +179,13 @@ See PRDs #76 and #77 for contextual retrieval details.
 |---|-----------|-------------|
 | 16 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 17 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
-| 18 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector (PRD #90) |
-| 19 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
-| 20 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
-| 21 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
-| 22 | Type Safety | Fix Tool class type safety, complete type annotations |
-| 23 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
+| 18 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
+| 19 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector (PRD #90) |
+| 20 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
+| 21 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
+| 22 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
+| 23 | Type Safety | Fix Tool class type safety, complete type annotations |
+| 24 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
 
 ### Medium-term 📅
 
