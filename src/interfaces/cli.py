@@ -138,23 +138,18 @@ class CLIInterface:
         self.buffer = ConversationBuffer()
         self._is_streaming = False
         self._live_display: LiveDisplay | None = None
-        self._just_finished_streaming = False
 
         # Set up notification buffer for CLI mode
         self._notification_buffer = NotificationBuffer(
-            is_active_callback=lambda: self._is_active_state
+            is_active_callback=lambda: self._is_streaming
         )
 
         # Wire buffer to notifier if using CLINotifier
         self._cli_notifier: CLINotifier | None = None
         if isinstance(alfred.notifier, CLINotifier):
             alfred.notifier.set_buffer(self._notification_buffer)
+            alfred.notifier.set_console(self.console)
             self._cli_notifier = alfred.notifier
-
-    @property
-    def _is_active_state(self) -> bool:
-        """Check if CLI is in an active state where notifications should be queued."""
-        return self._is_streaming
 
     def _print_banner(self) -> None:
         """Print the welcome banner."""
@@ -399,10 +394,6 @@ class CLIInterface:
                     break
 
                 if not user_input:
-                    # Ignore empty input right after streaming (drained spam)
-                    if self._just_finished_streaming:
-                        self._just_finished_streaming = False
-                        continue
                     continue
 
                 # Handle special commands
@@ -434,12 +425,17 @@ class CLIInterface:
         self.buffer.clear()
         self._is_streaming = True
 
-        # Hide prompt and disable echo during streaming to prevent UI corruption
+        # Disable echo during streaming to prevent Enter keystrokes from appearing
         if self._live_display:
-            self._live_display.set_prompt_visible(False)
             self._live_display.disable_echo()
 
         try:
+            # Update display immediately to show throbber
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.set_status(self._render_status_line())
+                self._live_display.update()
+
             async for chunk in self.alfred.chat_stream(
                 user_input,
                 tool_callback=self._on_tool_event,
@@ -463,63 +459,52 @@ class CLIInterface:
         finally:
             self._is_streaming = False
             self._flush_notifications()
-            # Re-enable echo and show prompt again after streaming
+            # Re-enable echo after streaming
             if self._live_display:
                 self._live_display.enable_echo()
-                self._live_display.set_prompt_visible(True)
-                # Small delay to let terminal settle and drain any buffered input
-                import asyncio
-                await asyncio.sleep(0.1)
-                # Force drain any buffered input
-                self._live_display._drain_stdin()
-            # Flag to ignore empty input from drained spam
-            self._just_finished_streaming = True
 
     def _render_status_line(self) -> RenderableType:
-        """Render status line (tmux-style at bottom).
+        """Render status line at bottom.
 
-        Shows: ⠋ kimi | in:12K out:3K | ctx:45  📚 0 | 💬 0 | 📋 sections
+        Shows: ⠋ kimi | in:12K out:3K | ctx:45%  📚 0 | 💬 0
         When streaming: animated spinner
         When idle: static ">"
         """
         status_data = self._get_status_data()
         usage = status_data.usage
 
-        # Context summary
-        m = status_data.memories_count
-        s = status_data.session_messages
-        sections_str = (
-            ",".join(status_data.prompt_sections)
-            if status_data.prompt_sections
-            else "none"
-        )
-        if len(sections_str) > 20:
-            sections_str = sections_str[:17] + "..."
-
-        # Build status text with dark background
+        # Build status text - no background, clean style
         text = Text()
-        bg = "on color(236)"
-        text.append(status_data.model_name, style=f"bold white {bg}")
-        text.append(" | ", style=f"dim {bg}")
-        text.append(f"in:{self._format_number(usage.input_tokens)} ", style=f"cyan {bg}")
-        text.append(f"out:{self._format_number(usage.output_tokens)}", style=f"green {bg}")
+
+        # Model name
+        text.append(status_data.model_name, style="bold cyan")
+        text.append(" | ", style="dim")
+
+        # Token counts
+        text.append(f"in:{self._format_number(usage.input_tokens)} ", style="cyan")
+        text.append(f"out:{self._format_number(usage.output_tokens)}", style="green")
         if usage.cache_read_tokens > 0:
             cache = self._format_number(usage.cache_read_tokens)
-            text.append(f" cache:{cache}", style=f"yellow {bg}")
+            text.append(f" cache:{cache}", style="yellow")
         if usage.reasoning_tokens > 0:
             reason = self._format_number(usage.reasoning_tokens)
-            text.append(f" reason:{reason}", style=f"magenta {bg}")
-        text.append(f" | ctx:{self._format_number(status_data.context_tokens)}", style=f"dim {bg}")
-        text.append(f"  📚 {m} | 💬 {s} | 📋 {sections_str} ", style=bg)
+            text.append(f" reason:{reason}", style="magenta")
+
+        # Context percentage
+        text.append(f" | ctx:{self._format_number(status_data.context_tokens)}", style="dim")
+
+        # Memory and message counts
+        m = status_data.memories_count
+        s = status_data.session_messages
+        text.append(f"  📚 {m} | 💬 {s}", style="white")
 
         # Throbber: animated spinner when streaming, static ">" when idle
         if self._is_streaming:
             from rich.columns import Columns
-
-            spinner = Spinner("dots", style=f"cyan {bg}")
+            spinner = Spinner("dots", style="cyan")
             return Columns([spinner, text])
         else:
-            prefix = Text("> ", style=f"green {bg}")
+            prefix = Text("> ", style="green")
             prefix.append(text)
             return prefix
 

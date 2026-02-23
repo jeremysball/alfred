@@ -4,11 +4,6 @@ This module provides a flicker-free streaming display using Rich Live,
 with a custom prompt that supports editing, history, and tab completion.
 """
 
-import asyncio
-import sys
-import termios
-import select
-import time
 from collections.abc import Callable
 from enum import Enum, auto
 from typing import Any
@@ -85,7 +80,7 @@ class InputReader:
             return (KeyAction.DOWN, "")
         elif key == ENTER:
             return (KeyAction.ENTER, "")
-        elif key == "\x1b[13;2u" or key == "\x1b[13;2~":  # Shift+Enter (kitty and other protocols)
+        elif key == "\x1b[13;2u" or key == "\x1b[13;2~":  # Shift+Enter
             return (KeyAction.SHIFT_ENTER, "")
         elif key == ESC:
             return (KeyAction.ESC, "")
@@ -98,7 +93,6 @@ class InputReader:
         elif key == "\x01":  # Ctrl+A (end of line per user preference)
             return (KeyAction.END, "")
         elif key == "\x09":  # Ctrl+I (same code as Tab)
-            # readchar returns TAB constant, not this, so this is for safety
             return (KeyAction.TAB, "")
         elif key == "\x0b":  # Ctrl+K
             return (KeyAction.DELETE_TO_END, "")
@@ -241,11 +235,7 @@ class PromptInput:
 
 
 class History:
-    """Command history with file persistence.
-
-    History is stored in session meta files, not a global file.
-    The session code passes the appropriate path when creating LiveDisplay.
-    """
+    """Command history with file persistence."""
 
     def __init__(self, filepath: str | None = None) -> None:
         from pathlib import Path
@@ -540,14 +530,7 @@ class Completer:
 
 
 class LiveDisplay:
-    """Rich Live display with streaming content and custom prompt.
-
-    Layout (top to bottom):
-        - Content area (markdown, tool panels)
-        - Dropdown (when tab completion active)
-        - Prompt line (>>> with cursor)
-        - Status line (model, tokens, context - tmux-style at bottom)
-    """
+    """Rich Live display with streaming content and custom prompt."""
 
     def __init__(
         self,
@@ -575,77 +558,6 @@ class LiveDisplay:
         # Status line: Rich renderable (Text, Columns, etc.)
         self._status: RenderableType = Text("Ready", style="dim")
 
-        # Prompt visibility (hide during streaming)
-        self._show_prompt: bool = True
-
-    def _drain_stdin(self) -> None:
-        """Drain any buffered stdin input to prevent stale keypresses.
-        
-        This is critical after streaming ends - any keys pressed during
-        streaming (like spamming Enter) must be discarded before we start
-        reading input again.
-        """
-        if not sys.stdin.isatty():
-            return
-        
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            # Set to non-canonical, non-blocking with immediate timeout
-            new_settings = termios.tcgetattr(fd)
-            new_settings[3] = new_settings[3] & ~termios.ICANON & ~termios.ECHO
-            new_settings[6][termios.VMIN] = 0
-            new_settings[6][termios.VTIME] = 0
-            termios.tcsetattr(fd, termios.TCSANOW, new_settings)
-            
-            # Aggressively drain all pending input
-            drained = 0
-            while True:
-                ready, _, _ = select.select([sys.stdin], [], [], 0)
-                if not ready:
-                    break
-                try:
-                    char = sys.stdin.read(1)
-                    if not char:
-                        break
-                    drained += 1
-                except (IOError, OSError):
-                    break
-            
-            if drained > 0:
-                # Small delay to catch any stragglers, then drain again
-                time.sleep(0.01)
-                while select.select([sys.stdin], [], [], 0)[0]:
-                    try:
-                        if not sys.stdin.read(1):
-                            break
-                        drained += 1
-                    except (IOError, OSError):
-                        break
-        finally:
-            termios.tcsetattr(fd, termios.TCSANOW, old_settings)
-
-    def disable_echo(self) -> None:
-        """Disable terminal echo - prevents keystrokes from appearing during streaming."""
-        if not sys.stdin.isatty():
-            return
-        
-        fd = sys.stdin.fileno()
-        # Get current settings and store them
-        self._original_tty_settings = termios.tcgetattr(fd)
-        new_settings = termios.tcgetattr(fd)
-        # Disable ECHO
-        new_settings[3] = new_settings[3] & ~termios.ECHO
-        termios.tcsetattr(fd, termios.TCSANOW, new_settings)
-
-    def enable_echo(self) -> None:
-        """Re-enable terminal echo after streaming."""
-        if not sys.stdin.isatty() or not hasattr(self, '_original_tty_settings'):
-            return
-        
-        fd = sys.stdin.fileno()
-        termios.tcsetattr(fd, termios.TCSANOW, self._original_tty_settings)
-
     def set_content(self, renderables: list[RenderableType]) -> None:
         """Set content area to list of renderables (e.g., ConversationBuffer.render())."""
         self._content = renderables
@@ -670,17 +582,6 @@ class LiveDisplay:
         self._status = status
         self._refresh()
 
-    def set_prompt_visible(self, visible: bool) -> None:
-        """Show or hide the prompt line.
-
-        Hide during streaming to prevent UI corruption from buffered input.
-
-        Args:
-            visible: True to show prompt, False to hide.
-        """
-        self._show_prompt = visible
-        self._refresh()
-
     def _render(self) -> RenderableType:
         """Render full display: content + dropdown + prompt + status."""
         parts: list[RenderableType] = []
@@ -693,9 +594,8 @@ class LiveDisplay:
         if self.completer.visible:
             parts.append(self.completer.render_dropdown())
 
-        # Prompt section (only when visible)
-        if self._show_prompt:
-            parts.append(self.prompt.render())
+        # Prompt section
+        parts.append(self.prompt.render())
 
         # Status line at bottom (tmux-style)
         parts.append(self._status)
@@ -738,12 +638,8 @@ class LiveDisplay:
 
         Returns the submitted string.
         """
-        # Drain any buffered input from previous streaming
-        self._drain_stdin()
-        
         self.prompt.clear()
-        self._show_prompt = True
-        self._refresh()  # Show empty prompt initially
+        self._refresh()
 
         while True:
             action, char = self.reader.read()
@@ -752,7 +648,7 @@ class LiveDisplay:
                 self.history.add(result)
                 self.completer.hide()
                 self.prompt.clear()
-                self._refresh()  # Clear the prompt visually before returning
+                self._refresh()
                 return result
 
     async def read_line_async(self) -> str:

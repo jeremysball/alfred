@@ -4,7 +4,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 if TYPE_CHECKING:
     from telegram import Bot
@@ -52,7 +52,7 @@ class Notifier(ABC):
 class CLINotifier(Notifier):
     """Send notifications to CLI output.
 
-    Outputs formatted messages to stdout or a configurable stream.
+    Outputs formatted messages via Rich console.
     When a NotificationBuffer is set and active, notifications are queued
     instead of printed immediately. This prevents notifications from
     clobbering the prompt line during user input or LLM streaming.
@@ -74,6 +74,7 @@ class CLINotifier(Notifier):
         """
         self.output = output_stream or sys.stdout
         self.buffer = buffer
+        self.console: Any | None = None
 
     def set_buffer(self, buffer: NotificationBuffer | None) -> None:
         """Set or clear the notification buffer.
@@ -82,6 +83,10 @@ class CLINotifier(Notifier):
             buffer: The buffer to use, or None to disable buffering.
         """
         self.buffer = buffer
+
+    def set_console(self, console: Any) -> None:
+        """Set Rich console for output (required when using Rich Live)."""
+        self.console = console
 
     async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send notification to CLI output.
@@ -110,7 +115,10 @@ class CLINotifier(Notifier):
             logger.error(f"Failed to send CLI notification: {e}")
 
     def _display(self, message: str) -> None:
-        """Display a notification immediately to output stream.
+        """Display a notification immediately.
+
+        Uses Rich console if available (for Live display compatibility),
+        otherwise falls back to direct output.
 
         Args:
             message: The message to display.
@@ -118,15 +126,22 @@ class CLINotifier(Notifier):
         timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         lines = message.splitlines() if message else [""]
 
-        for i, line in enumerate(lines):
-            if i == 0:
-                formatted = f"[{timestamp} JOB NOTIFICATION] {line}\n"
-            else:
-                # Indent continuation lines to align with first line
-                formatted = f"{' ' * 32}{line}\n"
-            self.output.write(formatted)
-
-        self.output.flush()
+        if self.console:
+            # Use Rich console for Live display compatibility
+            for i, line in enumerate(lines):
+                if i == 0:
+                    self.console.print(f"[dim][{timestamp} JOB NOTIFICATION][/] {line}")
+                else:
+                    self.console.print(f"{' ' * 32}{line}")
+        else:
+            # Fallback to direct output
+            for i, line in enumerate(lines):
+                if i == 0:
+                    formatted = f"[{timestamp} JOB NOTIFICATION] {line}\n"
+                else:
+                    formatted = f"{' ' * 32}{line}\n"
+                self.output.write(formatted)
+            self.output.flush()
 
     def flush_buffer(self) -> None:
         """Flush all pending notifications from buffer.
@@ -140,14 +155,19 @@ class CLINotifier(Notifier):
         notifications = self.buffer.flush()
         count = len(notifications)
 
-        # Visual separator
-        self.output.write(f"\n{'─' * 20} Jobs ({count}) {'─' * 20}\n")
-
-        for notification in notifications:
-            self._display(notification.message)
-
-        self.output.write(f"{'─' * 52}\n\n")
-        self.output.flush()
+        if self.console:
+            # Use Rich console for Live display compatibility
+            self.console.print(f"[dim]{'─' * 20} Jobs ({count}) {'─' * 20}[/]")
+            for notification in notifications:
+                self._display(notification.message)
+            self.console.print(f"[dim]{'─' * 52}[/]")
+        else:
+            # Fallback to direct output
+            self.output.write(f"\n{'─' * 20} Jobs ({count}) {'─' * 20}\n")
+            for notification in notifications:
+                self._display(notification.message)
+            self.output.write(f"{'─' * 52}\n\n")
+            self.output.flush()
 
 
 class TelegramNotifier(Notifier):
