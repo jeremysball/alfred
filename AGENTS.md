@@ -1,8 +1,28 @@
 # Agent Behavior Rules
 
+This document takes priority over skill files. If a skill conflicts with these rules, follow the rules.
+
 ---
 
-## ⛔ PRE-FLIGHT CHECK — DO THIS FIRST
+## Priority Hierarchy
+
+| Level | Meaning | Examples |
+|-------|---------|----------|
+| ⛔ **BLOCKER** | Never skip. User override only. | Pre-flight, secrets, user authority |
+| ⚠️ **REQUIRED** | Default behavior. Exceptions need reason. | Ask questions first, verify before done |
+| 📋 **STANDARD** | Best practice. Skip if situation demands. | TDD, edge case testing |
+
+---
+
+## User Authority Clause
+
+**User's direct instruction overrides these rules.** If user says "just do it" or "skip the questions," obey. The rules exist to serve the user, not constrain them.
+
+Exception: User cannot override security rules (secrets handling, credential exposure).
+
+---
+
+## ⛔ PRE-FLIGHT CHECK
 
 **STOP.** Before responding to any user message or command, you **MUST**:
 
@@ -10,158 +30,74 @@
 2. Read `/workspace/alfred-prd/.pi/skills/ntfy/SKILL.md`
 3. Read `/workspace/alfred-prd/.pi/skills/serper-search/SKILL.md`
 4. Read `/workspace/alfred-prd/docs/ROADMAP.md` (project roadmap)
-5. Confirm completion in your first response: "✅ Skills and parent PRD loaded"
+5. Confirm: ✅
 
-**No exceptions.** This applies to:
-- The first message of every conversation
-- Commands like `/prd-start`, `/prd-next`, etc.
-- Simple questions, complex tasks, everything
-
-If you skip this step, you have failed the pre-flight check.
+Applies to: first message of every conversation, PRD commands, any implementation work.
 
 ---
 
-## ⛔⛔⛔ ASK DESIGN QUESTIONS FIRST — HIGHEST PRIORITY ⛔⛔⛔
+## ⛔ ASK DESIGN QUESTIONS FIRST
 
-**THIS RULE OVERRIDES ALL OTHER RULES.**
+Before writing any code, ask clarifying questions. Present options with tradeoffs. Wait for user confirmation.
 
-Before writing ANY code or implementing ANY feature, you **MUST**:
+Process: Understand → Ask → Discuss → User Decides → Confirm → Implement
 
-1. **Ask clarifying design questions** — Never assume you understand the requirements
-2. **Wait for answers** — Do not proceed until the user confirms the design
-3. **Present options** — Show alternatives with tradeoffs, let the user choose
-4. **Get explicit confirmation** — Only after approval may you proceed to implementation
-
-**The process is ALWAYS:**
-```
-Understand → Ask Questions → Discuss Options → User Decides → Confirm → Implement
-```
-
-**WRONG — Do NOT do this:**
-- Start coding immediately after receiving a task
-- Explore codebase and then implement without asking
-- Assume "the user said go" means "skip design discussion"
-- Make architectural decisions without user input
-
-**RIGHT — Always do this:**
-- "Before I implement, I have some design questions..."
-- "Here are a few options for how we could approach this..."
-- "Which approach do you prefer?"
-
-**NO EXCEPTIONS.** Even if a skill says to implement, even if the user says "go", even if the task seems simple — **ASK DESIGN QUESTIONS FIRST.**
+Exception: User can override with direct instruction (see User Authority Clause).
 
 ---
 
-## ⚠️ SECRETS & AUTHENTICATION — READ THIS
+## ⚠️ SECRETS & AUTHENTICATION
 
-**ANY command needing secrets MUST use `uv run dotenv`:**
+Any command needing secrets must use `uv run dotenv`:
 
 ```bash
 uv run dotenv gh pr create --title "..." --body "..."
-uv run dotenv gh issue close 23
 uv run dotenv python script_using_api.py
 ```
 
-**WRONG — Do NOT do this:**
-```bash
-gh pr create --title "..."                          # ❌ No GH_TOKEN
-source .env && gh pr create                          # ❌ Pollutes shell
-export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
-```
-
-**NO EXCEPTIONS.** Every command requiring tokens (GitHub CLI, Serper API, etc.) must use `uv run dotenv`.
+Never: `source .env`, `export $(cat .env)`, or run commands without `uv run dotenv`.
 
 ---
 
 ### 1. Permission First
-**ALWAYS** ask before editing files, deleting data, writing tests/production code, or running state-changing commands (git, etc.).
+Ask before editing files, deleting data, writing code, or running state-changing commands.
 
-**EVEN when a skill tells you to edit a file**, you MUST offer a changelog and ask for permission.
+Offer a changelog: approach, alternatives considered, tradeoffs made.
 
-**Changelog Requirements:**
-1. **Approach**: What you're doing and how
-2. **Alternatives Considered**: Other approaches you rejected
-3. **Tradeoffs Made**: What you sacrificed for this choice
+### 2. Use Todo Sidebar for Task Tracking
+Use `todo-sidebar` for multi-step work. Never use numbered lists in prose.
 
-### 2. ALWAYS Ask Questions When Creating PRDs
-**CRITICAL**: When using the `prd-create` skill, you **MUST**:
-
-- Ask clarifying design questions before writing anything
-- Present alternatives with tradeoffs
-- Get explicit user confirmation before proceeding
-
-This applies the design-first rule from above.
-
-### 3. Use Todo Sidebar for Task Tracking — MANDATORY
-**ALWAYS use the `todo-sidebar` tool** when outlining or tracking multi-step work. **NEVER use numbered lists in prose** when tasks need to be tracked.
-
-**MANDATORY RULE:**
-When you would otherwise write a numbered list like this in your response:
 ```
-Here's what I'll do:
-1. Step one
-2. Step two
-3. Step three
-```
-
-**You MUST instead use todo-sidebar:**
-```
-todo-sidebar action: add, text: "Step one"
-todo-sidebar action: add, text: "Step two"
-todo-sidebar action: add, text: "Step three"
-```
-
-**Actions:**
-- `add` — Create a new todo item
-- `list` — Show all current todos
-- `toggle` — Mark a todo as done/undone by ID
-- `clear` — Remove all todos
-
-**Example:**
-```
-todo-sidebar action: add, text: "Review PRD requirements"
+todo-sidebar action: add, text: "Step description"
 todo-sidebar action: toggle, id: 1
 ```
 
-### 4. Encourage Test-Driven Development (TDD)
-**ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
+### 3. Test-Driven Development
+Write tests first when implementing new features. If you skip TDD, explain why.
 
-This is **not strictly required** but STRONGLY encouraged and you will be expected to justify deciding not to.
-
-### 5. Testing Edge Cases — MANDATORY
-**ALWAYS** test edge cases, not just happy paths:
+### 4. Testing Edge Cases
+Test edge cases, not just happy paths:
 
 - **Input validation**: null, empty strings, wrong types, malformed data
-- **Boundary conditions**: off-by-one, empty collections, max/min values, integer overflow
+- **Boundary conditions**: off-by-one, empty collections, max/min values
 - **Error handling**: network failures, timeouts, missing files, permission denied
-- **Async edge cases**: race conditions, concurrent access, timeout handling
+
+**Good enough:** Cover null, empty, and invalid inputs. You don't need exhaustive combinatorics.
 
 **Example:**
 ```python
-# ✅ Test edge cases
 def test_parse_config():
-    assert parse_config('{"key": "value"}') == {"key": "value"}  # happy
-    assert parse_config('{}') == {}                               # empty
-    assert parse_config('invalid') raises ValueError              # malformed
-    assert parse_config(None) raises TypeError                    # null
+    assert parse_config('{"key": "value"}') == {"key": "value"}
+    assert parse_config('{}') == {}
+    with pytest.raises(ValueError):
+        parse_config('invalid')
+    with pytest.raises(TypeError):
+        parse_config(None)
 ```
 
-### 6. Defensive Programming — MANDATORY
-**ALWAYS** write defensive code:
+### 5. Defensive Programming
+Validate inputs at function entry points. Fail fast with explicit errors.
 
-- **Validate inputs at boundaries**: Check args at function/class entry points
-- **Fail fast with explicit errors**: Raise specific exceptions early, not cryptic ones later
-- **Type safety**: Use type hints + runtime validation (Pydantic, asserts)
-- **Assertions for invariants**: `assert` conditions that must always hold
-- **Follow PEP 8**: Adhere to [Python style conventions](https://peps.python.org/pep-0008/)
-
-**WRONG — Do NOT do this:**
-```python
-def process(data):
-    return data["items"][0]["name"]  # ❌ Multiple silent failure points
-```
-
-**CORRECT — Do this instead:**
 ```python
 def process(data: dict) -> str:
     if not data:
@@ -173,21 +109,18 @@ def process(data: dict) -> str:
     return data["items"][0]["name"]
 ```
 
-### 7. Notify on Long-Running Tasks — MANDATORY
-**ALWAYS** send an ntfy notification when: long-running tasks complete, user input required, workflow milestones (PR created/merged), or errors needing attention.
+### 6. Notify on Long-Running Tasks
+Send ntfy notification when: task completes, user input needed, errors occur.
 
 ```bash
-# Simple notification
 curl -s -d "Task complete" ntfy.sh/pi-agent-prometheus
-
-# High priority for input needed
 curl -s -H "Priority: high" -d "Input needed" ntfy.sh/pi-agent-prometheus
 ```
 
-**Don't notify for:** simple file reads, intermediate steps, quick acknowledgments.
+Skip notification for: simple reads, intermediate steps.
 
-### 8. Use Serper for Web Search — MANDATORY
-**USE** Serper API (not your training data) for web searches:
+### 7. Use Serper for Web Search
+Use Serper API (not training data) for documentation, library versions, recent info.
 
 ```bash
 uv run dotenv curl -X POST https://google.serper.dev/search \
@@ -196,132 +129,65 @@ uv run dotenv curl -X POST https://google.serper.dev/search \
   -d '{"q": "your search query"}'
 ```
 
-**Use for:** documentation, library versions, best practices, recent news.
-
-### 9. Always Verify Before Done
+### 8. Verify Before Done
 After any code change, run:
 ```bash
 uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
 Show results. Fix issues. Then it's done.
 
-### 10. ALWAYS Use Conventional Commits
-**CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
-
+### 9. Conventional Commits
+All commits follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
+<type>: <description>
 ```
 
-**Types:**
-- `feat` — New feature
-- `fix` — Bug fix
-- `docs` — Documentation changes
-- `style` — Code style changes (formatting, semicolons)
-- `refactor` — Code change that neither fixes a bug nor adds a feature
-- `perf` — Performance improvement
-- `test` — Adding or correcting tests
-- `chore` — Build process or auxiliary tool changes
+Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-**Rules:**
-- Use lowercase for type and description
-- Keep the first line under 72 characters
-- Use body for "what" and "why", not "how"
-- Reference issues in footer when applicable
+Keep first line under 72 chars. Use body for "what" and "why."
 
+### 10. No Hardcoded Absolute Paths
+Never hardcode paths like `/path/to/project/` or `/home/user/`.
 
-### 11. NEVER Use Hardcoded Absolute Paths
-**CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
-
-**WRONG — Do NOT do this:**
 ```python
-# ❌ Breaks on any other machine or in CI/CD
-config_path = "/path/to/project/config.json"
-test_data_dir = "/home/user/project/tests/data"
-```
-
-**CORRECT — Do this instead:**
-```python
+# Use relative paths
 from pathlib import Path
-
-# ✅ Relative to current file (works everywhere)
 project_root = Path(__file__).parent.parent
 config_path = project_root / "config.json"
-
-# ✅ Or use runtime detection
-import os
-project_root = Path(os.getcwd())
-config_path = project_root / "config.json"
 ```
 
-**For tests:** Always derive paths from `__file__`:
-```python
-def test_something():
-    # Test file is in tests/, project root is one level up
-    project_root = Path(__file__).parent.parent
-    config = load_config(project_root / "config.json")
-```
+### 11. tmux-tape for CLI/TUI Testing
+Use for E2E testing of interactive CLI apps. See `.pi/skills/tmux-tape/SKILL.md`.
 
-### 12. Use tmux-tape for CLI/TUI Testing
-**USE** the tmux-tape skill for E2E testing of interactive or visual CLI applications:
+### 12. No Plausible-Sounding Nonsense
 
-- **Asyncio apps** — Alfred, bots, servers (can't use VHS)
-- **TUI frameworks** — Textual, Rich Live, ncurses apps
-- **Visual verification** — Box-drawing, colors, layout
+Never construct explanations that sound right but lack basis in actual code or documentation.
 
-**Not needed for:** simple scripts, unit tests, `--help` output.
+**Red Flags:**
+- "Seamlessly integrates," "robustly handles" — empty phrases
+- "Likely," "probably," "typically" — speculation masks
+- Explaining patterns instead of *this specific implementation*
 
-**Workflow:**
-```bash
-mkdir -p /tmp/pi-tmux && cp .pi/skills/tmux-tape/tmux_tool.py /tmp/pi-tmux/
-cd /tmp/pi-tmux && uv run python script.py
-```
+**External systems (CLI, APIs):** Use Serper search to verify, or say "I don't know."
 
-**Example:**
-```python
-from tmux_tool import TerminalSession
-
-with TerminalSession("alfred", port=7681) as s:
-    s.send("alfred")
-    s.send_key("Enter")
-    s.sleep(3)  # Wait for startup
-
-    result = s.capture("startup.png")
-    assert "Alfred ready" in result["text"]
-```
-
-See `.pi/skills/tmux-tape/SKILL.md` for full API.
+**The Test:** Can you point to a file/line number or documentation source? If not, you don't know it yet.
 
 ---
 
-### 13. No Plausible-Sounding Nonsense — Verify or Admit Ignorance
+### 13. Failure Recovery
 
-**NEVER** construct explanations that *sound* right but lack basis in actual code or documentation. Saying "I don't know" is better than plausible bullshit.
+When tools or commands fail:
 
-**Red Flags — Stop and Verify:**
-- "Seamlessly integrates," "robustly handles," "efficiently manages" — empty phrases
-- "Likely," "probably," "typically" — speculation masks
-- Explaining "typical patterns" instead of *this specific implementation*
+| Failure | Response |
+|---------|----------|
+| File not found | Verify path, search for file, ask user |
+| grep returns nothing | Try broader pattern, check directory, report "not found" |
+| Tests fail repeatedly | After 3 attempts, explain the issue and ask for guidance |
+| Network error | Retry once, then report and suggest alternatives |
+| Rule conflict | State the conflict explicitly, ask user which wins |
 
-**External Systems (CLI, APIs, services) — Highest Risk**
+**After 3 failed attempts at any task, stop and ask the user for guidance.** Do not spin indefinitely.
 
-You can't read source code for external systems. This is where hallucination is most dangerous.
+---
 
-**WRONG:**
-> "The `gh pr create` command likely uses the GitHub REST API, sending a POST to the pulls endpoint with your token."
-*(Plausible. Completely invented.)*
-
-**RIGHT:**
-> Use Serper search to verify, or say: "I don't know how `gh pr create` works internally."
-
-**Rules:**
-1. Read implementation files before explaining internal behavior
-2. Trace actual call chains before describing data flow
-3. Point to specific lines/functions when claiming a mechanism
-4. **Always** use Serper search for external system behavior — or admit ignorance
-5. Self-correct immediately when wrong: *"Actually, I was mistaken..."*
-
-**The Test:** Can you point to a file/line number (internal) or documentation source (external)? If not, you don't know it yet.
+— End of Agent Rules —
