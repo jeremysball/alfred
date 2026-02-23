@@ -28,8 +28,10 @@ Build a **custom streaming markdown renderer** that:
 1. **Manual ANSI Control**: Uses raw ANSI escape codes for cursor movement
 2. **patch_stdout Integration**: Wraps rendering in `prompt_toolkit.patch_stdout` for safe prompt handling
 3. **Natural Scrollback**: No alternate screen buffer — output scrolls naturally
-4. **Unified Rendering**: Handles all content types (markdown text, tool panels, notifications)
+4. **Unified Rendering**: Handles markdown text and tool panels
 5. **Diff-Based Updates**: Only redraws changed lines for smooth updates
+
+**Note**: Notifications are handled separately in PRD #89.
 
 ---
 
@@ -275,36 +277,46 @@ Rich handles width changes, but cursor position may drift. Consider re-rendering
 
 ## Implementation Plan
 
-### Milestone 1: Core Renderer Class
+### Milestone 1: Core Renderer Class ✅
+
+**Status**: COMPLETE
 
 **Goal**: Implement `StreamingRenderer` with basic markdown streaming
 
 **Tasks**:
-- Create `src/interfaces/renderer.py` with `StreamingRenderer` class
-- Implement `_render_markdown()` using `console.capture()`
-- Implement `_diff_lines()` for line comparison
-- Implement `_draw_from_index()` with ANSI codes and `patch_stdout`
-- Handle orphan line clearing
+- [x] Create `src/interfaces/renderer.py` with `StreamingRenderer` class
+- [x] Implement `_render_markdown()` using `console.capture()`
+- [x] Implement `_diff_lines()` for line comparison
+- [x] Implement `_draw_diff()` with ANSI codes and `patch_stdout`
+- [x] Handle orphan line clearing
+- [x] Add throttling (50ms / 20fps) to prevent flicker
 
 **Validation**:
-- Unit test: Diff detection returns correct index
-- Unit test: ANSI output contains expected escape codes
-- Manual test: Stream simple markdown, verify inline updates
+- [x] Unit test: Diff detection returns correct index (8 tests)
+- [x] Unit test: ANSI output contains expected escape codes
+- [x] Manual test: Stream simple markdown, verify inline updates (tmux-tape)
 
-### Milestone 2: Async Streaming Integration
+### Milestone 2: Async Streaming Integration (Partial)
 
-**Goal**: Integrate renderer with async iterator pattern
+**Status**: PARTIAL — Throttling complete, flicker not resolved
+
+**Goal**: Integrate renderer with chunk accumulation and throttling
+
+**Known Issue**: ~~Flicker occurs when updating large portions of the screen.~~ **FIXED**: Added ANSI-stripping in `_diff_lines()` so content comparison ignores formatting changes.
 
 **Tasks**:
-- Implement `render_stream()` async generator
-- Add throttling (max 100ms between renders)
-- Handle chunk accumulation
-- Implement `finalize()` for clean completion
+- [x] Add throttling (50ms between renders)
+- [x] Handle chunk accumulation via `add_chunk()`
+- [x] Implement `finalize()` for clean completion
+- [x] Implement `flush()` for pending renders
+- [x] Strip ANSI codes in diff comparison to prevent false-positive redraws
+- [ ] ~~Implement `render_stream()` async generator~~ — Changed to sync API
 
 **Validation**:
-- Unit test: Chunks accumulate correctly
-- Manual test: Stream multi-chunk message, verify smooth updates
-- Performance: Updates complete in <100ms
+- [x] Unit test: Chunks accumulate correctly
+- [x] Manual test: Stream multi-chunk message, verify smooth updates
+- [x] Performance: Updates complete in <100ms
+- [x] No visible flicker during streaming (ANSI-stripping fix)
 
 ### Milestone 3: Tool Panel Support
 
@@ -322,7 +334,32 @@ Rich handles width changes, but cursor position may drift. Consider re-rendering
 - Manual test: Toggle panels works correctly
 - Test: Error panels styled differently
 
-### Milestone 4: CLI Integration
+### Milestone 4: Prompt and Status Line Positioning
+
+**Goal**: Fix prompt and status line positioning using prompt_toolkit toolbar
+
+**Layout**:
+```
+[Rendered markdown content scrolls here]
+[More content...]
+[Empty line]
+>>> [user prompt here]
+[status line with throbber at very bottom via bottom_toolbar]
+```
+
+**Tasks**:
+- Use prompt_toolkit `bottom_toolbar` for status line (model, tokens, context)
+- Move throbber to status line toolbar
+- Ensure prompt (`>>> `) sits above status line
+- Status line stays visible during streaming
+- Prompt stays visible during streaming
+
+**Validation**:
+- Manual test: Status line at very bottom during streaming
+- Manual test: Prompt visible above status line
+- Manual test: Throbber animates in status line while streaming
+
+### Milestone 5: CLI Integration
 
 **Goal**: Replace `ConversationBuffer` + `Live` in CLIInterface
 
@@ -339,7 +376,7 @@ Rich handles width changes, but cursor position may drift. Consider re-rendering
 - Manual test: Prompt stays visible and functional
 - Test: Natural scrollback works in terminal
 
-### Milestone 5: Error Handling & Edge Cases
+### Milestone 6: Error Handling & Edge Cases
 
 **Goal**: Handle all edge cases robustly
 
@@ -355,7 +392,7 @@ Rich handles width changes, but cursor position may drift. Consider re-rendering
 - Test: Empty chunks don't cause issues
 - Test: 1000-char line wraps correctly
 
-### Milestone 6: E2E Testing with tmux-tape
+### Milestone 7: E2E Testing with tmux-tape
 
 **Goal**: Visual verification of rendering behavior
 
@@ -430,9 +467,7 @@ async def test_streaming_markdown_inline():
 
 ## Open Questions
 
-1. **Status Line**: Should the enhanced status line be rendered above or below the markdown? (Current: below, in prompt toolbar)
-2. **Notification Integration**: How do PRD #89 notifications interact with this renderer?
-3. **Multi-line Input**: How does cursor math handle multi-line user input being edited?
+1. **Multi-line Input**: How does cursor math handle multi-line user input being edited?
 
 ---
 
@@ -443,9 +478,12 @@ async def test_streaming_markdown_inline():
 | 2026-02-22 | Manual ANSI control + patch_stdout | Live conflicts with prompt_toolkit, need direct control |
 | 2026-02-22 | Diff-based rendering | Only redraw changed lines for smooth updates |
 | 2026-02-22 | Natural scrollback (no alt screen) | User requirement for terminal history |
-| 2026-02-22 | Unified renderer for all content | Simpler than multiple render systems |
-| 2026-02-22 | Async iterator input | Fits with existing streaming pattern |
+| 2026-02-22 | Unified renderer for markdown + tools | Simpler than multiple render systems |
+| 2026-02-22 | Sync API (add_chunk + render) | Simpler than async generator, confirmed in design |
 | 2026-02-22 | Main thread (no separate thread) | prompt_toolkit event loop compatibility |
+| 2026-02-22 | 50ms throttle (20fps) | Prevents flicker during rapid updates |
+| 2026-02-22 | Status line via bottom_toolbar | Prompt sits above, status at very bottom |
+| 2026-02-22 | Notifications in PRD #89 | Separate concern from streaming renderer |
 
 ---
 
