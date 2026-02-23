@@ -1,9 +1,11 @@
 """Rich Live display with custom prompt input."""
 
 import asyncio
+import contextlib
 import signal
 import sys
 import termios
+import threading
 from collections.abc import Callable
 
 from rich.console import Console, Group, RenderableType
@@ -33,6 +35,8 @@ class LiveDisplay:
         self._live: Live | None = None
         self._content: list[RenderableType] = []
         self._status: RenderableType = Text("Ready", style="dim")
+        self._heartbeat_thread: threading.Thread | None = None
+        self._stop_heartbeat = threading.Event()
 
     def set_content(self, renderables: list[RenderableType]) -> None:
         """Set content area to list of renderables."""
@@ -81,6 +85,8 @@ class LiveDisplay:
         self._live.start()
         # Handle terminal resize to force redraw
         self._setup_resize_handler()
+        # Start heartbeat to keep display alive during tmux window switches
+        self._start_heartbeat()
 
     def _setup_resize_handler(self) -> None:
         """Setup handler for terminal resize events."""
@@ -93,8 +99,35 @@ class LiveDisplay:
         # Force a refresh on resize
         self._refresh()
 
+    def _start_heartbeat(self) -> None:
+        """Start background heartbeat thread to keep display alive."""
+        self._stop_heartbeat.clear()
+        self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self._heartbeat_thread.start()
+
+    def _heartbeat_loop(self) -> None:
+        """Background loop that periodically refreshes the display.
+
+        This keeps the terminal connection alive when switching tmux windows
+        or when the terminal loses focus.
+        """
+        while not self._stop_heartbeat.is_set():
+            # Refresh every 2 seconds to keep display alive
+            self._stop_heartbeat.wait(2.0)
+            if not self._stop_heartbeat.is_set() and self._live is not None:
+                with contextlib.suppress(Exception):
+                    self._refresh()
+
+    def _stop_heartbeat_thread(self) -> None:
+        """Stop the heartbeat thread."""
+        self._stop_heartbeat.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=0.5)
+
     def stop(self) -> None:
         """Stop Live display."""
+        # Stop heartbeat first
+        self._stop_heartbeat_thread()
         if self._live is not None:
             self._live.stop()
             self._live = None
