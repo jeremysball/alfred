@@ -294,3 +294,34 @@ with TerminalSession("alfred", port=7681) as s:
 ```
 
 See `.pi/skills/tmux-tape/SKILL.md` for full API.
+
+---
+
+### 13. No Plausible-Sounding Nonsense — Verify or Admit Ignorance
+
+**NEVER** construct explanations that *sound* right but lack basis in actual code or documentation. Saying "I don't know" is better than plausible bullshit.
+
+**Red Flags — Stop and Verify:**
+- "Seamlessly integrates," "robustly handles," "efficiently manages" — empty phrases
+- "Likely," "probably," "typically" — speculation masks
+- Explaining "typical patterns" instead of *this specific implementation*
+
+**External Systems (CLI, APIs, services) — Highest Risk**
+
+You can't read source code for external systems. This is where hallucination is most dangerous.
+
+**WRONG:**
+> "The `gh pr create` command likely uses the GitHub REST API, sending a POST to the pulls endpoint with your token."
+*(Plausible. Completely invented.)*
+
+**RIGHT:**
+> Use Serper search to verify, or say: "I don't know how `gh pr create` works internally."
+
+**Rules:**
+1. Read implementation files before explaining internal behavior
+2. Trace actual call chains before describing data flow
+3. Point to specific lines/functions when claiming a mechanism
+4. **Always** use Serper search for external system behavior — or admit ignorance
+5. Self-correct immediately when wrong: *"Actually, I was mistaken..."*
+
+**The Test:** Can you point to a file/line number (internal) or documentation source (external)? If not, you don't know it yet.

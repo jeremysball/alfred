@@ -1,4 +1,4 @@
-"""Tests for CLI interface using prompt_toolkit."""
+"""Tests for CLI interface using LiveDisplay."""
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -20,6 +20,7 @@ def mock_alfred() -> MagicMock:
     def make_stream(*args: object, **kwargs: object) -> AsyncGenerator[str, None]:
         async def async_gen() -> AsyncGenerator[str, None]:
             yield "CLI response"
+
         return async_gen()
 
     alfred.chat_stream = AsyncMock(side_effect=make_stream)
@@ -54,16 +55,24 @@ def mock_alfred() -> MagicMock:
     return alfred
 
 
-def make_mock_session(inputs: list[str]):
-    """Create a mock PromptSession."""
+def make_mock_live_display(inputs: list[str]) -> MagicMock:
+    """Create a mock LiveDisplay that yields inputs sequentially."""
     input_iter = iter(inputs)
 
-    async def mock_prompt(*args, **kwargs):
-        return next(input_iter)
+    async def mock_read_line_async() -> str:
+        try:
+            return next(input_iter)
+        except StopIteration:
+            raise EOFError
 
-    mock_session = MagicMock()
-    mock_session.prompt_async = mock_prompt
-    return mock_session
+    mock_display = MagicMock()
+    mock_display.read_line_async = mock_read_line_async
+    mock_display.__enter__ = MagicMock(return_value=mock_display)
+    mock_display.__exit__ = MagicMock(return_value=None)
+    mock_display.set_content = MagicMock()
+    mock_display.set_status = MagicMock()
+    mock_display.update = MagicMock()
+    return mock_display
 
 
 @pytest.mark.asyncio
@@ -72,10 +81,10 @@ async def test_chat_delegates_to_alfred(mock_alfred: MagicMock) -> None:
     interface = CLIInterface(mock_alfred)
 
     with (
-        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
+        patch("src.interfaces.cli.LiveDisplay") as mock_display_cls,
         patch("sys.stdout", StringIO()),
     ):
-        mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
+        mock_display_cls.return_value = make_mock_live_display(["Hello", "exit"])
         await interface.run()
 
     mock_alfred.chat_stream.assert_called_once()
@@ -87,10 +96,10 @@ async def test_exit_terminates_loop(mock_alfred: MagicMock) -> None:
     interface = CLIInterface(mock_alfred)
 
     with (
-        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
+        patch("src.interfaces.cli.LiveDisplay") as mock_display_cls,
         patch("sys.stdout", StringIO()),
     ):
-        mock_session_cls.return_value = make_mock_session(["exit"])
+        mock_display_cls.return_value = make_mock_live_display(["exit"])
         await interface.run()
 
     mock_alfred.chat_stream.assert_not_called()
@@ -102,10 +111,10 @@ async def test_empty_input_ignored(mock_alfred: MagicMock) -> None:
     interface = CLIInterface(mock_alfred)
 
     with (
-        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
+        patch("src.interfaces.cli.LiveDisplay") as mock_display_cls,
         patch("sys.stdout", StringIO()),
     ):
-        mock_session_cls.return_value = make_mock_session(["", "", "Hello", "exit"])
+        mock_display_cls.return_value = make_mock_live_display(["", "", "Hello", "exit"])
         await interface.run()
 
     mock_alfred.chat_stream.assert_called_once()
@@ -116,10 +125,12 @@ async def test_eof_terminates_loop(mock_alfred: MagicMock) -> None:
     """Test that EOF terminates the loop gracefully."""
     interface = CLIInterface(mock_alfred)
 
-    with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-        mock_session = MagicMock()
-        mock_session.prompt_async = AsyncMock(side_effect=EOFError)
-        mock_session_cls.return_value = mock_session
+    with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+        mock_display = MagicMock()
+        mock_display.read_line_async = AsyncMock(side_effect=EOFError)
+        mock_display.__enter__ = MagicMock(return_value=mock_display)
+        mock_display.__exit__ = MagicMock(return_value=None)
+        mock_display_cls.return_value = mock_display
         await interface.run()
 
     mock_alfred.chat_stream.assert_not_called()
@@ -131,12 +142,14 @@ async def test_keyboard_interrupt_terminates_loop(mock_alfred: MagicMock) -> Non
     interface = CLIInterface(mock_alfred)
 
     with (
-        patch("src.interfaces.cli.PromptSession") as mock_session_cls,
+        patch("src.interfaces.cli.LiveDisplay") as mock_display_cls,
         patch("sys.stdout", StringIO()),
     ):
-        mock_session = MagicMock()
-        mock_session.prompt_async = AsyncMock(side_effect=KeyboardInterrupt)
-        mock_session_cls.return_value = mock_session
+        mock_display = MagicMock()
+        mock_display.read_line_async = AsyncMock(side_effect=KeyboardInterrupt)
+        mock_display.__enter__ = MagicMock(return_value=mock_display)
+        mock_display.__exit__ = MagicMock(return_value=None)
+        mock_display_cls.return_value = mock_display
         await interface.run()
 
     mock_alfred.chat_stream.assert_not_called()
@@ -156,7 +169,7 @@ class TestCLIMarkdownRendering:
 
     @pytest.mark.asyncio
     async def test_chat_uses_live_for_streaming(self, mock_alfred: MagicMock) -> None:
-        """Streaming uses Live to render content."""
+        """Streaming uses LiveDisplay to render content."""
 
         interface = CLIInterface(mock_alfred)
 
@@ -165,8 +178,8 @@ class TestCLIMarkdownRendering:
 
         mock_alfred.chat_stream = mock_stream
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["Hello", "exit"])
             await interface.run()
 
         # Test completes without error
@@ -183,8 +196,8 @@ class TestCLIMarkdownRendering:
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["Hello", "exit"])
             await interface.run()
 
         # Should complete without error
@@ -226,34 +239,40 @@ class TestSessionCommands:
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["/new", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["/new", "exit"])
             await interface.run()
 
         mock_session_manager.new_session.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_resume_session_command(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+    async def test_resume_session_command(
+        self, mock_alfred: MagicMock, mock_session_manager
+    ) -> None:
         """/resume <id> resumes a session."""
         mock_alfred.session_manager = mock_session_manager
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["/resume sess_test123", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(
+                ["/resume sess_test123", "exit"]
+            )
             await interface.run()
 
         mock_session_manager.resume_session.assert_called_once_with("sess_test123")
 
     @pytest.mark.asyncio
-    async def test_resume_without_id_shows_usage(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+    async def test_resume_without_id_shows_usage(
+        self, mock_alfred: MagicMock, mock_session_manager
+    ) -> None:
         """/resume without ID shows usage error."""
         mock_alfred.session_manager = mock_session_manager
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["/resume", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["/resume", "exit"])
             await interface.run()
 
         mock_session_manager.resume_session.assert_not_called()
@@ -265,34 +284,38 @@ class TestSessionCommands:
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["/sessions", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["/sessions", "exit"])
             await interface.run()
 
         mock_session_manager.list_sessions.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_session_command_shows_current(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+    async def test_session_command_shows_current(
+        self, mock_alfred: MagicMock, mock_session_manager
+    ) -> None:
         """/session shows current session details."""
         mock_alfred.session_manager = mock_session_manager
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["/session", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["/session", "exit"])
             await interface.run()
 
         mock_session_manager.get_current_cli_session.assert_called()
 
     @pytest.mark.asyncio
-    async def test_unknown_command_passes_through(self, mock_alfred: MagicMock, mock_session_manager) -> None:
+    async def test_unknown_command_passes_through(
+        self, mock_alfred: MagicMock, mock_session_manager
+    ) -> None:
         """Unknown /commands are passed through as regular input."""
         mock_alfred.session_manager = mock_session_manager
 
         interface = CLIInterface(mock_alfred)
 
-        with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
-            mock_session_cls.return_value = make_mock_session(["/unknowncommand", "exit"])
+        with patch("src.interfaces.cli.LiveDisplay") as mock_display_cls:
+            mock_display_cls.return_value = make_mock_live_display(["/unknowncommand", "exit"])
             await interface.run()
 
         # Should be treated as regular input, not a session command

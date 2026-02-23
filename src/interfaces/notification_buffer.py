@@ -23,7 +23,7 @@ class NotificationBuffer:
     """Buffer for notifications during active CLI states.
 
     The CLI has two "active" states where notifications shouldn't print directly:
-    1. Prompt waiting - user is typing or prompt_toolkit is showing ">>> "
+    1. Prompt waiting - user is typing at the prompt
     2. LLM streaming - Rich Live is updating the display
 
     During these states, notifications are queued. After streaming completes,

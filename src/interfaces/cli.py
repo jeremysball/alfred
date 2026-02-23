@@ -1,19 +1,9 @@
-"""CLI interface for Alfred using prompt_toolkit with patched stdout."""
+"""CLI interface for Alfred using Rich Live with custom prompt."""
 
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.patch_stdout import patch_stdout as original_patch_stdout
-from prompt_toolkit.styles import Style
-from rich.columns import Columns
-from rich.console import Console, Group, RenderableType
-from rich.live import Live
+from rich.console import Console, RenderableType
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.spinner import Spinner
@@ -23,55 +13,10 @@ from rich.text import Text
 from src.agent import ToolEnd, ToolEvent, ToolStart
 from src.alfred import Alfred
 from src.cron.notifier import CLINotifier
+from src.interfaces.live_display import LiveDisplay
 from src.interfaces.notification_buffer import NotificationBuffer
 from src.interfaces.status import StatusData
 from src.session import Session
-
-
-class SessionCommandCompleter(Completer):
-    """Completer for session commands (/new, /resume, /sessions, /session)."""
-
-    def __init__(self, get_session_ids: Callable[[], list[str]]) -> None:
-        """Initialize the completer.
-
-        Args:
-            get_session_ids: Callable that returns list of session IDs for /resume completion.
-        """
-        self._get_session_ids = get_session_ids
-        self._commands = ["/new", "/resume", "/sessions", "/session"]
-
-    def get_completions(self, document: Any, complete_event: Any) -> Any:
-        """Yield completions for session commands."""
-        text = document.text_before_cursor
-
-        # Only complete if text starts with /
-        if not text.startswith("/"):
-            return
-
-        # Handle /resume <id> - complete session IDs
-        if text.startswith("/resume "):
-            session_id_part = text[8:]  # Text after "/resume "
-            for session_id in self._get_session_ids():
-                if session_id.startswith(session_id_part):
-                    yield Completion(
-                        session_id,
-                        start_position=-len(session_id_part),
-                        display=f"session:{session_id}",
-                    )
-            return
-
-        # Complete command names
-        for cmd in self._commands:
-            if cmd.startswith(text):
-                yield Completion(cmd, start_position=-len(text))
-
-
-PROMPT_STYLE = Style.from_dict(
-    {
-        "prompt": "ansicyan bold",
-        "cursor": "ansigreen",
-    }
-)
 
 
 @dataclass
@@ -92,6 +37,8 @@ Segment = TextSegment | ToolCallSegment
 
 
 class ConversationBuffer:
+    """Buffer for accumulating conversation content (messages and tool calls)."""
+
     def __init__(self) -> None:
         self.segments: list[Segment] = []
         self._current_text: str = ""
@@ -99,15 +46,18 @@ class ConversationBuffer:
         self.panels_visible: bool = True
 
     def add_text(self, chunk: str, role: str = "assistant") -> None:
+        """Add text chunk to current message."""
         self._current_text += chunk
         self._current_role = role
 
     def on_tool_start(self, tool_name: str) -> None:
+        """Called when a tool starts - flush current text to segments."""
         if self._current_text:
             self.segments.append(TextSegment(content=self._current_text, role=self._current_role))
             self._current_text = ""
 
     def on_tool_end(self, tool_name: str, result: str, is_error: bool) -> None:
+        """Called when a tool ends - add tool segment."""
         self.segments.append(
             ToolCallSegment(
                 tool_name=tool_name,
@@ -117,14 +67,17 @@ class ConversationBuffer:
         )
 
     def toggle_panels(self) -> None:
+        """Toggle visibility of tool panels."""
         self.panels_visible = not self.panels_visible
 
     def clear(self) -> None:
+        """Clear all content."""
         self.segments = []
         self._current_text = ""
         self._current_role = "assistant"
 
     def render(self) -> list[RenderableType]:
+        """Render all segments as Rich renderables."""
         renderables: list[RenderableType] = []
 
         for segment in self.segments:
@@ -152,6 +105,7 @@ class ConversationBuffer:
         )
 
     def _render_tool_panel(self, tool: ToolCallSegment) -> Panel:
+        """Render a tool call as a styled Panel."""
         content = self._truncate_result(tool.result, tool.is_error)
         style = "red" if tool.is_error else "dim blue"
         return Panel(
@@ -164,6 +118,7 @@ class ConversationBuffer:
 
     @staticmethod
     def _truncate_result(result: str, is_error: bool) -> str:
+        """Truncate long tool results."""
         if is_error:
             return result
         lines = result.strip().split("\n")
@@ -175,12 +130,14 @@ class ConversationBuffer:
 
 
 class CLIInterface:
+    """CLI interface using Rich Live with custom prompt input."""
+
     def __init__(self, alfred: Alfred) -> None:
         self.alfred = alfred
         self.console = Console()
         self.buffer = ConversationBuffer()
-        self.session: PromptSession[str] = PromptSession(message=">>> ", style=PROMPT_STYLE)
         self._is_streaming = False
+        self._live_display: LiveDisplay | None = None
 
         # Set up notification buffer for CLI mode
         self._notification_buffer = NotificationBuffer(
@@ -195,18 +152,11 @@ class CLIInterface:
 
     @property
     def _is_active_state(self) -> bool:
-        """Check if CLI is in an active state where notifications should be queued.
-
-        Active states:
-        - Streaming: LLM is generating response
-        - Prompt waiting: Handled by prompt_toolkit, but we set active during streaming
-
-        Note: We don't track "prompt waiting" as active because prompt_toolkit
-        handles stdout patching. The buffer is primarily for during streaming.
-        """
+        """Check if CLI is in an active state where notifications should be queued."""
         return self._is_streaming
 
     def _print_banner(self) -> None:
+        """Print the welcome banner."""
         banner = Panel(
             Text("Alfred - Your Persistent Memory Assistant", style="bold cyan", justify="center"),
             subtitle="exit to quit | compact for memory | Ctrl-T toggle tools",
@@ -247,12 +197,14 @@ class CLIInterface:
         self.console.print()
 
     def _on_tool_event(self, event: ToolEvent) -> None:
+        """Handle tool events from the agent."""
         if isinstance(event, ToolStart):
             self.buffer.on_tool_start(event.tool_name)
         elif isinstance(event, ToolEnd):
             self.buffer.on_tool_end(event.tool_name, event.result, event.is_error)
 
     def _get_status_data(self) -> StatusData:
+        """Get current status data for status line."""
         return StatusData(
             model_name=self.alfred.model_name,
             usage=self.alfred.token_tracker.usage,
@@ -263,17 +215,22 @@ class CLIInterface:
             is_streaming=self._is_streaming,
         )
 
-    @contextmanager
-    def _patch_stdout_with_status(self) -> Iterator[None]:
-        """Patch stdout for prompt_toolkit compatibility."""
-        with original_patch_stdout():
-            yield
+    def _get_history_path(self) -> str | None:
+        """Get path to session history file."""
+        if self.alfred.session_manager.has_active_session():
+            session = self.alfred.session_manager.get_current_cli_session()
+            if session:
+                from pathlib import Path
+
+                session_dir = Path("data/sessions") / session.meta.session_id
+                return str(session_dir / "history.txt")
+        return None
 
     # === Session Commands ===
 
-    def _handle_session_command(self, input: str) -> bool:
+    def _handle_session_command(self, user_input: str) -> bool:
         """Handle session commands. Returns True if handled."""
-        parts = input.split(maxsplit=1)
+        parts = user_input.split(maxsplit=1)
         cmd = parts[0].lower()
         arg = parts[1].strip() if len(parts) > 1 else None
 
@@ -295,7 +252,7 @@ class CLIInterface:
         # Update context summary for status line refresh
         self.alfred.context_summary.update(
             memories_count=self.alfred.context_summary.memories_count,
-            session_messages=0,  # New session has no messages
+            session_messages=0,
         )
 
         self.console.print(
@@ -364,11 +321,9 @@ class CLIInterface:
                 current_id = current.meta.session_id
 
         for meta in sessions:
-            # Format timestamps
             created = meta.created_at.strftime("%Y-%m-%d %H:%M")
             last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
 
-            # Mark current session
             id_str = meta.session_id
             if meta.session_id == current_id:
                 id_str = f"[bold]{meta.session_id}[/] *"
@@ -408,6 +363,7 @@ class CLIInterface:
         return True
 
     async def run(self) -> None:
+        """Main CLI loop."""
         self._print_banner()
 
         # Display session history if resuming an existing session
@@ -416,90 +372,90 @@ class CLIInterface:
             if session and session.messages:
                 self._display_session_history(session)
 
-        kb = KeyBindings()
-
-        @kb.add("c-t")
-        def _toggle(event: object) -> None:
-            self.buffer.toggle_panels()
-
-        # Create completer with callback to get session IDs
+        # Create callback for session ID completion
         def get_session_ids() -> list[str]:
             return [meta.session_id for meta in self.alfred.session_manager.list_sessions()]
 
-        completer = SessionCommandCompleter(get_session_ids)
-
-        self.session = PromptSession(
-            message=">>> ",
-            style=PROMPT_STYLE,
-            key_bindings=kb,
-            completer=completer,
+        # Create LiveDisplay
+        self._live_display = LiveDisplay(
+            console=self.console,
+            history_path=self._get_history_path(),
+            get_session_ids=get_session_ids,
         )
 
-        while True:
-            # Print status line above prompt
-            self.console.print(self._render_status_line())
+        with self._live_display:
+            while True:
+                # Update status line (idle state)
+                self._live_display.set_status(self._render_status_line())
 
-            try:
-                with self._patch_stdout_with_status():
-                    user_input = await self.session.prompt_async()
-                user_input = user_input.strip()
-            except EOFError:
-                break
-            except KeyboardInterrupt:
-                self.console.print("\n[bold yellow]Goodbye![/]")
-                break
+                try:
+                    user_input = await self._live_display.read_line_async()
+                    user_input = user_input.strip()
+                except EOFError:
+                    break
+                except KeyboardInterrupt:
+                    self.console.print("\n[bold yellow]Goodbye![/]")
+                    break
 
-            if not user_input:
-                continue
+                if not user_input:
+                    continue
 
-            if user_input.lower() == "exit":
-                self.console.print("[bold yellow]Goodbye![/]")
-                break
+                # Handle special commands
+                if user_input.lower() == "exit":
+                    self.console.print("[bold yellow]Goodbye![/]")
+                    break
 
-            if user_input.lower() == "compact":
-                result = await self.alfred.compact()
-                self.console.print(f"[bold green]Alfred:[/bold green] {result}\n")
-                continue
+                if user_input.lower() == "compact":
+                    result = await self.alfred.compact()
+                    self.console.print(f"[bold green]Alfred:[/bold green] {result}\n")
+                    continue
 
-            # Session commands
-            if user_input.startswith("/") and self._handle_session_command(user_input):
-                continue
+                # Handle Ctrl+T toggle (as command for now)
+                if user_input.lower() == "/toggle":
+                    self.buffer.toggle_panels()
+                    state = "visible" if self.buffer.panels_visible else "hidden"
+                    self.console.print(f"[dim]Tool panels: {state}[/]")
+                    continue
 
-            self.buffer.clear()
-            self._is_streaming = True
+                # Session commands
+                if user_input.startswith("/") and self._handle_session_command(user_input):
+                    continue
 
-            self.buffer.clear()
-            self._is_streaming = True
+                # Stream response
+                await self._stream_response(user_input)
 
-            try:
-                with Live(
-                    console=self.console,
-                    refresh_per_second=12,
-                    vertical_overflow="visible",
-                ) as live:
-                    async for chunk in self.alfred.chat_stream(
-                        user_input,
-                        tool_callback=self._on_tool_event,
-                    ):
-                        self.buffer.add_text(chunk)
-                        body = self.buffer.render()
-                        # Status line at bottom, just above where prompt will be
-                        live.update(Group(*body, self._render_status_line()))
+    async def _stream_response(self, user_input: str) -> None:
+        """Stream a response from Alfred."""
+        self.buffer.clear()
+        self._is_streaming = True
 
-                    # Final update
-                    body = self.buffer.render()
-                    live.update(Group(*body, self._render_status_line()))
+        try:
+            async for chunk in self.alfred.chat_stream(
+                user_input,
+                tool_callback=self._on_tool_event,
+            ):
+                self.buffer.add_text(chunk)
 
-            except Exception as e:
-                self.console.print(f"\n[bold red]Error: {e}[/]\n")
-            finally:
-                self._is_streaming = False
+                # Update LiveDisplay content and status
+                if self._live_display:
+                    self._live_display.set_content(self.buffer.render())
+                    self._live_display.set_status(self._render_status_line())
+                    self._live_display.update()
 
-                # Flush any queued notifications
-                self._flush_notifications()
+            # Final update
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.set_status(self._render_status_line())
+                self._live_display.update()
+
+        except Exception as e:
+            self.console.print(f"\n[bold red]Error: {e}[/]\n")
+        finally:
+            self._is_streaming = False
+            self._flush_notifications()
 
     def _render_status_line(self) -> RenderableType:
-        """Render status line above prompt.
+        """Render status line (tmux-style at bottom).
 
         Shows: ⠋ kimi | in:12K out:3K | ctx:45  📚 0 | 💬 0 | 📋 sections
         When streaming: animated spinner
@@ -537,6 +493,8 @@ class CLIInterface:
 
         # Throbber: animated spinner when streaming, static ">" when idle
         if self._is_streaming:
+            from rich.columns import Columns
+
             spinner = Spinner("dots", style=f"cyan {bg}")
             return Columns([spinner, text])
         else:

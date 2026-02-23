@@ -4,10 +4,13 @@ This module provides a flicker-free streaming display using Rich Live,
 with a custom prompt that supports editing, history, and tab completion.
 """
 
+import asyncio
+from collections.abc import Callable
 from enum import Enum, auto
+from typing import Any
 
 from readchar import readkey
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.text import Text
 
@@ -284,10 +287,12 @@ class History:
 class Completer:
     """Tab completion with fuzzy matching for commands, tools, and file paths."""
 
-    # Slash commands
-    COMMANDS = [
+    # Slash commands (static)
+    STATIC_COMMANDS = [
         "/help",
         "/session",
+        "/sessions",
+        "/new",
         "/model",
         "/clear",
         "/exit",
@@ -309,8 +314,19 @@ class Completer:
         "list",
     ]
 
-    def __init__(self, max_visible: int = 5) -> None:
+    def __init__(
+        self,
+        max_visible: int = 5,
+        get_session_ids: Callable[[], list[str]] | None = None,
+    ) -> None:
+        """Initialize completer.
+
+        Args:
+            max_visible: Maximum number of items to show in dropdown.
+            get_session_ids: Callback to fetch session IDs for /resume completion.
+        """
         self.max_visible = max_visible
+        self.get_session_ids = get_session_ids
         self.matches: list[str] = []
         self.selected_index: int = 0
         self._visible: bool = False
@@ -363,9 +379,15 @@ class Completer:
 
         # Detect what we're completing
         if text.startswith("/"):
-            # Command completion
-            candidates = self.COMMANDS
-            query = text
+            # Handle /resume <id> - complete session IDs
+            if text.startswith("/resume ") and self.get_session_ids:
+                session_id_part = text[8:]  # Text after "/resume "
+                candidates = [f"/resume {sid}" for sid in self.get_session_ids()]
+                query = text
+            else:
+                # Command completion
+                candidates = self.STATIC_COMMANDS
+                query = text
         elif " " not in text:
             # Tool name completion (single word)
             candidates = self.TOOLS
@@ -501,60 +523,84 @@ class Completer:
 
 
 class LiveDisplay:
-    """Rich Live display with streaming content and custom prompt."""
+    """Rich Live display with streaming content and custom prompt.
+
+    Layout (top to bottom):
+        - Content area (markdown, tool panels)
+        - Dropdown (when tab completion active)
+        - Prompt line (>>> with cursor)
+        - Status line (model, tokens, context - tmux-style at bottom)
+    """
 
     def __init__(
         self,
         console: Console | None = None,
-        status_text: str = "Ready",
         history_path: str | None = None,
+        get_session_ids: Callable[[], list[str]] | None = None,
     ) -> None:
+        """Initialize LiveDisplay.
+
+        Args:
+            console: Rich Console instance.
+            history_path: Path to history file (session-based).
+            get_session_ids: Callback to fetch session IDs for /resume completion.
+        """
         self.console = console or Console()
-        self.status_text = status_text
-        self.content: str = ""  # Accumulated markdown content
         self.prompt = PromptInput()
         self.history = History(history_path)
         self.reader = InputReader()
-        self.completer = Completer()
+        self.completer = Completer(get_session_ids=get_session_ids)
         self._live: Live | None = None
 
-    def set_status(self, text: str) -> None:
-        """Update status line text."""
-        self.status_text = text
+        # Content: list of Rich renderables (panels, markdown, etc.)
+        self._content: list[RenderableType] = []
+
+        # Status line: Rich renderable (Text, Columns, etc.)
+        self._status: RenderableType = Text("Ready", style="dim")
+
+    def set_content(self, renderables: list[RenderableType]) -> None:
+        """Set content area to list of renderables (e.g., ConversationBuffer.render())."""
+        self._content = renderables
         self._refresh()
 
-    def add_content(self, text: str) -> None:
-        """Add text to content buffer (for streaming)."""
-        self.content += text
+    def add_content(self, renderable: RenderableType) -> None:
+        """Add a renderable to content area."""
+        self._content.append(renderable)
         self._refresh()
 
     def clear_content(self) -> None:
-        """Clear content buffer (new message)."""
-        self.content = ""
+        """Clear content area (new message)."""
+        self._content = []
         self._refresh()
 
-    def _render(self) -> Text:
-        """Render full display: content + prompt + dropdown + status."""
-        text = Text()
+    def set_status(self, status: RenderableType) -> None:
+        """Update status line (tmux-style at bottom).
 
-        # Content section
-        if self.content:
-            text.append(self.content)
-            if not self.content.endswith("\n"):
-                text.append("\n")
+        Args:
+            status: Any Rich renderable (Text, Columns, Panel, etc.)
+        """
+        self._status = status
+        self._refresh()
+
+    def _render(self) -> RenderableType:
+        """Render full display: content + dropdown + prompt + status."""
+        parts: list[RenderableType] = []
+
+        # Content section (panels, markdown, etc.)
+        if self._content:
+            parts.extend(self._content)
 
         # Dropdown overlay (above prompt)
         if self.completer.visible:
-            text.append(self.completer.render_dropdown())
+            parts.append(self.completer.render_dropdown())
 
         # Prompt section
-        text.append(self.prompt.render())
-        text.append("\n")
+        parts.append(self.prompt.render())
 
-        # Status line
-        text.append(self.status_text, style="dim")
+        # Status line at bottom (tmux-style)
+        parts.append(self._status)
 
-        return text
+        return Group(*parts)
 
     def _refresh(self) -> None:
         """Refresh Live display if active."""
@@ -576,6 +622,10 @@ class LiveDisplay:
             self._live.stop()
             self._live = None
 
+    def update(self) -> None:
+        """Force refresh of Live display (call after external content changes)."""
+        self._refresh()
+
     def __enter__(self) -> "LiveDisplay":
         self.start()
         return self
@@ -584,7 +634,7 @@ class LiveDisplay:
         self.stop()
 
     def read_line(self) -> str:
-        """Read a line of input with editing support.
+        """Read a line of input with editing support (synchronous).
 
         Returns the submitted string.
         """
@@ -592,99 +642,109 @@ class LiveDisplay:
 
         while True:
             action, char = self.reader.read()
-
-            # If dropdown is visible, arrow keys navigate it
-            if self.completer.visible:
-                if action == KeyAction.TAB:
-                    self.completer.next()
-                    self._refresh()
-                    continue
-                elif action == KeyAction.SHIFT_TAB:
-                    self.completer.prev()
-                    self._refresh()
-                    continue
-                elif action == KeyAction.UP:
-                    self.completer.prev()
-                    self._refresh()
-                    continue
-                elif action == KeyAction.DOWN:
-                    self.completer.next()
-                    self._refresh()
-                    continue
-                elif action == KeyAction.ENTER:
-                    # Accept selected completion
-                    selected = self.completer.get_selected()
-                    if selected:
-                        # Replace the word being completed
-                        self._apply_completion(selected)
-                        self.completer.hide()
-                    self._refresh()
-                    continue
-                elif action == KeyAction.ESC:
-                    self.completer.hide()
-                    self._refresh()
-                    continue
-
-            # Normal input handling
-            if action == KeyAction.INSERT:
-                self.prompt.insert(char)
-                # Hide dropdown on typing (will re-show on Tab)
-                self.completer.hide()
-            elif action == KeyAction.BACKSPACE:
-                self.prompt.delete_left()
-                self.completer.hide()
-            elif action == KeyAction.DELETE:
-                self.prompt.delete_right()
-            elif action == KeyAction.DELETE_TO_END:
-                self.prompt.delete_to_end()
-            elif action == KeyAction.DELETE_TO_START:
-                self.prompt.delete_to_start()
-            elif action == KeyAction.DELETE_WORD:
-                self.prompt.delete_word()
-            elif action == KeyAction.LEFT:
-                self.prompt.move_left()
-            elif action == KeyAction.RIGHT:
-                self.prompt.move_right()
-            elif action == KeyAction.WORD_LEFT:
-                self.prompt.move_word_left()
-            elif action == KeyAction.WORD_RIGHT:
-                self.prompt.move_word_right()
-            elif action == KeyAction.START:
-                self.prompt.move_start()
-            elif action == KeyAction.END:
-                self.prompt.move_end()
-            elif action == KeyAction.UP:
-                # History up
-                new_val = self.history.up(self.prompt.buffer)
-                self.prompt.buffer = new_val
-                self.prompt.cursor = len(new_val)
-            elif action == KeyAction.DOWN:
-                # History down
-                new_val = self.history.down(self.prompt.buffer)
-                self.prompt.buffer = new_val
-                self.prompt.cursor = len(new_val)
-            elif action == KeyAction.ENTER:
-                # Submit
+            if self._handle_action(action, char):
                 result = self.prompt.buffer
                 self.history.add(result)
                 self.completer.hide()
                 self.prompt.clear()
                 return result
-            elif action == KeyAction.TAB:
-                # Show completion dropdown
-                self.completer.start(self.prompt.buffer)
-            elif action == KeyAction.SHIFT_TAB:
-                pass  # No action when dropdown hidden
-            elif action == KeyAction.ESC:
-                pass  # No action when dropdown hidden
 
-            self._refresh()
+    async def read_line_async(self) -> str:
+        """Read a line of input with editing support (async).
+
+        Wraps synchronous read_line() in executor to avoid blocking event loop.
+
+        Returns the submitted string.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.read_line)
+
+    def _handle_action(self, action: KeyAction, char: str) -> bool:
+        """Handle a key action. Returns True if input should be submitted."""
+        # If dropdown is visible, arrow keys navigate it
+        if self.completer.visible:
+            if action == KeyAction.TAB:
+                self.completer.next()
+                self._refresh()
+                return False
+            elif action == KeyAction.SHIFT_TAB:
+                self.completer.prev()
+                self._refresh()
+                return False
+            elif action == KeyAction.UP:
+                self.completer.prev()
+                self._refresh()
+                return False
+            elif action == KeyAction.DOWN:
+                self.completer.next()
+                self._refresh()
+                return False
+            elif action == KeyAction.ENTER:
+                # Accept selected completion
+                selected = self.completer.get_selected()
+                if selected:
+                    self._apply_completion(selected)
+                    self.completer.hide()
+                self._refresh()
+                return False
+            elif action == KeyAction.ESC:
+                self.completer.hide()
+                self._refresh()
+                return False
+
+        # Normal input handling
+        if action == KeyAction.INSERT:
+            self.prompt.insert(char)
+            self.completer.hide()
+        elif action == KeyAction.BACKSPACE:
+            self.prompt.delete_left()
+            self.completer.hide()
+        elif action == KeyAction.DELETE:
+            self.prompt.delete_right()
+        elif action == KeyAction.DELETE_TO_END:
+            self.prompt.delete_to_end()
+        elif action == KeyAction.DELETE_TO_START:
+            self.prompt.delete_to_start()
+        elif action == KeyAction.DELETE_WORD:
+            self.prompt.delete_word()
+        elif action == KeyAction.LEFT:
+            self.prompt.move_left()
+        elif action == KeyAction.RIGHT:
+            self.prompt.move_right()
+        elif action == KeyAction.WORD_LEFT:
+            self.prompt.move_word_left()
+        elif action == KeyAction.WORD_RIGHT:
+            self.prompt.move_word_right()
+        elif action == KeyAction.START:
+            self.prompt.move_start()
+        elif action == KeyAction.END:
+            self.prompt.move_end()
+        elif action == KeyAction.UP:
+            new_val = self.history.up(self.prompt.buffer)
+            self.prompt.buffer = new_val
+            self.prompt.cursor = len(new_val)
+        elif action == KeyAction.DOWN:
+            new_val = self.history.down(self.prompt.buffer)
+            self.prompt.buffer = new_val
+            self.prompt.cursor = len(new_val)
+        elif action == KeyAction.ENTER:
+            # Submit
+            return True
+        elif action == KeyAction.TAB:
+            self.completer.start(self.prompt.buffer)
+        elif action == KeyAction.SHIFT_TAB:
+            pass  # No action when dropdown hidden
+        elif action == KeyAction.ESC:
+            pass  # No action when dropdown hidden
+
+        self._refresh()
+        return False
 
     def _apply_completion(self, completion: str) -> None:
         """Apply a completion to the current buffer."""
         text = self.prompt.buffer
 
-        # For commands, replace entire buffer
+        # For commands (including /resume <id>), replace entire buffer
         if completion.startswith("/"):
             self.prompt.buffer = completion + " "
             self.prompt.cursor = len(self.prompt.buffer)
