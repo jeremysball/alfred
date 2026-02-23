@@ -148,62 +148,68 @@ class TestClear:
 class TestDiffLines:
     """Tests for _diff_lines method."""
 
-    def test_identical_lines_returns_length(self, renderer: StreamingRenderer) -> None:
-        """Identical lines return the length (no diff)."""
+    def test_identical_lines_returns_empty(self, renderer: StreamingRenderer) -> None:
+        """Identical lines return empty list (no diff)."""
         old = ["line 1", "line 2", "line 3"]
         new = ["line 1", "line 2", "line 3"]
-        assert renderer._diff_lines(old, new) == 3
+        assert renderer._diff_lines(old, new) == []
 
     def test_first_line_differs(self, renderer: StreamingRenderer) -> None:
-        """Returns 0 if first line differs."""
+        """Returns [0] if first line differs."""
         old = ["line 1", "line 2", "line 3"]
         new = ["different", "line 2", "line 3"]
-        assert renderer._diff_lines(old, new) == 0
+        assert renderer._diff_lines(old, new) == [0]
 
     def test_middle_line_differs(self, renderer: StreamingRenderer) -> None:
-        """Returns index of first differing line."""
+        """Returns index of differing line."""
         old = ["line 1", "line 2", "line 3"]
         new = ["line 1", "modified", "line 3"]
-        assert renderer._diff_lines(old, new) == 1
+        assert renderer._diff_lines(old, new) == [1]
+
+    def test_multiple_lines_differ(self, renderer: StreamingRenderer) -> None:
+        """Returns all differing indices."""
+        old = ["line 1", "line 2", "line 3"]
+        new = ["changed", "line 2", "also changed"]
+        assert renderer._diff_lines(old, new) == [0, 2]
 
     def test_new_shorter(self, renderer: StreamingRenderer) -> None:
-        """Returns min length if new is shorter but shared lines match."""
+        """Returns indices of removed lines."""
         old = ["line 1", "line 2", "line 3"]
         new = ["line 1", "line 2"]
-        assert renderer._diff_lines(old, new) == 2
+        assert renderer._diff_lines(old, new) == [2]  # Line 2 was removed
 
     def test_new_longer(self, renderer: StreamingRenderer) -> None:
-        """Returns min length if new is longer but shared lines match."""
+        """Returns indices of new lines."""
         old = ["line 1", "line 2"]
         new = ["line 1", "line 2", "line 3"]
-        assert renderer._diff_lines(old, new) == 2
+        assert renderer._diff_lines(old, new) == [2]  # Line 2 is new
 
     def test_both_empty(self, renderer: StreamingRenderer) -> None:
-        """Empty lists return 0."""
-        assert renderer._diff_lines([], []) == 0
+        """Empty lists return empty."""
+        assert renderer._diff_lines([], []) == []
 
     def test_old_empty(self, renderer: StreamingRenderer) -> None:
-        """Old empty returns 0."""
-        assert renderer._diff_lines([], ["new"]) == 0
+        """Old empty returns all new indices."""
+        assert renderer._diff_lines([], ["new"]) == [0]
 
     def test_new_empty(self, renderer: StreamingRenderer) -> None:
-        """New empty returns 0."""
-        assert renderer._diff_lines(["old"], []) == 0
+        """New empty returns all old indices."""
+        assert renderer._diff_lines(["old"], []) == [0]
 
     def test_ansi_codes_ignored(self, renderer: StreamingRenderer) -> None:
         """ANSI codes are stripped before comparison."""
         # Same text content, different ANSI codes
         old = ["\x1b[1mline 1\x1b[0m", "\x1b[32mline 2\x1b[0m"]
         new = ["\x1b[1;3mline 1\x1b[0m", "\x1b[32;1mline 2\x1b[0m"]
-        # Should return 2 (all lines match content-wise)
-        assert renderer._diff_lines(old, new) == 2
+        # Should return empty (all lines match content-wise)
+        assert renderer._diff_lines(old, new) == []
 
     def test_ansi_codes_with_content_change(self, renderer: StreamingRenderer) -> None:
         """Content change detected even with ANSI codes present."""
         old = ["\x1b[1mline 1\x1b[0m", "\x1b[32mline 2\x1b[0m"]
         new = ["\x1b[1mline 1\x1b[0m", "\x1b[32mCHANGED\x1b[0m"]
-        # Should return 1 (second line content differs)
-        assert renderer._diff_lines(old, new) == 1
+        # Should return [1] (second line content differs)
+        assert renderer._diff_lines(old, new) == [1]
 
 
 class TestRenderMarkdown:
@@ -257,6 +263,27 @@ class TestDrawDiff:
 
     @patch("src.interfaces.renderer.patch_stdout")
     @patch("sys.stdout", new_callable=io.StringIO)
+    def test_pure_append_no_cursor_movement(
+        self,
+        mock_stdout: io.StringIO,
+        mock_patch: MagicMock,
+        renderer: StreamingRenderer,
+    ) -> None:
+        """Pure append (new lines, old unchanged) doesn't move cursor up."""
+        mock_patch.return_value.__enter__ = MagicMock(return_value=None)
+        mock_patch.return_value.__exit__ = MagicMock(return_value=None)
+
+        renderer._rendered_lines = ["line 1", "line 2"]
+        new_lines = ["line 1", "line 2", "line 3", "line 4"]
+
+        renderer._draw_diff(new_lines)
+
+        output = mock_stdout.getvalue()
+        # Should NOT have cursor up (appending, not redrawing)
+        assert "\033[" not in output or "A" not in output or "line 3" in output
+
+    @patch("src.interfaces.renderer.patch_stdout")
+    @patch("sys.stdout", new_callable=io.StringIO)
     def test_clears_orphans(
         self,
         mock_stdout: io.StringIO,
@@ -278,13 +305,13 @@ class TestDrawDiff:
 
     @patch("src.interfaces.renderer.patch_stdout")
     @patch("sys.stdout", new_callable=io.StringIO)
-    def test_moves_cursor_up(
+    def test_mid_content_change_moves_cursor(
         self,
         mock_stdout: io.StringIO,
         mock_patch: MagicMock,
         renderer: StreamingRenderer,
     ) -> None:
-        """Moves cursor up when redrawing existing content."""
+        """Mid-content change moves cursor to redraw from changed line."""
         mock_patch.return_value.__enter__ = MagicMock(return_value=None)
         mock_patch.return_value.__exit__ = MagicMock(return_value=None)
 
@@ -294,30 +321,8 @@ class TestDrawDiff:
         renderer._draw_diff(new_lines)
 
         output = mock_stdout.getvalue()
-        # Should have cursor up code (2 lines up from bottom to index 1)
+        # Should have cursor up code to get to line 1 (index 1, so 2 lines up)
         assert "\033[2A" in output
-
-    @patch("src.interfaces.renderer.patch_stdout")
-    @patch("sys.stdout", new_callable=io.StringIO)
-    def test_no_cursor_move_when_new_content(
-        self,
-        mock_stdout: io.StringIO,
-        mock_patch: MagicMock,
-        renderer: StreamingRenderer,
-    ) -> None:
-        """No cursor movement when appending new lines."""
-        mock_patch.return_value.__enter__ = MagicMock(return_value=None)
-        mock_patch.return_value.__exit__ = MagicMock(return_value=None)
-
-        renderer._rendered_lines = ["line 1"]
-        new_lines = ["line 1", "line 2", "line 3"]
-
-        renderer._draw_diff(new_lines)
-
-        output = mock_stdout.getvalue()
-        # Cursor up should be 0 (1 - 1 = 0 lines to move)
-        # When lines_to_move is 0, we don't write cursor up
-        assert "\033[0A" not in output
 
 
 class TestRender:
