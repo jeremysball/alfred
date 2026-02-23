@@ -625,6 +625,27 @@ class LiveDisplay:
         finally:
             termios.tcsetattr(fd, termios.TCSANOW, old_settings)
 
+    def disable_echo(self) -> None:
+        """Disable terminal echo - prevents keystrokes from appearing during streaming."""
+        if not sys.stdin.isatty():
+            return
+        
+        fd = sys.stdin.fileno()
+        # Get current settings and store them
+        self._original_tty_settings = termios.tcgetattr(fd)
+        new_settings = termios.tcgetattr(fd)
+        # Disable ECHO
+        new_settings[3] = new_settings[3] & ~termios.ECHO
+        termios.tcsetattr(fd, termios.TCSANOW, new_settings)
+
+    def enable_echo(self) -> None:
+        """Re-enable terminal echo after streaming."""
+        if not sys.stdin.isatty() or not hasattr(self, '_original_tty_settings'):
+            return
+        
+        fd = sys.stdin.fileno()
+        termios.tcsetattr(fd, termios.TCSANOW, self._original_tty_settings)
+
     def set_content(self, renderables: list[RenderableType]) -> None:
         """Set content area to list of renderables (e.g., ConversationBuffer.render())."""
         self._content = renderables

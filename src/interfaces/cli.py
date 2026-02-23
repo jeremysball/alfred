@@ -138,6 +138,7 @@ class CLIInterface:
         self.buffer = ConversationBuffer()
         self._is_streaming = False
         self._live_display: LiveDisplay | None = None
+        self._just_finished_streaming = False
 
         # Set up notification buffer for CLI mode
         self._notification_buffer = NotificationBuffer(
@@ -398,6 +399,10 @@ class CLIInterface:
                     break
 
                 if not user_input:
+                    # Ignore empty input right after streaming (drained spam)
+                    if self._just_finished_streaming:
+                        self._just_finished_streaming = False
+                        continue
                     continue
 
                 # Handle special commands
@@ -429,9 +434,10 @@ class CLIInterface:
         self.buffer.clear()
         self._is_streaming = True
 
-        # Hide prompt during streaming to prevent UI corruption
+        # Hide prompt and disable echo during streaming to prevent UI corruption
         if self._live_display:
             self._live_display.set_prompt_visible(False)
+            self._live_display.disable_echo()
 
         try:
             async for chunk in self.alfred.chat_stream(
@@ -457,9 +463,17 @@ class CLIInterface:
         finally:
             self._is_streaming = False
             self._flush_notifications()
-            # Show prompt again after streaming
+            # Re-enable echo and show prompt again after streaming
             if self._live_display:
+                self._live_display.enable_echo()
                 self._live_display.set_prompt_visible(True)
+                # Small delay to let terminal settle and drain any buffered input
+                import asyncio
+                await asyncio.sleep(0.1)
+                # Force drain any buffered input
+                self._live_display._drain_stdin()
+            # Flag to ignore empty input from drained spam
+            self._just_finished_streaming = True
 
     def _render_status_line(self) -> RenderableType:
         """Render status line (tmux-style at bottom).
