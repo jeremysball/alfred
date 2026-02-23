@@ -108,8 +108,36 @@ class LiveDisplay:
     def _heartbeat_loop(self) -> None:
         """Background loop that periodically refreshes the display.
 
-        This keeps the terminal connection alive when switching tmux windows
-        or when the terminal loses focus.
+        WHY THIS EXISTS:
+        Rich's Live display maintains internal terminal state (cursor position,
+        line counts, render cache). When switching tmux windows:
+
+        1. Terminal buffer gets cleared/corrupted by tmux
+        2. Rich's cursor tracking desyncs (thinks it's at X, actually at Y)
+        3. Internal render cache becomes invalid ("only update changes" fails)
+
+        When you return to the window, Rich is "drawing into the void" -
+        updating regions that no longer contain what it expects. The display
+        appears frozen because Rich is updating, just in the wrong place.
+
+        Input appears "broken" but is actually working - keystrokes are
+        received, but Rich updates the wrong screen region, making it invisible.
+
+        HOW THE HEARTBEAT FIXES IT:
+        Every 2 seconds, we force a full _refresh() which:
+        - Recalculates everything (not just "what changed")
+        - Re-syncs cursor position (resets Rich's internal tracking)
+        - Redraws entire display (overwrites tmux garbage)
+
+        This acts as a self-healing mechanism - even if Rich gets into a
+        bad state, it auto-recovers within 2 seconds.
+
+        THE REAL FIX WOULD BE:
+        Rich should handle terminal state changes better, but tmux window
+        switches don't always send proper SIGWINCH signals. This heartbeat
+        is a workaround for Rich not detecting "terminal was messed with.
+
+        See: https://github.com/Textualize/rich/issues/ (various tmux issues)
         """
         while not self._stop_heartbeat.is_set():
             # Refresh every 2 seconds to keep display alive

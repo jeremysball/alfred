@@ -296,17 +296,19 @@ class CLIInterface:
             session_messages=0,
         )
 
-        # Update status line immediately
-        if self._live_display:
-            self._live_display.set_status(self._render_status_line())
-            self._live_display.update()
-
         # Add system message to buffer (appears inline in conversation)
         self.buffer.add_system_message(
             "New Session Created",
             f"Session ID: [bold cyan]{session.meta.session_id}[/]",
             "green",
         )
+
+        # Update LiveDisplay with new content and status
+        if self._live_display:
+            self._live_display.set_content(self.buffer.render())
+            self._live_display.set_status(self._render_status_line())
+            self._live_display.update()
+
         return True
 
     def _cmd_resume_session(self, session_id: str | None) -> bool:
@@ -318,6 +320,9 @@ class CLIInterface:
                 "Use [bold]/sessions[/] to see available sessions.",
                 "red",
             )
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.update()
             return True
 
         try:
@@ -337,20 +342,22 @@ class CLIInterface:
                 session_messages=msg_count,
             )
 
-            # Update status line immediately
-            if self._live_display:
-                self._live_display.set_status(self._render_status_line())
-                self._live_display.update()
-
+            # Add system message to buffer
             self.buffer.add_system_message(
                 "Session Resumed",
                 f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
                 "green",
             )
 
-            # Display conversation history
+            # Display conversation history (prints to console outside LiveDisplay)
             if session.messages:
                 self._display_session_history(session)
+
+            # Update LiveDisplay with content and status
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.set_status(self._render_status_line())
+                self._live_display.update()
 
         except ValueError as e:
             self.buffer.add_system_message(
@@ -358,6 +365,9 @@ class CLIInterface:
                 f"[bold red]{e}[/]",
                 "red",
             )
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.update()
         return True
 
     def _cmd_list_sessions(self) -> bool:
