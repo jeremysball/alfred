@@ -45,10 +45,25 @@ class ConversationBuffer:
         self._current_role: str = "assistant"
         self.panels_visible: bool = True
 
+    def add_user_message(self, content: str) -> None:
+        """Add a complete user message as a segment."""
+        # Flush any pending assistant text first
+        if self._current_text:
+            self.segments.append(TextSegment(content=self._current_text, role=self._current_role))
+            self._current_text = ""
+        self.segments.append(TextSegment(content=content, role="user"))
+
     def add_text(self, chunk: str, role: str = "assistant") -> None:
         """Add text chunk to current message."""
         self._current_text += chunk
         self._current_role = role
+
+    def finalize_message(self) -> None:
+        """Finalize current message and add to segments."""
+        if self._current_text:
+            self.segments.append(TextSegment(content=self._current_text, role=self._current_role))
+            self._current_text = ""
+            self._current_role = "assistant"
 
     def on_tool_start(self, tool_name: str) -> None:
         """Called when a tool starts - flush current text to segments."""
@@ -286,11 +301,20 @@ class CLIInterface:
             self.buffer.clear()
             msg_count = len(session.messages)
 
-            # Update context summary for status line refresh
+            # Clear LiveDisplay content to remove old messages
+            if self._live_display:
+                self._live_display.clear_content()
+
+            # Update context summary for status line
             self.alfred.context_summary.update(
                 memories_count=self.alfred.context_summary.memories_count,
                 session_messages=msg_count,
             )
+
+            # Update status line immediately
+            if self._live_display:
+                self._live_display.set_status(self._render_status_line())
+                self._live_display.update()
 
             self.console.print(
                 Panel(
@@ -377,8 +401,15 @@ class CLIInterface:
         # Display session history if resuming an existing session
         if self.alfred.session_manager.has_active_session():
             session = self.alfred.session_manager.get_current_cli_session()
-            if session and session.messages:
-                self._display_session_history(session)
+            if session:
+                # Update context summary with session message count for status line
+                msg_count = len(session.messages)
+                self.alfred.context_summary.update(
+                    memories_count=self.alfred.context_summary.memories_count,
+                    session_messages=msg_count,
+                )
+                if session.messages:
+                    self._display_session_history(session)
 
         # Create callback for session ID completion
         def get_session_ids() -> list[str]:
@@ -410,6 +441,9 @@ class CLIInterface:
 
                 # Handle special commands
                 if user_input.lower() == "exit":
+                    # Exit Live display cleanly before breaking
+                    if self._live_display:
+                        self._live_display.stop()
                     self.console.print("[bold yellow]Goodbye![/]")
                     break
 
@@ -437,6 +471,9 @@ class CLIInterface:
         # Don't clear buffer - accumulate conversation history
         self._is_streaming = True
 
+        # Add user message to buffer before streaming response
+        self.buffer.add_user_message(user_input)
+
         # Disable echo during streaming to prevent Enter keystrokes from appearing
         if self._live_display:
             self._live_display.disable_echo()
@@ -459,6 +496,9 @@ class CLIInterface:
                     self._live_display.set_content(self.buffer.render())
                     self._live_display.set_status(self._render_status_line())
                     self._live_display.update()
+
+            # Finalize the assistant message
+            self.buffer.finalize_message()
 
             # Final update
             if self._live_display:
