@@ -7,6 +7,7 @@ from rich.console import Console, RenderableType
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.spinner import Spinner
+from rich.table import Table
 from rich.text import Text
 
 from src.agent import ToolEnd, ToolEvent, ToolStart
@@ -16,6 +17,7 @@ from src.interfaces.live_display import LiveDisplay
 from src.interfaces.notification_buffer import NotificationBuffer
 from src.interfaces.status import StatusData
 from src.session import Session
+from src.theme import Theme
 
 
 @dataclass
@@ -52,7 +54,9 @@ class ConversationBuffer:
             self._current_text = ""
         self.segments.append(TextSegment(content=content, role="user"))
 
-    def add_system_message(self, title: str, content: str, border_style: str = "green") -> None:
+    def add_system_message(
+        self, title: str, content: str, border_style: str = Theme.success
+    ) -> None:
         """Add a system/command message as a styled panel."""
         # Flush any pending text first
         if self._current_text:
@@ -133,19 +137,19 @@ class ConversationBuffer:
                     padding=(0, 1),
                 )
         title = "You" if segment.role == "user" else "Alfred"
-        style = "color(23)" if segment.role == "user" else "color(24)"  # Slate blue / Dark teal
+        border = Theme.role_user if segment.role == "user" else Theme.role_assistant
         return Panel(
             Markdown(segment.content),
             title=title,
             title_align="left",
-            border_style=style,
+            border_style=border,
             padding=(0, 1),
         )
 
     def _render_tool_panel(self, tool: ToolCallSegment) -> Panel:
         """Render a tool call as a styled Panel."""
         content = self._truncate_result(tool.result, tool.is_error)
-        style = "red" if tool.is_error else "dim blue"
+        style = Theme.tool_error if tool.is_error else Theme.tool_normal
         return Panel(
             content,
             title=f"Tool: {tool.tool_name}",
@@ -191,10 +195,15 @@ class CLIInterface:
 
     def _print_banner(self) -> None:
         """Print the welcome banner."""
+        title = Text(
+            "Alfred - Your Persistent Memory Assistant",
+            style=f"bold {Theme.primary}",
+            justify="center",
+        )
         banner = Panel(
-            Text("Alfred - Your Persistent Memory Assistant", style="bold cyan", justify="center"),
+            title,
             subtitle="exit to quit | compact for memory | Ctrl-T toggle tools",
-            border_style="cyan",
+            border_style=Theme.primary,
             padding=(0, 2),
         )
         self.console.print(banner)
@@ -212,7 +221,7 @@ class CLIInterface:
                     msg.content,
                     title="You",
                     title_align="left",
-                    border_style="color(23)",  # Dark slate blue
+                    border_style=Theme.role_user,
                     padding=(0, 1),
                 )
                 self.console.print(panel)
@@ -221,12 +230,12 @@ class CLIInterface:
                     Markdown(msg.content),
                     title="Alfred",
                     title_align="left",
-                    border_style="color(24)",  # Dark teal
+                    border_style=Theme.role_assistant,
                     padding=(0, 1),
                 )
                 self.console.print(panel)
             elif msg.role.value == "system":
-                self.console.print(f"[dim italic][System: {msg.content}][/]")
+                self.console.print(f"[{Theme.text_secondary} italic][System: {msg.content}][/]")
 
         self.console.print()
 
@@ -283,10 +292,6 @@ class CLIInterface:
         session = self.alfred.session_manager.new_session()
         self.buffer.clear()
 
-        # Clear LiveDisplay content to remove old messages
-        if self._live_display:
-            self._live_display.clear_content()
-
         # Reset token tracking for new session
         self.alfred.token_tracker.reset()
 
@@ -296,16 +301,17 @@ class CLIInterface:
             session_messages=0,
         )
 
-        # Add system message to buffer (appears inline in conversation)
-        self.buffer.add_system_message(
-            "New Session Created",
-            f"Session ID: [bold cyan]{session.meta.session_id}[/]",
-            "green",
+        # Print to console (scrollable)
+        self.console.print(
+            Panel(
+                f"Session ID: [bold {Theme.primary}]{session.meta.session_id}[/]",
+                title="New Session Created",
+                border_style=Theme.success,
+            )
         )
 
-        # Update LiveDisplay with new content and status
+        # Update status line only
         if self._live_display:
-            self._live_display.set_content(self.buffer.render())
             self._live_display.set_status(self._render_status_line())
             self._live_display.update()
 
@@ -314,24 +320,15 @@ class CLIInterface:
     def _cmd_resume_session(self, session_id: str | None) -> bool:
         """Resume an existing session."""
         if not session_id:
-            self.buffer.add_system_message(
-                "Usage",
-                "[bold red]/resume <session_id>[/]\n"
-                "Use [bold]/sessions[/] to see available sessions.",
-                "red",
+            self.console.print(
+                "[bold red]Usage: /resume <session_id>[/]\n"
+                "Use [bold]/sessions[/] to see available sessions.\n"
             )
-            if self._live_display:
-                self._live_display.set_content(self.buffer.render())
-                self._live_display.update()
             return True
 
         try:
             session = self.alfred.session_manager.resume_session(session_id)
             self.buffer.clear()
-
-            # Clear LiveDisplay content to remove old messages
-            if self._live_display:
-                self._live_display.clear_content()
 
             # Restore token counts and context from session history
             msg_count = self.alfred.restore_session_tokens()
@@ -342,32 +339,26 @@ class CLIInterface:
                 session_messages=msg_count,
             )
 
-            # Add system message to buffer
-            self.buffer.add_system_message(
-                "Session Resumed",
-                f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
-                "green",
+            # Print to console (scrollable)
+            self.console.print(
+                Panel(
+                    f"Session ID: [bold {Theme.primary}]{session_id}[/]\nMessages: {msg_count}",
+                    title="Session Resumed",
+                    border_style=Theme.success,
+                )
             )
 
-            # Display conversation history (prints to console outside LiveDisplay)
+            # Display conversation history via console
             if session.messages:
                 self._display_session_history(session)
 
-            # Update LiveDisplay with content and status
+            # Update status line only
             if self._live_display:
-                self._live_display.set_content(self.buffer.render())
                 self._live_display.set_status(self._render_status_line())
                 self._live_display.update()
 
         except ValueError as e:
-            self.buffer.add_system_message(
-                "Error",
-                f"[bold red]{e}[/]",
-                "red",
-            )
-            if self._live_display:
-                self._live_display.set_content(self.buffer.render())
-                self._live_display.update()
+            self.console.print(f"[bold red]Error: {e}[/]\n")
         return True
 
     def _cmd_list_sessions(self) -> bool:
@@ -375,20 +366,14 @@ class CLIInterface:
         sessions = self.alfred.session_manager.list_sessions()
 
         if not sessions:
-            self.buffer.add_system_message(
-                "Sessions",
-                "[bold yellow]No sessions found.[/]",
-                "yellow",
-            )
-            if self._live_display:
-                self._live_display.set_content(self.buffer.render())
-                self._live_display.update()
+            self.console.print("[bold yellow]No sessions found.[/]\n")
             return True
 
-        # Build a text representation of the sessions table
-        lines = ["[bold]Sessions[/bold]", ""]
-        lines.append("[cyan]ID[/cyan] | [dim]Created[/dim] | [dim]Last Active[/dim] | Messages")
-        lines.append("-" * 60)
+        table = Table(title="Sessions", border_style=Theme.border_secondary)
+        table.add_column("ID", style=Theme.primary)
+        table.add_column("Created", style=Theme.text_secondary)
+        table.add_column("Last Active", style=Theme.text_secondary)
+        table.add_column("Messages", justify="right")
 
         current_id = None
         if self.alfred.session_manager.has_active_session():
@@ -399,73 +384,50 @@ class CLIInterface:
         for meta in sessions:
             created = meta.created_at.strftime("%Y-%m-%d %H:%M")
             last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
-            if meta.session_id == current_id:
-                id_str = f"[bold]{meta.session_id}[/bold] *"
-            else:
-                id_str = meta.session_id
-            lines.append(f"{id_str} | {created} | {last_active} | {meta.message_count}")
 
-        self.buffer.add_system_message(
-            "Sessions",
-            "\n".join(lines),
-            "dim blue",
-        )
-        if self._live_display:
-            self._live_display.set_content(self.buffer.render())
-            self._live_display.update()
+            id_str = meta.session_id
+            if meta.session_id == current_id:
+                id_str = f"[bold {Theme.primary}]{meta.session_id}[/] *"
+
+            table.add_row(id_str, created, last_active, str(meta.message_count))
+
+        self.console.print(table)
+        self.console.print()
         return True
 
     def _cmd_show_current_session(self) -> bool:
         """Show current session details."""
         if not self.alfred.session_manager.has_active_session():
-            self.buffer.add_system_message(
-                "Current Session",
-                "[bold yellow]No active session.[/]",
-                "yellow",
-            )
-            if self._live_display:
-                self._live_display.set_content(self.buffer.render())
-                self._live_display.update()
+            self.console.print("[bold yellow]No active session.[/]\n")
             return True
 
         session = self.alfred.session_manager.get_current_cli_session()
         if not session:
-            self.buffer.add_system_message(
-                "Current Session",
-                "[bold yellow]No active session.[/]",
-                "yellow",
-            )
-            if self._live_display:
-                self._live_display.set_content(self.buffer.render())
-                self._live_display.update()
+            self.console.print("[bold yellow]No active session.[/]\n")
             return True
 
         meta = session.meta
         created = meta.created_at.strftime("%Y-%m-%d %H:%M")
         last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
 
-        content = (
-            f"ID: [bold cyan]{meta.session_id}[/]\n"
-            f"Status: {meta.status}\n"
-            f"Created: {created}\n"
-            f"Last Active: {last_active}\n"
-            f"Messages: {meta.message_count}"
+        self.console.print(
+            Panel(
+                f"ID: [bold {Theme.primary}]{meta.session_id}[/]\n"
+                f"Status: {meta.status}\n"
+                f"Created: {created}\n"
+                f"Last Active: {last_active}\n"
+                f"Messages: {meta.message_count}",
+                title="Current Session",
+                border_style=Theme.primary,
+            )
         )
-        self.buffer.add_system_message(
-            "Current Session",
-            content,
-            "cyan",
-        )
-        if self._live_display:
-            self._live_display.set_content(self.buffer.render())
-            self._live_display.update()
         return True
 
     async def run(self) -> None:
         """Main CLI loop."""
         self._print_banner()
 
-        # Display session history if resuming an existing session
+        # Display session history if resuming (prints to console, scrollable)
         if self.alfred.session_manager.has_active_session():
             session = self.alfred.session_manager.get_current_cli_session()
             if session:
@@ -477,6 +439,8 @@ class CLIInterface:
                     memories_count=self.alfred.context_summary.memories_count,
                     session_messages=msg_count,
                 )
+
+                # Display history via console (scrollable)
                 if session.messages:
                     self._display_session_history(session)
 
@@ -484,14 +448,14 @@ class CLIInterface:
         def get_session_ids() -> list[str]:
             return [meta.session_id for meta in self.alfred.session_manager.list_sessions()]
 
-        # Create LiveDisplay
+        # Create LiveDisplay (no content - just prompt and status)
         self._live_display = LiveDisplay(
             console=self.console,
             history_path=self._get_history_path(),
             get_session_ids=get_session_ids,
         )
 
-        # Set initial status BEFORE entering context so first render is correct
+        # Set initial status BEFORE entering context
         self._live_display.set_status(self._render_status_line())
 
         with self._live_display:
@@ -516,33 +480,19 @@ class CLIInterface:
                     # Exit Live display cleanly before breaking
                     if self._live_display:
                         self._live_display.stop()
-                    self.console.print("[bold yellow]Goodbye![/]")
+                    self.console.print(f"[bold {Theme.warning}]Goodbye![/]")
                     break
 
                 if user_input.lower() == "compact":
                     result = await self.alfred.compact()
-                    self.buffer.add_system_message(
-                        "Memory Compacted",
-                        f"[bold green]{result}[/]",
-                        "green",
-                    )
-                    if self._live_display:
-                        self._live_display.set_content(self.buffer.render())
-                        self._live_display.update()
+                    self.console.print(f"[bold {Theme.success}]{result}[/]\n")
                     continue
 
                 # Handle Ctrl+T toggle (as command for now)
                 if user_input.lower() == "/toggle":
                     self.buffer.toggle_panels()
                     state = "visible" if self.buffer.panels_visible else "hidden"
-                    self.buffer.add_system_message(
-                        "Tool Panels",
-                        f"Tool panels: {state}",
-                        "dim",
-                    )
-                    if self._live_display:
-                        self._live_display.set_content(self.buffer.render())
-                        self._live_display.update()
+                    self.console.print(f"[{Theme.text_secondary}]Tool panels: {state}[/]\n")
                     continue
 
                 # Session commands
@@ -554,18 +504,17 @@ class CLIInterface:
 
     async def _stream_response(self, user_input: str) -> None:
         """Stream a response from Alfred."""
-        # Don't clear buffer - accumulate conversation history
         self._is_streaming = True
 
-        # Add user message to buffer before streaming response
+        # Add user message to buffer for display during streaming
         self.buffer.add_user_message(user_input)
 
-        # Disable echo during streaming to prevent Enter keystrokes from appearing
+        # Disable echo during streaming
         if self._live_display:
             self._live_display.disable_echo()
 
         try:
-            # Update display immediately to show throbber
+            # Update display to show user message and throbber
             if self._live_display:
                 self._live_display.set_content(self.buffer.render())
                 self._live_display.set_status(self._render_status_line())
@@ -577,7 +526,6 @@ class CLIInterface:
             ):
                 self.buffer.add_text(chunk)
 
-                # Update LiveDisplay content and status
                 if self._live_display:
                     self._live_display.set_content(self.buffer.render())
                     self._live_display.set_status(self._render_status_line())
@@ -586,18 +534,25 @@ class CLIInterface:
             # Finalize the assistant message
             self.buffer.finalize_message()
 
-            # Final update
+            # Print to Live's console - this automatically appears ABOVE the live display
+            # No need to stop/start - Rich handles this
             if self._live_display:
-                self._live_display.set_content(self.buffer.render())
-                self._live_display.set_status(self._render_status_line())
+                for renderable in self.buffer.render():
+                    self._live_display.console.print(renderable)
+
+            # Clear buffer - messages are now in console scrollback
+            self.buffer.clear()
+
+            # Clear Live display content (keep just prompt + status)
+            if self._live_display:
+                self._live_display.set_content([])
                 self._live_display.update()
 
         except Exception as e:
-            self.console.print(f"\n[bold red]Error: {e}[/]\n")
+            self.console.print(f"\n[bold {Theme.error}]Error: {e}[/]\n")
         finally:
             self._is_streaming = False
             self._flush_notifications()
-            # Re-enable echo after streaming
             if self._live_display:
                 self._live_display.enable_echo()
 
@@ -615,34 +570,35 @@ class CLIInterface:
         text = Text()
 
         # Model name
-        text.append(status_data.model_name, style="bold cyan")
-        text.append(" | ", style="dim")
+        text.append(status_data.model_name, style=f"bold {Theme.primary}")
+        text.append(" | ", style=Theme.text_secondary)
 
         # Token counts
-        text.append(f"in:{self._format_number(usage.input_tokens)} ", style="cyan")
-        text.append(f"out:{self._format_number(usage.output_tokens)}", style="green")
+        text.append(f"in:{self._format_number(usage.input_tokens)} ", style=Theme.metric_input)
+        text.append(f"out:{self._format_number(usage.output_tokens)}", style=Theme.metric_output)
         if usage.cache_read_tokens > 0:
             cache = self._format_number(usage.cache_read_tokens)
-            text.append(f" cache:{cache}", style="yellow")
+            text.append(f" cache:{cache}", style=Theme.metric_cache)
         if usage.reasoning_tokens > 0:
             reason = self._format_number(usage.reasoning_tokens)
-            text.append(f" reason:{reason}", style="magenta")
+            text.append(f" reason:{reason}", style=Theme.metric_reasoning)
 
         # Context percentage
-        text.append(f" | ctx:{self._format_number(status_data.context_tokens)}", style="dim")
+        ctx = self._format_number(status_data.context_tokens)
+        text.append(f" | ctx:{ctx}", style=Theme.text_secondary)
 
         # Memory and message counts
         m = status_data.memories_count
         s = status_data.session_messages
-        text.append(f"  📚 {m} | 💬 {s}", style="white")
+        text.append(f"  📚 {m} | 💬 {s}", style=Theme.text_primary)
 
         # Throbber: animated spinner when streaming, static ">" when idle
         if self._is_streaming:
             from rich.columns import Columns
-            spinner = Spinner("dots", style="cyan")
+            spinner = Spinner("dots", style=Theme.spinner)
             return Columns([spinner, text])
         else:
-            prefix = Text("> ", style="green")
+            prefix = Text("> ", style=Theme.prompt)
             prefix.append(text)
             return prefix
 

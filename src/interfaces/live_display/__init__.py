@@ -10,6 +10,8 @@ from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.text import Text
 
+from src.theme import Theme
+
 from .completer import Completer
 from .history import History
 from .input import InputReader, KeyAction, PromptInput
@@ -32,7 +34,7 @@ class LiveDisplay:
         self.completer = Completer(get_session_ids=get_session_ids)
         self._live: Live | None = None
         self._content: list[RenderableType] = []
-        self._status: RenderableType = Text("Ready", style="dim")
+        self._status: RenderableType = Text("Ready", style=Theme.text_secondary)
 
     def set_content(self, renderables: list[RenderableType]) -> None:
         """Set content area to list of renderables."""
@@ -76,7 +78,6 @@ class LiveDisplay:
             self._render(),
             console=self.console,
             refresh_per_second=10,
-            vertical_overflow="visible",
         )
         self._live.start()
         # Handle terminal resize to force redraw

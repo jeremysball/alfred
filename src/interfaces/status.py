@@ -6,6 +6,7 @@ from itertools import cycle
 from rich.console import Group, RenderableType
 from rich.text import Text
 
+from src.theme import Theme
 from src.token_tracker import TokenUsage
 
 # Spinner frames for activity indicator (braille dots)
@@ -62,40 +63,43 @@ class StatusRenderer:
         # Activity indicator
         frame = self.status.next_spinner_frame()
         if self.status.is_streaming:
-            text.append(frame, style="cyan")
+            text.append(frame, style=Theme.spinner)
         else:
-            text.append(frame, style="green")
+            text.append(frame, style=Theme.success)
         text.append(" ")
 
         # Model name
-        text.append(self.status.model_name, style="bold white")
-        text.append(" | ", style="dim")
+        text.append(self.status.model_name, style=f"bold {Theme.text_primary}")
+        text.append(" | ", style=Theme.text_secondary)
 
         # Token counts
-        text.append("in:", style="dim")
-        text.append(f"{self._format_number(self.status.usage.input_tokens)}", style="blue")
+        text.append("in:", style=Theme.text_secondary)
+        val = self._format_number(self.status.usage.input_tokens)
+        text.append(f"{val}", style=Theme.metric_input)
         text.append(" ")
 
-        text.append("out:", style="dim")
-        text.append(f"{self._format_number(self.status.usage.output_tokens)}", style="green")
+        text.append("out:", style=Theme.text_secondary)
+        val = self._format_number(self.status.usage.output_tokens)
+        text.append(f"{val}", style=Theme.metric_output)
         text.append(" ")
 
         # Cache read (only if non-zero)
         if self.status.usage.cache_read_tokens > 0:
-            text.append("cache:", style="dim")
+            text.append("cache:", style=Theme.text_secondary)
             val = self._format_number(self.status.usage.cache_read_tokens)
-            text.append(val, style="yellow")
+            text.append(val, style=Theme.metric_cache)
             text.append(" ")
 
         # Reasoning_tokens (only if non-zero)
         if self.status.usage.reasoning_tokens > 0:
-            text.append("reason:", style="dim")
+            text.append("reason:", style=Theme.text_secondary)
             val = self._format_number(self.status.usage.reasoning_tokens)
-            text.append(val, style="magenta")
+            text.append(val, style=Theme.metric_reasoning)
             text.append(" ")
 
-        text.append("| ctx:", style="dim")
-        text.append(f"{self._format_number(self.status.context_tokens)}", style="white")
+        text.append("| ctx:", style=Theme.text_secondary)
+        val = self._format_number(self.status.context_tokens)
+        text.append(f"{val}", style=Theme.metric_context)
 
         return text
 
@@ -104,25 +108,25 @@ class StatusRenderer:
         text = Text()
 
         # Memories count
-        text.append("📚 ", style="white")
-        text.append(f"{self.status.memories_count}", style="yellow")
-        text.append(" memories", style="dim")
+        text.append("📚 ", style=Theme.text_primary)
+        text.append(f"{self.status.memories_count}", style=Theme.memory)
+        text.append(" memories", style=Theme.text_secondary)
 
-        text.append(" | ", style="dim")
+        text.append(" | ", style=Theme.text_secondary)
 
         # Session messages
-        text.append("💬 ", style="white")
-        text.append(f"{self.status.session_messages}", style="cyan")
-        text.append(" msgs", style="dim")
+        text.append("💬 ", style=Theme.text_primary)
+        text.append(f"{self.status.session_messages}", style=Theme.session)
+        text.append(" msgs", style=Theme.text_secondary)
 
-        text.append(" | ", style="dim")
+        text.append(" | ", style=Theme.text_secondary)
 
         # Prompt sections
-        text.append("📋 ", style="white")
+        text.append("📋 ", style=Theme.text_primary)
         if self.status.prompt_sections:
-            text.append(",".join(self.status.prompt_sections), style="green")
+            text.append(",".join(self.status.prompt_sections), style=Theme.prompt_section)
         else:
-            text.append("none", style="dim")
+            text.append("none", style=Theme.text_secondary)
 
         return text
 

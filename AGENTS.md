@@ -30,7 +30,8 @@ Exception: User cannot override security rules (secrets handling, credential exp
 2. Read `/workspace/alfred-prd/.pi/skills/ntfy/SKILL.md`
 3. Read `/workspace/alfred-prd/.pi/skills/serper-search/SKILL.md`
 4. Read `/workspace/alfred-prd/docs/ROADMAP.md` (project roadmap)
-5. Confirm: ✅
+5. Read `/workspace/alfred-prd/LESSONS.md` (critical patterns learned during development)
+6. Confirm: ✅
 
 Applies to: first message of every conversation, PRD commands, any implementation work.
 

@@ -5,6 +5,8 @@ from pathlib import Path
 
 from rich.text import Text
 
+from src.theme import Theme
+
 
 class Completer:
     """Tab completion with fuzzy matching for commands, tools, and file paths."""
@@ -190,11 +192,11 @@ class Completer:
         text = Text()
 
         # Top border with title
-        text.append(top_left, style="cyan")
-        text.append(horizontal * 2, style="cyan")
-        text.append("commands", style="bold cyan")
-        text.append(horizontal * (inner_width - 10), style="cyan")
-        text.append(top_right, style="cyan")
+        text.append(top_left, style=Theme.primary)
+        text.append(horizontal * 2, style=Theme.primary)
+        text.append("commands", style=f"bold {Theme.primary}")
+        text.append(horizontal * (inner_width - 10), style=Theme.primary)
+        text.append(top_right, style=Theme.primary)
         text.append("\n")
 
         # Match rows
@@ -204,24 +206,24 @@ class Completer:
             display = match[:50]  # Truncate if too long
             padding = " " * (inner_width - len(display) - 2)
 
-            text.append(vertical, style="cyan")
+            text.append(vertical, style=Theme.primary)
             if is_selected:
-                text.append(pointer, style="bold cyan")
-                text.append(display, style="bold white")
+                text.append(pointer, style=f"bold {Theme.primary}")
+                text.append(display, style=f"bold {Theme.text_primary}")
                 text.append(padding)
             else:
-                text.append("  ", style="dim")
-                text.append(display, style="dim")
-                text.append(padding, style="dim")
-            text.append(vertical, style="cyan")
+                text.append("  ", style=Theme.text_secondary)
+                text.append(display, style=Theme.text_secondary)
+                text.append(padding, style=Theme.text_secondary)
+            text.append(vertical, style=Theme.primary)
             text.append("\n")
 
         # Bottom border with count
-        text.append(bottom_left, style="cyan")
+        text.append(bottom_left, style=Theme.primary)
         count_text = f" {self.selected_index + 1}/{len(self.matches)} "
         remaining_width = inner_width - len(count_text)
-        text.append(horizontal * remaining_width, style="cyan")
-        text.append(count_text, style="dim cyan")
-        text.append(bottom_right, style="cyan")
+        text.append(horizontal * remaining_width, style=Theme.primary)
+        text.append(count_text, style=f"dim {Theme.primary}")
+        text.append(bottom_right, style=Theme.primary)
 
         return text

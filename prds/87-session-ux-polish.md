@@ -4,7 +4,7 @@
 **Status**: Open
 **Priority**: High
 **Created**: 2026-02-22
-**Updated**: 2026-02-22
+**Updated**: 2026-02-23
 **Related**: #53 (Session System), #81 (Enhanced CLI Status Line)
 
 ---
@@ -132,6 +132,32 @@ def render_message(role: str, content: str) -> Text:
     return Text(content, style=f"on {bg}")
 ```
 
+### Theme System
+
+All colors are centralized in `src/theme.py` using semantic names that derive from rich's style system:
+
+```python
+from src.theme import Theme
+
+# Instead of hardcoded colors:
+text.append("Hello", style="cyan")
+panel = Panel(content, border_style="green")
+
+# Use semantic theme names:
+text.append("Hello", style=Theme.primary)
+panel = Panel(content, border_style=Theme.success)
+```
+
+**Theme categories:**
+- **Primary/Secondary/Accent**: Brand colors (`Theme.primary`, `Theme.secondary`, `Theme.accent`)
+- **Status**: Semantic status colors (`Theme.success`, `Theme.warning`, `Theme.error`, `Theme.info`)
+- **Borders**: Panel border colors (`Theme.border_primary`, `Theme.border_success`, etc.)
+- **Text**: Text styling (`Theme.text_primary`, `Theme.text_secondary`, `Theme.text_muted`)
+- **Metrics**: Data visualization (`Theme.metric_input`, `Theme.metric_output`, `Theme.metric_cache`)
+- **Roles**: Message styling (`Theme.role_user`, `Theme.role_assistant`)
+
+This ensures colors automatically adapt when users change their rich console theme via `RICH_STYLE` environment variable.
+
 ### Job Notification Buffer
 
 ```python
@@ -210,6 +236,7 @@ def render_throbber(frame: str) -> Text:
 | `src/alfred.py` | Expose notifier for buffer configuration |
 | `src/interfaces/status.py` | May need refresh trigger |
 | `docs/ui-design.md` | New file: Visual UI documentation with screenshots |
+| `src/theme.py` | New file: Centralized theme system for rich style-derived colors |
 
 ---
 
@@ -243,3 +270,4 @@ def render_throbber(frame: str) -> Text:
 | 2026-02-22 | Rename workflow milestone removed | Already completed |
 | 2026-02-22 | NotificationBuffer with callback | Callback pattern allows CLIInterface to control active state without tight coupling |
 | 2026-02-22 | Panel-based message styling | Rich Panel with colored borders instead of text background; matches tool call styling for visual consistency |
+| 2026-02-23 | Centralized theme system | Created `src/theme.py` with semantic color names derived from rich styles. All UI colors now reference `Theme.primary`, `Theme.success`, etc. instead of hardcoded values, enabling automatic adaptation when users change their rich console theme |

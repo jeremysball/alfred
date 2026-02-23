@@ -15,6 +15,7 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from src.config import load_config
+from src.theme import Theme
 
 if TYPE_CHECKING:
     from src.cron.models import Job
@@ -76,7 +77,7 @@ async def list_jobs(
 
     if status_filter not in valid_filters:
         valid_list = ", ".join(valid_filters)
-        console.print(f"[red]Error: Invalid status '{status}'. Use: {valid_list}[/red]")
+        console.print(f"[{Theme.error}]Error: Invalid status '{status}'. Use: {valid_list}[/]")
         raise typer.Exit(1)
 
     if status_filter != "all":
@@ -84,17 +85,21 @@ async def list_jobs(
 
     if not jobs:
         msg = "No jobs found." if status_filter == "all" else f"No {status_filter} jobs found."
-        console.print(f"[yellow]{msg}[/yellow]")
+        console.print(f"[{Theme.warning}]{msg}[/]")
         return
 
     table = Table(title=f"Cron Jobs ({status_filter})" if status_filter != "all" else "Cron Jobs")
-    table.add_column("ID", style="dim", width=8)
-    table.add_column("Name", style="bold")
+    table.add_column("ID", style=Theme.text_secondary, width=8)
+    table.add_column("Name", style=Theme.text_highlight)
     table.add_column("Status", width=10)
     table.add_column("Schedule")
     table.add_column("Last Run")
 
-    status_colors = {"pending": "yellow", "active": "green", "paused": "dim"}
+    status_colors = {
+        "pending": Theme.warning,
+        "active": Theme.success,
+        "paused": Theme.text_secondary,
+    }
 
     for job in jobs:
         status_color = status_colors.get(job.status, "white")
@@ -127,12 +132,12 @@ async def submit_job(
 
     if parsed is None:
         if not parser.is_valid(cron):
-            console.print(f"[red]Error: Invalid cron expression '{cron}'[/red]")
+            console.print(f"[{Theme.error}]Error: Invalid cron expression '{cron}'[/]")
             console.print("\nTry: 'every morning at 8am', 'Sundays at 7pm', or '0 9 * * *'")
             raise typer.Exit(1)
         cron_expression = schedule_desc = cron
     elif parsed.confidence < 0.7:
-        console.print(f"[yellow]Warning: Low confidence parsing '{cron}'[/yellow]")
+        console.print(f"[{Theme.warning}]Warning: Low confidence parsing '{cron}'[/]")
         console.print(f"Parsed as: {parsed.cron_expression}")
         cron_expression = parsed.cron_expression
         schedule_desc = parsed.description
@@ -153,7 +158,7 @@ async def run():
     try:
         compile(code, "<string>", "exec")
     except SyntaxError as e:
-        console.print(f"[red]Error: Invalid Python code - {e}[/red]")
+        console.print(f"[{Theme.error}]Error: Invalid Python code - {e}[/]")
         raise typer.Exit(1) from None
 
     scheduler = get_scheduler()
@@ -161,14 +166,14 @@ async def run():
 
     console.print(
         Panel(
-            f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
-            f"[dim]Schedule:[/dim] {schedule_desc}\n"
-            f"[dim]Cron:[/dim] {cron_expression}\n"
-            f"[dim]Job ID:[/dim] {job_id}\n\n"
-            f"[yellow]This job requires approval before it will run.[/yellow]\n"
+            f"[{Theme.success}]✓[/] Job '[bold]{name}[/bold]' submitted for approval\n\n"
+            f"[{Theme.text_secondary}]Schedule:[/] {schedule_desc}\n"
+            f"[{Theme.text_secondary}]Cron:[/] {cron_expression}\n"
+            f"[{Theme.text_secondary}]Job ID:[/] {job_id}\n\n"
+            f"[{Theme.warning}]This job requires approval before it will run.[/]\n"
             f"Run: [bold]alfred cron approve {job_id[:8]}[/bold]",
             title="Job Submitted",
-            border_style="green",
+            border_style=Theme.success,
         )
     )
 
@@ -182,18 +187,18 @@ async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
     job = _find_job(jobs, job_id)
 
     if job is None:
-        console.print(f"[red]Error: Job '{job_id}' not found[/red]")
+        console.print(f"[{Theme.error}]Error: Job '{job_id}' not found[/]")
         raise typer.Exit(1)
 
     console.print(
         Panel(
             f"[bold]{job.name}[/bold]\n"
-            f"[dim]ID:[/dim] {job.job_id}\n"
-            f"[dim]Status:[/dim] {job.status}\n"
-            f"[dim]Schedule:[/dim] {job.expression}\n"
-            f"[dim]Created:[/dim] {job.created_at.strftime('%Y-%m-%d %H:%M')}",
+            f"[{Theme.text_secondary}]ID:[/] {job.job_id}\n"
+            f"[{Theme.text_secondary}]Status:[/] {job.status}\n"
+            f"[{Theme.text_secondary}]Schedule:[/] {job.expression}\n"
+            f"[{Theme.text_secondary}]Created:[/] {job.created_at.strftime('%Y-%m-%d %H:%M')}",
             title="Job Details",
-            border_style="blue",
+            border_style=Theme.secondary,
         )
     )
 
@@ -207,7 +212,7 @@ async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
     console.print(f"  Network: {'Allowed' if job.resource_limits.allow_network else 'Blocked'}")
 
     if job.status == "pending":
-        console.print("\n[yellow]This job is pending approval.[/yellow]")
+        console.print(f"\n[{Theme.warning}]This job is pending approval.[/]")
         console.print(f"To approve: [bold]alfred cron approve {job.job_id[:8]}[/bold]")
         console.print(f"To reject: [bold]alfred cron reject {job.job_id[:8]}[/bold]")
 
@@ -222,25 +227,25 @@ async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) 
     job = _find_job(jobs, job_id)
 
     if job is None:
-        console.print(f"[red]Error: Job '{job_id}' not found[/red]")
+        console.print(f"[{Theme.error}]Error: Job '{job_id}' not found[/]")
         raise typer.Exit(1)
 
     if job.status == "active":
-        console.print(f"[yellow]Job '{job.name}' is already active.[/yellow]")
+        console.print(f"[{Theme.warning}]Job '{job.name}' is already active.[/]")
         return
 
     if job.status != "pending":
-        console.print(f"[red]Error: Cannot approve job with status '{job.status}'[/red]")
+        console.print(f"[{Theme.error}]Error: Cannot approve job with status '{job.status}'[/]")
         raise typer.Exit(1)
 
     await scheduler.approve_job(job.job_id, "cli")
 
     console.print(
         Panel(
-            f"[green]✓[/green] Approved '[bold]{job.name}[/bold]'\n"
+            f"[{Theme.success}]✓[/] Approved '[bold]{job.name}[/bold]'\n"
             f"The job is now active and will run on schedule.",
             title="Job Approved",
-            border_style="green",
+            border_style=Theme.success,
         )
     )
 
@@ -254,7 +259,7 @@ async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
     job = _find_job(jobs, job_id)
 
     if job is None:
-        console.print(f"[red]Error: Job '{job_id}' not found[/red]")
+        console.print(f"[{Theme.error}]Error: Job '{job_id}' not found[/]")
         raise typer.Exit(1)
 
     job_name = job.name
@@ -262,9 +267,9 @@ async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
 
     console.print(
         Panel(
-            f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\nThe job has been removed.",
+            f"[{Theme.success}]✓[/] Deleted '[bold]{job_name}[/bold]'\nThe job has been removed.",
             title="Job Rejected",
-            border_style="yellow",
+            border_style=Theme.warning,
         )
     )
 
@@ -282,7 +287,7 @@ async def show_history(
     history_path = store.history_path
 
     if not history_path.exists():
-        console.print("[yellow]No execution history found.[/yellow]")
+        console.print(f"[{Theme.warning}]No execution history found.[/]")
         return
 
     async with aiofiles.open(history_path) as f:
@@ -305,7 +310,8 @@ async def show_history(
     records = records[:limit]
 
     if not records:
-        console.print(f"[yellow]No history found{' for job ' + job_id if job_id else ''}.[/yellow]")
+        msg = f"No history found{' for job ' + job_id if job_id else ''}."
+        console.print(f"[{Theme.warning}]{msg}[/]")
         return
 
     table = Table(title="Execution History")
@@ -315,7 +321,7 @@ async def show_history(
     table.add_column("Duration", width=10)
     table.add_column("Memory", width=10)
 
-    status_colors = {"success": "green", "failed": "red", "timeout": "yellow"}
+    status_colors = {"success": Theme.success, "failed": Theme.error, "timeout": Theme.warning}
 
     for record in records:
         status_color = status_colors.get(record.status.value, "white")
@@ -333,15 +339,16 @@ async def show_history(
         )
 
     console.print(table)
-    console.print(f"\n[dim]Showing {len(records)} record(s)[/dim]")
+    console.print(f"\n[{Theme.text_secondary}]Showing {len(records)} record(s)[/]")
 
     failed = [r for r in records if r.status.value in ("failed", "timeout")]
     if failed:
-        console.print("\n[bold red]Failed Executions:[/bold red]")
+        console.print(f"\n[bold {Theme.error}]Failed Executions:[/]")
         for record in failed[:3]:
-            console.print(f"\n[dim]{record.started_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
+            ts = record.started_at.strftime("%Y-%m-%d %H:%M")
+            console.print(f"\n[{Theme.text_secondary}]{ts}[/]")
             if record.error_message:
-                console.print(f"[red]{record.error_message}[/red]")
+                console.print(f"[{Theme.error}]{record.error_message}[/]")
 
 
 def _find_job(jobs: list[Job], identifier: str) -> Job | None:

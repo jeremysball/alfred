@@ -3,6 +3,8 @@
 from readchar import readkey
 from rich.text import Text
 
+from src.theme import Theme
+
 # readchar.key constants - mypy doesn't have stubs
 # ruff: noqa
 from readchar.key import (  # type: ignore[attr-defined]
@@ -169,11 +171,11 @@ class PromptInput:
     def render(self, prompt: str = ">>> ") -> Text:
         """Render prompt with cursor indicator."""
         text = Text()
-        text.append(prompt, style="bold green")
+        text.append(prompt, style=f"bold {Theme.prompt}")
         text.append(self.buffer[: self.cursor])
         if self.cursor < len(self.buffer):
-            text.append(self.buffer[self.cursor], style="reverse")
+            text.append(self.buffer[self.cursor], style=Theme.cursor)
             text.append(self.buffer[self.cursor + 1 :])
         else:
-            text.append(" ", style="reverse")
+            text.append(" ", style=Theme.cursor)
         return text
