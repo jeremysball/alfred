@@ -7,7 +7,6 @@ from rich.console import Console, RenderableType
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.spinner import Spinner
-from rich.table import Table
 from rich.text import Text
 
 from src.agent import ToolEnd, ToolEvent, ToolStart
@@ -52,6 +51,16 @@ class ConversationBuffer:
             self.segments.append(TextSegment(content=self._current_text, role=self._current_role))
             self._current_text = ""
         self.segments.append(TextSegment(content=content, role="user"))
+
+    def add_system_message(self, title: str, content: str, border_style: str = "green") -> None:
+        """Add a system/command message as a styled panel."""
+        # Flush any pending text first
+        if self._current_text:
+            self.segments.append(TextSegment(content=self._current_text, role=self._current_role))
+            self._current_text = ""
+        # Create a TextSegment that will render as a system panel
+        segment = TextSegment(content=f"__SYSTEM__:{title}:{border_style}:{content}", role="system")
+        self.segments.append(segment)
 
     def add_text(self, chunk: str, role: str = "assistant") -> None:
         """Add text chunk to current message."""
@@ -109,6 +118,20 @@ class ConversationBuffer:
 
     def _render_message_panel(self, segment: TextSegment) -> Panel:
         """Render a message as a styled Panel."""
+        # Handle system messages specially
+        if segment.role == "system" and segment.content.startswith("__SYSTEM__:"):
+            parts = segment.content.split(":", 3)
+            if len(parts) == 4:
+                title = parts[1]
+                border_style = parts[2]
+                content = parts[3]
+                return Panel(
+                    content,
+                    title=title,
+                    title_align="left",
+                    border_style=border_style,
+                    padding=(0, 1),
+                )
         title = "You" if segment.role == "user" else "Alfred"
         style = "color(23)" if segment.role == "user" else "color(24)"  # Slate blue / Dark teal
         return Panel(
@@ -278,21 +301,22 @@ class CLIInterface:
             self._live_display.set_status(self._render_status_line())
             self._live_display.update()
 
-        self.console.print(
-            Panel(
-                f"Session ID: [bold cyan]{session.meta.session_id}[/]",
-                title="New Session Created",
-                border_style="green",
-            )
+        # Add system message to buffer (appears inline in conversation)
+        self.buffer.add_system_message(
+            "New Session Created",
+            f"Session ID: [bold cyan]{session.meta.session_id}[/]",
+            "green",
         )
         return True
 
     def _cmd_resume_session(self, session_id: str | None) -> bool:
         """Resume an existing session."""
         if not session_id:
-            self.console.print(
-                "[bold red]Usage: /resume <session_id>[/]\n"
-                "Use [bold]/sessions[/] to see available sessions.\n"
+            self.buffer.add_system_message(
+                "Usage",
+                "[bold red]/resume <session_id>[/]\n"
+                "Use [bold]/sessions[/] to see available sessions.",
+                "red",
             )
             return True
 
@@ -316,12 +340,10 @@ class CLIInterface:
                 self._live_display.set_status(self._render_status_line())
                 self._live_display.update()
 
-            self.console.print(
-                Panel(
-                    f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
-                    title="Session Resumed",
-                    border_style="green",
-                )
+            self.buffer.add_system_message(
+                "Session Resumed",
+                f"Session ID: [bold cyan]{session_id}[/]\nMessages: {msg_count}",
+                "green",
             )
 
             # Display conversation history
@@ -329,7 +351,11 @@ class CLIInterface:
                 self._display_session_history(session)
 
         except ValueError as e:
-            self.console.print(f"[bold red]Error: {e}[/]\n")
+            self.buffer.add_system_message(
+                "Error",
+                f"[bold red]{e}[/]",
+                "red",
+            )
         return True
 
     def _cmd_list_sessions(self) -> bool:
@@ -337,14 +363,17 @@ class CLIInterface:
         sessions = self.alfred.session_manager.list_sessions()
 
         if not sessions:
-            self.console.print("[bold yellow]No sessions found.[/]\n")
+            self.buffer.add_system_message(
+                "Sessions",
+                "[bold yellow]No sessions found.[/]",
+                "yellow",
+            )
             return True
 
-        table = Table(title="Sessions", border_style="dim blue")
-        table.add_column("ID", style="cyan")
-        table.add_column("Created", style="dim")
-        table.add_column("Last Active", style="dim")
-        table.add_column("Messages", justify="right")
+        # Build a text representation of the sessions table
+        lines = ["[bold]Sessions[/bold]", ""]
+        lines.append("[cyan]ID[/cyan] | [dim]Created[/dim] | [dim]Last Active[/dim] | Messages")
+        lines.append("-" * 60)
 
         current_id = None
         if self.alfred.session_manager.has_active_session():
@@ -355,42 +384,53 @@ class CLIInterface:
         for meta in sessions:
             created = meta.created_at.strftime("%Y-%m-%d %H:%M")
             last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
-
-            id_str = meta.session_id
             if meta.session_id == current_id:
-                id_str = f"[bold]{meta.session_id}[/] *"
+                id_str = f"[bold]{meta.session_id}[/bold] *"
+            else:
+                id_str = meta.session_id
+            lines.append(f"{id_str} | {created} | {last_active} | {meta.message_count}")
 
-            table.add_row(id_str, created, last_active, str(meta.message_count))
-
-        self.console.print(table)
-        self.console.print()
+        self.buffer.add_system_message(
+            "Sessions",
+            "\n".join(lines),
+            "dim blue",
+        )
         return True
 
     def _cmd_show_current_session(self) -> bool:
         """Show current session details."""
         if not self.alfred.session_manager.has_active_session():
-            self.console.print("[bold yellow]No active session.[/]\n")
+            self.buffer.add_system_message(
+                "Current Session",
+                "[bold yellow]No active session.[/]",
+                "yellow",
+            )
             return True
 
         session = self.alfred.session_manager.get_current_cli_session()
         if not session:
-            self.console.print("[bold yellow]No active session.[/]\n")
+            self.buffer.add_system_message(
+                "Current Session",
+                "[bold yellow]No active session.[/]",
+                "yellow",
+            )
             return True
 
         meta = session.meta
         created = meta.created_at.strftime("%Y-%m-%d %H:%M")
         last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
 
-        self.console.print(
-            Panel(
-                f"ID: [bold cyan]{meta.session_id}[/]\n"
-                f"Status: {meta.status}\n"
-                f"Created: {created}\n"
-                f"Last Active: {last_active}\n"
-                f"Messages: {meta.message_count}",
-                title="Current Session",
-                border_style="cyan",
-            )
+        content = (
+            f"ID: [bold cyan]{meta.session_id}[/]\n"
+            f"Status: {meta.status}\n"
+            f"Created: {created}\n"
+            f"Last Active: {last_active}\n"
+            f"Messages: {meta.message_count}"
+        )
+        self.buffer.add_system_message(
+            "Current Session",
+            content,
+            "cyan",
         )
         return True
 
@@ -423,6 +463,9 @@ class CLIInterface:
         )
 
         with self._live_display:
+            # Set initial status before first prompt
+            self._live_display.set_status(self._render_status_line())
+
             while True:
                 # Update status line (idle state)
                 self._live_display.set_status(self._render_status_line())
@@ -449,14 +492,22 @@ class CLIInterface:
 
                 if user_input.lower() == "compact":
                     result = await self.alfred.compact()
-                    self.console.print(f"[bold green]Alfred:[/bold green] {result}\n")
+                    self.buffer.add_system_message(
+                        "Memory Compacted",
+                        f"[bold green]{result}[/]",
+                        "green",
+                    )
                     continue
 
                 # Handle Ctrl+T toggle (as command for now)
                 if user_input.lower() == "/toggle":
                     self.buffer.toggle_panels()
                     state = "visible" if self.buffer.panels_visible else "hidden"
-                    self.console.print(f"[dim]Tool panels: {state}[/]")
+                    self.buffer.add_system_message(
+                        "Tool Panels",
+                        f"Tool panels: {state}",
+                        "dim",
+                    )
                     continue
 
                 # Session commands
