@@ -281,6 +281,225 @@ class History:
             return current
 
 
+class Completer:
+    """Tab completion with fuzzy matching for commands, tools, and file paths."""
+
+    # Slash commands
+    COMMANDS = [
+        "/help",
+        "/session",
+        "/model",
+        "/clear",
+        "/exit",
+        "/quit",
+    ]
+
+    # Tool names (lowercase for matching)
+    TOOLS = [
+        "remember",
+        "forget",
+        "search",
+        "bash",
+        "read",
+        "write",
+        "edit",
+        "schedule",
+        "approve",
+        "reject",
+        "list",
+    ]
+
+    def __init__(self, max_visible: int = 5) -> None:
+        self.max_visible = max_visible
+        self.matches: list[str] = []
+        self.selected_index: int = 0
+        self._visible: bool = False
+
+    def _fuzzy_match(self, query: str, candidate: str) -> bool:
+        """Check if query fuzzy-matches candidate.
+
+        'hp' matches 'help' because h, then p appears after h.
+        """
+        query = query.lower()
+        candidate = candidate.lower()
+
+        q_idx = 0
+        for char in candidate:
+            if q_idx < len(query) and char == query[q_idx]:
+                q_idx += 1
+        return q_idx == len(query)
+
+    def _score_match(self, query: str, candidate: str) -> int:
+        """Score how good the match is (higher = better)."""
+        query = query.lower()
+        candidate = candidate.lower()
+
+        # Exact match is best
+        if candidate == query:
+            return 100
+
+        # Prefix match is good
+        if candidate.startswith(query):
+            return 80
+
+        # Fuzzy match - score based on how early chars appear
+        score = 50
+        q_idx = 0
+        for i, char in enumerate(candidate):
+            if q_idx < len(query) and char == query[q_idx]:
+                # Earlier matches score higher
+                score += max(0, 10 - i)
+                q_idx += 1
+
+        return score
+
+    def get_completions(self, text: str) -> list[str]:
+        """Get completion candidates for text.
+
+        Returns list of matches sorted by score (best first).
+        """
+        if not text:
+            return []
+
+        # Detect what we're completing
+        if text.startswith("/"):
+            # Command completion
+            candidates = self.COMMANDS
+            query = text
+        elif " " not in text:
+            # Tool name completion (single word)
+            candidates = self.TOOLS
+            query = text
+        else:
+            # File path completion - get last word
+            last_word = text.split()[-1]
+            if "/" in last_word or last_word.startswith("~"):
+                candidates = self._get_file_completions(last_word)
+                query = last_word
+            else:
+                candidates = self.TOOLS
+                query = last_word
+
+        # Fuzzy match and score
+        scored = []
+        for candidate in candidates:
+            if self._fuzzy_match(query, candidate):
+                score = self._score_match(query, candidate)
+                scored.append((score, candidate))
+
+        # Sort by score descending, then alphabetically
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        return [c for _, c in scored]
+
+    def _get_file_completions(self, partial: str) -> list[str]:
+        """Get file path completions."""
+        from pathlib import Path
+
+        try:
+            # Expand ~ and get directory
+            expanded = Path(partial).expanduser()
+
+            if partial.endswith("/"):
+                dir_path = expanded
+                prefix = ""
+            else:
+                dir_path = expanded.parent
+                prefix = expanded.name
+
+            if not dir_path.exists():
+                return []
+
+            # List directory contents
+            results = []
+            for item in dir_path.iterdir():
+                name = item.name
+                if name.startswith("."):
+                    continue  # Skip hidden files
+                if item.is_dir():
+                    name += "/"
+                results.append(str(dir_path / name))
+
+            # Filter by prefix if any
+            if prefix:
+                results = [r for r in results if Path(r).name.startswith(prefix)]
+
+            return sorted(results)
+        except (OSError, PermissionError):
+            return []
+
+    def start(self, text: str) -> bool:
+        """Start completion mode. Returns True if matches found."""
+        self.matches = self.get_completions(text)
+        if self.matches:
+            self.selected_index = 0
+            self._visible = True
+            return True
+        return False
+
+    def next(self) -> None:
+        """Move to next match."""
+        if self.matches:
+            self.selected_index = (self.selected_index + 1) % len(self.matches)
+
+    def prev(self) -> None:
+        """Move to previous match."""
+        if self.matches:
+            self.selected_index = (self.selected_index - 1) % len(self.matches)
+
+    def get_selected(self) -> str | None:
+        """Get currently selected completion."""
+        if self.matches and 0 <= self.selected_index < len(self.matches):
+            return self.matches[self.selected_index]
+        return None
+
+    def hide(self) -> None:
+        """Hide dropdown."""
+        self._visible = False
+        self.matches = []
+        self.selected_index = 0
+
+    @property
+    def visible(self) -> bool:
+        """Check if dropdown is visible."""
+        return self._visible and len(self.matches) > 0
+
+    def render_dropdown(self) -> Text:
+        """Render the dropdown as Rich Text."""
+        if not self.visible:
+            return Text()
+
+        text = Text()
+
+        # Show up to max_visible items, with scroll indicator if more
+        start = 0
+        if len(self.matches) > self.max_visible:
+            # Center selected item in visible window
+            start = max(0, self.selected_index - self.max_visible // 2)
+            start = min(start, len(self.matches) - self.max_visible)
+
+        visible_matches = self.matches[start : start + self.max_visible]
+
+        for i, match in enumerate(visible_matches):
+            actual_index = start + i
+            is_selected = actual_index == self.selected_index
+
+            # Truncate long paths
+            display = match
+            if len(display) > 60:
+                display = "..." + display[-57:]
+
+            if is_selected:
+                text.append(f"  {display}\n", style="reverse")
+            else:
+                text.append(f"  {display}\n", style="dim")
+
+        if len(self.matches) > self.max_visible:
+            remaining = len(self.matches) - start - self.max_visible
+            text.append(f"  └─ {remaining} more\n", style="dim")
+
+        return text
+
+
 class LiveDisplay:
     """Rich Live display with streaming content and custom prompt."""
 
@@ -296,6 +515,7 @@ class LiveDisplay:
         self.prompt = PromptInput()
         self.history = History(history_path)
         self.reader = InputReader()
+        self.completer = Completer()
         self._live: Live | None = None
 
     def set_status(self, text: str) -> None:
@@ -314,7 +534,7 @@ class LiveDisplay:
         self._refresh()
 
     def _render(self) -> Text:
-        """Render full display: content + prompt + status."""
+        """Render full display: content + prompt + dropdown + status."""
         text = Text()
 
         # Content section
@@ -322,6 +542,10 @@ class LiveDisplay:
             text.append(self.content)
             if not self.content.endswith("\n"):
                 text.append("\n")
+
+        # Dropdown overlay (above prompt)
+        if self.completer.visible:
+            text.append(self.completer.render_dropdown())
 
         # Prompt section
         text.append(self.prompt.render())
@@ -369,10 +593,46 @@ class LiveDisplay:
         while True:
             action, char = self.reader.read()
 
+            # If dropdown is visible, arrow keys navigate it
+            if self.completer.visible:
+                if action == KeyAction.TAB:
+                    self.completer.next()
+                    self._refresh()
+                    continue
+                elif action == KeyAction.SHIFT_TAB:
+                    self.completer.prev()
+                    self._refresh()
+                    continue
+                elif action == KeyAction.UP:
+                    self.completer.prev()
+                    self._refresh()
+                    continue
+                elif action == KeyAction.DOWN:
+                    self.completer.next()
+                    self._refresh()
+                    continue
+                elif action == KeyAction.ENTER:
+                    # Accept selected completion
+                    selected = self.completer.get_selected()
+                    if selected:
+                        # Replace the word being completed
+                        self._apply_completion(selected)
+                        self.completer.hide()
+                    self._refresh()
+                    continue
+                elif action == KeyAction.ESC:
+                    self.completer.hide()
+                    self._refresh()
+                    continue
+
+            # Normal input handling
             if action == KeyAction.INSERT:
                 self.prompt.insert(char)
+                # Hide dropdown on typing (will re-show on Tab)
+                self.completer.hide()
             elif action == KeyAction.BACKSPACE:
                 self.prompt.delete_left()
+                self.completer.hide()
             elif action == KeyAction.DELETE:
                 self.prompt.delete_right()
             elif action == KeyAction.DELETE_TO_END:
@@ -407,16 +667,49 @@ class LiveDisplay:
                 # Submit
                 result = self.prompt.buffer
                 self.history.add(result)
+                self.completer.hide()
                 self.prompt.clear()
                 return result
             elif action == KeyAction.TAB:
-                # TODO: Tab completion
-                pass
+                # Show completion dropdown
+                self.completer.start(self.prompt.buffer)
             elif action == KeyAction.SHIFT_TAB:
-                # TODO: Reverse tab completion
-                pass
+                pass  # No action when dropdown hidden
             elif action == KeyAction.ESC:
-                # TODO: Handle ESC (dismiss dropdown, etc.)
-                pass
+                pass  # No action when dropdown hidden
 
             self._refresh()
+
+    def _apply_completion(self, completion: str) -> None:
+        """Apply a completion to the current buffer."""
+        text = self.prompt.buffer
+
+        # For commands, replace entire buffer
+        if completion.startswith("/"):
+            self.prompt.buffer = completion + " "
+            self.prompt.cursor = len(self.prompt.buffer)
+            return
+
+        # For file paths, replace last word
+        if "/" in completion:
+            words = text.split()
+            if words:
+                self.prompt.buffer = " ".join(words[:-1]) + " " + completion + " "
+                if len(words) == 1:
+                    self.prompt.buffer = completion + " "
+                self.prompt.cursor = len(self.prompt.buffer)
+            else:
+                self.prompt.buffer = completion + " "
+                self.prompt.cursor = len(self.prompt.buffer)
+            return
+
+        # For tool names, replace last word
+        words = text.split()
+        if words:
+            self.prompt.buffer = " ".join(words[:-1]) + " " + completion + " "
+            if len(words) == 1:
+                self.prompt.buffer = completion + " "
+            self.prompt.cursor = len(self.prompt.buffer)
+        else:
+            self.prompt.buffer = completion + " "
+            self.prompt.cursor = len(self.prompt.buffer)
