@@ -24,7 +24,7 @@ from src.agent import ToolEnd, ToolEvent, ToolStart
 from src.alfred import Alfred
 from src.cron.notifier import CLINotifier
 from src.interfaces.notification_buffer import NotificationBuffer
-from src.interfaces.status import StatusData, StatusRenderer
+from src.interfaces.status import StatusData
 from src.session import Session
 
 
@@ -263,12 +263,6 @@ class CLIInterface:
             is_streaming=self._is_streaming,
         )
 
-    def _bottom_toolbar(self) -> Any:
-        """Return status as prompt_toolkit bottom toolbar."""
-        status_data = self._get_status_data()
-        renderer = StatusRenderer(status_data)
-        return renderer.to_prompt_toolkit()
-
     @contextmanager
     def _patch_stdout_with_status(self) -> Iterator[None]:
         """Patch stdout for prompt_toolkit compatibility."""
@@ -438,11 +432,13 @@ class CLIInterface:
             message=">>> ",
             style=PROMPT_STYLE,
             key_bindings=kb,
-            bottom_toolbar=self._bottom_toolbar,
             completer=completer,
         )
 
         while True:
+            # Print status line above prompt
+            self.console.print(self._render_status_line())
+
             try:
                 with self._patch_stdout_with_status():
                     user_input = await self.session.prompt_async()
@@ -472,27 +468,27 @@ class CLIInterface:
             self.buffer.clear()
             self._is_streaming = True
 
+            self.buffer.clear()
+            self._is_streaming = True
+
             try:
                 with Live(
                     console=self.console,
                     refresh_per_second=12,
                     vertical_overflow="visible",
                 ) as live:
-                    # Initial state with just status
-                    live.update(Group(self._render_streaming_status()))
-
                     async for chunk in self.alfred.chat_stream(
                         user_input,
                         tool_callback=self._on_tool_event,
                     ):
                         self.buffer.add_text(chunk)
                         body = self.buffer.render()
-                        # Status line at bottom of content
-                        live.update(Group(*body, self._render_streaming_status()))
+                        # Status line at bottom, just above where prompt will be
+                        live.update(Group(*body, self._render_status_line()))
 
-                    # Final update - just content, no status
+                    # Final update
                     body = self.buffer.render()
-                    live.update(Group(*body))
+                    live.update(Group(*body, self._render_status_line()))
 
             except Exception as e:
                 self.console.print(f"\n[bold red]Error: {e}[/]\n")
@@ -502,51 +498,51 @@ class CLIInterface:
                 # Flush any queued notifications
                 self._flush_notifications()
 
-    def _render_streaming_status(self) -> RenderableType:
-        """Render streaming status line matching the toolbar format.
+    def _render_status_line(self) -> RenderableType:
+        """Render status line above prompt.
 
-        Uses Rich Spinner widget for auto-animation inside Live.
         Shows: ⠋ kimi | in:12K out:3K | ctx:45  📚 0 | 💬 0 | 📋 sections
+        When streaming: animated spinner
+        When idle: static ">"
         """
         status_data = self._get_status_data()
         usage = status_data.usage
 
-        # Build status text (Spinner auto-animates)
-        text = Text()
-        # Model name (spinner takes 1 char, add space like toolbar)
-        text.append(status_data.model_name, style="bold white")
-        text.append(" | ", style="dim")
-
-        # Token counts - match toolbar format exactly
-        text.append(f"in:{self._format_number(usage.input_tokens)} ", style="blue")
-        text.append(f"out:{self._format_number(usage.output_tokens)}", style="green")
-
-        # Cache read (only if non-zero)
-        if usage.cache_read_tokens > 0:
-            text.append(f" cache:{self._format_number(usage.cache_read_tokens)}", style="yellow")
-
-        # Reasoning (only if non-zero)
-        if usage.reasoning_tokens > 0:
-            text.append(f" reason:{self._format_number(usage.reasoning_tokens)}", style="magenta")
-
-        text.append(f" | ctx:{self._format_number(status_data.context_tokens)}", style="dim")
-
-        # Context summary - match toolbar format
+        # Context summary
         m = status_data.memories_count
         s = status_data.session_messages
         sections_str = (
-            ",".join(status_data.prompt_sections[:3])
+            ",".join(status_data.prompt_sections)
             if status_data.prompt_sections
             else "none"
         )
         if len(sections_str) > 20:
             sections_str = sections_str[:17] + "..."
-        text.append(f"  📚 {m} | 💬 {s} | 📋 {sections_str}", style="white")
 
-        # Combine auto-animating spinner with status text
-        spinner = Spinner("dots", style="cyan")
-        return Columns([spinner, text])
-        return Columns([spinner, text])
+        # Build status text with dark background
+        text = Text()
+        bg = "on color(236)"
+        text.append(status_data.model_name, style=f"bold white {bg}")
+        text.append(" | ", style=f"dim {bg}")
+        text.append(f"in:{self._format_number(usage.input_tokens)} ", style=f"cyan {bg}")
+        text.append(f"out:{self._format_number(usage.output_tokens)}", style=f"green {bg}")
+        if usage.cache_read_tokens > 0:
+            cache = self._format_number(usage.cache_read_tokens)
+            text.append(f" cache:{cache}", style=f"yellow {bg}")
+        if usage.reasoning_tokens > 0:
+            reason = self._format_number(usage.reasoning_tokens)
+            text.append(f" reason:{reason}", style=f"magenta {bg}")
+        text.append(f" | ctx:{self._format_number(status_data.context_tokens)}", style=f"dim {bg}")
+        text.append(f"  📚 {m} | 💬 {s} | 📋 {sections_str} ", style=bg)
+
+        # Throbber: animated spinner when streaming, static ">" when idle
+        if self._is_streaming:
+            spinner = Spinner("dots", style=f"cyan {bg}")
+            return Columns([spinner, text])
+        else:
+            prefix = Text("> ", style=f"green {bg}")
+            prefix.append(text)
+            return prefix
 
     @staticmethod
     def _format_number(n: int) -> str:
