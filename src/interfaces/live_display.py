@@ -8,6 +8,7 @@ import asyncio
 import sys
 import termios
 import select
+import time
 from collections.abc import Callable
 from enum import Enum, auto
 from typing import Any
@@ -578,24 +579,49 @@ class LiveDisplay:
         self._show_prompt: bool = True
 
     def _drain_stdin(self) -> None:
-        """Drain any buffered stdin input to prevent stale keypresses."""
-        # Set stdin to non-blocking mode temporarily
+        """Drain any buffered stdin input to prevent stale keypresses.
+        
+        This is critical after streaming ends - any keys pressed during
+        streaming (like spamming Enter) must be discarded before we start
+        reading input again.
+        """
         if not sys.stdin.isatty():
             return
         
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
-            # Set to non-canonical, non-blocking
+            # Set to non-canonical, non-blocking with immediate timeout
             new_settings = termios.tcgetattr(fd)
-            new_settings[3] = new_settings[3] & ~termios.ICANON
+            new_settings[3] = new_settings[3] & ~termios.ICANON & ~termios.ECHO
             new_settings[6][termios.VMIN] = 0
             new_settings[6][termios.VTIME] = 0
             termios.tcsetattr(fd, termios.TCSANOW, new_settings)
             
-            # Drain any pending input
-            while select.select([sys.stdin], [], [], 0)[0]:
-                sys.stdin.read(1)
+            # Aggressively drain all pending input
+            drained = 0
+            while True:
+                ready, _, _ = select.select([sys.stdin], [], [], 0)
+                if not ready:
+                    break
+                try:
+                    char = sys.stdin.read(1)
+                    if not char:
+                        break
+                    drained += 1
+                except (IOError, OSError):
+                    break
+            
+            if drained > 0:
+                # Small delay to catch any stragglers, then drain again
+                time.sleep(0.01)
+                while select.select([sys.stdin], [], [], 0)[0]:
+                    try:
+                        if not sys.stdin.read(1):
+                            break
+                        drained += 1
+                    except (IOError, OSError):
+                        break
         finally:
             termios.tcsetattr(fd, termios.TCSANOW, old_settings)
 
