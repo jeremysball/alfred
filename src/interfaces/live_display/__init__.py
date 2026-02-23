@@ -71,6 +71,17 @@ class LiveDisplay:
             self._live.update(self._render())
             self._live.refresh()
 
+    def _force_redraw(self) -> None:
+        """Force a complete redraw of the display.
+
+        Used when returning from tmux window switch or other situations
+        where the terminal content may have been corrupted.
+        """
+        if self._live is not None:
+            # Clear and redraw to handle terminal state issues
+            self._live.refresh()
+            self._refresh()
+
     def start(self) -> None:
         """Start Live display."""
         self._live = Live(
@@ -134,7 +145,9 @@ class LiveDisplay:
     def read_line(self) -> str:
         """Read a line of input with editing support."""
         self.prompt.clear()
-        self._refresh()
+        # Force complete redraw - handles tmux window switching and other cases
+        # where the terminal content may have been corrupted or hidden
+        self._force_redraw()
 
         while True:
             action, char = self.reader.read()
