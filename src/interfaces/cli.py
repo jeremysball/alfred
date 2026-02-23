@@ -380,6 +380,9 @@ class CLIInterface:
                 "[bold yellow]No sessions found.[/]",
                 "yellow",
             )
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.update()
             return True
 
         # Build a text representation of the sessions table
@@ -407,6 +410,9 @@ class CLIInterface:
             "\n".join(lines),
             "dim blue",
         )
+        if self._live_display:
+            self._live_display.set_content(self.buffer.render())
+            self._live_display.update()
         return True
 
     def _cmd_show_current_session(self) -> bool:
@@ -417,6 +423,9 @@ class CLIInterface:
                 "[bold yellow]No active session.[/]",
                 "yellow",
             )
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.update()
             return True
 
         session = self.alfred.session_manager.get_current_cli_session()
@@ -426,6 +435,9 @@ class CLIInterface:
                 "[bold yellow]No active session.[/]",
                 "yellow",
             )
+            if self._live_display:
+                self._live_display.set_content(self.buffer.render())
+                self._live_display.update()
             return True
 
         meta = session.meta
@@ -444,6 +456,9 @@ class CLIInterface:
             content,
             "cyan",
         )
+        if self._live_display:
+            self._live_display.set_content(self.buffer.render())
+            self._live_display.update()
         return True
 
     async def run(self) -> None:
@@ -511,6 +526,9 @@ class CLIInterface:
                         f"[bold green]{result}[/]",
                         "green",
                     )
+                    if self._live_display:
+                        self._live_display.set_content(self.buffer.render())
+                        self._live_display.update()
                     continue
 
                 # Handle Ctrl+T toggle (as command for now)
@@ -522,6 +540,9 @@ class CLIInterface:
                         f"Tool panels: {state}",
                         "dim",
                     )
+                    if self._live_display:
+                        self._live_display.set_content(self.buffer.render())
+                        self._live_display.update()
                     continue
 
                 # Session commands
