@@ -5,6 +5,9 @@ with a custom prompt that supports editing, history, and tab completion.
 """
 
 import asyncio
+import sys
+import termios
+import select
 from collections.abc import Callable
 from enum import Enum, auto
 from typing import Any
@@ -241,6 +244,7 @@ class History:
         self.filepath: Path | None = Path(filepath).expanduser() if filepath else None
         self.entries: list[str] = []
         self.index: int = -1  # -1 means not navigating
+        self._original_input: str = ""  # Store original input when navigating
         self._load()
 
     def _load(self) -> None:
@@ -259,29 +263,33 @@ class History:
             self.entries.append(command)
             self._save()
         self.index = -1
+        self._original_input = ""  # Clear original input
 
     def up(self, current: str) -> str:
         """Go up in history, return that entry."""
         if not self.entries:
             return current
         if self.index == -1:
-            # Start navigating from end
+            # Start navigating from end - save original input
+            self._original_input = current
             self.index = len(self.entries) - 1
         elif self.index > 0:
             self.index -= 1
         return self.entries[self.index]
 
     def down(self, current: str) -> str:
-        """Go down in history, return that entry or original."""
+        """Go down in history, return that entry or clear if at end."""
         if self.index == -1:
             return current
         if self.index < len(self.entries) - 1:
             self.index += 1
             return self.entries[self.index]
         else:
-            # Back to original
+            # Back to original input, then clear on next down
             self.index = -1
-            return current
+            result = self._original_input
+            self._original_input = ""  # Clear for next navigation
+            return result
 
 
 class Completer:
@@ -558,6 +566,31 @@ class LiveDisplay:
         # Status line: Rich renderable (Text, Columns, etc.)
         self._status: RenderableType = Text("Ready", style="dim")
 
+        # Prompt visibility (hide during streaming)
+        self._show_prompt: bool = True
+
+    def _drain_stdin(self) -> None:
+        """Drain any buffered stdin input to prevent stale keypresses."""
+        # Set stdin to non-blocking mode temporarily
+        if not sys.stdin.isatty():
+            return
+        
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            # Set to non-canonical, non-blocking
+            new_settings = termios.tcgetattr(fd)
+            new_settings[3] = new_settings[3] & ~termios.ICANON
+            new_settings[6][termios.VMIN] = 0
+            new_settings[6][termios.VTIME] = 0
+            termios.tcsetattr(fd, termios.TCSANOW, new_settings)
+            
+            # Drain any pending input
+            while select.select([sys.stdin], [], [], 0)[0]:
+                sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSANOW, old_settings)
+
     def set_content(self, renderables: list[RenderableType]) -> None:
         """Set content area to list of renderables (e.g., ConversationBuffer.render())."""
         self._content = renderables
@@ -582,6 +615,17 @@ class LiveDisplay:
         self._status = status
         self._refresh()
 
+    def set_prompt_visible(self, visible: bool) -> None:
+        """Show or hide the prompt line.
+
+        Hide during streaming to prevent UI corruption from buffered input.
+
+        Args:
+            visible: True to show prompt, False to hide.
+        """
+        self._show_prompt = visible
+        self._refresh()
+
     def _render(self) -> RenderableType:
         """Render full display: content + dropdown + prompt + status."""
         parts: list[RenderableType] = []
@@ -594,8 +638,9 @@ class LiveDisplay:
         if self.completer.visible:
             parts.append(self.completer.render_dropdown())
 
-        # Prompt section
-        parts.append(self.prompt.render())
+        # Prompt section (only when visible)
+        if self._show_prompt:
+            parts.append(self.prompt.render())
 
         # Status line at bottom (tmux-style)
         parts.append(self._status)
@@ -638,7 +683,12 @@ class LiveDisplay:
 
         Returns the submitted string.
         """
+        # Drain any buffered input from previous streaming
+        self._drain_stdin()
+        
         self.prompt.clear()
+        self._show_prompt = True
+        self._refresh()  # Show empty prompt initially
 
         while True:
             action, char = self.reader.read()
@@ -647,6 +697,7 @@ class LiveDisplay:
                 self.history.add(result)
                 self.completer.hide()
                 self.prompt.clear()
+                self._refresh()  # Clear the prompt visually before returning
                 return result
 
     async def read_line_async(self) -> str:

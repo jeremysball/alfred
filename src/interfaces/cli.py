@@ -429,6 +429,10 @@ class CLIInterface:
         self.buffer.clear()
         self._is_streaming = True
 
+        # Hide prompt during streaming to prevent UI corruption
+        if self._live_display:
+            self._live_display.set_prompt_visible(False)
+
         try:
             async for chunk in self.alfred.chat_stream(
                 user_input,
@@ -453,6 +457,9 @@ class CLIInterface:
         finally:
             self._is_streaming = False
             self._flush_notifications()
+            # Show prompt again after streaming
+            if self._live_display:
+                self._live_display.set_prompt_visible(True)
 
     def _render_status_line(self) -> RenderableType:
         """Render status line (tmux-style at bottom).
