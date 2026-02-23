@@ -202,14 +202,14 @@ class StreamingRenderer:
         # Case 1: Pure append (all old lines match, only new lines added)
         old_lines_unchanged = not any(i < old_count for i in changed)
         if new_count > old_count and old_lines_unchanged:
-            with patch_stdout():
-                # Just print new lines - no cursor movement
-                for i in range(old_count, new_count):
-                    self._write_ansi(f"{new_lines[i]}\033[K\n")
-                sys.stdout.flush()
+            # DON'T use patch_stdout for pure append - just print directly
+            # patch_stdout might be causing the flicker/scroll
+            for i in range(old_count, new_count):
+                self._write_ansi(f"{new_lines[i]}\033[K\n")
+            sys.stdout.flush()
             return
 
-        # Case 2: Some content changed - redraw from first change
+        # Case 2: Some content changed - need patch_stdout for cursor movement
         if changed:
             with patch_stdout():
                 first_change = min(changed)
