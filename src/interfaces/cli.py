@@ -245,11 +245,23 @@ class CLIInterface:
         session = self.alfred.session_manager.new_session()
         self.buffer.clear()
 
-        # Update context summary for status line refresh
+        # Clear LiveDisplay content to remove old messages
+        if self._live_display:
+            self._live_display.clear_content()
+
+        # Reset token tracking for new session
+        self.alfred.token_tracker.reset()
+
+        # Update context summary for status line
         self.alfred.context_summary.update(
             memories_count=self.alfred.context_summary.memories_count,
             session_messages=0,
         )
+
+        # Update status line immediately
+        if self._live_display:
+            self._live_display.set_status(self._render_status_line())
+            self._live_display.update()
 
         self.console.print(
             Panel(
