@@ -164,7 +164,16 @@ class Completer:
         if not self.visible:
             return Text()
 
-        text = Text()
+        # Box drawing characters
+        top_left = "╭"
+        top_right = "╮"
+        bottom_left = "╰"
+        bottom_right = "╯"
+        horizontal = "─"
+        vertical = "│"
+        pointer = "▸ "
+
+        # Calculate visible matches
         start = 0
         if len(self.matches) > self.max_visible:
             start = max(0, self.selected_index - self.max_visible // 2)
@@ -172,19 +181,47 @@ class Completer:
 
         visible_matches = self.matches[start : start + self.max_visible]
 
+        # Calculate width based on longest match
+        max_width = max(len(m) for m in visible_matches) if visible_matches else 0
+        max_width = min(max_width, 50)  # Cap at 50 chars
+        inner_width = max_width + 4  # Space for pointer and padding
+
+        # Build the dropdown
+        text = Text()
+
+        # Top border with title
+        text.append(top_left, style="cyan")
+        text.append(horizontal * 2, style="cyan")
+        text.append("commands", style="bold cyan")
+        text.append(horizontal * (inner_width - 10), style="cyan")
+        text.append(top_right, style="cyan")
+        text.append("\n")
+
+        # Match rows
         for i, match in enumerate(visible_matches):
             actual_index = start + i
             is_selected = actual_index == self.selected_index
-            display = match
-            if len(display) > 60:
-                display = "..." + display[-57:]
-            if is_selected:
-                text.append(f"  {display}\n", style="reverse")
-            else:
-                text.append(f"  {display}\n", style="dim")
+            display = match[:50]  # Truncate if too long
+            padding = " " * (inner_width - len(display) - 2)
 
-        if len(self.matches) > self.max_visible:
-            remaining = len(self.matches) - start - self.max_visible
-            text.append(f"  └─ {remaining} more\n", style="dim")
+            text.append(vertical, style="cyan")
+            if is_selected:
+                text.append(pointer, style="bold cyan")
+                text.append(display, style="bold white")
+                text.append(padding)
+            else:
+                text.append("  ", style="dim")
+                text.append(display, style="dim")
+                text.append(padding, style="dim")
+            text.append(vertical, style="cyan")
+            text.append("\n")
+
+        # Bottom border with count
+        text.append(bottom_left, style="cyan")
+        count_text = f" {self.selected_index + 1}/{len(self.matches)} "
+        remaining_width = inner_width - len(count_text)
+        text.append(horizontal * remaining_width, style="cyan")
+        text.append(count_text, style="dim cyan")
+        text.append(bottom_right, style="cyan")
 
         return text

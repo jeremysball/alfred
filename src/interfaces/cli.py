@@ -422,7 +422,7 @@ class CLIInterface:
 
     async def _stream_response(self, user_input: str) -> None:
         """Stream a response from Alfred."""
-        self.buffer.clear()
+        # Don't clear buffer - accumulate conversation history
         self._is_streaming = True
 
         # Disable echo during streaming to prevent Enter keystrokes from appearing

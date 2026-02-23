@@ -157,7 +157,17 @@ class LiveDisplay:
 
         if action == KeyAction.INSERT:
             self.prompt.insert(char)
-            self.completer.hide()
+            # Auto-trigger completion only for commands (starting with /)
+            # Only when / is the FIRST character and followed by at least one letter
+            is_command = (
+                self.prompt.buffer.startswith("/")
+                and len(self.prompt.buffer) >= 2
+                and not self.prompt.buffer[1:].startswith(" ")
+            )
+            if is_command:
+                self.completer.start(self.prompt.buffer)
+            else:
+                self.completer.hide()
         elif action == KeyAction.SHIFT_ENTER:
             self.prompt.insert("\n")
             self.completer.hide()

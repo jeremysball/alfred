@@ -18,7 +18,7 @@ from readchar.key import (  # type: ignore[attr-defined]
     UP,
 )
 
-from .types import KeyAction
+from .types import KeyAction as KeyAction
 
 
 class InputReader:
