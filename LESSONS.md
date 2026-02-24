@@ -6,66 +6,58 @@ Critical patterns discovered during development that prevent bugs.
 
 ## CLI Interface Architecture
 
-### Live Display + Console Scrollback Pattern
+### Live Display Pattern for Chat Interfaces
 
-**Pattern:** Use Rich Live only for the active input area and streaming content. Print completed messages to console for natural scrolling.
+**Pattern:** Rich Live with fixed-size Layout for prompt+status at bottom. Content prints to `live.console` which automatically appears above the Live display.
 
-**Why:** Live display maintains a fixed position. If you put scrollback history in Live, it flickers, can't be scrolled, and consumes excessive memory.
-
-**Rich Documentation Confirms:**
-> "If you print or log to this console, the output will be displayed **above** the live display."
-
-This means printing to `live.console` automatically places content above the Live display - no stop/start needed.
-
-**Correct Architecture:**
+**Architecture:**
 ```
 ┌─────────────────────────────────────┐
-│ [Console scrollback - prints]       │  ← live.console.print()
-│ User: Hello                         │     Automatically appears above Live
+│ [Console scrollback]                │  ← live.console.print()
+│ User: Hello                         │     Appears above Live
 │ Alfred: Hi there!                   │     Scrolls naturally
-│ User: How are you?                  │
-│ Alfred: I'm doing well!             │
 ├─────────────────────────────────────┤
-│ > [prompt]                          │  ← Rich Live display
-│ kimi | in:1.2K out:500 | 💬 5       │     Fixed at bottom
+│ > [prompt]                          │  ← Rich Live with Layout
+│ kimi | in:1.2K out:500 | 💬 5       │     Fixed 2-line bottom (size=2)
 └─────────────────────────────────────┘
 ```
 
 **Implementation:**
+
+1. **Layout with fixed-size bottom region:**
 ```python
-async def _stream_response(self, user_input: str) -> None:
-    # ... stream into buffer with Live updates ...
-
-    # Finalize the assistant message
-    self.buffer.finalize_message()
-
-    # Print to Live's console - automatically appears ABOVE the live display
-    if self._live_display:
-        for renderable in self.buffer.render():
-            self._live_display.console.print(renderable)
-
-    # Clear buffer - messages are now in console scrollback
-    self.buffer.clear()
-
-    # Clear Live display content (keep just prompt + status)
-    if self._live_display:
-        self._live_display.set_content([])
-        self._live_display.update()
+self._layout = Layout()
+self._layout.split_column(
+    Layout(name="spacer", size=0),  # Takes no space
+    Layout(name="prompt", size=2),  # Fixed 2 lines for prompt+status
+)
 ```
 
-### When to Use Each Output Method
+2. **Live runs continuously, status updates during streaming:**
+```python
+async for chunk in self.alfred.chat_stream(user_input):
+    self.buffer.add_text(chunk)
+    # Print chunk to live.console (appears above Live)
+    self._live_display.console.print(chunk, end="")
+    # Update status line (shows throbber)
+    self._live_display.set_status(self._render_status_line())
+    self._live_display.update()
+```
 
-| Context | Method | Why |
-|---------|--------|-----|
-| Streaming response | Live display | In-place updates, no flicker |
-| Completed messages | `live.console.print()` | Appears above Live, scrollable |
-| Commands (/new, /resume) | `live.console.print()` | Appears above Live, scrollable |
-| Status line | Live display | Fixed position, always visible |
-| Prompt | Live display | Fixed position, always visible |
+3. **Final message prints formatted:**
+```python
+self.buffer.finalize_message()
+for renderable in self.buffer.render():
+    self._live_display.console.print(renderable)
+self.buffer.clear()
+```
 
-### Key Insight
+### Key Insights
 
-**Print to `live.console`, not `self.console`.** The Live display's console automatically positions printed content above the Live area. No need to stop/start Live.
+1. **Layout with size=2 for prompt** - Keeps prompt anchored at bottom
+2. **Live runs continuously** - Throbber/status updates during streaming
+3. **`live.console.print()` appears above Live** - Per Rich docs
+4. **No transient, no stop/start** - Just continuous Live with content above
 
 ---
 

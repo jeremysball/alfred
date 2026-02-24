@@ -1,4 +1,4 @@
-"""Rich Live display with custom prompt input."""
+"""Rich Live display with custom prompt input and mouse scroll support."""
 
 import asyncio
 import signal
@@ -7,6 +7,7 @@ import termios
 from collections.abc import Callable
 
 from rich.console import Console, Group, RenderableType
+from rich.layout import Layout
 from rich.live import Live
 from rich.text import Text
 
@@ -16,56 +17,92 @@ from .completer import Completer
 from .history import History
 from .input import InputReader, KeyAction, PromptInput
 
+# Mouse action codes (SGR extended mode)
+MOUSE_SCROLL_UP = 64
+MOUSE_SCROLL_DOWN = 65
+
 
 class LiveDisplay:
-    """Rich Live display with streaming content and custom prompt."""
+    """Rich Live display with fixed prompt and status at bottom.
+
+    Layout: content (flexible) | live area (streaming + prompt + status)
+    Supports mouse scroll for custom scrollback.
+    """
 
     def __init__(
         self,
         console: Console | None = None,
         history_path: str | None = None,
         get_session_ids: Callable[[], list[str]] | None = None,
+        on_scroll: Callable[[int], None] | None = None,
     ) -> None:
-        """Initialize LiveDisplay."""
+        """Initialize LiveDisplay.
+
+        Args:
+            console: Console instance
+            history_path: Path to history file
+            get_session_ids: Callback to get session IDs for completion
+            on_scroll: Callback for scroll events (positive = scroll up, negative = scroll down)
+        """
         self.console = console or Console()
         self.prompt = PromptInput()
         self.history = History(history_path)
         self.reader = InputReader()
         self.completer = Completer(get_session_ids=get_session_ids)
+        self.on_scroll = on_scroll
         self._live: Live | None = None
-        self._content: list[RenderableType] = []
         self._status: RenderableType = Text("Ready", style=Theme.text_secondary)
+        self._history: RenderableType = Text()
+        self._streaming: RenderableType | None = None
+        self._mouse_enabled = False
 
-    def set_content(self, renderables: list[RenderableType]) -> None:
-        """Set content area to list of renderables."""
-        self._content = renderables
-        self._refresh()
-
-    def add_content(self, renderable: RenderableType) -> None:
-        """Add a renderable to content area."""
-        self._content.append(renderable)
-        self._refresh()
-
-    def clear_content(self) -> None:
-        """Clear content area (new message)."""
-        self._content = []
-        self._refresh()
+        # Create layout: content (flexible) | live (fixed at bottom)
+        self._layout = Layout()
+        self._layout.split_column(
+            Layout(name="content", ratio=1),
+            Layout(name="live", size=2),
+        )
 
     def set_status(self, status: RenderableType) -> None:
         """Update status line."""
         self._status = status
         self._refresh()
 
+    def set_history(self, history: RenderableType) -> None:
+        """Update the history content (completed messages)."""
+        self._history = history
+        self._refresh()
+
+    def set_streaming(self, streaming: RenderableType) -> None:
+        """Set the currently streaming message."""
+        self._streaming = streaming
+        self._refresh()
+
+    def clear_streaming(self) -> None:
+        """Clear and hide the streaming area."""
+        self._streaming = None
+        self._refresh()
+
     def _render(self) -> RenderableType:
-        """Render full display: content + dropdown + prompt + status."""
+        """Render full layout: content (history|streaming) | live."""
+        # Build content: history + streaming
+        if self._streaming is not None:
+            content: RenderableType = Group(self._history, self._streaming)
+        else:
+            content = self._history
+
+        self._layout["content"].update(content)
+
+        # Live area: prompt + status fixed at bottom
         parts: list[RenderableType] = []
-        if self._content:
-            parts.extend(self._content)
         if self.completer.visible:
             parts.append(self.completer.render_dropdown())
         parts.append(self.prompt.render())
         parts.append(self._status)
-        return Group(*parts)
+
+        self._layout["live"].update(Group(*parts))
+
+        return self._layout
 
     def _refresh(self) -> None:
         """Refresh Live display if active."""
@@ -73,33 +110,50 @@ class LiveDisplay:
             self._live.update(self._render())
 
     def start(self) -> None:
-        """Start Live display."""
+        """Start Live display with mouse tracking."""
         self._live = Live(
             self._render(),
             console=self.console,
             refresh_per_second=10,
+            screen=True,  # Alternate screen for clean UX
+            vertical_overflow="visible",  # Allow content to extend into scrollback
         )
         self._live.start()
-        # Handle terminal resize to force redraw
+        self._enable_mouse()
         self._setup_resize_handler()
+
+    def _enable_mouse(self) -> None:
+        """Enable SGR extended mouse mode for scroll tracking."""
+        if not sys.stdin.isatty():
+            return
+        # Enable SGR extended mouse mode (1006) with scroll reporting
+        sys.stdout.write('\x1b[?1006h\x1b[?1000h')
+        sys.stdout.flush()
+        self._mouse_enabled = True
+
+    def _disable_mouse(self) -> None:
+        """Disable mouse mode."""
+        if not sys.stdin.isatty() or not self._mouse_enabled:
+            return
+        sys.stdout.write('\x1b[?1000l\x1b[?1006l')
+        sys.stdout.flush()
+        self._mouse_enabled = False
 
     def _setup_resize_handler(self) -> None:
         """Setup handler for terminal resize events."""
         if sys.stdin.isatty():
-            # Save original handler
             self._original_sigwinch = signal.signal(signal.SIGWINCH, self._on_resize)
 
     def _on_resize(self, signum: int, frame: object) -> None:
         """Handle terminal resize - force a refresh."""
-        # Force a refresh on resize
         self._refresh()
 
     def stop(self) -> None:
         """Stop Live display."""
+        self._disable_mouse()
         if self._live is not None:
             self._live.stop()
             self._live = None
-        # Restore original resize handler
         if hasattr(self, '_original_sigwinch'):
             signal.signal(signal.SIGWINCH, self._original_sigwinch)
 
@@ -115,7 +169,7 @@ class LiveDisplay:
         self.stop()
 
     def disable_echo(self) -> None:
-        """Disable terminal echo - prevents keystrokes from appearing during streaming."""
+        """Disable terminal echo."""
         if not sys.stdin.isatty():
             return
         fd = sys.stdin.fileno()
@@ -125,7 +179,7 @@ class LiveDisplay:
         termios.tcsetattr(fd, termios.TCSANOW, new_settings)
 
     def enable_echo(self) -> None:
-        """Re-enable terminal echo after streaming."""
+        """Re-enable terminal echo."""
         if not sys.stdin.isatty() or not hasattr(self, '_original_tty_settings'):
             return
         fd = sys.stdin.fileno()
@@ -176,8 +230,6 @@ class LiveDisplay:
 
         if action == KeyAction.INSERT:
             self.prompt.insert(char)
-            # Auto-trigger completion only for commands (starting with /)
-            # Only when / is the FIRST character and followed by at least one letter
             is_command = (
                 self.prompt.buffer.startswith("/")
                 and len(self.prompt.buffer) >= 2
@@ -225,6 +277,14 @@ class LiveDisplay:
             return True
         elif action == KeyAction.TAB:
             self.completer.start(self.prompt.buffer)
+        elif action == KeyAction.MOUSE_SCROLL:
+            # Handle mouse scroll - call on_scroll callback
+            if self.on_scroll:
+                if char == "up":
+                    self.on_scroll(1)  # Scroll up = show older
+                elif char == "down":
+                    self.on_scroll(-1)  # Scroll down = show newer
+            return False  # Don't consume the event, keep reading
         elif action in (KeyAction.SHIFT_TAB, KeyAction.ESC):
             pass
 

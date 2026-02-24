@@ -27,3 +27,4 @@ class KeyAction(Enum):
     SHIFT_ENTER = auto()  # Insert newline (multi-line)
     ESC = auto()
     SUBMIT = auto()
+    MOUSE_SCROLL = auto()  # Mouse scroll wheel

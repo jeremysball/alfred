@@ -286,6 +286,8 @@ class Agent:
             Complete response as string
         """
         result = ""
-        async for chunk in self.run_stream(messages, system_prompt, tool_callback=tool_callback):
+        async for chunk in self.run_stream(
+            messages, system_prompt, tool_callback=tool_callback
+        ):
             result += chunk
         return result

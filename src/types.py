@@ -1,6 +1,6 @@
 """Shared type definitions for Alfred."""
 
-from datetime import date, datetime
+import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -27,13 +27,6 @@ class MemoryEntry(BaseModel):
         """Auto-generate ID if not set."""
         if self.entry_id is None:
             self.entry_id = self.generate_id()
-
-
-class DailyMemory(BaseModel):
-    """All memories for a single day."""
-
-    date: date  # YYYY-MM-DD as actual date type
-    entries: list[MemoryEntry] = Field(default_factory=list)
 
 
 class ContextFile(BaseModel):

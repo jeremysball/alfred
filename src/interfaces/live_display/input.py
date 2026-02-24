@@ -1,5 +1,6 @@
 """Input handling for LiveDisplay."""
 
+import re
 from readchar import readkey
 from rich.text import Text
 
@@ -23,12 +24,41 @@ from readchar.key import (  # type: ignore[attr-defined]
 from .types import KeyAction as KeyAction
 
 
+# Mouse action codes (SGR extended mode)
+MOUSE_SCROLL_UP = 64
+MOUSE_SCROLL_DOWN = 65
+
+# Regex to parse SGR mouse events: \x1b[<action;col;rowM or m
+MOUSE_EVENT_RE = re.compile(r'\x1b\[<(\d+);(\d+);(\d+)([Mm])')
+
+
 class InputReader:
     """Read keyboard input and translate to actions."""
 
     def read(self) -> tuple[KeyAction, str]:
-        """Read a keypress and return (action, char)."""
+        """Read a keypress and return (action, char).
+        
+        Also handles mouse scroll events, returning MOUSE_SCROLL action
+        with 'up' or 'down' as the char.
+        """
         key = readkey()
+
+        # Check for mouse scroll events (SGR format: \x1b[<64;col;rowM for scroll up)
+        if key == '\x1b':
+            # Might be start of mouse event, read more
+            # Note: readkey should have read the full sequence, check if it matches
+            pass
+        
+        # Try to match mouse event in the key
+        mouse_match = MOUSE_EVENT_RE.match(key)
+        if mouse_match:
+            action = int(mouse_match.group(1))
+            if action == MOUSE_SCROLL_UP:
+                return (KeyAction.MOUSE_SCROLL, "up")
+            elif action == MOUSE_SCROLL_DOWN:
+                return (KeyAction.MOUSE_SCROLL, "down")
+            # Other mouse events, ignore
+            return (KeyAction.ESC, "")
 
         if key == BACKSPACE:
             return (KeyAction.BACKSPACE, "")
