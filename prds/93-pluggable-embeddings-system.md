@@ -161,17 +161,31 @@ class VectorStore(Protocol):
 
 ### Configuration
 
-```bash
-# Embedding configuration
-EMBEDDING_PROVIDER=local          # local | openai | ollama
-EMBEDDING_MODEL=BAAI/bge-small-en-v1.5  # For local/ollama
-EMBEDDING_FALLBACK=openai         # Fallback provider (optional)
+All embedding settings live in `config.toml` (or `alfred.toml` after PRD #30):
 
-# FAISS configuration
-FAISS_INDEX_TYPE=auto             # flat | ivf | auto (auto = ivf if >10K)
-FAISS_NLIST=100                   # IVF clusters (for IVF index)
-FAISS_INDEX_PATH=data/memory/index.faiss
+```toml
+[embeddings]
+# Provider: "local" (BGE-small) | "openai" | "ollama"
+provider = "local"
+
+# Model name for local/ollama providers
+model = "BAAI/bge-small-en-v1.5"
+
+# Fallback provider if primary fails (optional)
+fallback = "openai"
+
+[embeddings.faiss]
+# Index type: "flat" (exact) | "ivf" (approximate) | "auto" (ivf if >10K vectors)
+index_type = "auto"
+
+# IVF clusters (only used when index_type = "ivf")
+nlist = 100
+
+# Where to persist the index
+index_path = "data/memory/index.faiss"
 ```
+
+Environment variables remain supported for secrets only (`OPENAI_API_KEY`).
 
 ### Migration Strategy
 
