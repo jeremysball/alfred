@@ -172,6 +172,8 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 13 | Learning System | Prompt-based learning to update USER.md/SOUL.md |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
 | 15 | README Landing Page | Transform README into compelling OSS landing page |
+| 16 | pypitui CLI Rewrite | Replace prompt_toolkit/Rich CLI with pypitui TUI library (PRD #92) |
+| 17 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
 
 ### Short-term 📋
 
