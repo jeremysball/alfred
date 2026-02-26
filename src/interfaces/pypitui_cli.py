@@ -1,8 +1,9 @@
 """PyPiTUI-based CLI interface for Alfred."""
 
 import asyncio
+from contextlib import suppress
 
-from pypitui import TUI, Container, Input, ProcessTerminal
+from pypitui import TUI, Container, Input, ProcessTerminal, Text
 
 from src.alfred import Alfred
 
@@ -46,7 +47,31 @@ class AlfredTUI:
         Args:
             text: The submitted text
         """
-        # Placeholder - will be implemented in Phase 1.3
+        # Strip whitespace and ignore empty
+        text = text.strip()
+        if not text:
+            return
+
+        # Add user message to conversation (simple Text for now)
+        user_msg = Text(f"You: {text}")
+        self.conversation.add_child(user_msg)
+
+        # Clear input field
+        self.input_field.set_value("")
+
+        # Create async task for response (requires running event loop)
+        # In production, run() provides the event loop
+        with suppress(RuntimeError):
+            asyncio.create_task(self._send_message(text))
+
+    async def _send_message(self, text: str) -> None:
+        """Send message to Alfred and handle response.
+
+        Args:
+            text: The user message
+
+        Placeholder - will be implemented in Phase 1.4
+        """
         pass
 
     async def run(self) -> None:

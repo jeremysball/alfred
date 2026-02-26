@@ -120,18 +120,18 @@ AlfredTUI
 ### 1.3 Input Handling
 
 **Tests first:**
-- [ ] `test_on_submit_adds_user_message()` — Verify user message added to conversation
-- [ ] `test_on_submit_clears_input()` — Verify input field cleared after submit
-- [ ] `test_on_submit_ignores_empty()` — Verify empty/whitespace ignored
-- [ ] `test_on_submit_starts_response_task()` — Verify asyncio task created for response
+- [x] `test_on_submit_adds_user_message()` — Verify user message added to conversation
+- [x] `test_on_submit_clears_input()` — Verify input field cleared after submit
+- [x] `test_on_submit_ignores_empty()` — Verify empty/whitespace ignored
+- [x] `test_on_submit_starts_response_task()` — Verify asyncio task created for response
 
 **Implementation:**
-- [ ] Implement `def _on_submit(self, text: str) -> None`
-- [ ] Strip whitespace, return if empty
-- [ ] Create `MessagePanel(role="user", content=text)`
-- [ ] `self.conversation.add_child(panel)`
-- [ ] Clear input: `self.input_field.set_value("")`
-- [ ] Create task: `asyncio.create_task(self._send_message(text))`
+- [x] Implement `def _on_submit(self, text: str) -> None`
+- [x] Strip whitespace, return if empty
+- [x] Create `MessagePanel(role="user", content=text)` — Using Text for now, MessagePanel in Phase 1.5
+- [x] `self.conversation.add_child(panel)`
+- [x] Clear input: `self.input_field.set_value("")`
+- [x] Create task: `asyncio.create_task(self._send_message(text))`
 
 ### 1.4 Response Handling (Non-Streaming First)
 

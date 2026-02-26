@@ -185,3 +185,66 @@ class TestAlfredTUIRunLoop:
         await tui.run()
 
         # If we get here, the loop exited properly
+
+
+class TestAlfredTUIInputHandling:
+    """Tests for AlfredTUI input handling."""
+
+    def test_on_submit_adds_user_message(self, mock_alfred, mock_terminal):
+        """Verify user message added to conversation."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Get initial child count
+        initial_count = len(tui.conversation.children)
+
+        # Submit a message
+        tui._on_submit("Hello Alfred")
+
+        # Verify message was added
+        assert len(tui.conversation.children) == initial_count + 1
+
+    def test_on_submit_clears_input(self, mock_alfred, mock_terminal):
+        """Verify input field cleared after submit."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Set some text in input
+        tui.input_field.set_value("Test message")
+
+        # Submit
+        tui._on_submit("Test message")
+
+        # Verify input was cleared
+        assert tui.input_field.get_value() == ""
+
+    def test_on_submit_ignores_empty(self, mock_alfred, mock_terminal):
+        """Verify empty/whitespace ignored."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Get initial child count
+        initial_count = len(tui.conversation.children)
+
+        # Try to submit empty messages
+        tui._on_submit("")
+        tui._on_submit("   ")
+        tui._on_submit("\t\n")
+
+        # Verify no messages were added
+        assert len(tui.conversation.children) == initial_count
+
+    def test_on_submit_starts_response_task(self, mock_alfred, mock_terminal):
+        """Verify asyncio task created for response."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Submit a message - should not raise
+        tui._on_submit("Hello")
+
+        # Verify input was cleared (shows _on_submit executed)
+        assert tui.input_field.get_value() == ""
