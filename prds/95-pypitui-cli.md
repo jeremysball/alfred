@@ -419,7 +419,19 @@ Use a subtle/dimmed style (not alarming). Clear the hint when:
 Example: `WARNING:src.search:Context exceeds budget: 130000 > 128000 tokens, truncating`
 
 **Solution**: Custom logging handler that routes WARNING+ logs to toast notifications displayed
-in the TUI content area.
+at the bottom of the screen (overlay-style). Toasts fade after N seconds or on any keypress.
+
+**Design Decisions:**
+- Position: Bottom of screen, above status line (overlay-style)
+- Dismissal: Auto-expire OR any keypress dismisses all visible toasts
+- Styling: Colored prefix (⚠ yellow for warning, ✗ red for error)
+- Max visible: 3 toasts (oldest discarded)
+
+**Constants (no magic numbers):**
+```python
+TOAST_DURATION_SECONDS = 4  # Auto-dismiss after this time
+MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
+```
 
 ### 4.5.1 ToastMessage Data Class
 
@@ -452,36 +464,42 @@ in the TUI content area.
 **Tests first:**
 - [ ] `test_toast_container_empty_on_init()` — Verify no toasts initially
 - [ ] `test_toast_container_add_toast()` — Verify toast added and rendered
-- [ ] `test_toast_container_max_toasts()` — Verify only N most recent shown
+- [ ] `test_toast_container_max_toasts()` — Verify only MAX_VISIBLE_TOASTS shown
 - [ ] `test_toast_container_colors()` — Verify yellow for warning, red for error
-- [ ] `test_toast_container_expiry()` — Verify old toasts removed after N seconds
+- [ ] `test_toast_container_expiry()` — Verify old toasts removed after TOAST_DURATION_SECONDS
+- [ ] `test_toast_container_dismiss_on_key()` — Verify all toasts cleared on keypress
 
 **Implementation:**
 - [ ] Create `class ToastContainer(Component)`
 - [ ] `self._toasts: list[ToastMessage]`
-- [ ] `def add_toast(self, toast: ToastMessage)` — Add, enforce max
+- [ ] `def add_toast(self, toast: ToastMessage)` — Add, enforce MAX_VISIBLE_TOASTS
 - [ ] `def prune_expired()` — Remove toasts older than TOAST_DURATION_SECONDS
-- [ ] `def render(width)` — Return lines with colored prefixes
+- [ ] `def dismiss_all()` — Clear all toasts (called on keypress)
+- [ ] `def render(width)` — Return lines with colored prefixes, bottom-positioned
 
 ### 4.5.4 AlfredTUI Integration
 
 **Tests first:**
 - [ ] `test_alfred_tui_has_toast_container()` — Verify container in layout
 - [ ] `test_toast_handler_registered()` — Verify handler added to logging
+- [ ] `test_keypress_dismisses_toasts()` — Verify any key calls dismiss_all()
 
 **Implementation:**
 - [ ] Add `self.toast_container = ToastContainer()` in `AlfredTUI.__init__`
-- [ ] Add to layout: between status_line and input (or floating overlay)
+- [ ] Position at bottom: above status_line, below conversation
 - [ ] Create `ToastHandler` with callback to `toast_container.add_toast()`
 - [ ] Register handler: `logging.getLogger().addHandler(toast_handler)`
-- [ ] In `run()` loop, call `toast_container.prune_expired()` periodically
+- [ ] In `run()` loop, call `toast_container.prune_expired()` each frame
+- [ ] On any keypress (except Ctrl-C), call `toast_container.dismiss_all()`
 
 ### 4.5.5 Manual Validation
 
 - [ ] Run `alfred`
 - [ ] Trigger a warning (e.g., exceed context budget with long conversation)
-- [ ] Verify toast appears with yellow "⚠" prefix
+- [ ] Verify toast appears at bottom with yellow "⚠" prefix
 - [ ] Verify toast disappears after ~4 seconds
+- [ ] Trigger another warning, then press any key
+- [ ] Verify toast dismissed immediately on keypress
 - [ ] Trigger an error (if possible)
 - [ ] Verify toast appears with red "✗" prefix
 
