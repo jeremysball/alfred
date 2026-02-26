@@ -181,7 +181,7 @@ AlfredTUI
 **Implementation:**
 - [x] Update `src/interfaces/__init__.py` to export `AlfredTUI`
 - [x] Verify `src/cli/main.py` imports and uses `AlfredTUI`
-- [ ] Run `alfred` command manually, verify basic REPL works
+- [x] Run `alfred` command manually, verify basic REPL works
 
 ### 1.7 Manual Validation
 
@@ -196,15 +196,76 @@ AlfredTUI
 > **Note**: Replace simple `Text` components with `MessagePanel` in AlfredTUI.
 
 **Tests first:**
-- [ ] `test_on_submit_uses_message_panel()` — Verify user messages use MessagePanel
-- [ ] `test_send_message_uses_message_panel()` — Verify assistant messages use MessagePanel
-- [ ] `test_error_sets_red_border()` — Verify errors trigger `set_error()` on panel
+- [x] `test_on_submit_uses_message_panel()` — Verify user messages use MessagePanel
+- [x] `test_send_message_uses_message_panel()` — Verify assistant messages use MessagePanel
+- [x] `test_error_sets_red_border()` — Verify errors trigger `set_error()` on panel
 
 **Implementation:**
-- [ ] Update `_on_submit()` to create `MessagePanel(role="user", content=text)`
-- [ ] Update `_send_message()` to create `MessagePanel(role="assistant")`
-- [ ] Update `_send_message()` to call `panel.set_content()` for streaming
-- [ ] Update `_send_message()` to call `panel.set_error()` on exception
+- [x] Update `_on_submit()` to create `MessagePanel(role="user", content=text)`
+- [x] Update `_send_message()` to create `MessagePanel(role="assistant")`
+- [x] Update `_send_message()` to call `panel.set_content()` for streaming
+- [x] Update `_send_message()` to call `panel.set_error()` on exception
+
+---
+
+## Phase 1.9: Ctrl-C Clear Input Then Exit
+
+### Problem
+
+Currently, Ctrl-C exits Alfred immediately. This can lead to accidental exits when the user meant to clear the input field. A common pattern in CLI tools is: first Ctrl-C clears input, second Ctrl-C exits.
+
+### Behavior Specification
+
+| State | Input Content | Action | Result |
+|-------|---------------|--------|--------|
+| Normal | Has text | Ctrl-C | Clear input, show hint |
+| Normal | Empty | Ctrl-C | Show hint "Press Ctrl-C again to exit" |
+| Pending exit | Any | Ctrl-C | Exit Alfred |
+| Pending exit | Any | Any other key | Clear hint, return to Normal |
+
+**Key rules:**
+- No timeout window — second Ctrl-C works anytime
+- Any non-Ctrl-C key resets to Normal state
+- Visual feedback shows hint after first Ctrl-C
+- Consistent behavior whether input has text or not
+
+### Tests First
+
+- [ ] `test_ctrl_c_clears_input_when_has_text()` — Verify input cleared, hint shown
+- [ ] `test_ctrl_c_shows_hint_when_input_empty()` — Verify hint shown even with empty input
+- [ ] `test_second_ctrl_c_exits()` — Verify `running = False` after two Ctrl-C presses
+- [ ] `test_other_key_resets_ctrl_c_state()` — Verify any other key clears hint, resets state
+- [ ] `test_ctrl_c_state_persists_across_frames()` — Verify state doesn't auto-reset
+
+### Implementation
+
+- [ ] Add `self._ctrl_c_pending = False` state flag in `__init__`
+- [ ] Update Ctrl-C handler in `run()`:
+  - If `_ctrl_c_pending` is True: set `running = False`, exit
+  - Else: clear input, set `_ctrl_c_pending = True`, show hint in status line
+- [ ] Add input listener that resets `_ctrl_c_pending = False` on any non-Ctrl-C key
+- [ ] Clear hint from status line when state resets
+
+### Status Line Hint
+
+After first Ctrl-C, show in status line:
+
+```
+Press Ctrl-C again to exit
+```
+
+Use a subtle/dimmed style (not alarming). Clear the hint when:
+- Second Ctrl-C exits
+- Any other key is pressed
+- User starts typing
+
+### Manual Validation
+
+- [ ] Type some text, press Ctrl-C → input cleared, hint appears
+- [ ] Press Ctrl-C again → Alfred exits
+- [ ] Type text, press Ctrl-C, type more → hint disappears, input has new text
+- [ ] Press Ctrl-C with empty input → hint appears
+- [ ] Press Ctrl-C, wait 10 seconds, press Ctrl-C → still exits (no timeout)
 
 ---
 
@@ -213,32 +274,32 @@ AlfredTUI
 ### 2.1 Scrollback Test (E2E)
 
 **E2E test:**
-- [ ] Create `tests/e2e/test_cli_scrollback.py`
-- [ ] Launch Alfred in tmux session: `tmux new-session -d -s alfred "alfred"`
-- [ ] Send 25 messages in a loop using `tmux send-keys`
-- [ ] Capture terminal output: `tmux capture-pane -t alfred -p`
-- [ ] Verify early messages visible in captured output
-- [ ] Clean up: `tmux kill-session -t alfred`
+- [x] Create `tests/e2e/test_cli_scrollback.py`
+- [x] Launch Alfred in tmux session: `tmux new-session -d -s alfred "alfred"`
+- [x] Send 25 messages in a loop using `tmux send-keys`
+- [x] Capture terminal output: `tmux capture-pane -t alfred -p`
+- [x] Verify early messages visible in captured output
+- [x] Clean up: `tmux kill-session -t alfred`
 
 ### 2.2 Manual Validation
 
-- [ ] Run `alfred`
-- [ ] Send 20+ messages (use a loop script if helpful)
-- [ ] Press Shift+PgUp
-- [ ] Verify earlier messages visible
-- [ ] Scroll back down
-- [ ] Verify can still type and get responses
+- [x] Run `alfred`
+- [x] Send 20+ messages (use a loop script if helpful)
+- [x] Press Shift+PgUp
+- [x] Verify earlier messages visible
+- [x] Scroll back down
+- [x] Verify can still type and get responses
 
 ### 2.3 Long Response Test
 
 **E2E test:**
-- [ ] `test_long_response_flows_to_scrollback()` — Send message that triggers 50+ line response
-- [ ] Verify content flows past viewport
+- [x] `test_long_response_flows_to_scrollback()` — Send message that triggers 50+ line response
+- [x] Verify content flows past viewport
 
 **Manual:**
-- [ ] Ask for a long response ("Write a poem with 10 stanzas")
-- [ ] Verify text flows smoothly
-- [ ] Verify can scroll back to beginning of response
+- [x] Ask for a long response ("Write a poem with 10 stanzas")
+- [x] Verify text flows smoothly
+- [x] Verify can scroll back to beginning of response
 
 ---
 
