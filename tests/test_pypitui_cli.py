@@ -319,8 +319,8 @@ class TestAlfredTUIResponseHandling:
         assistant_msg = tui.conversation.children[-1]
 
         # Verify it has content from the mock chat_stream ("Hello", " ", "world", "!")
-        # The Text component should contain "Alfred: Hello world!"
-        assert "Alfred:" in str(assistant_msg._text)
+        # MessagePanel stores content in _content
+        assert "Hello world!" in assistant_msg._content
 
 
 class TestMessagePanel:
@@ -413,6 +413,67 @@ class TestMessagePanel:
         assert "very" in output
         assert "multiple" in output
         assert "terminal" in output
+
+
+class TestMessagePanelIntegration:
+    """Tests for MessagePanel integration in AlfredTUI."""
+
+    def test_on_submit_uses_message_panel(self, mock_alfred, mock_terminal):
+        """Verify user messages use MessagePanel."""
+        from src.interfaces.pypitui_cli import AlfredTUI, MessagePanel
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Submit a message
+        tui._on_submit("Hello Alfred")
+
+        # Get the last child (should be user message)
+        user_msg = tui.conversation.children[-1]
+
+        # Verify it's a MessagePanel with user role
+        assert isinstance(user_msg, MessagePanel)
+        assert user_msg._role == "user"
+
+    @pytest.mark.asyncio
+    async def test_send_message_uses_message_panel(self, mock_alfred, mock_terminal):
+        """Verify assistant messages use MessagePanel."""
+        from src.interfaces.pypitui_cli import AlfredTUI, MessagePanel
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Call _send_message
+        await tui._send_message("Hello")
+
+        # Get the last child (assistant message)
+        assistant_msg = tui.conversation.children[-1]
+
+        # Verify it's a MessagePanel with assistant role
+        assert isinstance(assistant_msg, MessagePanel)
+        assert assistant_msg._role == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_error_sets_red_border(self, mock_alfred, mock_terminal):
+        """Verify errors trigger set_error() on panel."""
+        from src.interfaces.pypitui_cli import AlfredTUI, MessagePanel
+
+        # Create a mock that raises an error
+        async def error_chat_stream(*args, **kwargs):
+            raise RuntimeError("API connection failed")
+            yield  # pragma: no cover
+
+        mock_alfred.chat_stream = error_chat_stream
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Call _send_message (will error)
+        await tui._send_message("Hello")
+
+        # Get the assistant panel
+        assistant_msg = tui.conversation.children[-1]
+
+        # Verify it's a MessagePanel with error state
+        assert isinstance(assistant_msg, MessagePanel)
+        assert assistant_msg._is_error is True
 
 
 class TestEntryPointIntegration:
