@@ -231,22 +231,24 @@ Currently, Ctrl-C exits Alfred immediately. This can lead to accidental exits wh
 
 ### Tests First
 
-- [ ] `test_ctrl_c_clears_input_when_has_text()` — Verify input cleared, hint shown
-- [ ] `test_ctrl_c_shows_hint_when_input_empty()` — Verify hint shown even with empty input
-- [ ] `test_second_ctrl_c_exits()` — Verify `running = False` after two Ctrl-C presses
-- [ ] `test_other_key_resets_ctrl_c_state()` — Verify any other key clears hint, resets state
-- [ ] `test_ctrl_c_state_persists_across_frames()` — Verify state doesn't auto-reset
+- [x] `test_ctrl_c_clears_input_when_has_text()` — Verify input cleared, hint shown
+- [x] `test_ctrl_c_shows_hint_when_input_empty()` — Verify hint shown even with empty input
+- [x] `test_second_ctrl_c_exits()` — Verify `running = False` after two Ctrl-C presses
+- [x] `test_other_key_resets_ctrl_c_state()` — Verify any other key clears hint, resets state
+- [x] `test_ctrl_c_state_persists_across_frames()` — Verify state doesn't auto-reset
 
 ### Implementation
 
-- [ ] Add `self._ctrl_c_pending = False` state flag in `__init__`
-- [ ] Update Ctrl-C handler in `run()`:
+- [x] Add `self._ctrl_c_pending = False` state flag in `__init__`
+- [x] Update Ctrl-C handler in `run()`:
   - If `_ctrl_c_pending` is True: set `running = False`, exit
   - Else: clear input, set `_ctrl_c_pending = True`, show hint in status line
-- [ ] Add input listener that resets `_ctrl_c_pending = False` on any non-Ctrl-C key
-- [ ] Clear hint from status line when state resets
+- [x] Add input listener that resets `_ctrl_c_pending = False` on any non-Ctrl-C key
+- [x] Clear hint from status line when state resets
 
 ### Status Line Hint
+
+> **Note**: Requires Phase 3 StatusLine component. The `_exit_hint_visible` flag is ready; display deferred to Phase 3.
 
 After first Ctrl-C, show in status line:
 
