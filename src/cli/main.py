@@ -78,9 +78,9 @@ async def _run_interactive() -> None:
 
 async def _run_chat(alfred: Alfred) -> None:
     """Run interactive CLI chat."""
-    from src.interfaces.cli import CLIInterface
+    from src.interfaces.pypitui_cli import AlfredTUI
 
-    interface = CLIInterface(alfred)
+    interface = AlfredTUI(alfred)
     await alfred.start()
     await interface.run()
 

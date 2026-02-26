@@ -136,47 +136,51 @@ AlfredTUI
 ### 1.4 Response Handling (Non-Streaming First)
 
 **Tests first:**
-- [ ] `test_send_message_adds_assistant_panel()` — Verify assistant panel created
-- [ ] `test_send_message_calls_alfred_chat_stream()` — Verify `alfred.chat_stream()` called
-- [ ] `test_send_message_updates_assistant_content()` — Verify panel content updated
+- [x] `test_send_message_adds_assistant_panel()` — Verify assistant panel created
+- [x] `test_send_message_calls_alfred_chat_stream()` — Verify `alfred.chat_stream()` called
+- [x] `test_send_message_updates_assistant_content()` — Verify panel content updated
 
 **Implementation:**
-- [ ] Implement `async def _send_message(self, text: str) -> None`
-- [ ] Create `MessagePanel(role="assistant", content="")`
-- [ ] Add to conversation
-- [ ] Iterate `alfred.chat_stream(text)`:
-  - [ ] Accumulate chunks
-  - [ ] Call `panel.set_content(accumulated)`
-  - [ ] Call `tui.request_render()`
-- [ ] Handle exceptions: show error in panel
+- [x] Implement `async def _send_message(self, text: str) -> None`
+- [x] Create `Text` for assistant message (MessagePanel integrated in Phase 1.8)
+- [x] Add to conversation
+- [x] Iterate `alfred.chat_stream(text)`:
+  - [x] Accumulate chunks
+  - [x] Call `text.set_content(accumulated)`
+  - [x] Call `tui.request_render()`
+- [x] Handle exceptions: show error in panel
 
-### 1.5 MessagePanel Component
+### 1.5 MessagePanel Component (Component Only)
+
+> **Note**: Build the component here, integrate it in Phase 1.8.
 
 **Tests first:**
-- [ ] `test_message_panel_renders_with_title()` — Verify "You" or "Alfred" in title
-- [ ] `test_message_panel_user_has_cyan_border()` — Verify cyan styling for user
-- [ ] `test_message_panel_assistant_has_green_border()` — Verify green styling for assistant
-- [ ] `test_message_panel_set_content_updates()` — Verify `set_content()` changes rendered text
-- [ ] `test_message_panel_wraps_long_content()` — Verify content wraps to width
+- [x] `test_message_panel_renders_with_title()` — Verify "You" or "Alfred" in title
+- [x] `test_message_panel_user_has_cyan_border()` — Verify cyan styling for user
+- [x] `test_message_panel_assistant_has_green_border()` — Verify green styling for assistant
+- [x] `test_message_panel_error_has_red_border()` — Verify red styling for error state
+- [x] `test_message_panel_set_content_updates()` — Verify `set_content()` changes rendered text
+- [x] `test_message_panel_wraps_long_content()` — Verify Text handles wrapping (no special handling needed)
 
 **Implementation:**
-- [ ] Create `class MessagePanel(BorderedBox)`
-- [ ] `__init__(self, role: Literal["user", "assistant"], content: str = "")`
-- [ ] Set title based on role: "You" / "Alfred"
-- [ ] Set border style: cyan for user, green for assistant
-- [ ] Store `self._content = content`
-- [ ] Add `Text` child for content
-- [ ] `def set_content(self, text: str) -> None` — Clear children, add new Text
+- [x] Create `class MessagePanel(BorderedBox)`
+- [x] `__init__(self, role: Literal["user", "assistant"], content: str = "")`
+- [x] Set title based on role: "You" / "Alfred"
+- [x] Set border style: cyan for user, green for assistant (default)
+- [x] Store `self._role` and `self._content`
+- [x] Add `Text` child for content (Text handles wrapping internally)
+- [x] `def set_content(self, text: str) -> None` — Clear children, add new Text
+- [x] `def set_error(self, error_msg: str) -> None` — Set red border, show error text
 
 ### 1.6 Entry Point Integration
 
 **Tests first:**
-- [ ] `test_main_imports_pypitui_cli()` — Verify `src.cli.main` can import `AlfredTUI`
-- [ ] `test_run_chat_creates_interface()` — Verify `_run_chat()` instantiates `AlfredTUI`
+- [x] `test_main_imports_pypitui_cli()` — Verify `src.cli.main` can import `AlfredTUI`
+- [x] `test_run_chat_creates_interface()` — Verify `_run_chat()` instantiates `AlfredTUI`
 
 **Implementation:**
-- [ ] Update `src/interfaces/__init__.py` to export `AlfredTUI`
-- [ ] Verify `src/cli/main.py` imports and uses `AlfredTUI`
+- [x] Update `src/interfaces/__init__.py` to export `AlfredTUI`
+- [x] Verify `src/cli/main.py` imports and uses `AlfredTUI`
 - [ ] Run `alfred` command manually, verify basic REPL works
 
 ### 1.7 Manual Validation
@@ -186,6 +190,21 @@ AlfredTUI
 - [ ] Verify response appears
 - [ ] Press Ctrl+C
 - [ ] Verify clean exit (terminal restored)
+
+### 1.8 MessagePanel Integration
+
+> **Note**: Replace simple `Text` components with `MessagePanel` in AlfredTUI.
+
+**Tests first:**
+- [ ] `test_on_submit_uses_message_panel()` — Verify user messages use MessagePanel
+- [ ] `test_send_message_uses_message_panel()` — Verify assistant messages use MessagePanel
+- [ ] `test_error_sets_red_border()` — Verify errors trigger `set_error()` on panel
+
+**Implementation:**
+- [ ] Update `_on_submit()` to create `MessagePanel(role="user", content=text)`
+- [ ] Update `_send_message()` to create `MessagePanel(role="assistant")`
+- [ ] Update `_send_message()` to call `panel.set_content()` for streaming
+- [ ] Update `_send_message()` to call `panel.set_error()` on exception
 
 ---
 

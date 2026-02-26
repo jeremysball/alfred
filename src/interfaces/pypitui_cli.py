@@ -2,10 +2,104 @@
 
 import asyncio
 from contextlib import suppress
+from typing import Literal
 
-from pypitui import TUI, Container, Input, ProcessTerminal, Text
+from pypitui import TUI, BorderedBox, Container, Input, ProcessTerminal, Text  # type: ignore
 
 from src.alfred import Alfred
+
+# ANSI color codes for borders
+CYAN = "\x1b[36m"
+GREEN = "\x1b[32m"
+RED = "\x1b[31m"
+RESET = "\x1b[0m"
+
+
+class MessagePanel(BorderedBox):  # type: ignore[misc]
+    """A bordered panel for displaying conversation messages.
+
+    Uses different border colors based on role:
+    - user: cyan border, title "You"
+    - assistant: green border, title "Alfred"
+    - error: red border (after set_error() called)
+    """
+
+    def __init__(
+        self,
+        role: Literal["user", "assistant"],
+        content: str = "",
+        *,
+        padding_x: int = 1,
+        padding_y: int = 0,
+    ) -> None:
+        """Initialize the message panel.
+
+        Args:
+            role: "user" or "assistant"
+            content: Initial message content
+            padding_x: Horizontal padding inside border
+            padding_y: Vertical padding inside border
+        """
+        super().__init__(padding_x=padding_x, padding_y=padding_y)
+
+        self._role = role
+        self._content = content
+        self._is_error = False
+        self._border_color = GREEN
+
+        # Set title based on role
+        title = "You" if role == "user" else "Alfred"
+        self.set_title(title)
+
+        # Set border color based on role
+        self._set_border_color(role)
+
+        # Add content as Text child
+        if content:
+            self.add_child(Text(content))
+
+    def _set_border_color(self, role_or_state: str) -> None:
+        """Set border color by overriding class border characters.
+
+        Args:
+            role_or_state: "user", "assistant", or "error"
+        """
+        color = {"user": CYAN, "assistant": GREEN, "error": RED}.get(
+            role_or_state, GREEN
+        )
+        self._border_color = color
+        # Override border characters with colored versions
+        self.TOP_LEFT = f"{color}┌{RESET}"
+        self.TOP_RIGHT = f"{color}┐{RESET}"
+        self.BOTTOM_LEFT = f"{color}└{RESET}"
+        self.BOTTOM_RIGHT = f"{color}┘{RESET}"
+        self.HORIZONTAL = f"{color}─{RESET}"
+        self.VERTICAL = f"{color}│{RESET}"
+        self.T_LEFT = f"{color}├{RESET}"
+        self.T_RIGHT = f"{color}┤{RESET}"
+        self._invalidate_cache()
+
+    def set_content(self, text: str) -> None:
+        """Update the message content.
+
+        Args:
+            text: New content text
+        """
+        self._content = text
+        # Clear existing children and add new Text
+        self.clear()
+        self.add_child(Text(text))
+        self.invalidate()
+
+    def set_error(self, error_msg: str) -> None:
+        """Set panel to error state with red border.
+
+        Args:
+            error_msg: Error message to display
+        """
+        self._is_error = True
+        self._set_border_color("error")
+        self.set_content(f"Error: {error_msg}")
 
 
 class AlfredTUI:
@@ -69,10 +163,22 @@ class AlfredTUI:
 
         Args:
             text: The user message
-
-        Placeholder - will be implemented in Phase 1.4
         """
-        pass
+        # Create assistant message panel
+        assistant_msg = Text("Alfred: ")
+        self.conversation.add_child(assistant_msg)
+
+        try:
+            # Stream response from Alfred
+            accumulated = ""
+            async for chunk in self.alfred.chat_stream(text):
+                accumulated += chunk
+                assistant_msg.set_text(f"Alfred: {accumulated}")
+                self.tui.request_render()
+        except Exception as e:
+            # Show error in panel
+            assistant_msg.set_text(f"Alfred: Error - {e}")
+            self.tui.request_render()
 
     async def run(self) -> None:
         """Main event loop - reads input, handles events, renders frames."""
