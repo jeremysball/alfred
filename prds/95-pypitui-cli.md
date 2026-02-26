@@ -100,22 +100,22 @@ AlfredTUI
 ### 1.2 Main Loop
 
 **Tests first:**
-- [ ] `test_run_yields_to_event_loop()` — Verify `run()` calls `await asyncio.sleep()`
-- [ ] `test_run_reads_terminal_input()` — Verify `terminal.read_sequence()` called
-- [ ] `test_run_handles_input()` — Verify `tui.handle_input()` called with data
-- [ ] `test_run_renders_frames()` — Verify `tui.render_frame()` called
-- [ ] `test_run_exits_on_running_false()` — Verify loop exits when `self.running = False`
+- [x] `test_run_yields_to_event_loop()` — Verify `run()` calls `await asyncio.sleep()`
+- [x] `test_run_reads_terminal_input()` — Verify `terminal.read_sequence()` called
+- [x] `test_run_handles_input()` — Verify `tui.handle_input()` called with data
+- [x] `test_run_renders_frames()` — Verify `tui.render_frame()` called
+- [x] `test_run_exits_on_running_false()` — Verify loop exits when `self.running = False`
 
 **Implementation:**
-- [ ] Add `self.running = True` in `__init__`
-- [ ] Implement `async def run(self) -> None`
-- [ ] Call `tui.start()` at beginning
-- [ ] Add `try/finally` with `tui.stop()` in finally
-- [ ] Loop while `self.running`
-- [ ] Read input: `data = terminal.read_sequence(timeout=0.01)`
-- [ ] If data, call `tui.handle_input(data)`
-- [ ] Call `tui.request_render()` and `tui.render_frame()`
-- [ ] `await asyncio.sleep(0.016)` (~60fps)
+- [x] Add `self.running = True` in `__init__`
+- [x] Implement `async def run(self) -> None`
+- [x] Call `tui.start()` at beginning
+- [x] Add `try/finally` with `tui.stop()` in finally
+- [x] Loop while `self.running`
+- [x] Read input: `data = terminal.read_sequence(timeout=0.01)`
+- [x] If data, call `tui.handle_input(data)`
+- [x] Call `tui.request_render()` and `tui.render_frame()`
+- [x] `await asyncio.sleep(0.016)` (~60fps)
 
 ### 1.3 Input Handling
 

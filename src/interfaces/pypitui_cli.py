@@ -1,5 +1,7 @@
 """PyPiTUI-based CLI interface for Alfred."""
 
+import asyncio
+
 from pypitui import TUI, Container, Input, ProcessTerminal
 
 from src.alfred import Alfred
@@ -46,3 +48,22 @@ class AlfredTUI:
         """
         # Placeholder - will be implemented in Phase 1.3
         pass
+
+    async def run(self) -> None:
+        """Main event loop - reads input, handles events, renders frames."""
+        self.tui.start()
+        try:
+            while self.running:
+                # Read terminal input with timeout
+                data = self.terminal.read_sequence(timeout=0.01)
+                if data:
+                    self.tui.handle_input(data)
+
+                # Render frame
+                self.tui.request_render()
+                self.tui.render_frame()
+
+                # Yield to event loop (~60fps)
+                await asyncio.sleep(0.016)
+        finally:
+            self.tui.stop()
