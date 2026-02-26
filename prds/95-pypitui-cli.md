@@ -185,11 +185,11 @@ AlfredTUI
 
 ### 1.7 Manual Validation
 
-- [ ] Run `alfred`
-- [ ] Type "Hello"
-- [ ] Verify response appears
-- [ ] Press Ctrl+C
-- [ ] Verify clean exit (terminal restored)
+- [x] Run `alfred`
+- [x] Type "Hello"
+- [x] Verify response appears
+- [x] Press Ctrl+C
+- [x] Verify clean exit (terminal restored)
 
 ### 1.8 MessagePanel Integration
 
