@@ -4,7 +4,16 @@ import asyncio
 from contextlib import suppress
 from typing import Literal
 
-from pypitui import TUI, BorderedBox, Container, Input, ProcessTerminal, Text  # type: ignore
+from pypitui import (  # type: ignore
+    TUI,
+    BorderedBox,
+    Container,
+    Input,
+    Key,
+    ProcessTerminal,
+    Text,
+    matches_key,
+)
 
 from src.alfred import Alfred
 
@@ -188,6 +197,10 @@ class AlfredTUI:
                 # Read terminal input with timeout
                 data = self.terminal.read_sequence(timeout=0.01)
                 if data:
+                    # Check for Ctrl+C to exit
+                    if matches_key(data, Key.ctrl("c")):
+                        self.running = False
+                        break
                     self.tui.handle_input(data)
 
                 # Render frame

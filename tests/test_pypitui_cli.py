@@ -249,6 +249,28 @@ class TestAlfredTUIInputHandling:
         # Verify input was cleared (shows _on_submit executed)
         assert tui.input_field.get_value() == ""
 
+    @pytest.mark.asyncio
+    async def test_ctrl_c_sets_running_false(self, mock_alfred, mock_terminal):
+        """Verify Ctrl+C sets running = False."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Simulate Ctrl+C input
+        ctrl_c = "\x03"
+
+        # Mock read_sequence to return Ctrl+C
+        def mock_read(*args, **kwargs):
+            return ctrl_c
+
+        mock_terminal.read_sequence = mock_read
+
+        # Run should exit quickly after Ctrl+C
+        await tui.run()
+
+        # Verify running was set to False
+        assert tui.running is False
+
 
 class TestAlfredTUIResponseHandling:
     """Tests for AlfredTUI response handling."""
