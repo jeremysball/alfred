@@ -349,11 +349,15 @@ Use a subtle/dimmed style (not alarming). Clear the hint when:
 
 ### 3.3 Manual Validation
 
-- [ ] Run `alfred`
-- [ ] Send message
-- [ ] Verify status line shows model name and token counts
-- [ ] Send another message
-- [ ] Verify counts update
+- [x] Run `alfred`
+- [x] Send message
+- [x] Verify status line shows model name and token counts
+- [x] Send another message
+- [x] Verify counts update
+
+---
+
+## Phase 3 COMPLETE ✅
 
 ---
 
