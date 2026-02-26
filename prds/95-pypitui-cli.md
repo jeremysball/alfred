@@ -310,31 +310,42 @@ Use a subtle/dimmed style (not alarming). Clear the hint when:
 ### 3.1 StatusLine Component
 
 **Tests first:**
-- [ ] `test_status_line_init_empty()` — Verify initial state with no data
-- [ ] `test_status_line_render_model()` — Verify model name rendered
-- [ ] `test_status_line_render_tokens()` — Verify token counts formatted (1.2K, 345)
-- [ ] `test_status_line_render_streaming_indicator()` — Verify "⏳" when streaming
-- [ ] `test_status_line_render_queued_count()` — Verify queue count when > 0
+- [x] `test_status_line_init_empty()` — Verify initial state with no data
+- [x] `test_status_line_render_model()` — Verify model name rendered
+- [x] `test_status_line_render_tokens()` — Verify token counts formatted (1.2K, 345)
+- [x] `test_status_line_hides_zero_ctx()` — Verify ctx hidden when 0
+- [x] `test_status_line_hides_zero_cached()` — Verify cached hidden when 0
+- [x] `test_status_line_hides_zero_reasoning()` — Verify reasoning hidden when 0
+- [x] `test_status_line_shows_cached_when_nonzero()` — Verify cached shown when > 0
+- [x] `test_status_line_shows_reasoning_when_nonzero()` — Verify reasoning shown when > 0
+- [x] `test_status_line_render_exit_hint()` — Verify exit hint when flag set
+- [x] `test_status_line_format_groups()` — Verify format: model | tokens | cache
+- [x] `test_status_line_no_cache_group_when_all_zero()` — Verify cache group omitted when all zero
+- [x] `test_format_tokens_*` — Verify token formatting (123, 1.2K, 12K, 1M)
 
 **Implementation:**
-- [ ] Create `class StatusLine(Component)`
-- [ ] `__init__()` — Initialize empty state
-- [ ] `def update(self, model: str, input_tokens: int, output_tokens: int, streaming: bool = False, queued: int = 0)`
-- [ ] `def render(self, width: int) -> list[str]` — Build status string
-- [ ] Format: `model | in:1.2K | out:345 | ⏳ | queued:2`
-- [ ] Use RichText for styling
+- [x] Create `class StatusLine(Component)`
+- [x] `__init__()` — Initialize empty state
+- [x] `def update(model, ctx, in_tokens, out_tokens, cached, reasoning, exit_hint=False)`
+- [x] `def render(width: int) -> list[str]` — Build status string
+- [x] Format: `model | ctx N in N out N | cached N reasoning N`
+- [x] Hide ctx/cached/reasoning when 0
+- [x] Show dimmed "Press Ctrl-C again to exit" when exit_hint=True
 
 ### 3.2 StatusLine in AlfredTUI
 
 **Tests first:**
-- [ ] `test_alfred_tui_has_status_line()` — Verify status_line child exists
-- [ ] `test_status_updates_after_response()` — Verify status updated after `_send_message` completes
+- [x] `test_alfred_tui_has_status_line_instance()` — Verify status_line instance exists
+- [x] `test_status_updates_during_streaming()` — Verify status updated during streaming
+- [x] `test_status_shows_exit_hint()` — Verify exit hint shows in status line
 
 **Implementation:**
-- [ ] Add `self.status_line = StatusLine()` in `AlfredTUI.__init__`
-- [ ] Add to TUI after conversation, before input
-- [ ] In `_send_message`, call `self.status_line.update(...)` after streaming
-- [ ] Get token usage from `self.alfred.token_tracker`
+- [x] Add `self.status_line = StatusLine()` in `AlfredTUI.__init__`
+- [x] Add to TUI after conversation, before input
+- [x] Add `_update_status(estimated_out=None)` method
+- [x] In `_send_message`, call `_update_status(estimated_out)` every chunk
+- [x] Estimate output tokens during streaming: `len(accumulated) // 4`
+- [x] Final update after stream with actual token counts
 
 ### 3.3 Manual Validation
 

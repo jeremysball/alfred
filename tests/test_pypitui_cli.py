@@ -19,6 +19,8 @@ def mock_terminal():
 @pytest.fixture
 def mock_alfred():
     """Create a mock Alfred instance with async chat_stream."""
+    from src.token_tracker import TokenTracker
+
     alfred = Mock(spec=Alfred)
 
     # Create an async generator for chat_stream
@@ -28,6 +30,8 @@ def mock_alfred():
             yield chunk
 
     alfred.chat_stream = async_chat_stream
+    alfred.token_tracker = TokenTracker()
+    alfred.model_name = "kimi/test"
     return alfred
 
 
@@ -510,6 +514,213 @@ class TestEntryPointIntegration:
 
             # Verify AlfredTUI was instantiated
             mock_tui_class.assert_called_once_with(mock_alfred)
+
+
+class TestStatusLine:
+    """Tests for StatusLine component."""
+
+    def test_status_line_init_empty(self):
+        """Verify initial state with no data."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        lines = status.render(width=80)
+
+        # Should render something even with no data
+        assert len(lines) == 1
+
+    def test_status_line_render_model(self):
+        """Verify model name rendered."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi/moonshot-v1", ctx=0, in_tokens=0, out_tokens=0, cached=0, reasoning=0)
+        lines = status.render(width=80)
+
+        assert "kimi/moonshot-v1" in lines[0]
+
+    def test_status_line_render_tokens(self):
+        """Verify token counts formatted (1.2K, 345)."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=12000, in_tokens=856, out_tokens=1234, cached=0, reasoning=0)
+        lines = status.render(width=80)
+
+        output = lines[0]
+        assert "ctx 12K" in output
+        assert "in 856" in output
+        assert "out 1.2K" in output
+
+    def test_status_line_hides_zero_ctx(self):
+        """Verify ctx hidden when 0."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=0, in_tokens=100, out_tokens=200, cached=0, reasoning=0)
+        lines = status.render(width=80)
+
+        assert "ctx" not in lines[0]
+
+    def test_status_line_hides_zero_cached(self):
+        """Verify cached hidden when 0."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=100, in_tokens=100, out_tokens=200, cached=0, reasoning=0)
+        lines = status.render(width=80)
+
+        assert "cached" not in lines[0]
+
+    def test_status_line_hides_zero_reasoning(self):
+        """Verify reasoning hidden when 0."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=100, in_tokens=100, out_tokens=200, cached=0, reasoning=0)
+        lines = status.render(width=80)
+
+        assert "reasoning" not in lines[0]
+
+    def test_status_line_shows_cached_when_nonzero(self):
+        """Verify cached shown when > 0."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=100, in_tokens=100, out_tokens=200, cached=2345, reasoning=0)
+        lines = status.render(width=80)
+
+        assert "cached 2.3K" in lines[0]
+
+    def test_status_line_shows_reasoning_when_nonzero(self):
+        """Verify reasoning shown when > 0."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=100, in_tokens=100, out_tokens=200, cached=0, reasoning=500)
+        lines = status.render(width=80)
+
+        assert "reasoning 500" in lines[0]
+
+    def test_status_line_render_exit_hint(self):
+        """Verify exit hint when flag set."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(
+            model="kimi", ctx=100, in_tokens=100, out_tokens=200, cached=0, reasoning=0,
+            exit_hint=True
+        )
+        lines = status.render(width=80)
+
+        assert "Press Ctrl-C again to exit" in lines[0]
+
+    def test_status_line_format_groups(self):
+        """Verify format: model | ctx in out | cached reasoning"""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=1000, in_tokens=100, out_tokens=200, cached=50, reasoning=25)
+        lines = status.render(width=80)
+
+        output = lines[0]
+        # Check structure with | separators
+        assert "kimi |" in output
+        assert "| cached" in output
+
+    def test_status_line_no_cache_group_when_all_zero(self):
+        """Verify cache group omitted entirely when cached and reasoning are 0."""
+        from src.interfaces.pypitui_cli import StatusLine
+
+        status = StatusLine()
+        status.update(model="kimi", ctx=1000, in_tokens=100, out_tokens=200, cached=0, reasoning=0)
+        lines = status.render(width=80)
+
+        # Should only have one | separator (model | tokens)
+        assert lines[0].count("|") == 1
+
+
+class TestFormatTokens:
+    """Tests for format_tokens helper."""
+
+    def test_format_tokens_small(self):
+        """Small numbers render as-is."""
+        from src.interfaces.pypitui_cli import format_tokens
+
+        assert format_tokens(123) == "123"
+        assert format_tokens(0) == "0"
+        assert format_tokens(999) == "999"
+
+    def test_format_tokens_thousands(self):
+        """Thousands render with K suffix."""
+        from src.interfaces.pypitui_cli import format_tokens
+
+        assert format_tokens(1000) == "1K"
+        assert format_tokens(1234) == "1.2K"
+        assert format_tokens(12345) == "12.3K"
+        assert format_tokens(12000) == "12K"
+
+    def test_format_tokens_millions(self):
+        """Millions render with M suffix."""
+        from src.interfaces.pypitui_cli import format_tokens
+
+        assert format_tokens(1_000_000) == "1M"
+        assert format_tokens(1_234_567) == "1.2M"
+        assert format_tokens(12_345_678) == "12.3M"
+        assert format_tokens(12_000_000) == "12M"
+
+
+class TestStatusLineIntegration:
+    """Tests for StatusLine integration in AlfredTUI."""
+
+    def test_alfred_tui_has_status_line_instance(self, mock_alfred, mock_terminal):
+        """Verify AlfredTUI has StatusLine instance."""
+        from src.interfaces.pypitui_cli import AlfredTUI, StatusLine
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        assert hasattr(tui, "status_line")
+        assert isinstance(tui.status_line, StatusLine)
+
+    @pytest.mark.asyncio
+    async def test_status_updates_during_streaming(self, mock_alfred, mock_terminal):
+        """Verify status updated with estimated tokens during streaming."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        # Use real TokenTracker with some pre-existing usage
+        mock_alfred.token_tracker.add({
+            "prompt_tokens": 500,
+            "completion_tokens": 200,
+            "prompt_tokens_details": {"cached_tokens": 100},
+        })
+        mock_alfred.token_tracker.set_context_tokens(5000)
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Call _send_message (streams "Hello world!" = 12 chars ≈ 3 tokens)
+        await tui._send_message("Test")
+
+        # Status line should have been updated
+        lines = tui.status_line.render(width=80)
+        # The final update uses actual token counts from tracker
+        assert "kimi/test" in lines[0]
+
+    @pytest.mark.asyncio
+    async def test_status_shows_exit_hint(self, mock_alfred, mock_terminal):
+        """Verify exit hint shows in status line."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        # TokenTracker starts empty from fixture
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Trigger Ctrl-C
+        tui._handle_ctrl_c()
+
+        # Update status
+        tui._update_status()
+
+        lines = tui.status_line.render(width=80)
+        assert "Press Ctrl-C again to exit" in lines[0]
 
 
 class TestCtrlCBehavior:

@@ -7,6 +7,7 @@ from typing import Literal
 from pypitui import (  # type: ignore
     TUI,
     BorderedBox,
+    Component,
     Container,
     Input,
     Key,
@@ -22,6 +23,22 @@ CYAN = "\x1b[36m"
 GREEN = "\x1b[32m"
 RED = "\x1b[31m"
 RESET = "\x1b[0m"
+DIM = "\x1b[2m"
+
+
+def format_tokens(n: int) -> str:
+    """Format token count: 1234567 -> 1.2M, 12345 -> 12K, 123 -> 123."""
+    if n >= 1_000_000:
+        value = n / 1_000_000
+        if value == int(value):
+            return f"{int(value)}M"
+        return f"{value:.1f}M"
+    elif n >= 1_000:
+        value = n / 1_000
+        if value == int(value):
+            return f"{int(value)}K"
+        return f"{value:.1f}K"
+    return str(n)
 
 
 class MessagePanel(BorderedBox):  # type: ignore[misc]
@@ -111,6 +128,99 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self.set_content(f"Error: {error_msg}")
 
 
+class StatusLine(Component):
+    """Status line showing model name and token usage.
+
+    Format: model | ctx N in N out N | cached N reasoning N
+
+    - ctx: context tokens (hidden if 0)
+    - in/out: cumulative session tokens (always shown)
+    - cached/reasoning: optional (hidden if 0)
+    """
+
+    def __init__(self) -> None:
+        """Initialize status line with empty state."""
+        super().__init__()
+        self._model: str = ""
+        self._ctx: int = 0
+        self._in: int = 0
+        self._out: int = 0
+        self._cached: int = 0
+        self._reasoning: int = 0
+        self._exit_hint: bool = False
+
+    def invalidate(self) -> None:
+        """Mark this component as needing re-render."""
+        # StatusLine is simple - no cached state to invalidate
+        pass
+
+    def update(
+        self,
+        model: str,
+        ctx: int,
+        in_tokens: int,
+        out_tokens: int,
+        cached: int,
+        reasoning: int,
+        exit_hint: bool = False,
+    ) -> None:
+        """Update all status values.
+
+        Args:
+            model: Model name (e.g., "kimi/moonshot-v1")
+            ctx: Context window tokens
+            in_tokens: Cumulative input tokens
+            out_tokens: Cumulative output tokens
+            cached: Cache read tokens
+            reasoning: Reasoning tokens
+            exit_hint: Show Ctrl-C exit hint
+        """
+        self._model = model
+        self._ctx = ctx
+        self._in = in_tokens
+        self._out = out_tokens
+        self._cached = cached
+        self._reasoning = reasoning
+        self._exit_hint = exit_hint
+
+    def render(self, width: int) -> list[str]:
+        """Render status line.
+
+        Args:
+            width: Terminal width
+
+        Returns:
+            Single-element list with status line string
+        """
+        parts: list[str] = []
+
+        # Group 1: model name
+        parts.append(self._model)
+
+        # Group 2: tokens (always show in/out)
+        token_parts: list[str] = []
+        if self._ctx > 0:
+            token_parts.append(f"ctx {format_tokens(self._ctx)}")
+        token_parts.append(f"in {format_tokens(self._in)}")
+        token_parts.append(f"out {format_tokens(self._out)}")
+        parts.append(" ".join(token_parts))
+
+        # Group 3: cached/reasoning (only if non-zero)
+        cache_parts: list[str] = []
+        if self._cached > 0:
+            cache_parts.append(f"cached {format_tokens(self._cached)}")
+        if self._reasoning > 0:
+            cache_parts.append(f"reasoning {format_tokens(self._reasoning)}")
+        if cache_parts:
+            parts.append(" ".join(cache_parts))
+
+        # Exit hint
+        if self._exit_hint:
+            parts.append(f"{DIM}Press Ctrl-C again to exit{RESET}")
+
+        return [" | ".join(parts)]
+
+
 class AlfredTUI:
     """Main TUI class for Alfred CLI using PyPiTUI."""
 
@@ -129,7 +239,7 @@ class AlfredTUI:
         self.conversation = Container()
 
         # Status line for model/token info
-        self.status_line = Container()
+        self.status_line = StatusLine()
 
         # Input field for user messages
         self.input_field = Input(placeholder="Message Alfred...")
@@ -162,11 +272,36 @@ class AlfredTUI:
             self.input_field.set_value("")
             self._ctrl_c_pending = True
             self._exit_hint_visible = True
+            self._update_status()
 
     def _reset_ctrl_c_state(self) -> None:
         """Reset Ctrl-C pending state (called on any other key)."""
         self._ctrl_c_pending = False
         self._exit_hint_visible = False
+        self._update_status()
+
+    def _update_status(self, estimated_out: int | None = None) -> None:
+        """Update status line with current token counts.
+
+        Args:
+            estimated_out: Estimated output tokens during streaming.
+                           If None, uses actual from token_tracker.
+        """
+        usage = self.alfred.token_tracker.usage
+        ctx = self.alfred.token_tracker.context_tokens
+
+        # Use estimated during stream, actual after
+        out = estimated_out if estimated_out is not None else usage.output_tokens
+
+        self.status_line.update(
+            model=self.alfred.model_name,
+            ctx=ctx,
+            in_tokens=usage.input_tokens,
+            out_tokens=out,
+            cached=usage.cache_read_tokens,
+            reasoning=usage.reasoning_tokens,
+            exit_hint=self._exit_hint_visible,
+        )
 
     def _on_submit(self, text: str) -> None:
         """Handle user input submission.
@@ -207,10 +342,19 @@ class AlfredTUI:
             async for chunk in self.alfred.chat_stream(text):
                 accumulated += chunk
                 assistant_msg.set_content(accumulated)
+
+                # Estimate output tokens during streaming (chars / 4)
+                estimated_out = len(accumulated) // 4
+                self._update_status(estimated_out=estimated_out)
+
                 self.tui.request_render()
+
+            # Final update with actual token counts
+            self._update_status()
         except Exception as e:
             # Show error in panel with red border
             assistant_msg.set_error(str(e))
+            self._update_status()
             self.tui.request_render()
 
     async def run(self) -> None:
