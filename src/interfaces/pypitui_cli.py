@@ -155,8 +155,8 @@ class AlfredTUI:
         if not text:
             return
 
-        # Add user message to conversation (simple Text for now)
-        user_msg = Text(f"You: {text}")
+        # Add user message to conversation using MessagePanel
+        user_msg = MessagePanel(role="user", content=text)
         self.conversation.add_child(user_msg)
 
         # Clear input field
@@ -173,8 +173,8 @@ class AlfredTUI:
         Args:
             text: The user message
         """
-        # Create assistant message panel
-        assistant_msg = Text("Alfred: ")
+        # Create assistant message panel (empty, will stream content)
+        assistant_msg = MessagePanel(role="assistant", content="")
         self.conversation.add_child(assistant_msg)
 
         try:
@@ -182,11 +182,11 @@ class AlfredTUI:
             accumulated = ""
             async for chunk in self.alfred.chat_stream(text):
                 accumulated += chunk
-                assistant_msg.set_text(f"Alfred: {accumulated}")
+                assistant_msg.set_content(accumulated)
                 self.tui.request_render()
         except Exception as e:
-            # Show error in panel
-            assistant_msg.set_text(f"Alfred: Error - {e}")
+            # Show error in panel with red border
+            assistant_msg.set_error(str(e))
             self.tui.request_render()
 
     async def run(self) -> None:
