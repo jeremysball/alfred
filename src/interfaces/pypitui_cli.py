@@ -144,6 +144,30 @@ class AlfredTUI:
         # State
         self.running = True
 
+        # Ctrl-C state (Phase 1.9)
+        self._ctrl_c_pending = False
+        self._exit_hint_visible = False
+
+    def _handle_ctrl_c(self) -> None:
+        """Handle Ctrl-C keypress.
+
+        First Ctrl-C: clear input, show hint.
+        Second Ctrl-C: exit.
+        """
+        if self._ctrl_c_pending:
+            # Second Ctrl-C - exit
+            self.running = False
+        else:
+            # First Ctrl-C - clear input and show hint
+            self.input_field.set_value("")
+            self._ctrl_c_pending = True
+            self._exit_hint_visible = True
+
+    def _reset_ctrl_c_state(self) -> None:
+        """Reset Ctrl-C pending state (called on any other key)."""
+        self._ctrl_c_pending = False
+        self._exit_hint_visible = False
+
     def _on_submit(self, text: str) -> None:
         """Handle user input submission.
 
@@ -197,11 +221,16 @@ class AlfredTUI:
                 # Read terminal input with timeout
                 data = self.terminal.read_sequence(timeout=0.01)
                 if data:
-                    # Check for Ctrl+C to exit
+                    # Check for Ctrl+C
                     if matches_key(data, Key.ctrl("c")):
-                        self.running = False
-                        break
-                    self.tui.handle_input(data)
+                        self._handle_ctrl_c()
+                        if not self.running:
+                            break  # Second Ctrl-C, exit loop
+                    else:
+                        # Any other key resets Ctrl-C state
+                        if self._ctrl_c_pending:
+                            self._reset_ctrl_c_state()
+                        self.tui.handle_input(data)
 
                 # Render frame
                 self.tui.request_render()
