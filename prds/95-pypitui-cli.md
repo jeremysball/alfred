@@ -413,6 +413,47 @@ Use a subtle/dimmed style (not alarming). Clear the hint when:
 
 ---
 
+## Phase 4.4: Inline Tool Call Display (Refactor)
+
+**Problem**: Current implementation adds ToolCallPanel as a separate message in conversation.
+Tool calls should appear WITHIN the assistant message as an inline box.
+
+**Desired layout:**
+```
+┌─ Alfred ─────────────────────────────┐
+│ Let me search for that...            │
+│ ┌─ search_memories ────────────────┐ │
+│ │ Found 3 memories about blue...   │ │
+│ └──────────────────────────────────┘ │
+│ Your favorite color is blue!         │
+└──────────────────────────────────────┘
+```
+
+**Design Decisions:**
+- Tool call box embedded in MessagePanel content
+- Indented box with dim border (same colors as current)
+- Output truncated to ~500 chars (keep end)
+- Status shown by border color (blue=running, green=success, red=error)
+
+**Tests first:**
+- [ ] `test_tool_call_box_renders_inline()` — Box appears inside message content
+- [ ] `test_tool_call_box_indentation()` — Box is visually indented
+- [ ] `test_multiple_tool_calls_in_message()` — Multiple boxes in one message
+
+**Implementation:**
+- [ ] Refactor `MessagePanel` to support embedded tool call boxes
+- [ ] `add_tool_call(tool_name, tool_call_id)` — Add box to content
+- [ ] `update_tool_call(tool_call_id, output)` — Append output to box
+- [ ] `finalize_tool_call(tool_call_id, status)` — Set final border color
+- [ ] Update `_tool_callback` to modify current assistant MessagePanel instead of conversation
+
+**Migration:**
+- [ ] Remove separate ToolCallPanel from conversation flow
+- [ ] Keep ToolCallPanel class for rendering, but embed in MessagePanel
+- [ ] Update existing tests to reflect inline behavior
+
+---
+
 ## Phase 4.5: Toast Notifications
 
 **Problem**: Python logging warnings/errors go to stdout/stderr and clobber the TUI display.
@@ -615,14 +656,15 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 **Solution**: Progressive truncation based on available width.
 
 **Token display improvements:**
-- Use Nerd Font symbols: `󰈙` (upload) for input, `󰈚` (download) for output
+- Use Font Awesome arrows with unicode fallback: ``/`↓` (down) for input, ``/`↑` (up) for output
+- Detect Nerd Font support at startup, fall back to unicode if unavailable
 - Formula: `in = input_tokens - ctx_tokens` (shows new tokens, excludes reused context)
-- Format: `󰈙 1.2K 󰈚 449` instead of `in 1.2K out 449`
+- Format: ` 1.2K  449` instead of `in 1.2K out 449`
 
 **Width tiers (example for 80-char terminal):**
-- Full (80+): `model | ctx 18K 󰈙 1.2K 󰈚 449 | cached 35K reasoning 12 | Press Ctrl-C again to exit`
-- Medium (60-79): `model | ctx 18K 󰈙 1.2K 󰈚 449 | cached 35K reasoning 12`
-- Compact (40-59): `model | 󰈙 1.2K 󰈚 449`
+- Full (80+): `model | ctx 18K  1.2K  449 | cached 35K reasoning 12 | Press Ctrl-C again to exit`
+- Medium (60-79): `model | ctx 18K  1.2K  449 | cached 35K reasoning 12`
+- Compact (40-59): `model |  1.2K  449`
 - Minimal (<40): `model | 1.2K/449`
 
 **Tests first:**
@@ -631,14 +673,16 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 - [ ] `test_status_compact_width()` — Only model + in/out at 40-59 chars
 - [ ] `test_status_minimal_width()` — Short format at <40 chars
 - [ ] `test_status_truncates_model_name()` — Very long model name truncated with ellipsis
-- [ ] `test_status_shows_nerd_font_symbols()` — Verify upload/download symbols used
+- [ ] `test_status_shows_arrow_symbols()` — Verify arrow symbols used for in/out
 - [ ] `test_status_in_excludes_ctx()` — Verify in = input - ctx
+- [ ] `test_status_unicode_fallback()` — Verify unicode arrows when Nerd Font unavailable
 
 **Implementation:**
 - [ ] Add width thresholds as constants: `STATUS_WIDTH_FULL`, `STATUS_WIDTH_MEDIUM`, `STATUS_WIDTH_COMPACT`
-- [ ] Add Nerd Font symbol constants: `SYMBOL_IN = "󰈙"`, `SYMBOL_OUT = "󰈚"`
+- [ ] Add symbol constants with fallback: `SYMBOL_IN = "" if nerdfont else "↓"`, `SYMBOL_OUT = "" if nerdfont else "↑"`
+- [ ] Add Nerd Font detection (check environment variable or test render)
 - [ ] In `StatusLine.render(width)`, check width and select tier
-- [ ] Calculate `in_display = input_tokens - ctx_tokens` (floor at 0)
+- [ ] Calculate `in_display = max(0, input_tokens - ctx_tokens)`
 - [ ] Truncate model name if needed: `model[:20] + "…" if len(model) > 20 else model`
 - [ ] Progressive hiding: exit_hint first, then cached/reasoning, then ctx
 
