@@ -263,11 +263,11 @@ Use a subtle/dimmed style (not alarming). Clear the hint when:
 
 ### Manual Validation
 
-- [ ] Type some text, press Ctrl-C → input cleared, hint appears
-- [ ] Press Ctrl-C again → Alfred exits
-- [ ] Type text, press Ctrl-C, type more → hint disappears, input has new text
-- [ ] Press Ctrl-C with empty input → hint appears
-- [ ] Press Ctrl-C, wait 10 seconds, press Ctrl-C → still exits (no timeout)
+- [x] Type some text, press Ctrl-C → input cleared, hint appears
+- [x] Press Ctrl-C again → Alfred exits
+- [x] Type text, press Ctrl-C, type more → hint disappears, input has new text
+- [x] Press Ctrl-C with empty input → hint appears
+- [x] Press Ctrl-C, wait 10 seconds, press Ctrl-C → still exits (no timeout)
 
 ---
 
