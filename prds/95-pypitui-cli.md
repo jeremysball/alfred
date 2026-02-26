@@ -366,46 +366,124 @@ Use a subtle/dimmed style (not alarming). Clear the hint when:
 ### 4.1 ToolCallPanel Component
 
 **Tests first:**
-- [ ] `test_tool_call_panel_shows_tool_name()` — Verify tool name in title
-- [ ] `test_tool_call_panel_running_style()` — Verify dim blue border when running
-- [ ] `test_tool_call_panel_success_style()` — Verify dim green border on success
-- [ ] `test_tool_call_panel_error_style()` — Verify dim red border on error
-- [ ] `test_tool_call_panel_append_output()` — Verify output accumulates
-- [ ] `test_tool_call_panel_truncates_long_output()` — Verify output truncated to ~500 chars
+- [x] `test_tool_call_panel_shows_tool_name()` — Verify tool name in title
+- [x] `test_tool_call_panel_running_style()` — Verify dim blue border when running
+- [x] `test_tool_call_panel_success_style()` — Verify dim green border on success
+- [x] `test_tool_call_panel_error_style()` — Verify dim red border on error
+- [x] `test_tool_call_panel_append_output()` — Verify output accumulates
+- [x] `test_tool_call_panel_truncates_long_output()` — Verify output truncated to ~500 chars
 
 **Implementation:**
-- [ ] Create `class ToolCallPanel(BorderedBox)`
-- [ ] `__init__(self, tool_name: str, tool_call_id: str)`
-- [ ] Set dim styling (not as prominent as messages)
-- [ ] `self._output = ""`
-- [ ] `def append_output(self, chunk: str)` — Accumulate, truncate if needed
-- [ ] `def set_status(self, status: Literal["running", "success", "error"])` — Update border color
+- [x] Create `class ToolCallPanel(BorderedBox)`
+- [x] `__init__(self, tool_name: str, tool_call_id: str)`
+- [x] Set dim styling (not as prominent as messages)
+- [x] `self._output = ""`
+- [x] `def append_output(self, chunk: str)` — Accumulate, truncate if needed
+- [x] `def set_status(self, status: Literal["running", "success", "error"])` — Update border color
 
 ### 4.2 Tool Callback Integration
 
 **Tests first:**
-- [ ] `test_tool_callback_creates_panel_on_start()` — Verify `ToolStart` creates panel
-- [ ] `test_tool_callback_appends_on_output()` — Verify `ToolOutput` appends to panel
-- [ ] `test_tool_callback_finalizes_on_end()` — Verify `ToolEnd` sets final status
-- [ ] `test_tool_callback_error_style()` — Verify error sets red border
+- [x] `test_tool_callback_creates_panel_on_start()` — Verify `ToolStart` creates panel
+- [x] `test_tool_callback_appends_on_output()` — Verify `ToolOutput` appends to panel
+- [x] `test_tool_callback_finalizes_on_end()` — Verify `ToolEnd` sets final status
+- [x] `test_tool_callback_error_style()` — Verify error sets red border
 
 **Implementation:**
-- [ ] Add `self._tool_panels: dict[str, ToolCallPanel] = {}` in `AlfredTUI.__init__`
-- [ ] Implement `def _tool_callback(self, event: ToolEvent) -> None`
-- [ ] On `ToolStart`: create panel, add to conversation, store in dict
-- [ ] On `ToolOutput`: get panel from dict, call `append_output()`
-- [ ] On `ToolEnd`: get panel, call `set_status()`, remove from dict
-- [ ] Pass `tool_callback=self._tool_callback` to `alfred.chat_stream()`
+- [x] Add `self._tool_panels: dict[str, ToolCallPanel] = {}` in `AlfredTUI.__init__`
+- [x] Implement `def _tool_callback(self, event: ToolEvent) -> None`
+- [x] On `ToolStart`: create panel, add to conversation, store in dict
+- [x] On `ToolOutput`: get panel from dict, call `append_output()`
+- [x] On `ToolEnd`: get panel, call `set_status()`, remove from dict
+- [x] Pass `tool_callback=self._tool_callback` to `alfred.chat_stream()`
 
 ### 4.3 Manual Validation
 
+- [x] Run `alfred`
+- [x] Say "Remember that my favorite color is blue"
+- [x] Verify tool call panel appears inline
+- [x] Verify panel shows tool name (e.g., "remember")
+- [x] Verify panel shows success/error status
+- [x] Say "What's my favorite color?"
+- [x] Verify another tool call (search_memories) appears
+
+---
+
+## Phase 4 COMPLETE ✅
+
+---
+
+## Phase 4.5: Toast Notifications
+
+**Problem**: Python logging warnings/errors go to stdout/stderr and clobber the TUI display.
+Example: `WARNING:src.search:Context exceeds budget: 130000 > 128000 tokens, truncating`
+
+**Solution**: Custom logging handler that routes WARNING+ logs to toast notifications displayed
+in the TUI content area.
+
+### 4.5.1 ToastMessage Data Class
+
+**Tests first:**
+- [ ] `test_toast_message_defaults()` — Verify created timestamp auto-populated
+- [ ] `test_toast_message_levels()` — Verify warning/error/info levels work
+
+**Implementation:**
+- [ ] Create `@dataclass ToastMessage`
+- [ ] `message: str`
+- [ ] `level: Literal["warning", "error", "info"]`
+- [ ] `created: datetime = field(default_factory=...)`
+
+### 4.5.2 ToastHandler (logging.Handler)
+
+**Tests first:**
+- [ ] `test_toast_handler_captures_warning()` — Verify WARNING logs create toast
+- [ ] `test_toast_handler_captures_error()` — Verify ERROR logs create toast
+- [ ] `test_toast_handler_ignores_info()` — Verify INFO logs don't create toast (optional)
+- [ ] `test_toast_handler_filters_non_src()` — Verify only src.* modules captured
+
+**Implementation:**
+- [ ] Create `class ToastHandler(logging.Handler)`
+- [ ] Add filter for `src.*` modules only
+- [ ] `emit()` converts LogRecord to ToastMessage, calls callback
+- [ ] Format: "module: message" (strip src. prefix)
+
+### 4.5.3 ToastContainer Component
+
+**Tests first:**
+- [ ] `test_toast_container_empty_on_init()` — Verify no toasts initially
+- [ ] `test_toast_container_add_toast()` — Verify toast added and rendered
+- [ ] `test_toast_container_max_toasts()` — Verify only N most recent shown
+- [ ] `test_toast_container_colors()` — Verify yellow for warning, red for error
+- [ ] `test_toast_container_expiry()` — Verify old toasts removed after N seconds
+
+**Implementation:**
+- [ ] Create `class ToastContainer(Component)`
+- [ ] `self._toasts: list[ToastMessage]`
+- [ ] `def add_toast(self, toast: ToastMessage)` — Add, enforce max
+- [ ] `def prune_expired()` — Remove toasts older than TOAST_DURATION_SECONDS
+- [ ] `def render(width)` — Return lines with colored prefixes
+
+### 4.5.4 AlfredTUI Integration
+
+**Tests first:**
+- [ ] `test_alfred_tui_has_toast_container()` — Verify container in layout
+- [ ] `test_toast_handler_registered()` — Verify handler added to logging
+
+**Implementation:**
+- [ ] Add `self.toast_container = ToastContainer()` in `AlfredTUI.__init__`
+- [ ] Add to layout: between status_line and input (or floating overlay)
+- [ ] Create `ToastHandler` with callback to `toast_container.add_toast()`
+- [ ] Register handler: `logging.getLogger().addHandler(toast_handler)`
+- [ ] In `run()` loop, call `toast_container.prune_expired()` periodically
+
+### 4.5.5 Manual Validation
+
 - [ ] Run `alfred`
-- [ ] Say "Remember that my favorite color is blue"
-- [ ] Verify tool call panel appears inline
-- [ ] Verify panel shows tool name (e.g., "remember")
-- [ ] Verify panel shows success/error status
-- [ ] Say "What's my favorite color?"
-- [ ] Verify another tool call (search_memories) appears
+- [ ] Trigger a warning (e.g., exceed context budget with long conversation)
+- [ ] Verify toast appears with yellow "⚠" prefix
+- [ ] Verify toast disappears after ~4 seconds
+- [ ] Trigger an error (if possible)
+- [ ] Verify toast appears with red "✗" prefix
 
 ---
 

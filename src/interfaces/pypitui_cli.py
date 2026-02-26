@@ -128,6 +128,101 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self.set_content(f"Error: {error_msg}")
 
 
+# Dim border colors for tool panels (less prominent than messages)
+DIM_BLUE = "\x1b[34;2m"
+DIM_GREEN = "\x1b[32;2m"
+DIM_RED = "\x1b[31;2m"
+MAX_TOOL_OUTPUT = 500
+
+
+class ToolCallPanel(BorderedBox):  # type: ignore[misc]
+    """A dimmed panel for displaying tool execution.
+
+    Uses dim border colors (less prominent than messages):
+    - running: dim blue border
+    - success: dim green border
+    - error: dim red border
+
+    Output is truncated to ~500 chars, keeping the end.
+    """
+
+    def __init__(
+        self,
+        tool_name: str,
+        tool_call_id: str,
+        *,
+        padding_x: int = 1,
+        padding_y: int = 0,
+    ) -> None:
+        """Initialize the tool call panel.
+
+        Args:
+            tool_name: Name of the tool (e.g., "remember", "bash")
+            tool_call_id: Unique ID for this tool call
+            padding_x: Horizontal padding inside border
+            padding_y: Vertical padding inside border
+        """
+        super().__init__(padding_x=padding_x, padding_y=padding_y)
+
+        self._tool_name = tool_name
+        self._tool_call_id = tool_call_id
+        self._output = ""
+        self._status: Literal["running", "success", "error"] = "running"
+
+        # Set title to tool name
+        self.set_title(tool_name)
+
+        # Start with dim blue border (running)
+        self._set_border_color("running")
+
+    def _set_border_color(self, status: Literal["running", "success", "error"]) -> None:
+        """Set border color based on status.
+
+        Args:
+            status: "running", "success", or "error"
+        """
+        color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(
+            status, DIM_BLUE
+        )
+        # Override border characters with colored versions
+        self.TOP_LEFT = f"{color}┌{RESET}"
+        self.TOP_RIGHT = f"{color}┐{RESET}"
+        self.BOTTOM_LEFT = f"{color}└{RESET}"
+        self.BOTTOM_RIGHT = f"{color}┘{RESET}"
+        self.HORIZONTAL = f"{color}─{RESET}"
+        self.VERTICAL = f"{color}│{RESET}"
+        self.T_LEFT = f"{color}├{RESET}"
+        self.T_RIGHT = f"{color}┤{RESET}"
+        self._invalidate_cache()
+
+    def append_output(self, chunk: str) -> None:
+        """Append output chunk, truncating if needed.
+
+        Keeps the END of output when truncating.
+
+        Args:
+            chunk: Output chunk to append
+        """
+        self._output += chunk
+        # Truncate to MAX_TOOL_OUTPUT chars, keeping end
+        if len(self._output) > MAX_TOOL_OUTPUT:
+            self._output = self._output[-MAX_TOOL_OUTPUT:]
+
+        # Update display
+        self.clear()
+        self.add_child(Text(self._output))
+        self.invalidate()
+
+    def set_status(self, status: Literal["running", "success", "error"]) -> None:
+        """Set the tool execution status.
+
+        Args:
+            status: "running", "success", or "error"
+        """
+        self._status = status
+        self._set_border_color(status)
+
+
 class StatusLine(Component):
     """Status line showing model name and token usage.
 
@@ -258,6 +353,9 @@ class AlfredTUI:
         self._ctrl_c_pending = False
         self._exit_hint_visible = False
 
+        # Tool call panels (Phase 4)
+        self._tool_panels: dict[str, ToolCallPanel] = {}
+
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
 
@@ -303,6 +401,39 @@ class AlfredTUI:
             exit_hint=self._exit_hint_visible,
         )
 
+    def _tool_callback(self, event: object) -> None:
+        """Handle tool execution events.
+
+        Args:
+            event: ToolStart, ToolOutput, or ToolEnd from agent
+        """
+        from src.agent import ToolEnd, ToolOutput, ToolStart
+
+        if isinstance(event, ToolStart):
+            # Create new panel for tool call
+            new_panel = ToolCallPanel(event.tool_name, event.tool_call_id)
+            self.conversation.add_child(new_panel)
+            self._tool_panels[event.tool_call_id] = new_panel
+
+        elif isinstance(event, ToolOutput):
+            # Append output to existing panel
+            existing_panel = self._tool_panels.get(event.tool_call_id)
+            if existing_panel is not None:
+                existing_panel.append_output(event.chunk)
+
+        elif isinstance(event, ToolEnd):
+            # Set final status and remove from tracking
+            final_panel = self._tool_panels.get(event.tool_call_id)
+            if final_panel is not None:
+                status: Literal["running", "success", "error"] = (
+                    "error" if event.is_error else "success"
+                )
+                final_panel.set_status(status)
+                del self._tool_panels[event.tool_call_id]
+
+        # Request re-render
+        self.tui.request_render()
+
     def _on_submit(self, text: str) -> None:
         """Handle user input submission.
 
@@ -339,7 +470,9 @@ class AlfredTUI:
         try:
             # Stream response from Alfred
             accumulated = ""
-            async for chunk in self.alfred.chat_stream(text):
+            async for chunk in self.alfred.chat_stream(
+                text, tool_callback=self._tool_callback
+            ):
                 accumulated += chunk
                 assistant_msg.set_content(accumulated)
 

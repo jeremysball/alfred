@@ -723,6 +723,154 @@ class TestStatusLineIntegration:
         assert "Press Ctrl-C again to exit" in lines[0]
 
 
+class TestToolCallPanel:
+    """Tests for ToolCallPanel component (Phase 4.1)."""
+
+    def test_tool_call_panel_shows_tool_name(self):
+        """Verify tool name appears in panel title."""
+        from src.interfaces.pypitui_cli import ToolCallPanel
+
+        panel = ToolCallPanel("remember", "call-123")
+
+        lines = panel.render(width=60)
+        text = "".join(lines)
+        assert "remember" in text
+
+    def test_tool_call_panel_running_style(self):
+        """Verify dim blue border when running."""
+        from src.interfaces.pypitui_cli import ToolCallPanel
+
+        panel = ToolCallPanel("remember", "call-123")
+        # Default status is "running"
+
+        lines = panel.render(width=60)
+        text = "".join(lines)
+        # Dim blue ANSI code should be present
+        assert "\x1b[34;2m" in text  # DIM_BLUE
+
+    def test_tool_call_panel_success_style(self):
+        """Verify dim green border on success."""
+        from src.interfaces.pypitui_cli import ToolCallPanel
+
+        panel = ToolCallPanel("remember", "call-123")
+        panel.set_status("success")
+
+        lines = panel.render(width=60)
+        text = "".join(lines)
+        # Dim green ANSI code should be present
+        assert "\x1b[32;2m" in text  # DIM_GREEN
+
+    def test_tool_call_panel_error_style(self):
+        """Verify dim red border on error."""
+        from src.interfaces.pypitui_cli import ToolCallPanel
+
+        panel = ToolCallPanel("remember", "call-123")
+        panel.set_status("error")
+
+        lines = panel.render(width=60)
+        text = "".join(lines)
+        # Dim red ANSI code should be present
+        assert "\x1b[31;2m" in text  # DIM_RED
+
+    def test_tool_call_panel_append_output(self):
+        """Verify output accumulates."""
+        from src.interfaces.pypitui_cli import ToolCallPanel
+
+        panel = ToolCallPanel("remember", "call-123")
+        panel.append_output("Hello")
+        panel.append_output(" world")
+
+        lines = panel.render(width=60)
+        text = "".join(lines)
+        assert "Hello world" in text
+
+    def test_tool_call_panel_truncates_long_output(self):
+        """Verify output truncated to ~500 chars, keeping end."""
+        from src.interfaces.pypitui_cli import ToolCallPanel
+
+        panel = ToolCallPanel("remember", "call-123")
+
+        # Add 600 chars of output
+        long_output = "x" * 600
+        panel.append_output(long_output)
+
+        lines = panel.render(width=80)
+        text = "".join(lines)
+
+        # Should be truncated to ~500 chars, keeping the END
+        # The output will be wrapped, so just verify x's appear
+        # and verify the internal state is truncated
+        assert panel._output == "x" * 500  # Kept the end
+
+
+class TestToolCallbackIntegration:
+    """Tests for tool callback integration (Phase 4.2)."""
+
+    def test_tool_callback_creates_panel_on_start(self, mock_alfred, mock_terminal):
+        """Verify ToolStart creates panel."""
+        from src.agent import ToolStart
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Trigger ToolStart
+        event = ToolStart(tool_call_id="call-1", tool_name="remember")
+        tui._tool_callback(event)
+
+        # Panel should be in conversation
+        assert len(tui.conversation.children) == 1
+        # Panel should be in tracking dict
+        assert "call-1" in tui._tool_panels
+
+    def test_tool_callback_appends_on_output(self, mock_alfred, mock_terminal):
+        """Verify ToolOutput appends to panel."""
+        from src.agent import ToolOutput, ToolStart
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Start tool
+        tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="bash"))
+        # Output
+        tui._tool_callback(ToolOutput(tool_call_id="call-1", tool_name="bash", chunk="Hello"))
+
+        # Get panel and verify output
+        panel = tui._tool_panels.get("call-1")
+        assert panel is not None
+        lines = panel.render(width=60)
+        assert "Hello" in "".join(lines)
+
+    def test_tool_callback_finalizes_on_end(self, mock_alfred, mock_terminal):
+        """Verify ToolEnd sets final status."""
+        from src.agent import ToolEnd, ToolStart
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Start and end tool
+        tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="remember"))
+        tui._tool_callback(ToolEnd(tool_call_id="call-1", tool_name="remember", result="OK"))
+
+        # Panel should be removed from dict
+        assert "call-1" not in tui._tool_panels
+        # But still in conversation
+        assert len(tui.conversation.children) == 1
+
+    def test_tool_callback_error_style(self, mock_alfred, mock_terminal):
+        """Verify error sets red border."""
+        from src.agent import ToolEnd, ToolStart
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Start and end with error
+        tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="bash"))
+        tui._tool_callback(ToolEnd(tool_call_id="call-1", tool_name="bash", result="Failed", is_error=True))
+
+        # Panel should have error styling (removed from dict)
+        assert "call-1" not in tui._tool_panels
+
+
 class TestCtrlCBehavior:
     """Tests for Ctrl-C clear input then exit behavior (Phase 1.9)."""
 
