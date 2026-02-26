@@ -96,9 +96,10 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=src --cov-report=term-missing -m 'not integration'"
+addopts = "--cov=src --cov-report=term-missing -m 'not integration and not e2e'"
 markers = [
     "integration: marks tests that hit real external APIs (skipped by default)",
+    "e2e: marks end-to-end tests requiring full environment (skipped by default)",
     "slow: marks tests as slow running (skipped by default)",
 ]
 
