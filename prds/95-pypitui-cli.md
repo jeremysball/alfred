@@ -614,11 +614,16 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 
 **Solution**: Progressive truncation based on available width.
 
+**Token display improvements:**
+- Use Nerd Font symbols: `󰈙` (upload) for input, `󰈚` (download) for output
+- Formula: `in = input_tokens - ctx_tokens` (shows new tokens, excludes reused context)
+- Format: `󰈙 1.2K 󰈚 449` instead of `in 1.2K out 449`
+
 **Width tiers (example for 80-char terminal):**
-- Full (80+): `model | ctx 18K in 37K out 449 | cached 35K reasoning 12 | Press Ctrl-C again to exit`
-- Medium (60-79): `model | ctx 18K in 37K out 449 | cached 35K reasoning 12`
-- Compact (40-59): `model | in 37K out 449`
-- Minimal (<40): `model | 37K/449`
+- Full (80+): `model | ctx 18K 󰈙 1.2K 󰈚 449 | cached 35K reasoning 12 | Press Ctrl-C again to exit`
+- Medium (60-79): `model | ctx 18K 󰈙 1.2K 󰈚 449 | cached 35K reasoning 12`
+- Compact (40-59): `model | 󰈙 1.2K 󰈚 449`
+- Minimal (<40): `model | 1.2K/449`
 
 **Tests first:**
 - [ ] `test_status_full_width()` — All groups shown at 80+ chars
@@ -626,10 +631,14 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 - [ ] `test_status_compact_width()` — Only model + in/out at 40-59 chars
 - [ ] `test_status_minimal_width()` — Short format at <40 chars
 - [ ] `test_status_truncates_model_name()` — Very long model name truncated with ellipsis
+- [ ] `test_status_shows_nerd_font_symbols()` — Verify upload/download symbols used
+- [ ] `test_status_in_excludes_ctx()` — Verify in = input - ctx
 
 **Implementation:**
 - [ ] Add width thresholds as constants: `STATUS_WIDTH_FULL`, `STATUS_WIDTH_MEDIUM`, `STATUS_WIDTH_COMPACT`
+- [ ] Add Nerd Font symbol constants: `SYMBOL_IN = "󰈙"`, `SYMBOL_OUT = "󰈚"`
 - [ ] In `StatusLine.render(width)`, check width and select tier
+- [ ] Calculate `in_display = input_tokens - ctx_tokens` (floor at 0)
 - [ ] Truncate model name if needed: `model[:20] + "…" if len(model) > 20 else model`
 - [ ] Progressive hiding: exit_hint first, then cached/reasoning, then ctx
 
