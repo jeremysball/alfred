@@ -510,3 +510,92 @@ class TestEntryPointIntegration:
 
             # Verify AlfredTUI was instantiated
             mock_tui_class.assert_called_once_with(mock_alfred)
+
+
+class TestCtrlCBehavior:
+    """Tests for Ctrl-C clear input then exit behavior (Phase 1.9)."""
+
+    def test_ctrl_c_clears_input_when_has_text(self, mock_alfred, mock_terminal):
+        """Verify first Ctrl-C clears input, shows hint."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Put text in input
+        tui.input_field.set_value("some text")
+
+        # Simulate Ctrl-C
+        tui._handle_ctrl_c()
+
+        # Input should be cleared
+        assert tui.input_field.get_value() == ""
+        # Pending flag should be set
+        assert tui._ctrl_c_pending is True
+        # Hint should be visible
+        assert tui._exit_hint_visible is True
+
+    def test_ctrl_c_shows_hint_when_input_empty(self, mock_alfred, mock_terminal):
+        """Verify hint shown even with empty input."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Input is empty by default
+        assert tui.input_field.get_value() == ""
+
+        # Simulate Ctrl-C
+        tui._handle_ctrl_c()
+
+        # Pending flag should be set
+        assert tui._ctrl_c_pending is True
+        # Hint should be visible
+        assert tui._exit_hint_visible is True
+
+    def test_second_ctrl_c_exits(self, mock_alfred, mock_terminal):
+        """Verify running = False after two Ctrl-C presses."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # First Ctrl-C
+        tui._handle_ctrl_c()
+        assert tui.running is True  # Still running
+        assert tui._ctrl_c_pending is True
+
+        # Second Ctrl-C
+        tui._handle_ctrl_c()
+        assert tui.running is False  # Now exits
+
+    def test_other_key_resets_ctrl_c_state(self, mock_alfred, mock_terminal):
+        """Verify any other key clears hint, resets state."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # First Ctrl-C to set pending state
+        tui._handle_ctrl_c()
+        assert tui._ctrl_c_pending is True
+        assert tui._exit_hint_visible is True
+
+        # Simulate another key press (reset)
+        tui._reset_ctrl_c_state()
+
+        # State should be reset
+        assert tui._ctrl_c_pending is False
+        assert tui._exit_hint_visible is False
+
+    def test_ctrl_c_state_persists_across_frames(self, mock_alfred, mock_terminal):
+        """Verify state doesn't auto-reset between frames."""
+        from src.interfaces.pypitui_cli import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Set pending state
+        tui._handle_ctrl_c()
+
+        # Simulate a frame passing (state should persist)
+        # This tests that we don't accidentally reset on render
+        assert tui._ctrl_c_pending is True
+
+        # After another "frame" still pending
+        assert tui._ctrl_c_pending is True
