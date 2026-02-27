@@ -57,6 +57,9 @@ class CLINotifier(Notifier):
     instead of printed immediately. This prevents notifications from
     clobbering the prompt line during user input or LLM streaming.
 
+    In TUI mode (use_toasts=True), notifications appear as toast overlays
+    instead of inline text.
+
     Format: [2026-02-19 10:30:00 JOB NOTIFICATION] Message here
             Continuation lines are indented
     """
@@ -65,15 +68,18 @@ class CLINotifier(Notifier):
         self,
         output_stream: TextIO | None = None,
         buffer: NotificationBuffer | None = None,
+        use_toasts: bool = False,
     ) -> None:
         """Initialize CLI notifier.
 
         Args:
             output_stream: Stream to write to (default: sys.stdout)
             buffer: Optional notification buffer for queuing during active states
+            use_toasts: If True, send notifications as toast overlays (TUI mode)
         """
         self.output = output_stream or sys.stdout
         self.buffer = buffer
+        self.use_toasts = use_toasts
 
     def set_buffer(self, buffer: NotificationBuffer | None) -> None:
         """Set or clear the notification buffer.
@@ -87,6 +93,7 @@ class CLINotifier(Notifier):
         """Send notification to CLI output.
 
         If buffer is active, queues the notification for later display.
+        If use_toasts is True, sends as toast overlay.
         Otherwise, displays immediately.
 
         Args:
@@ -97,6 +104,14 @@ class CLINotifier(Notifier):
             None
         """
         try:
+            # In TUI mode, send as toast
+            if self.use_toasts:
+                from src.interfaces.pypitui.toast import _add_toast
+
+                _add_toast(message, "info")
+                logger.debug(f"Sent toast notification: {message[:50]}...")
+                return
+
             # Queue if buffer exists and is active
             if self.buffer and self.buffer.is_active:
                 self.buffer.queue(message)

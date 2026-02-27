@@ -64,6 +64,11 @@ class AlfredTUI:
         # Install toast handler for src.* logging
         self._toast_handler = install_toast_handler()
 
+        # Enable toast mode for cron job notifications
+        from src.cron.notifier import CLINotifier
+        if isinstance(self.alfred.notifier, CLINotifier):
+            self.alfred.notifier.use_toasts = True
+
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
 

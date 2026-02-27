@@ -38,4 +38,8 @@ def mock_alfred():
     alfred.token_tracker.usage.reasoning_tokens = 0
     alfred.token_tracker.context_tokens = 0
 
+    # Add mock notifier
+    alfred.notifier = Mock()
+    alfred.notifier.use_toasts = False
+
     return alfred
