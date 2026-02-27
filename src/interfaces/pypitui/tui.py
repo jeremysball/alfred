@@ -209,6 +209,11 @@ class AlfredTUI:
             self._update_status()
             return
 
+        # Check for session commands
+        if text.startswith("/") and self._handle_session_command(text):
+            self.input_field.set_value("")
+            return
+
         # Add user message to conversation
         user_msg = MessagePanel(role="user", content=text)
         self.conversation.add_child(user_msg)
@@ -223,6 +228,105 @@ class AlfredTUI:
         # Create async task for response (requires running event loop)
         with suppress(RuntimeError):
             asyncio.create_task(self._send_message(text))
+
+    def _handle_session_command(self, text: str) -> bool:
+        """Handle session commands. Returns True if handled."""
+        parts = text.split(maxsplit=1)
+        cmd = parts[0].lower()
+        arg = parts[1].strip() if len(parts) > 1 else None
+
+        if cmd == "/new":
+            return self._cmd_new_session()
+        elif cmd == "/resume":
+            return self._cmd_resume_session(arg)
+        elif cmd == "/sessions":
+            return self._cmd_list_sessions()
+        elif cmd == "/session":
+            return self._cmd_show_current_session()
+        return False
+
+    def _add_system_message(self, content: str) -> None:
+        """Add a system message to the conversation."""
+        msg = MessagePanel(role="system", content=content)
+        self.conversation.add_child(msg)
+        self.tui.request_render()
+
+    def _cmd_new_session(self) -> bool:
+        """Create a new session."""
+        session = self.alfred.session_manager.new_session()
+        self._add_system_message(f"New session created: {session.meta.session_id}")
+        return True
+
+    def _cmd_resume_session(self, session_id: str | None) -> bool:
+        """Resume an existing session."""
+        if not session_id:
+            self._add_system_message(
+                "Usage: /resume <session_id>\nUse /sessions to see available sessions."
+            )
+            return True
+
+        try:
+            session = self.alfred.session_manager.resume_session(session_id)
+            msg_count = len(session.messages)
+            self._add_system_message(
+                f"Resumed session: {session_id}\nMessages: {msg_count}"
+            )
+        except ValueError as e:
+            self._add_system_message(f"Error: {e}")
+        return True
+
+    def _cmd_list_sessions(self) -> bool:
+        """List all sessions."""
+        sessions = self.alfred.session_manager.list_sessions()
+        if not sessions:
+            self._add_system_message("No sessions found.")
+            return True
+
+        # Build table-like output (limit to 20 most recent)
+        lines = ["ID                Created          Messages"]
+        lines.append("─" * 42)
+
+        current_id = None
+        if self.alfred.session_manager.has_active_session():
+            current = self.alfred.session_manager.get_current_cli_session()
+            if current:
+                current_id = current.meta.session_id
+
+        for meta in sessions[:20]:
+            created = meta.created_at.strftime("%Y-%m-%d %H:%M")
+            marker = " *" if meta.session_id == current_id else ""
+            lines.append(f"{meta.session_id}{marker:17} {created}  {meta.message_count:7}")
+
+        if len(sessions) > 20:
+            lines.append(f"... and {len(sessions) - 20} more")
+
+        self._add_system_message("\n".join(lines))
+        return True
+
+    def _cmd_show_current_session(self) -> bool:
+        """Show current session details."""
+        if not self.alfred.session_manager.has_active_session():
+            self._add_system_message("No active session.")
+            return True
+
+        session = self.alfred.session_manager.get_current_cli_session()
+        if not session:
+            self._add_system_message("No active session.")
+            return True
+
+        meta = session.meta
+        created = meta.created_at.strftime("%Y-%m-%d %H:%M")
+        last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
+
+        self._add_system_message(
+            f"Current Session\n"
+            f"ID: {meta.session_id}\n"
+            f"Status: {meta.status}\n"
+            f"Created: {created}\n"
+            f"Last Active: {last_active}\n"
+            f"Messages: {meta.message_count}"
+        )
+        return True
 
     async def _send_message(self, text: str) -> None:
         """Send message to Alfred and handle response.

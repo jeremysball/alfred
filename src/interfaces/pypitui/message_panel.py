@@ -4,7 +4,7 @@ from typing import Literal
 
 from pypitui import BorderedBox, Text  # type: ignore
 
-from src.interfaces.pypitui.constants import CYAN, GREEN, RED, RESET
+from src.interfaces.pypitui.constants import CYAN, DIM, GREEN, RED, RESET
 from src.interfaces.pypitui.models import ToolCallInfo
 
 
@@ -14,6 +14,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
     Uses different border colors based on role:
     - user: cyan border, title "You"
     - assistant: green border, title "Alfred"
+    - system: dim border, title "System"
     - error: red border (after set_error() called)
 
     Supports embedded tool call boxes for inline tool display.
@@ -21,7 +22,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def __init__(
         self,
-        role: Literal["user", "assistant"],
+        role: Literal["user", "assistant", "system"],
         content: str = "",
         *,
         padding_x: int = 1,
@@ -30,7 +31,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         """Initialize the message panel.
 
         Args:
-            role: "user" or "assistant"
+            role: "user", "assistant", or "system"
             content: Initial message content
             padding_x: Horizontal padding inside border
             padding_y: Vertical padding inside border
@@ -46,7 +47,9 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self._tool_calls: list[ToolCallInfo] = []
 
         # Set title based on role
-        title = "You" if role == "user" else "Alfred"
+        title = {"user": "You", "assistant": "Alfred", "system": "System"}.get(
+            role, "Alfred"
+        )
         self.set_title(title)
 
         # Set border color based on role
@@ -60,9 +63,9 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         """Set border color by overriding class border characters.
 
         Args:
-            role_or_state: "user", "assistant", or "error"
+            role_or_state: "user", "assistant", "system", or "error"
         """
-        color = {"user": CYAN, "assistant": GREEN, "error": RED}.get(
+        color = {"user": CYAN, "assistant": GREEN, "system": DIM, "error": RED}.get(
             role_or_state, GREEN
         )
         self._border_color = color

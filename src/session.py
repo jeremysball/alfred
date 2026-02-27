@@ -246,19 +246,22 @@ class SessionManager:
         """Spawn background task to persist message (if event loop running)."""
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self._persist_message(session_id, message))
+            # Get the session to save its meta (with updated counts)
+            session = self._local_sessions.get(session_id)
+            loop.create_task(self._persist_message(session_id, message, session))
         except RuntimeError:
             # No event loop running - message stays in memory
             # Will be persisted on next message or shutdown
             pass
 
-    async def _persist_message(self, session_id: str, message: Message) -> None:
+    async def _persist_message(
+        self, session_id: str, message: Message, session: Session | None = None
+    ) -> None:
         """Persist message to storage and spawn embedding task."""
         await self.storage.append_message(session_id, message)
-        # Update meta
-        meta = self.storage.get_meta(session_id)
-        if meta:
-            self.storage.save_meta(meta)
+        # Save the in-memory meta (with updated counts) not stale disk version
+        if session is not None:
+            self.storage.save_meta(session.meta)
         # Spawn embedding task
         self.storage.spawn_embed_task(session_id, message.idx, message.content)
 
