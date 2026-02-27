@@ -313,3 +313,76 @@ with TerminalSession("alfred", port=7681) as s:
 ```
 
 See `.pi/skills/tmux-tape/SKILL.md` for full API.
+
+### 13. Create Granular Execution Plans
+When implementing a feature or PRD phase, create an **extremely granular** checklist first.
+
+**Principles:**
+- Each item = single atomic action
+- Each item = independently verifiable
+- Items ordered by dependency
+- Include test items after implementation items
+- Include manual verification items
+
+**Granularity levels:**
+
+| Too Coarse | Good | Excellent |
+|------------|------|-----------|
+| "Add throbber" | "Create Throbber class" | "Create file `src/interfaces/pypitui/throbber.py`" |
+| "Wire into TUI" | "Add throbber to status line" | "Add `self._throbber = Throbber()` in `__init__`" |
+| "Test it works" | "Test throbber animation" | "Test: `test_throbber_tick_advances()`" |
+
+**Template for each implementation item:**
+```
+- [ ] Create/modify <file>
+- [ ] Add <specific code change>
+- [ ] Test: `test_<what>()` — verify <behavior>
+- [ ] Run: `uv run pytest <file>` — fix failures
+```
+
+**Example execution plan structure:**
+```markdown
+## Phase A: Feature Name
+
+### A.1 Create Core Class
+- [ ] Create file `src/path/to/module.py`
+- [ ] Add import: `from typing import Literal`
+- [ ] Define constant: `MAX_ITEMS = 5`
+- [ ] Create class `Thing` with `__init__(self, name: str)`
+- [ ] Add `self._name = name`
+- [ ] Implement `do_thing(self) -> str`
+- [ ] Run: `uv run ruff check src/path/to/`
+
+### A.2 Test Core Class
+- [ ] Create file `tests/test_thing.py`
+- [ ] Test: `test_thing_init()` — verify name stored
+- [ ] Test: `test_do_thing_returns_string()` — verify return type
+- [ ] Run: `uv run pytest tests/test_thing.py -v`
+- [ ] Fix any failures
+
+### A.3 Integrate with Existing Code
+- [ ] Open `src/existing/module.py`
+- [ ] Add import at top: `from src.path.to.module import Thing`
+- [ ] Add `self._thing = Thing("name")` in `__init__`
+- [ ] Call `self._thing.do_thing()` in relevant method
+- [ ] Run: `uv run pytest tests/`
+
+### A.4 Manual Verification
+- [ ] Run app in tmux: `tmux new-session -d -s test "uv run app"`
+- [ ] Trigger feature
+- [ ] Capture output: `tmux capture-pane -t test -p`
+- [ ] Verify expected behavior
+- [ ] Kill session: `tmux kill-session -t test`
+
+### A.5 Commit
+- [ ] Run: `uv run ruff check src/ && uv run mypy src/ && uv run pytest`
+- [ ] Stage: `git add src/path/to/module.py tests/test_thing.py`
+- [ ] Commit: `feat(module): add Thing class with do_thing method`
+```
+
+**When to create:**
+- Before implementing any PRD phase
+- Before any feature spanning 3+ files
+- When user asks for "detailed plan" or "todo list"
+
+**Store in:** `prds/execution-plan-<feature>.md`
