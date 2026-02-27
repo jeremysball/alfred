@@ -4,13 +4,14 @@ import asyncio
 from contextlib import suppress
 from typing import TYPE_CHECKING, Literal
 
-from pypitui import Container, Input, Key, OverlayOptions, matches_key
+from pypitui import Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
+from src.interfaces.pypitui.wrapped_input import WrappedInput
 
 if TYPE_CHECKING:
     from pypitui import OverlayHandle, ProcessTerminal
@@ -45,8 +46,8 @@ class AlfredTUI:
         # Status line for model/token info
         self.status_line = StatusLine()
 
-        # Input field for user messages
-        self.input_field = Input(placeholder="Message Alfred...")
+        # Input field for user messages (with wrapped text navigation)
+        self.input_field = WrappedInput(placeholder="Message Alfred...")
         self.input_field.on_submit = self._on_submit
 
         # Build layout: conversation (flex), status, input
