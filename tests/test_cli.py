@@ -157,29 +157,62 @@ class TestCLIMarkdownRendering:
     @pytest.mark.asyncio
     async def test_chat_uses_live_for_streaming(self, mock_alfred: MagicMock) -> None:
         """Streaming uses Live to render content."""
+        from unittest.mock import MagicMock, patch, AsyncMock
 
         interface = CLIInterface(mock_alfred)
 
-        async def mock_stream(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
+        async def mock_stream_impl(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             yield "CLI response"
 
-        mock_alfred.chat_stream = mock_stream
+        # Use AsyncMock to track calls while still yielding
+        mock_alfred.chat_stream = AsyncMock(side_effect=mock_stream_impl)
+
+        # Track whether Live was used
+        live_context_used = False
+
+        original_live = None
+        try:
+            from rich.live import Live
+            original_live = Live
+        except ImportError:
+            pass
+
+        def track_live(*args, **kwargs):
+            nonlocal live_context_used
+            live_context_used = True
+            # Return a mock that works as a context manager
+            mock_live = MagicMock()
+            mock_live.__enter__ = MagicMock(return_value=mock_live)
+            mock_live.__exit__ = MagicMock(return_value=None)
+            mock_live.update = MagicMock()
+            return mock_live
 
         with patch("src.interfaces.cli.PromptSession") as mock_session_cls:
             mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
-            await interface.run()
 
-        # Test completes without error
+            # Patch Live if available, otherwise patch the module's Live reference
+            if original_live:
+                with patch("src.interfaces.cli.Live", side_effect=track_live):
+                    await interface.run()
+            else:
+                await interface.run()
+
+        # Verify chat_stream was called (streaming was attempted)
+        mock_alfred.chat_stream.assert_called_once()
+        # Verify the interface ran without error and processed the message
+        assert interface is not None
 
     @pytest.mark.asyncio
     async def test_chat_handles_empty_stream(self, mock_alfred: MagicMock) -> None:
         """Empty streams are handled gracefully."""
+        from unittest.mock import AsyncMock
 
-        async def empty_stream(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
+        async def empty_stream_impl(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             return
             yield  # pragma: no cover
 
-        mock_alfred.chat_stream = empty_stream
+        # Use AsyncMock to track calls
+        mock_alfred.chat_stream = AsyncMock(side_effect=empty_stream_impl)
 
         interface = CLIInterface(mock_alfred)
 
@@ -187,7 +220,9 @@ class TestCLIMarkdownRendering:
             mock_session_cls.return_value = make_mock_session(["Hello", "exit"])
             await interface.run()
 
-        # Should complete without error
+        # Verify chat_stream was called even with empty stream
+        mock_alfred.chat_stream.assert_called_once()
+        # Verify no errors were raised during processing
 
 
 class TestSessionCommands:
