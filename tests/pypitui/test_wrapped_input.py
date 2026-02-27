@@ -37,88 +37,81 @@ class TestWrappedInputBasic:
 
 
 class TestWrappedInputWrapping:
-    """Text wrapping behavior - shows only current display line."""
+    """Text wrapping behavior - shows all display lines."""
 
-    def test_wrapped_input_always_returns_one_line(self) -> None:
-        """WrappedInput always returns exactly one line."""
+    def test_wrapped_input_returns_multiple_lines(self) -> None:
+        """Long text returns multiple display lines."""
         inp = WrappedInput()
         inp.set_value("hello world this is a long line")
         inp.focused = True
 
-        # Regardless of cursor position, always 1 line
-        inp.set_cursor_pos(0)
-        assert len(inp.render(width=10)) == 1
+        lines = inp.render(width=10)
+        # 31 chars / 10 = 4 lines
+        assert len(lines) == 4
 
-        inp.set_cursor_pos(15)
-        assert len(inp.render(width=10)) == 1
-
-        inp.set_cursor_pos(25)
-        assert len(inp.render(width=10)) == 1
-
-    def test_wrapped_input_shows_first_line_when_cursor_at_start(self) -> None:
-        """When cursor at start, shows first display line."""
+    def test_wrapped_input_shows_all_lines(self) -> None:
+        """All wrapped lines are visible."""
         inp = WrappedInput()
-        inp.set_value("hello world this is a long line")
+        inp.set_value("123456789012345678901234567890")
         inp.focused = True
 
-        inp.set_cursor_pos(0)
         lines = inp.render(width=10)
-        # First 10 chars are "hello worl"
-        assert "hello" in strip_ansi(lines[0])
-
-    def test_wrapped_input_shows_second_line_when_cursor_there(self) -> None:
-        """When cursor is on second display line, shows that line."""
-        inp = WrappedInput()
-        inp.set_value("hello world this is long")
-        inp.focused = True
-
-        # Cursor on second line (position 10-19)
-        inp.set_cursor_pos(15)
-        lines = inp.render(width=10)
-        # Should show "d this is " (positions 10-19)
-        assert "this" in strip_ansi(lines[0])
+        assert len(lines) == 3
+        assert strip_ansi(lines[0]) == "1234567890"
+        assert strip_ansi(lines[1]) == "1234567890"
+        assert strip_ansi(lines[2]) == "1234567890"
 
 
 class TestWrappedInputCursor:
     """Cursor positioning in wrapped text."""
 
-    def test_wrapped_input_cursor_visible_when_focused(self) -> None:
-        """Cursor marker is visible when focused."""
+    def test_wrapped_input_cursor_on_first_line(self) -> None:
+        """Cursor at start is on first display line."""
         inp = WrappedInput()
         inp.set_value("hello world")
         inp.set_cursor_pos(0)
         inp.focused = True
 
-        lines = inp.render(width=10)
-        # Cursor marker (reverse video) should be in the line
+        lines = inp.render(width=5)
+        # Cursor (reverse video) should be in first line
         assert "\x1b[7m" in lines[0]
 
-    def test_wrapped_input_cursor_on_wrapped_line(self) -> None:
-        """Cursor on wrapped portion shows correct line with cursor."""
+    def test_wrapped_input_cursor_on_second_line(self) -> None:
+        """Cursor on second display line has cursor there."""
         inp = WrappedInput()
         inp.set_value("hello world")
-        inp.set_cursor_pos(8)  # Into "world"
+        inp.set_cursor_pos(7)  # Second line (width=5)
         inp.focused = True
 
         lines = inp.render(width=5)
-        # Should show second line " worl" with cursor
-        # Only one line returned, containing "worl" text
-        assert "worl" in strip_ansi(lines[0])
-        assert "\x1b[7m" in lines[0]  # Has cursor (reverse video)
+        # 11 chars at width 5 = 3 lines: "hello", " worl", "d"
+        # Cursor at 7 is on line 1 (0-indexed)
+        assert "\x1b[7m" in lines[1]
+        assert "\x1b[7m" not in lines[0]
+
+    def test_wrapped_input_cursor_on_last_line(self) -> None:
+        """Cursor on last display line has cursor there."""
+        inp = WrappedInput()
+        inp.set_value("hello world")  # 11 chars
+        inp.set_cursor_pos(10)  # Last char, last line (width=5)
+        inp.focused = True
+
+        lines = inp.render(width=5)
+        # Lines: "hello", " worl", "d"
+        # Cursor at 10 is on line 2
+        assert "\x1b[7m" in lines[2]
 
 
 class TestWrappedInputNavigation:
     """Arrow key navigation across display lines."""
 
-    def test_wrapped_input_down_moves_to_wrapped_line(self) -> None:
+    def test_wrapped_input_down_moves_to_next_line(self) -> None:
         """Down arrow moves cursor to next display line."""
         inp = WrappedInput()
         inp.set_value("hello world")
         inp.set_cursor_pos(2)  # On first display line
 
-        # Must render first to set _last_width
         inp.render(width=5)
-
         inp.move_cursor_down()
 
         # Cursor should have moved to second line (2 -> 7)
@@ -130,9 +123,7 @@ class TestWrappedInputNavigation:
         inp.set_value("hello world")
         inp.set_cursor_pos(8)  # On second display line
 
-        # Must render first to set _last_width
         inp.render(width=5)
-
         inp.move_cursor_up()
 
         # Cursor should have moved back (8 -> 3)
@@ -167,9 +158,7 @@ class TestWrappedInputNavigation:
         inp.set_value("aaaaa bbbbb")
         inp.set_cursor_pos(8)  # Column 3 of "bbbbb"
 
-        # Must render first to set _last_width
         inp.render(width=5)
-
         inp.move_cursor_up()  # Should go to column 3 of "aaaaa"
         assert inp._cursor_pos == 3
 

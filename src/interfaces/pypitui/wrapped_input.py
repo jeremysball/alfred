@@ -5,6 +5,8 @@ display lines (handles wrapped text).
 
 Uses character-based wrapping (not word-based) to maintain 1:1
 position mapping between text cursor and display position.
+
+Shows ALL display lines at once, with cursor on the appropriate line.
 """
 
 from collections.abc import Callable
@@ -19,7 +21,7 @@ class WrappedInput(Component, Focusable):
     Wraps pypitui's Input component and adds:
     - Up/down arrow navigation across wrapped display lines
     - Maintains display column during vertical movement
-    - Proper cursor positioning in wrapped text
+    - Shows all display lines with cursor on correct line
 
     Uses character-based wrapping (not word-based) for reliable
     position mapping.
@@ -29,7 +31,7 @@ class WrappedInput(Component, Focusable):
         inp.on_submit = lambda text: print(f"Submitted: {text}")
 
         # In render loop:
-        lines = inp.render(width=80)
+        lines = inp.render(width=80)  # Returns all wrapped lines
         # Handle input:
         inp.handle_input(data)
     """
@@ -87,13 +89,13 @@ class WrappedInput(Component, Focusable):
         self._input.invalidate()
 
     def render(self, width: int) -> list[str]:
-        """Render input showing only the current display line.
+        """Render input showing all display lines with cursor.
 
         Args:
             width: Terminal width in columns.
 
         Returns:
-            Single-element list containing the display line with cursor.
+            List of display lines, with cursor marker on the appropriate line.
         """
         self._last_width = width
         text = self.get_value()
@@ -105,24 +107,27 @@ class WrappedInput(Component, Focusable):
         if width <= 0:
             return [text] if text else [""]
 
-        # Get which display line the cursor is on
+        # Split text into display lines
+        display_lines = []
+        for i in range(0, len(text), width):
+            display_lines.append(text[i : i + width])
+
+        # Find which line cursor is on
         cursor_line_idx = self._cursor_pos // width
-
-        # Extract just that line's text
-        line_start = cursor_line_idx * width
-        line_end = min(line_start + width, len(text))
-        line_text = text[line_start:line_end]
-
-        # Cursor position within this line
         cursor_col = self._cursor_pos % width
 
-        # Render with cursor
-        if self.focused:
-            rendered = self._render_line_with_cursor(line_text, cursor_col)
-            # Truncate to fit width exactly (cursor markers are 0-width in visible terms)
-            return [truncate_to_width(rendered, width)]
-        else:
-            return [line_text] if line_text else [" "]
+        # Render each line, with cursor on the appropriate one
+        result = []
+        for i, line in enumerate(display_lines):
+            if i == cursor_line_idx and self.focused:
+                # Add cursor to this line
+                rendered = self._render_line_with_cursor(line, cursor_col)
+                result.append(truncate_to_width(rendered, width))
+            else:
+                # Plain line (pad to width for consistent display)
+                result.append(line)
+
+        return result
 
     def _render_line_with_cursor(self, line: str, cursor_col: int) -> str:
         """Render a line with cursor marker at given column."""
@@ -132,30 +137,6 @@ class WrappedInput(Component, Focusable):
 
         # Use reverse video for cursor (no extra visible char)
         return f"{before}\x1b[7m{at}\x1b[27m{after}"
-
-    def _get_display_lines(self, text: str, width: int) -> list[str]:
-        """Get display lines with character-based wrapping.
-
-        Simple character-based wrapping maintains 1:1 position mapping:
-        - Position 0-9 → line 0
-        - Position 10-19 → line 1
-        - etc.
-
-        Args:
-            text: Text to wrap.
-            width: Maximum line width.
-
-        Returns:
-            List of display lines.
-        """
-        if width <= 0 or not text:
-            return [text] if text else [""]
-
-        lines = []
-        for i in range(0, len(text), width):
-            lines.append(text[i : i + width])
-
-        return lines if lines else [""]
 
     def _get_cursor_display_pos(self, width: int) -> tuple[int, int]:
         """Get cursor position in display coordinates.
