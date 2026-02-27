@@ -153,6 +153,7 @@ class AlfredTUI:
             reasoning=usage.reasoning_tokens,
             exit_hint=self._exit_hint_visible,
             queued=len(self._message_queue),
+            streaming=self._is_streaming,
         )
 
     def _tool_callback(self, event: object) -> None:
@@ -284,6 +285,9 @@ class AlfredTUI:
 
                 # Update toast overlay visibility
                 self._update_toast_overlay()
+
+                # Animate throbber during streaming
+                self.status_line.tick_throbber()
 
                 # Render frame
                 self.tui.request_render()

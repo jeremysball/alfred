@@ -3,6 +3,7 @@
 from pypitui import Component
 
 from src.interfaces.pypitui.constants import DIM, RESET, YELLOW
+from src.interfaces.pypitui.throbber import Throbber
 from src.interfaces.pypitui.utils import format_tokens
 
 # Width thresholds for responsive layout
@@ -41,6 +42,8 @@ class StatusLine(Component):
         self._reasoning: int = 0
         self._queued: int = 0
         self._exit_hint: bool = False
+        self._is_streaming: bool = False
+        self._throbber: Throbber = Throbber()
 
     def invalidate(self) -> None:
         """Mark this component as needing re-render."""
@@ -57,6 +60,7 @@ class StatusLine(Component):
         reasoning: int,
         exit_hint: bool = False,
         queued: int = 0,
+        streaming: bool = False,
     ) -> None:
         """Update all status values.
 
@@ -69,6 +73,7 @@ class StatusLine(Component):
             reasoning: Reasoning tokens
             exit_hint: Show Ctrl-C exit hint
             queued: Number of queued messages
+            streaming: Show animated throbber during streaming
         """
         self._model = model
         self._ctx = ctx
@@ -78,6 +83,17 @@ class StatusLine(Component):
         self._reasoning = reasoning
         self._exit_hint = exit_hint
         self._queued = queued
+        self._is_streaming = streaming
+        if not streaming:
+            self._throbber.reset()
+
+    def tick_throbber(self) -> None:
+        """Advance throbber animation by one frame.
+
+        Only animates when _is_streaming is True.
+        """
+        if self._is_streaming:
+            self._throbber.tick()
 
     def render(self, width: int) -> list[str]:
         """Render status line.
@@ -89,6 +105,10 @@ class StatusLine(Component):
             Single-element list with status line string
         """
         parts: list[str] = []
+
+        # Throbber first if streaming
+        if self._is_streaming:
+            parts.append(self._throbber.render())
 
         # Truncate model name if needed
         model = self._truncate_model(width)

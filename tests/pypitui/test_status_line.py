@@ -215,6 +215,129 @@ class TestStatusLine:
         assert "↑" in lines[0]  # up arrow for output
 
 
+class TestStatusLineThrobber:
+    """Tests for StatusLine throbber integration (Phase 9)."""
+
+    def test_status_shows_throbber_when_streaming(self) -> None:
+        """Throbber character should appear when streaming=True."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=500,
+            out_tokens=100,
+            cached=0,
+            reasoning=0,
+            streaming=True,
+        )
+
+        lines = status.render(width=80)
+        # Throbber braille character should be first
+        assert lines[0].startswith("⠋")
+
+    def test_status_hides_throbber_when_not_streaming(self) -> None:
+        """No throbber when streaming=False (default)."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=500,
+            out_tokens=100,
+            cached=0,
+            reasoning=0,
+            streaming=False,
+        )
+
+        lines = status.render(width=80)
+        # Should start with model name, not throbber
+        assert lines[0].startswith("test")
+
+    def test_throbber_position_before_model(self) -> None:
+        """Throbber appears before model name."""
+        status = StatusLine()
+        status.update(
+            model="my-model",
+            ctx=0,
+            in_tokens=0,
+            out_tokens=0,
+            cached=0,
+            reasoning=0,
+            streaming=True,
+        )
+
+        lines = status.render(width=80)
+        text = lines[0]
+        # Throbber first, then model
+        throbber_idx = text.find("⠋")
+        model_idx = text.find("my-model")
+        assert throbber_idx < model_idx
+
+    def test_throbber_shows_in_compact_mode(self) -> None:
+        """Throbber visible even in compact layout."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=500,
+            out_tokens=100,
+            cached=0,
+            reasoning=0,
+            streaming=True,
+        )
+
+        lines = status.render(width=STATUS_WIDTH_COMPACT)
+        assert "⠋" in lines[0]
+
+    def test_throbber_tick_advances(self) -> None:
+        """tick_throbber() advances animation frame."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=0,
+            out_tokens=0,
+            cached=0,
+            reasoning=0,
+            streaming=True,
+        )
+
+        # First frame
+        lines1 = status.render(width=80)
+        frame1 = lines1[0][0]
+
+        # Tick to advance
+        status.tick_throbber()
+
+        # Second frame (should be different)
+        lines2 = status.render(width=80)
+        frame2 = lines2[0][0]
+
+        # Frames should cycle (braille has 10 frames)
+        # After 10 ticks, should be back to start
+        assert frame1 == "⠋"
+        assert frame2 == "⠙"
+
+    def test_throbber_tick_ignored_when_not_streaming(self) -> None:
+        """tick_throbber() does nothing when not streaming."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=0,
+            out_tokens=0,
+            cached=0,
+            reasoning=0,
+            streaming=False,
+        )
+
+        # Should not crash
+        status.tick_throbber()
+
+        # Model should still be first
+        lines = status.render(width=80)
+        assert lines[0].startswith("test")
+
+
 class TestFormatTokens:
     """Tests for format_tokens utility function."""
 
