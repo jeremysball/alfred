@@ -4,32 +4,40 @@ import asyncio
 from contextlib import suppress
 from typing import TYPE_CHECKING, Literal
 
-from pypitui import Container, Input, Key, matches_key
+from pypitui import Container, Input, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.status_line import StatusLine
-from src.interfaces.pypitui.toast import dismiss_all, install_toast_handler
+from src.interfaces.pypitui.toast import ToastManager
+from src.interfaces.pypitui.toast_overlay import ToastOverlay
 
 if TYPE_CHECKING:
-    from pypitui import ProcessTerminal
+    from pypitui import OverlayHandle, ProcessTerminal
 
 
 class AlfredTUI:
     """Main TUI class for Alfred CLI using PyPiTUI."""
 
-    def __init__(self, alfred: Alfred, terminal: "ProcessTerminal | None" = None) -> None:
+    def __init__(
+        self,
+        alfred: Alfred,
+        terminal: "ProcessTerminal | None" = None,
+        toast_manager: ToastManager | None = None,
+    ) -> None:
         """Initialize the Alfred TUI.
 
         Args:
             alfred: The Alfred instance to interact with
             terminal: Optional terminal to use (for testing)
+            toast_manager: Optional ToastManager for notifications
         """
         from pypitui import TUI, ProcessTerminal
 
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
         self.tui = TUI(self.terminal)
+        self._toast_manager = toast_manager
 
         # Main conversation container
         self.conversation = Container()
@@ -47,6 +55,12 @@ class AlfredTUI:
         self.tui.add_child(self.input_field)
         self.tui.set_focus(self.input_field)
 
+        # Toast overlay (non-modal popup at bottom of screen)
+        self._toast_overlay: ToastOverlay | None = None
+        self._toast_handle: OverlayHandle | None = None
+        if toast_manager is not None:
+            self._toast_overlay = ToastOverlay(toast_manager)
+
         # State
         self.running = True
 
@@ -61,13 +75,12 @@ class AlfredTUI:
         self._message_queue: list[str] = []
         self._is_streaming = False
 
-        # Install toast handler for src.* logging
-        self._toast_handler = install_toast_handler()
-
         # Enable toast mode for cron job notifications
-        from src.cron.notifier import CLINotifier
-        if isinstance(self.alfred.notifier, CLINotifier):
-            self.alfred.notifier.use_toasts = True
+        if toast_manager is not None:
+            from src.cron.notifier import CLINotifier
+
+            if isinstance(self.alfred.notifier, CLINotifier):
+                self.alfred.notifier.set_toast_manager(toast_manager)
 
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
@@ -91,7 +104,32 @@ class AlfredTUI:
         self._exit_hint_visible = False
         self._update_status()
         # Dismiss any visible toasts on keypress
-        dismiss_all()
+        if self._toast_manager is not None:
+            self._toast_manager.dismiss_all()
+
+    def _update_toast_overlay(self) -> None:
+        """Update toast overlay visibility based on current toasts.
+
+        Shows overlay when toasts exist, hides when empty.
+        Overlay is non-modal (doesn't affect focus).
+        """
+        if self._toast_overlay is None:
+            return
+
+        has_toasts = self._toast_overlay.has_toasts()
+
+        if has_toasts and self._toast_handle is None:
+            # Show toast overlay at bottom-left, non-modal
+            options = OverlayOptions(
+                anchor="bottom-left",
+                offset_y=-2,  # 2 lines from bottom (above input)
+                margin=2,  # Left margin
+            )
+            self._toast_handle = self.tui.show_overlay(self._toast_overlay, options)
+        elif not has_toasts and self._toast_handle is not None:
+            # Hide toast overlay
+            self._toast_handle.hide()
+            self._toast_handle = None
 
     def _update_status(self, estimated_out: int | None = None) -> None:
         """Update status line with current token counts.
@@ -243,6 +281,9 @@ class AlfredTUI:
                         if self._ctrl_c_pending:
                             self._reset_ctrl_c_state()
                         self.tui.handle_input(data)
+
+                # Update toast overlay visibility
+                self._update_toast_overlay()
 
                 # Render frame
                 self.tui.request_render()

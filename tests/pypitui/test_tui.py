@@ -294,36 +294,48 @@ class TestCtrlCBehavior:
 
 
 class TestToastTUIIntegration:
-    """Tests for toast integration with AlfredTUI (Phase 4.5.4)."""
+    """Tests for toast integration with AlfredTUI."""
 
     def test_keypress_dismisses_toasts(self, mock_alfred, mock_terminal):
         """Verify any keypress dismisses all toasts."""
-        from src.interfaces.pypitui.toast import _add_toast, get_toasts
+        from src.interfaces.pypitui.toast import ToastManager
         from src.interfaces.pypitui.tui import AlfredTUI
 
-        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+        manager = ToastManager()
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal, toast_manager=manager)
 
         # Add some toasts directly
-        _add_toast("Warning 1", "warning")
-        _add_toast("Error 1", "error")
+        manager.add("Warning 1", "warning")
+        manager.add("Error 1", "error")
 
-        assert len(get_toasts()) == 2
+        assert len(manager.get_all()) == 2
 
         # Simulate keypress reset (this is what happens on any non-CtrlC key)
         tui._reset_ctrl_c_state()  # This should also dismiss toasts
 
         # Toasts should be dismissed
-        assert len(get_toasts()) == 0
+        assert len(manager.get_all()) == 0
 
-    def test_toast_handler_installed(self, mock_alfred, mock_terminal):
-        """Verify toast handler is installed on root logger."""
+    def test_toast_handler_with_manager(self, mock_alfred, mock_terminal):
+        """Verify ToastHandler can be created with ToastManager."""
         import logging
 
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from src.interfaces.pypitui.toast import ToastHandler, ToastManager
 
-        AlfredTUI(mock_alfred, terminal=mock_terminal)
+        manager = ToastManager()
+        handler = ToastHandler(manager)
 
-        # Check that root logger has a ToastHandler (to catch all src.* logs)
-        root_logger = logging.getLogger()
-        handler_types = [type(h).__name__ for h in root_logger.handlers]
-        assert "ToastHandler" in handler_types
+        # Use handler with a logger
+        logger = logging.getLogger("src.test_handler")
+        logger.setLevel(logging.WARNING)
+        logger.addHandler(handler)
+
+        logger.warning("Test warning")
+
+        # Toast should be in manager
+        toasts = manager.get_all()
+        assert len(toasts) == 1
+        assert "Test warning" in toasts[0].message
+
+        logger.removeHandler(handler)
+

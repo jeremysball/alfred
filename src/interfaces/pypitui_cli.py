@@ -8,8 +8,11 @@ from src.interfaces.pypitui import (
     AlfredTUI,
     MessagePanel,
     StatusLine,
+    ToastManager,
+    ToastOverlay,
     ToolCallInfo,
     ToolCallPanel,
+    add_toast,
     format_tokens,
 )
 
@@ -17,7 +20,10 @@ __all__ = [
     "AlfredTUI",
     "MessagePanel",
     "StatusLine",
+    "ToastManager",
+    "ToastOverlay",
     "ToolCallInfo",
     "ToolCallPanel",
+    "add_toast",
     "format_tokens",
 ]

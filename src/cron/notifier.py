@@ -4,12 +4,12 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Literal, Protocol, TextIO, runtime_checkable
 
 if TYPE_CHECKING:
     from telegram import Bot
 
-from src.interfaces.notification_buffer import NotificationBuffer
+    from src.interfaces.notification_buffer import NotificationBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,23 @@ class NotifierError(Exception):
     """Base exception for notifier failures."""
 
     pass
+
+
+@runtime_checkable
+class ToastManagerProtocol(Protocol):
+    """Protocol for ToastManager to avoid circular imports."""
+
+    def add(self, message: str, level: Literal["warning", "error", "info"]) -> None:
+        """Add a toast notification."""
+        ...
+
+    def get_all(self) -> list:
+        """Get all active toasts."""
+        ...
+
+    def dismiss_all(self) -> None:
+        """Dismiss all toasts."""
+        ...
 
 
 class Notifier(ABC):
@@ -57,8 +74,8 @@ class CLINotifier(Notifier):
     instead of printed immediately. This prevents notifications from
     clobbering the prompt line during user input or LLM streaming.
 
-    In TUI mode (use_toasts=True), notifications appear as toast overlays
-    instead of inline text.
+    In TUI mode (toast_manager provided), notifications appear as toast
+    overlays instead of inline text.
 
     Format: [2026-02-19 10:30:00 JOB NOTIFICATION] Message here
             Continuation lines are indented
@@ -67,21 +84,21 @@ class CLINotifier(Notifier):
     def __init__(
         self,
         output_stream: TextIO | None = None,
-        buffer: NotificationBuffer | None = None,
-        use_toasts: bool = False,
+        buffer: "NotificationBuffer | None" = None,
+        toast_manager: ToastManagerProtocol | None = None,
     ) -> None:
         """Initialize CLI notifier.
 
         Args:
             output_stream: Stream to write to (default: sys.stdout)
             buffer: Optional notification buffer for queuing during active states
-            use_toasts: If True, send notifications as toast overlays (TUI mode)
+            toast_manager: Optional ToastManager for TUI toast notifications
         """
         self.output = output_stream or sys.stdout
         self.buffer = buffer
-        self.use_toasts = use_toasts
+        self._toast_manager = toast_manager
 
-    def set_buffer(self, buffer: NotificationBuffer | None) -> None:
+    def set_buffer(self, buffer: "NotificationBuffer | None") -> None:
         """Set or clear the notification buffer.
 
         Args:
@@ -89,11 +106,19 @@ class CLINotifier(Notifier):
         """
         self.buffer = buffer
 
+    def set_toast_manager(self, toast_manager: ToastManagerProtocol | None) -> None:
+        """Set or clear the toast manager.
+
+        Args:
+            toast_manager: The ToastManager to use, or None to disable toasts.
+        """
+        self._toast_manager = toast_manager
+
     async def send(self, message: str, chat_id: int | None = None) -> None:
         """Send notification to CLI output.
 
         If buffer is active, queues the notification for later display.
-        If use_toasts is True, sends as toast overlay.
+        If toast_manager is set, sends as toast overlay.
         Otherwise, displays immediately.
 
         Args:
@@ -105,10 +130,8 @@ class CLINotifier(Notifier):
         """
         try:
             # In TUI mode, send as toast
-            if self.use_toasts:
-                from src.interfaces.pypitui.toast import _add_toast
-
-                _add_toast(message, "info")
+            if self._toast_manager is not None:
+                self._toast_manager.add(message, "info")
                 logger.debug(f"Sent toast notification: {message[:50]}...")
                 return
 

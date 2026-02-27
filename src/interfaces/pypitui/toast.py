@@ -1,20 +1,20 @@
 """Toast notification system for PyPiTUI CLI.
 
-Captures WARNING+ logs from src.* modules and displays them as
-toast notifications at the bottom of the screen.
+ToastManager owns toast state and is injected into components that need it.
+ToastHandler bridges Python logging to the toast system.
 """
 
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    pass
 
 # Constants - no magic numbers
 TOAST_DURATION_SECONDS = 4  # Auto-dismiss after this time
 MAX_VISIBLE_TOASTS = 3  # Maximum toasts on screen
-
-# Global toast storage (simple list, could be improved with proper state management)
-_toasts: list["ToastMessage"] = []
 
 
 @dataclass
@@ -32,52 +32,68 @@ class ToastMessage:
     created: datetime = field(default_factory=datetime.now)
 
 
-def get_toasts() -> list[ToastMessage]:
-    """Get the global toast list (for mutation/testing)."""
-    return _toasts
+class ToastManager:
+    """Manages toast notification state.
 
+    This class owns the toast list and provides methods to add, get,
+    and dismiss toasts. It should be instantiated once and injected
+    into components that need toast functionality.
+    """
 
-def dismiss_expired() -> None:
-    """Remove toasts older than TOAST_DURATION_SECONDS."""
-    global _toasts
-    cutoff = datetime.now() - timedelta(seconds=TOAST_DURATION_SECONDS)
-    _toasts = [t for t in _toasts if t.created > cutoff]
+    def __init__(self) -> None:
+        """Initialize the toast manager."""
+        self._toasts: list[ToastMessage] = []
 
+    def add(self, message: str, level: Literal["warning", "error", "info"]) -> None:
+        """Add a toast notification.
 
-def dismiss_all() -> None:
-    """Clear all toasts (called on keypress)."""
-    global _toasts
-    _toasts = []
+        Args:
+            message: The notification text to display
+            level: Severity level (affects styling)
+        """
+        self._toasts.append(ToastMessage(message=message, level=level))
+        # Trim to max visible (keep most recent)
+        if len(self._toasts) > MAX_VISIBLE_TOASTS:
+            self._toasts = self._toasts[-MAX_VISIBLE_TOASTS:]
 
+    def get_all(self) -> list[ToastMessage]:
+        """Get current toast list."""
+        return self._toasts
 
-def _add_toast(message: str, level: Literal["warning", "error", "info"]) -> None:
-    """Add a toast, respecting MAX_VISIBLE_TOASTS limit."""
-    global _toasts
-    _toasts.append(ToastMessage(message=message, level=level))
-    # Trim to max visible (keep most recent)
-    if len(_toasts) > MAX_VISIBLE_TOASTS:
-        _toasts = _toasts[-MAX_VISIBLE_TOASTS:]
+    def dismiss_expired(self) -> None:
+        """Remove toasts older than TOAST_DURATION_SECONDS."""
+        cutoff = datetime.now() - timedelta(seconds=TOAST_DURATION_SECONDS)
+        self._toasts = [t for t in self._toasts if t.created > cutoff]
+
+    def dismiss_all(self) -> None:
+        """Clear all toasts."""
+        self._toasts = []
 
 
 class ToastHandler(logging.Handler):
-    """Custom logging handler that routes WARNING+ logs to toasts.
+    """Logging handler that creates toasts from log records.
 
-    Only captures logs from src.* modules to avoid noise from
-    third-party libraries.
+    This is an adapter that bridges Python's logging system to a ToastManager.
+    Only captures WARNING+ logs from src.* modules to avoid noise.
     """
 
+    def __init__(self, toast_manager: ToastManager) -> None:
+        """Initialize the handler with a ToastManager.
+
+        Args:
+            toast_manager: The ToastManager to send toast notifications to
+        """
+        super().__init__(level=logging.WARNING)
+        self._toast_manager = toast_manager
+
     def emit(self, record: logging.LogRecord) -> None:
-        """Process a log record and create toast if applicable.
+        """Convert log record to toast if from src.* module.
 
         Args:
             record: The log record to process
         """
         # Only capture src.* modules
         if not record.name.startswith("src."):
-            return
-
-        # Only WARNING and above
-        if record.levelno < logging.WARNING:
             return
 
         # Map log level to toast level
@@ -91,17 +107,40 @@ class ToastHandler(logging.Handler):
 
         # Create toast with formatted message
         message = record.getMessage()
-        _add_toast(message, level)
+        self._toast_manager.add(message, level)
 
 
-def install_toast_handler() -> ToastHandler:
-    """Install the toast handler on the root logger with src.* filter.
+# Legacy module-level functions for backwards compatibility during migration
+# These use a global ToastManager instance
+_global_manager: ToastManager | None = None
 
-    Returns:
-        The installed handler (for cleanup if needed)
+
+def _get_global_manager() -> ToastManager:
+    """Get or create the global ToastManager (for legacy compatibility)."""
+    global _global_manager
+    if _global_manager is None:
+        _global_manager = ToastManager()
+    return _global_manager
+
+
+def add_toast(message: str, level: Literal["warning", "error", "info"]) -> None:
+    """Add a toast notification (legacy module-level function).
+
+    Prefer using a ToastManager instance directly.
     """
-    handler = ToastHandler()
-    # Add to root logger to catch all src.* logs
-    root_logger = logging.getLogger()
-    root_logger.addHandler(handler)
-    return handler
+    _get_global_manager().add(message, level)
+
+
+def get_toasts() -> list[ToastMessage]:
+    """Get current toast list (legacy module-level function)."""
+    return _get_global_manager().get_all()
+
+
+def dismiss_expired() -> None:
+    """Remove expired toasts (legacy module-level function)."""
+    _get_global_manager().dismiss_expired()
+
+
+def dismiss_all() -> None:
+    """Clear all toasts (legacy module-level function)."""
+    _get_global_manager().dismiss_all()
