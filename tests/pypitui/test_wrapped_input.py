@@ -8,12 +8,8 @@ from src.interfaces.pypitui.wrapped_input import WrappedInput
 
 
 def strip_ansi(text: str) -> str:
-    """Remove ANSI escape codes and cursor marker from text."""
-    # Remove ANSI codes
-    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
-    # Remove cursor marker
-    text = text.replace("█", "")
-    return text
+    """Remove ANSI escape codes from text."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 class TestWrappedInputBasic:
@@ -94,8 +90,8 @@ class TestWrappedInputCursor:
         inp.focused = True
 
         lines = inp.render(width=10)
-        # Cursor marker should be in the line
-        assert "\x1b[7m" in lines[0] or "█" in lines[0]
+        # Cursor marker (reverse video) should be in the line
+        assert "\x1b[7m" in lines[0]
 
     def test_wrapped_input_cursor_on_wrapped_line(self) -> None:
         """Cursor on wrapped portion shows correct line with cursor."""
@@ -108,7 +104,7 @@ class TestWrappedInputCursor:
         # Should show second line " worl" with cursor
         # Only one line returned, containing "worl" text
         assert "worl" in strip_ansi(lines[0])
-        assert "\x1b[7m" in lines[0]  # Has cursor
+        assert "\x1b[7m" in lines[0]  # Has cursor (reverse video)
 
 
 class TestWrappedInputNavigation:

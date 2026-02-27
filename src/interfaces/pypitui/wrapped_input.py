@@ -119,8 +119,8 @@ class WrappedInput(Component, Focusable):
         # Render with cursor
         if self.focused:
             rendered = self._render_line_with_cursor(line_text, cursor_col)
-            # Truncate to fit width (plus some for cursor markers)
-            return [truncate_to_width(rendered, width + 10)]
+            # Truncate to fit width exactly (cursor markers are 0-width in visible terms)
+            return [truncate_to_width(rendered, width)]
         else:
             return [line_text] if line_text else [" "]
 
@@ -130,8 +130,8 @@ class WrappedInput(Component, Focusable):
         at = line[cursor_col : cursor_col + 1] or " "
         after = line[cursor_col + 1 :]
 
-        # Use reverse video for cursor
-        return f"{before}█\x1b[7m{at}\x1b[27m{after}"
+        # Use reverse video for cursor (no extra visible char)
+        return f"{before}\x1b[7m{at}\x1b[27m{after}"
 
     def _get_display_lines(self, text: str, width: int) -> list[str]:
         """Get display lines with character-based wrapping.
