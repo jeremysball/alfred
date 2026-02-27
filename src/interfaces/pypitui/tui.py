@@ -286,16 +286,21 @@ class AlfredTUI:
         lines: list[str] = []
 
         current_id = None
+        current_session = None
         if self.alfred.session_manager.has_active_session():
-            current = self.alfred.session_manager.get_current_cli_session()
-            if current:
-                current_id = current.meta.session_id
+            current_session = self.alfred.session_manager.get_current_cli_session()
+            if current_session:
+                current_id = current_session.meta.session_id
 
         for meta in sessions[:20]:
             created = meta.created_at.strftime("%Y-%m-%d %H:%M")
             marker = " (current)" if meta.session_id == current_id else ""
+            # Use cached session's message count for current session (more up-to-date)
+            msg_count = meta.message_count
+            if meta.session_id == current_id and current_session:
+                msg_count = current_session.meta.message_count
             # Use non-breaking space (\xa0) between fields to prevent wrapping
-            line = f"{meta.session_id}\xa0\xa0{created}\xa0\xa0{meta.message_count} msgs{marker}"
+            line = f"{meta.session_id}\xa0\xa0{created}\xa0\xa0{msg_count} msgs{marker}"
             lines.append(line)
 
         if len(sessions) > 20:
