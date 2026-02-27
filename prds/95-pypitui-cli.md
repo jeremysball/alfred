@@ -620,30 +620,248 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 
 ---
 
-## Phase 8: Multi-line Input (Future PRD)
+## Phase 8: Multi-line Input (PRD 96)
 
-> **Moved to separate PRD**: See `96-multiline-input.md`
+> **Full PRD**: See `prds/96-multiline-input.md`
 
-Current input is single-line only. Multi-line input requires:
+### Phase B: Basic Multi-line (Shift+Enter)
 
-- **Arrow key navigation** — Left/right within line, up/down between lines
-- **Word wrapping** — Long lines wrap visually, cursor navigates wrapped display
-- **Multi-line paste** — Paste multi-line text correctly
-- **Shift+Enter** — Insert newline without submitting
-- **Visual indicator** — Show when input spans multiple lines
+#### B.1 Understand Current Input
+- [ ] Read `/workspace/pypitui/src/pypitui/components.py` Input class
+- [ ] Document current `_value` storage (single string)
+- [ ] Document current `_cursor_pos` (character index)
+- [ ] Document current `render()` behavior (single line)
+- [ ] Document current key handling in `_handle_key()`
+
+#### B.2 Add Shift+Enter Detection
+- [ ] Check if pypitui supports Shift+Enter in key parsing
+- [ ] If not, add Shift modifier detection to pypitui key handling
+- [ ] Test: verify Shift+Enter produces distinct event from Enter
+
+#### B.3 Insert Newline on Shift+Enter
+- [ ] In Input `_handle_key()`, detect Shift+Enter
+- [ ] Insert `\n` at cursor position
+- [ ] Move cursor after newline
+- [ ] Test: `test_shift_enter_inserts_newline()`
+- [ ] Test: `test_shift_enter_at_start()`
+- [ ] Test: `test_shift_enter_at_end()`
+- [ ] Test: `test_shift_enter_in_middle()`
+
+#### B.4 Render Multi-line Value
+- [ ] Modify Input `render()` to split value on `\n`
+- [ ] Each line renders separately
+- [ ] Cursor marker appears on correct line
+- [ ] Test: `test_render_multiline_shows_all_lines()`
+- [ ] Test: `test_render_multiline_cursor_on_line_1()`
+- [ ] Test: `test_render_multiline_cursor_on_line_2()`
+
+#### B.5 Submit Multi-line
+- [ ] Verify Enter (no shift) still submits
+- [ ] Test: `test_enter_submits_multiline()`
+- [ ] Test: `test_multiline_preserved_in_submission()`
+
+#### B.6 Manual Multi-line Test
+- [ ] Run alfred in tmux
+- [ ] Type: `line 1`, Shift+Enter, `line 2`, Enter
+- [ ] Verify both lines appear in user message
+
+#### B.7 Commit
+- [ ] Run: `uv run ruff check src/ && uv run mypy src/ && uv run pytest`
+- [ ] Commit: `feat(input): add Shift+Enter for multi-line input`
+
+### Phase C: Arrow Navigation
+
+#### C.1 Track Display Column
+- [ ] Add `self._display_column: int = 0` to Input
+- [ ] On horizontal movement, update display column to cursor position
+- [ ] When moving vertically, use display column to find target position
+
+#### C.2 Calculate Line Positions
+- [ ] Add method `_get_line_positions() -> list[tuple[int, int]]`
+- [ ] Returns list of (start_pos, end_pos) for each line
+
+#### C.3 Implement Up Arrow
+- [ ] In `_handle_key()`, detect Up arrow
+- [ ] Find current line index
+- [ ] If not first line, move to previous line
+- [ ] Target column: `min(display_column, len(previous_line))`
+- [ ] Test: `test_up_arrow_moves_to_previous_line()`
+- [ ] Test: `test_up_arrow_at_first_line_does_nothing()`
+- [ ] Test: `test_up_arrow_maintains_column()`
+
+#### C.4 Implement Down Arrow
+- [ ] In `_handle_key()`, detect Down arrow
+- [ ] Find current line index
+- [ ] If not last line, move to next line
+- [ ] Test: `test_down_arrow_moves_to_next_line()`
+- [ ] Test: `test_down_arrow_at_last_line_does_nothing()`
+- [ ] Test: `test_down_arrow_maintains_column()`
+
+#### C.5 Handle Left/Right Across Lines
+- [ ] Left arrow at line start → move to end of previous line
+- [ ] Right arrow at line end → move to start of next line
+- [ ] Test: `test_left_arrow_at_line_start_moves_up()`
+- [ ] Test: `test_right_arrow_at_line_end_moves_down()`
+
+#### C.6 Manual Arrow Test
+- [ ] Type 3 lines with Shift+Enter
+- [ ] Use arrow keys to navigate all lines
+- [ ] Verify cursor moves correctly
+
+#### C.7 Commit
+- [ ] Commit: `feat(input): add arrow key navigation for multi-line`
+
+### Phase D: Word Wrapping
+
+#### D.1 Use pypitui wrap_text_with_ansi
+- [ ] Import `wrap_text_with_ansi` from pypitui.utils
+- [ ] In Input `render(width)`, wrap each line to width
+- [ ] Track which wrapped segment cursor is on
+
+#### D.2 Calculate Wrapped Cursor Position
+- [ ] Add method `_get_wrapped_cursor_info(width) -> tuple[int, int]`
+- [ ] Returns (line_index, column) in wrapped display
+
+#### D.3 Update Render for Wrapped Lines
+- [ ] Render each logical line as potentially multiple display lines
+- [ ] Place cursor marker at correct wrapped position
+- [ ] Test: `test_long_line_wraps_at_width()`
+- [ ] Test: `test_cursor_in_wrapped_segment()`
+
+#### D.4 Commit
+- [ ] Commit: `feat(input): add word wrapping for long lines`
+
+### Phase E: Scrolling
+
+#### E.1 Add Scroll State
+- [ ] Add `self._scroll_offset = 0` to Input
+- [ ] Add `MAX_INPUT_LINES = 5` constant
+- [ ] Track display line count
+
+#### E.2 Calculate Visible Lines
+- [ ] Add method `_get_visible_lines(width) -> list[str]`
+- [ ] Returns lines from scroll_offset to scroll_offset + MAX_INPUT_LINES
+
+#### E.3 Scroll to Keep Cursor Visible
+- [ ] When cursor moves, check if in visible range
+- [ ] If not, adjust scroll_offset
+- [ ] Test: `test_scroll_adjusts_when_cursor_moves_down()`
+- [ ] Test: `test_scroll_adjusts_when_cursor_moves_up()`
+
+#### E.4 Page Up/Down
+- [ ] Page Up: scroll_offset -= MAX_INPUT_LINES (min 0)
+- [ ] Page Down: scroll_offset += MAX_INPUT_LINES
+- [ ] Test: `test_page_up_scrolls_up()`
+- [ ] Test: `test_page_down_scrolls_down()`
+
+#### E.5 Commit
+- [ ] Commit: `feat(input): add scrolling for long multi-line input`
 
 ---
 
-## Phase 9: Streaming Throbber (Future PRD)
+## Phase 9: Streaming Throbber (PRD 97)
 
-> **Moved to separate PRD**: See `97-streaming-throbber.md`
+> **Full PRD**: See `prds/97-streaming-throbber.md`
 
-Visual indicator during LLM response streaming:
+### Phase A: Throbber Implementation
 
-- **Animated spinner** — Braille or dot animation in status line
-- **Pulse timing** — Smooth animation at ~10fps
-- **Color** — Dim cyan or yellow to not distract
-- **Stop condition** — Animation stops when stream ends
+#### A.1 Create Throbber Class
+- [ ] Create file `src/interfaces/pypitui/throbber.py`
+- [ ] Define `BRAILLE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]`
+- [ ] Define `ASCII_FRAMES = ["|", "/", "-", "\\"]`
+- [ ] Create `Throbber` class with `__init__(self, use_braille: bool = True)`
+- [ ] Add `self._frames` initialized to BRAILLE_FRAMES or ASCII_FRAMES
+- [ ] Add `self._index = 0`
+- [ ] Implement `tick(self) -> None` — advance index, wrap at len(frames)
+- [ ] Implement `render(self) -> str` — return `self._frames[self._index]`
+- [ ] Implement `reset(self) -> None` — set index to 0
+
+#### A.2 Test Throbber Class
+- [ ] Create `tests/pypitui/test_throbber.py`
+- [ ] Test: `test_throbber_render_returns_frame()`
+- [ ] Test: `test_throbber_tick_advances()`
+- [ ] Test: `test_throbber_loops_at_end()`
+- [ ] Test: `test_throbber_reset_sets_index_0()`
+- [ ] Test: `test_throbber_braille_vs_ascii()`
+- [ ] Run: `uv run pytest tests/pypitui/test_throbber.py -v`
+
+#### A.3 Add Throbber to StatusLine
+- [ ] Open `src/interfaces/pypitui/status_line.py`
+- [ ] Add import: `from src.interfaces.pypitui.throbber import Throbber`
+- [ ] Add `self._throbber = Throbber()` in `__init__`
+- [ ] Add `self._is_streaming = False` in `__init__`
+- [ ] Add `streaming: bool = False` parameter to `update()` method
+- [ ] Store `self._is_streaming = streaming` in `update()`
+- [ ] Add `tick_throbber(self) -> None` method
+- [ ] In `_render_full()`, prepend throbber if streaming
+- [ ] In `_render_medium()`, prepend throbber if streaming
+- [ ] In `_render_compact()`, prepend throbber if streaming
+
+#### A.4 Test StatusLine Throbber Integration
+- [ ] Test: `test_status_shows_throbber_when_streaming()`
+- [ ] Test: `test_status_hides_throbber_when_not_streaming()`
+- [ ] Test: `test_throbber_position_before_model()`
+- [ ] Run: `uv run pytest tests/pypitui/test_status_line.py -v`
+
+#### A.5 Wire Throbber into AlfredTUI
+- [ ] Open `src/interfaces/pypitui/tui.py`
+- [ ] Add `self._is_streaming = False` in `__init__`
+- [ ] In `_send_message()`, set `self._is_streaming = True` before streaming
+- [ ] In `_send_message()`, set `self._is_streaming = False` in finally block
+- [ ] Update `_update_status()` to pass `streaming=self._is_streaming`
+- [ ] In `run()` main loop, call `self.status_line.tick_throbber()` before render
+
+#### A.6 Test AlfredTUI Streaming Flag
+- [ ] Test: `test_is_streaming_false_on_init()`
+- [ ] Test: `test_is_streaming_true_during_send()`
+- [ ] Test: `test_is_streaming_false_after_send()`
+- [ ] Test: `test_is_streaming_false_on_error()`
+- [ ] Run: `uv run pytest tests/pypitui/test_tui.py -v`
+
+#### A.7 Manual Throbber Test
+- [ ] Run: `tmux new-session -d -s alfred "cd /workspace/alfred-prd && uv run alfred"`
+- [ ] Wait: `sleep 2`
+- [ ] Run: `tmux send-keys -t alfred "hello" Enter`
+- [ ] Run: `sleep 1 && tmux capture-pane -t alfred -p`
+- [ ] Verify throbber character in output during streaming
+- [ ] Run: `sleep 3` for response complete
+- [ ] Verify throbber gone after response
+- [ ] Run: `tmux kill-session -t alfred`
+
+#### A.8 Final Checks for Throbber
+- [ ] Run: `uv run ruff check src/interfaces/pypitui/`
+- [ ] Run: `uv run mypy src/interfaces/pypitui/`
+- [ ] Run: `uv run pytest tests/pypitui/ -v`
+- [ ] Commit: `feat(throbber): add streaming animation to status line`
+
+---
+
+## Phase F: Final Integration
+
+### F.1 Export Throbber
+- [ ] Add Throbber to `src/interfaces/pypitui/__init__.py` exports
+- [ ] Add Throbber to `src/interfaces/pypitui_cli.py` re-exports
+
+### F.2 Update PRD Status
+- [ ] Mark PRD 97 as complete
+- [ ] Mark PRD 96 phases as complete
+
+### F.3 Full Test Suite
+- [ ] Run: `uv run pytest tests/ -v`
+- [ ] Verify all 650+ tests pass
+- [ ] Check coverage report
+
+### F.4 Manual E2E Test
+- [ ] Run alfred
+- [ ] Test multi-line input with 5+ lines
+- [ ] Test throbber animation during response
+- [ ] Test resize during typing
+- [ ] Test paste of multi-line content
+
+### F.5 Final Commit
+- [ ] Run: `uv run ruff check src/ && uv run mypy src/ && uv run pytest`
+- [ ] Commit: `feat(cli): complete multi-line input and streaming throbber`
+- [ ] Push: `git push origin feature/prd-95-pypitui-cli`
 
 ---
 - [ ] Press Ctrl+C during streaming — should exit cleanly
