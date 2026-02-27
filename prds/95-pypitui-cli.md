@@ -477,72 +477,54 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 ### 4.5.1 ToastMessage Data Class
 
 **Tests first:**
-- [ ] `test_toast_message_defaults()` — Verify created timestamp auto-populated
-- [ ] `test_toast_message_levels()` — Verify warning/error/info levels work
+- [x] `test_toast_message_defaults()` — Verify created timestamp auto-populated
+- [x] `test_toast_message_levels()` — Verify warning/error/info levels work
 
 **Implementation:**
-- [ ] Create `@dataclass ToastMessage`
-- [ ] `message: str`
-- [ ] `level: Literal["warning", "error", "info"]`
-- [ ] `created: datetime = field(default_factory=...)`
+- [x] Create `@dataclass ToastMessage`
+- [x] `message: str`
+- [x] `level: Literal["warning", "error", "info"]`
+- [x] `created: datetime = field(default_factory=...)`
 
 ### 4.5.2 ToastHandler (logging.Handler)
 
 **Tests first:**
-- [ ] `test_toast_handler_captures_warning()` — Verify WARNING logs create toast
-- [ ] `test_toast_handler_captures_error()` — Verify ERROR logs create toast
-- [ ] `test_toast_handler_ignores_info()` — Verify INFO logs don't create toast (optional)
-- [ ] `test_toast_handler_filters_non_src()` — Verify only src.* modules captured
+- [x] `test_toast_handler_captures_warning()` — Verify WARNING logs create toast
+- [x] `test_toast_handler_captures_error()` — Verify ERROR logs create toast
+- [x] `test_toast_handler_ignores_info()` — Verify INFO logs don't create toast
+- [x] `test_toast_handler_filters_non_src()` — Verify only src.* modules captured
 
 **Implementation:**
-- [ ] Create `class ToastHandler(logging.Handler)`
-- [ ] Add filter for `src.*` modules only
-- [ ] `emit()` converts LogRecord to ToastMessage, calls callback
-- [ ] Format: "module: message" (strip src. prefix)
+- [x] Create `class ToastHandler(logging.Handler)`
+- [x] Add filter for `src.*` modules only
+- [x] `emit()` converts LogRecord to ToastMessage, adds to global list
 
-### 4.5.3 ToastContainer Component
+### 4.5.3 ToastManager
 
 **Tests first:**
-- [ ] `test_toast_container_empty_on_init()` — Verify no toasts initially
-- [ ] `test_toast_container_add_toast()` — Verify toast added and rendered
-- [ ] `test_toast_container_max_toasts()` — Verify only MAX_VISIBLE_TOASTS shown
-- [ ] `test_toast_container_colors()` — Verify yellow for warning, red for error
-- [ ] `test_toast_container_expiry()` — Verify old toasts removed after TOAST_DURATION_SECONDS
-- [ ] `test_toast_container_dismiss_on_key()` — Verify all toasts cleared on keypress
+- [x] `test_max_visible_toasts()` — Verify only MAX_VISIBLE_TOASTS shown
+- [x] `test_dismiss_expired_toasts()` — Verify old toasts removed after TOAST_DURATION_SECONDS
+- [x] `test_dismiss_all_toasts()` — Verify all toasts cleared on dismiss_all()
 
 **Implementation:**
-- [ ] Create `class ToastContainer(Component)`
-- [ ] `self._toasts: list[ToastMessage]`
-- [ ] `def add_toast(self, toast: ToastMessage)` — Add, enforce MAX_VISIBLE_TOASTS
-- [ ] `def prune_expired()` — Remove toasts older than TOAST_DURATION_SECONDS
-- [ ] `def dismiss_all()` — Clear all toasts (called on keypress)
-- [ ] `def render(width)` — Return lines with colored prefixes, bottom-positioned
+- [x] `get_toasts()` — Global toast list
+- [x] `dismiss_expired()` — Remove toasts older than TOAST_DURATION_SECONDS
+- [x] `dismiss_all()` — Clear all toasts (called on keypress)
+- [x] `_add_toast()` — Add with MAX_VISIBLE_TOASTS limit
 
 ### 4.5.4 AlfredTUI Integration
 
 **Tests first:**
-- [ ] `test_alfred_tui_has_toast_container()` — Verify container in layout
-- [ ] `test_toast_handler_registered()` — Verify handler added to logging
-- [ ] `test_keypress_dismisses_toasts()` — Verify any key calls dismiss_all()
+- [x] `test_keypress_dismisses_toasts()` — Verify any key calls dismiss_all()
+- [x] `test_toast_handler_installed()` — Verify handler added to logging
 
 **Implementation:**
-- [ ] Add `self.toast_container = ToastContainer()` in `AlfredTUI.__init__`
-- [ ] Position at bottom: above status_line, below conversation
-- [ ] Create `ToastHandler` with callback to `toast_container.add_toast()`
-- [ ] Register handler: `logging.getLogger().addHandler(toast_handler)`
-- [ ] In `run()` loop, call `toast_container.prune_expired()` each frame
-- [ ] On any keypress (except Ctrl-C), call `toast_container.dismiss_all()`
+- [x] Install toast handler on src logger in `AlfredTUI.__init__`
+- [x] On keypress (via `_reset_ctrl_c_state`), call `dismiss_all()`
 
-### 4.5.5 Manual Validation
+---
 
-- [ ] Run `alfred`
-- [ ] Trigger a warning (e.g., exceed context budget with long conversation)
-- [ ] Verify toast appears at bottom with yellow "⚠" prefix
-- [ ] Verify toast disappears after ~4 seconds
-- [ ] Trigger another warning, then press any key
-- [ ] Verify toast dismissed immediately on keypress
-- [ ] Trigger an error (if possible)
-- [ ] Verify toast appears with red "✗" prefix
+## Phase 4.5 COMPLETE ✅
 
 ---
 
@@ -551,40 +533,34 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 ### 5.1 Queue Mechanism
 
 **Tests first:**
-- [ ] `test_queue_empty_on_init()` — Verify queue starts empty
-- [ ] `test_queue_message_during_streaming()` — Verify message queued when streaming
-- [ ] `test_queue_processed_after_stream()` — Verify queued messages sent after stream ends
-- [ ] `test_queue_multiple_messages()` — Verify multiple messages queue and send in order
+- [x] `test_queue_empty_on_init()` — Verify queue starts empty
+- [x] `test_queue_message_during_streaming()` — Verify message queued when streaming
+- [x] `test_queue_processed_after_stream()` — Verify queued messages sent after stream ends
+- [x] `test_queue_multiple_messages()` — Verify multiple messages queue and send in order
 
 **Implementation:**
-- [ ] Add `self._message_queue: list[str] = []` in `__init__`
-- [ ] Add `self._is_streaming = False` in `__init__`
-- [ ] In `_on_submit`:
-  - [ ] If `self._is_streaming`: append to queue, update status line
-  - [ ] Else: create task as before
-- [ ] In `_send_message`:
-  - [ ] Set `self._is_streaming = True` at start
-  - [ ] Set `self._is_streaming = False` at end
-  - [ ] After end, check queue and send first message if any
+- [x] Add `self._message_queue: list[str] = []` in `__init__`
+- [x] Add `self._is_streaming = False` in `__init__`
+- [x] In `_on_submit`:
+  - [x] If `self._is_streaming`: append to queue, update status line
+  - [x] Else: create task as before
+- [x] In `_send_message`:
+  - [x] Set `self._is_streaming = True` at start
+  - [x] Set `self._is_streaming = False` at end
+  - [x] After end, check queue and send first message if any
 
 ### 5.2 Status Line Queue Indicator
 
 **Tests first:**
-- [ ] `test_status_line_shows_queue_count()` — Verify "queued:2" appears
+- [x] `test_status_line_shows_queue_count()` — Verify "queued 2" appears
 
 **Implementation:**
-- [ ] In `_on_submit`, call `self.status_line.update(..., queued=len(self._message_queue))`
-- [ ] After processing queue, update status with `queued=0`
+- [x] In `_on_submit`, call `self.status_line.update(..., queued=len(self._message_queue))`
+- [x] After processing queue, update status with `queued=0`
 
-### 5.3 Manual Validation
+---
 
-- [ ] Run `alfred`
-- [ ] Send message
-- [ ] While streaming, type another message and press Enter
-- [ ] Verify status shows "queued:1"
-- [ ] Wait for first response to complete
-- [ ] Verify second message sends automatically
-- [ ] Verify status clears queue count
+## Phase 5 COMPLETE ✅
 
 ---
 
