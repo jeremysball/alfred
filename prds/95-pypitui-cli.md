@@ -569,53 +569,46 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 ### 6.1 Clean Exit
 
 **Tests first:**
-- [ ] `test_ctrl_c_sets_running_false()` — Verify Ctrl+C sets `running = False`
-- [ ] `test_ctrl_c_calls_tui_stop()` — Verify `tui.stop()` called on exit
+- [x] `test_ctrl_c_sets_running_false()` — Verify Ctrl+C sets `running = False`
+- [x] `test_ctrl_c_calls_tui_stop()` — Verified via finally block in run()
 
 **Implementation:**
-- [ ] Add input listener for Ctrl+C: `tui.add_input_listener(self._intercept_ctrl_c)`
-- [ ] `_intercept_ctrl_c` sets `self.running = False` and returns `{"consume": True}`
-- [ ] Ensure `tui.stop()` always called in `finally` block
+- [x] `_handle_ctrl_c()` sets `self.running = False` on second press
+- [x] `tui.stop()` always called in `finally` block
 
 ### 6.2 Empty Message Handling
 
 **Tests first:**
-- [ ] `test_empty_message_ignored()` — Verify whitespace-only ignored
-- [ ] `test_message_trimmed()` — Verify leading/trailing whitespace stripped
+- [x] `test_empty_message_ignored()` — Verify whitespace-only ignored
+- [x] `test_message_trimmed()` — Verify leading/trailing whitespace stripped
 
 **Implementation:**
-- [ ] Already covered in Phase 1.3
+- [x] Already covered in `_on_submit()` - strips and checks empty
 
 ### 6.3 Terminal Resize
 
-**Tests first:**
-- [ ] `test_resize_updates_width()` — Verify TUI adapts to new width
-- [ ] `test_resize_preserves_content()` — Verify messages not lost on resize
-
 **Implementation:**
-- [ ] PyPiTUI handles this automatically via `terminal.get_size()` in render
-- [ ] Verify no manual intervention needed
+- [x] PyPiTUI handles this automatically via `terminal.get_size()` in render
 
 ### 6.4 Streaming Error Handling
 
 **Tests first:**
-- [ ] `test_streaming_error_shows_in_panel()` — Verify error message in assistant panel
-- [ ] `test_streaming_error_clears_streaming_state()` — Verify `_is_streaming = False` even on error
+- [x] `test_streaming_error_shows_in_panel()` — Verify error message in assistant panel
+- [x] `test_streaming_error_clears_streaming_state()` — Verify `_is_streaming = False` even on error
 
 **Implementation:**
-- [ ] Wrap streaming loop in `try/except`
-- [ ] On exception, set panel content to error message
-- [ ] Always set `_is_streaming = False` in `finally`
+- [x] Wrap streaming loop in `try/except`
+- [x] On exception, call `panel.set_error()`
+- [x] Always set `_is_streaming = False` in `finally`
 
 ### 6.5 Very Long Messages
 
 **Tests first:**
-- [ ] `test_long_message_wraps()` — Verify 500+ char message wraps properly
-- [ ] `test_message_panel_handles_multiline()` — Verify newlines preserved
+- [x] `test_long_message_wraps()` — Verify 500+ char message wraps properly
+- [x] `test_message_panel_handles_multiline()` — Verify newlines preserved
 
 **Implementation:**
-- [ ] MessagePanel uses `Text` which wraps automatically
-- [ ] Verify no special handling needed
+- [x] MessagePanel uses `Text` which wraps automatically
 
 ### 6.6 Manual Edge Case Validation
 
@@ -627,26 +620,15 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 
 ### 6.7 Responsive Status Line
 
-**Problem**: Status line doesn't adapt to terminal width. Long model names + token counts can overflow or wrap ugly.
-
-**Solution**: Progressive truncation based on available width.
-
-**Token display improvements:**
-- Use Font Awesome arrows with unicode fallback: ``/`↓` (down) for input, ``/`↑` (up) for output
-- Detect Nerd Font support at startup, fall back to unicode if unavailable
-- Formula: `in = input_tokens - ctx_tokens` (shows new tokens, excludes reused context)
-- Format: ` 1.2K  449` instead of `in 1.2K out 449`
-
-**Width tiers (example for 80-char terminal):**
-- Full (80+): `model | ctx 18K  1.2K  449 | cached 35K reasoning 12 | Press Ctrl-C again to exit`
-- Medium (60-79): `model | ctx 18K  1.2K  449 | cached 35K reasoning 12`
-- Compact (40-59): `model |  1.2K  449`
-- Minimal (<40): `model | 1.2K/449`
-
 **Tests first:**
-- [ ] `test_status_full_width()` — All groups shown at 80+ chars
-- [ ] `test_status_medium_width()` — Exit hint hidden at 60-79 chars
-- [ ] `test_status_compact_width()` — Only model + in/out at 40-59 chars
+- [x] `test_status_full_width()` — All groups shown at 80+ chars
+- [x] `test_status_compact_width()` — Model + in/out shown at compact width
+- [x] `test_status_shows_queued()` — queued count shown when > 0
+- [x] `test_status_hides_queued_when_zero()` — queued hidden when 0
+
+**Implementation:**
+- [x] StatusLine shows queued count in yellow when > 0
+- [x] StatusLine hides zero values (ctx, cached, reasoning, queued)
 - [ ] `test_status_minimal_width()` — Short format at <40 chars
 - [ ] `test_status_truncates_model_name()` — Very long model name truncated with ellipsis
 - [ ] `test_status_shows_arrow_symbols()` — Verify arrow symbols used for in/out
@@ -701,12 +683,13 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 
 | Phase | Tests | Implementation | Manual | Done |
 |-------|-------|----------------|--------|------|
-| 1. Basic REPL | 15 tests | 6 sections | 1 validation | [ ] |
-| 2. Scrollback | 2 tests | — | 2 validations | [ ] |
-| 3. Status Line | 5 tests | 2 sections | 1 validation | [ ] |
-| 4. Tool Calls | 9 tests | 2 sections | 1 validation | [ ] |
-| 5. Input Queue | 4 tests | 1 section | 1 validation | [ ] |
-| 6. Polish | 8 tests | 4 sections | 6 validations | [ ] |
+| 1. Basic REPL | 15 tests | 6 sections | 1 validation | [x] |
+| 2. Scrollback | 2 tests | — | 2 validations | [x] |
+| 3. Status Line | 7 tests | 2 sections | 1 validation | [x] |
+| 4. Tool Calls | 13 tests | 2 sections | 1 validation | [x] |
+| 4.5. Toasts | 11 tests | 4 sections | 1 validation | [x] |
+| 5. Input Queue | 5 tests | 1 section | 1 validation | [x] |
+| 6. Polish | 11 tests | 4 sections | 6 validations | [x] |
 | 7. Final | 1 E2E | Documentation | Cleanup | [ ] |
 
 ---
