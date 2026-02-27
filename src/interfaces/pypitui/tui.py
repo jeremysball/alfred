@@ -149,6 +149,13 @@ class AlfredTUI:
         # Use estimated during stream, actual after
         out = estimated_out if estimated_out is not None else usage.output_tokens
 
+        # Get current session ID
+        session_id: str | None = None
+        if self.alfred.session_manager.has_active_session():
+            session = self.alfred.session_manager.get_current_cli_session()
+            if session:
+                session_id = session.meta.session_id
+
         self.status_line.update(
             model=self.alfred.model_name,
             ctx=ctx,
@@ -159,6 +166,7 @@ class AlfredTUI:
             exit_hint=self._exit_hint_visible,
             queued=len(self._message_queue),
             streaming=self._is_streaming or self._is_sending,
+            session_id=session_id,
         )
 
     def _tool_callback(self, event: object) -> None:
@@ -245,41 +253,50 @@ class AlfredTUI:
             return self._cmd_show_current_session()
         return False
 
-    def _add_system_message(self, content: str) -> None:
-        """Add a system message to the conversation."""
-        msg = MessagePanel(role="system", content=content)
+    def _clear_conversation(self) -> None:
+        """Clear all messages from the conversation."""
+        self.conversation.clear()
+        self.tui.request_render(force=True)
+
+    def _add_user_message(self, content: str) -> None:
+        """Add a user message panel to the conversation."""
+        msg = MessagePanel(role="user", content=content)
         self.conversation.add_child(msg)
         self.tui.request_render()
 
     def _cmd_new_session(self) -> bool:
         """Create a new session."""
+        self._clear_conversation()
         session = self.alfred.session_manager.new_session()
-        self._add_system_message(f"New session created: {session.meta.session_id}")
+        self._add_user_message(f"New session created: {session.meta.session_id}")
+        self._update_status()
         return True
 
     def _cmd_resume_session(self, session_id: str | None) -> bool:
         """Resume an existing session."""
         if not session_id:
-            self._add_system_message(
+            self._add_user_message(
                 "Usage: /resume <session_id>\nUse /sessions to see available sessions."
             )
             return True
 
         try:
+            self._clear_conversation()
             session = self.alfred.session_manager.resume_session(session_id)
             msg_count = len(session.messages)
-            self._add_system_message(
+            self._add_user_message(
                 f"Resumed session: {session_id}\nMessages: {msg_count}"
             )
+            self._update_status()
         except ValueError as e:
-            self._add_system_message(f"Error: {e}")
+            self._add_user_message(f"Error: {e}")
         return True
 
     def _cmd_list_sessions(self) -> bool:
         """List all sessions."""
         sessions = self.alfred.session_manager.list_sessions()
         if not sessions:
-            self._add_system_message("No sessions found.")
+            self._add_user_message("No sessions found.")
             return True
 
         # Build output using non-breaking spaces to prevent word wrapping
@@ -306,25 +323,25 @@ class AlfredTUI:
         if len(sessions) > 20:
             lines.append(f"... and {len(sessions) - 20} more")
 
-        self._add_system_message("\n".join(lines))
+        self._add_user_message("\n".join(lines))
         return True
 
     def _cmd_show_current_session(self) -> bool:
         """Show current session details."""
         if not self.alfred.session_manager.has_active_session():
-            self._add_system_message("No active session.")
+            self._add_user_message("No active session.")
             return True
 
         session = self.alfred.session_manager.get_current_cli_session()
         if not session:
-            self._add_system_message("No active session.")
+            self._add_user_message("No active session.")
             return True
 
         meta = session.meta
         created = meta.created_at.strftime("%Y-%m-%d %H:%M")
         last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
 
-        self._add_system_message(
+        self._add_user_message(
             f"Current Session\n"
             f"ID: {meta.session_id}\n"
             f"Status: {meta.status}\n"

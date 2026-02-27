@@ -42,4 +42,9 @@ def mock_alfred():
     alfred.notifier = Mock()
     alfred.notifier.use_toasts = False
 
+    # Add mock session_manager
+    alfred.session_manager = Mock()
+    alfred.session_manager.has_active_session = Mock(return_value=False)
+    alfred.session_manager.get_current_cli_session = Mock(return_value=None)
+
     return alfred
