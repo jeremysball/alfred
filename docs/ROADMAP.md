@@ -199,7 +199,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
 | 26 | HTTP API + Cron | Local API for scheduled actions |
 | 27 | Config TOML Migration | Replace config.json with alfred.toml |
-| 28 | Observability & Logging | Structured logging, tracing, metrics |
+
 | 29 | Enhanced CLI Status Line | Token usage, model display, context summary, collapsible tool panels (PRD #81) |
 
 ### Long-term 🔮
