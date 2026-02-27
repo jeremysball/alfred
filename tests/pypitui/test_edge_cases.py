@@ -139,8 +139,8 @@ class TestResponsiveStatusLine:
         # All groups should be present
         assert "test-model" in text
         assert "ctx" in text
-        assert "in" in text
-        assert "out" in text
+        assert "↓" in text  # down arrow for in
+        assert "↑" in text  # up arrow for out
         assert "cached" in text
         assert "reasoning" in text
 
@@ -164,8 +164,8 @@ class TestResponsiveStatusLine:
 
         # Model and in/out should always be present
         assert "test" in text
-        assert "in" in text
-        assert "out" in text
+        assert "↓" in text  # down arrow for in
+        assert "↑" in text  # up arrow for out
 
     def test_status_shows_queued(self):
         """Verify queued count shown when > 0."""

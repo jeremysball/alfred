@@ -1,5 +1,9 @@
 """Tests for StatusLine component."""
 
+import pytest
+
+from src.interfaces.pypitui.status_line import STATUS_WIDTH_COMPACT, STATUS_WIDTH_FULL, STATUS_WIDTH_MEDIUM, StatusLine
+from src.interfaces.pypitui.utils import format_tokens
 
 
 class TestStatusLine:
@@ -7,8 +11,6 @@ class TestStatusLine:
 
     def test_status_line_renders_model_name(self):
         """Verify model name appears in output."""
-        from src.interfaces.pypitui.status_line import StatusLine
-
         status = StatusLine()
         status.update(
             model="test-model",
@@ -25,8 +27,6 @@ class TestStatusLine:
 
     def test_status_line_shows_tokens(self):
         """Verify token counts appear in output."""
-        from src.interfaces.pypitui.status_line import StatusLine
-
         status = StatusLine()
         status.update(
             model="test",
@@ -40,15 +40,13 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx 1K" in text
-        assert "in 500" in text
-        assert "out 100" in text
+        assert "↓500" in text  # arrow format
+        assert "↑100" in text  # arrow format
         assert "cached 50" in text
         assert "reasoning 20" in text
 
     def test_status_line_hides_zero_values(self):
         """Verify ctx, cached, reasoning hidden when zero."""
-        from src.interfaces.pypitui.status_line import StatusLine
-
         status = StatusLine()
         status.update(
             model="test",
@@ -65,13 +63,11 @@ class TestStatusLine:
         assert "cached" not in text
         assert "reasoning" not in text
         # in/out always shown
-        assert "in 500" in text
-        assert "out 100" in text
+        assert "↓500" in text
+        assert "↑100" in text
 
     def test_status_line_exit_hint(self):
         """Verify exit hint appears when requested."""
-        from src.interfaces.pypitui.status_line import StatusLine
-
         status = StatusLine()
         status.update(
             model="test",
@@ -86,22 +82,150 @@ class TestStatusLine:
         lines = status.render(width=80)
         assert "Ctrl-C" in lines[0]
 
+    def test_status_full_width(self):
+        """All groups shown at 80+ chars."""
+        status = StatusLine()
+        status.update(
+            model="test-model",
+            ctx=1000,
+            in_tokens=500,
+            out_tokens=100,
+            cached=50,
+            reasoning=20,
+            queued=2,
+        )
+
+        lines = status.render(width=STATUS_WIDTH_FULL)
+        text = lines[0]
+        assert "test-model" in text
+        assert "ctx 1K" in text
+        assert "↓500" in text
+        assert "↑100" in text
+        assert "cached" in text
+        assert "reasoning" in text
+        assert "queued" in text
+
+    def test_status_medium_width(self):
+        """Model + tokens + queued at 60-79 chars."""
+        status = StatusLine()
+        status.update(
+            model="test-model",
+            ctx=1000,
+            in_tokens=500,
+            out_tokens=100,
+            cached=50,
+            reasoning=20,
+            queued=2,
+        )
+
+        lines = status.render(width=STATUS_WIDTH_MEDIUM)
+        text = lines[0]
+        assert "test-model" in text
+        assert "ctx 1K" in text
+        assert "↓500" in text
+        assert "↑100" in text
+        assert "cached" not in text  # hidden at medium
+        assert "reasoning" not in text  # hidden at medium
+        assert "queued" in text
+
+    def test_status_compact_width(self):
+        """Short format at <60 chars."""
+        status = StatusLine()
+        status.update(
+            model="very-long-model-name-here",
+            ctx=1000,
+            in_tokens=500,
+            out_tokens=100,
+            cached=50,
+            reasoning=20,
+            queued=2,
+        )
+
+        lines = status.render(width=STATUS_WIDTH_COMPACT)
+        text = lines[0]
+        assert "…" in text  # truncated
+        assert "↓500" in text
+        assert "↑100" in text
+        assert "ctx" not in text  # hidden at compact
+        assert "cached" not in text
+        assert "queued" not in text  # just number shown
+
+    def test_status_shows_queued(self):
+        """queued count shown when > 0."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=0,
+            out_tokens=0,
+            cached=0,
+            reasoning=0,
+            queued=3,
+        )
+
+        lines = status.render(width=80)
+        assert "queued 3" in lines[0]
+
+    def test_status_hides_queued_when_zero(self):
+        """queued hidden when 0."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=0,
+            out_tokens=0,
+            cached=0,
+            reasoning=0,
+            queued=0,
+        )
+
+        lines = status.render(width=80)
+        assert "queued" not in lines[0]
+
+    def test_status_truncates_long_model_name(self):
+        """Very long model name truncated with ellipsis."""
+        status = StatusLine()
+        status.update(
+            model="this-is-a-very-long-model-name-that-should-be-truncated",
+            ctx=0,
+            in_tokens=0,
+            out_tokens=0,
+            cached=0,
+            reasoning=0,
+        )
+
+        lines = status.render(width=80)
+        assert "…" in lines[0]
+        assert "this-is-a-very-long-model-name-that-should-be-truncated" not in lines[0]
+
+    def test_status_uses_arrow_symbols(self):
+        """Verify arrow symbols used for in/out."""
+        status = StatusLine()
+        status.update(
+            model="test",
+            ctx=0,
+            in_tokens=500,
+            out_tokens=100,
+            cached=0,
+            reasoning=0,
+        )
+
+        lines = status.render(width=80)
+        assert "↓" in lines[0]  # down arrow for input
+        assert "↑" in lines[0]  # up arrow for output
+
 
 class TestFormatTokens:
     """Tests for format_tokens utility function."""
 
     def test_format_small_numbers(self):
         """Verify small numbers unchanged."""
-        from src.interfaces.pypitui.utils import format_tokens
-
         assert format_tokens(0) == "0"
         assert format_tokens(100) == "100"
         assert format_tokens(999) == "999"
 
     def test_format_thousands(self):
         """Verify thousands formatted with K."""
-        from src.interfaces.pypitui.utils import format_tokens
-
         assert format_tokens(1000) == "1K"
         assert format_tokens(1234) == "1.2K"
         assert format_tokens(10000) == "10K"
@@ -109,8 +233,6 @@ class TestFormatTokens:
 
     def test_format_millions(self):
         """Verify millions formatted with M."""
-        from src.interfaces.pypitui.utils import format_tokens
-
         assert format_tokens(1_000_000) == "1M"
         assert format_tokens(1_234_567) == "1.2M"
         assert format_tokens(10_000_000) == "10M"
