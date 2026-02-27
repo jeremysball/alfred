@@ -901,6 +901,87 @@ tmux kill-session -t alfred
 
 ---
 
+## Status Line Enhancement Ideas (Future)
+
+**NOT IMPLEMENTED — Ideas for future polish:**
+
+### Visual Indicators
+
+1. **Streaming animation** — Animated spinner or pulsing dot during response streaming
+   - `●` → `○` → `●` pulse
+   - `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` braille spinner
+   - Color: dim cyan or yellow
+
+2. **Context health bar** — Visual context window usage
+   - `[████████░░] 80%` — gradient from green → yellow → red
+   - Show only when > 50% used
+   - Click/tooltip to see exact numbers
+
+3. **Model provider icon** — Tiny icon before model name
+   - OpenAI: `◯` (circle)
+   - Anthropic: `△` (triangle)
+   - Local: `◆` (diamond)
+   - Generic: `□` (square)
+
+4. **Connection status** — Network health indicator
+   - `◉` connected (green)
+   - `○` disconnected (red)
+   - `◔` reconnecting (yellow blink)
+
+### Token Display
+
+5. **Token cost estimation** — Show $ cost for session
+   - `≈$0.02` after token counts
+   - Color: dim (subtle)
+   - Requires model pricing config
+
+6. **Token rate** — Tokens/second during streaming
+   - `125 t/s` during active streaming
+   - Hide when not streaming
+
+7. **Cache hit indicator** — Show cache effectiveness
+   - `⚡85%` when cache ratio high
+   - Encourages context reuse
+
+### Session Info
+
+8. **Session duration** — How long this session has been active
+   - `23m` (minutes)
+   - Update every minute
+
+9. **Message count** — Total messages in conversation
+   - `💬42` or just `#42`
+   - Useful for long sessions
+
+10. **Memory count** — Stored memories
+    - `📚128` memories
+    - Click to search
+
+### Interactive Elements (Advanced)
+
+11. **Clickable model name** — Switch model on click
+    - Shows dropdown/fuzzy finder
+    - Requires overlay support
+
+12. **Progress bar for tools** — Tool execution progress
+    - `[░░░░░░░░░░]` while tool running
+    - Show tool name
+
+13. **Error indicator** — Flash red on errors
+    - `⚠ 2 errors` with count
+    - Click to see error log
+
+### Layout Variations
+
+14. **Right-aligned info** — Some info on right side of status
+    - `model | tokens ... | time message#`
+
+15. **Multi-line status** — Two rows when terminal wide enough
+    - Row 1: model, tokens, streaming
+    - Row 2: session info, memory count
+
+---
+
 ## References
 
 - PyPiTUI LLMS.md: `/workspace/pypitui/LLMS.md`
