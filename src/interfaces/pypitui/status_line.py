@@ -12,8 +12,9 @@ STATUS_WIDTH_MEDIUM = 50  # Hide reasoning/cached
 STATUS_WIDTH_COMPACT = 40  # Model + in/out only
 
 # Arrow symbols (unicode fallback from nerd font)
-SYMBOL_IN = "↓"  # U+2193 DOWNWARDS ARROW
-SYMBOL_OUT = "↑"  # U+2191 UPWARDS ARROW
+# Input ↑ = sending to model, Output ↓ = receiving from model
+SYMBOL_IN = "↑"  # U+2191 UPWARDS ARROW
+SYMBOL_OUT = "↓"  # U+2193 DOWNWARDS ARROW
 
 
 class StatusLine(Component):
@@ -27,8 +28,8 @@ class StatusLine(Component):
     - Compact (<60): model | in/out | exit_hint
 
     Symbols:
-    - ↓ for input tokens
-    - ↑ for output tokens
+    - ↑ for input tokens (sending to model)
+    - ↓ for output tokens (receiving from model)
     """
 
     def __init__(self) -> None:

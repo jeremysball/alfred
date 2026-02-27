@@ -40,8 +40,8 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx 1K" in text
-        assert "↓500" in text  # arrow format
-        assert "↑100" in text  # arrow format
+        assert "↑500" in text  # arrow format (input up to model)
+        assert "↓100" in text  # arrow format (output down from model)
         assert "cached 50" in text
         assert "reasoning 20" in text
 
@@ -63,8 +63,8 @@ class TestStatusLine:
         assert "cached" not in text
         assert "reasoning" not in text
         # in/out always shown
-        assert "↓500" in text
-        assert "↑100" in text
+        assert "↑500" in text
+        assert "↓100" in text
 
     def test_status_line_exit_hint(self):
         """Verify exit hint appears when requested."""
@@ -99,8 +99,8 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        assert "↓500" in text
-        assert "↑100" in text
+        assert "↑500" in text
+        assert "↓100" in text
         assert "cached" in text
         assert "reasoning" in text
         assert "queued" in text
@@ -122,8 +122,8 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        assert "↓500" in text
-        assert "↑100" in text
+        assert "↑500" in text
+        assert "↓100" in text
         assert "cached" not in text  # hidden at medium
         assert "reasoning" not in text  # hidden at medium
         assert "queued" in text
@@ -144,8 +144,8 @@ class TestStatusLine:
         lines = status.render(width=STATUS_WIDTH_COMPACT)
         text = lines[0]
         assert "…" in text  # truncated
-        assert "↓500" in text
-        assert "↑100" in text
+        assert "↑500" in text
+        assert "↓100" in text
         assert "ctx" not in text  # hidden at compact
         assert "cached" not in text
         assert "queued" not in text  # just number shown
@@ -211,8 +211,8 @@ class TestStatusLine:
         )
 
         lines = status.render(width=80)
-        assert "↓" in lines[0]  # down arrow for input
-        assert "↑" in lines[0]  # up arrow for output
+        assert "↑" in lines[0]  # up arrow for input (to model)
+        assert "↓" in lines[0]  # down arrow for output (from model)
 
 
 class TestStatusLineThrobber:
