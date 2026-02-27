@@ -368,10 +368,12 @@ When implementing a feature or PRD phase, create an **extremely granular** check
 - [ ] Run: `uv run pytest tests/`
 
 ### A.4 Manual Verification
-- [ ] Run app in tmux: `tmux new-session -d -s test "uv run app"`
-- [ ] Trigger feature
+- [ ] Start app in tmux: `tmux new-session -d -s test "uv run alfred"`
+- [ ] Wait for startup: `sleep 2`
+- [ ] Trigger feature: `tmux send-keys -t test "hello" Enter`
+- [ ] Wait for response: `sleep 3`
 - [ ] Capture output: `tmux capture-pane -t test -p`
-- [ ] Verify expected behavior
+- [ ] Verify expected behavior in output
 - [ ] Kill session: `tmux kill-session -t test`
 
 ### A.5 Commit

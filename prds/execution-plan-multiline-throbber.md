@@ -72,11 +72,11 @@
 ### A.7 Manual Throbber Test
 
 - [ ] Run: `tmux new-session -d -s alfred "cd /workspace/alfred-prd && uv run alfred"`
-- [ ] Wait 2 seconds for startup
+- [ ] Wait: `sleep 2`
 - [ ] Run: `tmux send-keys -t alfred "hello" Enter`
-- [ ] Run: `tmux capture-pane -t alfred -p`
-- [ ] Verify throbber animation visible during response
-- [ ] Wait for response complete
+- [ ] Run: `sleep 1 && tmux capture-pane -t alfred -p`
+- [ ] Verify throbber character (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) in output during streaming
+- [ ] Run: `sleep 3`  # Wait for response complete
 - [ ] Run: `tmux capture-pane -t alfred -p`
 - [ ] Verify throbber gone after response
 - [ ] Run: `tmux kill-session -t alfred`
