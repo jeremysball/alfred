@@ -282,9 +282,8 @@ class AlfredTUI:
             self._add_system_message("No sessions found.")
             return True
 
-        # Build table-like output (limit to 20 most recent)
-        lines = ["ID                Created          Messages"]
-        lines.append("─" * 42)
+        # Build output using non-breaking spaces to prevent word wrapping
+        lines: list[str] = []
 
         current_id = None
         if self.alfred.session_manager.has_active_session():
@@ -294,8 +293,10 @@ class AlfredTUI:
 
         for meta in sessions[:20]:
             created = meta.created_at.strftime("%Y-%m-%d %H:%M")
-            marker = " *" if meta.session_id == current_id else ""
-            lines.append(f"{meta.session_id}{marker:17} {created}  {meta.message_count:7}")
+            marker = " (current)" if meta.session_id == current_id else ""
+            # Use non-breaking space (\xa0) between fields to prevent wrapping
+            line = f"{meta.session_id}\xa0\xa0{created}\xa0\xa0{meta.message_count} msgs{marker}"
+            lines.append(line)
 
         if len(sessions) > 20:
             lines.append(f"... and {len(sessions) - 20} more")
