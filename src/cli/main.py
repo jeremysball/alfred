@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 from rich.console import Console
@@ -12,6 +12,9 @@ from rich.console import Console
 from src.alfred import Alfred
 from src.cli.cron import app as cron_app
 from src.config import load_config
+
+if TYPE_CHECKING:
+    from src.interfaces.pypitui.toast import ToastManager
 
 app = typer.Typer(
     name="alfred",
@@ -60,7 +63,15 @@ def main(
 
 async def _run_interactive() -> None:
     """Run interactive CLI or Telegram bot."""
-    _setup_logging()
+    from src.interfaces.pypitui.toast import ToastManager
+
+    # Create toast manager for TUI mode
+    toast_manager: ToastManager | None = None
+    if not _run_telegram:
+        toast_manager = ToastManager()
+
+    # Set up logging with optional toast handler
+    _setup_logging(toast_manager)
 
     config = load_config()
     alfred = Alfred(config, telegram_mode=_run_telegram)
@@ -69,18 +80,18 @@ async def _run_interactive() -> None:
         if _run_telegram:
             await _run_telegram_bot(alfred)
         else:
-            await _run_chat(alfred)
+            await _run_chat(alfred, toast_manager)
     except KeyboardInterrupt:
         pass
     finally:
         await alfred.stop()
 
 
-async def _run_chat(alfred: Alfred) -> None:
+async def _run_chat(alfred: Alfred, toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
-    from src.interfaces.cli import CLIInterface
+    from src.interfaces.pypitui_cli import AlfredTUI
 
-    interface = CLIInterface(alfred)
+    interface = AlfredTUI(alfred, toast_manager=toast_manager)
     await alfred.start()
     await interface.run()
 
@@ -95,8 +106,13 @@ async def _run_telegram_bot(alfred: Alfred) -> None:
     await interface.run()
 
 
-def _setup_logging() -> None:
-    """Configure logging based on debug level."""
+def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
+    """Configure logging based on debug level.
+
+    Args:
+        toast_manager: If provided, use ToastHandler to display logs as
+            toast notifications (TUI mode). Otherwise logs go to stderr.
+    """
     if _debug_level == "debug":
         log_level = logging.DEBUG
     elif _debug_level == "info":
@@ -104,10 +120,21 @@ def _setup_logging() -> None:
     else:
         log_level = logging.WARNING
 
-    logging.basicConfig(
-        level=log_level,
-        format="%(levelname)s:%(name)s:%(message)s",
-    )
+    if toast_manager is not None:
+        # TUI mode: logs become toast notifications
+        from src.interfaces.pypitui.toast import ToastHandler
+
+        logging.basicConfig(
+            level=log_level,
+            format="%(levelname)s:%(name)s:%(message)s",
+            handlers=[ToastHandler(toast_manager)],
+        )
+    else:
+        # Normal mode: log to stderr
+        logging.basicConfig(
+            level=log_level,
+            format="%(levelname)s:%(name)s:%(message)s",
+        )
 
 
 def run_async(coro_factory: Callable[[], Coroutine[Any, Any, None]]) -> None:

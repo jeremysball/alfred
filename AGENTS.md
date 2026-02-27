@@ -73,11 +73,38 @@ export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
 
 ---
 
+## 🚀 Running the Project
+
+```bash
+# Interactive TUI (default)
+uv run alfred
+
+# With debug logging
+uv run alfred --debug info
+uv run alfred --debug debug
+
+# Telegram bot mode
+uv run alfred --telegram
+
+# Cron job management
+uv run alfred cron list
+uv run alfred cron add "daily standup" "every day at 9am"
+uv run alfred cron remove <job_id>
+```
+
+**Entry point:** `src/cli/main.py` (Typer CLI)
+
+---
+### 0. Use tmux 
+- Usr tmux whenever something requires
+interactive control. Especially whenever 
+you think something reques manual testing. 
+### 0. git add -p 
+- ALWAYS create atomic commits using git add -p
 ### 1. Permission First
-**ALWAYS** ask before editing files, deleting data, writing tests/production code, or running state-changing commands (git, etc.).
 
-**EVEN when a skill tells you to edit a file**, you MUST offer a changelog and ask for permission.
 
+- Emit changeloafter commits
 **Changelog Requirements:**
 1. **Approach**: What you're doing and how
 2. **Alternatives Considered**: Other approaches you rejected
@@ -92,49 +119,41 @@ export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
 
 This applies the design-first rule from above.
 
-### 3. Use Todo Sidebar for Task Tracking — MANDATORY
-**ALWAYS use the `todo-sidebar` tool** when outlining or tracking multi-step work. **NEVER use numbered lists in prose** when tasks need to be tracked.
+### 4. Test-Driven Development (TDD) — MANDATORY
+**ALWAYS** follow TDD principles when writing code:
 
-**MANDATORY RULE:**
-When you would otherwise write a numbered list like this in your response:
-```
-Here's what I'll do:
-1. Step one
-2. Step two
-3. Step three
-```
+1. **Write tests first** — Before any implementation
+2. **Run tests to see them fail** — Confirms test validity
+3. **Implement minimum code to pass** — No over-engineering
+4. **Refactor** — Clean up while tests protect you
 
-**You MUST instead use todo-sidebar:**
-```
-todo-sidebar action: add, text: "Step one"
-todo-sidebar action: add, text: "Step two"
-todo-sidebar action: add, text: "Step three"
-```
+**WRONG — Do NOT do this:**
+- Write code first, then add tests
+- Skip tests because "it's a simple change"
+- Test only happy paths
 
-**Actions:**
-- `add` — Create a new todo item
-- `list` — Show all current todos
-- `toggle` — Mark a todo as done/undone by ID
-- `clear` — Remove all todos
-
-**Example:**
-```
-todo-sidebar action: add, text: "Review PRD requirements"
-todo-sidebar action: toggle, id: 1
-```
-
-### 4. Encourage Test-Driven Development (TDD)
-**ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
-
-This is **not strictly required** but STRONGLY encouraged and you will be expected to justify deciding not to.
+**RIGHT — Always do this:**
+- Red → Green → Refactor cycle
+- Test edge cases alongside implementation
+- Justify if TDD isn't applicable (rare)
 
 ### 5. Testing Edge Cases — MANDATORY
-**ALWAYS** test edge cases, not just happy paths:
+**ALWAYS** test edge cases, not just happy paths. **DO NOT MOCK** unless you have no other choice.
 
 - **Input validation**: null, empty strings, wrong types, malformed data
 - **Boundary conditions**: off-by-one, empty collections, max/min values, integer overflow
 - **Error handling**: network failures, timeouts, missing files, permission denied
 - **Async edge cases**: race conditions, concurrent access, timeout handling
+
+**Mocking is a last resort.** Prefer:
+- Real file systems (use temp directories)
+- Real network calls (use test servers/containers)
+- Real databases (use test instances)
+
+**Only mock when:**
+- External services you cannot control
+- Non-deterministic behavior (time, randomness)
+- Extremely slow operations
 
 **Example:**
 ```python
@@ -294,3 +313,78 @@ with TerminalSession("alfred", port=7681) as s:
 ```
 
 See `.pi/skills/tmux-tape/SKILL.md` for full API.
+
+### 13. Create Granular Execution Plans
+When implementing a feature or PRD phase, create an **extremely granular** checklist first.
+
+**Principles:**
+- Each item = single atomic action
+- Each item = independently verifiable
+- Items ordered by dependency
+- Include test items after implementation items
+- Include manual verification items
+
+**Granularity levels:**
+
+| Too Coarse | Good | Excellent |
+|------------|------|-----------|
+| "Add throbber" | "Create Throbber class" | "Create file `src/interfaces/pypitui/throbber.py`" |
+| "Wire into TUI" | "Add throbber to status line" | "Add `self._throbber = Throbber()` in `__init__`" |
+| "Test it works" | "Test throbber animation" | "Test: `test_throbber_tick_advances()`" |
+
+**Template for each implementation item:**
+```
+- [ ] Create/modify <file>
+- [ ] Add <specific code change>
+- [ ] Test: `test_<what>()` — verify <behavior>
+- [ ] Run: `uv run pytest <file>` — fix failures
+```
+
+**Example execution plan structure:**
+```markdown
+## Phase A: Feature Name
+
+### A.1 Create Core Class
+- [ ] Create file `src/path/to/module.py`
+- [ ] Add import: `from typing import Literal`
+- [ ] Define constant: `MAX_ITEMS = 5`
+- [ ] Create class `Thing` with `__init__(self, name: str)`
+- [ ] Add `self._name = name`
+- [ ] Implement `do_thing(self) -> str`
+- [ ] Run: `uv run ruff check src/path/to/`
+
+### A.2 Test Core Class
+- [ ] Create file `tests/test_thing.py`
+- [ ] Test: `test_thing_init()` — verify name stored
+- [ ] Test: `test_do_thing_returns_string()` — verify return type
+- [ ] Run: `uv run pytest tests/test_thing.py -v`
+- [ ] Fix any failures
+
+### A.3 Integrate with Existing Code
+- [ ] Open `src/existing/module.py`
+- [ ] Add import at top: `from src.path.to.module import Thing`
+- [ ] Add `self._thing = Thing("name")` in `__init__`
+- [ ] Call `self._thing.do_thing()` in relevant method
+- [ ] Run: `uv run pytest tests/`
+
+### A.4 Manual Verification
+- [ ] Start app in tmux: `tmux new-session -d -s test "uv run alfred"`
+- [ ] Wait for startup: `sleep 2`
+- [ ] Trigger feature: `tmux send-keys -t test "hello" Enter`
+- [ ] Wait for response: `sleep 3`
+- [ ] Capture output: `tmux capture-pane -t test -p`
+- [ ] Verify expected behavior in output
+- [ ] Kill session: `tmux kill-session -t test`
+
+### A.5 Commit
+- [ ] Run: `uv run ruff check src/ && uv run mypy src/ && uv run pytest`
+- [ ] Stage: `git add src/path/to/module.py tests/test_thing.py`
+- [ ] Commit: `feat(module): add Thing class with do_thing method`
+```
+
+**When to create:**
+- Before implementing any PRD phase
+- Before any feature spanning 3+ files
+- When user asks for "detailed plan" or "todo list"
+
+**Store in:** `prds/execution-plan-<feature>.md`
