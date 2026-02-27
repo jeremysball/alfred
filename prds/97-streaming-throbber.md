@@ -1,10 +1,21 @@
 # PRD: Streaming Throbber for Alfred CLI
 
-**Status**: Complete ✅
+**Status**: In Progress — Bugs to Fix 🐛
 **Priority**: Low
 **Created**: 2026-02-26
 **Completed**: 2026-02-26
 **Depends on**: 95-pypitui-cli
+
+## Open Issues
+
+1. **Throbber delay** — Should start immediately on send, not when streaming begins
+   - **Status**: ✅ FIXED - Added `_is_sending` state that triggers immediately on submit
+   
+2. **Scrollback on resize** — Verify content re-prints correctly after terminal resize  
+   - **Status**: 🐛 OPEN - Needs investigation
+   
+3. **Status line layout** — Always appears compact; width detection may be broken
+   - **Status**: 🐛 OPEN - Added debug logging, needs runtime verification
 
 ---
 
@@ -175,6 +186,66 @@ kimi/kimi-k2-5 | ↓1.2K ↑150 | ⠋
 
 ---
 
+## Bug Fixes Required
+
+### Bug 1: Throbber Should Start Immediately After Sending
+
+**Current behavior:** Throbber starts when streaming begins (network response received).
+
+**Expected behavior:** Throbber should start immediately when user presses Enter, before network request.
+
+**Root cause:** `_is_streaming` is set to `True` at the start of `_send_message()`, but network latency means there's a visible delay before any animation appears.
+
+**Fix:** Set `streaming=True` immediately in `_on_submit()` before creating the async task, or add a new "sending" state that shows throbber while waiting for first chunk.
+
+---
+
+### Bug 2: Scrollback Not Re-printed After Resize
+
+**Current behavior:** When terminal is resized, conversation content may not re-render correctly.
+
+**Expected behavior:** All scrollback content should be re-printed at new width on resize.
+
+**Root cause:** PyPiTUI handles resize via `terminal.get_size()` in render, but the conversation Container may not be triggering a full re-render of all messages.
+
+**Fix:** Verify that resize triggers `request_render()` on the conversation container and that all MessagePanel components re-render with new width.
+
+**Verification:**
+```bash
+# 1. Start alfred, send several messages
+# 2. Resize terminal window (make narrower or wider)
+# 3. Check if all previous messages re-wrap correctly
+# 4. Verify scrollback buffer contains properly formatted content
+```
+
+---
+
+### Bug 3: Status Line Always Uses Compact Layout
+
+**Current behavior:** Status line always appears to use the smallest/compact layout regardless of terminal width.
+
+**Expected behavior:** Status line should use full/medium/compact layout based on actual terminal width.
+
+**Root cause investigation needed:**
+1. Is `width` parameter in `render(width)` correct?
+2. Are the threshold constants (`STATUS_WIDTH_FULL`, etc.) appropriate?
+3. Is the width being passed from TUI correctly?
+
+**Debug steps:**
+```python
+# Add logging to StatusLine.render()
+print(f"DEBUG: render called with width={width}")
+print(f"DEBUG: thresholds: full={STATUS_WIDTH_FULL}, medium={STATUS_WIDTH_MEDIUM}")
+print(f"DEBUG: _is_streaming={self._is_streaming}, _model={self._model}")
+```
+
+**Potential issues:**
+- Width may be 0 or incorrect during initial render
+- TUI may not be passing terminal width correctly
+- Threshold constants may be too high for typical terminal sizes
+
+---
+
 ## Out of Scope
 
 - Custom throbber styles (user configurable)
@@ -187,3 +258,4 @@ kimi/kimi-k2-5 | ↓1.2K ↑150 | ⠋
 
 - StatusLine component: `src/interfaces/pypitui/status_line.py`
 - Main loop: `src/interfaces/pypitui/tui.py`
+- AlfredTUI: `src/interfaces/pypitui/tui.py`

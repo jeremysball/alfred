@@ -339,3 +339,61 @@ class TestToastTUIIntegration:
 
         logger.removeHandler(handler)
 
+
+class TestStreamingState:
+    """Tests for streaming state and throbber behavior."""
+
+    @pytest.mark.asyncio
+    async def test_throbber_stops_when_streaming_ends(self, mock_alfred, mock_terminal):
+        """Verify throbber stops animating when streaming completes."""
+        from src.interfaces.pypitui.tui import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Initially not streaming
+        assert tui._is_streaming is False
+
+        # Start streaming (simulate _send_message start)
+        tui._is_streaming = True
+        tui._update_status()
+
+        # Status line should show throbber
+        lines = tui.status_line.render(width=80)
+        assert lines[0].startswith("⠋")  # Throbber visible
+
+        # Simulate streaming ending (finally block behavior)
+        tui._is_streaming = False
+        tui._update_status()
+
+        # Status line should NOT show throbber anymore
+        lines = tui.status_line.render(width=80)
+        assert not lines[0].startswith("⠋")  # Throbber hidden
+        assert "test-model" in lines[0]  # Model name visible instead
+
+    def test_throbber_starts_immediately_on_submit(self, mock_alfred, mock_terminal):
+        """Bug Fix: Throbber should start immediately when user presses Enter."""
+        from src.interfaces.pypitui.tui import AlfredTUI
+
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Initially not sending or streaming
+        assert tui._is_sending is False
+        assert tui._is_streaming is False
+
+        # Simulate submit (but not the async task - just the state change)
+        tui._is_sending = True
+        tui._update_status()
+
+        # Status line should show throbber immediately (before streaming starts)
+        lines = tui.status_line.render(width=80)
+        assert lines[0].startswith("⠋")  # Throbber visible immediately
+
+        # When streaming actually starts, _is_streaming becomes True and _is_sending becomes False
+        tui._is_streaming = True
+        tui._is_sending = False
+        tui._update_status()
+
+        # Throbber should still be visible during streaming
+        lines = tui.status_line.render(width=80)
+        assert lines[0].startswith("⠋")  # Throbber still visible
+

@@ -74,6 +74,7 @@ class AlfredTUI:
         # Input queue for messages during streaming
         self._message_queue: list[str] = []
         self._is_streaming = False
+        self._is_sending = False  # True while waiting for first chunk
 
         # Enable toast mode for cron job notifications
         if toast_manager is not None:
@@ -153,7 +154,7 @@ class AlfredTUI:
             reasoning=usage.reasoning_tokens,
             exit_hint=self._exit_hint_visible,
             queued=len(self._message_queue),
-            streaming=self._is_streaming,
+            streaming=self._is_streaming or self._is_sending,
         )
 
     def _tool_callback(self, event: object) -> None:
@@ -211,6 +212,10 @@ class AlfredTUI:
         # Clear input field
         self.input_field.set_value("")
 
+        # Start sending state immediately for throbber feedback
+        self._is_sending = True
+        self._update_status()
+
         # Create async task for response (requires running event loop)
         with suppress(RuntimeError):
             asyncio.create_task(self._send_message(text))
@@ -221,7 +226,7 @@ class AlfredTUI:
         Args:
             text: The user message
         """
-        # Mark as streaming
+        # Mark as streaming (is_sending was already set in _on_submit)
         self._is_streaming = True
 
         # Create assistant message panel (empty, will stream content)
@@ -229,12 +234,17 @@ class AlfredTUI:
         self.conversation.add_child(assistant_msg)
         self._current_assistant_msg = assistant_msg
 
+        first_chunk = True
         try:
             # Stream response from Alfred
             accumulated = ""
             async for chunk in self.alfred.chat_stream(
                 text, tool_callback=self._tool_callback
             ):
+                # Clear sending state on first chunk (now actually streaming)
+                if first_chunk:
+                    self._is_sending = False
+                    first_chunk = False
                 accumulated += chunk
                 assistant_msg.set_content(accumulated)
 
@@ -254,6 +264,8 @@ class AlfredTUI:
         finally:
             self._current_assistant_msg = None
             self._is_streaming = False
+            self._is_sending = False
+            self._update_status()
 
             # Process queued messages
             if self._message_queue:
