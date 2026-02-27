@@ -8,7 +8,7 @@ from src.interfaces.pypitui.utils import format_tokens
 
 # Width thresholds for responsive layout
 STATUS_WIDTH_FULL = 80  # Show everything
-STATUS_WIDTH_MEDIUM = 60  # Hide reasoning/cached
+STATUS_WIDTH_MEDIUM = 50  # Hide reasoning/cached
 STATUS_WIDTH_COMPACT = 40  # Model + in/out only
 
 # Arrow symbols (unicode fallback from nerd font)

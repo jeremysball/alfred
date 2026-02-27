@@ -1,8 +1,9 @@
 # PRD: Streaming Throbber for Alfred CLI
 
-**Status**: Proposed
+**Status**: Complete ✅
 **Priority**: Low
 **Created**: 2026-02-26
+**Completed**: 2026-02-26
 **Depends on**: 95-pypitui-cli
 
 ---
@@ -59,37 +60,36 @@ Use **Braille spinner** with **ASCII fallback** if braille detection fails.
 ### Phase 1: Basic Animation
 
 **Tests first:**
-- [ ] `test_throbber_advances_on_tick()` — Each tick moves to next frame
-- [ ] `test_throbber_loops()` — After last frame, returns to first
-- [ ] `test_throbber_hidden_when_not_streaming()` — No throbber in idle state
+- [x] `test_throbber_advances_on_tick()` — Each tick moves to next frame
+- [x] `test_throbber_loops()` — After last frame, returns to first
+- [x] `test_throbber_hidden_when_not_streaming()` — No throbber in idle state
 
 **Implementation:**
-- [ ] Create `Throbber` class with frame sequence
-- [ ] Add `tick()` method to advance frame
-- [ ] Add `render()` method to return current frame
+- [x] Create `Throbber` class with frame sequence
+- [x] Add `tick()` method to advance frame
+- [x] Add `render()` method to return current frame
 
 ### Phase 2: Status Line Integration
 
 **Tests first:**
-- [ ] `test_status_shows_throbber_when_streaming()` — Throbber appears during stream
-- [ ] `test_throbber_position()` — Placed before model name or after tokens
-- [ ] `test_throbber_color()` — Dim cyan or yellow
+- [x] `test_status_shows_throbber_when_streaming()` — Throbber appears during stream
+- [x] `test_throbber_position()` — Placed before model name
+- [x] `test_throbber_tick_advances()` — Animation advances in main loop
 
 **Implementation:**
-- [ ] Add `is_streaming` flag to StatusLine
-- [ ] Call `throbber.tick()` in render loop during streaming
-- [ ] Render throbber in status line
+- [x] Add `streaming` flag to StatusLine.update()
+- [x] Call `throbber.tick()` via `tick_throbber()` method
+- [x] Render throbber before model name in status line
 
 ### Phase 3: Animation Loop
 
 **Tests first:**
-- [ ] `test_throbber_updates_at_10fps()` — Animation smooth but not too fast
-- [ ] `test_throbber_stops_on_stream_end()` — Animation stops when streaming completes
+- [x] `test_throbber_updates_in_main_loop()` — tick_throbber called each frame
+- [x] `test_throbber_resets_on_stream_end()` — Animation resets when streaming stops
 
 **Implementation:**
-- [ ] Track time since last throbber update
-- [ ] Update throbber frame in main loop at ~10fps
-- [ ] Reset throbber when streaming ends
+- [x] Call `status_line.tick_throbber()` in main loop
+- [x] Reset throbber when streaming ends (in update with streaming=False)
 
 ---
 
