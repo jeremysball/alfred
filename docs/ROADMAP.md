@@ -163,6 +163,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | M11 | PyPI Trusted Publishing - Automated package distribution |
 | M12 | Rich Markdown Output - Streaming markdown rendering with Rich Live for CLI |
 | M13 | Code Health & Simplification - Removed 1,421 lines of dead code, duplication, over-engineering (PRD #82) |
+| M14 | PyPiTUI CLI - Native scrollback, differential rendering, streaming responses, status line, input queue (PRD #95) |
 
 ### In Progress / Next Up 🔨
 
@@ -172,8 +173,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 13 | Learning System | Prompt-based learning to update USER.md/SOUL.md |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
 | 15 | README Landing Page | Transform README into compelling OSS landing page |
-| 16 | pypitui CLI Rewrite | Replace prompt_toolkit/Rich CLI with pypitui TUI library (PRD #92) |
-| 17 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
+| 16 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
 
 ### Short-term 📋
 
