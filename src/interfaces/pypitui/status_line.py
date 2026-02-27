@@ -20,11 +20,11 @@ SYMBOL_OUT = "↓"  # U+2193 DOWNWARDS ARROW
 class StatusLine(Component):
     """Status line showing model name and token usage.
 
-    Format: model | sess:id | ctx N ↓N ↑N | cached N reasoning N | queued N
+    Format: model | ctx N ↓N ↑N | cached N reasoning N | queued N
 
     Responsive layout:
-    - Full (80+): model | sess | ctx | in/out | cached/reasoning | queued | exit_hint
-    - Medium (60-79): model | sess | ctx | in/out | queued | exit_hint
+    - Full (80+): model | ctx | in/out | cached/reasoning | queued | exit_hint
+    - Medium (60-79): model | ctx | in/out | queued | exit_hint
     - Compact (<60): model | in/out | exit_hint
 
     Symbols:
@@ -36,7 +36,6 @@ class StatusLine(Component):
         """Initialize status line with empty state."""
         super().__init__()
         self._model: str = ""
-        self._session_id: str | None = None
         self._ctx: int = 0
         self._in: int = 0
         self._out: int = 0
@@ -63,7 +62,6 @@ class StatusLine(Component):
         exit_hint: bool = False,
         queued: int = 0,
         streaming: bool = False,
-        session_id: str | None = None,
     ) -> None:
         """Update all status values.
 
@@ -77,10 +75,8 @@ class StatusLine(Component):
             exit_hint: Show Ctrl-C exit hint
             queued: Number of queued messages
             streaming: Show animated throbber during streaming
-            session_id: Current session ID (shown truncated)
         """
         self._model = model
-        self._session_id = session_id
         self._ctx = ctx
         self._in = in_tokens
         self._out = out_tokens
@@ -120,10 +116,6 @@ class StatusLine(Component):
 
         # Group 1: model name
         parts.append(model)
-
-        # Group 2: session ID (if available)
-        if self._session_id:
-            parts.append(f"{DIM}sess:{self._session_id[:8]}{RESET}")
 
         # Determine layout tier
         if width >= STATUS_WIDTH_FULL:

@@ -149,13 +149,6 @@ class AlfredTUI:
         # Use estimated during stream, actual after
         out = estimated_out if estimated_out is not None else usage.output_tokens
 
-        # Get current session ID
-        session_id: str | None = None
-        if self.alfred.session_manager.has_active_session():
-            session = self.alfred.session_manager.get_current_cli_session()
-            if session:
-                session_id = session.meta.session_id
-
         self.status_line.update(
             model=self.alfred.model_name,
             ctx=ctx,
@@ -166,7 +159,6 @@ class AlfredTUI:
             exit_hint=self._exit_hint_visible,
             queued=len(self._message_queue),
             streaming=self._is_streaming or self._is_sending,
-            session_id=session_id,
         )
 
     def _tool_callback(self, event: object) -> None:
