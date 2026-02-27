@@ -12,10 +12,10 @@
    - **Status**: ✅ FIXED - Added `_is_sending` state that triggers immediately on submit
    
 2. **Scrollback on resize** — Verify content re-prints correctly after terminal resize  
-   - **Status**: 🐛 OPEN - Needs investigation
+   - **Status**: 🔄 DEFERRED - PyPiTUI handles resize via `_check_resize()` in render loop
    
 3. **Status line layout** — Always appears compact; width detection may be broken
-   - **Status**: 🐛 OPEN - Added debug logging, needs runtime verification
+   - **Status**: 🔄 DEFERRED - Need runtime verification with actual terminal
 
 ---
 
