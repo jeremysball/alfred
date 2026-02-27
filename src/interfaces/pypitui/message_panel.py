@@ -55,9 +55,9 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Set border color based on role
         self._set_border_color(role)
 
-        # Add content as Text child (padding_y=0 to avoid extra blank lines)
+        # Add content as Text child
         if content:
-            self.add_child(Text(content, padding_y=0))
+            self.add_child(Text(content))
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -163,8 +163,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self.clear()
 
         if not self._tool_calls:
-            # Simple case: no tool calls (padding_y=0 to avoid extra blank lines)
-            self.add_child(Text(self._text_content, padding_y=0))
+            # Simple case: no tool calls
+            self.add_child(Text(self._text_content))
         else:
             # Build content with tool boxes inline
             self._build_content_with_tools()
