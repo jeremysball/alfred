@@ -316,14 +316,14 @@ class TestToastTUIIntegration:
         assert len(get_toasts()) == 0
 
     def test_toast_handler_installed(self, mock_alfred, mock_terminal):
-        """Verify toast handler is installed on src logger."""
+        """Verify toast handler is installed on root logger."""
         import logging
 
         from src.interfaces.pypitui.tui import AlfredTUI
 
         AlfredTUI(mock_alfred, terminal=mock_terminal)
 
-        # Check that src logger has a ToastHandler
-        src_logger = logging.getLogger("src")
-        handler_types = [type(h).__name__ for h in src_logger.handlers]
+        # Check that root logger has a ToastHandler (to catch all src.* logs)
+        root_logger = logging.getLogger()
+        handler_types = [type(h).__name__ for h in root_logger.handlers]
         assert "ToastHandler" in handler_types

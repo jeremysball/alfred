@@ -95,12 +95,13 @@ class ToastHandler(logging.Handler):
 
 
 def install_toast_handler() -> ToastHandler:
-    """Install the toast handler on the root src logger.
+    """Install the toast handler on the root logger with src.* filter.
 
     Returns:
         The installed handler (for cleanup if needed)
     """
     handler = ToastHandler()
-    src_logger = logging.getLogger("src")
-    src_logger.addHandler(handler)
+    # Add to root logger to catch all src.* logs
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
     return handler

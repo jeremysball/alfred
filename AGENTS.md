@@ -72,12 +72,16 @@ export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
 **NO EXCEPTIONS.** Every command requiring tokens (GitHub CLI, Serper API, etc.) must use `uv run dotenv`.
 
 ---
-
+### 0. Use tmux 
+- Usr tmux whenever something requires
+interactive control. Especially whenever 
+you think something reques manual testing. 
+### 0. git add -p 
+- ALWAYS create atomic commits using git add -p
 ### 1. Permission First
-**ALWAYS** ask before editing files, deleting data, writing tests/production code, or running state-changing commands (git, etc.).
 
-**EVEN when a skill tells you to edit a file**, you MUST offer a changelog and ask for permission.
 
+- Emit changeloafter commits
 **Changelog Requirements:**
 1. **Approach**: What you're doing and how
 2. **Alternatives Considered**: Other approaches you rejected
@@ -92,49 +96,41 @@ export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
 
 This applies the design-first rule from above.
 
-### 3. Use Todo Sidebar for Task Tracking — MANDATORY
-**ALWAYS use the `todo-sidebar` tool** when outlining or tracking multi-step work. **NEVER use numbered lists in prose** when tasks need to be tracked.
+### 4. Test-Driven Development (TDD) — MANDATORY
+**ALWAYS** follow TDD principles when writing code:
 
-**MANDATORY RULE:**
-When you would otherwise write a numbered list like this in your response:
-```
-Here's what I'll do:
-1. Step one
-2. Step two
-3. Step three
-```
+1. **Write tests first** — Before any implementation
+2. **Run tests to see them fail** — Confirms test validity
+3. **Implement minimum code to pass** — No over-engineering
+4. **Refactor** — Clean up while tests protect you
 
-**You MUST instead use todo-sidebar:**
-```
-todo-sidebar action: add, text: "Step one"
-todo-sidebar action: add, text: "Step two"
-todo-sidebar action: add, text: "Step three"
-```
+**WRONG — Do NOT do this:**
+- Write code first, then add tests
+- Skip tests because "it's a simple change"
+- Test only happy paths
 
-**Actions:**
-- `add` — Create a new todo item
-- `list` — Show all current todos
-- `toggle` — Mark a todo as done/undone by ID
-- `clear` — Remove all todos
-
-**Example:**
-```
-todo-sidebar action: add, text: "Review PRD requirements"
-todo-sidebar action: toggle, id: 1
-```
-
-### 4. Encourage Test-Driven Development (TDD)
-**ENCOURAGED**: Follow TDD principles when writing code—write tests first, then implement to make them pass.
-
-This is **not strictly required** but STRONGLY encouraged and you will be expected to justify deciding not to.
+**RIGHT — Always do this:**
+- Red → Green → Refactor cycle
+- Test edge cases alongside implementation
+- Justify if TDD isn't applicable (rare)
 
 ### 5. Testing Edge Cases — MANDATORY
-**ALWAYS** test edge cases, not just happy paths:
+**ALWAYS** test edge cases, not just happy paths. **DO NOT MOCK** unless you have no other choice.
 
 - **Input validation**: null, empty strings, wrong types, malformed data
 - **Boundary conditions**: off-by-one, empty collections, max/min values, integer overflow
 - **Error handling**: network failures, timeouts, missing files, permission denied
 - **Async edge cases**: race conditions, concurrent access, timeout handling
+
+**Mocking is a last resort.** Prefer:
+- Real file systems (use temp directories)
+- Real network calls (use test servers/containers)
+- Real databases (use test instances)
+
+**Only mock when:**
+- External services you cannot control
+- Non-deterministic behavior (time, randomness)
+- Extremely slow operations
 
 **Example:**
 ```python
