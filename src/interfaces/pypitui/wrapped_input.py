@@ -87,41 +87,42 @@ class WrappedInput(Component, Focusable):
         self._input.invalidate()
 
     def render(self, width: int) -> list[str]:
-        """Render input with cursor, supporting wrapped text navigation.
+        """Render input showing only the current display line.
 
         Args:
             width: Terminal width in columns.
 
         Returns:
-            List of display lines with cursor on correct line.
+            Single-element list containing the display line with cursor.
         """
         self._last_width = width
         text = self.get_value()
 
         if not text and not self.focused:
             # Show placeholder
-            return [self._input.render(width)[0]]
-
-        # Get display lines with character-based wrapping
-        display_lines = self._get_display_lines(text, width)
-
-        if len(display_lines) == 1:
-            # Single line, use original render
             return self._input.render(width)
 
-        # Find cursor position in display coordinates
-        cursor_line_idx, cursor_col = self._get_cursor_display_pos(width)
+        if width <= 0:
+            return [text] if text else [""]
 
-        # Render each display line with cursor on correct line
-        result = []
-        for i, line in enumerate(display_lines):
-            if i == cursor_line_idx and self.focused:
-                rendered = self._render_line_with_cursor(line, cursor_col)
-                result.append(truncate_to_width(rendered, width + 10))  # Extra for cursor markers
-            else:
-                result.append(line if line else " ")
+        # Get which display line the cursor is on
+        cursor_line_idx = self._cursor_pos // width
 
-        return result
+        # Extract just that line's text
+        line_start = cursor_line_idx * width
+        line_end = min(line_start + width, len(text))
+        line_text = text[line_start:line_end]
+
+        # Cursor position within this line
+        cursor_col = self._cursor_pos % width
+
+        # Render with cursor
+        if self.focused:
+            rendered = self._render_line_with_cursor(line_text, cursor_col)
+            # Truncate to fit width (plus some for cursor markers)
+            return [truncate_to_width(rendered, width + 10)]
+        else:
+            return [line_text] if line_text else [" "]
 
     def _render_line_with_cursor(self, line: str, cursor_col: int) -> str:
         """Render a line with cursor marker at given column."""

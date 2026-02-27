@@ -1,8 +1,19 @@
 """Tests for WrappedInput component with display-line navigation."""
 
+import re
+
 import pytest
 
 from src.interfaces.pypitui.wrapped_input import WrappedInput
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes and cursor marker from text."""
+    # Remove ANSI codes
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+    # Remove cursor marker
+    text = text.replace("█", "")
+    return text
 
 
 class TestWrappedInputBasic:
@@ -30,56 +41,74 @@ class TestWrappedInputBasic:
 
 
 class TestWrappedInputWrapping:
-    """Text wrapping behavior."""
+    """Text wrapping behavior - shows only current display line."""
 
-    def test_wrapped_input_wraps_long_line(self) -> None:
-        """Long line wraps to multiple display lines."""
+    def test_wrapped_input_always_returns_one_line(self) -> None:
+        """WrappedInput always returns exactly one line."""
         inp = WrappedInput()
         inp.set_value("hello world this is a long line")
+        inp.focused = True
 
-        lines = inp.render(width=10)
-        # Character-based: 28 chars / 10 = 3 lines
-        assert len(lines) >= 2  # Should wrap
+        # Regardless of cursor position, always 1 line
+        inp.set_cursor_pos(0)
+        assert len(inp.render(width=10)) == 1
 
-    def test_wrapped_input_respects_width(self) -> None:
-        """Each display line fits within width (plus cursor markers)."""
+        inp.set_cursor_pos(15)
+        assert len(inp.render(width=10)) == 1
+
+        inp.set_cursor_pos(25)
+        assert len(inp.render(width=10)) == 1
+
+    def test_wrapped_input_shows_first_line_when_cursor_at_start(self) -> None:
+        """When cursor at start, shows first display line."""
         inp = WrappedInput()
         inp.set_value("hello world this is a long line")
+        inp.focused = True
 
+        inp.set_cursor_pos(0)
         lines = inp.render(width=10)
-        # Character-based wrapping: each line has at most 10 chars of text
-        # Plus cursor markers which add visible chars but also ANSI codes
-        for line in lines:
-            # Strip ANSI codes for visible length check
-            import re
-            clean = re.sub(r"\x1b\[[0-9;]*m", "", line)
-            # Allow some tolerance for cursor markers
-            assert len(clean) <= 12  # 10 chars + cursor tolerance
+        # First 10 chars are "hello worl"
+        assert "hello" in strip_ansi(lines[0])
+
+    def test_wrapped_input_shows_second_line_when_cursor_there(self) -> None:
+        """When cursor is on second display line, shows that line."""
+        inp = WrappedInput()
+        inp.set_value("hello world this is long")
+        inp.focused = True
+
+        # Cursor on second line (position 10-19)
+        inp.set_cursor_pos(15)
+        lines = inp.render(width=10)
+        # Should show "d this is " (positions 10-19)
+        assert "this" in strip_ansi(lines[0])
 
 
 class TestWrappedInputCursor:
     """Cursor positioning in wrapped text."""
 
-    def test_wrapped_input_cursor_on_first_line(self) -> None:
-        """Cursor at start is on first display line."""
+    def test_wrapped_input_cursor_visible_when_focused(self) -> None:
+        """Cursor marker is visible when focused."""
         inp = WrappedInput()
         inp.set_value("hello world")
         inp.set_cursor_pos(0)
+        inp.focused = True
 
         lines = inp.render(width=10)
-        # Cursor marker should be in first line
-        assert "\x1b[7m" in lines[0] or "█" in lines[0] or len(lines[0]) > 0
+        # Cursor marker should be in the line
+        assert "\x1b[7m" in lines[0] or "█" in lines[0]
 
     def test_wrapped_input_cursor_on_wrapped_line(self) -> None:
-        """Cursor on wrapped portion appears on correct display line."""
+        """Cursor on wrapped portion shows correct line with cursor."""
         inp = WrappedInput()
         inp.set_value("hello world")
         inp.set_cursor_pos(8)  # Into "world"
-        inp.focused = True  # Need focus for cursor to appear
+        inp.focused = True
 
-        lines = inp.render(width=5)  # "hello" then " worl"
-        # Cursor should be in second line
-        assert "\x1b[7m" in lines[1]
+        lines = inp.render(width=5)
+        # Should show second line " worl" with cursor
+        # Only one line returned, containing "worl" text
+        assert "worl" in strip_ansi(lines[0])
+        assert "\x1b[7m" in lines[0]  # Has cursor
 
 
 class TestWrappedInputNavigation:
@@ -119,6 +148,7 @@ class TestWrappedInputNavigation:
         inp.set_value("hello world")
         inp.set_cursor_pos(0)
 
+        inp.render(width=5)
         inp.move_cursor_up()
 
         assert inp._cursor_pos == 0
@@ -129,6 +159,7 @@ class TestWrappedInputNavigation:
         inp.set_value("hello world")
         inp.set_cursor_pos(11)  # End of text
 
+        inp.render(width=5)
         inp.move_cursor_down()
 
         assert inp._cursor_pos == 11
