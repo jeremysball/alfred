@@ -11,7 +11,7 @@ Shows ALL display lines at once, with cursor on the appropriate line.
 
 from collections.abc import Callable
 
-from pypitui import Component, Focusable, Input, Key, matches_key
+from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
 
@@ -112,6 +112,10 @@ class WrappedInput(Component, Focusable):
         for i in range(0, len(text), width):
             display_lines.append(text[i : i + width])
 
+        # Handle empty text - still need to show cursor
+        if not display_lines:
+            display_lines = [""]
+
         # Find which line cursor is on
         cursor_line_idx = self._cursor_pos // width
         cursor_col = self._cursor_pos % width
@@ -135,8 +139,8 @@ class WrappedInput(Component, Focusable):
         at = line[cursor_col : cursor_col + 1] or " "
         after = line[cursor_col + 1 :]
 
-        # Use reverse video for cursor (no extra visible char)
-        return f"{before}\x1b[7m{at}\x1b[27m{after}"
+        # Use reverse video for cursor and emit CURSOR_MARKER for hardware cursor positioning
+        return f"{before}{CURSOR_MARKER}\x1b[7m{at}\x1b[27m{after}"
 
     def _get_cursor_display_pos(self, width: int) -> tuple[int, int]:
         """Get cursor position in display coordinates.
