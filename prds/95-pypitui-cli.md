@@ -617,6 +617,35 @@ MAX_VISIBLE_TOASTS = 3      # Maximum toasts on screen
 - [ ] Send message with 1000 characters — should wrap
 - [ ] Disconnect network, send message — should show error
 - [ ] Resize terminal while streaming — should adapt
+
+---
+
+## Phase 8: Multi-line Input (Future PRD)
+
+> **Moved to separate PRD**: See `96-multiline-input.md`
+
+Current input is single-line only. Multi-line input requires:
+
+- **Arrow key navigation** — Left/right within line, up/down between lines
+- **Word wrapping** — Long lines wrap visually, cursor navigates wrapped display
+- **Multi-line paste** — Paste multi-line text correctly
+- **Shift+Enter** — Insert newline without submitting
+- **Visual indicator** — Show when input spans multiple lines
+
+---
+
+## Phase 9: Streaming Throbber (Future PRD)
+
+> **Moved to separate PRD**: See `97-streaming-throbber.md`
+
+Visual indicator during LLM response streaming:
+
+- **Animated spinner** — Braille or dot animation in status line
+- **Pulse timing** — Smooth animation at ~10fps
+- **Color** — Dim cyan or yellow to not distract
+- **Stop condition** — Animation stops when stream ends
+
+---
 - [ ] Press Ctrl+C during streaming — should exit cleanly
 
 ### 6.7 Responsive Status Line
