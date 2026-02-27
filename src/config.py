@@ -34,7 +34,6 @@ class Config(BaseSettings):
     default_llm_provider: str
     embedding_model: str
     chat_model: str
-    memory_context_limit: int
     workspace_dir: Path
     memory_dir: Path
     context_files: dict[str, Path]

@@ -54,7 +54,6 @@ class Alfred:
         self.embedder = EmbeddingClient(config)
         self.memory_store = MemoryStore(config, self.embedder)
         self.searcher = MemorySearcher(
-            context_limit=config.memory_context_limit,
             min_similarity=0.3,
         )
         self.context_loader = ContextLoader(config, searcher=self.searcher)
@@ -108,7 +107,7 @@ class Alfred:
         self.tools = get_registry()
 
         # Create agent
-        self.agent = Agent(self.llm, self.tools, max_iterations=10)
+        self.agent = Agent(self.llm, self.tools, max_iterations=-1)
 
         # Initialize session storage and manager
         session_storage = SessionStorage(self.embedder, data_dir=data_dir)

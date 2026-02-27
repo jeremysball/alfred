@@ -135,6 +135,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pypitui" },
     { name = "python-dotenv" },
     { name = "python-telegram-bot" },
     { name = "rich" },
@@ -173,6 +174,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
+    { name = "pypitui", specifier = ">=0.1.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
@@ -1207,6 +1209,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pypitui"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wcwidth" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/f2/23acb9153bcdcbbb169af37506e205574a8bbc384dce2f4bc1e575b12bca/pypitui-0.1.0.tar.gz", hash = "sha256:dbb39702b9ede882a3f4720531d0f7b34fcc321af9c13ecd8efda450f2fcc495", size = 35005713, upload-time = "2026-02-27T03:39:59.949Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/9b/c6bd02fe3dd2cbd6e19a1395b130e4db57f9bbdce58a5ef1a1cc571921de/pypitui-0.1.0-py3-none-any.whl", hash = "sha256:279d566369fcb38549147ec60ee23c8c0d521407eec71bcb3959589cc626bbe7", size = 61088, upload-time = "2026-02-27T03:39:58.45Z" },
 ]
 
 [[package]]

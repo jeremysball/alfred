@@ -84,6 +84,9 @@ class AlfredTUI:
             if isinstance(self.alfred.notifier, CLINotifier):
                 self.alfred.notifier.set_toast_manager(toast_manager)
 
+        # Initialize status line with current values
+        self._update_status()
+
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
 

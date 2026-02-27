@@ -20,11 +20,9 @@ class MemorySearcher:
 
     def __init__(
         self,
-        context_limit: int = 20,
         min_similarity: float = 0.7,
         recency_half_life: int = 30,  # days
     ) -> None:
-        self.context_limit = context_limit
         self.min_similarity = min_similarity
         self.recency_half_life = recency_half_life
 
@@ -65,11 +63,11 @@ class MemorySearcher:
         # Sort by score descending
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        results = [memory for _, memory, _ in scored[: self.context_limit]]
+        results = [memory for _, memory, _ in scored]
         similarities = {
-            memory.entry_id or "": sim for _, memory, sim in scored[: self.context_limit]
+            memory.entry_id or "": sim for _, memory, sim in scored
         }
-        scores = {memory.entry_id or "": scr for scr, memory, _ in scored[: self.context_limit]}
+        scores = {memory.entry_id or "": scr for scr, memory, _ in scored}
         logger.info(
             f"Memory search: {len(memories)} total, {len(scored)} scored, {len(results)} returned"
         )

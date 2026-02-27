@@ -90,7 +90,7 @@ class Agent:
 
         iteration = 0
 
-        while iteration < self.max_iterations:
+        while self.max_iterations == -1 or iteration < self.max_iterations:
             iteration += 1
             logger.debug(f"Agent iteration {iteration}")
 
@@ -260,8 +260,9 @@ class Agent:
                     )
                 )
 
-        # Max iterations reached
-        logger.warning(f"Agent reached max iterations ({self.max_iterations})")
+        # Max iterations reached (only if limit is set)
+        if self.max_iterations != -1:
+            logger.warning(f"Agent reached max iterations ({self.max_iterations})")
 
     def _is_error(self, output: str) -> bool:
         """Detect if tool output indicates an error."""

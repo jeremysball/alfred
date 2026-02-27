@@ -29,7 +29,7 @@ class TestCosineSimilaritySearch:
 
     def test_search_returns_ranked_results(self):
         """Test that search returns memories ranked by similarity."""
-        searcher = MemorySearcher(context_limit=5, min_similarity=0.0)
+        searcher = MemorySearcher(min_similarity=0.0)
 
         # Create memories with different embeddings
         now = datetime.now()
@@ -99,9 +99,9 @@ class TestCosineSimilaritySearch:
         assert len(results) == 1
         assert results[0].content == "Very relevant"
 
-    def test_search_respects_context_limit(self):
-        """Test that only top_k results are returned."""
-        searcher = MemorySearcher(context_limit=2)
+    def test_search_returns_all_above_threshold(self):
+        """Test that all memories above min_similarity are returned."""
+        searcher = MemorySearcher(min_similarity=0.0)
 
         now = datetime.now()
         memories = [
@@ -117,7 +117,8 @@ class TestCosineSimilaritySearch:
         query = [1.0, 0.0]
         results, _, _ = searcher.search(query, memories)
 
-        assert len(results) == 2
+        # All 10 memories should be returned (no limit)
+        assert len(results) == 10
 
     def test_search_skips_memories_without_embeddings(self):
         """Test that memories without embeddings are skipped."""
@@ -280,7 +281,7 @@ class TestContextBuilder:
 
     def test_builds_context_with_memories(self):
         """Test context building with relevant memories."""
-        searcher = MemorySearcher(context_limit=10, min_similarity=0.0)
+        searcher = MemorySearcher(min_similarity=0.0)
         builder = ContextBuilder(searcher)
 
         now = datetime.now()
@@ -335,7 +336,7 @@ class TestContextBuilder:
 
     def test_truncates_long_content(self):
         """Test that long memory content is truncated."""
-        searcher = MemorySearcher(context_limit=10, min_similarity=0.0)
+        searcher = MemorySearcher(min_similarity=0.0)
         builder = ContextBuilder(searcher)
 
         now = datetime.now()
@@ -363,7 +364,7 @@ class TestContextBuilder:
 
     def test_respects_token_budget(self):
         """Test that context respects token budget."""
-        searcher = MemorySearcher(context_limit=100, min_similarity=0.0)
+        searcher = MemorySearcher(min_similarity=0.0)
         builder = ContextBuilder(searcher, token_budget=100)
 
         now = datetime.now()
@@ -395,7 +396,6 @@ class TestIntegration:
     def test_end_to_end_search_and_context(self):
         """Test full flow: search -> dedupe -> build context."""
         searcher = MemorySearcher(
-            context_limit=5,
             min_similarity=0.5,
             recency_half_life=30,
         )
@@ -452,7 +452,7 @@ class TestIntegration:
 
     def test_different_query_orientations(self):
         """Test that different queries find different memories."""
-        searcher = MemorySearcher(context_limit=3, min_similarity=0.0)
+        searcher = MemorySearcher(min_similarity=0.0)
 
         now = datetime.now()
         memories = [
