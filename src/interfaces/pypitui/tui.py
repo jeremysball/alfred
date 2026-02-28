@@ -370,6 +370,7 @@ class AlfredTUI:
     def _cmd_new_session(self) -> bool:
         """Create a new session."""
         self._clear_conversation()
+        self.alfred.token_tracker.reset()
         session = self.alfred.session_manager.new_session()
         self._add_user_message(f"New session created: {session.meta.session_id}")
         self._update_status()
