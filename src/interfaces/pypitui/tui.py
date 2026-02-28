@@ -528,6 +528,9 @@ class AlfredTUI:
         # Load existing session messages on startup
         self._load_session_messages()
 
+        # Update status line with current session state
+        self._update_status()
+
         try:
             while self.running:
                 # Track terminal width changes
