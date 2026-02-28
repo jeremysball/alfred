@@ -76,12 +76,19 @@ class AlfredTUI:
         self._is_streaming = False
         self._is_sending = False  # True while waiting for first chunk
 
+        # Queue navigation state (for UP/DOWN arrow history)
+        self._queue_nav_index: int = -1  # -1 = not navigating, 0+ = index in queue
+        self._queue_draft: str = ""  # Saved draft when navigating queue
+
         # Enable toast mode for cron job notifications
         if toast_manager is not None:
             from src.cron.notifier import CLINotifier
 
             if isinstance(self.alfred.notifier, CLINotifier):
                 self.alfred.notifier.set_toast_manager(toast_manager)
+
+        # Add input listener for queue navigation (ESC to cancel, UP/DOWN for history)
+        self.tui.add_input_listener(self._input_listener)
 
         # Initialize status line with current values
         self._update_status()
@@ -166,6 +173,77 @@ class AlfredTUI:
             queued=len(self._message_queue),
             streaming=self._is_streaming or self._is_sending,
         )
+
+    def _input_listener(self, data: str) -> dict | None:
+        """Intercept input for queue navigation and cancellation.
+
+        Returns:
+            {"consume": True} to block input from reaching input field,
+            None to allow input to pass through.
+        """
+        from pypitui import Key
+
+        # ESC clears the queue
+        if matches_key(data, Key.escape):
+            if self._message_queue:
+                self._message_queue.clear()
+                self._queue_nav_index = -1
+                self._queue_draft = ""
+                self.input_field.set_value("")
+                self._update_status()
+                return {"consume": True}
+            return None
+
+        # UP arrow on first line -> enter queue history or navigate up
+        if matches_key(data, Key.up):
+            cursor_line = self._get_input_cursor_line()
+            if cursor_line == 0 and self._message_queue:
+                if self._queue_nav_index == -1:
+                    # Save current draft and enter queue at end
+                    self._queue_draft = self.input_field.get_value()
+                    self._queue_nav_index = len(self._message_queue) - 1
+                elif self._queue_nav_index > 0:
+                    # Navigate up in queue
+                    self._queue_nav_index -= 1
+                else:
+                    return {"consume": True}  # Already at top
+
+                self.input_field.set_value(
+                    self._message_queue[self._queue_nav_index]
+                )
+                return {"consume": True}
+            return None
+
+        # DOWN arrow -> navigate down in queue or exit to draft
+        if matches_key(data, Key.down):
+            if self._queue_nav_index != -1:
+                if self._queue_nav_index < len(self._message_queue) - 1:
+                    # Navigate down in queue
+                    self._queue_nav_index += 1
+                    self.input_field.set_value(
+                        self._message_queue[self._queue_nav_index]
+                    )
+                else:
+                    # Exit queue nav, restore draft
+                    self._queue_nav_index = -1
+                    self.input_field.set_value(self._queue_draft)
+                return {"consume": True}
+            return None
+
+        # Any other key resets queue navigation
+        if self._queue_nav_index != -1:
+            self._queue_nav_index = -1
+            self._queue_draft = ""
+
+        return None
+
+    def _get_input_cursor_line(self) -> int:
+        """Get which display line the cursor is on (0-indexed)."""
+        width = self.terminal.get_size()[0]
+        if width <= 0:
+            return 0
+        cursor_pos = self.input_field._cursor_pos
+        return cursor_pos // width
 
     def _tool_callback(self, event: object) -> None:
         """Handle tool execution events - embed in current assistant message.
@@ -364,6 +442,7 @@ class AlfredTUI:
         self._current_assistant_msg = assistant_msg
 
         first_chunk = True
+        next_to_process: str | None = None
         try:
             # Stream response from Alfred
             accumulated = ""
@@ -396,14 +475,23 @@ class AlfredTUI:
             self._is_sending = False
             self._update_status()
 
-            # Process queued messages
+            # Grab next queued message if any (process after finally)
             if self._message_queue:
-                next_text = self._message_queue.pop(0)
-                # Add user message and send
-                user_msg = MessagePanel(role="user", content=next_text)
-                self.conversation.add_child(user_msg)
-                self._update_status()
-                asyncio.create_task(self._send_message(next_text))
+                next_to_process = self._message_queue.pop(0)
+
+        # Process queued message outside finally block
+        if next_to_process is not None:
+            # Check if it's a session command
+            if next_to_process.startswith("/") and self._handle_session_command(
+                next_to_process
+            ):
+                return  # Command handled, don't send to LLM
+
+            # Add user message and send to LLM
+            user_msg = MessagePanel(role="user", content=next_to_process)
+            self.conversation.add_child(user_msg)
+            self._update_status()
+            asyncio.create_task(self._send_message(next_to_process))
 
     async def run(self) -> None:
         """Main event loop - reads input, handles events, renders frames."""
