@@ -140,9 +140,15 @@ class Alfred:
     def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
         """Sync token tracker with historical session messages.
 
-        Estimates token usage from loaded session messages and updates
+        Estimates output token usage from loaded session messages and updates
         the token tracker. Called when resuming a session so the status
         line shows approximate usage immediately.
+
+        Note: Only output (assistant) tokens are estimated. Input tokens are
+        not estimated because the LLM's prompt_tokens includes the system
+        prompt and formatting overhead which we cannot accurately estimate.
+        Input tokens will reflect actual usage starting from the first new
+        message sent after resuming.
 
         Args:
             session_id: Optional session ID. If None, uses current CLI session.
@@ -153,20 +159,17 @@ class Alfred:
         if not messages:
             return
 
-        input_tokens = 0
         output_tokens = 0
 
         for msg in messages:
-            token_count = self._estimate_tokens(msg.content)
-            if msg.role == Role.USER:
-                input_tokens += token_count
-            elif msg.role == Role.ASSISTANT:
-                output_tokens += token_count
+            if msg.role == Role.ASSISTANT:
+                output_tokens += self._estimate_tokens(msg.content)
 
-        # Reset and set initial values
+        # Reset and set only output tokens
+        # Input tokens remain 0 until actual usage is reported by LLM
         self.token_tracker.reset()
         self.token_tracker.add({
-            "prompt_tokens": input_tokens,
+            "prompt_tokens": 0,
             "completion_tokens": output_tokens,
         })
 
