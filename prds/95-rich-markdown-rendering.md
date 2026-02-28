@@ -117,7 +117,9 @@ from rich.markdown import Markdown
 
 class RichRenderer:
     """Renders Rich markdown/markup to ANSI text for PyPiTUI display."""
-    
+
+    MIN_WIDTH = 40
+
     def __init__(
         self,
         width: int = 80,
@@ -125,80 +127,90 @@ class RichRenderer:
         justify: Literal["left", "center", "right", "full"] = "left",
     ) -> None:
         """Initialize renderer.
-        
+
         Args:
             width: Terminal width for wrapping
             code_theme: Pygments theme for code blocks
             justify: Text justification
         """
-        self.width = width
+        self.width = max(width, self.MIN_WIDTH)
         self.code_theme = code_theme
         self.justify = justify
-    
+
     def render_markdown(self, text: str) -> str:
         """Render markdown text to ANSI-colored output.
-        
+
         Args:
             text: Markdown-formatted text
-            
+
         Returns:
             ANSI escape sequence formatted text
         """
-        buffer = StringIO()
-        console = Console(
-            file=buffer,
-            width=self.width,
-            force_terminal=True,
-            color_system="truecolor",
-            markup=True,
-            emoji=True,
-        )
-        
-        md = Markdown(
-            text,
-            code_theme=self.code_theme,
-            justify=self.justify,
-        )
-        
-        console.print(md)
-        return buffer.getvalue()
-    
+        try:
+            buffer = StringIO()
+            console = Console(
+                file=buffer,
+                width=self.width,
+                force_terminal=True,
+                color_system="truecolor",
+                markup=True,
+                emoji=True,
+            )
+
+            md = Markdown(
+                text,
+                code_theme=self.code_theme,
+                justify=self.justify,
+            )
+
+            console.print(md)
+            return buffer.getvalue()
+        except Exception:
+            return text
+
     def render_markup(self, text: str) -> str:
         """Render console markup to ANSI-colored output.
-        
+
         Args:
             text: Text with Rich console markup
-            
+
         Returns:
             ANSI escape sequence formatted text
         """
-        buffer = StringIO()
-        console = Console(
-            file=buffer,
-            width=self.width,
-            force_terminal=True,
-            color_system="truecolor",
-        )
-        
-        console.print(text, markup=True)
-        return buffer.getvalue()
-    
+        try:
+            buffer = StringIO()
+            console = Console(
+                file=buffer,
+                width=self.width,
+                force_terminal=True,
+                color_system="truecolor",
+            )
+
+            console.print(text, markup=True, emoji=True)
+            return buffer.getvalue()
+        except Exception:
+            return text
+
     def update_width(self, width: int) -> None:
-        """Update terminal width."""
-        self.width = width
+        """Update terminal width.
+
+        Args:
+            width: New terminal width
+        """
+        self.width = max(width, self.MIN_WIDTH)
 ```
 
 #### 1.2 Tests for RichRenderer
 
 **File**: `tests/pypitui/test_rich_renderer.py`
 
-- [ ] `test_render_markdown_basic()` - Basic markdown renders
-- [ ] `test_render_markdown_code_block()` - Code blocks with highlighting
-- [ ] `test_render_markdown_lists()` - Ordered and unordered lists
-- [ ] `test_render_markup_styling()` - Console markup styles
-- [ ] `test_render_width_wrapping()` - Text wraps at width
-- [ ] `test_update_width()` - Width updates correctly
-- [ ] `test_theme_configuration()` - Custom code themes work
+- [x] `test_render_markdown_basic()` - Basic markdown renders
+- [x] `test_render_markdown_code_block()` - Code blocks with highlighting
+- [x] `test_render_markdown_lists()` - Ordered and unordered lists
+- [x] `test_render_markup_styling()` - Console markup styles
+- [x] `test_render_width_wrapping()` - Text wraps at width
+- [x] `test_update_width()` - Width updates correctly
+- [x] `test_theme_configuration()` - Custom code themes work
 
 #### 1.3 Update MessagePanel for Rich Support
 
@@ -535,9 +547,9 @@ Add to `pyproject.toml`:
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1.1 | RichRenderer implementation | ⬜ |
-| 1.2 | MessagePanel Rich integration | ⬜ |
-| 1.3 | Unit tests for rendering | ⬜ |
+| 1.1 | RichRenderer implementation | ✅ |
+| 1.2 | Unit tests for rendering | ✅ |
+| 1.3 | MessagePanel Rich integration | ⬜ |
 | 2.1 | Debounced streaming renderer | ⬜ |
 | 2.2 | Performance optimization | ⬜ |
 | 3.1 | AlfredTUI integration | ⬜ |
