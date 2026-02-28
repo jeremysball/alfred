@@ -359,6 +359,7 @@ class AlfredTUI:
                 role=msg.role.value,
                 content=msg.content,
                 terminal_width=self._terminal_width,
+                use_markdown=USE_MARKDOWN_RENDERING,
             )
             self.conversation.add_child(panel)
 
@@ -369,7 +370,12 @@ class AlfredTUI:
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
-        msg = MessagePanel(role="user", content=content, terminal_width=self._terminal_width)
+        msg = MessagePanel(
+            role="user",
+            content=content,
+            terminal_width=self._terminal_width,
+            use_markdown=USE_MARKDOWN_RENDERING,
+        )
         self.conversation.add_child(msg)
         self.tui.request_render()
 
@@ -528,7 +534,10 @@ class AlfredTUI:
 
             # Add user message and send to LLM
             user_msg = MessagePanel(
-                role="user", content=next_to_process, terminal_width=self._terminal_width
+                role="user",
+                content=next_to_process,
+                terminal_width=self._terminal_width,
+                use_markdown=USE_MARKDOWN_RENDERING,
             )
             self.conversation.add_child(user_msg)
             self._update_status()
