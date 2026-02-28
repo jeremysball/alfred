@@ -208,6 +208,45 @@ class SessionStorage:
                 )
                 await f.write(line + "\n")
 
+    async def update_message_tokens(
+        self,
+        session_id: str,
+        idx: int,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+    ) -> None:
+        """Update token counts for a specific message.
+
+        Rewrites the message line with the new token counts.
+        """
+        messages_path = self.sessions_dir / session_id / "current.jsonl"
+
+        # Read all messages
+        messages = self.load_messages(session_id)
+
+        # Update the specific message
+        for msg in messages:
+            if msg.idx == idx:
+                msg.input_tokens = input_tokens
+                msg.output_tokens = output_tokens
+                break
+
+        # Rewrite the file
+        async with aiofiles.open(messages_path, "w") as f:
+            for msg in messages:
+                line = json.dumps(
+                    {
+                        "idx": msg.idx,
+                        "role": msg.role.value,
+                        "content": msg.content,
+                        "timestamp": msg.timestamp.isoformat(),
+                        "embedding": msg.embedding,
+                        "input_tokens": msg.input_tokens,
+                        "output_tokens": msg.output_tokens,
+                    }
+                )
+                await f.write(line + "\n")
+
     # === Full Session Load ===
 
     def load_session(self, session_id: str) -> Session | None:

@@ -297,6 +297,26 @@ class SessionManager:
                 msg.output_tokens = output_tokens
                 break
 
+        # Persist the updated token counts
+        self._spawn_token_update_task(
+            session.meta.session_id, idx, input_tokens, output_tokens
+        )
+
+    def _spawn_token_update_task(
+        self, session_id: str, idx: int, input_tokens: int, output_tokens: int
+    ) -> None:
+        """Spawn background task to persist token counts."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                self.storage.update_message_tokens(
+                    session_id, idx, input_tokens, output_tokens
+                )
+            )
+        except RuntimeError:
+            # No event loop running - will be persisted on next message
+            pass
+
     def clear_session(self) -> None:
         """Clear current CLI session reference (doesn't delete)."""
         SessionManager._cli_session_id = None
