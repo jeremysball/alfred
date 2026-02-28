@@ -15,6 +15,7 @@ STATUS_WIDTH_COMPACT = 40  # Model + in/out only
 # Input ↑ = sending to model, Output ↓ = receiving from model
 SYMBOL_IN = "↑"  # U+2191 UPWARDS ARROW
 SYMBOL_OUT = "↓"  # U+2193 DOWNWARDS ARROW
+SYMBOL_REASONING = "ρ"  # U+03C1 GREEK SMALL LETTER RHO
 
 
 class StatusLine(Component):
@@ -148,10 +149,21 @@ class StatusLine(Component):
             return f"{SYMBOL_IN}{format_tokens(net)}/{format_tokens(self._in)}"
         return f"{SYMBOL_IN}{format_tokens(self._in)}"
 
-    def _format_output_tokens(self) -> str:
-        """Format output tokens as ↓net/total or ↓total."""
+    def _format_output_tokens(self, show_reasoning: bool = False) -> str:
+        """Format output tokens.
+
+        Args:
+            show_reasoning: If True and reasoning > 0, show ↓net/reasoningρ
+                           If False or no reasoning, show ↓net/total or ↓total
+        """
         if self._reasoning > 0:
             net = self._out - self._reasoning
+            if show_reasoning:
+                # ↓net/reasoningρ format for medium+
+                net_str = format_tokens(net)
+                reason_str = format_tokens(self._reasoning)
+                return f"{SYMBOL_OUT}{net_str}/{reason_str}{SYMBOL_REASONING}"
+            # ↓net/total format for compact
             return f"{SYMBOL_OUT}{format_tokens(net)}/{format_tokens(self._out)}"
         return f"{SYMBOL_OUT}{format_tokens(self._out)}"
 
@@ -159,12 +171,12 @@ class StatusLine(Component):
         """Render full layout (80+ chars)."""
         parts: list[str] = []
 
-        # Group 2: tokens with arrows (net/total when cached/reasoning)
+        # Group 2: tokens with arrows
         token_parts: list[str] = []
         if self._ctx > 0:
             token_parts.append(f"ctx {format_tokens(self._ctx)}")
         token_parts.append(self._format_input_tokens())
-        token_parts.append(self._format_output_tokens())
+        token_parts.append(self._format_output_tokens(show_reasoning=True))
         parts.append(" ".join(token_parts))
 
         # Group 3: queued messages (only if non-zero)
@@ -177,12 +189,12 @@ class StatusLine(Component):
         """Render medium layout (50-79 chars)."""
         parts: list[str] = []
 
-        # Group 2: tokens with arrows (net/total when cached/reasoning)
+        # Group 2: tokens with arrows
         token_parts: list[str] = []
         if self._ctx > 0:
             token_parts.append(f"ctx {format_tokens(self._ctx)}")
         token_parts.append(self._format_input_tokens())
-        token_parts.append(self._format_output_tokens())
+        token_parts.append(self._format_output_tokens(show_reasoning=True))
         parts.append(" ".join(token_parts))
 
         # Group 3: queued messages (only if non-zero)
@@ -195,8 +207,10 @@ class StatusLine(Component):
         """Render compact layout (<50 chars)."""
         parts: list[str] = []
 
-        # Just in/out with arrows (net/total when cached/reasoning)
-        token_str = f"{self._format_input_tokens()} {self._format_output_tokens()}"
+        # Just in/out with arrows
+        in_str = self._format_input_tokens()
+        out_str = self._format_output_tokens(show_reasoning=False)
+        token_str = f"{in_str} {out_str}"
         parts.append(token_str)
 
         # Queued if present

@@ -40,9 +40,10 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx 1K" in text
-        # Net/total format: 500-50=450 net, 100-20=80 net
-        assert "↑450/500" in text  # input: net/total
-        assert "↓80/100" in text  # output: net/total
+        # Input: net/total format (500-50=450 net)
+        assert "↑450/500" in text
+        # Output: net/reasoningρ format (100-20=80 net, 20 reasoning)
+        assert "↓80/20ρ" in text
 
     def test_status_line_hides_zero_values(self):
         """Verify ctx hidden when zero, plain format when no cached/reasoning."""
@@ -82,9 +83,9 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Net/total format for cached/reasoning
+        # Input: net/total, Output: net/reasoningρ
         assert "↑450/500" in text
-        assert "↓80/100" in text
+        assert "↓80/20ρ" in text
         assert "queued" in text
 
     def test_status_medium_width(self):
@@ -104,9 +105,9 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Net/total format shown in medium too
+        # Input: net/total, Output: net/reasoningρ
         assert "↑450/500" in text
-        assert "↓80/100" in text
+        assert "↓80/20ρ" in text
         assert "queued" in text
 
     def test_status_compact_width(self):

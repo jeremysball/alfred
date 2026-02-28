@@ -130,9 +130,9 @@ class TestResponsiveStatusLine:
             model="test-model",
             ctx=18000,
             in_tokens=50000,
-            out_tokens=449,
+            out_tokens=500,
             cached=35000,
-            reasoning=12,
+            reasoning=100,
             queued=0,
         )
 
@@ -144,9 +144,10 @@ class TestResponsiveStatusLine:
         assert "ctx" in text
         assert "↓" in text  # down arrow for output
         assert "↑" in text  # up arrow for input
-        # Net/total format: 50K - 35K = 15K net, 449 - 12 = 437 net
+        # Input: net/total (50K - 35K = 15K net)
         assert "↑15K/50K" in text
-        assert "↓437/449" in text
+        # Output: net/reasoningρ (500 - 100 = 400 net, 100 reasoning)
+        assert "↓400/100ρ" in text
 
     def test_status_compact_width(self):
         """Verify only model + in/out at <50 chars."""
