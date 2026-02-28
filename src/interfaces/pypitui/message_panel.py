@@ -1,5 +1,7 @@
 """MessagePanel component for displaying conversation messages."""
 
+from __future__ import annotations
+
 from typing import Literal
 
 from pypitui import BorderedBox, Text  # type: ignore
@@ -28,6 +30,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         padding_x: int = 1,
         padding_y: int = 0,
         terminal_width: int = 80,
+        use_markdown: bool = False,
     ) -> None:
         """Initialize the message panel.
 
@@ -37,6 +40,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             padding_x: Horizontal padding inside border
             padding_y: Vertical padding inside border
             terminal_width: Current terminal width for box sizing
+            use_markdown: Enable Rich markdown rendering
         """
         super().__init__(padding_x=padding_x, padding_y=padding_y)
 
@@ -45,6 +49,14 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self._is_error = False
         self._border_color = GREEN
         self._terminal_width = terminal_width
+        self._use_markdown = use_markdown
+
+        # Create RichRenderer if markdown enabled
+        self._renderer: RichRenderer | None = None
+        if use_markdown:
+            from src.interfaces.pypitui.rich_renderer import RichRenderer
+
+            self._renderer = RichRenderer(width=max(40, terminal_width - 4))
 
         # Tool calls embedded in this message
         self._tool_calls: list[ToolCallInfo] = []
@@ -176,8 +188,10 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         """
         if width != self._terminal_width:
             self._terminal_width = width
-            if self._tool_calls:
-                self._rebuild_content()
+            # Update renderer width if exists
+            if self._renderer:
+                self._renderer.update_width(max(40, width - 4))
+            self._rebuild_content()
 
     def _rebuild_content(self) -> None:
         """Rebuild the content with embedded tool call boxes."""
@@ -185,7 +199,15 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
         if not self._tool_calls:
             # Simple case: no tool calls
-            self.add_child(Text(self._text_content, padding_x=0))
+            display_text = self._text_content
+            # Use Rich markdown rendering if enabled
+            if self._use_markdown and self._renderer:
+                try:
+                    display_text = self._renderer.render_markdown(self._text_content)
+                except Exception:
+                    # Fallback to plain text on error
+                    display_text = self._text_content
+            self.add_child(Text(display_text, padding_x=0))
         else:
             # Build content with tool boxes inline
             self._build_content_with_tools()
