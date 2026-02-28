@@ -17,7 +17,6 @@ from src.interfaces.pypitui.models import ToolCallInfo
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager, add_toast
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
-from src.interfaces.pypitui.tool_call_panel import ToolCallPanel
 from src.interfaces.pypitui.tui import AlfredTUI
 from src.interfaces.pypitui.utils import format_tokens
 
@@ -29,7 +28,6 @@ __all__ = [
     "ToastManager",
     "ToastOverlay",
     "ToolCallInfo",
-    "ToolCallPanel",
     # Functions
     "add_toast",
     "format_tokens",

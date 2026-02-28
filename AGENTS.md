@@ -64,9 +64,9 @@ uv run dotenv python script_using_api.py
 
 **WRONG — Do NOT do this:**
 ```bash
-gh pr create --title "..."                          # ❌ No GH_TOKEN
-source .env && gh pr create                          # ❌ Pollutes shell
-export $(cat .env | grep GH_TOKEN | xargs) && gh ... # ❌ Pollutes shell
+gh pr create --title "..."                               # ❌ No ALFRED_REPO_PAT
+source .env && gh pr create                              # ❌ Pollutes shell
+export $(cat .env | grep ALFRED_REPO_PAT | xargs) && gh ... # ❌ Pollutes shell
 ```
 
 **NO EXCEPTIONS.** Every command requiring tokens (GitHub CLI, Serper API, etc.) must use `uv run dotenv`.
