@@ -27,6 +27,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         *,
         padding_x: int = 1,
         padding_y: int = 0,
+        terminal_width: int = 80,
     ) -> None:
         """Initialize the message panel.
 
@@ -35,6 +36,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             content: Initial message content
             padding_x: Horizontal padding inside border
             padding_y: Vertical padding inside border
+            terminal_width: Current terminal width for box sizing
         """
         super().__init__(padding_x=padding_x, padding_y=padding_y)
 
@@ -42,6 +44,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self._text_content = content
         self._is_error = False
         self._border_color = GREEN
+        self._terminal_width = terminal_width
 
         # Tool calls embedded in this message
         self._tool_calls: list[ToolCallInfo] = []
@@ -158,6 +161,17 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 return tc
         return None
 
+    def set_terminal_width(self, width: int) -> None:
+        """Update terminal width and rebuild if changed.
+
+        Args:
+            width: New terminal width
+        """
+        if width != self._terminal_width:
+            self._terminal_width = width
+            if self._tool_calls:
+                self._rebuild_content()
+
     def _rebuild_content(self) -> None:
         """Rebuild the content with embedded tool call boxes."""
         self.clear()
@@ -173,8 +187,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def _build_content_with_tools(self) -> None:
         """Build content string with tool call boxes embedded."""
-        from pypitui.utils import wrap_text_with_ansi
-
+        from src.interfaces.pypitui.box_utils import build_bordered_box
         from src.interfaces.pypitui.constants import DIM_BLUE, DIM_GREEN, DIM_RED
 
         # Build the full content with tool boxes as inline text
@@ -183,9 +196,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Sort tool calls by position
         sorted_tools = sorted(self._tool_calls, key=lambda t: t.insert_position)
 
-        # Tool box content width (conservative estimate for wrapping)
-        # Account for: outer panel borders (2) + padding (2) + tool border (2) + space after │
-        tool_content_width = 60
+        # Tool box width: terminal width minus panel borders (2) and padding (2)
+        box_width = max(20, self._terminal_width - 4)
 
         last_pos = 0
         for tc in sorted_tools:
@@ -198,24 +210,21 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 tc.status, DIM_BLUE
             )
 
-            # Build top border: ┌─ tool_name ──────┐
-            box_width = tool_content_width + 4  # content + "│ " prefix + space for border
-            title_part = f"─ {tc.tool_name} "
-            dashes_after = box_width - 2 - len(title_part)
-            tool_box = f"\n{color}┌{title_part}{'─' * max(1, dashes_after)}{RESET}\n"
-
+            # Build tool box lines
+            content_lines: list[str] = []
             if tc.output:
                 # Truncate output for display
                 display_output = tc.output[-200:] if len(tc.output) > 200 else tc.output
-                for line in display_output.split("\n"):
-                    # Pre-wrap each line and add │ prefix to each wrapped line
-                    wrapped = wrap_text_with_ansi(line, tool_content_width)
-                    for wrapped_line in wrapped:
-                        tool_box += f"{color}│{RESET} {wrapped_line}\n"
+                content_lines = display_output.split("\n")
 
-            # Bottom border: └──────────────────────┘
-            tool_box += f"{color}└{'─' * (box_width - 2)}{RESET}\n"
-            parts.append(tool_box)
+            box_lines = build_bordered_box(
+                lines=content_lines,
+                width=box_width,
+                color=color,
+                title=tc.tool_name,
+                center=False,
+            )
+            parts.append("\n" + "\n".join(box_lines) + "\n")
 
             last_pos = tc.insert_position
 

@@ -3,8 +3,8 @@
 from typing import TYPE_CHECKING
 
 from pypitui import Component
-from pypitui.utils import visible_width, wrap_text_with_ansi
 
+from src.interfaces.pypitui.box_utils import build_bordered_box
 from src.interfaces.pypitui.constants import RED, RESET, YELLOW
 
 if TYPE_CHECKING:
@@ -18,14 +18,6 @@ class ToastOverlay(Component):
     bottom of the screen. It doesn't take focus and auto-dismisses after
     TOAST_DURATION_SECONDS.
     """
-
-    # Box drawing characters
-    TOP_LEFT = "┌"
-    TOP_RIGHT = "┐"
-    BOTTOM_LEFT = "└"
-    BOTTOM_RIGHT = "┘"
-    HORIZONTAL = "─"
-    VERTICAL = "│"
 
     def __init__(self, toast_manager: "ToastManager") -> None:
         """Initialize the toast overlay.
@@ -55,8 +47,8 @@ class ToastOverlay(Component):
         if not toasts:
             return []
 
-        # Content width inside borders (border + space + content + space + border)
-        content_width = max(10, width - 4)
+        # Use most of the terminal width for the box
+        box_width = max(20, width - 4)
 
         lines = []
         for toast in toasts:
@@ -73,31 +65,14 @@ class ToastOverlay(Component):
             prefix = f"{color}[{toast.level.upper()}]{reset}"
             full_message = f"{prefix} {toast.message}"
 
-            # Wrap message to content width
-            wrapped_lines = wrap_text_with_ansi(full_message, content_width)
-
-            # Build bordered box
-            box_width = content_width + 4  # content + padding + borders
-            horiz = self.HORIZONTAL * (box_width - 2)
-
-            # Top border
-            lines.append(f"{color}{self.TOP_LEFT}{horiz}{self.TOP_RIGHT}{reset}")
-
-            # Content lines with borders (centered)
-            for wrapped_line in wrapped_lines:
-                # Pad to content width (centered)
-                line_width = visible_width(wrapped_line)
-                if line_width < content_width:
-                    # Center the text
-                    total_padding = content_width - line_width
-                    left_pad = total_padding // 2
-                    right_pad = total_padding - left_pad
-                    wrapped_line = " " * left_pad + wrapped_line + " " * right_pad
-                content = f" {wrapped_line} "
-                lines.append(f"{color}{self.VERTICAL}{reset}{content}{color}{self.VERTICAL}{reset}")
-
-            # Bottom border
-            lines.append(f"{color}{self.BOTTOM_LEFT}{horiz}{self.BOTTOM_RIGHT}{reset}")
+            # Build bordered box using utility
+            box_lines = build_bordered_box(
+                lines=[full_message],
+                width=box_width,
+                color=color,
+                center=True,
+            )
+            lines.extend(box_lines)
 
         return lines
 

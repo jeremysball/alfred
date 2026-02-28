@@ -64,6 +64,7 @@ class AlfredTUI:
 
         # State
         self.running = True
+        self._terminal_width: int = 80  # Default width
 
         # Ctrl-C state
         self._ctrl_c_pending = False
@@ -299,7 +300,7 @@ class AlfredTUI:
             return
 
         # Add user message to conversation
-        user_msg = MessagePanel(role="user", content=text)
+        user_msg = MessagePanel(role="user", content=text, terminal_width=self._terminal_width)
         self.conversation.add_child(user_msg)
 
         # Clear input field
@@ -336,7 +337,7 @@ class AlfredTUI:
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
-        msg = MessagePanel(role="user", content=content)
+        msg = MessagePanel(role="user", content=content, terminal_width=self._terminal_width)
         self.conversation.add_child(msg)
         self.tui.request_render()
 
@@ -437,7 +438,9 @@ class AlfredTUI:
         self._is_streaming = True
 
         # Create assistant message panel (empty, will stream content)
-        assistant_msg = MessagePanel(role="assistant", content="")
+        assistant_msg = MessagePanel(
+            role="assistant", content="", terminal_width=self._terminal_width
+        )
         self.conversation.add_child(assistant_msg)
         self._current_assistant_msg = assistant_msg
 
@@ -488,7 +491,9 @@ class AlfredTUI:
                 return  # Command handled, don't send to LLM
 
             # Add user message and send to LLM
-            user_msg = MessagePanel(role="user", content=next_to_process)
+            user_msg = MessagePanel(
+                role="user", content=next_to_process, terminal_width=self._terminal_width
+            )
             self.conversation.add_child(user_msg)
             self._update_status()
             asyncio.create_task(self._send_message(next_to_process))
@@ -498,6 +503,14 @@ class AlfredTUI:
         self.tui.start()
         try:
             while self.running:
+                # Track terminal width changes
+                new_width = self.terminal.get_size()[0]
+                if new_width != self._terminal_width:
+                    self._terminal_width = new_width
+                    # Update current assistant message if streaming
+                    if self._current_assistant_msg:
+                        self._current_assistant_msg.set_terminal_width(new_width)
+
                 # Read terminal input with timeout
                 data = self.terminal.read_sequence(timeout=0.01)
                 if data:
