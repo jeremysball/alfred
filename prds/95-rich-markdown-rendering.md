@@ -412,51 +412,17 @@ RICH_STREAMING_INTERVAL = 0.1  # Seconds between renders during streaming
 
 ---
 
-### Phase 4: Tool Call Rendering
+### Phase 4: Tool Call Rendering (Deferred)
 
-#### 4.1 Rich-Formatted Tool Output
+**Status**: ToolCallPanel component removed (was unused). Tool call rendering currently lives in `MessagePanel._build_content_with_tools()` - a ~50 line inline method.
 
-Update tool call panels to use Rich for formatted output:
+**Future Work**: Extract tool call rendering into a dedicated component:
+- `src/interfaces/pypitui/tool_renderer.py`
+- Separate concerns: MessagePanel shouldn't know how to render tool boxes
+- Enable Rich formatting for tool output (JSON syntax highlighting, etc.)
+- Better testability
 
-```python
-class ToolCallPanel(BorderedBox):
-    """Panel for tool execution with Rich formatting."""
-    
-    def __init__(self, tool_name: str, tool_call_id: str):
-        super().__init__()
-        self._tool_name = tool_name
-        self._tool_call_id = tool_call_id
-        self._output = ""
-        self._renderer = RichRenderer(width=60)
-        
-        # Dim styling for less prominence
-        self._set_border_color("dim_blue")
-        self.set_title(tool_name)
-    
-    def append_output(self, chunk: str) -> None:
-        """Append output chunk."""
-        self._output += chunk
-        
-        # Try to format as JSON or code if applicable
-        display = self._format_output(self._output)
-        
-        self.clear()
-        ansi_text = self._renderer.render_markup(display)
-        self.add_child(Text(ansi_text))
-    
-    def _format_output(self, output: str) -> str:
-        """Format output for display."""
-        # Try JSON formatting
-        try:
-            import json
-            parsed = json.loads(output)
-            return f"```json\n{json.dumps(parsed, indent=2)}\n```"
-        except:
-            pass
-        
-        # Return as-is with dim styling
-        return f"[dim]{output[:500]}[/dim]"
-```
+**Note**: Current dim-bordered tool boxes are functional. This is a code quality improvement, not a user-facing feature.
 
 ---
 
@@ -493,14 +459,14 @@ async def test_markdown_rendering():
 
 ## Success Criteria
 
-- [ ] Markdown messages render with proper formatting
-- [ ] Code blocks show syntax highlighting
-- [ ] Lists appear as indented lists, not inline text
-- [ ] Bold/italic markers render as actual styling
-- [ ] Streaming performance remains smooth (<100ms between updates)
-- [ ] Terminal resize properly re-renders content
-- [ ] Graceful fallback when Rich rendering fails
-- [ ] No regressions in existing TUI functionality
+- [x] Markdown messages render with proper formatting
+- [x] Code blocks show syntax highlighting
+- [x] Lists appear as indented lists, not inline text
+- [x] Bold/italic markers render as actual styling
+- [x] Terminal resize properly re-renders content
+- [x] Graceful fallback when Rich rendering fails
+- [x] No regressions in existing TUI functionality
+- [ ] Streaming performance validated smooth (<100ms between updates)
 
 ---
 
@@ -549,10 +515,10 @@ Add to `pyproject.toml`:
 |-------|-------------|--------|
 | 1.1 | RichRenderer implementation | ✅ |
 | 1.2 | Unit tests for rendering | ✅ |
-| 1.3 | MessagePanel Rich integration | ⬜ |
-| 2.1 | Debounced streaming renderer | ⬜ |
-| 2.2 | Performance optimization | ⬜ |
-| 3.1 | AlfredTUI integration | ⬜ |
-| 3.2 | Configuration options | ⬜ |
-| 4.0 | Tool call Rich formatting | ⬜ |
+| 1.3 | MessagePanel Rich integration | ✅ |
+| 2.1 | Debounced streaming renderer | 🚫 Deferred (only if needed) |
+| 2.2 | Performance optimization | 🚫 Deferred |
+| 3.1 | AlfredTUI integration | ✅ |
+| 3.2 | Configuration options | ✅ |
+| 4.0 | Tool call Rich formatting | 🚫 Deferred (component removed) |
 | 5.0 | E2E testing and polish | ⬜ |
