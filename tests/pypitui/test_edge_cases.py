@@ -7,11 +7,14 @@ class TestCleanExit:
     """Tests for clean exit behavior (Phase 6.1)."""
 
     def test_ctrl_c_sets_running_false(self, mock_alfred, mock_terminal):
-        """Verify second Ctrl+C sets running = False."""
+        """Verify second Ctrl+C sets running = False (when input has text)."""
         from src.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         assert tui.running is True
+
+        # Put text in input so first Ctrl-C doesn't exit immediately
+        tui.input_field.set_value("some text")
 
         tui._handle_ctrl_c()  # First
         assert tui.running is True

@@ -90,9 +90,15 @@ class AlfredTUI:
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
 
-        First Ctrl-C: clear input, show hint.
+        If input is empty: exit immediately.
+        First Ctrl-C with input: clear input, show hint.
         Second Ctrl-C: exit.
         """
+        # Exit immediately if input is empty
+        if not self.input_field.get_value().strip():
+            self.running = False
+            return
+
         if self._ctrl_c_pending:
             # Second Ctrl-C - exit
             self.running = False

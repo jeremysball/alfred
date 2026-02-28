@@ -227,8 +227,8 @@ class TestCtrlCBehavior:
         # Hint should be visible
         assert tui._exit_hint_visible is True
 
-    def test_ctrl_c_shows_hint_when_input_empty(self, mock_alfred, mock_terminal):
-        """Verify hint shown even with empty input."""
+    def test_ctrl_c_exits_immediately_when_input_empty(self, mock_alfred, mock_terminal):
+        """Verify Ctrl-C exits immediately when input is empty."""
         from src.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -239,15 +239,17 @@ class TestCtrlCBehavior:
         # Simulate Ctrl-C
         tui._handle_ctrl_c()
 
-        # Pending flag should be set
-        assert tui._ctrl_c_pending is True
-        assert tui._exit_hint_visible is True
+        # Should exit immediately
+        assert tui.running is False
 
     def test_second_ctrl_c_exits(self, mock_alfred, mock_terminal):
-        """Verify running = False after two Ctrl-C presses."""
+        """Verify running = False after two Ctrl-C presses (with text)."""
         from src.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Put text in input so first Ctrl-C doesn't exit immediately
+        tui.input_field.set_value("some text")
 
         # First Ctrl-C
         tui._handle_ctrl_c()
@@ -263,6 +265,9 @@ class TestCtrlCBehavior:
         from src.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Put text in input
+        tui.input_field.set_value("some text")
 
         # First Ctrl-C to set pending state
         tui._handle_ctrl_c()
@@ -281,6 +286,9 @@ class TestCtrlCBehavior:
         from src.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+
+        # Put text in input
+        tui.input_field.set_value("some text")
 
         # Set pending state
         tui._handle_ctrl_c()
