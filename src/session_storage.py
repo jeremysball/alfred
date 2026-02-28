@@ -153,6 +153,8 @@ class SessionStorage:
                         embedding=data.get("embedding"),
                         input_tokens=data.get("input_tokens", 0),
                         output_tokens=data.get("output_tokens", 0),
+                        cached_tokens=data.get("cached_tokens", 0),
+                        reasoning_tokens=data.get("reasoning_tokens", 0),
                     )
                 )
         return messages
@@ -169,6 +171,8 @@ class SessionStorage:
                 "embedding": message.embedding,
                 "input_tokens": message.input_tokens,
                 "output_tokens": message.output_tokens,
+                "cached_tokens": message.cached_tokens,
+                "reasoning_tokens": message.reasoning_tokens,
             }
         )
         async with aiofiles.open(messages_path, "a") as f:
@@ -204,6 +208,8 @@ class SessionStorage:
                         "embedding": msg.embedding,
                         "input_tokens": msg.input_tokens,
                         "output_tokens": msg.output_tokens,
+                        "cached_tokens": msg.cached_tokens,
+                        "reasoning_tokens": msg.reasoning_tokens,
                     }
                 )
                 await f.write(line + "\n")
@@ -214,6 +220,8 @@ class SessionStorage:
         idx: int,
         input_tokens: int = 0,
         output_tokens: int = 0,
+        cached_tokens: int = 0,
+        reasoning_tokens: int = 0,
     ) -> None:
         """Update token counts for a specific message.
 
@@ -229,6 +237,8 @@ class SessionStorage:
             if msg.idx == idx:
                 msg.input_tokens = input_tokens
                 msg.output_tokens = output_tokens
+                msg.cached_tokens = cached_tokens
+                msg.reasoning_tokens = reasoning_tokens
                 break
 
         # Rewrite the file
@@ -243,6 +253,8 @@ class SessionStorage:
                         "embedding": msg.embedding,
                         "input_tokens": msg.input_tokens,
                         "output_tokens": msg.output_tokens,
+                        "cached_tokens": msg.cached_tokens,
+                        "reasoning_tokens": msg.reasoning_tokens,
                     }
                 )
                 await f.write(line + "\n")

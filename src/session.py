@@ -44,6 +44,8 @@ class Message:
     embedding: list[float] | None = None
     input_tokens: int = 0  # Actual input tokens from LLM usage (for user messages)
     output_tokens: int = 0  # Actual output tokens from LLM usage (for assistant messages)
+    cached_tokens: int = 0  # Cache read tokens from LLM usage
+    reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
 
 
 @dataclass
@@ -272,6 +274,8 @@ class SessionManager:
         idx: int,
         input_tokens: int = 0,
         output_tokens: int = 0,
+        cached_tokens: int = 0,
+        reasoning_tokens: int = 0,
         session_id: str | None = None,
     ) -> None:
         """Update token counts for a specific message.
@@ -280,6 +284,8 @@ class SessionManager:
             idx: Message index (position in current.jsonl)
             input_tokens: Input token count to set
             output_tokens: Output token count to set
+            cached_tokens: Cache read token count to set
+            reasoning_tokens: Reasoning token count to set
             session_id: Optional session ID. If None, uses current CLI session.
         """
         session: Session | None
@@ -295,22 +301,29 @@ class SessionManager:
             if msg.idx == idx:
                 msg.input_tokens = input_tokens
                 msg.output_tokens = output_tokens
+                msg.cached_tokens = cached_tokens
+                msg.reasoning_tokens = reasoning_tokens
                 break
 
         # Persist the updated token counts
         self._spawn_token_update_task(
-            session.meta.session_id, idx, input_tokens, output_tokens
+            session.meta.session_id, idx,
+            input_tokens, output_tokens,
+            cached_tokens, reasoning_tokens,
         )
 
     def _spawn_token_update_task(
-        self, session_id: str, idx: int, input_tokens: int, output_tokens: int
+        self,
+        session_id: str, idx: int,
+        input_tokens: int, output_tokens: int,
+        cached_tokens: int = 0, reasoning_tokens: int = 0,
     ) -> None:
         """Spawn background task to persist token counts."""
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(
                 self.storage.update_message_tokens(
-                    session_id, idx, input_tokens, output_tokens
+                    session_id, idx, input_tokens, output_tokens, cached_tokens, reasoning_tokens
                 )
             )
         except RuntimeError:

@@ -158,6 +158,8 @@ class Alfred:
 
         input_tokens = 0
         output_tokens = 0
+        cached_tokens = 0
+        reasoning_tokens = 0
 
         for msg in messages:
             # Use stored count if available (> 0), otherwise 0 (no estimation)
@@ -165,12 +167,17 @@ class Alfred:
                 input_tokens += msg.input_tokens
             elif msg.role == Role.ASSISTANT and msg.output_tokens > 0:
                 output_tokens += msg.output_tokens
+            # Accumulate cached and reasoning tokens from all messages that have them
+            cached_tokens += getattr(msg, 'cached_tokens', 0)
+            reasoning_tokens += getattr(msg, 'reasoning_tokens', 0)
 
         # Reset and set total tokens for the session
         self.token_tracker.reset()
         self.token_tracker.add({
             "prompt_tokens": input_tokens,
             "completion_tokens": output_tokens,
+            "prompt_tokens_details": {"cached_tokens": cached_tokens},
+            "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
         })
 
     def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
@@ -296,17 +303,31 @@ class Alfred:
             prompt_tokens = self._last_usage.get("prompt_tokens", 0)
             completion_tokens = self._last_usage.get("completion_tokens", 0)
 
-            # Update user message with input tokens
+            # Extract cached tokens from prompt_tokens_details
+            prompt_details = self._last_usage.get("prompt_tokens_details") or {}
+            cached_tokens = 0
+            if isinstance(prompt_details, dict):
+                cached_tokens = prompt_details.get("cached_tokens", 0)
+
+            # Extract reasoning tokens from completion_tokens_details
+            completion_details = self._last_usage.get("completion_tokens_details") or {}
+            reasoning_tokens = 0
+            if isinstance(completion_details, dict):
+                reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+
+            # Update user message with input tokens (and cached)
             self.session_manager.update_message_tokens(
                 user_msg_idx,
                 input_tokens=prompt_tokens,
+                cached_tokens=cached_tokens,
                 session_id=session_id,
             )
 
-            # Update assistant message with output tokens
+            # Update assistant message with output tokens (and reasoning)
             self.session_manager.update_message_tokens(
                 assistant_msg_idx,
                 output_tokens=completion_tokens,
+                reasoning_tokens=reasoning_tokens,
                 session_id=session_id,
             )
 
