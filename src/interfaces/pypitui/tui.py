@@ -335,6 +335,29 @@ class AlfredTUI:
         self.conversation.clear()
         self.tui.request_render(force=True)
 
+    def _load_session_messages(self) -> None:
+        """Load existing session messages into conversation panel.
+
+        Called on startup (if resuming) and after /resume command.
+        Renders all historical messages as MessagePanels.
+        """
+        if not self.alfred.session_manager.has_active_session():
+            return
+
+        session = self.alfred.session_manager.get_current_cli_session()
+        if not session or not session.messages:
+            return
+
+        for msg in session.messages:
+            panel = MessagePanel(
+                role=msg.role.value,
+                content=msg.content,
+                terminal_width=self._terminal_width,
+            )
+            self.conversation.add_child(panel)
+
+        self.tui.request_render(force=True)
+
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
         msg = MessagePanel(role="user", content=content, terminal_width=self._terminal_width)
@@ -359,11 +382,11 @@ class AlfredTUI:
 
         try:
             self._clear_conversation()
-            session = self.alfred.session_manager.resume_session(session_id)
-            msg_count = len(session.messages)
-            self._add_user_message(
-                f"Resumed session: {session_id}\nMessages: {msg_count}"
-            )
+            self.alfred.session_manager.resume_session(session_id)
+
+            # Load all session messages into conversation
+            self._load_session_messages()
+
             self._update_status()
         except ValueError as e:
             self._add_user_message(f"Error: {e}")
@@ -501,6 +524,10 @@ class AlfredTUI:
     async def run(self) -> None:
         """Main event loop - reads input, handles events, renders frames."""
         self.tui.start()
+
+        # Load existing session messages on startup
+        self._load_session_messages()
+
         try:
             while self.running:
                 # Track terminal width changes
