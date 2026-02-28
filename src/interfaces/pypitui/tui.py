@@ -4,11 +4,10 @@ import asyncio
 from contextlib import suppress
 from typing import TYPE_CHECKING, Literal
 
-from pypitui import Container, Key, OverlayOptions, matches_key
+from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
 from src.interfaces.pypitui.message_panel import MessagePanel
-from src.interfaces.pypitui.patched_tui import PatchedTUI
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
@@ -38,7 +37,7 @@ class AlfredTUI:
 
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
-        self.tui = PatchedTUI(self.terminal)
+        self.tui = TUI(self.terminal)
         self._toast_manager = toast_manager
 
         # Main conversation container

@@ -140,15 +140,13 @@ class Alfred:
     def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
         """Sync token tracker with historical session messages.
 
-        Estimates output token usage from loaded session messages and updates
+        Estimates token usage from all loaded session messages and updates
         the token tracker. Called when resuming a session so the status
-        line shows approximate usage immediately.
+        line shows the total accumulated usage for the entire session.
 
-        Note: Only output (assistant) tokens are estimated. Input tokens are
-        not estimated because the LLM's prompt_tokens includes the system
-        prompt and formatting overhead which we cannot accurately estimate.
-        Input tokens will reflect actual usage starting from the first new
-        message sent after resuming.
+        Uses a simple heuristic (4 chars per token) to estimate tokens from
+        message content. This provides a reasonable approximation of total
+        session token usage.
 
         Args:
             session_id: Optional session ID. If None, uses current CLI session.
@@ -159,17 +157,20 @@ class Alfred:
         if not messages:
             return
 
+        input_tokens = 0
         output_tokens = 0
 
         for msg in messages:
-            if msg.role == Role.ASSISTANT:
-                output_tokens += self._estimate_tokens(msg.content)
+            token_count = self._estimate_tokens(msg.content)
+            if msg.role == Role.USER:
+                input_tokens += token_count
+            elif msg.role == Role.ASSISTANT:
+                output_tokens += token_count
 
-        # Reset and set only output tokens
-        # Input tokens remain 0 until actual usage is reported by LLM
+        # Reset and set total estimated tokens for the session
         self.token_tracker.reset()
         self.token_tracker.add({
-            "prompt_tokens": 0,
+            "prompt_tokens": input_tokens,
             "completion_tokens": output_tokens,
         })
 

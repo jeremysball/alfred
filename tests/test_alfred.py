@@ -166,11 +166,10 @@ async def test_compact_returns_placeholder(mock_config):
 
 
 def test_sync_token_tracker_from_session(mock_config):
-    """Test that token tracker is synced from session messages.
+    """Test that token tracker is synced from all session messages.
 
-    Only output (assistant) tokens are estimated. Input tokens remain 0
-    because the LLM's prompt_tokens includes system prompt and formatting
-    overhead that we cannot accurately estimate.
+    Both input (user) and output (assistant) tokens are estimated from
+    message content to show the total accumulated usage for the session.
     """
     from datetime import UTC, datetime
 
@@ -190,7 +189,7 @@ def test_sync_token_tracker_from_session(mock_config):
         alfred = Alfred(mock_config)
 
         # Create mock messages
-        # User message: 40 chars (not counted - input tokens start at 0)
+        # User message: 40 chars = ~10 tokens (at 4 chars/token)
         # Assistant message: 76 chars = ~19 tokens (at 4 chars/token)
         mock_messages = [
             Message(
@@ -217,10 +216,10 @@ def test_sync_token_tracker_from_session(mock_config):
         # Sync token tracker
         alfred.sync_token_tracker_from_session()
 
-        # Verify only output tokens were estimated
-        # Input remains 0 (will reflect actual usage from first new message)
+        # Verify both input and output tokens were estimated
+        # Input: len("Hello, this is a test message from user.") // 4 = 40 // 4 = 10
         # Output: len("Hello! I am the assistant responding to your test message with more content.") // 4 = 76 // 4 = 19
-        assert alfred.token_tracker.usage.input_tokens == 0
+        assert alfred.token_tracker.usage.input_tokens == 10
         assert alfred.token_tracker.usage.output_tokens == 19
 
 

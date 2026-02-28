@@ -112,6 +112,9 @@ packages = ["src"]
 [tool.hatch.version]
 source = "vcs"
 
+[tool.uv.sources]
+pypitui = { path = "../pypitui", editable = true }
+
 [dependency-groups]
 dev = [
     "types-aiofiles>=25.1.0.20251011",
