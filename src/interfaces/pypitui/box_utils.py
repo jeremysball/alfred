@@ -11,6 +11,8 @@ BOTTOM_LEFT = "└"
 BOTTOM_RIGHT = "┘"
 HORIZONTAL = "─"
 VERTICAL = "│"
+# Non-breaking space to prevent word-wrapping from splitting border lines
+NBSP = "\u00a0"
 
 
 def build_bordered_box(
@@ -37,10 +39,12 @@ def build_bordered_box(
     # Content width inside borders: │ X + space + content + space + X │
     content_width = max(10, width - 4)
 
-    # Top border
+    # Top border - use non-breaking spaces to prevent word-wrapping
     if title:
-        title_part = f"─ {title} "
-        dashes_after = width - 2 - len(title_part)
+        # ┌─ title ──────┐  (spaces are non-breaking to prevent wrap splitting)
+        title_part = f"─{NBSP}{title}{NBSP}"
+        title_visible = len(title) + 3  # ─ + nbsp + title + nbsp
+        dashes_after = width - 2 - title_visible  # -2 for TOP_LEFT and TOP_RIGHT
         top = f"{color}{TOP_LEFT}{title_part}{'─' * max(1, dashes_after)}{TOP_RIGHT}{reset}"
     else:
         top = f"{color}{TOP_LEFT}{HORIZONTAL * (width - 2)}{TOP_RIGHT}{reset}"
@@ -53,15 +57,20 @@ def build_bordered_box(
         wrapped = wrap_text_with_ansi(line, content_width) if line else [""]
 
         for wrapped_line in wrapped:
-            if center:
-                line_width = visible_width(wrapped_line)
-                if line_width < content_width:
-                    # Center the text
+            line_width = visible_width(wrapped_line)
+            if line_width < content_width:
+                if center:
+                    # Center the text using NBSP to prevent word-wrapping
                     total_padding = content_width - line_width
                     left_pad = total_padding // 2
-                    wrapped_line = " " * left_pad + wrapped_line + " " * (total_padding - left_pad)
+                    right_pad = total_padding - left_pad
+                    wrapped_line = NBSP * left_pad + wrapped_line + NBSP * right_pad
+                else:
+                    # Left-align: pad with NBSP on right to prevent word-wrapping
+                    wrapped_line = wrapped_line + NBSP * (content_width - line_width)
 
-            content = f" {wrapped_line} "
+            # Use NBSP around content to prevent wrap splitting
+            content = f"{NBSP}{wrapped_line}{NBSP}"
             result.append(f"{color}{VERTICAL}{reset}{content}{color}{VERTICAL}{reset}")
 
     # Bottom border

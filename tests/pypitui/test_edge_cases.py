@@ -129,7 +129,7 @@ class TestResponsiveStatusLine:
         status.update(
             model="test-model",
             ctx=18000,
-            in_tokens=1200,
+            in_tokens=50000,
             out_tokens=449,
             cached=35000,
             reasoning=12,
@@ -142,33 +142,34 @@ class TestResponsiveStatusLine:
         # All groups should be present
         assert "test-model" in text
         assert "ctx" in text
-        assert "↓" in text  # down arrow for in
-        assert "↑" in text  # up arrow for out
-        assert "cached" in text
-        assert "reasoning" in text
+        assert "↓" in text  # down arrow for output
+        assert "↑" in text  # up arrow for input
+        # Net/total format: 50K - 35K = 15K net, 449 - 12 = 437 net
+        assert "↑15K/50K" in text
+        assert "↓437/449" in text
 
     def test_status_compact_width(self):
-        """Verify only model + in/out at 40-59 chars."""
+        """Verify only model + in/out at <50 chars."""
         from src.interfaces.pypitui.status_line import StatusLine
 
         status = StatusLine()
         status.update(
             model="test",
             ctx=18000,
-            in_tokens=1200,
+            in_tokens=50000,
             out_tokens=449,
             cached=35000,
             reasoning=12,
             queued=0,
         )
 
-        lines = status.render(width=50)
+        lines = status.render(width=40)
         text = lines[0]
 
         # Model and in/out should always be present
         assert "test" in text
-        assert "↓" in text  # down arrow for in
-        assert "↑" in text  # up arrow for out
+        assert "↓" in text  # down arrow for output
+        assert "↑" in text  # up arrow for input
 
     def test_status_shows_queued(self):
         """Verify queued count shown when > 0."""

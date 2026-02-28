@@ -60,7 +60,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
         # Add content as Text child
         if content:
-            self.add_child(Text(content))
+            self.add_child(Text(content, padding_x=0))
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -178,7 +178,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
         if not self._tool_calls:
             # Simple case: no tool calls
-            self.add_child(Text(self._text_content))
+            self.add_child(Text(self._text_content, padding_x=0))
         else:
             # Build content with tool boxes inline
             self._build_content_with_tools()
@@ -233,7 +233,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             parts.append(self._text_content[last_pos:])
 
         content = "".join(parts)
-        self.add_child(Text(content))
+        self.add_child(Text(content, padding_x=0))
 
     @property
     def tool_calls(self) -> list[ToolCallInfo]:

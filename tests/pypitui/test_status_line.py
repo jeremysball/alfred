@@ -26,7 +26,7 @@ class TestStatusLine:
         assert "test-model" in lines[0]
 
     def test_status_line_shows_tokens(self):
-        """Verify token counts appear in output."""
+        """Verify token counts appear in output with net/total format."""
         status = StatusLine()
         status.update(
             model="test",
@@ -40,13 +40,12 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx 1K" in text
-        assert "↑500" in text  # arrow format (input up to model)
-        assert "↓100" in text  # arrow format (output down from model)
-        assert "cached 50" in text
-        assert "reasoning 20" in text
+        # Net/total format: 500-50=450 net, 100-20=80 net
+        assert "↑450/500" in text  # input: net/total
+        assert "↓80/100" in text  # output: net/total
 
     def test_status_line_hides_zero_values(self):
-        """Verify ctx, cached, reasoning hidden when zero."""
+        """Verify ctx hidden when zero, plain format when no cached/reasoning."""
         status = StatusLine()
         status.update(
             model="test",
@@ -60,11 +59,11 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx" not in text
-        assert "cached" not in text
-        assert "reasoning" not in text
-        # in/out always shown
+        # Plain format when no cached/reasoning
         assert "↑500" in text
         assert "↓100" in text
+        # No slash format when no cached/reasoning
+        assert "/" not in text
 
     def test_status_full_width(self):
         """All groups shown at 80+ chars."""
@@ -83,14 +82,13 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        assert "↑500" in text
-        assert "↓100" in text
-        assert "cached" in text
-        assert "reasoning" in text
+        # Net/total format for cached/reasoning
+        assert "↑450/500" in text
+        assert "↓80/100" in text
         assert "queued" in text
 
     def test_status_medium_width(self):
-        """Model + tokens + queued at 60-79 chars."""
+        """Model + tokens + queued at 50-79 chars."""
         status = StatusLine()
         status.update(
             model="test-model",
@@ -106,14 +104,13 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        assert "↑500" in text
-        assert "↓100" in text
-        assert "cached" not in text  # hidden at medium
-        assert "reasoning" not in text  # hidden at medium
+        # Net/total format shown in medium too
+        assert "↑450/500" in text
+        assert "↓80/100" in text
         assert "queued" in text
 
     def test_status_compact_width(self):
-        """Short format at <60 chars."""
+        """Short format at <50 chars."""
         status = StatusLine()
         status.update(
             model="very-long-model-name-here",
@@ -128,10 +125,10 @@ class TestStatusLine:
         lines = status.render(width=STATUS_WIDTH_COMPACT)
         text = lines[0]
         assert "…" in text  # truncated
-        assert "↑500" in text
-        assert "↓100" in text
+        # Net/total format shown in compact too
+        assert "↑450/500" in text
+        assert "↓80/100" in text
         assert "ctx" not in text  # hidden at compact
-        assert "cached" not in text
         assert "queued" not in text  # just number shown
 
     def test_status_shows_queued(self):
