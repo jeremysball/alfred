@@ -55,7 +55,7 @@ class RichRenderer:
                 justify=self.justify,
             )
 
-            console.print(md)
+            console.print(md, end="")
             return buffer.getvalue()
         except Exception:
             return text
@@ -78,7 +78,7 @@ class RichRenderer:
                 color_system="truecolor",
             )
 
-            console.print(text, markup=True, emoji=True)
+            console.print(text, markup=True, emoji=True, end="")
             return buffer.getvalue()
         except Exception:
             return text

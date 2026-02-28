@@ -43,7 +43,7 @@ def build_bordered_box(
     if title:
         # ┌─ title ──────┐  (spaces are non-breaking to prevent wrap splitting)
         title_part = f"─{NBSP}{title}{NBSP}"
-        title_visible = len(title) + 3  # ─ + nbsp + title + nbsp
+        title_visible = visible_width(title) + 3  # ─ + nbsp + title + nbsp
         dashes_after = width - 2 - title_visible  # -2 for TOP_LEFT and TOP_RIGHT
         top = f"{color}{TOP_LEFT}{title_part}{'─' * max(1, dashes_after)}{TOP_RIGHT}{reset}"
     else:

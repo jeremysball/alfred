@@ -180,8 +180,8 @@ class TestRenderMarkup:
 
         result = renderer.render_markup("")
 
-        # Rich adds newline even for empty strings
-        assert result == "\n"
+        # With end="", empty string returns empty string
+        assert result == ""
 
     def test_render_plain_text_unchanged(self) -> None:
         """Test plain text without markup passes through."""
