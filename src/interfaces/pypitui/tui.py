@@ -67,7 +67,6 @@ class AlfredTUI:
 
         # Ctrl-C state
         self._ctrl_c_pending = False
-        self._exit_hint_visible = False
 
         # Current assistant message for inline tool calls
         self._current_assistant_msg: MessagePanel | None = None
@@ -91,7 +90,7 @@ class AlfredTUI:
         """Handle Ctrl-C keypress.
 
         If input is empty: exit immediately.
-        First Ctrl-C with input: clear input, show hint.
+        First Ctrl-C with input: clear input, show toast hint.
         Second Ctrl-C: exit.
         """
         # Exit immediately if input is empty
@@ -103,17 +102,19 @@ class AlfredTUI:
             # Second Ctrl-C - exit
             self.running = False
         else:
-            # First Ctrl-C - clear input and show hint
+            # First Ctrl-C - clear input and show toast hint
             self.input_field.set_value("")
             self._ctrl_c_pending = True
-            self._exit_hint_visible = True
-            self._update_status()
+            # Show toast instead of status line hint
+            if self._toast_manager is not None:
+                self._toast_manager.add(
+                    "Press Ctrl-C again to exit",
+                    level="info",
+                )
 
     def _reset_ctrl_c_state(self) -> None:
         """Reset Ctrl-C pending state and dismiss toasts (called on any other key)."""
         self._ctrl_c_pending = False
-        self._exit_hint_visible = False
-        self._update_status()
         # Dismiss any visible toasts on keypress
         if self._toast_manager is not None:
             self._toast_manager.dismiss_all()
@@ -162,7 +163,6 @@ class AlfredTUI:
             out_tokens=out,
             cached=usage.cache_read_tokens,
             reasoning=usage.reasoning_tokens,
-            exit_hint=self._exit_hint_visible,
             queued=len(self._message_queue),
             streaming=self._is_streaming or self._is_sending,
         )

@@ -2,7 +2,7 @@
 
 from pypitui import Component
 
-from src.interfaces.pypitui.constants import DIM, RESET, YELLOW
+from src.interfaces.pypitui.constants import RESET, YELLOW
 from src.interfaces.pypitui.throbber import Throbber
 from src.interfaces.pypitui.utils import format_tokens
 
@@ -23,9 +23,9 @@ class StatusLine(Component):
     Format: model | ctx N ↓N ↑N | cached N reasoning N | queued N
 
     Responsive layout:
-    - Full (80+): model | ctx | in/out | cached/reasoning | queued | exit_hint
-    - Medium (60-79): model | ctx | in/out | queued | exit_hint
-    - Compact (<60): model | in/out | exit_hint
+    - Full (80+): model | ctx | in/out | cached/reasoning | queued
+    - Medium (60-79): model | ctx | in/out | queued
+    - Compact (<60): model | in/out
 
     Symbols:
     - ↑ for input tokens (sending to model)
@@ -42,7 +42,6 @@ class StatusLine(Component):
         self._cached: int = 0
         self._reasoning: int = 0
         self._queued: int = 0
-        self._exit_hint: bool = False
         self._is_streaming: bool = False
         self._throbber: Throbber = Throbber()
 
@@ -59,7 +58,6 @@ class StatusLine(Component):
         out_tokens: int,
         cached: int,
         reasoning: int,
-        exit_hint: bool = False,
         queued: int = 0,
         streaming: bool = False,
     ) -> None:
@@ -72,7 +70,6 @@ class StatusLine(Component):
             out_tokens: Cumulative output tokens
             cached: Cache read tokens
             reasoning: Reasoning tokens
-            exit_hint: Show Ctrl-C exit hint
             queued: Number of queued messages
             streaming: Show animated throbber during streaming
         """
@@ -82,7 +79,6 @@ class StatusLine(Component):
         self._out = out_tokens
         self._cached = cached
         self._reasoning = reasoning
-        self._exit_hint = exit_hint
         self._queued = queued
         self._is_streaming = streaming
         if not streaming:
@@ -124,10 +120,6 @@ class StatusLine(Component):
             parts.extend(self._render_medium())
         else:
             parts.extend(self._render_compact())
-
-        # Exit hint (always show if set)
-        if self._exit_hint:
-            parts.append(f"{DIM}Ctrl-C again to exit{RESET}")
 
         return [" | ".join(parts)]
 

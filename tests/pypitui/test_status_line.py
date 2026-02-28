@@ -66,22 +66,6 @@ class TestStatusLine:
         assert "↑500" in text
         assert "↓100" in text
 
-    def test_status_line_exit_hint(self):
-        """Verify exit hint appears when requested."""
-        status = StatusLine()
-        status.update(
-            model="test",
-            ctx=0,
-            in_tokens=0,
-            out_tokens=0,
-            cached=0,
-            reasoning=0,
-            exit_hint=True,
-        )
-
-        lines = status.render(width=80)
-        assert "Ctrl-C" in lines[0]
-
     def test_status_full_width(self):
         """All groups shown at 80+ chars."""
         status = StatusLine()

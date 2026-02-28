@@ -209,10 +209,12 @@ class TestCtrlCBehavior:
     """Tests for Ctrl-C clear input then exit behavior (Phase 1.9)."""
 
     def test_ctrl_c_clears_input_when_has_text(self, mock_alfred, mock_terminal):
-        """Verify first Ctrl-C clears input, shows hint."""
+        """Verify first Ctrl-C clears input, shows toast hint."""
+        from src.interfaces.pypitui.toast import ToastManager
         from src.interfaces.pypitui.tui import AlfredTUI
 
-        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+        manager = ToastManager()
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal, toast_manager=manager)
 
         # Put text in input
         tui.input_field.set_value("some text")
@@ -224,8 +226,9 @@ class TestCtrlCBehavior:
         assert tui.input_field.get_value() == ""
         # Pending flag should be set
         assert tui._ctrl_c_pending is True
-        # Hint should be visible
-        assert tui._exit_hint_visible is True
+        # Toast hint should be shown
+        assert len(manager.get_all()) == 1
+        assert "Ctrl-C again" in manager.get_all()[0].message
 
     def test_ctrl_c_exits_immediately_when_input_empty(self, mock_alfred, mock_terminal):
         """Verify Ctrl-C exits immediately when input is empty."""
@@ -261,10 +264,12 @@ class TestCtrlCBehavior:
         assert tui.running is False  # Now exits
 
     def test_other_key_resets_ctrl_c_state(self, mock_alfred, mock_terminal):
-        """Verify any other key clears hint, resets state."""
+        """Verify any other key clears state, dismisses toasts."""
+        from src.interfaces.pypitui.toast import ToastManager
         from src.interfaces.pypitui.tui import AlfredTUI
 
-        tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+        manager = ToastManager()
+        tui = AlfredTUI(mock_alfred, terminal=mock_terminal, toast_manager=manager)
 
         # Put text in input
         tui.input_field.set_value("some text")
@@ -272,14 +277,15 @@ class TestCtrlCBehavior:
         # First Ctrl-C to set pending state
         tui._handle_ctrl_c()
         assert tui._ctrl_c_pending is True
-        assert tui._exit_hint_visible is True
+        assert len(manager.get_all()) == 1
 
         # Simulate another key press (reset)
         tui._reset_ctrl_c_state()
 
         # State should be reset
         assert tui._ctrl_c_pending is False
-        assert tui._exit_hint_visible is False
+        # Toasts should be dismissed
+        assert len(manager.get_all()) == 0
 
     def test_ctrl_c_state_persists_across_frames(self, mock_alfred, mock_terminal):
         """Verify state doesn't auto-reset between frames."""
