@@ -143,9 +143,9 @@ class Alfred:
     def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
         """Sync token tracker with historical session messages.
 
-        Uses stored token counts if available, otherwise falls back to
-        estimating from message content. Called when resuming a session
-        so the status line shows the total accumulated usage.
+        Uses stored token counts from messages. Legacy messages without
+        stored counts contribute 0 (no estimation). Called when resuming
+        a session so the status line shows the total accumulated usage.
 
         Args:
             session_id: Optional session ID. If None, uses current CLI session.
@@ -160,18 +160,11 @@ class Alfred:
         output_tokens = 0
 
         for msg in messages:
-            if msg.role == Role.USER:
-                # Use stored count if available (> 0), otherwise estimate
-                if msg.input_tokens > 0:
-                    input_tokens += msg.input_tokens
-                else:
-                    input_tokens += self._estimate_tokens(msg.content)
-            elif msg.role == Role.ASSISTANT:
-                # Use stored count if available (> 0), otherwise estimate
-                if msg.output_tokens > 0:
-                    output_tokens += msg.output_tokens
-                else:
-                    output_tokens += self._estimate_tokens(msg.content)
+            # Use stored count if available (> 0), otherwise 0 (no estimation)
+            if msg.role == Role.USER and msg.input_tokens > 0:
+                input_tokens += msg.input_tokens
+            elif msg.role == Role.ASSISTANT and msg.output_tokens > 0:
+                output_tokens += msg.output_tokens
 
         # Reset and set total tokens for the session
         self.token_tracker.reset()

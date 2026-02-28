@@ -166,10 +166,10 @@ async def test_compact_returns_placeholder(mock_config):
 
 
 def test_sync_token_tracker_from_session(mock_config):
-    """Test that token tracker is synced from all session messages.
+    """Test that token tracker is synced from messages with stored token counts.
 
-    Both input (user) and output (assistant) tokens are estimated from
-    message content to show the total accumulated usage for the session.
+    Legacy messages without stored counts contribute 0. Only messages with
+    input_tokens/output_tokens > 0 are counted.
     """
     from datetime import UTC, datetime
 
@@ -188,21 +188,31 @@ def test_sync_token_tracker_from_session(mock_config):
     ):
         alfred = Alfred(mock_config)
 
-        # Create mock messages
-        # User message: 40 chars = ~10 tokens (at 4 chars/token)
-        # Assistant message: 76 chars = ~19 tokens (at 4 chars/token)
+        # Create mock messages - some with token counts, some without (legacy)
         mock_messages = [
             Message(
                 idx=0,
                 role=Role.USER,
                 content="Hello, this is a test message from user.",
                 timestamp=datetime.now(UTC),
+                input_tokens=100,  # Has stored count
+                output_tokens=0,
             ),
             Message(
                 idx=1,
                 role=Role.ASSISTANT,
                 content="Hello! I am the assistant responding to your test message with more content.",
                 timestamp=datetime.now(UTC),
+                input_tokens=0,
+                output_tokens=250,  # Has stored count
+            ),
+            Message(
+                idx=2,
+                role=Role.USER,
+                content="Legacy message without stored tokens.",
+                timestamp=datetime.now(UTC),
+                input_tokens=0,  # Legacy - no stored count
+                output_tokens=0,
             ),
         ]
 
@@ -216,11 +226,9 @@ def test_sync_token_tracker_from_session(mock_config):
         # Sync token tracker
         alfred.sync_token_tracker_from_session()
 
-        # Verify both input and output tokens were estimated
-        # Input: len("Hello, this is a test message from user.") // 4 = 40 // 4 = 10
-        # Output: len("Hello! I am the assistant responding to your test message with more content.") // 4 = 76 // 4 = 19
-        assert alfred.token_tracker.usage.input_tokens == 10
-        assert alfred.token_tracker.usage.output_tokens == 19
+        # Verify only stored token counts are used (legacy messages contribute 0)
+        assert alfred.token_tracker.usage.input_tokens == 100  # Only first user message
+        assert alfred.token_tracker.usage.output_tokens == 250  # Only assistant message
 
 
 def test_sync_token_tracker_empty_session(mock_config):
