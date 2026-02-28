@@ -137,6 +137,39 @@ class Alfred:
         """
         return len(text) // 4
 
+    def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
+        """Sync token tracker with historical session messages.
+
+        Estimates token usage from loaded session messages and updates
+        the token tracker. Called when resuming a session so the status
+        line shows approximate usage immediately.
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
+        """
+        from src.session import Role
+
+        messages = self.session_manager.get_session_messages(session_id)
+        if not messages:
+            return
+
+        input_tokens = 0
+        output_tokens = 0
+
+        for msg in messages:
+            token_count = self._estimate_tokens(msg.content)
+            if msg.role == Role.USER:
+                input_tokens += token_count
+            elif msg.role == Role.ASSISTANT:
+                output_tokens += token_count
+
+        # Reset and set initial values
+        self.token_tracker.reset()
+        self.token_tracker.add({
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+        })
+
     def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
         """Update context token estimate.
 

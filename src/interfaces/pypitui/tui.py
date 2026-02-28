@@ -357,6 +357,9 @@ class AlfredTUI:
             )
             self.conversation.add_child(panel)
 
+        # Sync token tracker with loaded session messages
+        self.alfred.sync_token_tracker_from_session()
+
         self.tui.request_render(force=True)
 
     def _add_user_message(self, content: str) -> None:
