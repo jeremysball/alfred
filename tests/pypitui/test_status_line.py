@@ -40,8 +40,9 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx 1K" in text
-        # Input: net/total format (500-50=450 net)
+        # Input: net/total⚡cached format (500-50=450 net, 50 cached)
         assert "↑450/500" in text
+        assert "50" in text  # cached count shown
         # Output: net/reasoningρ format (100-20=80 net, 20 reasoning)
         assert "↓80/20ρ" in text
 
@@ -83,8 +84,9 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Input: net/total, Output: net/reasoningρ
+        # Input: net/total⚡cached, Output: net/reasoningρ
         assert "↑450/500" in text
+        assert "50" in text  # cached count
         assert "↓80/20ρ" in text
         assert "queued" in text
 
@@ -105,8 +107,9 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Input: net/total, Output: net/reasoningρ
+        # Input: net/total⚡cached, Output: net/reasoningρ
         assert "↑450/500" in text
+        assert "50" in text  # cached count
         assert "↓80/20ρ" in text
         assert "queued" in text
 

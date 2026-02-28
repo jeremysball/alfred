@@ -16,6 +16,8 @@ STATUS_WIDTH_COMPACT = 40  # Model + in/out only
 SYMBOL_IN = "↑"  # U+2191 UPWARDS ARROW
 SYMBOL_OUT = "↓"  # U+2193 DOWNWARDS ARROW
 SYMBOL_REASONING = "ρ"  # U+03C1 GREEK SMALL LETTER RHO
+# Cache symbol: Nerd Font fa-bolt (U+F0E7), displays as ⚡ fallback on non-Nerd fonts
+SYMBOL_CACHE = "\uf0e7"  # Nerd Font fa-bolt
 
 
 class StatusLine(Component):
@@ -142,10 +144,22 @@ class StatusLine(Component):
             return self._model[: max_len - 1] + "…"
         return self._model
 
-    def _format_input_tokens(self) -> str:
-        """Format input tokens as ↑net/total or ↑total."""
+    def _format_input_tokens(self, show_cache: bool = False) -> str:
+        """Format input tokens.
+
+        Args:
+            show_cache: If True and cached > 0, show ↑net/total⚡cached
+                       If False or no cached, show ↑net/total or ↑total
+        """
         if self._cached > 0:
             net = self._in - self._cached
+            if show_cache:
+                # ↑net/total⚡cached format for medium+
+                net_str = format_tokens(net)
+                total_str = format_tokens(self._in)
+                cache_str = format_tokens(self._cached)
+                return f"{SYMBOL_IN}{net_str}/{total_str}{SYMBOL_CACHE}{cache_str}"
+            # ↑net/total format for compact
             return f"{SYMBOL_IN}{format_tokens(net)}/{format_tokens(self._in)}"
         return f"{SYMBOL_IN}{format_tokens(self._in)}"
 
@@ -175,7 +189,7 @@ class StatusLine(Component):
         token_parts: list[str] = []
         if self._ctx > 0:
             token_parts.append(f"ctx {format_tokens(self._ctx)}")
-        token_parts.append(self._format_input_tokens())
+        token_parts.append(self._format_input_tokens(show_cache=True))
         token_parts.append(self._format_output_tokens(show_reasoning=True))
         parts.append(" ".join(token_parts))
 
@@ -193,7 +207,7 @@ class StatusLine(Component):
         token_parts: list[str] = []
         if self._ctx > 0:
             token_parts.append(f"ctx {format_tokens(self._ctx)}")
-        token_parts.append(self._format_input_tokens())
+        token_parts.append(self._format_input_tokens(show_cache=True))
         token_parts.append(self._format_output_tokens(show_reasoning=True))
         parts.append(" ".join(token_parts))
 
@@ -208,7 +222,7 @@ class StatusLine(Component):
         parts: list[str] = []
 
         # Just in/out with arrows
-        in_str = self._format_input_tokens()
+        in_str = self._format_input_tokens(show_cache=False)
         out_str = self._format_output_tokens(show_reasoning=False)
         token_str = f"{in_str} {out_str}"
         parts.append(token_str)

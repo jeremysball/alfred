@@ -144,8 +144,9 @@ class TestResponsiveStatusLine:
         assert "ctx" in text
         assert "↓" in text  # down arrow for output
         assert "↑" in text  # up arrow for input
-        # Input: net/total (50K - 35K = 15K net)
+        # Input: net/total⚡cached (50K - 35K = 15K net, 35K cached)
         assert "↑15K/50K" in text
+        assert "35K" in text  # cached count
         # Output: net/reasoningρ (500 - 100 = 400 net, 100 reasoning)
         assert "↓400/100ρ" in text
 
