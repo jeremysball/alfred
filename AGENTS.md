@@ -113,6 +113,70 @@ uv run alfred cron remove <job_id>
 Write small change → Run tests → git add -p → Commit → Repeat
 ```
 
+**Interactive Staging with tmux**
+
+When you have multiple changes across files, use tmux to run `git add -p` interactively. This lets you review each hunk and decide what goes into each atomic commit.
+
+```bash
+# Start a tmux session for committing
+tmux new-session -s commit
+
+# Stage interactively (review each hunk)
+git add -p src/alfred.py
+
+# Git shows each hunk with options:
+#   y - stage this hunk
+#   n - do not stage this hunk  
+#   s - split into smaller hunks
+#   e - edit the hunk manually
+#   ? - show all options
+
+# After staging, commit
+git commit -m "feat(alfred): estimate input tokens on session resume"
+
+# Repeat for next atomic change
+git add -p src/interfaces/pypitui/tui.py
+git commit -m "refactor(pypitui): switch to upstream TUI class"
+```
+
+**Key Commands for Interactive Staging:**
+
+| Command | Purpose |
+|---------|---------|
+| `git add -p <file>` | Stage interactively from specific file |
+| `git add -p` | Stage interactively from all changes |
+| `git diff --cached` | See what's currently staged |
+| `git diff` | See what remains unstaged |
+| `git reset -p` | Unstage hunks interactively |
+| `git checkout -p` | Discard hunks interactively |
+
+**Example Workflow in tmux:**
+
+```bash
+# 1. See all changes
+git diff
+
+# 2. Stage first logical change
+git add -p src/alfred.py
+# (press 'y' for token estimation hunks, 'n' for other hunks)
+
+# 3. Verify what's staged
+git diff --cached
+
+# 4. Commit if it looks right
+git commit -m "feat(alfred): estimate input tokens on session resume"
+
+# 5. Stage next logical change
+git add -p src/alfred.py
+# (press 'y' for the remaining hunks)
+
+# 6. Commit
+git commit -m "test(alfred): update tests for input token estimation"
+
+# 7. Continue until clean
+git status  # should show clean working tree
+```
+
 **WRONG — Do NOT do this:**
 ```bash
 # ❌ Massive commit with multiple features
