@@ -111,10 +111,17 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             tool_name: Name of the tool
             tool_call_id: Unique ID for this tool call
         """
+        # Use text length as insert position, but add sequence number to
+        # disambiguate when multiple tools are added at the same position.
+        # This ensures tools render in order even when called before text arrives.
+        insert_position = len(self._text_content)
+        sequence = len(self._tool_calls)
+
         tool_info = ToolCallInfo(
             tool_name=tool_name,
             tool_call_id=tool_call_id,
-            insert_position=len(self._text_content),
+            insert_position=insert_position,
+            sequence=sequence,
         )
         self._tool_calls.append(tool_info)
         self._rebuild_content()
@@ -193,8 +200,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Build the full content with tool boxes as inline text
         parts: list[str] = []
 
-        # Sort tool calls by position
-        sorted_tools = sorted(self._tool_calls, key=lambda t: t.insert_position)
+        # Sort tool calls by (position, sequence) to maintain order
+        sorted_tools = sorted(self._tool_calls, key=lambda t: (t.insert_position, t.sequence))
 
         # Tool box width: terminal width minus panel borders (2) and padding (2)
         box_width = max(20, self._terminal_width - 4)
