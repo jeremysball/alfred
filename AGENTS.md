@@ -95,12 +95,58 @@ uv run alfred cron remove <job_id>
 **Entry point:** `src/cli/main.py` (Typer CLI)
 
 ---
-### 0. Use tmux 
-- Usr tmux whenever something requires
-interactive control. Especially whenever 
-you think something reques manual testing. 
-### 0. git add -p 
-- ALWAYS create atomic commits using git add -p
+### 0. Use tmux
+- Use tmux whenever something requires interactive control, especially when manual testing is needed.
+- **Debugging TUI output:** Capture raw ANSI output with `tmux new-session -d -s alfred "uv run alfred --debug debug 2>&1 | tee /tmp/alfred.log"` then inspect with `tail /tmp/alfred.log`. This reveals the actual escape sequences being sent, which is invaluable for diagnosing rendering issues.
+
+### 0. Commit Early, Commit Often
+**CRITICAL**: Make small, atomic commits frequently. Never batch multiple features into one commit.
+
+**Atomic Commit Rules:**
+1. **One logical change per commit** - If you can't describe it in one line, it's too big
+2. **Every commit passes tests** - Never commit broken code
+3. **Use `git add -p`** - Stage individual hunks, not entire files
+4. **Commit after each working change** - Don't wait until "done"
+
+**The Commit Cadence:**
+```
+Write small change → Run tests → git add -p → Commit → Repeat
+```
+
+**WRONG — Do NOT do this:**
+```bash
+# ❌ Massive commit with multiple features
+git add -A && git commit -m "feat: add Ctrl-C handling, queue nav, tool boxes"
+```
+
+**RIGHT — Do this instead:**
+```bash
+# ✅ Atomic commits, one per feature
+git add -p src/interfaces/pypitui/tui.py  # Stage just the Ctrl-C change
+git commit -m "feat(tui): exit immediately on Ctrl-C when input is empty"
+
+# Later, after tests pass...
+git add -p src/interfaces/pypitui/status_line.py
+git commit -m "feat(tui): show exit hint as toast instead of status line"
+
+# And so on...
+```
+
+**When to commit:**
+- After implementing a single feature or fix
+- After updating tests for that change
+- After refactoring a single function/module
+- After fixing a bug (separate from feature work)
+
+**Conventional Commit Format:**
+```
+<type>(<scope>): <description>
+
+[optional body]
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
+
 ### 1. Permission First
 
 
