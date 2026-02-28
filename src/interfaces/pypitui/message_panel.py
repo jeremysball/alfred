@@ -244,11 +244,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 tc.status, DIM_BLUE
             )
 
-            # Status icons for fun
-            status_icon = {"running": "🔵", "success": "✅", "error": "❌"}.get(
-                tc.status, "🔵"
-            )
-
             # Build tool box lines with Rich formatting
             content_lines: list[str] = []
             if tc.output:
@@ -259,8 +254,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 formatted_output = self._format_tool_output(display_output, renderer)
                 content_lines = formatted_output.split("\n")
 
-            # Bold tool name in title with icon
-            fancy_title = f"{status_icon} [bold]{tc.tool_name}[/bold]"
+            # Bold tool name in title
+            fancy_title = f"[bold]{tc.tool_name}[/bold]"
 
             box_lines = build_bordered_box(
                 lines=content_lines,
