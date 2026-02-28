@@ -228,6 +228,11 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Tool box width: terminal width minus panel borders (2) and padding (2)
         box_width = max(20, self._terminal_width - 4)
 
+        # Lazy import RichRenderer for tool output formatting
+        renderer = None
+        if self._use_markdown and self._renderer:
+            renderer = self._renderer
+
         last_pos = 0
         for tc in sorted_tools:
             # Add text before this tool
@@ -239,18 +244,29 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 tc.status, DIM_BLUE
             )
 
-            # Build tool box lines
+            # Status icons for fun
+            status_icon = {"running": "🔵", "success": "✅", "error": "❌"}.get(
+                tc.status, "🔵"
+            )
+
+            # Build tool box lines with Rich formatting
             content_lines: list[str] = []
             if tc.output:
                 # Truncate output for display
                 display_output = tc.output[-200:] if len(tc.output) > 200 else tc.output
-                content_lines = display_output.split("\n")
+
+                # Try to format as JSON if applicable
+                formatted_output = self._format_tool_output(display_output, renderer)
+                content_lines = formatted_output.split("\n")
+
+            # Bold tool name in title with icon
+            fancy_title = f"{status_icon} [bold]{tc.tool_name}[/bold]"
 
             box_lines = build_bordered_box(
                 lines=content_lines,
                 width=box_width,
                 color=color,
-                title=tc.tool_name,
+                title=fancy_title,
                 center=False,
             )
             parts.append("\n" + "\n".join(box_lines) + "\n")
@@ -263,6 +279,56 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
         content = "".join(parts)
         self.add_child(Text(content, padding_x=0))
+
+    def _format_tool_output(self, output: str, renderer):  # type: ignore[no-untyped-def]
+        """Format tool output with Rich markup if possible.
+
+        Args:
+            output: Raw tool output
+            renderer: Optional RichRenderer for formatting
+
+        Returns:
+            Formatted output string
+        """
+        if not output:
+            return output
+
+        # Try to detect and format JSON
+        stripped = output.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                import json
+                parsed = json.loads(stripped)
+                # Pretty print JSON
+                pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
+                if renderer:
+                    # Wrap in markdown code block for syntax highlighting
+                    return renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                return pretty_json
+            except json.JSONDecodeError:
+                pass
+
+        # Try to detect and format JSON arrays
+        if stripped.startswith("[") and stripped.endswith("]"):
+            try:
+                import json
+                parsed = json.loads(stripped)
+                pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
+                if renderer:
+                    return renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                return pretty_json
+            except json.JSONDecodeError:
+                pass
+
+        # For plain text, just return as-is (renderer will handle ANSI if enabled)
+        if renderer and output:
+            try:
+                # Try to render any markup in the output
+                return renderer.render_markup(f"[dim]{output}[/dim]")
+            except Exception:
+                pass
+
+        return output
 
     @property
     def tool_calls(self) -> list[ToolCallInfo]:
