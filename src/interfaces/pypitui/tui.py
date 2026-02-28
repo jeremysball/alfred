@@ -301,7 +301,12 @@ class AlfredTUI:
             return
 
         # Add user message to conversation
-        user_msg = MessagePanel(role="user", content=text, terminal_width=self._terminal_width)
+        user_msg = MessagePanel(
+            role="user",
+            content=text,
+            terminal_width=self._terminal_width,
+            use_markdown=USE_MARKDOWN_RENDERING,
+        )
         self.conversation.add_child(user_msg)
 
         # Clear input field
@@ -467,7 +472,10 @@ class AlfredTUI:
 
         # Create assistant message panel (empty, will stream content)
         assistant_msg = MessagePanel(
-            role="assistant", content="", terminal_width=self._terminal_width
+            role="assistant",
+            content="",
+            terminal_width=self._terminal_width,
+            use_markdown=USE_MARKDOWN_RENDERING,
         )
         self.conversation.add_child(assistant_msg)
         self._current_assistant_msg = assistant_msg
