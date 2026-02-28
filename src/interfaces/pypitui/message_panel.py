@@ -30,7 +30,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         padding_x: int = 1,
         padding_y: int = 0,
         terminal_width: int = 80,
-        use_markdown: bool = False,
+        use_markdown: bool = True,
     ) -> None:
         """Initialize the message panel.
 

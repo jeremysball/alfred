@@ -17,15 +17,15 @@ class TestMessagePanelMarkdownParameter:
 
         assert panel._use_markdown is True
 
-    def test_message_panel_defaults_to_no_markdown(self) -> None:
-        """Test MessagePanel defaults to markdown disabled."""
+    def test_message_panel_defaults_to_markdown_enabled(self) -> None:
+        """Test MessagePanel defaults to markdown enabled."""
         panel = MessagePanel(
             role="assistant",
             content="test",
             terminal_width=80,
         )
 
-        assert panel._use_markdown is False
+        assert panel._use_markdown is True
 
 
 class TestMessagePanelMarkdownRendering:
