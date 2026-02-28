@@ -23,11 +23,11 @@ SYMBOL_CACHE = "\uf0e7"  # Nerd Font fa-bolt
 class StatusLine(Component):
     """Status line showing model name and token usage.
 
-    Format: model | ctx N ↑in ↓out | queued N
+    Format: model | ctx N ↑in/cached⚡ ↓out/reasoningρ | queued N
 
-    Token display shows net/total when cached/reasoning tokens exist:
-    - ↑200/800 = 200 net input (800 total - 600 cached)
-    - ↓50/100 = 50 net output (100 total - 50 reasoning)
+    Token display when cached/reasoning tokens exist:
+    - ↑500/50⚡ = 500 input tokens, 50 from cache
+    - ↓100/20ρ = 100 output tokens, 20 were reasoning
 
     Responsive layout:
     - Full (80+): model | ctx | in/out | queued
@@ -37,6 +37,8 @@ class StatusLine(Component):
     Symbols:
     - ↑ for input tokens (sending to model)
     - ↓ for output tokens (receiving from model)
+    - ⚡ for cached tokens (fa-bolt)
+    - ρ for reasoning tokens
     """
 
     def __init__(self) -> None:
@@ -148,37 +150,28 @@ class StatusLine(Component):
         """Format input tokens.
 
         Args:
-            show_cache: If True and cached > 0, show ↑net/total⚡cached
-                       If False or no cached, show ↑net/total or ↑total
+            show_cache: If True and cached > 0, show ↑total/cached⚡
+                       If False or no cached, show ↑total
         """
-        if self._cached > 0:
-            net = self._in - self._cached
-            if show_cache:
-                # ↑net/total⚡cached format for medium+
-                net_str = format_tokens(net)
-                total_str = format_tokens(self._in)
-                cache_str = format_tokens(self._cached)
-                return f"{SYMBOL_IN}{net_str}/{total_str}{SYMBOL_CACHE}{cache_str}"
-            # ↑net/total format for compact
-            return f"{SYMBOL_IN}{format_tokens(net)}/{format_tokens(self._in)}"
+        if show_cache and self._cached > 0:
+            # ↑total/cached⚡ format
+            in_str = format_tokens(self._in)
+            cache_str = format_tokens(self._cached)
+            return f"{SYMBOL_IN}{in_str}/{cache_str}{SYMBOL_CACHE}"
         return f"{SYMBOL_IN}{format_tokens(self._in)}"
 
     def _format_output_tokens(self, show_reasoning: bool = False) -> str:
         """Format output tokens.
 
         Args:
-            show_reasoning: If True and reasoning > 0, show ↓net/reasoningρ
-                           If False or no reasoning, show ↓net/total or ↓total
+            show_reasoning: If True and reasoning > 0, show ↓total/reasoningρ
+                           If False or no reasoning, show ↓total
         """
-        if self._reasoning > 0:
-            net = self._out - self._reasoning
-            if show_reasoning:
-                # ↓net/reasoningρ format for medium+
-                net_str = format_tokens(net)
-                reason_str = format_tokens(self._reasoning)
-                return f"{SYMBOL_OUT}{net_str}/{reason_str}{SYMBOL_REASONING}"
-            # ↓net/total format for compact
-            return f"{SYMBOL_OUT}{format_tokens(net)}/{format_tokens(self._out)}"
+        if self._reasoning > 0 and show_reasoning:
+            # ↓total/reasoningρ format
+            out_str = format_tokens(self._out)
+            reason_str = format_tokens(self._reasoning)
+            return f"{SYMBOL_OUT}{out_str}/{reason_str}{SYMBOL_REASONING}"
         return f"{SYMBOL_OUT}{format_tokens(self._out)}"
 
     def _render_full(self) -> list[str]:
@@ -221,8 +214,8 @@ class StatusLine(Component):
         """Render compact layout (<50 chars)."""
         parts: list[str] = []
 
-        # Just in/out with arrows
-        in_str = self._format_input_tokens(show_cache=False)
+        # Just in/out with arrows (show bolt if cached)
+        in_str = self._format_input_tokens(show_cache=True)
         out_str = self._format_output_tokens(show_reasoning=False)
         token_str = f"{in_str} {out_str}"
         parts.append(token_str)

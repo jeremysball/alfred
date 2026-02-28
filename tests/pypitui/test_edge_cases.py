@@ -123,7 +123,7 @@ class TestResponsiveStatusLine:
 
     def test_status_full_width(self):
         """Verify all groups shown at 80+ chars."""
-        from src.interfaces.pypitui.status_line import StatusLine
+        from src.interfaces.pypitui.status_line import SYMBOL_CACHE, StatusLine
 
         status = StatusLine()
         status.update(
@@ -144,11 +144,10 @@ class TestResponsiveStatusLine:
         assert "ctx" in text
         assert "↓" in text  # down arrow for output
         assert "↑" in text  # up arrow for input
-        # Input: net/total⚡cached (50K - 35K = 15K net, 35K cached)
-        assert "↑15K/50K" in text
-        assert "35K" in text  # cached count
-        # Output: net/reasoningρ (500 - 100 = 400 net, 100 reasoning)
-        assert "↓400/100ρ" in text
+        # Input: total/cached⚡ (50K total, 35K cached)
+        assert f"↑50K/35K{SYMBOL_CACHE}" in text
+        # Output: total/reasoningρ (500 total, 100 reasoning)
+        assert "↓500/100ρ" in text
 
     def test_status_compact_width(self):
         """Verify only model + in/out at <50 chars."""

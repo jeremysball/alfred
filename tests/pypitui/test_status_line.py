@@ -2,7 +2,13 @@
 
 import pytest
 
-from src.interfaces.pypitui.status_line import STATUS_WIDTH_COMPACT, STATUS_WIDTH_FULL, STATUS_WIDTH_MEDIUM, StatusLine
+from src.interfaces.pypitui.status_line import (
+    STATUS_WIDTH_COMPACT,
+    STATUS_WIDTH_FULL,
+    STATUS_WIDTH_MEDIUM,
+    StatusLine,
+    SYMBOL_CACHE,
+)
 from src.interfaces.pypitui.utils import format_tokens
 
 
@@ -26,7 +32,7 @@ class TestStatusLine:
         assert "test-model" in lines[0]
 
     def test_status_line_shows_tokens(self):
-        """Verify token counts appear in output with net/total format."""
+        """Verify token counts appear in output with total/cached⚡ format."""
         status = StatusLine()
         status.update(
             model="test",
@@ -40,11 +46,10 @@ class TestStatusLine:
         lines = status.render(width=80)
         text = lines[0]
         assert "ctx 1K" in text
-        # Input: net/total⚡cached format (500-50=450 net, 50 cached)
-        assert "↑450/500" in text
-        assert "50" in text  # cached count shown
-        # Output: net/reasoningρ format (100-20=80 net, 20 reasoning)
-        assert "↓80/20ρ" in text
+        # Input: total/cached⚡ format (500 total, 50 cached)
+        assert f"↑500/50{SYMBOL_CACHE}" in text
+        # Output: total/reasoningρ format (100 total, 20 reasoning)
+        assert "↓100/20ρ" in text
 
     def test_status_line_hides_zero_values(self):
         """Verify ctx hidden when zero, plain format when no cached/reasoning."""
@@ -64,8 +69,6 @@ class TestStatusLine:
         # Plain format when no cached/reasoning
         assert "↑500" in text
         assert "↓100" in text
-        # No slash format when no cached/reasoning
-        assert "/" not in text
 
     def test_status_full_width(self):
         """All groups shown at 80+ chars."""
@@ -84,10 +87,10 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Input: net/total⚡cached, Output: net/reasoningρ
-        assert "↑450/500" in text
-        assert "50" in text  # cached count
-        assert "↓80/20ρ" in text
+        # Input: total/cached⚡ (500 total, 50 cached)
+        assert f"↑500/50{SYMBOL_CACHE}" in text
+        # Output: total/reasoningρ
+        assert "↓100/20ρ" in text
         assert "queued" in text
 
     def test_status_medium_width(self):
@@ -107,10 +110,9 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Input: net/total⚡cached, Output: net/reasoningρ
-        assert "↑450/500" in text
-        assert "50" in text  # cached count
-        assert "↓80/20ρ" in text
+        # Input: total/cached⚡, Output: total/reasoningρ
+        assert f"↑500/50{SYMBOL_CACHE}" in text
+        assert "↓100/20ρ" in text
         assert "queued" in text
 
     def test_status_compact_width(self):
@@ -129,9 +131,10 @@ class TestStatusLine:
         lines = status.render(width=STATUS_WIDTH_COMPACT)
         text = lines[0]
         assert "…" in text  # truncated
-        # Net/total format shown in compact too
-        assert "↑450/500" in text
-        assert "↓80/100" in text
+        # Input shows total/cached⚡ in compact
+        assert f"↑500/50{SYMBOL_CACHE}" in text
+        # Output shows just total (no reasoning) in compact
+        assert "↓100" in text
         assert "ctx" not in text  # hidden at compact
         assert "queued" not in text  # just number shown
 
