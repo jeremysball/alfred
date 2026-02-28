@@ -83,12 +83,16 @@ class ToastOverlay(Component):
             # Top border
             lines.append(f"{color}{self.TOP_LEFT}{horiz}{self.TOP_RIGHT}{reset}")
 
-            # Content lines with borders
+            # Content lines with borders (centered)
             for wrapped_line in wrapped_lines:
-                # Pad to content width
+                # Pad to content width (centered)
                 line_width = visible_width(wrapped_line)
                 if line_width < content_width:
-                    wrapped_line += " " * (content_width - line_width)
+                    # Center the text
+                    total_padding = content_width - line_width
+                    left_pad = total_padding // 2
+                    right_pad = total_padding - left_pad
+                    wrapped_line = " " * left_pad + wrapped_line + " " * right_pad
                 content = f" {wrapped_line} "
                 lines.append(f"{color}{self.VERTICAL}{reset}{content}{color}{self.VERTICAL}{reset}")
 
