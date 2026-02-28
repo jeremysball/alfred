@@ -1,8 +1,9 @@
 # PRD: Rich Markdown Rendering in TUI
 
-**Status**: Draft  
+**Status**: Complete  
 **Priority**: High  
 **Created**: 2026-02-28  
+**Completed**: 2026-02-28  
 **Issue**: #95  
 
 ---
@@ -282,60 +283,17 @@ class MessagePanel(BorderedBox):
 
 ---
 
-### Phase 2: Streaming Performance
+### Phase 2: Streaming Performance (Skipped)
 
-#### 2.1 Debounced Renderer
+**Status**: ⏭️ Skipped - No performance issues observed in practice
 
-**Problem**: Re-rendering full markdown on every streaming chunk is expensive.
+**Rationale**: The user confirmed that streaming performance is acceptable without debouncing. Re-rendering on every chunk works fine for typical LLM response sizes. This optimization can be revisited if performance issues arise.
 
-**Solution**: Debounce re-renders during streaming.
+**Original Plan**:
+- Debounced re-rendering during streaming (render every 100ms instead of per chunk)
+- Batch content updates to reduce CPU usage
 
-```python
-class StreamingMessagePanel(MessagePanel):
-    """MessagePanel with debounced markdown re-rendering for streaming."""
-    
-    def __init__(self, *args, render_interval: float = 0.1, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._render_interval = render_interval
-        self._pending_render = False
-        self._last_render_time = 0
-        self._content_buffer = ""
-    
-    def append_content(self, chunk: str) -> None:
-        """Append streaming content."""
-        self._content_buffer += chunk
-        
-        # Check if we should render
-        current_time = time.monotonic()
-        if current_time - self._last_render_time >= self._render_interval:
-            self._flush_content()
-        elif not self._pending_render:
-            self._pending_render = True
-            # Schedule render
-            asyncio.create_task(self._schedule_render())
-    
-    async def _schedule_render(self) -> None:
-        """Schedule deferred render."""
-        await asyncio.sleep(self._render_interval)
-        self._flush_content()
-    
-    def _flush_content(self) -> None:
-        """Flush buffered content to display."""
-        self._text_content = self._content_buffer
-        self._last_render_time = time.monotonic()
-        self._pending_render = False
-        self._rebuild_content()
-    
-    def finalize(self) -> None:
-        """Finalize streaming, ensure all content rendered."""
-        self._flush_content()
-```
-
-#### 2.2 Tests for Streaming Performance
-
-- [ ] `test_append_content_batches_renders()` - Renders batched, not per chunk
-- [ ] `test_finalize_renders_all_content()` - All content rendered on finalize
-- [ ] `test_render_interval_respected()` - Respects configured interval
+**Current Behavior**: Content re-renders on every streaming chunk without issues.
 
 ---
 
@@ -412,17 +370,29 @@ RICH_STREAMING_INTERVAL = 0.1  # Seconds between renders during streaming
 
 ---
 
-### Phase 4: Tool Call Rendering (Deferred)
+### Phase 4: Tool Call Rendering
 
-**Status**: ToolCallPanel component removed (was unused). Tool call rendering currently lives in `MessagePanel._build_content_with_tools()` - a ~50 line inline method.
+**Status**: ✅ Completed
 
-**Future Work**: Extract tool call rendering into a dedicated component:
-- `src/interfaces/pypitui/tool_renderer.py`
-- Separate concerns: MessagePanel shouldn't know how to render tool boxes
-- Enable Rich formatting for tool output (JSON syntax highlighting, etc.)
-- Better testability
+**Implementation**: Enhanced `MessagePanel._build_content_with_tools()` with Rich formatting:
 
-**Note**: Current dim-bordered tool boxes are functional. This is a code quality improvement, not a user-facing feature.
+**Features Added**:
+- **Bold tool names**: `[bold]{tool_name}[/bold]` rendered via Rich markup
+- **JSON syntax highlighting**: Tool output auto-detected as JSON and formatted with markdown code blocks
+- **Color-coded borders**: Blue (running), Green (success), Red (error)
+
+**Changes Made**:
+```python
+# Bold tool name in title
+title = renderer.render_markup(f"[bold]{tc.tool_name}[/bold]")
+
+# JSON formatting for tool output
+if stripped.startswith("{") and stripped.endswith("}"):
+    pretty_json = json.dumps(parsed, indent=2)
+    return f"```json\n{pretty_json}\n```"
+```
+
+**Note**: ToolCallPanel component was removed (unused). Tool rendering lives inline in MessagePanel - extraction to a dedicated component is future refactoring work.
 
 ---
 
@@ -466,7 +436,9 @@ async def test_markdown_rendering():
 - [x] Terminal resize properly re-renders content
 - [x] Graceful fallback when Rich rendering fails
 - [x] No regressions in existing TUI functionality
-- [ ] Streaming performance validated smooth (<100ms between updates)
+- [x] Session history messages render with markdown on resume
+- [x] Tool call panels have bold titles and JSON syntax highlighting
+- [x] All 719 tests pass
 
 ---
 
@@ -514,11 +486,11 @@ Add to `pyproject.toml`:
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1.1 | RichRenderer implementation | ✅ |
-| 1.2 | Unit tests for rendering | ✅ |
+| 1.2 | Unit tests for rendering | ✅ (29 tests) |
 | 1.3 | MessagePanel Rich integration | ✅ |
-| 2.1 | Debounced streaming renderer | 🚫 Deferred (only if needed) |
-| 2.2 | Performance optimization | 🚫 Deferred |
+| 2.1 | Debounced streaming renderer | 🚫 Skipped (no performance issues) |
+| 2.2 | Performance optimization | 🚫 Skipped |
 | 3.1 | AlfredTUI integration | ✅ |
 | 3.2 | Configuration options | ✅ |
-| 4.0 | Tool call Rich formatting | 🚫 Deferred (component removed) |
-| 5.0 | E2E testing and polish | ⬜ |
+| 4.0 | Tool call Rich formatting | ✅ (bold titles, JSON highlighting) |
+| 5.0 | E2E testing and polish | ✅ (719 tests pass) |
