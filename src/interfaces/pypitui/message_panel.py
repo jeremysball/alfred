@@ -173,14 +173,19 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def _build_content_with_tools(self) -> None:
         """Build content string with tool call boxes embedded."""
+        from pypitui.utils import wrap_text_with_ansi
+
         from src.interfaces.pypitui.constants import DIM_BLUE, DIM_GREEN, DIM_RED
 
         # Build the full content with tool boxes as inline text
-        # This is a simplified approach - renders tool info as indented text
         parts: list[str] = []
 
         # Sort tool calls by position
         sorted_tools = sorted(self._tool_calls, key=lambda t: t.insert_position)
+
+        # Tool box content width (conservative estimate for wrapping)
+        # Account for: outer panel borders (2) + padding (2) + tool border (2) + space after │
+        tool_content_width = 60
 
         last_pos = 0
         for tc in sorted_tools:
@@ -188,17 +193,28 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             if last_pos < tc.insert_position:
                 parts.append(self._text_content[last_pos : tc.insert_position])
 
-            # Add tool box (simplified as indented text with status color)
+            # Add tool box with consistent borders
             color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(
                 tc.status, DIM_BLUE
             )
-            tool_box = f"\n{color}  ┌─ {tc.tool_name} ─{'─' * 20}{RESET}\n"
+
+            # Build top border: ┌─ tool_name ──────┐
+            box_width = tool_content_width + 4  # content + "│ " prefix + space for border
+            title_part = f"─ {tc.tool_name} "
+            dashes_after = box_width - 2 - len(title_part)
+            tool_box = f"\n{color}┌{title_part}{'─' * max(1, dashes_after)}{RESET}\n"
+
             if tc.output:
                 # Truncate output for display
                 display_output = tc.output[-200:] if len(tc.output) > 200 else tc.output
                 for line in display_output.split("\n"):
-                    tool_box += f"{color}  │{RESET} {line}\n"
-            tool_box += f"{color}  └{'─' * 30}{RESET}\n"
+                    # Pre-wrap each line and add │ prefix to each wrapped line
+                    wrapped = wrap_text_with_ansi(line, tool_content_width)
+                    for wrapped_line in wrapped:
+                        tool_box += f"{color}│{RESET} {wrapped_line}\n"
+
+            # Bottom border: └──────────────────────┘
+            tool_box += f"{color}└{'─' * (box_width - 2)}{RESET}\n"
             parts.append(tool_box)
 
             last_pos = tc.insert_position
