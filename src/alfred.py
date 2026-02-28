@@ -116,6 +116,7 @@ class Alfred:
 
         # Token tracking for usage display
         self.token_tracker = TokenTracker()
+        self._last_usage: dict[str, Any] | None = None
 
         # Context summary for status display
         self.context_summary = ContextSummary()
@@ -128,6 +129,8 @@ class Alfred:
     def _on_usage(self, usage: dict[str, Any]) -> None:
         """Callback for LLM usage updates."""
         self.token_tracker.add(usage)
+        # Store the last usage for message token tracking
+        self._last_usage = usage
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
@@ -140,13 +143,9 @@ class Alfred:
     def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
         """Sync token tracker with historical session messages.
 
-        Estimates token usage from all loaded session messages and updates
-        the token tracker. Called when resuming a session so the status
-        line shows the total accumulated usage for the entire session.
-
-        Uses a simple heuristic (4 chars per token) to estimate tokens from
-        message content. This provides a reasonable approximation of total
-        session token usage.
+        Uses stored token counts if available, otherwise falls back to
+        estimating from message content. Called when resuming a session
+        so the status line shows the total accumulated usage.
 
         Args:
             session_id: Optional session ID. If None, uses current CLI session.
@@ -161,13 +160,20 @@ class Alfred:
         output_tokens = 0
 
         for msg in messages:
-            token_count = self._estimate_tokens(msg.content)
             if msg.role == Role.USER:
-                input_tokens += token_count
+                # Use stored count if available (> 0), otherwise estimate
+                if msg.input_tokens > 0:
+                    input_tokens += msg.input_tokens
+                else:
+                    input_tokens += self._estimate_tokens(msg.content)
             elif msg.role == Role.ASSISTANT:
-                output_tokens += token_count
+                # Use stored count if available (> 0), otherwise estimate
+                if msg.output_tokens > 0:
+                    output_tokens += msg.output_tokens
+                else:
+                    output_tokens += self._estimate_tokens(msg.content)
 
-        # Reset and set total estimated tokens for the session
+        # Reset and set total tokens for the session
         self.token_tracker.reset()
         self.token_tracker.add({
             "prompt_tokens": input_tokens,
@@ -236,9 +242,11 @@ class Alfred:
                 logger.debug("Starting new session...")
                 self.session_manager.start_session()
 
-        # Add user message to session
+        # Add user message to session and get its index
         self.session_manager.add_message("user", message, session_id=session_id)
-        msg_count = len(self.session_manager.get_session_messages(session_id))
+        messages_list = self.session_manager.get_session_messages(session_id)
+        user_msg_idx = messages_list[-1].idx if messages_list else 0
+        msg_count = len(messages_list)
         logger.debug(f"Added user message. Session now has {msg_count} messages")
 
         # Get query embedding for memory search
@@ -282,11 +290,35 @@ class Alfred:
             full_response.append(chunk)
             yield chunk
 
-        # Add assistant response to session
+        # Add assistant response to session and get its index
         assistant_message = "".join(full_response)
         self.session_manager.add_message("assistant", assistant_message, session_id=session_id)
-        msg_count = len(self.session_manager.get_session_messages(session_id))
+        messages_list = self.session_manager.get_session_messages(session_id)
+        assistant_msg_idx = messages_list[-1].idx if messages_list else 0
+        msg_count = len(messages_list)
         logger.debug(f"Added assistant message. Session now has {msg_count} messages")
+
+        # Store actual token counts with the messages
+        if self._last_usage:
+            prompt_tokens = self._last_usage.get("prompt_tokens", 0)
+            completion_tokens = self._last_usage.get("completion_tokens", 0)
+
+            # Update user message with input tokens
+            self.session_manager.update_message_tokens(
+                user_msg_idx,
+                input_tokens=prompt_tokens,
+                session_id=session_id,
+            )
+
+            # Update assistant message with output tokens
+            self.session_manager.update_message_tokens(
+                assistant_msg_idx,
+                output_tokens=completion_tokens,
+                session_id=session_id,
+            )
+
+            # Clear last usage for next turn
+            self._last_usage = None
 
     def _build_system_prompt(self, base_prompt: str) -> str:
         """Build system prompt with tool descriptions."""

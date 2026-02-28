@@ -35,13 +35,15 @@ class Role(Enum):
 
 @dataclass
 class Message:
-    """Single exchange turn with optional embedding."""
+    """Single exchange turn with optional embedding and token counts."""
 
     idx: int  # Position in file (local to current.jsonl or archive.jsonl)
     role: Role
     content: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     embedding: list[float] | None = None
+    input_tokens: int = 0  # Actual input tokens from LLM usage (for user messages)
+    output_tokens: int = 0  # Actual output tokens from LLM usage (for assistant messages)
 
 
 @dataclass
@@ -264,6 +266,36 @@ class SessionManager:
             self.storage.save_meta(session.meta)
         # Spawn embedding task
         self.storage.spawn_embed_task(session_id, message.idx, message.content)
+
+    def update_message_tokens(
+        self,
+        idx: int,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        session_id: str | None = None,
+    ) -> None:
+        """Update token counts for a specific message.
+
+        Args:
+            idx: Message index (position in current.jsonl)
+            input_tokens: Input token count to set
+            output_tokens: Output token count to set
+            session_id: Optional session ID. If None, uses current CLI session.
+        """
+        session: Session | None
+        if session_id:
+            session = self.get_or_create_session(session_id)
+        else:
+            session = self.get_current_cli_session()
+            if session is None:
+                return
+
+        # Find and update the message
+        for msg in session.messages:
+            if msg.idx == idx:
+                msg.input_tokens = input_tokens
+                msg.output_tokens = output_tokens
+                break
 
     def clear_session(self) -> None:
         """Clear current CLI session reference (doesn't delete)."""

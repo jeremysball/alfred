@@ -151,6 +151,8 @@ class SessionStorage:
                         content=data["content"],
                         timestamp=datetime.fromisoformat(data["timestamp"]),
                         embedding=data.get("embedding"),
+                        input_tokens=data.get("input_tokens", 0),
+                        output_tokens=data.get("output_tokens", 0),
                     )
                 )
         return messages
@@ -165,6 +167,8 @@ class SessionStorage:
                 "content": message.content,
                 "timestamp": message.timestamp.isoformat(),
                 "embedding": message.embedding,
+                "input_tokens": message.input_tokens,
+                "output_tokens": message.output_tokens,
             }
         )
         async with aiofiles.open(messages_path, "a") as f:
@@ -198,6 +202,8 @@ class SessionStorage:
                         "content": msg.content,
                         "timestamp": msg.timestamp.isoformat(),
                         "embedding": msg.embedding,
+                        "input_tokens": msg.input_tokens,
+                        "output_tokens": msg.output_tokens,
                     }
                 )
                 await f.write(line + "\n")
