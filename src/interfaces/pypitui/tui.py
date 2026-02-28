@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
+from src.interfaces.pypitui.constants import USE_MARKDOWN_RENDERING
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager
