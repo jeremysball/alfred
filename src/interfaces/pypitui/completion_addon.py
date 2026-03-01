@@ -169,11 +169,12 @@ class CompletionAddon:
             # Replace the last line (input line) with ghost-injected version
             # Hide cursor and show ghost text dimmed
             input_line = lines[-1]
-            # Remove cursor marker and reverse video if present
+            # Remove cursor marker and reverse video codes (including cursor char)
             import re
-            # Strip cursor marker and reverse video codes
+            # Strip cursor marker APC sequence
             clean_line = re.sub(r'\x1b_pi:c\x07', '', input_line)
-            clean_line = re.sub(r'\x1b\[7m([^\x1b]*)\x1b\[27m', r'\1', clean_line)
+            # Strip reverse video block completely (remove cursor char)
+            clean_line = re.sub(r'\x1b\[7m[^\x1b]*\x1b\[27m', '', clean_line)
             # Add ghost text with faint attribute
             ghost_line = f"{clean_line}\x1b[2m{ghost}\x1b[0m"
             lines = lines[:-1] + [ghost_line]
