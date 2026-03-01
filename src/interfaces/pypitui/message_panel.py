@@ -2,33 +2,12 @@
 
 from __future__ import annotations
 
-import re
 from typing import Literal
 
 from pypitui import BorderedBox, Text  # type: ignore
 
 from src.interfaces.pypitui.constants import CYAN, DIM, GREEN, RED, RESET
 from src.interfaces.pypitui.models import ToolCallInfo
-
-# Valid Rich console markup style names
-VALID_RICH_STYLES = frozenset([
-    # Styles
-    "bold", "dim", "italic", "underline", "strike", "reverse",
-    # Colors
-    "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-    "bright_black", "bright_red", "bright_green", "bright_yellow",
-    "bright_blue", "bright_magenta", "bright_cyan", "bright_white",
-    # Background colors (prefixed with 'on_')
-    "on_black", "on_red", "on_green", "on_yellow", "on_blue",
-    "on_magenta", "on_cyan", "on_white",
-])
-
-# Pattern to match complete Rich markup tag pairs: [style]content[/style]
-# Only matches if style is in VALID_RICH_STYLES
-RICH_TAG_PATTERN = re.compile(
-    r'\[(' + '|'.join(VALID_RICH_STYLES) + r')\](.+?)\[/\1\]',
-    re.IGNORECASE | re.DOTALL
-)
 
 
 class MessagePanel(BorderedBox):  # type: ignore[misc]
@@ -91,8 +70,9 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Set border color based on role
         self._set_border_color(role)
 
-        # Build initial content (with markdown if enabled)
-        self._rebuild_content()
+        # Add content as Text child
+        if content:
+            self.add_child(Text(content, padding_x=0))
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -223,8 +203,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             # Use Rich markdown rendering if enabled
             if self._use_markdown and self._renderer:
                 try:
-                    # Process: markdown -> find Rich tags -> markup -> combine
-                    display_text = self._render_with_markup(self._text_content)
+                    display_text = self._renderer.render_markdown(self._text_content)
                 except Exception:
                     # Fallback to plain text on error
                     display_text = self._text_content
@@ -234,60 +213,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             self._build_content_with_tools()
 
         self.invalidate()
-
-    def _render_with_markup(self, text: str) -> str:
-        """Render text with both markdown and Rich console markup.
-
-        Process:
-        1. Find all valid Rich tag pairs ([style]content[/style])
-        2. Extract them and replace with placeholders
-        3. Apply markdown to the text without Rich tags
-        4. Apply markup to the extracted Rich sections
-        5. Insert the rendered markup back into the markdown result
-        """
-        if self._renderer is None:
-            return text
-
-        if not RICH_TAG_PATTERN.search(text):
-            # No valid Rich tags, just apply markdown
-            return self._renderer.render_markdown(text)
-
-        # Collect all Rich tag sections and their positions
-        rich_sections = []
-        text_without_rich = []
-        pos = 0
-
-        for match in RICH_TAG_PATTERN.finditer(text):
-            # Add text before this Rich tag
-            text_without_rich.append(text[pos:match.start()])
-            # Store this Rich section for later rendering
-            rich_sections.append(match.group())
-            pos = match.end()
-
-        # Add remaining text
-        text_without_rich.append(text[pos:])
-
-        # Join with a safe delimiter that markdown won't process
-        # Using Unicode private use area character
-        delimiter = "\ue000"
-        markdown_input = delimiter.join(text_without_rich)
-
-        # Apply markdown
-        markdown_rendered = self._renderer.render_markdown(markdown_input)
-
-        # Split back into parts
-        parts = markdown_rendered.split(delimiter)
-
-        # Combine: markdown part + markup-rendered Rich section
-        result_parts = []
-        for i, part in enumerate(parts):
-            result_parts.append(part)
-            if i < len(rich_sections):
-                # Apply markup to the Rich section
-                markup_rendered = self._renderer.render_markup(rich_sections[i])
-                result_parts.append(markup_rendered)
-
-        return "".join(result_parts)
 
     def _build_content_with_tools(self) -> None:
         """Build content string with tool call boxes embedded."""
