@@ -383,24 +383,14 @@ class AlfredTUI:
         # Get the partial ID being typed
         partial = text[8:]  # After '/resume '
 
-        # Get available sessions
-        sessions = self.alfred.session_manager.storage.list_sessions()
+        # Get available session IDs (list of strings)
+        session_ids = self.alfred.session_manager.storage.list_sessions()
         results = []
 
-        for session in sessions:
-            sid = session.session_id
-            # Use first message or timestamp as description
-            if session.created_at:
-                desc = session.created_at.strftime("%Y-%m-%d %H:%M")
-            else:
-                desc = "Unknown"
-            if session.messages:
-                first_msg = session.messages[0].content[:30] + "..."
-                desc = f"{desc} - {first_msg}"
-
+        for sid in session_ids:
             # Fuzzy match against partial ID
             if fuzzy_match(partial.lower(), sid.lower()):
-                results.append((f"/resume {sid}", desc))
+                results.append((f"/resume {sid}", None))
 
         return results[:5]  # Limit to 5 results
 
