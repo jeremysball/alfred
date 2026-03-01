@@ -9,6 +9,8 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
+import tiktoken
+
 from src.config import Config
 
 T = TypeVar("T")
@@ -206,6 +208,7 @@ class KimiProvider(LLMProvider):
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=api_messages,
+                reasoning_effort="high",
             )
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
@@ -243,10 +246,11 @@ class KimiProvider(LLMProvider):
         """Send chat with tool definitions."""
 
         try:
-            response = await self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(  # type: ignore[call-overload]
                 model=self.model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],  # type: ignore[misc]
-                tools=tools,  # type: ignore[arg-type]
+                messages=[{"role": m.role, "content": m.content} for m in messages],
+                tools=tools,
+                reasoning_effort="high",
             )
 
             message = response.choices[0].message
@@ -261,8 +265,8 @@ class KimiProvider(LLMProvider):
                         "id": tc.id,
                         "type": "function",
                         "function": {
-                            "name": tc.function.name,  # type: ignore[union-attr]
-                            "arguments": tc.function.arguments,  # type: ignore[union-attr]
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
                         },
                     }
                     for tc in message.tool_calls
@@ -306,6 +310,7 @@ class KimiProvider(LLMProvider):
                 model=self.model,
                 messages=api_messages,
                 stream=True,
+                reasoning_effort="high",
             )
 
         try:
@@ -369,6 +374,7 @@ class KimiProvider(LLMProvider):
                 tools=tools,
                 stream=True,
                 stream_options={"include_usage": True},
+                reasoning_effort="high",
             )
 
         try:
@@ -395,6 +401,8 @@ class KimiProvider(LLMProvider):
         tool_calls_data = []
         current_tool_call = None
         full_content = ""
+        full_reasoning = ""  # Accumulate reasoning content for token counting
+        encoder = tiktoken.get_encoding("cl100k_base")  # Tokenizer for counting
 
         try:
             async for chunk in stream:
@@ -416,10 +424,15 @@ class KimiProvider(LLMProvider):
                                 "cached_tokens": cached,
                             }
 
-                        # Extract reasoning tokens (nested in completion_tokens_details)
+                        # Extract reasoning tokens - first try API response, fallback to counting
                         reasoning = 0
-                        if chunk.usage.completion_tokens_details:
-                            reasoning = chunk.usage.completion_tokens_details.reasoning_tokens or 0
+                        details = chunk.usage.completion_tokens_details
+                        if details and details.reasoning_tokens:
+                            reasoning = details.reasoning_tokens
+                        elif full_reasoning:
+                            # Kimi doesn't return reasoning_tokens, count them ourselves
+                            reasoning = len(encoder.encode(full_reasoning))
+
                         if reasoning > 0:
                             usage_data["completion_tokens_details"] = {
                                 "reasoning_tokens": reasoning,
@@ -436,6 +449,7 @@ class KimiProvider(LLMProvider):
 
                 # Handle reasoning content (required for Kimi thinking mode with tool calls)
                 if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+                    full_reasoning += delta.reasoning_content
                     yield f"[REASONING]{delta.reasoning_content}"
 
                 # Handle tool calls
