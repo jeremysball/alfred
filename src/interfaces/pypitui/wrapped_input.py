@@ -14,6 +14,8 @@ from collections.abc import Callable
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
+from src.interfaces.pypitui.completion_addon import CompletionAddon
+
 
 class WrappedInput(Component, Focusable):
     """Text input with display-line navigation for wrapped text.
@@ -75,6 +77,35 @@ class WrappedInput(Component, Focusable):
             filter_fn: Function taking lines and width, returning modified lines.
         """
         self._render_filters.append(filter_fn)
+
+    def with_completion(
+        self,
+        provider: Callable[[str], list[tuple[str, str | None]]],
+        trigger: str = "/",
+    ) -> "WrappedInput":
+        """Add command completion with fluent API.
+
+        Attaches a CompletionAddon to this input for command completion.
+        Returns self for chaining.
+
+        Args:
+            provider: Function that takes current text and returns
+                     list of (value, description) tuples.
+            trigger: Character that triggers completion (default: "/").
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            def my_provider(text: str) -> list[tuple[str, str | None]]:
+                if text.startswith("/"):
+                    return [("/new", "New session"), ("/resume", "Resume")]
+                return []
+
+            input_field = WrappedInput().with_completion(my_provider)
+        """
+        CompletionAddon(self, provider, trigger=trigger)
+        return self
 
     @property
     def focused(self) -> bool:
