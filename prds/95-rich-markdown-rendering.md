@@ -438,7 +438,52 @@ async def test_markdown_rendering():
 - [x] No regressions in existing TUI functionality
 - [x] Session history messages render with markdown on resume
 - [x] Tool call panels have bold titles and JSON syntax highlighting
-- [x] All 719 tests pass
+- [x] All 766 tests pass
+
+## Additional Improvements (Completed)
+
+### Agent Behavior Documentation
+
+Updated `AGENTS.md` with clearer priorities and TUI documentation:
+
+- [x] Restructure rule priorities (TDD as #1 after pre-flight)
+- [x] Add explicit ANSI color placeholder syntax documentation
+- [x] Add "Wrong vs Right" table for background colors (`{on_red}` not `{bg_red}`)
+- [x] Document that placeholders don't work inside markdown code blocks
+
+### Reasoning Token Display
+
+Fixed reasoning tokens not appearing in UI status line:
+
+- [x] Accumulate `reasoning_content` during streaming for Kimi models
+- [x] Count reasoning tokens locally using tiktoken (Kimi API doesn't return them)
+- [x] Display format: `↓40/31ρ` (output tokens / reasoning tokens)
+- [x] Add tiktoken dependency for token counting
+
+### Logging Infrastructure
+
+Fixed INFO/DEBUG logs being dropped in TUI mode:
+
+- [x] Add stream handler for INFO/DEBUG logs to stderr
+- [x] Keep ToastHandler for WARNING/ERROR in TUI mode
+- [x] Ensure both handlers work together properly
+
+### Testing
+
+Added behavioral tests for ANSI color system:
+
+- [x] Create `tests/pypitui/test_ansi.py` with `TestAnsiRenderingBehavior` class
+- [x] Test background colors use correct ANSI escape codes (`\033[41m` for red)
+- [x] Test `{on_red}` pattern (not `{bg_red}`) produces correct output
+- [x] Verify placeholders don't work inside markdown code blocks
+
+### Documentation
+
+Updated `templates/SOUL.md` with expanded personality:
+
+- [x] Add "Default to Yes" section
+- [x] Emphasize trust, bravery, and showing up with point of view
+- [x] Expand on remembering as a form of care
 
 ---
 
@@ -493,4 +538,9 @@ Add to `pyproject.toml`:
 | 3.1 | AlfredTUI integration | ✅ |
 | 3.2 | Configuration options | ✅ |
 | 4.0 | Tool call Rich formatting | ✅ (bold titles, JSON highlighting) |
-| 5.0 | E2E testing and polish | ✅ (719 tests pass) |
+| 5.0 | E2E testing and polish | ✅ (766 tests pass) |
+| 6.0 | Agent behavior documentation | ✅ (AGENTS.md restructuring, ANSI docs) |
+| 6.1 | Reasoning token display | ✅ (tiktoken-based counting for Kimi) |
+| 6.2 | Logging infrastructure | ✅ (stream handler for INFO/DEBUG) |
+| 6.3 | ANSI color testing | ✅ (behavioral tests for TUI colors) |
+| 6.4 | Personality updates | ✅ (SOUL.md expanded) |
