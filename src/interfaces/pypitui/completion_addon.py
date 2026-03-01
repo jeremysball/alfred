@@ -39,10 +39,13 @@ class CompletionAddon:
         self._menu = CompletionMenu(max_height=max_height)
         self._last_text: str | None = None
 
+        # Track previous menu state for detecting changes
+        self._was_open = False
+        self._prev_option_count = 0
+
         # Register hooks
         self._input.add_input_filter(self._handle_input)
         self._input.add_render_filter(self._handle_render)
-        self._input.add_ghost_text_provider(self.get_ghost_text)
 
     def _handle_input(self, key: str) -> bool:
         """Handle keyboard input when completion is active.
@@ -139,20 +142,50 @@ class CompletionAddon:
         return None
 
     def _handle_render(self, lines: list[str], width: int) -> list[str]:
-        """Prepend menu to input render output.
+        """Prepend menu to input render output and inject ghost text.
 
         Args:
             lines: Input render lines.
             width: Render width.
 
         Returns:
-            Menu lines followed by input lines.
+            Menu lines followed by input lines with ghost text.
         """
         # Update completion state before rendering (text is now current)
         self._update_completion()
+
+        # Detect menu state changes for re-render requests
+        current_option_count = len(self._menu._options) if self._menu.is_open else 0
+        state_changed = (
+            self._was_open != self._menu.is_open
+            or self._prev_option_count != current_option_count
+        )
+        self._was_open = self._menu.is_open
+        self._prev_option_count = current_option_count
+
+        # Inject ghost text into the last line (input line with cursor)
+        ghost = self.get_ghost_text()
+        if ghost and lines:
+            # Replace the last line (input line) with ghost-injected version
+            # Hide cursor and show ghost text dimmed
+            input_line = lines[-1]
+            # Remove cursor marker and reverse video if present
+            import re
+            # Strip cursor marker and reverse video codes
+            clean_line = re.sub(r'\x1b_pi:c\x07', '', input_line)
+            clean_line = re.sub(r'\x1b\[7m([^\x1b]*)\x1b\[27m', r'\1', clean_line)
+            # Add ghost text with faint attribute
+            ghost_line = f"{clean_line}\x1b[2m{ghost}\x1b[0m"
+            lines = lines[:-1] + [ghost_line]
 
         if not self._menu.is_open:
             return lines
 
         menu_lines = self._menu.render(width)
-        return menu_lines + lines
+        result = menu_lines + lines
+
+        # Request full re-render if menu state changed
+        if state_changed and hasattr(self._input, 'invalidate'):
+            self._input.invalidate()
+
+        return result
