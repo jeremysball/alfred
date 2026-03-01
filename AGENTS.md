@@ -2,78 +2,119 @@
 
 ---
 
-## ⛔ PRE-FLIGHT CHECK — DO THIS FIRST
+## Pre-Flight Check
 
-**STOP.** Before responding to any user message or command, you **MUST**:
+Do this before every response:
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
 2. Read `/workspace/alfred-prd/.pi/skills/ntfy/SKILL.md`
 3. Read `/workspace/alfred-prd/.pi/skills/serper-search/SKILL.md`
-4. Read `/workspace/alfred-prd/docs/ROADMAP.md` (project roadmap)
-5. Confirm completion in your first response: "✅ Skills and parent PRD loaded"
+4. Read `/workspace/alfred-prd/docs/ROADMAP.md`
+5. Confirm: "✅ Skills and parent PRD loaded"
 
-**No exceptions.** This applies to:
-- The first message of every conversation
-- Commands like `/prd-start`, `/prd-next`, etc.
-- Simple questions, complex tasks, everything
-
-If you skip this step, you have failed the pre-flight check.
+This applies to all messages and commands—including simple questions.
 
 ---
 
-## ⛔⛔⛔ ASK DESIGN QUESTIONS FIRST — HIGHEST PRIORITY ⛔⛔⛔
+## Ask Design Questions First
 
-**THIS RULE OVERRIDES ALL OTHER RULES.**
+This rule overrides all others.
 
-Before writing ANY code or implementing ANY feature, you **MUST**:
+Before writing code:
 
-1. **Ask clarifying design questions** — Never assume you understand the requirements
-2. **Wait for answers** — Do not proceed until the user confirms the design
-3. **Present options** — Show alternatives with tradeoffs, let the user choose
-4. **Get explicit confirmation** — Only after approval may you proceed to implementation
+1. Ask clarifying questions—never assume you understand requirements
+2. Wait for answers—do not proceed until the user confirms
+3. Present options—show alternatives with tradeoffs
+4. Get explicit confirmation—only then proceed to implementation
 
-**The process is ALWAYS:**
-```
-Understand → Ask Questions → Discuss Options → User Decides → Confirm → Implement
-```
+**Process:** Understand → Ask Questions → Discuss Options → User Decides → Confirm → Implement
 
-**WRONG — Do NOT do this:**
-- Start coding immediately after receiving a task
-- Explore codebase and then implement without asking
-- Assume "the user said go" means "skip design discussion"
-- Make architectural decisions without user input
+**Wrong:** Start coding immediately. Explore the codebase then implement without asking. Assume "go" means "skip design discussion."
 
-**RIGHT — Always do this:**
-- "Before I implement, I have some design questions..."
-- "Here are a few options for how we could approach this..."
-- "Which approach do you prefer?"
-
-**NO EXCEPTIONS.** Even if a skill says to implement, even if the user says "go", even if the task seems simple — **ASK DESIGN QUESTIONS FIRST.**
+**Right:** "Before I implement, I have some design questions..." / "Here are a few options..." / "Which approach do you prefer?"
 
 ---
 
-## ⚠️ SECRETS & AUTHENTICATION — READ THIS
+## Test-Driven Development
 
-**ANY command needing secrets MUST use `uv run dotenv`:**
+This rule is absolute. No exceptions.
+
+Before writing implementation code:
+
+1. Create `tests/test_<module>.py`
+2. Write the test—define expected behavior first
+3. Run the test and see it fail—confirms the test is valid
+4. Implement minimum code to pass
+5. Refactor—clean up while tests protect you
+
+### Forbidden: Ad-Hoc Testing
+
+Never use `python -c` for testing:
+
+```bash
+# Wrong—not repeatable, not versioned, no regression protection
+python -c "from mymodule import func; assert func(1) == 2"
+```
+
+### Required: Write Test Files
+
+```bash
+# Create test file first
+touch tests/test_mymodule.py
+
+# Write the test
+def test_func_returns_double():
+    from mymodule import func
+    assert func(1) == 2
+
+# Run with pytest
+uv run pytest tests/test_mymodule.py -v
+```
+
+### When python -c Is Acceptable
+
+- **Exploring**—Understanding how a library works
+- **Debugging**—Quick inspection of state/values
+- **One-off scripts**—Never for verifying code correctness
+
+### The Red-Green-Refactor Cycle
+
+| Phase | Action |
+|-------|--------|
+| **Red** | Write a failing test that describes desired behavior |
+| **Green** | Write minimum code to make the test pass |
+| **Refactor** | Clean up while tests protect you |
+
+### Test Coverage Requirements
+
+| Category | Examples |
+|----------|----------|
+| Happy path | Normal inputs, expected outputs |
+| Edge cases | Empty, null, boundary values, off-by-one |
+| Error cases | Invalid input, missing files, network errors |
+| Type safety | Wrong types, None values |
+
+---
+
+## Secrets and Authentication
+
+Any command needing secrets must use `uv run dotenv`:
 
 ```bash
 uv run dotenv gh pr create --title "..." --body "..."
-uv run dotenv gh issue close 23
 uv run dotenv python script_using_api.py
 ```
 
-**WRONG — Do NOT do this:**
+**Wrong:**
 ```bash
-gh pr create --title "..."                               # ❌ No ALFRED_REPO_PAT
-source .env && gh pr create                              # ❌ Pollutes shell
-export $(cat .env | grep ALFRED_REPO_PAT | xargs) && gh ... # ❌ Pollutes shell
+gh pr create --title "..."                    # No ALFRED_REPO_PAT
+source .env && gh pr create                   # Pollutes shell
+export $(cat .env | grep ALFRED_REPO_PAT) && ...  # Pollutes shell
 ```
-
-**NO EXCEPTIONS.** Every command requiring tokens (GitHub CLI, Serper API, etc.) must use `uv run dotenv`.
 
 ---
 
-## 🚀 Running the Project
+## Running the Project
 
 ```bash
 # Interactive TUI (default)
@@ -92,117 +133,88 @@ uv run alfred cron add "daily standup" "every day at 9am"
 uv run alfred cron remove <job_id>
 ```
 
-**Entry point:** `src/cli/main.py` (Typer CLI)
+**Entry point:** `src/cli/main.py`
 
 ---
+
+## 🎨 TUI Color System
+
+Alfred's TUI supports **ANSI color placeholders** for styling agent responses. Use curly brace syntax `{color}` to add colors and styles to text.
+
+### Usage
+
+Wrap text with color placeholders:
+
+```
+{cyan}command{reset} executed {bold}{green}successfully{reset}
+```
+
+This renders as colored text in the TUI. **Always use `{reset}`** to end styling.
+
+### Available Colors
+
+**Basic colors:** `{black}`, `{red}`, `{green}`, `{yellow}`, `{blue}`, `{magenta}`, `{cyan}`, `{white}`
+
+**Bright colors:** `{bright_black}`, `{bright_red}`, `{bright_green}`, `{bright_yellow}`, `{bright_blue}`, `{bright_magenta}`, `{bright_cyan}`, `{bright_white}`
+
+**Backgrounds:** `{on_red}`, `{on_green}`, `{on_blue}`, `{on_cyan}`, `{on_magenta}`, `{on_yellow}`, `{on_black}`, `{on_white}`
+
+**Bright backgrounds:** `{on_bright_red}`, `{on_bright_green}`, etc.
+
+### Available Styles
+
+- `{bold}` — Bold text
+- `{dim}` — Dimmed text
+- `{italic}` — Italic text
+- `{underline}` — Underlined text
+- `{reset}` — Reset all styling (required to end colors)
+
+### Examples
+
+| Input | Result |
+|-------|--------|
+| `{red}Error:{reset} file not found` | Red "Error:" prefix |
+| `{cyan}git status{reset}` | Cyan command name |
+| `{bold}{green}✓{reset} Done` | Bold green checkmark |
+| `{yellow}Warning:{reset} {dim}deprecated{reset}` | Yellow warning, dim note |
+
+### Implementation
+
+The color system is in `src/interfaces/pypitui/ansi.py`. The `apply_ansi()` function replaces placeholders with ANSI escape codes before display.
+
+---
+
+## Rule Index
+
 ### 0. Use tmux
-- Use tmux whenever something requires interactive control, especially when manual testing is needed.
-- **Debugging TUI output:** Capture raw ANSI output with `tmux new-session -d -s alfred "uv run alfred --debug debug 2>&1 | tee /tmp/alfred.log"` then inspect with `tail /tmp/alfred.log`. This reveals the actual escape sequences being sent, which is invaluable for diagnosing rendering issues.
 
-### 0. Commit Early, Commit Often
-**CRITICAL**: Make small, atomic commits frequently. Never batch multiple features into one commit.
+Use tmux whenever something requires interactive control, especially for manual testing.
 
-**Atomic Commit Rules:**
-1. **One logical change per commit** - If you can't describe it in one line, it's too big
-2. **Every commit passes tests** - Never commit broken code
-3. **Use `git add -p`** - Stage individual hunks, not entire files
-4. **Commit after each working change** - Don't wait until "done"
-
-**The Commit Cadence:**
-```
-Write small change → Run tests → git add -p → Commit → Repeat
+**Debugging TUI output:**
+```bash
+tmux new-session -d -s alfred "uv run alfred --debug debug 2>&1 | tee /tmp/alfred.log"
+tail /tmp/alfred.log
 ```
 
-**Interactive Staging with tmux**
+### 1. Commit Early, Commit Often
 
-When you have multiple changes across files, use tmux to run `git add -p` interactively. This lets you review each hunk and decide what goes into each atomic commit.
+Before committing, read the commit skill:
 
 ```bash
-# Start a tmux session for committing
-tmux new-session -s commit
-
-# Stage interactively (review each hunk)
-git add -p src/alfred.py
-
-# Git shows each hunk with options:
-#   y - stage this hunk
-#   n - do not stage this hunk  
-#   s - split into smaller hunks
-#   e - edit the hunk manually
-#   ? - show all options
-
-# After staging, commit
-git commit -m "feat(alfred): estimate input tokens on session resume"
-
-# Repeat for next atomic change
-git add -p src/interfaces/pypitui/tui.py
-git commit -m "refactor(pypitui): switch to upstream TUI class"
+cat /workspace/alfred-prd/.pi/skills/commit/SKILL.md
 ```
 
-**Key Commands for Interactive Staging:**
+Make small, atomic commits. Never batch multiple features into one commit.
 
-| Command | Purpose |
-|---------|---------|
-| `git add -p <file>` | Stage interactively from specific file |
-| `git add -p` | Stage interactively from all changes |
-| `git diff --cached` | See what's currently staged |
-| `git diff` | See what remains unstaged |
-| `git reset -p` | Unstage hunks interactively |
-| `git checkout -p` | Discard hunks interactively |
+**Atomic commit rules:**
+1. One logical change per commit—if you cannot describe it in one line, it is too big
+2. Every commit passes tests—never commit broken code
+3. Use `git add -p`—stage individual hunks, not entire files
+4. Commit after each working change—do not wait until "done"
 
-**Example Workflow in tmux:**
+**Commit cadence:** Write change → Run tests → `git add -p` → Commit → Repeat
 
-```bash
-# 1. See all changes
-git diff
-
-# 2. Stage first logical change
-git add -p src/alfred.py
-# (press 'y' for token estimation hunks, 'n' for other hunks)
-
-# 3. Verify what's staged
-git diff --cached
-
-# 4. Commit if it looks right
-git commit -m "feat(alfred): estimate input tokens on session resume"
-
-# 5. Stage next logical change
-git add -p src/alfred.py
-# (press 'y' for the remaining hunks)
-
-# 6. Commit
-git commit -m "test(alfred): update tests for input token estimation"
-
-# 7. Continue until clean
-git status  # should show clean working tree
-```
-
-**WRONG — Do NOT do this:**
-```bash
-# ❌ Massive commit with multiple features
-git add -A && git commit -m "feat: add Ctrl-C handling, queue nav, tool boxes"
-```
-
-**RIGHT — Do this instead:**
-```bash
-# ✅ Atomic commits, one per feature
-git add -p src/interfaces/pypitui/tui.py  # Stage just the Ctrl-C change
-git commit -m "feat(tui): exit immediately on Ctrl-C when input is empty"
-
-# Later, after tests pass...
-git add -p src/interfaces/pypitui/status_line.py
-git commit -m "feat(tui): show exit hint as toast instead of status line"
-
-# And so on...
-```
-
-**When to commit:**
-- After implementing a single feature or fix
-- After updating tests for that change
-- After refactoring a single function/module
-- After fixing a bug (separate from feature work)
-
-**Conventional Commit Format:**
+**Conventional commit format:**
 ```
 <type>(<scope>): <description>
 
@@ -211,86 +223,47 @@ git commit -m "feat(tui): show exit hint as toast instead of status line"
 
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
-### 1. Permission First
+### 2. Always Ask Questions When Creating PRDs
 
-
-- Emit changeloafter commits
-**Changelog Requirements:**
-1. **Approach**: What you're doing and how
-2. **Alternatives Considered**: Other approaches you rejected
-3. **Tradeoffs Made**: What you sacrificed for this choice
-
-### 2. ALWAYS Ask Questions When Creating PRDs
-**CRITICAL**: When using the `prd-create` skill, you **MUST**:
+When using the `prd-create` skill:
 
 - Ask clarifying design questions before writing anything
 - Present alternatives with tradeoffs
 - Get explicit user confirmation before proceeding
 
-This applies the design-first rule from above.
+### 3. Testing Edge Cases
 
-### 4. Test-Driven Development (TDD) — MANDATORY
-**ALWAYS** follow TDD principles when writing code:
+Always test edge cases, not just happy paths. Do not mock unless you have no other choice.
 
-1. **Write tests first** — Before any implementation
-2. **Run tests to see them fail** — Confirms test validity
-3. **Implement minimum code to pass** — No over-engineering
-4. **Refactor** — Clean up while tests protect you
+| Test | Examples |
+|------|----------|
+| Input validation | null, empty strings, wrong types, malformed data |
+| Boundary conditions | off-by-one, empty collections, max/min values |
+| Error handling | network failures, timeouts, missing files |
+| Async edge cases | race conditions, concurrent access, timeouts |
 
-**WRONG — Do NOT do this:**
-- Write code first, then add tests
-- Skip tests because "it's a simple change"
-- Test only happy paths
-
-**RIGHT — Always do this:**
-- Red → Green → Refactor cycle
-- Test edge cases alongside implementation
-- Justify if TDD isn't applicable (rare)
-
-### 5. Testing Edge Cases — MANDATORY
-**ALWAYS** test edge cases, not just happy paths. **DO NOT MOCK** unless you have no other choice.
-
-- **Input validation**: null, empty strings, wrong types, malformed data
-- **Boundary conditions**: off-by-one, empty collections, max/min values, integer overflow
-- **Error handling**: network failures, timeouts, missing files, permission denied
-- **Async edge cases**: race conditions, concurrent access, timeout handling
-
-**Mocking is a last resort.** Prefer:
-- Real file systems (use temp directories)
-- Real network calls (use test servers/containers)
-- Real databases (use test instances)
-
-**Only mock when:**
+**Mock only when:**
 - External services you cannot control
 - Non-deterministic behavior (time, randomness)
 - Extremely slow operations
 
-**Example:**
-```python
-# ✅ Test edge cases
-def test_parse_config():
-    assert parse_config('{"key": "value"}') == {"key": "value"}  # happy
-    assert parse_config('{}') == {}                               # empty
-    assert parse_config('invalid') raises ValueError              # malformed
-    assert parse_config(None) raises TypeError                    # null
-```
+### 4. Defensive Programming
 
-### 6. Defensive Programming — MANDATORY
-**ALWAYS** write defensive code:
+Always write defensive code:
 
-- **Validate inputs at boundaries**: Check args at function/class entry points
-- **Fail fast with explicit errors**: Raise specific exceptions early, not cryptic ones later
-- **Type safety**: Use type hints + runtime validation (Pydantic, asserts)
-- **Assertions for invariants**: `assert` conditions that must always hold
-- **Follow PEP 8**: Adhere to [Python style conventions](https://peps.python.org/pep-0008/)
+- **Validate inputs at boundaries**—check args at function/class entry points
+- **Fail fast with explicit errors**—raise specific exceptions early
+- **Type safety**—use type hints + runtime validation (Pydantic, asserts)
+- **Assertions for invariants**—assert conditions that must always hold
+- **Follow PEP 8**—adhere to [Python style conventions](https://peps.python.org/pep-0008/)
 
-**WRONG — Do NOT do this:**
+**Wrong:**
 ```python
 def process(data):
-    return data["items"][0]["name"]  # ❌ Multiple silent failure points
+    return data["items"][0]["name"]  # Multiple silent failure points
 ```
 
-**CORRECT — Do this instead:**
+**Right:**
 ```python
 def process(data: dict) -> str:
     if not data:
@@ -302,8 +275,13 @@ def process(data: dict) -> str:
     return data["items"][0]["name"]
 ```
 
-### 7. Notify on Long-Running Tasks — MANDATORY
-**ALWAYS** send an ntfy notification when: long-running tasks complete, user input required, workflow milestones (PR created/merged), or errors needing attention.
+### 5. Notify on Long-Running Tasks
+
+Always send an ntfy notification when:
+- Long-running tasks complete
+- User input required
+- Workflow milestones (PR created/merged)
+- Errors needing attention
 
 ```bash
 # Simple notification
@@ -313,10 +291,11 @@ curl -s -d "Task complete" ntfy.sh/pi-agent-prometheus
 curl -s -H "Priority: high" -d "Input needed" ntfy.sh/pi-agent-prometheus
 ```
 
-**Don't notify for:** simple file reads, intermediate steps, quick acknowledgments.
+Do not notify for: simple file reads, intermediate steps, quick acknowledgments.
 
-### 8. Use Serper for Web Search — MANDATORY
-**USE** Serper API (not your training data) for web searches:
+### 6. Use Serper for Web Search
+
+Use Serper API (not training data) for web searches:
 
 ```bash
 uv run dotenv curl -X POST https://google.serper.dev/search \
@@ -325,17 +304,21 @@ uv run dotenv curl -X POST https://google.serper.dev/search \
   -d '{"q": "your search query"}'
 ```
 
-**Use for:** documentation, library versions, best practices, recent news.
+Use for: documentation, library versions, best practices, recent news.
 
-### 9. Always Verify Before Done
+### 7. Always Verify Before Done
+
 After any code change, run:
+
 ```bash
 uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
-Show results. Fix issues. Then it's done.
 
-### 10. ALWAYS Use Conventional Commits
-**CRITICAL**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
+Show results. Fix issues. Then it is done.
+
+### 8. Always Use Conventional Commits
+
+All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>[optional scope]: <description>
@@ -346,14 +329,14 @@ Show results. Fix issues. Then it's done.
 ```
 
 **Types:**
-- `feat` — New feature
-- `fix` — Bug fix
-- `docs` — Documentation changes
-- `style` — Code style changes (formatting, semicolons)
-- `refactor` — Code change that neither fixes a bug nor adds a feature
-- `perf` — Performance improvement
-- `test` — Adding or correcting tests
-- `chore` — Build process or auxiliary tool changes
+- `feat`—New feature
+- `fix`—Bug fix
+- `docs`—Documentation changes
+- `style`—Code style changes (formatting, semicolons)
+- `refactor`—Code change that neither fixes a bug nor adds a feature
+- `perf`—Performance improvement
+- `test`—Adding or correcting tests
+- `chore`—Build process or auxiliary tool changes
 
 **Rules:**
 - Use lowercase for type and description
@@ -361,47 +344,39 @@ Show results. Fix issues. Then it's done.
 - Use body for "what" and "why", not "how"
 - Reference issues in footer when applicable
 
+### 9. Never Use Hardcoded Absolute Paths
 
-### 11. NEVER Use Hardcoded Absolute Paths
-**CRITICAL**: Never hardcode absolute paths like `/path/to/project/` or `/home/user/project/`.
-
-**WRONG — Do NOT do this:**
+**Wrong:**
 ```python
-# ❌ Breaks on any other machine or in CI/CD
-config_path = "/path/to/project/config.json"
-test_data_dir = "/home/user/project/tests/data"
+config_path = "/path/to/project/config.json"        # Breaks on other machines
+test_data_dir = "/home/user/project/tests/data"     # Breaks in CI/CD
 ```
 
-**CORRECT — Do this instead:**
+**Right:**
 ```python
 from pathlib import Path
 
-# ✅ Relative to current file (works everywhere)
+# Relative to current file—works everywhere
 project_root = Path(__file__).parent.parent
-config_path = project_root / "config.json"
-
-# ✅ Or use runtime detection
-import os
-project_root = Path(os.getcwd())
 config_path = project_root / "config.json"
 ```
 
-**For tests:** Always derive paths from `__file__`:
+For tests, always derive paths from `__file__`:
 ```python
 def test_something():
-    # Test file is in tests/, project root is one level up
     project_root = Path(__file__).parent.parent
     config = load_config(project_root / "config.json")
 ```
 
-### 12. Use tmux-tape for CLI/TUI Testing
-**USE** the tmux-tape skill for E2E testing of interactive or visual CLI applications:
+### 10. Use tmux-tape for CLI/TUI Testing
 
-- **Asyncio apps** — Alfred, bots, servers (can't use VHS)
-- **TUI frameworks** — Textual, Rich Live, ncurses apps
-- **Visual verification** — Box-drawing, colors, layout
+Use the tmux-tape skill for E2E testing of interactive or visual CLI applications:
 
-**Not needed for:** simple scripts, unit tests, `--help` output.
+- **Asyncio apps**—Alfred, bots, servers (cannot use VHS)
+- **TUI frameworks**—Textual, Rich Live, ncurses apps
+- **Visual verification**—Box-drawing, colors, layout
+
+Not needed for: simple scripts, unit tests, `--help` output.
 
 **Workflow:**
 ```bash
@@ -416,16 +391,16 @@ from tmux_tool import TerminalSession
 with TerminalSession("alfred", port=7681) as s:
     s.send("alfred")
     s.send_key("Enter")
-    s.sleep(3)  # Wait for startup
-
+    s.sleep(3)
     result = s.capture("startup.png")
     assert "Alfred ready" in result["text"]
 ```
 
 See `.pi/skills/tmux-tape/SKILL.md` for full API.
 
-### 13. Create Granular Execution Plans
-When implementing a feature or PRD phase, create an **extremely granular** checklist first.
+### 11. Create Granular Execution Plans
+
+When implementing a feature or PRD phase, create an extremely granular checklist first.
 
 **Principles:**
 - Each item = single atomic action
@@ -434,7 +409,7 @@ When implementing a feature or PRD phase, create an **extremely granular** check
 - Include test items after implementation items
 - Include manual verification items
 
-**Granularity levels:**
+**Granularity:**
 
 | Too Coarse | Good | Excellent |
 |------------|------|-----------|
@@ -442,59 +417,12 @@ When implementing a feature or PRD phase, create an **extremely granular** check
 | "Wire into TUI" | "Add throbber to status line" | "Add `self._throbber = Throbber()` in `__init__`" |
 | "Test it works" | "Test throbber animation" | "Test: `test_throbber_tick_advances()`" |
 
-**Template for each implementation item:**
+**Template:**
 ```
 - [ ] Create/modify <file>
 - [ ] Add <specific code change>
-- [ ] Test: `test_<what>()` — verify <behavior>
-- [ ] Run: `uv run pytest <file>` — fix failures
+- [ ] Test: `test_<what>()`—verify <behavior>
+- [ ] Run: `uv run pytest <file>`—fix failures
 ```
-
-**Example execution plan structure:**
-```markdown
-## Phase A: Feature Name
-
-### A.1 Create Core Class
-- [ ] Create file `src/path/to/module.py`
-- [ ] Add import: `from typing import Literal`
-- [ ] Define constant: `MAX_ITEMS = 5`
-- [ ] Create class `Thing` with `__init__(self, name: str)`
-- [ ] Add `self._name = name`
-- [ ] Implement `do_thing(self) -> str`
-- [ ] Run: `uv run ruff check src/path/to/`
-
-### A.2 Test Core Class
-- [ ] Create file `tests/test_thing.py`
-- [ ] Test: `test_thing_init()` — verify name stored
-- [ ] Test: `test_do_thing_returns_string()` — verify return type
-- [ ] Run: `uv run pytest tests/test_thing.py -v`
-- [ ] Fix any failures
-
-### A.3 Integrate with Existing Code
-- [ ] Open `src/existing/module.py`
-- [ ] Add import at top: `from src.path.to.module import Thing`
-- [ ] Add `self._thing = Thing("name")` in `__init__`
-- [ ] Call `self._thing.do_thing()` in relevant method
-- [ ] Run: `uv run pytest tests/`
-
-### A.4 Manual Verification
-- [ ] Start app in tmux: `tmux new-session -d -s test "uv run alfred"`
-- [ ] Wait for startup: `sleep 2`
-- [ ] Trigger feature: `tmux send-keys -t test "hello" Enter`
-- [ ] Wait for response: `sleep 3`
-- [ ] Capture output: `tmux capture-pane -t test -p`
-- [ ] Verify expected behavior in output
-- [ ] Kill session: `tmux kill-session -t test`
-
-### A.5 Commit
-- [ ] Run: `uv run ruff check src/ && uv run mypy src/ && uv run pytest`
-- [ ] Stage: `git add src/path/to/module.py tests/test_thing.py`
-- [ ] Commit: `feat(module): add Thing class with do_thing method`
-```
-
-**When to create:**
-- Before implementing any PRD phase
-- Before any feature spanning 3+ files
-- When user asks for "detailed plan" or "todo list"
 
 **Store in:** `prds/execution-plan-<feature>.md`
