@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add tab-triggered command completion with a dropdown menu that renders above the input line. The system calls a registered provider function on every keystroke to get filtered completion options.
+Add tab-triggered command completion with a dropdown menu that renders above the input line. The system uses composition to attach completion behavior to any input component without inheritance.
 
 ---
 
@@ -19,14 +19,15 @@ This creates friction and requires users to remember exact command syntax.
 
 ## Solution
 
-A completion system integrated into `WrappedInput` that:
-1. Activates when input matches a trigger prefix (default: `/`)
-2. Calls a registered provider function on every keystroke
-3. Renders a dropdown menu **above** the input line
-4. Supports fuzzy filtering (provider returns all options, filters client-side)
-5. Accepts selection via **Tab** or **Enter**
-6. Navigates with **Up/Down** arrows
-7. Closes with **Esc** or when trigger prefix is deleted
+A composable completion system that:
+1. Attaches to any input component via `with_completion()` fluent API
+2. Activates when input matches a trigger prefix (default: `/`)
+3. Calls a registered provider function on every keystroke
+4. Renders a dropdown menu **above** the input line
+5. Supports fuzzy filtering (provider returns options based on current text)
+6. Accepts selection via **Tab** or **Enter**
+7. Navigates with **Up/Down** arrows
+8. Closes with **Esc** or when trigger prefix is deleted
 
 ---
 
@@ -76,25 +77,57 @@ A completion system integrated into `WrappedInput` that:
 
 ## API Design
 
-### Registration
+### Composition API
 
 ```python
-class CompletingInput(WrappedInput):
-    def register_completion_provider(
+# Usage - attach completion to any input
+input_field = WrappedInput(placeholder="Message Alfred...")
+input_field.with_completion(
+    provider=command_provider,
+    trigger="/",
+    max_height=5,
+)
+```
+
+### CompletionAddon Component
+
+```python
+class CompletionAddon:
+    """Composable completion behavior that wraps any input component."""
+    
+    def __init__(
         self,
+        input_component: WrappedInput,
         provider: Callable[[str], list[tuple[str, str | None]]],
         trigger: str = "/",
         max_height: int = 5,
     ) -> None:
-        """Register a completion provider.
+        """Attach completion behavior to input component.
         
         Args:
+            input_component: The input to attach completion to
             provider: Function called on every keystroke while trigger matches.
                      Takes current input text, returns list of (value, description).
                      Return empty list to hide menu.
             trigger: Prefix that activates completion mode.
             max_height: Maximum menu height (renders upward from input).
         """
+```
+
+### WrappedInput Hook Support
+
+```python
+class WrappedInput:
+    """Base input with hook support for composable behaviors."""
+    
+    def add_input_filter(self, filter_fn: Callable[[str], bool]) -> None:
+        """Register a key filter. If filter returns True, key is consumed."""
+    
+    def add_render_filter(self, filter_fn: Callable[[list[str], int], list[str]]) -> None:
+        """Register a render filter that can modify output lines."""
+    
+    def with_completion(self, **kwargs: Any) -> "WrappedInput":
+        """Fluent API to attach completion behavior. Returns self for chaining."""
 ```
 
 ### Provider Example
@@ -128,8 +161,11 @@ def command_provider(text: str) -> list[tuple[str, str | None]]:
     ]
 
 # Wire into TUI
-input_field = CompletingInput(placeholder="Message Alfred...")
-input_field.register_completion_provider(command_provider, trigger="/")
+input_field = WrappedInput(placeholder="Message Alfred...")
+input_field.with_completion(
+    provider=command_provider,
+    trigger="/"
+)
 ```
 
 ---
@@ -188,12 +224,10 @@ fuzzy_match("xyz", "/resume")   # False
 ```python
 class AlfredTUI:
     def __init__(self, ...):
-        # Replace WrappedInput with CompletingInput
-        self.input_field = CompletingInput(placeholder="Message Alfred...")
-        
-        # Register completion provider
-        self.input_field.register_completion_provider(
-            self._completion_provider,
+        # Use WrappedInput with completion attached
+        self.input_field = WrappedInput(placeholder="Message Alfred...")
+        self.input_field.with_completion(
+            provider=self._completion_provider,
             trigger="/"
         )
     
@@ -216,6 +250,27 @@ class SessionManager:
 
 ---
 
+## Architecture Decision: Composition Over Inheritance
+
+**Decision**: Use composition (`CompletionAddon`) instead of inheritance (`CompletingInput extends WrappedInput`)
+
+**Date**: 2026-03-01
+
+**Rationale**:
+- Completion is optional behavior - not all inputs need it
+- Composition keeps `WrappedInput` simple and focused
+- Multiple behaviors can be chained: `input.with_completion(...).with_history(...)`
+- Easier to test components in isolation
+- Follows principle: favor composition over inheritance
+
+**Implementation**:
+- `CompletionAddon` hooks into `WrappedInput` via `add_input_filter()` and `add_render_filter()`
+- Input filters intercept keys when menu is active
+- Render filters prepend menu lines to input render output
+- `with_completion()` provides fluent API for easy attachment
+
+---
+
 ## Milestones
 
 ### Milestone 1: Core CompletionMenu Component
@@ -228,13 +283,13 @@ class SessionManager:
 
 **Validation:** Unit tests verify rendering at various sizes
 
-### Milestone 2: CompletingInput Integration
-**Deliverable:** `CompletingInput` extends `WrappedInput` with completion
-- [ ] `register_completion_provider()` API
-- [ ] Calls provider on every keystroke matching trigger
-- [ ] Integrates `CompletionMenu` into render cycle
+### Milestone 2: CompletionAddon Integration
+**Deliverable:** `CompletionAddon` composable behavior
+- [ ] `WrappedInput` supports `add_input_filter()` and `add_render_filter()` hooks
+- [ ] `CompletionAddon` attaches to input via hooks
 - [ ] Intercepts Tab/Enter/Up/Down/Esc when menu open
-- [ ] Delegates other keys to parent `WrappedInput`
+- [ ] Calls provider on every keystroke matching trigger
+- [ ] `with_completion()` fluent API on WrappedInput
 
 **Validation:** Tests verify provider called, menu shows/hides, keys intercepted
 
@@ -249,7 +304,7 @@ class SessionManager:
 
 ### Milestone 4: AlfredTUI Integration
 **Deliverable:** Command completion works in Alfred TUI
-- [ ] `CompletingInput` replaces `WrappedInput` in `AlfredTUI`
+- [ ] `WrappedInput.with_completion()` used in `AlfredTUI`
 - [ ] Provider implementation for `/` commands
 - [ ] Provider implementation for `/resume ` session IDs
 - [ ] Session IDs fetched from `SessionManager`
@@ -278,6 +333,7 @@ class SessionManager:
 - [ ] Esc closes menu without accepting
 - [ ] Menu renders above input (not below)
 - [ ] Provider called on every keystroke (Option 2 behavior)
+- [ ] `with_completion()` fluent API works for attaching completion
 
 ---
 
