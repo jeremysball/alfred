@@ -8,7 +8,7 @@ only if the current state matches.
 
     File-based CAS has a race window between version check and atomic rename.
     Two processes checking version simultaneously can both proceed, causing
-    the second write to overwrite the first. See CAS_ATOMICITY.md for details.
+    the second write to overwrite the first. See docs/CAS_ATOMICITY.md for details.
 
     This implementation provides "eventual consistency" suitable for low-
     contention scenarios. For strict serializability, use SQLite or add
@@ -19,9 +19,11 @@ import hashlib
 import json
 import os
 import tempfile
+from collections.abc import AsyncIterator, Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Protocol
+from typing import Any
 
 import aiofiles
 
@@ -115,7 +117,9 @@ class CASStore:
         """
         return await self._version_async(self.path)
 
-    async def read_all(self, expected_version: Version | None = None) -> tuple[list[dict[str, Any]], Version]:
+    async def read_all(
+        self, expected_version: Version | None = None
+    ) -> tuple[list[dict[str, Any]], Version]:
         """Read all records with optional version check.
 
         Args:
@@ -219,7 +223,8 @@ class CASStore:
             New version after successful write
 
         Raises:
-            CASConflictError: If file was modified since expected_version (when expected_version is provided)
+            CASConflictError: If file was modified since expected_version
+                (only when expected_version is provided)
         """
         lines = [
             json.dumps(r, separators=(",", ":")) + self.line_separator
@@ -325,7 +330,7 @@ class CASStore:
         if not self.path.exists():
             return
 
-        async with aiofiles.open(self.path, "r") as f:
+        async with aiofiles.open(self.path) as f:
             async for line in f:
                 line = line.strip()
                 if line:
@@ -395,11 +400,9 @@ class CASStore:
             window is small (~1-10 microseconds) but non-zero. Use file
             locking or SQLite if strict serializability is required.
         """
-        import asyncio
-
         # NOTE: This version check has a race window. Another process
         # could modify the file after this check but before os.replace().
-        # See docstring above and CAS_ATOMICITY.md for details.
+        # See docstring above and docs/CAS_ATOMICITY.md for details.
         current_version = await self._version_async(self.path)
 
         if not self._versions_equal(current_version, expected_version):
@@ -440,10 +443,8 @@ class CASStore:
 
         except Exception:
             # Cleanup temp file on failure
-            try:
+            with suppress(FileNotFoundError):
                 os.unlink(temp_path)
-            except FileNotFoundError:
-                pass
             raise
 
         return Version.from_content(final_content)
