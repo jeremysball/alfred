@@ -25,6 +25,7 @@ class CompletionAddon:
         provider: Callable[[str], list[tuple[str, str | None]]],
         trigger: str = "/",
         max_height: int = 5,
+        on_state_change: Callable[[], None] | None = None,
     ) -> None:
         """Attach completion behavior to input component.
 
@@ -34,12 +35,15 @@ class CompletionAddon:
                      Takes current text, returns list of (value, description).
             trigger: Prefix that activates completion mode.
             max_height: Maximum menu height (renders upward from input).
+            on_state_change: Optional callback when menu state changes.
+                             Called when menu opens/closes or option count changes.
         """
         self._input = input_component
         self._provider = provider
         self._trigger = trigger
         self._menu = CompletionMenu(max_height=max_height)
         self._last_text: str | None = None
+        self._on_state_change = on_state_change
 
         # Track previous menu state for detecting changes
         self._was_open = False
@@ -181,14 +185,15 @@ class CompletionAddon:
             ghost_line = f"{clean_line}{BRIGHT_BLACK}{ghost}{RESET}"
             lines = lines[:-1] + [ghost_line]
 
+        # Request full re-render if menu state changed (before early return)
+        if state_changed:
+            if self._on_state_change:
+                self._on_state_change()
+            if hasattr(self._input, 'invalidate'):
+                self._input.invalidate()
+
         if not self._menu.is_open:
             return lines
 
         menu_lines = self._menu.render(width)
-        result = menu_lines + lines
-
-        # Request full re-render if menu state changed
-        if state_changed and hasattr(self._input, 'invalidate'):
-            self._input.invalidate()
-
-        return result
+        return menu_lines + lines

@@ -54,9 +54,11 @@ class AlfredTUI:
         ).with_completion(
             self._command_provider,
             trigger="/",
+            on_state_change=self._on_completion_state_change,
         ).with_completion(
             self._session_id_provider,
             trigger="/resume ",
+            on_state_change=self._on_completion_state_change,
         )
         self.input_field.on_submit = self._on_submit
 
@@ -425,6 +427,15 @@ class AlfredTUI:
         self.alfred.sync_token_tracker_from_session()
 
         self.tui.request_render(force=True)
+
+    def _on_completion_state_change(self) -> None:
+        """Handle completion menu state changes (open/close/resize).
+
+        Invalidates the input cache and requests a re-render.
+        The TUI's _clear_on_shrink will clear orphaned menu lines.
+        """
+        self.input_field.invalidate()
+        self.tui.request_render()
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""

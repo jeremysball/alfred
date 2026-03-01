@@ -14,6 +14,8 @@ from collections.abc import Callable
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
+from src.interfaces.pypitui.ansi import RESET, REVERSE
+
 
 class WrappedInput(Component, Focusable):
     """Text input with display-line navigation for wrapped text.
@@ -80,6 +82,7 @@ class WrappedInput(Component, Focusable):
         self,
         provider: Callable[[str], list[tuple[str, str | None]]],
         trigger: str = "/",
+        on_state_change: Callable[[], None] | None = None,
     ) -> "WrappedInput":
         """Add command completion with fluent API.
 
@@ -90,6 +93,8 @@ class WrappedInput(Component, Focusable):
             provider: Function that takes current text and returns
                      list of (value, description) tuples.
             trigger: Character that triggers completion (default: "/").
+            on_state_change: Optional callback when menu state changes.
+                             Called when menu opens/closes or option count changes.
 
         Returns:
             Self for method chaining.
@@ -105,7 +110,7 @@ class WrappedInput(Component, Focusable):
         # Import here to avoid circular imports
         from src.interfaces.pypitui.completion_addon import CompletionAddon
 
-        CompletionAddon(self, provider, trigger=trigger)
+        CompletionAddon(self, provider, trigger=trigger, on_state_change=on_state_change)
         return self
 
     @property
@@ -205,7 +210,7 @@ class WrappedInput(Component, Focusable):
         after = line[cursor_col + 1 :]
 
         # Use reverse video for cursor and emit CURSOR_MARKER for hardware cursor positioning
-        return f"{before}{CURSOR_MARKER}\x1b[7m{at}\x1b[27m{after}"
+        return f"{before}{CURSOR_MARKER}{REVERSE}{at}{RESET}{after}"
 
     def _get_cursor_display_pos(self, width: int) -> tuple[int, int]:
         """Get cursor position in display coordinates.
