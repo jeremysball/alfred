@@ -179,8 +179,9 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 16 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
-| 17 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
+| 16 | Command Completion System | Tab-triggered completion with fuzzy filtering and upward menu (PRD #97) |
+| 17 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
+| 18 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 18 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
 | 19 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector (PRD #90) |
 | 20 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
