@@ -178,7 +178,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
-    { name = "pypitui", editable = "../pypitui" },
+    { name = "pypitui", specifier = ">=0.2.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
@@ -1317,30 +1317,14 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.2.5"
-source = { editable = "../pypitui" }
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "wcwidth" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "rich", marker = "extra == 'dev'", specifier = ">=13.0" },
-    { name = "rich", marker = "extra == 'rich'", specifier = ">=13.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2" },
-    { name = "wcwidth", specifier = ">=0.2.13" },
-]
-provides-extras = ["rich", "dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.19.1" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/b5/43/a5cd8d059a51c4c6e14a551f6aeca9d606af81bb26266573ccd384178885/pypitui-0.2.3.tar.gz", hash = "sha256:24fa1f5a1131316367e811ac395a1e777c89def3094d5d6c7c1291e39c0eafed", size = 35008356, upload-time = "2026-02-27T22:24:42.174Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/48/20275d08258a60606e81158dd6559adf0b5a21e3f68d22966aa5a374785a/pypitui-0.2.3-py3-none-any.whl", hash = "sha256:d5b58e13071dac1df2dd20434d2ac88281b6b21e4c177569ce0c31eeff64eab3", size = 62272, upload-time = "2026-02-27T22:24:39.607Z" },
 ]
 
 [[package]]
