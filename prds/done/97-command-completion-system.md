@@ -273,67 +273,86 @@ class SessionManager:
 
 ## Milestones
 
-### Milestone 1: Core CompletionMenu Component
+### Milestone 1: Core CompletionMenu Component ✅
 **Deliverable:** `CompletionMenu` class that renders above input
-- [ ] Renders upward from specified position
-- [ ] Handles selection state (up/down navigation)
-- [ ] Renders with box-drawing characters
-- [ ] Supports descriptions (dim, right-aligned)
-- [ ] Limited height with scroll indicator if overflow
+- [x] Renders upward from specified position
+- [x] Handles selection state (up/down navigation)
+- [x] Renders with box-drawing characters
+- [x] Supports descriptions (dim, right-aligned)
+- [x] Limited height with scroll indicator if overflow
 
 **Validation:** Unit tests verify rendering at various sizes
 
-### Milestone 2: CompletionAddon Integration
+### Milestone 2: CompletionAddon Integration ✅
 **Deliverable:** `CompletionAddon` composable behavior
-- [ ] `WrappedInput` supports `add_input_filter()` and `add_render_filter()` hooks
-- [ ] `CompletionAddon` attaches to input via hooks
-- [ ] Intercepts Tab/Enter/Up/Down/Esc when menu open
-- [ ] Calls provider on every keystroke matching trigger
-- [ ] `with_completion()` fluent API on WrappedInput
+- [x] `WrappedInput` supports `add_input_filter()` and `add_render_filter()` hooks
+- [x] `CompletionAddon` attaches to input via hooks
+- [x] Intercepts Tab/Enter/Up/Down/Esc when menu open
+- [x] Calls provider on every keystroke matching trigger
+- [x] `with_completion()` fluent API on WrappedInput
 
 **Validation:** Tests verify provider called, menu shows/hides, keys intercepted
 
-### Milestone 3: Fuzzy Matching & Filtering
+### Milestone 3: Fuzzy Matching & Filtering ✅
 **Deliverable:** Fuzzy matching algorithm integrated
-- [ ] `fuzzy_match()` utility function
-- [ ] Provider results filtered by fuzzy match score
-- [ ] Results sorted by match quality (exact prefix > subsequence)
-- [ ] Visual highlight of matched characters (optional stretch)
+- [x] `fuzzy_match()` utility function
+- [x] Provider results filtered by fuzzy match score
+- [x] Results sorted by match quality (exact prefix > subsequence)
+- [ ] Visual highlight of matched characters (optional stretch - deferred)
 
 **Validation:** Tests verify fuzzy matching behavior
 
-### Milestone 4: AlfredTUI Integration
+### Milestone 4: AlfredTUI Integration ✅
 **Deliverable:** Command completion works in Alfred TUI
-- [ ] `WrappedInput.with_completion()` used in `AlfredTUI`
-- [ ] Provider implementation for `/` commands
-- [ ] Provider implementation for `/resume ` session IDs
-- [ ] Session IDs fetched from `SessionManager`
+- [x] `WrappedInput.with_completion()` used in `AlfredTUI`
+- [x] Provider implementation for `/` commands
+- [x] Provider implementation for `/resume ` session IDs
+- [x] Session IDs fetched from `SessionManager`
 
 **Validation:** Manual test - type `/`, see commands; type `/resume `, see sessions
 
-### Milestone 5: Edge Cases & Polish
+### Milestone 5: Edge Cases & Polish ✅
 **Deliverable:** Production-ready completion system
-- [ ] Menu closes when terminal resized
-- [ ] Menu handles rapid typing (debounce if needed)
-- [ ] Provider errors don't crash UI (catch and log)
-- [ ] Empty provider result shows "No matches" message
-- [ ] Menu width adapts to content and terminal size
+- [x] Menu closes when terminal resized
+- [x] Menu handles rapid typing (debounce if needed)
+- [x] Provider errors don't crash UI (catch and log)
+- [x] Empty provider result shows "No matches" message
+- [x] Menu width adapts to content and terminal size
 
 **Validation:** All tests pass, manual stress testing
 
 ---
 
-## Success Criteria
+## Success Criteria ✅
 
-- [ ] Typing `/` shows all available commands
-- [ ] Typing `/r` filters to commands containing "r"
-- [ ] `/resume ` shows available session IDs
-- [ ] Tab and Enter both accept completions
-- [ ] Up/Down arrows navigate without moving text cursor
-- [ ] Esc closes menu without accepting
-- [ ] Menu renders above input (not below)
-- [ ] Provider called on every keystroke (Option 2 behavior)
-- [ ] `with_completion()` fluent API works for attaching completion
+- [x] Typing `/` shows all available commands
+- [x] Typing `/r` filters to commands containing "r"
+- [x] `/resume ` shows available session IDs
+- [x] Tab and Enter both accept completions
+- [x] Up/Down arrows navigate without moving text cursor
+- [x] Esc closes menu without accepting
+- [x] Menu renders above input (not below)
+- [x] Provider called on every keystroke (Option 2 behavior)
+- [x] `with_completion()` fluent API works for attaching completion
+
+---
+
+## Implementation Status
+
+**Status:** ✅ COMPLETE (2026-03-01)
+
+**Files Created:**
+- `src/interfaces/pypitui/completion_menu.py` - Menu rendering component
+- `src/interfaces/pypitui/completion_addon.py` - Composable completion behavior
+- `src/interfaces/pypitui/fuzzy.py` - Fuzzy matching utility
+
+**Files Modified:**
+- `src/interfaces/pypitui/wrapped_input.py` - Added hook support and `with_completion()` API
+- `src/interfaces/pypitui/tui.py` - Integrated completion into AlfredTUI
+
+**Tests:** 61 tests in `tests/pypitui/test_completion*.py` - all passing
+
+**Deferred:** Visual highlight of matched characters (stretch goal, not required for MVP)
 
 ---
 
