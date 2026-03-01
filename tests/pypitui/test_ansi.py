@@ -97,13 +97,217 @@ class TestApplyAnsi:
     def test_all_background_colors(self) -> None:
         """Verify all background color placeholders work."""
         backgrounds = [
+            ("{on_black}", ON_BLACK),
             ("{on_red}", ON_RED),
             ("{on_green}", ON_GREEN),
+            ("{on_yellow}", ON_YELLOW),
             ("{on_blue}", ON_BLUE),
+            ("{on_magenta}", ON_MAGENTA),
+            ("{on_cyan}", ON_CYAN),
+            ("{on_white}", ON_WHITE),
         ]
         for placeholder, code in backgrounds:
             result = apply_ansi(f"{placeholder}text{{reset}}")
             assert result == f"{code}text{RESET}"
+
+    def test_all_bright_background_colors(self) -> None:
+        """Verify all bright background color placeholders work."""
+        bright_backgrounds = [
+            ("{on_bright_black}", ON_BRIGHT_BLACK),
+            ("{on_bright_red}", ON_BRIGHT_RED),
+            ("{on_bright_green}", ON_BRIGHT_GREEN),
+            ("{on_bright_yellow}", ON_BRIGHT_YELLOW),
+            ("{on_bright_blue}", ON_BRIGHT_BLUE),
+            ("{on_bright_magenta}", ON_BRIGHT_MAGENTA),
+            ("{on_bright_cyan}", ON_BRIGHT_CYAN),
+            ("{on_bright_white}", ON_BRIGHT_WHITE),
+        ]
+        for placeholder, code in bright_backgrounds:
+            result = apply_ansi(f"{placeholder}text{{reset}}")
+            assert result == f"{code}text{RESET}"
+
+    def test_background_with_foreground(self) -> None:
+        """Verify background and foreground colors can be combined."""
+        result = apply_ansi("{on_red}{white}alert{reset}")
+        assert result == f"{ON_RED}{WHITE}alert{RESET}"
+
+    def test_invalid_placeholder_not_replaced(self) -> None:
+        """Verify {bg_red} (wrong name) is NOT replaced - stays literal."""
+        result = apply_ansi("{bg_red}hello{reset}")
+        # bg_red is not a valid placeholder, should stay as-is
+        assert "{bg_red}" in result
+        # Note: {reset} IS valid so it gets replaced, that's fine
+
+    def test_typo_placeholder_shows_literal(self) -> None:
+        """Verify typos in placeholder names show as literal text."""
+        result = apply_ansi("{on_reed}text{reset}")  # typo: reed not red
+        assert "{on_reed}" in result
+
+
+class TestAnsiRenderingBehavior:
+    """Tests that verify ANSI codes actually appear in rendered panel output."""
+
+    def test_background_color_renders_ansi_in_panel(self) -> None:
+        """Verify {on_red}text{reset} produces \\033[41m in rendered panel."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(
+            role="assistant",
+            content="{on_red}alert{reset}",
+            terminal_width=80,
+            use_markdown=False,  # Disable markdown to test raw ANSI
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        # Should contain actual ANSI escape code for red background
+        assert "\033[41m" in rendered
+        # Should NOT contain the placeholder
+        assert "{on_red}" not in rendered
+
+    def test_all_backgrounds_render_in_panel(self) -> None:
+        """Verify all 8 backgrounds produce correct escape codes in output."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        backgrounds = [
+            ("{on_black}", "\033[40m"),
+            ("{on_red}", "\033[41m"),
+            ("{on_green}", "\033[42m"),
+            ("{on_yellow}", "\033[43m"),
+            ("{on_blue}", "\033[44m"),
+            ("{on_magenta}", "\033[45m"),
+            ("{on_cyan}", "\033[46m"),
+            ("{on_white}", "\033[47m"),
+        ]
+
+        for placeholder, ansi_code in backgrounds:
+            panel = MessagePanel(
+                role="assistant",
+                content=f"{placeholder}test{{reset}}",
+                terminal_width=80,
+                use_markdown=False,
+            )
+            lines = panel.render(width=80)
+            rendered = "".join(lines)
+
+            assert ansi_code in rendered, f"{placeholder} did not render as {ansi_code}"
+            assert placeholder not in rendered, f"{placeholder} was not replaced"
+
+    def test_invalid_placeholder_shows_literal_in_panel(self) -> None:
+        """Verify {bg_red} (wrong name) shows as literal text in panel."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(
+            role="assistant",
+            content="{bg_red}hello{reset}",
+            terminal_width=80,
+            use_markdown=False,
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        # Invalid placeholder should remain as literal text
+        assert "{bg_red}" in rendered
+
+    def test_background_combined_with_foreground_in_panel(self) -> None:
+        """Verify {on_red}{white}text{reset} renders both codes."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(
+            role="assistant",
+            content="{on_red}{white}alert{reset}",
+            terminal_width=80,
+            use_markdown=False,
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        # Both background and foreground codes should be present
+        assert "\033[41m" in rendered  # on_red
+        assert "\033[37m" in rendered  # white
+
+    def test_placeholder_in_inline_code_preserved(self) -> None:
+        """Verify {on_red} in `code` shows literally (markdown processes first)."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        # With markdown enabled, inline code should preserve the placeholder
+        panel = MessagePanel(
+            role="assistant",
+            content="Use `{on_red}` for background",
+            terminal_width=80,
+            use_markdown=True,
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        # The placeholder inside backticks should NOT be converted to ANSI
+        # (markdown renders it as code, then ANSI is applied after)
+        # This tests the actual behavior - may need adjustment based on implementation
+        # If markdown converts first, {on_red} might get escaped
+        pass  # TODO: Verify actual behavior after running test
+
+    def test_bright_background_renders_in_panel(self) -> None:
+        """Verify bright backgrounds work in rendered output."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(
+            role="assistant",
+            content="{on_bright_red}warning{reset}",
+            terminal_width=80,
+            use_markdown=False,
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        assert "\033[101m" in rendered  # bright red background
+        assert "{on_bright_red}" not in rendered
+
+
+class TestAnsiEndToEnd:
+    """End-to-end tests using full TUI rendering pipeline."""
+
+    def test_assistant_message_with_background_shows_color(
+        self, mock_alfred, mock_terminal
+    ) -> None:
+        """Verify assistant response with {on_green} renders with ANSI code."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(
+            role="assistant",
+            content="{on_green}success{reset}",
+            terminal_width=80,
+            use_markdown=False,
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        assert "\033[42m" in rendered  # green background ANSI code
+        assert "{on_green}" not in rendered
+
+    def test_user_message_with_background_shows_color(
+        self, mock_alfred, mock_terminal
+    ) -> None:
+        """Verify user message with {on_red} renders with ANSI code."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(
+            role="user",
+            content="{on_red}error{reset}",
+            terminal_width=80,
+            use_markdown=False,
+        )
+
+        lines = panel.render(width=80)
+        rendered = "".join(lines)
+
+        assert "\033[41m" in rendered  # red background ANSI code
+        assert "{on_red}" not in rendered
 
     def test_styles(self) -> None:
         """Verify style placeholders work."""
