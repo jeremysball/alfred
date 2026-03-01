@@ -46,8 +46,10 @@ class CompletionAddon:
         # Update completion state based on current input
         self._update_completion(width)
 
-        # If menu is open, prepend its lines
-        if self._menu.is_open and self._menu_lines:
+        # If menu is open, re-render and prepend its lines
+        # Always re-render to pick up selection changes from navigation
+        if self._menu.is_open:
+            self._menu_lines = self._menu.render(width)
             return self._menu_lines + lines
 
         return lines
