@@ -219,6 +219,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def _build_content_with_tools(self) -> None:
         """Build content string with tool call boxes embedded."""
+        from src.interfaces.pypitui.ansi import apply_ansi
         from src.interfaces.pypitui.box_utils import build_bordered_box
         from src.interfaces.pypitui.constants import DIM_BLUE, DIM_GREEN, DIM_RED
 
@@ -236,11 +237,24 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         if self._use_markdown and self._renderer:
             renderer = self._renderer
 
+        def render_segment(text: str) -> str:
+            """Render text segment with markdown if enabled."""
+            if not text:
+                return text
+            text_with_ansi = apply_ansi(text)
+            if renderer:
+                try:
+                    return renderer.render_markdown(text_with_ansi)
+                except Exception:
+                    pass
+            return text_with_ansi
+
         last_pos = 0
         for tc in sorted_tools:
-            # Add text before this tool
+            # Add text before this tool (with markdown rendering)
             if last_pos < tc.insert_position:
-                parts.append(self._text_content[last_pos : tc.insert_position])
+                segment = self._text_content[last_pos : tc.insert_position]
+                parts.append(render_segment(segment))
 
             # Add tool box with consistent borders
             color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(
@@ -271,9 +285,10 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
             last_pos = tc.insert_position
 
-        # Add remaining text after last tool
+        # Add remaining text after last tool (with markdown rendering)
         if last_pos < len(self._text_content):
-            parts.append(self._text_content[last_pos:])
+            segment = self._text_content[last_pos:]
+            parts.append(render_segment(segment))
 
         content = "".join(parts)
         self.add_child(Text(content, padding_x=0))
