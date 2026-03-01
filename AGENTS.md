@@ -157,9 +157,15 @@ This renders as colored text in the TUI. **Always use `{reset}`** to end styling
 
 **Bright colors:** `{bright_black}`, `{bright_red}`, `{bright_green}`, `{bright_yellow}`, `{bright_blue}`, `{bright_magenta}`, `{bright_cyan}`, `{bright_white}`
 
-**Backgrounds:** `{on_red}`, `{on_green}`, `{on_blue}`, `{on_cyan}`, `{on_magenta}`, `{on_yellow}`, `{on_black}`, `{on_white}`
+**Backgrounds:** Prefix any color with `on_` — `{on_red}`, `{on_green}`, `{on_blue}`, `{on_cyan}`, `{on_magenta}`, `{on_yellow}`, `{on_black}`, `{on_white}`
 
 **Bright backgrounds:** `{on_bright_red}`, `{on_bright_green}`, etc.
+
+| Wrong | Right |
+|-------|-------|
+| `{bg_red}` | `{on_red}` |
+| `{background_red}` | `{on_red}` |
+| `{red_bg}` | `{on_red}` |
 
 ### Available Styles
 
@@ -177,6 +183,20 @@ This renders as colored text in the TUI. **Always use `{reset}`** to end styling
 | `{cyan}git status{reset}` | Cyan command name |
 | `{bold}{green}✓{reset} Done` | Bold green checkmark |
 | `{yellow}Warning:{reset} {dim}deprecated{reset}` | Yellow warning, dim note |
+| `{on_red}{white}ALERT{reset}` | White text on red background |
+
+### Code Blocks
+
+Placeholders **do not work inside markdown code blocks**. This is intentional—code should display literally.
+
+````markdown
+# This shows literal {cyan}text{reset}, not colored text
+```python
+print("{cyan}hello{reset}")  # Displays literally
+```
+````
+
+For colored code output, use placeholders outside the code block or use inline code with styling before/after.
 
 ### Implementation
 
