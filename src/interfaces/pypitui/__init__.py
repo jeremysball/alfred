@@ -1,23 +1,54 @@
 """PyPiTUI components for Alfred CLI."""
 
-from src.interfaces.pypitui.constants import (
+# ANSI colors (comprehensive set)
+from src.interfaces.pypitui.ansi import (
+    BLACK,
+    BLUE,
+    BOLD,
+    BRIGHT_BLACK,
+    BRIGHT_BLUE,
+    BRIGHT_CYAN,
+    BRIGHT_GREEN,
+    BRIGHT_MAGENTA,
+    BRIGHT_RED,
+    BRIGHT_WHITE,
+    BRIGHT_YELLOW,
     CYAN,
     DIM,
-    DIM_BLUE,
-    DIM_GREEN,
-    DIM_RED,
     GREEN,
-    MAX_TOOL_OUTPUT,
+    MAGENTA,
+    ON_BLACK,
+    ON_BLUE,
+    ON_BRIGHT_BLACK,
+    ON_BRIGHT_BLUE,
+    ON_BRIGHT_CYAN,
+    ON_BRIGHT_GREEN,
+    ON_BRIGHT_MAGENTA,
+    ON_BRIGHT_RED,
+    ON_BRIGHT_WHITE,
+    ON_BRIGHT_YELLOW,
+    ON_CYAN,
+    ON_GREEN,
+    ON_MAGENTA,
+    ON_RED,
+    ON_WHITE,
+    ON_YELLOW,
     RED,
     RESET,
     YELLOW,
+)
+from src.interfaces.pypitui.constants import (
+    DIM_BLUE,
+    DIM_GREEN,
+    DIM_RED,
+    MAX_TOOL_OUTPUT,
+    USE_MARKDOWN_RENDERING,
 )
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.models import ToolCallInfo
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager, add_toast
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
-from src.interfaces.pypitui.tool_call_panel import ToolCallPanel
 from src.interfaces.pypitui.tui import AlfredTUI
 from src.interfaces.pypitui.utils import format_tokens
 
@@ -29,19 +60,48 @@ __all__ = [
     "ToastManager",
     "ToastOverlay",
     "ToolCallInfo",
-    "ToolCallPanel",
     # Functions
     "add_toast",
     "format_tokens",
-    # Constants
+    # ANSI Colors (comprehensive)
+    "BLACK",
+    "BLUE",
+    "BOLD",
+    "BRIGHT_BLACK",
+    "BRIGHT_BLUE",
+    "BRIGHT_CYAN",
+    "BRIGHT_GREEN",
+    "BRIGHT_MAGENTA",
+    "BRIGHT_RED",
+    "BRIGHT_WHITE",
+    "BRIGHT_YELLOW",
     "CYAN",
     "DIM",
-    "DIM_BLUE",
-    "DIM_GREEN",
-    "DIM_RED",
     "GREEN",
-    "MAX_TOOL_OUTPUT",
+    "MAGENTA",
+    "ON_BLACK",
+    "ON_BLUE",
+    "ON_BRIGHT_BLACK",
+    "ON_BRIGHT_BLUE",
+    "ON_BRIGHT_CYAN",
+    "ON_BRIGHT_GREEN",
+    "ON_BRIGHT_MAGENTA",
+    "ON_BRIGHT_RED",
+    "ON_BRIGHT_WHITE",
+    "ON_BRIGHT_YELLOW",
+    "ON_CYAN",
+    "ON_GREEN",
+    "ON_MAGENTA",
+    "ON_RED",
+    "ON_WHITE",
+    "ON_YELLOW",
     "RED",
     "RESET",
     "YELLOW",
+    # Other constants
+    "DIM_BLUE",
+    "DIM_GREEN",
+    "DIM_RED",
+    "MAX_TOOL_OUTPUT",
+    "USE_MARKDOWN_RENDERING",
 ]

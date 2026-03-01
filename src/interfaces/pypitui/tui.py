@@ -4,11 +4,11 @@ import asyncio
 from contextlib import suppress
 from typing import TYPE_CHECKING, Literal
 
-from pypitui import Container, Key, OverlayOptions, matches_key
+from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
+from src.interfaces.pypitui.constants import USE_MARKDOWN_RENDERING
 from src.interfaces.pypitui.message_panel import MessagePanel
-from src.interfaces.pypitui.patched_tui import PatchedTUI
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
@@ -38,7 +38,7 @@ class AlfredTUI:
 
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
-        self.tui = PatchedTUI(self.terminal)
+        self.tui = TUI(self.terminal)
         self._toast_manager = toast_manager
 
         # Main conversation container
@@ -301,7 +301,12 @@ class AlfredTUI:
             return
 
         # Add user message to conversation
-        user_msg = MessagePanel(role="user", content=text, terminal_width=self._terminal_width)
+        user_msg = MessagePanel(
+            role="user",
+            content=text,
+            terminal_width=self._terminal_width,
+            use_markdown=USE_MARKDOWN_RENDERING,
+        )
         self.conversation.add_child(user_msg)
 
         # Clear input field
@@ -354,20 +359,30 @@ class AlfredTUI:
                 role=msg.role.value,
                 content=msg.content,
                 terminal_width=self._terminal_width,
+                use_markdown=USE_MARKDOWN_RENDERING,
             )
             self.conversation.add_child(panel)
+
+        # Sync token tracker with loaded session messages
+        self.alfred.sync_token_tracker_from_session()
 
         self.tui.request_render(force=True)
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
-        msg = MessagePanel(role="user", content=content, terminal_width=self._terminal_width)
+        msg = MessagePanel(
+            role="user",
+            content=content,
+            terminal_width=self._terminal_width,
+            use_markdown=USE_MARKDOWN_RENDERING,
+        )
         self.conversation.add_child(msg)
         self.tui.request_render()
 
     def _cmd_new_session(self) -> bool:
         """Create a new session."""
         self._clear_conversation()
+        self.alfred.token_tracker.reset()
         session = self.alfred.session_manager.new_session()
         self._add_user_message(f"New session created: {session.meta.session_id}")
         self._update_status()
@@ -463,7 +478,10 @@ class AlfredTUI:
 
         # Create assistant message panel (empty, will stream content)
         assistant_msg = MessagePanel(
-            role="assistant", content="", terminal_width=self._terminal_width
+            role="assistant",
+            content="",
+            terminal_width=self._terminal_width,
+            use_markdown=USE_MARKDOWN_RENDERING,
         )
         self.conversation.add_child(assistant_msg)
         self._current_assistant_msg = assistant_msg
@@ -516,7 +534,10 @@ class AlfredTUI:
 
             # Add user message and send to LLM
             user_msg = MessagePanel(
-                role="user", content=next_to_process, terminal_width=self._terminal_width
+                role="user",
+                content=next_to_process,
+                terminal_width=self._terminal_width,
+                use_markdown=USE_MARKDOWN_RENDERING,
             )
             self.conversation.add_child(user_msg)
             self._update_status()

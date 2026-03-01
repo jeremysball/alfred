@@ -11,7 +11,6 @@ from src.interfaces.pypitui import (
     ToastManager,
     ToastOverlay,
     ToolCallInfo,
-    ToolCallPanel,
     add_toast,
     format_tokens,
 )
@@ -23,7 +22,6 @@ __all__ = [
     "ToastManager",
     "ToastOverlay",
     "ToolCallInfo",
-    "ToolCallPanel",
     "add_toast",
     "format_tokens",
 ]

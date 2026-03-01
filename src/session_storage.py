@@ -6,7 +6,11 @@ Handles file I/O for session storage:
     └── {session_id}/
         ├── meta.json            # Session metadata
         ├── current.jsonl        # Recent messages
+        ├── tokens.jsonl         # Token count deltas (append-only)
         └── archive.jsonl        # Older messages (post-compaction)
+
+Token counts are stored as deltas in tokens.jsonl to avoid rewriting
+the entire message file on every token update.
 """
 
 import asyncio
@@ -131,11 +135,40 @@ class SessionStorage:
 
     # === Messages ===
 
+    def _load_token_deltas(self, session_id: str) -> dict[int, dict[str, int]]:
+        """Load token count deltas from tokens.jsonl.
+
+        Returns a dict mapping message idx to token counts.
+        Later entries override earlier ones for the same idx.
+        """
+        tokens_path = self.sessions_dir / session_id / "tokens.jsonl"
+        if not tokens_path.exists():
+            return {}
+
+        deltas: dict[int, dict[str, int]] = {}
+        with open(tokens_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+                idx = data["idx"]
+                # Merge deltas - later entries take precedence
+                if idx not in deltas:
+                    deltas[idx] = {}
+                for key in ["input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens"]:
+                    if key in data:
+                        deltas[idx][key] = data[key]
+        return deltas
+
     def load_messages(self, session_id: str) -> list[Message]:
-        """Load messages from current.jsonl."""
+        """Load messages from current.jsonl and merge token deltas."""
         messages_path = self.sessions_dir / session_id / "current.jsonl"
         if not messages_path.exists():
             return []
+
+        # Load token deltas from sidecar file
+        token_deltas = self._load_token_deltas(session_id)
 
         messages = []
         with open(messages_path) as f:
@@ -144,13 +177,30 @@ class SessionStorage:
                 if not line:
                     continue
                 data = json.loads(line)
+                idx = data["idx"]
+
+                # Get token deltas for this message (if any)
+                deltas = token_deltas.get(idx, {})
+
                 messages.append(
                     Message(
-                        idx=data["idx"],
+                        idx=idx,
                         role=Role(data["role"]),
                         content=data["content"],
                         timestamp=datetime.fromisoformat(data["timestamp"]),
                         embedding=data.get("embedding"),
+                        input_tokens=deltas.get(
+                            "input_tokens", data.get("input_tokens", 0)
+                        ),
+                        output_tokens=deltas.get(
+                            "output_tokens", data.get("output_tokens", 0)
+                        ),
+                        cached_tokens=deltas.get(
+                            "cached_tokens", data.get("cached_tokens", 0)
+                        ),
+                        reasoning_tokens=deltas.get(
+                            "reasoning_tokens", data.get("reasoning_tokens", 0)
+                        ),
                     )
                 )
         return messages
@@ -165,6 +215,10 @@ class SessionStorage:
                 "content": message.content,
                 "timestamp": message.timestamp.isoformat(),
                 "embedding": message.embedding,
+                "input_tokens": message.input_tokens,
+                "output_tokens": message.output_tokens,
+                "cached_tokens": message.cached_tokens,
+                "reasoning_tokens": message.reasoning_tokens,
             }
         )
         async with aiofiles.open(messages_path, "a") as f:
@@ -198,9 +252,45 @@ class SessionStorage:
                         "content": msg.content,
                         "timestamp": msg.timestamp.isoformat(),
                         "embedding": msg.embedding,
+                        "input_tokens": msg.input_tokens,
+                        "output_tokens": msg.output_tokens,
+                        "cached_tokens": msg.cached_tokens,
+                        "reasoning_tokens": msg.reasoning_tokens,
                     }
                 )
                 await f.write(line + "\n")
+
+    async def update_message_tokens(
+        self,
+        session_id: str,
+        idx: int,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cached_tokens: int = 0,
+        reasoning_tokens: int = 0,
+        messages: list[Message] | None = None,
+    ) -> None:
+        """Update token counts for a specific message.
+
+        Appends a delta entry to tokens.jsonl (append-only, no rewrite).
+        This avoids race conditions with concurrent message appends.
+        """
+        tokens_path = self.sessions_dir / session_id / "tokens.jsonl"
+
+        # Build delta entry with only non-zero values
+        delta: dict[str, int | str] = {"idx": idx}
+        if input_tokens:
+            delta["input_tokens"] = input_tokens
+        if output_tokens:
+            delta["output_tokens"] = output_tokens
+        if cached_tokens:
+            delta["cached_tokens"] = cached_tokens
+        if reasoning_tokens:
+            delta["reasoning_tokens"] = reasoning_tokens
+
+        # Append delta to sidecar file (no rewrite, no race condition)
+        async with aiofiles.open(tokens_path, "a") as f:
+            await f.write(json.dumps(delta) + "\n")
 
     # === Full Session Load ===
 

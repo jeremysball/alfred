@@ -16,3 +16,6 @@ DIM_RED = "\x1b[31;2m"
 
 # Tool call settings
 MAX_TOOL_OUTPUT = 500
+
+# Markdown rendering settings
+USE_MARKDOWN_RENDERING = True

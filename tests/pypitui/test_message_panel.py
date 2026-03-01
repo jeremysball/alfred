@@ -146,3 +146,51 @@ class TestInlineToolCalls:
         panel.add_tool_call("tool", "call-1")
         # Tool inserted at position 6 (after "Before")
         assert panel._tool_calls[0].insert_position == 6
+
+    def test_multiple_tool_calls_same_position_sequential(self):
+        """Verify multiple tool calls at same position render sequentially, not overlapping.
+
+        This is a regression test for the bug where multiple tool calls added
+        before any text content would all have insert_position=0 and render
+        on top of each other.
+        """
+        import re
+
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        panel = MessagePanel(role="assistant", content="")
+
+        # Add multiple tool calls before any text (all at position 0)
+        panel.add_tool_call("search", "call-1")
+        panel.add_tool_call("remember", "call-2")
+        panel.add_tool_call("bash", "call-3")
+
+        # All have same insert_position (0) but different sequence numbers
+        assert panel._tool_calls[0].insert_position == 0
+        assert panel._tool_calls[1].insert_position == 0
+        assert panel._tool_calls[2].insert_position == 0
+        assert panel._tool_calls[0].sequence == 0
+        assert panel._tool_calls[1].sequence == 1
+        assert panel._tool_calls[2].sequence == 2
+
+        # Update outputs so we can verify they all appear
+        panel.update_tool_call("call-1", "Search results")
+        panel.update_tool_call("call-2", "Remembered")
+        panel.update_tool_call("call-3", "Command output")
+
+        # Render and verify all three tool names appear
+        lines = panel.render(width=80)
+        text = "".join(lines)
+
+        # Strip ANSI codes for text assertions
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        clean_text = ansi_escape.sub("", text)
+
+        # All three tool titles should appear
+        assert "search" in clean_text
+        assert "remember" in clean_text
+        assert "bash" in clean_text
+        # All three outputs should appear (check for key words to avoid wrap issues)
+        assert "Search" in clean_text and "results" in clean_text
+        assert "Remembered" in clean_text
+        assert "Command" in clean_text and "output" in clean_text

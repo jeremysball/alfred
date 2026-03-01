@@ -116,6 +116,7 @@ class Alfred:
 
         # Token tracking for usage display
         self.token_tracker = TokenTracker()
+        self._last_usage: dict[str, Any] | None = None
 
         # Context summary for status display
         self.context_summary = ContextSummary()
@@ -128,6 +129,8 @@ class Alfred:
     def _on_usage(self, usage: dict[str, Any]) -> None:
         """Callback for LLM usage updates."""
         self.token_tracker.add(usage)
+        # Store the last usage for message token tracking
+        self._last_usage = usage
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
@@ -136,6 +139,46 @@ class Alfred:
         Uses 4 chars per token as rough approximation.
         """
         return len(text) // 4
+
+    def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
+        """Sync token tracker with historical session messages.
+
+        Uses stored token counts from messages. Legacy messages without
+        stored counts contribute 0 (no estimation). Called when resuming
+        a session so the status line shows the total accumulated usage.
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
+        """
+        from src.session import Role
+
+        messages = self.session_manager.get_session_messages(session_id)
+        if not messages:
+            return
+
+        input_tokens = 0
+        output_tokens = 0
+        cached_tokens = 0
+        reasoning_tokens = 0
+
+        for msg in messages:
+            # Use stored count if available (> 0), otherwise 0 (no estimation)
+            if msg.role == Role.USER and msg.input_tokens > 0:
+                input_tokens += msg.input_tokens
+            elif msg.role == Role.ASSISTANT and msg.output_tokens > 0:
+                output_tokens += msg.output_tokens
+            # Accumulate cached and reasoning tokens from all messages that have them
+            cached_tokens += getattr(msg, 'cached_tokens', 0)
+            reasoning_tokens += getattr(msg, 'reasoning_tokens', 0)
+
+        # Reset and set total tokens for the session
+        self.token_tracker.reset()
+        self.token_tracker.add({
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+            "prompt_tokens_details": {"cached_tokens": cached_tokens},
+            "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
+        })
 
     def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
         """Update context token estimate.
@@ -199,9 +242,11 @@ class Alfred:
                 logger.debug("Starting new session...")
                 self.session_manager.start_session()
 
-        # Add user message to session
+        # Add user message to session and get its index
         self.session_manager.add_message("user", message, session_id=session_id)
-        msg_count = len(self.session_manager.get_session_messages(session_id))
+        messages_list = self.session_manager.get_session_messages(session_id)
+        user_msg_idx = messages_list[-1].idx if messages_list else 0
+        msg_count = len(messages_list)
         logger.debug(f"Added user message. Session now has {msg_count} messages")
 
         # Get query embedding for memory search
@@ -245,11 +290,49 @@ class Alfred:
             full_response.append(chunk)
             yield chunk
 
-        # Add assistant response to session
+        # Add assistant response to session and get its index
         assistant_message = "".join(full_response)
         self.session_manager.add_message("assistant", assistant_message, session_id=session_id)
-        msg_count = len(self.session_manager.get_session_messages(session_id))
+        messages_list = self.session_manager.get_session_messages(session_id)
+        assistant_msg_idx = messages_list[-1].idx if messages_list else 0
+        msg_count = len(messages_list)
         logger.debug(f"Added assistant message. Session now has {msg_count} messages")
+
+        # Store actual token counts with the messages
+        if self._last_usage:
+            prompt_tokens = self._last_usage.get("prompt_tokens", 0)
+            completion_tokens = self._last_usage.get("completion_tokens", 0)
+
+            # Extract cached tokens from prompt_tokens_details
+            prompt_details = self._last_usage.get("prompt_tokens_details") or {}
+            cached_tokens = 0
+            if isinstance(prompt_details, dict):
+                cached_tokens = prompt_details.get("cached_tokens", 0)
+
+            # Extract reasoning tokens from completion_tokens_details
+            completion_details = self._last_usage.get("completion_tokens_details") or {}
+            reasoning_tokens = 0
+            if isinstance(completion_details, dict):
+                reasoning_tokens = completion_details.get("reasoning_tokens", 0)
+
+            # Update user message with input tokens (and cached)
+            self.session_manager.update_message_tokens(
+                user_msg_idx,
+                input_tokens=prompt_tokens,
+                cached_tokens=cached_tokens,
+                session_id=session_id,
+            )
+
+            # Update assistant message with output tokens (and reasoning)
+            self.session_manager.update_message_tokens(
+                assistant_msg_idx,
+                output_tokens=completion_tokens,
+                reasoning_tokens=reasoning_tokens,
+                session_id=session_id,
+            )
+
+            # Clear last usage for next turn
+            self._last_usage = None
 
     def _build_system_prompt(self, base_prompt: str) -> str:
         """Build system prompt with tool descriptions."""

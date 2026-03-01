@@ -163,3 +163,95 @@ async def test_compact_returns_placeholder(mock_config):
         result = await alfred.compact()
 
         assert result == "Compaction not yet implemented"
+
+
+def test_sync_token_tracker_from_session(mock_config):
+    """Test that token tracker is synced from messages with stored token counts.
+
+    Legacy messages without stored counts contribute 0. Only messages with
+    input_tokens/output_tokens > 0 are counted.
+    """
+    from datetime import UTC, datetime
+
+    from src.session import Message, Role
+
+    with (
+        patch("src.alfred.LLMFactory"),
+        patch("src.alfred.ContextLoader"),
+        patch("src.alfred.EmbeddingClient"),
+        patch("src.alfred.MemoryStore"),
+        patch("src.alfred.CronStore"),
+        patch("src.alfred.CronScheduler"),
+        patch("src.alfred.register_builtin_tools"),
+        patch("src.alfred.get_registry"),
+        patch("src.alfred.Agent"),
+    ):
+        alfred = Alfred(mock_config)
+
+        # Create mock messages - some with token counts, some without (legacy)
+        mock_messages = [
+            Message(
+                idx=0,
+                role=Role.USER,
+                content="Hello, this is a test message from user.",
+                timestamp=datetime.now(UTC),
+                input_tokens=100,  # Has stored count
+                output_tokens=0,
+            ),
+            Message(
+                idx=1,
+                role=Role.ASSISTANT,
+                content="Hello! I am the assistant responding to your test message with more content.",
+                timestamp=datetime.now(UTC),
+                input_tokens=0,
+                output_tokens=250,  # Has stored count
+            ),
+            Message(
+                idx=2,
+                role=Role.USER,
+                content="Legacy message without stored tokens.",
+                timestamp=datetime.now(UTC),
+                input_tokens=0,  # Legacy - no stored count
+                output_tokens=0,
+            ),
+        ]
+
+        # Mock the session manager's get_session_messages
+        alfred.session_manager.get_session_messages = MagicMock(return_value=mock_messages)
+
+        # Verify tracker starts at 0
+        assert alfred.token_tracker.usage.input_tokens == 0
+        assert alfred.token_tracker.usage.output_tokens == 0
+
+        # Sync token tracker
+        alfred.sync_token_tracker_from_session()
+
+        # Verify only stored token counts are used (legacy messages contribute 0)
+        assert alfred.token_tracker.usage.input_tokens == 100  # Only first user message
+        assert alfred.token_tracker.usage.output_tokens == 250  # Only assistant message
+
+
+def test_sync_token_tracker_empty_session(mock_config):
+    """Test that sync handles empty sessions gracefully."""
+    with (
+        patch("src.alfred.LLMFactory"),
+        patch("src.alfred.ContextLoader"),
+        patch("src.alfred.EmbeddingClient"),
+        patch("src.alfred.MemoryStore"),
+        patch("src.alfred.CronStore"),
+        patch("src.alfred.CronScheduler"),
+        patch("src.alfred.register_builtin_tools"),
+        patch("src.alfred.get_registry"),
+        patch("src.alfred.Agent"),
+    ):
+        alfred = Alfred(mock_config)
+
+        # Mock empty session
+        alfred.session_manager.get_session_messages = MagicMock(return_value=[])
+
+        # Should not raise
+        alfred.sync_token_tracker_from_session()
+
+        # Tokens should remain at 0
+        assert alfred.token_tracker.usage.input_tokens == 0
+        assert alfred.token_tracker.usage.output_tokens == 0

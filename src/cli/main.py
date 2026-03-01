@@ -121,13 +121,17 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
         log_level = logging.WARNING
 
     if toast_manager is not None:
-        # TUI mode: logs become toast notifications
+        # TUI mode: warnings/errors go to toast, info/debug to stderr
         from src.interfaces.pypitui.toast import ToastHandler
+
+        toast_handler = ToastHandler(toast_manager)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(log_level)
 
         logging.basicConfig(
             level=log_level,
             format="%(levelname)s:%(name)s:%(message)s",
-            handlers=[ToastHandler(toast_manager)],
+            handlers=[toast_handler, stream_handler],
         )
     else:
         # Normal mode: log to stderr

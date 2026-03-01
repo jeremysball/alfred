@@ -1,5 +1,7 @@
 """MessagePanel component for displaying conversation messages."""
 
+from __future__ import annotations
+
 from typing import Literal
 
 from pypitui import BorderedBox, Text  # type: ignore
@@ -28,6 +30,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         padding_x: int = 1,
         padding_y: int = 0,
         terminal_width: int = 80,
+        use_markdown: bool = True,
     ) -> None:
         """Initialize the message panel.
 
@@ -37,6 +40,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             padding_x: Horizontal padding inside border
             padding_y: Vertical padding inside border
             terminal_width: Current terminal width for box sizing
+            use_markdown: Enable Rich markdown rendering
         """
         super().__init__(padding_x=padding_x, padding_y=padding_y)
 
@@ -45,6 +49,14 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self._is_error = False
         self._border_color = GREEN
         self._terminal_width = terminal_width
+        self._use_markdown = use_markdown
+
+        # Create RichRenderer if markdown enabled
+        self._renderer: RichRenderer | None = None
+        if use_markdown:
+            from src.interfaces.pypitui.rich_renderer import RichRenderer
+
+            self._renderer = RichRenderer(width=max(40, terminal_width - 4))
 
         # Tool calls embedded in this message
         self._tool_calls: list[ToolCallInfo] = []
@@ -58,9 +70,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Set border color based on role
         self._set_border_color(role)
 
-        # Add content as Text child
-        if content:
-            self.add_child(Text(content, padding_x=0))
+        # Build initial content (with markdown and ANSI placeholders if enabled)
+        self._rebuild_content()
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -111,10 +122,17 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             tool_name: Name of the tool
             tool_call_id: Unique ID for this tool call
         """
+        # Use text length as insert position, but add sequence number to
+        # disambiguate when multiple tools are added at the same position.
+        # This ensures tools render in order even when called before text arrives.
+        insert_position = len(self._text_content)
+        sequence = len(self._tool_calls)
+
         tool_info = ToolCallInfo(
             tool_name=tool_name,
             tool_call_id=tool_call_id,
-            insert_position=len(self._text_content),
+            insert_position=insert_position,
+            sequence=sequence,
         )
         self._tool_calls.append(tool_info)
         self._rebuild_content()
@@ -169,16 +187,30 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         """
         if width != self._terminal_width:
             self._terminal_width = width
-            if self._tool_calls:
-                self._rebuild_content()
+            # Update renderer width if exists
+            if self._renderer:
+                self._renderer.update_width(max(40, width - 4))
+            self._rebuild_content()
 
     def _rebuild_content(self) -> None:
         """Rebuild the content with embedded tool call boxes."""
+        from src.interfaces.pypitui.ansi import apply_ansi
+
         self.clear()
 
         if not self._tool_calls:
             # Simple case: no tool calls
-            self.add_child(Text(self._text_content, padding_x=0))
+            # First replace {cyan} etc. with ANSI codes, then apply markdown
+            text_with_ansi = apply_ansi(self._text_content)
+            display_text = text_with_ansi
+            # Use Rich markdown rendering if enabled
+            if self._use_markdown and self._renderer:
+                try:
+                    display_text = self._renderer.render_markdown(text_with_ansi)
+                except Exception:
+                    # Fallback to plain text on error
+                    display_text = text_with_ansi
+            self.add_child(Text(display_text, padding_x=0))
         else:
             # Build content with tool boxes inline
             self._build_content_with_tools()
@@ -193,11 +225,16 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Build the full content with tool boxes as inline text
         parts: list[str] = []
 
-        # Sort tool calls by position
-        sorted_tools = sorted(self._tool_calls, key=lambda t: t.insert_position)
+        # Sort tool calls by (position, sequence) to maintain order
+        sorted_tools = sorted(self._tool_calls, key=lambda t: (t.insert_position, t.sequence))
 
         # Tool box width: terminal width minus panel borders (2) and padding (2)
         box_width = max(20, self._terminal_width - 4)
+
+        # Lazy import RichRenderer for tool output formatting
+        renderer = None
+        if self._use_markdown and self._renderer:
+            renderer = self._renderer
 
         last_pos = 0
         for tc in sorted_tools:
@@ -210,18 +247,24 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 tc.status, DIM_BLUE
             )
 
-            # Build tool box lines
+            # Build tool box lines with Rich formatting
             content_lines: list[str] = []
             if tc.output:
                 # Truncate output for display
                 display_output = tc.output[-200:] if len(tc.output) > 200 else tc.output
-                content_lines = display_output.split("\n")
+
+                # Try to format as JSON if applicable
+                formatted_output = self._format_tool_output(display_output, renderer)
+                content_lines = formatted_output.split("\n")
+
+            # Bold tool name in title
+            fancy_title = f"[bold]{tc.tool_name}[/bold]"
 
             box_lines = build_bordered_box(
                 lines=content_lines,
                 width=box_width,
                 color=color,
-                title=tc.tool_name,
+                title=fancy_title,
                 center=False,
             )
             parts.append("\n" + "\n".join(box_lines) + "\n")
@@ -234,6 +277,56 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
         content = "".join(parts)
         self.add_child(Text(content, padding_x=0))
+
+    def _format_tool_output(self, output: str, renderer):  # type: ignore[no-untyped-def]
+        """Format tool output with Rich markup if possible.
+
+        Args:
+            output: Raw tool output
+            renderer: Optional RichRenderer for formatting
+
+        Returns:
+            Formatted output string
+        """
+        if not output:
+            return output
+
+        # Try to detect and format JSON
+        stripped = output.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                import json
+                parsed = json.loads(stripped)
+                # Pretty print JSON
+                pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
+                if renderer:
+                    # Wrap in markdown code block for syntax highlighting
+                    return renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                return pretty_json
+            except json.JSONDecodeError:
+                pass
+
+        # Try to detect and format JSON arrays
+        if stripped.startswith("[") and stripped.endswith("]"):
+            try:
+                import json
+                parsed = json.loads(stripped)
+                pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
+                if renderer:
+                    return renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                return pretty_json
+            except json.JSONDecodeError:
+                pass
+
+        # For plain text, just return as-is (renderer will handle ANSI if enabled)
+        if renderer and output:
+            try:
+                # Try to render any markup in the output
+                return renderer.render_markup(f"[dim]{output}[/dim]")
+            except Exception:
+                pass
+
+        return output
 
     @property
     def tool_calls(self) -> list[ToolCallInfo]:
