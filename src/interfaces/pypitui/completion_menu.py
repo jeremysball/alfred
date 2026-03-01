@@ -74,7 +74,8 @@ class CompletionMenu:
         Returns:
             List of rendered lines, or empty list if closed or no options.
         """
-        if not self._is_open or not self._options:
+        if not self._is_open or not self._options or width < 3:
+            # Need at least 3 columns for borders + content
             return []
 
         # Limit visible options to max_height
