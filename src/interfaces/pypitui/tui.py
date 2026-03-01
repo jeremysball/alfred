@@ -8,6 +8,7 @@ from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
 from src.interfaces.pypitui.constants import USE_MARKDOWN_RENDERING
+from src.interfaces.pypitui.fuzzy import fuzzy_match
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager
@@ -47,8 +48,13 @@ class AlfredTUI:
         # Status line for model/token info
         self.status_line = StatusLine()
 
-        # Input field for user messages (with wrapped text navigation)
-        self.input_field = WrappedInput(placeholder="Message Alfred...")
+        # Input field for user messages (with wrapped text navigation and completion)
+        self.input_field = WrappedInput(
+            placeholder="Message Alfred..."
+        ).with_completion(
+            self._command_provider,
+            trigger="/",
+        )
         self.input_field.on_submit = self._on_submit
 
         # Build layout: conversation (flex), status, input
@@ -335,6 +341,29 @@ class AlfredTUI:
         elif cmd == "/session":
             return self._cmd_show_current_session()
         return False
+
+    def _command_provider(self, text: str) -> list[tuple[str, str | None]]:
+        """Provide command completions for '/' trigger.
+
+        Args:
+            text: Current input text.
+
+        Returns:
+            List of (command, description) tuples matching the text.
+        """
+        if not text.startswith("/"):
+            return []
+
+        # Available commands with descriptions
+        commands = [
+            ("/new", "Create new session"),
+            ("/resume", "Resume session by ID"),
+            ("/sessions", "List all sessions"),
+            ("/session", "Show current session info"),
+        ]
+
+        # Filter by fuzzy match
+        return [(cmd, desc) for cmd, desc in commands if fuzzy_match(text, cmd)]
 
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
