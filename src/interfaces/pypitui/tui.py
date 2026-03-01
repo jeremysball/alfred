@@ -54,6 +54,9 @@ class AlfredTUI:
         ).with_completion(
             self._command_provider,
             trigger="/",
+        ).with_completion(
+            self._session_id_provider,
+            trigger="/resume ",
         )
         self.input_field.on_submit = self._on_submit
 
@@ -364,6 +367,42 @@ class AlfredTUI:
 
         # Filter by fuzzy match
         return [(cmd, desc) for cmd, desc in commands if fuzzy_match(text, cmd)]
+
+    def _session_id_provider(self, text: str) -> list[tuple[str, str | None]]:
+        """Provide session ID completions for '/resume ' trigger.
+
+        Args:
+            text: Current input text (e.g., '/resume abc').
+
+        Returns:
+            List of (session_id, description) tuples matching the text.
+        """
+        if not text.startswith("/resume "):
+            return []
+
+        # Get the partial ID being typed
+        partial = text[8:]  # After '/resume '
+
+        # Get available sessions
+        sessions = self.alfred.session_manager.storage.list_sessions()
+        results = []
+
+        for session in sessions:
+            sid = session.session_id
+            # Use first message or timestamp as description
+            if session.created_at:
+                desc = session.created_at.strftime("%Y-%m-%d %H:%M")
+            else:
+                desc = "Unknown"
+            if session.messages:
+                first_msg = session.messages[0].content[:30] + "..."
+                desc = f"{desc} - {first_msg}"
+
+            # Fuzzy match against partial ID
+            if fuzzy_match(partial.lower(), sid.lower()):
+                results.append((f"/resume {sid}", desc))
+
+        return results[:5]  # Limit to 5 results
 
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
