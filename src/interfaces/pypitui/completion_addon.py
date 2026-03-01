@@ -175,8 +175,8 @@ class CompletionAddon:
             clean_line = re.sub(r'\x1b_pi:c\x07', '', input_line)
             # Strip reverse video block completely (remove cursor char)
             clean_line = re.sub(r'\x1b\[7m[^\x1b]*\x1b\[27m', '', clean_line)
-            # Add ghost text with faint attribute
-            ghost_line = f"{clean_line}\x1b[2m{ghost}\x1b[0m"
+            # Add ghost text with gray color (bright black) for better terminal support
+            ghost_line = f"{clean_line}\x1b[90m{ghost}\x1b[0m"
             lines = lines[:-1] + [ghost_line]
 
         if not self._menu.is_open:
