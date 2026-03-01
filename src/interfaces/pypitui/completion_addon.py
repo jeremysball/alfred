@@ -1,0 +1,135 @@
+"""Completion addon for composable command completion."""
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from pypitui import Key, matches_key
+
+from .completion_menu import CompletionMenu
+
+if TYPE_CHECKING:
+    from .wrapped_input import WrappedInput
+
+
+class CompletionAddon:
+    """Composable completion behavior that attaches to WrappedInput.
+
+    Uses WrappedInput's hook system to intercept keys and modify render output.
+    """
+
+    def __init__(
+        self,
+        input_component: "WrappedInput",
+        provider: Callable[[str], list[tuple[str, str | None]]],
+        trigger: str = "/",
+        max_height: int = 5,
+    ) -> None:
+        """Attach completion behavior to input component.
+
+        Args:
+            input_component: The WrappedInput to attach completion to.
+            provider: Function called on keystrokes matching trigger.
+                     Takes current text, returns list of (value, description).
+            trigger: Prefix that activates completion mode.
+            max_height: Maximum menu height (renders upward from input).
+        """
+        self._input = input_component
+        self._provider = provider
+        self._trigger = trigger
+        self._menu = CompletionMenu(max_height=max_height)
+        self._last_text: str | None = None
+
+        # Register hooks
+        self._input.add_input_filter(self._handle_input)
+        self._input.add_render_filter(self._handle_render)
+
+    def _handle_input(self, key: str) -> bool:
+        """Handle keyboard input when completion is active.
+
+        Args:
+            key: The keyboard input.
+
+        Returns:
+            True if the key was consumed, False to pass to input.
+        """
+        # If menu is open, handle navigation keys
+        if self._menu.is_open:
+            if matches_key(key, Key.tab) or matches_key(key, Key.enter):
+                self._accept_completion()
+                return True
+            elif matches_key(key, Key.up):
+                self._menu.move_up()
+                return True
+            elif matches_key(key, Key.down):
+                self._menu.move_down()
+                return True
+            elif matches_key(key, Key.escape):
+                self._menu.close()
+                return True
+
+        # Let the input process the key
+        return False
+
+    def _update_completion(self) -> None:
+        """Update completion state based on current input."""
+        text = self._input.get_value()
+
+        # Only update if text changed
+        if text == self._last_text:
+            return
+        self._last_text = text
+
+        # Check if trigger matches
+        if not text.startswith(self._trigger):
+            self._menu.close()
+            return
+
+        # Call provider with current text
+        options = self._provider(text)
+
+        if options:
+            self._menu.set_options(options)
+            self._menu.open()
+        else:
+            self._menu.close()
+
+    def _accept_completion(self) -> None:
+        """Accept the currently selected completion."""
+        if not self._menu.is_open:
+            return
+
+        # Get selected option
+        options = self._menu._options
+        if not options:
+            return
+
+        selected_value = options[self._menu.selected_index][0]
+
+        # Insert completion value with trailing space
+        self._input.set_value(selected_value + " ")
+        self._input.set_cursor_pos(len(selected_value) + 1)
+
+        # Update last_text so we don't re-trigger completion
+        self._last_text = selected_value + " "
+
+        # Close menu
+        self._menu.close()
+
+    def _handle_render(self, lines: list[str], width: int) -> list[str]:
+        """Prepend menu to input render output.
+
+        Args:
+            lines: Input render lines.
+            width: Render width.
+
+        Returns:
+            Menu lines followed by input lines.
+        """
+        # Update completion state before rendering (text is now current)
+        self._update_completion()
+
+        if not self._menu.is_open:
+            return lines
+
+        menu_lines = self._menu.render(width)
+        return menu_lines + lines
