@@ -1,6 +1,6 @@
 """Completion menu addon for WrappedInput.
 
-Uses render filter to prepend menu lines to input output.
+Uses render hook to prepend menu lines to input output.
 """
 
 from collections.abc import Callable
@@ -15,11 +15,10 @@ if TYPE_CHECKING:
 
 
 class CompletionAddon:
-    """Completion behavior using render filter.
+    """Completion behavior using render hook.
 
-    Hooks into WrappedInput via render filter to prepend menu lines.
-    Uses callback for re-render requests when state changes without
-    input value changing (e.g., navigation).
+    Hooks into WrappedInput via render hook to prepend menu lines.
+    Uses component invalidation bubbling for efficient re-renders.
     """
 
     def __init__(
@@ -28,29 +27,25 @@ class CompletionAddon:
         provider: Callable[[str], list[tuple[str, str | None]]],
         trigger: str = "/",
         max_height: int = 5,
-        on_state_change: Callable[[], None] | None = None,
     ) -> None:
         self._input = input_component
         self._provider = provider
         self._trigger = trigger
         self._menu = CompletionMenu(max_height=max_height)
         self._last_text: str | None = None
-        self._menu_lines: list[str] = []
-        self._on_state_change = on_state_change
 
-        # Register render filter on WrappedInput
-        self._input.add_render_filter(self._on_render)
+        # Register render hook on WrappedInput
+        self._input.add_render_hook(self._on_render)
 
     def _on_render(self, lines: list[str], width: int) -> list[str]:
         """Prepend menu lines to input render output."""
         # Update completion state based on current input
         self._update_completion(width)
 
-        # If menu is open, re-render and prepend its lines
-        # Always re-render to pick up selection changes from navigation
+        # If menu is open, render and prepend menu lines
         if self._menu.is_open:
-            self._menu_lines = self._menu.render(width)
-            return self._menu_lines + lines
+            menu_lines = self._menu.render(width)
+            return menu_lines + lines
 
         return lines
 
@@ -65,24 +60,22 @@ class CompletionAddon:
         if not text.startswith(self._trigger):
             if self._menu.is_open:
                 self._menu.close()
-                self._menu_lines = []
+                self._input.invalidate()
             return
 
         options = self._provider(text)
 
         if options:
+            had_menu = self._menu.is_open
             self._menu.set_options(options)
             self._menu.open()
-            self._menu_lines = self._menu.render(width)
+            if not had_menu:
+                # Menu just opened - invalidate for render
+                self._input.invalidate()
         else:
             if self._menu.is_open:
                 self._menu.close()
-                self._menu_lines = []
-
-    def _notify_state_change(self) -> None:
-        """Notify that menu state changed and re-render is needed."""
-        if self._on_state_change:
-            self._on_state_change()
+                self._input.invalidate()
 
     def handle_input(self, data: str) -> dict | None:
         """Handle input when menu is open.
@@ -97,16 +90,15 @@ class CompletionAddon:
             return {"consume": True}
         elif matches_key(data, Key.up):
             self._menu.move_up()
-            self._notify_state_change()
+            self._input.invalidate()
             return {"consume": True}
         elif matches_key(data, Key.down):
             self._menu.move_down()
-            self._notify_state_change()
+            self._input.invalidate()
             return {"consume": True}
         elif matches_key(data, Key.escape):
             self._menu.close()
-            self._menu_lines = []
-            self._notify_state_change()
+            self._input.invalidate()
             return {"consume": True}
 
         return None
@@ -119,8 +111,7 @@ class CompletionAddon:
         options = self._menu._options
         if not options:
             self._menu.close()
-            self._menu_lines = []
-            self._notify_state_change()
+            self._input.invalidate()
             return
 
         selected_value = options[self._menu.selected_index][0]
@@ -128,5 +119,4 @@ class CompletionAddon:
         self._input.set_cursor_pos(len(selected_value) + 1)
         self._last_text = selected_value + " "
         self._menu.close()
-        self._menu_lines = []
-        self._notify_state_change()
+        self._input.invalidate()

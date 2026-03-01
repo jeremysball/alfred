@@ -44,6 +44,7 @@ class WrappedInput(Component, Focusable):
         Args:
             placeholder: Placeholder text when empty and unfocused.
         """
+        super().__init__()
         self._input = Input(placeholder=placeholder)
         self._input.on_submit = self._on_submit
         self._display_column = 0  # Desired column for vertical movement
@@ -54,35 +55,34 @@ class WrappedInput(Component, Focusable):
         self.on_cancel: Callable | None = None
 
         # Hook filters for composable behaviors
-        self._input_filters: list[Callable[[str], bool]] = []
-        self._render_filters: list[Callable[[list[str], int], list[str]]] = []
+        self._input_hooks: list[Callable[[str], bool]] = []
+        self._render_hooks: list[Callable[[list[str], int], list[str]]] = []
 
-    def add_input_filter(self, filter_fn: Callable[[str], bool]) -> None:
+    def add_input_hook(self, hook_fn: Callable[[str], bool]) -> None:
         """Register an input filter.
 
         Filters are called in order before normal input processing.
         If a filter returns True, the key is consumed and not processed further.
 
         Args:
-            filter_fn: Function taking key string, returning True if consumed.
+            hook_fn: Function taking key string, returning True if consumed.
         """
-        self._input_filters.append(filter_fn)
+        self._input_hooks.append(hook_fn)
 
-    def add_render_filter(self, filter_fn: Callable[[list[str], int], list[str]]) -> None:
+    def add_render_hook(self, hook_fn: Callable[[list[str], int], list[str]]) -> None:
         """Register a render filter.
 
         Filters are applied in order to transform rendered output lines.
 
         Args:
-            filter_fn: Function taking lines and width, returning modified lines.
+            hook_fn: Function taking lines and width, returning modified lines.
         """
-        self._render_filters.append(filter_fn)
+        self._render_hooks.append(hook_fn)
 
     def with_completion(
         self,
         provider: Callable[[str], list[tuple[str, str | None]]],
         trigger: str = "/",
-        on_state_change: Callable[[], None] | None = None,
     ) -> "WrappedInput":
         """Add command completion with fluent API.
 
@@ -93,8 +93,6 @@ class WrappedInput(Component, Focusable):
             provider: Function that takes current text and returns
                      list of (value, description) tuples.
             trigger: Character that triggers completion (default: "/").
-            on_state_change: Optional callback when menu state changes.
-                             Called when menu opens/closes or option count changes.
 
         Returns:
             Self for method chaining.
@@ -110,18 +108,7 @@ class WrappedInput(Component, Focusable):
         # Import here to avoid circular imports
         from src.interfaces.pypitui.completion_addon import CompletionAddon
 
-        # Create invalidate callback if not provided
-        # This triggers a re-render when menu state changes
-        def invalidate_callback() -> None:
-            self.invalidate()
-
-        CompletionAddon(
-            self,
-            provider,
-            trigger=trigger,
-            max_height=5,
-            on_state_change=on_state_change or invalidate_callback,
-        )
+        CompletionAddon(self, provider, trigger=trigger)
         return self
 
     @property
@@ -158,8 +145,9 @@ class WrappedInput(Component, Focusable):
         self._input._cursor_pos = value  # type: ignore[attr-defined]
 
     def invalidate(self) -> None:
-        """Invalidate cache."""
+        """Invalidate cache and bubble up for targeted invalidation."""
         self._input.invalidate()
+        self._child_invalidated(self)
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.
@@ -177,8 +165,8 @@ class WrappedInput(Component, Focusable):
             # Show placeholder
             result = self._input.render(width)
             # Apply render filters
-            for filter_fn in self._render_filters:
-                result = filter_fn(result, width)
+            for hook_fn in self._render_hooks:
+                result = hook_fn(result, width)
             return result
 
         if width <= 0:
@@ -209,8 +197,8 @@ class WrappedInput(Component, Focusable):
                 result.append(line)
 
         # Apply render filters
-        for filter_fn in self._render_filters:
-            result = filter_fn(result, width)
+        for hook_fn in self._render_hooks:
+            result = hook_fn(result, width)
 
         return result
 
@@ -327,8 +315,8 @@ class WrappedInput(Component, Focusable):
             data: Raw input data from terminal.
         """
         # Run input filters first
-        for filter_fn in self._input_filters:
-            if filter_fn(data):
+        for hook_fn in self._input_hooks:
+            if hook_fn(data):
                 return  # Key was consumed by filter
 
         # Check for up/down arrows first

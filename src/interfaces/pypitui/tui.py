@@ -54,11 +54,9 @@ class AlfredTUI:
         ).with_completion(
             self._command_provider,
             trigger="/",
-            on_state_change=self._on_completion_state_change,
         ).with_completion(
             self._session_id_provider,
             trigger="/resume ",
-            on_state_change=self._on_completion_state_change,
         )
         self.input_field.on_submit = self._on_submit
 

@@ -140,38 +140,34 @@ class TestCompletionAddon:
         addon.handle_input("\x1b[B")
         assert addon._menu.selected_index == 0
 
-    def test_state_change_callback(self, setup):
-        """Callback is called when state changes."""
-        input_field, _ = setup
-        state_changes = []
-
-        def on_state_change():
-            state_changes.append(True)
-
-        def provider(text: str) -> list[tuple[str, str | None]]:
-            if text.startswith("/"):
-                return [("/cmd", "Command")]
-            return []
-
-        # Create addon with callback
-        addon = CompletionAddon(
-            input_component=input_field,
-            provider=provider,
-            trigger="/",
-            on_state_change=on_state_change,
-        )
+    def test_invalidate_bubbles_up(self, setup):
+        """Invalidation bubbles up through component hierarchy."""
+        input_field, addon = setup
 
         # Open menu
         input_field.set_value("/")
         addon._on_render(["input"], 80)
 
-        # Navigate should trigger callback
-        addon.handle_input("\x1b[B")
-        assert len(state_changes) == 1
+        # Track if invalidate was called on input
+        invalidated = []
+        original_invalidate = input_field.invalidate
 
-        # Accept should trigger callback
+        def track_invalidate():
+            invalidated.append(True)
+            # Call original but don't recurse
+            input_field.invalidate = lambda: None
+            original_invalidate()
+            input_field.invalidate = track_invalidate
+
+        input_field.invalidate = track_invalidate
+
+        # Navigate should trigger invalidate
+        addon.handle_input("\x1b[B")
+        assert len(invalidated) == 1
+
+        # Accept should trigger invalidate
         addon.handle_input("\t")
-        assert len(state_changes) == 2
+        assert len(invalidated) == 2
 
 
 class TestCompletionAddonIntegration:

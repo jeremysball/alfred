@@ -48,8 +48,8 @@ class CompletionOverlayV2:
         self._last_text: str | None = None
 
         # Register hooks on WrappedInput
-        self._input.add_input_filter(self._on_input)
-        self._input.add_render_filter(self._on_render)
+        self._input.add_input_hook(self._on_input)
+        self._input.add_render_hook(self._on_render)
 
     def _on_render(self, lines: list[str], width: int) -> list[str]:
         """Update completion state after input has processed changes."""
