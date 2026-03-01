@@ -70,9 +70,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Set border color based on role
         self._set_border_color(role)
 
-        # Add content as Text child
-        if content:
-            self.add_child(Text(content, padding_x=0))
+        # Build initial content (with markdown and ANSI placeholders if enabled)
+        self._rebuild_content()
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -195,18 +194,22 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def _rebuild_content(self) -> None:
         """Rebuild the content with embedded tool call boxes."""
+        from src.interfaces.pypitui.ansi import apply_ansi
+
         self.clear()
 
         if not self._tool_calls:
             # Simple case: no tool calls
-            display_text = self._text_content
+            # First replace {cyan} etc. with ANSI codes, then apply markdown
+            text_with_ansi = apply_ansi(self._text_content)
+            display_text = text_with_ansi
             # Use Rich markdown rendering if enabled
             if self._use_markdown and self._renderer:
                 try:
-                    display_text = self._renderer.render_markdown(self._text_content)
+                    display_text = self._renderer.render_markdown(text_with_ansi)
                 except Exception:
                     # Fallback to plain text on error
-                    display_text = self._text_content
+                    display_text = text_with_ansi
             self.add_child(Text(display_text, padding_x=0))
         else:
             # Build content with tool boxes inline
