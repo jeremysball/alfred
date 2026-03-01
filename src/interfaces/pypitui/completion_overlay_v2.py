@@ -8,12 +8,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from pypitui import (
+    Container,
     Key,
     OverlayHandle,
     OverlayMargin,
     OverlayOptions,
     Text,
-    Container,
     matches_key,
 )
 
@@ -21,12 +21,13 @@ from .completion_menu import CompletionMenu
 
 if TYPE_CHECKING:
     from pypitui import TUI
+
     from .wrapped_input import WrappedInput
 
 
 class CompletionOverlayV2:
     """Completion behavior using pypitui 0.3.0 overlay system.
-    
+
     Hooks into WrappedInput for input detection, uses TUI overlays for rendering.
     """
 
@@ -126,7 +127,7 @@ class CompletionOverlayV2:
         """Refresh overlay after selection change."""
         if self._overlay_handle is None:
             return
-        
+
         self._overlay_handle.hide()
         self._overlay_handle = None
         self._show_overlay()

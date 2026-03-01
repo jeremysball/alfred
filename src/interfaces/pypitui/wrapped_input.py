@@ -110,7 +110,18 @@ class WrappedInput(Component, Focusable):
         # Import here to avoid circular imports
         from src.interfaces.pypitui.completion_addon import CompletionAddon
 
-        CompletionAddon(self, provider, trigger=trigger, on_state_change=on_state_change)
+        # Create invalidate callback if not provided
+        # This triggers a re-render when menu state changes
+        def invalidate_callback() -> None:
+            self.invalidate()
+
+        CompletionAddon(
+            self,
+            provider,
+            trigger=trigger,
+            max_height=5,
+            on_state_change=on_state_change or invalidate_callback,
+        )
         return self
 
     @property

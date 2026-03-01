@@ -1,11 +1,12 @@
-"""Completion addon for composable command completion."""
+"""Completion menu addon for WrappedInput.
+
+Uses render filter to prepend menu lines to input output.
+"""
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from pypitui import Key, matches_key
-
-from src.interfaces.pypitui.ansi import BRIGHT_BLACK, RESET
 
 from .completion_menu import CompletionMenu
 
@@ -14,9 +15,11 @@ if TYPE_CHECKING:
 
 
 class CompletionAddon:
-    """Composable completion behavior that attaches to WrappedInput.
+    """Completion behavior using render filter.
 
-    Uses WrappedInput's hook system to intercept keys and modify render output.
+    Hooks into WrappedInput via render filter to prepend menu lines.
+    Uses callback for re-render requests when state changes without
+    input value changing (e.g., navigation).
     """
 
     def __init__(
@@ -27,173 +30,101 @@ class CompletionAddon:
         max_height: int = 5,
         on_state_change: Callable[[], None] | None = None,
     ) -> None:
-        """Attach completion behavior to input component.
-
-        Args:
-            input_component: The WrappedInput to attach completion to.
-            provider: Function called on keystrokes matching trigger.
-                     Takes current text, returns list of (value, description).
-            trigger: Prefix that activates completion mode.
-            max_height: Maximum menu height (renders upward from input).
-            on_state_change: Optional callback when menu state changes.
-                             Called when menu opens/closes or option count changes.
-        """
         self._input = input_component
         self._provider = provider
         self._trigger = trigger
         self._menu = CompletionMenu(max_height=max_height)
         self._last_text: str | None = None
+        self._menu_lines: list[str] = []
         self._on_state_change = on_state_change
 
-        # Track previous menu state for detecting changes
-        self._was_open = False
-        self._prev_option_count = 0
+        # Register render filter on WrappedInput
+        self._input.add_render_filter(self._on_render)
 
-        # Register hooks
-        self._input.add_input_filter(self._handle_input)
-        self._input.add_render_filter(self._handle_render)
+    def _on_render(self, lines: list[str], width: int) -> list[str]:
+        """Prepend menu lines to input render output."""
+        # Update completion state based on current input
+        self._update_completion(width)
 
-    def _handle_input(self, key: str) -> bool:
-        """Handle keyboard input when completion is active.
+        # If menu is open, prepend its lines
+        if self._menu.is_open and self._menu_lines:
+            return self._menu_lines + lines
 
-        Args:
-            key: The keyboard input.
+        return lines
 
-        Returns:
-            True if the key was consumed, False to pass to input.
-        """
-        # If menu is open, handle navigation keys
-        if self._menu.is_open:
-            if matches_key(key, Key.tab) or matches_key(key, Key.enter):
-                self._accept_completion()
-                return True
-            elif matches_key(key, Key.up):
-                self._menu.move_up()
-                return True
-            elif matches_key(key, Key.down):
-                self._menu.move_down()
-                return True
-            elif matches_key(key, Key.escape):
-                self._menu.close()
-                return True
-
-        # Let the input process the key
-        return False
-
-    def _update_completion(self) -> None:
-        """Update completion state based on current input."""
+    def _update_completion(self, width: int) -> None:
+        """Update completion state."""
         text = self._input.get_value()
 
-        # Only update if text changed
         if text == self._last_text:
             return
         self._last_text = text
 
-        # Check if trigger matches
         if not text.startswith(self._trigger):
-            self._menu.close()
+            if self._menu.is_open:
+                self._menu.close()
+                self._menu_lines = []
             return
 
-        # Call provider with current text
         options = self._provider(text)
 
         if options:
             self._menu.set_options(options)
             self._menu.open()
+            self._menu_lines = self._menu.render(width)
         else:
-            self._menu.close()
+            if self._menu.is_open:
+                self._menu.close()
+                self._menu_lines = []
 
-    def _accept_completion(self) -> None:
-        """Accept the currently selected completion."""
-        if not self._menu.is_open:
-            return
+    def _notify_state_change(self) -> None:
+        """Notify that menu state changed and re-render is needed."""
+        if self._on_state_change:
+            self._on_state_change()
 
-        # Get selected option
-        options = self._menu._options
-        if not options:
-            return
+    def handle_input(self, data: str) -> dict | None:
+        """Handle input when menu is open.
 
-        selected_value = options[self._menu.selected_index][0]
-
-        # Insert completion value with trailing space
-        self._input.set_value(selected_value + " ")
-        self._input.set_cursor_pos(len(selected_value) + 1)
-
-        # Update last_text so we don't re-trigger completion
-        self._last_text = selected_value + " "
-
-        # Close menu
-        self._menu.close()
-
-    def get_ghost_text(self) -> str | None:
-        """Get ghost text for currently selected completion.
-
-        Returns:
-            The text to show as ghost (dimmed inline preview),
-            or None if no completion is selected.
+        Returns {"consume": True} if key was handled, None otherwise.
         """
-        # Update completion state to ensure menu is current
-        self._update_completion()
-
-        if not self._menu.is_open or not self._menu._options:
+        if not self._menu.is_open:
             return None
 
-        selected_value = self._menu._options[self._menu.selected_index][0]
-        current_text = self._input.get_value()
-
-        # Only show ghost if selected value starts with current text
-        if selected_value.startswith(current_text) and len(selected_value) > len(current_text):
-            return selected_value[len(current_text):]
+        if matches_key(data, Key.tab) or matches_key(data, Key.enter):
+            self._accept_completion()
+            return {"consume": True}
+        elif matches_key(data, Key.up):
+            self._menu.move_up()
+            self._notify_state_change()
+            return {"consume": True}
+        elif matches_key(data, Key.down):
+            self._menu.move_down()
+            self._notify_state_change()
+            return {"consume": True}
+        elif matches_key(data, Key.escape):
+            self._menu.close()
+            self._menu_lines = []
+            self._notify_state_change()
+            return {"consume": True}
 
         return None
 
-    def _handle_render(self, lines: list[str], width: int) -> list[str]:
-        """Prepend menu to input render output and inject ghost text.
-
-        Args:
-            lines: Input render lines.
-            width: Render width.
-
-        Returns:
-            Menu lines followed by input lines with ghost text.
-        """
-        # Update completion state before rendering (text is now current)
-        self._update_completion()
-
-        # Detect menu state changes for re-render requests
-        current_option_count = len(self._menu._options) if self._menu.is_open else 0
-        state_changed = (
-            self._was_open != self._menu.is_open
-            or self._prev_option_count != current_option_count
-        )
-        self._was_open = self._menu.is_open
-        self._prev_option_count = current_option_count
-
-        # Inject ghost text into the last line (input line with cursor)
-        ghost = self.get_ghost_text()
-        if ghost and lines:
-            # Replace the last line (input line) with ghost-injected version
-            # Hide cursor and show ghost text dimmed
-            input_line = lines[-1]
-            # Remove cursor marker and reverse video codes (including cursor char)
-            import re
-            # Strip cursor marker APC sequence
-            clean_line = re.sub(r'\x1b_pi:c\x07', '', input_line)
-            # Strip reverse video block completely (remove cursor char)
-            clean_line = re.sub(r'\x1b\[7m[^\x1b]*\x1b\[27m', '', clean_line)
-            # Add ghost text with gray color (bright black) for better terminal support
-            ghost_line = f"{clean_line}{BRIGHT_BLACK}{ghost}{RESET}"
-            lines = lines[:-1] + [ghost_line]
-
-        # Request full re-render if menu state changed (before early return)
-        if state_changed:
-            if self._on_state_change:
-                self._on_state_change()
-            if hasattr(self._input, 'invalidate'):
-                self._input.invalidate()
-
+    def _accept_completion(self) -> None:
+        """Accept selected completion."""
         if not self._menu.is_open:
-            return lines
+            return
 
-        menu_lines = self._menu.render(width)
-        return menu_lines + lines
+        options = self._menu._options
+        if not options:
+            self._menu.close()
+            self._menu_lines = []
+            self._notify_state_change()
+            return
+
+        selected_value = options[self._menu.selected_index][0]
+        self._input.set_value(selected_value + " ")
+        self._input.set_cursor_pos(len(selected_value) + 1)
+        self._last_text = selected_value + " "
+        self._menu.close()
+        self._menu_lines = []
+        self._notify_state_change()

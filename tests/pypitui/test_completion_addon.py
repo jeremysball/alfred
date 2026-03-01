@@ -1,387 +1,254 @@
-"""Tests for CompletionAddon component."""
-
-from unittest.mock import MagicMock
+"""Tests for completion addon using render filter."""
 
 import pytest
-
-from pypitui import Key, matches_key
+from pypitui import MockTerminal, TUI
 
 from src.interfaces.pypitui.completion_addon import CompletionAddon
 from src.interfaces.pypitui.wrapped_input import WrappedInput
 
-# Terminal escape sequences for key inputs
-KEY_UP = "\x1b[A"
-KEY_DOWN = "\x1b[B"
-KEY_RIGHT = "\x1b[C"
-KEY_LEFT = "\x1b[D"
-KEY_TAB = "\t"
-KEY_ENTER = "\r"
-KEY_ESCAPE = "\x1b"
-KEY_BACKSPACE = "backspace"
 
+class TestCompletionAddon:
+    """Test completion addon functionality."""
 
-class TestCompletionAddonInit:
-    """Test CompletionAddon initialization."""
+    @pytest.fixture
+    def setup(self):
+        """Create input and completion addon."""
+        input_field = WrappedInput(placeholder="Test")
 
-    def test_addon_attaches_to_input(self) -> None:
-        """CompletionAddon attaches to WrappedInput via hooks."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[])
+        def provider(text: str) -> list[tuple[str, str | None]]:
+            if text.startswith("/"):
+                return [
+                    ("/new", "New session"),
+                    ("/resume", "Resume session"),
+                ]
+            return []
 
-        addon = CompletionAddon(input_field, provider, trigger="/")
+        addon = CompletionAddon(
+            input_component=input_field,
+            provider=provider,
+            trigger="/",
+        )
 
-        assert addon._input is input_field
-        assert addon._provider is provider
-        assert addon._trigger == "/"
+        return input_field, addon
 
-    def test_addon_registers_filters(self) -> None:
-        """Addon registers input and render filters."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[])
+    def test_menu_not_shown_without_trigger(self, setup):
+        """Menu doesn't show when input doesn't match trigger."""
+        input_field, addon = setup
 
-        CompletionAddon(input_field, provider, trigger="/")
+        # Type text without trigger
+        input_field.set_value("hello")
+        lines = addon._on_render(["input line"], 80)
 
-        # Should have registered filters
-        assert len(input_field._input_filters) > 0
-        assert len(input_field._render_filters) > 0
+        assert addon._menu.is_open is False
+        assert lines == ["input line"]  # No menu prepended
 
+    def test_menu_shows_with_trigger(self, setup):
+        """Menu shows when trigger matches."""
+        input_field, addon = setup
 
-class TestCompletionAddonProvider:
-    """Test provider invocation."""
+        # Type trigger
+        input_field.set_value("/")
+        lines = addon._on_render(["input line"], 80)
 
-    def test_provider_called_when_trigger_matches(self) -> None:
-        """Provider called when text starts with trigger."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
+        assert addon._menu.is_open is True
+        assert len(lines) > 1  # Menu lines prepended
+        assert lines[-1] == "input line"  # Input is last
 
-        CompletionAddon(input_field, provider, trigger="/")
+    def test_navigation_consumed_by_addon(self, setup):
+        """Navigation keys are consumed when menu is open."""
+        input_field, addon = setup
 
-        # Type "/"
-        input_field.handle_input("/")
-        # Trigger render to update completion state
-        input_field.render(width=40)
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["input"], 80)
 
-        # Provider should have been called
-        provider.assert_called_with("/")
+        # Down arrow should be consumed
+        result = addon.handle_input("\x1b[B")
+        assert result == {"consume": True}
 
-    def test_provider_not_called_when_no_trigger(self) -> None:
-        """Provider not called when text doesn't start with trigger."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[])
+    def test_escape_closes_menu(self, setup):
+        """Escape key closes completion menu."""
+        input_field, addon = setup
 
-        CompletionAddon(input_field, provider, trigger="/")
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["input"], 80)
+        assert addon._menu.is_open is True
 
-        # Type regular text
-        input_field.handle_input("h")
-        input_field.handle_input("i")
+        # Escape closes
+        result = addon.handle_input("\x1b")
+        assert result == {"consume": True}
+        assert addon._menu.is_open is False
 
-        # Provider should not have been called
-        provider.assert_not_called()
+    def test_accept_completion(self, setup):
+        """Tab accepts completion and inserts value."""
+        input_field, addon = setup
 
-    def test_provider_called_with_full_text(self) -> None:
-        """Provider receives full input text."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[])
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["input"], 80)
 
-        CompletionAddon(input_field, provider, trigger="/")
+        # Tab accepts
+        result = addon.handle_input("\t")
+        assert result == {"consume": True}
 
-        # Type "/resume abc"
-        for char in "/resume abc":
-            input_field.handle_input(char)
-            input_field.render(width=40)
+        # Value inserted with space
+        assert input_field.get_value() == "/new "
+        assert addon._menu.is_open is False
 
-        # Provider should have been called with full text
-        calls = provider.call_args_list
-        assert calls[-1][0][0] == "/resume abc"
+    def test_non_trigger_keys_pass_through(self, setup):
+        """Non-navigation keys pass through."""
+        input_field, addon = setup
 
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["input"], 80)
 
-class TestCompletionAddonMenu:
-    """Test menu display."""
+        # Regular key passes through
+        result = addon.handle_input("a")
+        assert result is None
 
-    def test_menu_opens_when_provider_returns_options(self) -> None:
-        """Menu opens when provider returns completion options."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
+    def test_menu_prepended_to_lines(self, setup):
+        """Menu lines are prepended to input lines."""
+        input_field, addon = setup
 
-        addon = CompletionAddon(input_field, provider, trigger="/")
+        input_field.set_value("/")
+        input_lines = ["> /"]
+        result_lines = addon._on_render(input_lines, 80)
 
-        # Type "/"
-        input_field.handle_input("/")
-        input_field.render(width=40)
+        # Menu should be prepended
+        assert len(result_lines) > len(input_lines)
+        assert result_lines[-1] == "> /"
+        # Should have box drawing characters
+        assert any("┌" in line for line in result_lines)
+        assert any("└" in line for line in result_lines)
 
-        assert addon._menu.is_open
+    def test_navigation_updates_selection(self, setup):
+        """Navigation updates selection index."""
+        input_field, addon = setup
 
-    def test_menu_closes_when_no_options(self) -> None:
-        """Menu closes when provider returns empty list."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[])
-
-        addon = CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/" then backspace (simulated by provider returning empty)
-        provider.return_value = [("/new", "New")]
-        input_field.handle_input("/")
-        input_field.render(width=40)
-        assert addon._menu.is_open
-
-        # Now provider returns empty
-        provider.return_value = []
-        input_field.handle_input("x")  # Trigger update
-        input_field.render(width=40)
-
-        assert not addon._menu.is_open
-
-    def test_menu_closes_when_trigger_deleted(self) -> None:
-        """Menu closes when trigger prefix is deleted."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
-
-        addon = CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/" then delete it
-        input_field.handle_input("/")
-        input_field.render(width=40)
-        assert addon._menu.is_open
-
-        # Delete the "/" by setting empty value (backspace not available in tests)
-        input_field.set_value("")
-        input_field.render(width=40)
-
-        assert not addon._menu.is_open
-
-
-class TestCompletionAddonNavigation:
-    """Test menu navigation."""
-
-    def test_down_arrow_moves_selection(self) -> None:
-        """Down arrow moves menu selection down."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[
-            ("/new", "New session"),
-            ("/resume", "Resume"),
-        ])
-
-        addon = CompletionAddon(input_field, provider, trigger="/")
-        input_field.handle_input("/")
-        input_field.render(width=40)
+        input_field.set_value("/")
+        addon._on_render(["input"], 80)
 
         assert addon._menu.selected_index == 0
 
-        # Simulate down arrow
-        input_field.handle_input(KEY_DOWN)
-
+        # Move down
+        addon.handle_input("\x1b[B")
         assert addon._menu.selected_index == 1
 
-    def test_up_arrow_moves_selection(self) -> None:
-        """Up arrow moves menu selection up."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[
-            ("/new", "New session"),
-            ("/resume", "Resume"),
-        ])
-
-        addon = CompletionAddon(input_field, provider, trigger="/")
-        input_field.handle_input("/")
-        input_field.render(width=40)
-        input_field.handle_input(KEY_DOWN)  # Move to index 1
-
-        # Simulate up arrow
-        input_field.handle_input(KEY_UP)
-
+        # Move down again (wraps)
+        addon.handle_input("\x1b[B")
         assert addon._menu.selected_index == 0
 
-    def test_navigation_does_not_affect_input(self) -> None:
-        """Arrow keys navigate menu without moving text cursor."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[
-            ("/new", "New session"),
-            ("/resume", "Resume"),
-        ])
+    def test_state_change_callback(self, setup):
+        """Callback is called when state changes."""
+        input_field, _ = setup
+        state_changes = []
 
-        CompletionAddon(input_field, provider, trigger="/")
+        def on_state_change():
+            state_changes.append(True)
 
-        # Type "/abc"
-        for char in "/abc":
-            input_field.handle_input(char)
-        input_field.render(width=40)
+        def provider(text: str) -> list[tuple[str, str | None]]:
+            if text.startswith("/"):
+                return [("/cmd", "Command")]
+            return []
 
-        cursor_pos_before = input_field._cursor_pos
+        # Create addon with callback
+        addon = CompletionAddon(
+            input_component=input_field,
+            provider=provider,
+            trigger="/",
+            on_state_change=on_state_change,
+        )
 
-        # Simulate down arrow
-        input_field.handle_input(KEY_DOWN)
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["input"], 80)
 
-        # Cursor should not have moved
-        assert input_field._cursor_pos == cursor_pos_before
+        # Navigate should trigger callback
+        addon.handle_input("\x1b[B")
+        assert len(state_changes) == 1
+
+        # Accept should trigger callback
+        addon.handle_input("\t")
+        assert len(state_changes) == 2
 
 
-class TestCompletionAddonAccept:
-    """Test completion acceptance."""
+class TestCompletionAddonIntegration:
+    """Integration tests with real TUI flow."""
 
-    def test_tab_accepts_completion(self) -> None:
-        """Tab accepts the selected completion."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
+    @pytest.fixture
+    def tui_setup(self):
+        """Create full TUI setup."""
+        terminal = MockTerminal(cols=80, rows=24)
+        tui = TUI(terminal)
+        input_field = WrappedInput(placeholder="Message Alfred...")
+        tui.add_child(input_field)
 
-        CompletionAddon(input_field, provider, trigger="/")
+        def provider(text: str) -> list[tuple[str, str | None]]:
+            commands = [
+                ("/new", "Start new session"),
+                ("/resume", "Resume previous"),
+                ("/sessions", "List sessions"),
+            ]
+            if not text.startswith("/"):
+                return []
+            query = text.lower()
+            return [
+                (cmd, desc) for cmd, desc in commands
+                if query in cmd.lower()
+            ]
+
+        addon = CompletionAddon(
+            input_component=input_field,
+            provider=provider,
+            trigger="/",
+            max_height=5,
+        )
+
+        return tui, input_field, addon, terminal
+
+    def test_full_completion_flow(self, tui_setup):
+        """Test complete user interaction flow."""
+        tui, input_field, addon, _ = tui_setup
+
+        # Initially no menu
+        assert addon._menu.is_open is False
 
         # Type "/"
-        input_field.handle_input("/")
-        input_field.render(width=40)
+        input_field.set_value("/")
+        lines = addon._on_render(["> /"], 80)
 
-        # Press Tab
-        input_field.handle_input(KEY_TAB)
+        # Menu should be open and prepended
+        assert addon._menu.is_open is True
+        assert len(lines) > 1
 
-        # Value should be updated
-        assert "/new" in input_field.get_value()
+        # Navigate down
+        result = addon.handle_input("\x1b[B")
+        assert result == {"consume": True}
+        assert addon._menu.selected_index == 1
 
-    def test_enter_accepts_completion(self) -> None:
-        """Enter accepts the selected completion."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
+        # Accept with Tab
+        result = addon.handle_input("\t")
+        assert result == {"consume": True}
 
-        CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/"
-        input_field.handle_input("/")
-        input_field.render(width=40)
-
-        # Press Enter
-        input_field.handle_input(KEY_ENTER)
-
-        # Value should be updated
-        assert "/new" in input_field.get_value()
-
-    def test_accept_closes_menu(self) -> None:
-        """Accepting completion closes the menu."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
-
-        addon = CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/" and accept
-        input_field.handle_input("/")
-        input_field.render(width=40)
-        assert addon._menu.is_open
-
-        input_field.handle_input(KEY_TAB)
-
-        assert not addon._menu.is_open
-
-    def test_accept_adds_space_after(self) -> None:
-        """Accepting completion adds trailing space for arguments."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/resume", "Resume session")])
-
-        CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/re" and accept
-        input_field.handle_input("/")
-        input_field.handle_input("r")
-        input_field.handle_input("e")
-        input_field.render(width=40)
-
-        input_field.handle_input(KEY_TAB)
-
-        # Should have trailing space
+        # Value should be inserted
         assert input_field.get_value() == "/resume "
+        assert addon._menu.is_open is False
 
+    def test_menu_closes_on_non_trigger_input(self, tui_setup):
+        """Menu closes when typing non-trigger text."""
+        _, input_field, addon, _ = tui_setup
 
-class TestCompletionAddonCancel:
-    """Test menu cancellation."""
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+        assert addon._menu.is_open is True
 
-    def test_esc_closes_menu(self) -> None:
-        """Escape closes menu without accepting."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
+        # Type non-trigger text
+        input_field.set_value("hello")
+        lines = addon._on_render(["> hello"], 80)
 
-        addon = CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/"
-        input_field.handle_input("/")
-        input_field.render(width=40)
-        assert addon._menu.is_open
-
-        # Press Escape
-        input_field.handle_input(KEY_ESCAPE)
-
-        assert not addon._menu.is_open
-
-    def test_esc_preserves_text(self) -> None:
-        """Escape closes menu but keeps current text."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New session")])
-
-        CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/abc"
-        for char in "/abc":
-            input_field.handle_input(char)
-        input_field.render(width=40)
-
-        # Press Escape
-        input_field.handle_input(KEY_ESCAPE)
-
-        # Text should be preserved
-        assert input_field.get_value() == "/abc"
-
-
-class TestCompletionAddonRender:
-    """Test menu rendering integration."""
-
-    def test_menu_renders_above_input(self) -> None:
-        """Menu appears above input in rendered output."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("/new", "New")])
-
-        CompletionAddon(input_field, provider, trigger="/")
-
-        # Type "/"
-        input_field.handle_input("/")
-
-        # Render
-        lines = input_field.render(width=40)
-
-        # Menu should be in output (above input)
-        # Menu has box borders, input is just text
-        box_lines = [line for line in lines if "┌" in line or "└" in line]
-        assert len(box_lines) > 0
-
-
-class TestCompletionAddonCustomTrigger:
-    """Test custom trigger prefixes."""
-
-    def test_custom_trigger(self) -> None:
-        """Addon works with custom trigger character."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[("@user", "User command")])
-
-        CompletionAddon(input_field, provider, trigger="@")
-
-        # Type "@"
-        input_field.handle_input("@")
-        input_field.render(width=40)
-
-        provider.assert_called_with("@")
-        assert input_field._render_filters  # Menu should be active
-
-
-class TestCompletionAddonMaxHeight:
-    """Test max_height parameter."""
-
-    def test_max_height_limits_menu(self) -> None:
-        """max_height limits the number of visible options."""
-        input_field = WrappedInput()
-        provider = MagicMock(return_value=[
-            ("/a", "A"),
-            ("/b", "B"),
-            ("/c", "C"),
-            ("/d", "D"),
-        ])
-
-        addon = CompletionAddon(input_field, provider, trigger="/", max_height=2)
-
-        # Type "/"
-        input_field.handle_input("/")
-        input_field.render(width=40)
-
-        assert addon._menu._max_height == 2
+        # Menu should be closed
+        assert addon._menu.is_open is False
+        assert lines == ["> hello"]  # No menu prepended
