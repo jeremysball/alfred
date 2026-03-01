@@ -57,6 +57,9 @@ class WrappedInput(Component, Focusable):
         self._input_filters: list[Callable[[str], bool]] = []
         self._render_filters: list[Callable[[list[str], int], list[str]]] = []
 
+        # Ghost text providers (for inline completion preview)
+        self._ghost_text_providers: list[Callable[[], str | None]] = []
+
     def add_input_filter(self, filter_fn: Callable[[str], bool]) -> None:
         """Register an input filter.
 
@@ -77,6 +80,17 @@ class WrappedInput(Component, Focusable):
             filter_fn: Function taking lines and width, returning modified lines.
         """
         self._render_filters.append(filter_fn)
+
+    def add_ghost_text_provider(self, provider: Callable[[], str | None]) -> None:
+        """Add a function that provides ghost text (inline completion preview).
+
+        The ghost text appears dimmed after the cursor position.
+        Multiple providers can be added; the first non-None result is used.
+
+        Args:
+            provider: Function returning ghost text string, or None if no ghost.
+        """
+        self._ghost_text_providers.append(provider)
 
     def with_completion(
         self,
@@ -197,14 +211,33 @@ class WrappedInput(Component, Focusable):
 
         return result
 
+    def _get_ghost_text(self) -> str | None:
+        """Get ghost text from all registered providers.
+
+        Returns:
+            First non-None ghost text from providers, or None.
+        """
+        for provider in self._ghost_text_providers:
+            ghost = provider()
+            if ghost is not None:
+                return ghost
+        return None
+
     def _render_line_with_cursor(self, line: str, cursor_col: int) -> str:
         """Render a line with cursor marker at given column."""
         before = line[:cursor_col]
         at = line[cursor_col : cursor_col + 1] or " "
         after = line[cursor_col + 1 :]
 
+        # Get ghost text (inline completion preview)
+        ghost = self._get_ghost_text()
+        ghost_rendered = ""
+        if ghost:
+            # Dim the ghost text using faint ANSI code (\x1b[2m)
+            ghost_rendered = f"\x1b[2m{ghost}\x1b[0m"
+
         # Use reverse video for cursor and emit CURSOR_MARKER for hardware cursor positioning
-        return f"{before}{CURSOR_MARKER}\x1b[7m{at}\x1b[27m{after}"
+        return f"{before}{CURSOR_MARKER}\x1b[7m{at}\x1b[27m{after}{ghost_rendered}"
 
     def _get_cursor_display_pos(self, width: int) -> tuple[int, int]:
         """Get cursor position in display coordinates.

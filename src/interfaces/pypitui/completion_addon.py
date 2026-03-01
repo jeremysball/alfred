@@ -42,6 +42,7 @@ class CompletionAddon:
         # Register hooks
         self._input.add_input_filter(self._handle_input)
         self._input.add_render_filter(self._handle_render)
+        self._input.add_ghost_text_provider(self.get_ghost_text)
 
     def _handle_input(self, key: str) -> bool:
         """Handle keyboard input when completion is active.
@@ -114,6 +115,28 @@ class CompletionAddon:
 
         # Close menu
         self._menu.close()
+
+    def get_ghost_text(self) -> str | None:
+        """Get ghost text for currently selected completion.
+
+        Returns:
+            The text to show as ghost (dimmed inline preview),
+            or None if no completion is selected.
+        """
+        # Update completion state to ensure menu is current
+        self._update_completion()
+
+        if not self._menu.is_open or not self._menu._options:
+            return None
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        # Only show ghost if selected value starts with current text
+        if selected_value.startswith(current_text) and len(selected_value) > len(current_text):
+            return selected_value[len(current_text):]
+
+        return None
 
     def _handle_render(self, lines: list[str], width: int) -> list[str]:
         """Prepend menu to input render output.
