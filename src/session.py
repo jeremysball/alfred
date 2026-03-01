@@ -324,7 +324,6 @@ class SessionManager:
             output_tokens,
             cached_tokens,
             reasoning_tokens,
-            session=session,
         )
 
     def _spawn_token_update_task(
@@ -335,13 +334,11 @@ class SessionManager:
         output_tokens: int,
         cached_tokens: int = 0,
         reasoning_tokens: int = 0,
-        session: Session | None = None,
     ) -> None:
         """Spawn background task to persist token counts."""
         try:
             loop = asyncio.get_running_loop()
-            # Pass in-memory messages to avoid race condition with concurrent file writes
-            messages = list(session.messages) if session else None
+            # Token updates go to sidecar file (append-only, no race condition)
             loop.create_task(
                 self.storage.update_message_tokens(
                     session_id,
@@ -350,7 +347,6 @@ class SessionManager:
                     output_tokens,
                     cached_tokens,
                     reasoning_tokens,
-                    messages=messages,
                 )
             )
         except RuntimeError:
