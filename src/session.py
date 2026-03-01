@@ -16,6 +16,7 @@ File structure:
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -23,6 +24,8 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from src.session_storage import SessionStorage
+
+logger = logging.getLogger(__name__)
 
 
 class Role(Enum):
@@ -43,7 +46,9 @@ class Message:
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     embedding: list[float] | None = None
     input_tokens: int = 0  # Actual input tokens from LLM usage (for user messages)
-    output_tokens: int = 0  # Actual output tokens from LLM usage (for assistant messages)
+    output_tokens: int = (
+        0  # Actual output tokens from LLM usage (for assistant messages)
+    )
     cached_tokens: int = 0  # Cache read tokens from LLM usage
     reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
 
@@ -185,7 +190,9 @@ class SessionManager:
         """Create new CLI session. Backwards-compatible."""
         return self.new_session()
 
-    def add_message(self, role: str, content: str, session_id: str | None = None) -> None:
+    def add_message(
+        self, role: str, content: str, session_id: str | None = None
+    ) -> None:
         """Append message to session.
 
         Args:
@@ -256,6 +263,10 @@ class SessionManager:
         except RuntimeError:
             # No event loop running - message stays in memory
             # Will be persisted on next message or shutdown
+            logger.debug(
+                "could not find a running event loop. message stays in memory "
+                "and will be persisted on next message or shutdown"
+            )
             pass
 
     async def _persist_message(
@@ -307,23 +318,39 @@ class SessionManager:
 
         # Persist the updated token counts
         self._spawn_token_update_task(
-            session.meta.session_id, idx,
-            input_tokens, output_tokens,
-            cached_tokens, reasoning_tokens,
+            session.meta.session_id,
+            idx,
+            input_tokens,
+            output_tokens,
+            cached_tokens,
+            reasoning_tokens,
+            session=session,
         )
 
     def _spawn_token_update_task(
         self,
-        session_id: str, idx: int,
-        input_tokens: int, output_tokens: int,
-        cached_tokens: int = 0, reasoning_tokens: int = 0,
+        session_id: str,
+        idx: int,
+        input_tokens: int,
+        output_tokens: int,
+        cached_tokens: int = 0,
+        reasoning_tokens: int = 0,
+        session: Session | None = None,
     ) -> None:
         """Spawn background task to persist token counts."""
         try:
             loop = asyncio.get_running_loop()
+            # Pass in-memory messages to avoid race condition with concurrent file writes
+            messages = list(session.messages) if session else None
             loop.create_task(
                 self.storage.update_message_tokens(
-                    session_id, idx, input_tokens, output_tokens, cached_tokens, reasoning_tokens
+                    session_id,
+                    idx,
+                    input_tokens,
+                    output_tokens,
+                    cached_tokens,
+                    reasoning_tokens,
+                    messages=messages,
                 )
             )
         except RuntimeError:

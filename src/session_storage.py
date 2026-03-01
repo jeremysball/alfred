@@ -222,18 +222,22 @@ class SessionStorage:
         output_tokens: int = 0,
         cached_tokens: int = 0,
         reasoning_tokens: int = 0,
+        messages: list[Message] | None = None,
     ) -> None:
         """Update token counts for a specific message.
 
         Rewrites the message line with the new token counts.
+        If messages is provided, uses that list instead of reading from file
+        (prevents race condition where message was just added but not flushed).
         """
         messages_path = self.sessions_dir / session_id / "current.jsonl"
 
-        # Read all messages
-        messages = self.load_messages(session_id)
+        # Use provided messages or read from file
+        # IMPORTANT: Use provided messages to avoid race condition with concurrent writes
+        msgs = messages if messages is not None else self.load_messages(session_id)
 
         # Update the specific message
-        for msg in messages:
+        for msg in msgs:
             if msg.idx == idx:
                 msg.input_tokens = input_tokens
                 msg.output_tokens = output_tokens
@@ -243,7 +247,7 @@ class SessionStorage:
 
         # Rewrite the file
         async with aiofiles.open(messages_path, "w") as f:
-            for msg in messages:
+            for msg in msgs:
                 line = json.dumps(
                     {
                         "idx": msg.idx,
