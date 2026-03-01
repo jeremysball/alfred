@@ -2,6 +2,8 @@
 
 import re
 
+from src.interfaces.pypitui.ansi import RESET, REVERSE
+
 # ANSI escape pattern for stripping codes
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
@@ -147,6 +149,6 @@ class CompletionMenu:
 
         # Apply selection highlight (reverse video)
         if is_selected:
-            content = f"\x1b[7m{content}\x1b[0m"
+            content = f"{REVERSE}{content}{RESET}"
 
         return content

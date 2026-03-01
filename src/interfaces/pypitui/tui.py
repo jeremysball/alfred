@@ -431,11 +431,12 @@ class AlfredTUI:
     def _on_completion_state_change(self) -> None:
         """Handle completion menu state changes (open/close/resize).
 
-        Invalidates the input cache and requests a re-render.
-        The TUI's _clear_on_shrink will clear orphaned menu lines.
+        Invalidates the TUI's render cache to clear orphaned menu lines.
+        When the menu closes, the render produces fewer lines; without
+        clearing _previous_lines, the TUI won't know to erase the old
+        menu lines from the terminal.
         """
-        self.input_field.invalidate()
-        self.tui.request_render()
+        self.tui.invalidate()
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
