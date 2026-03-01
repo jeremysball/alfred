@@ -51,6 +51,31 @@ class WrappedInput(Component, Focusable):
         self.on_submit: Callable | None = None
         self.on_cancel: Callable | None = None
 
+        # Hook filters for composable behaviors
+        self._input_filters: list[Callable[[str], bool]] = []
+        self._render_filters: list[Callable[[list[str], int], list[str]]] = []
+
+    def add_input_filter(self, filter_fn: Callable[[str], bool]) -> None:
+        """Register an input filter.
+
+        Filters are called in order before normal input processing.
+        If a filter returns True, the key is consumed and not processed further.
+
+        Args:
+            filter_fn: Function taking key string, returning True if consumed.
+        """
+        self._input_filters.append(filter_fn)
+
+    def add_render_filter(self, filter_fn: Callable[[list[str], int], list[str]]) -> None:
+        """Register a render filter.
+
+        Filters are applied in order to transform rendered output lines.
+
+        Args:
+            filter_fn: Function taking lines and width, returning modified lines.
+        """
+        self._render_filters.append(filter_fn)
+
     @property
     def focused(self) -> bool:
         """Whether this component has focus."""
@@ -102,7 +127,11 @@ class WrappedInput(Component, Focusable):
 
         if not text and not self.focused:
             # Show placeholder
-            return self._input.render(width)
+            result = self._input.render(width)
+            # Apply render filters
+            for filter_fn in self._render_filters:
+                result = filter_fn(result, width)
+            return result
 
         if width <= 0:
             return [text] if text else [""]
@@ -130,6 +159,10 @@ class WrappedInput(Component, Focusable):
             else:
                 # Plain line (pad to width for consistent display)
                 result.append(line)
+
+        # Apply render filters
+        for filter_fn in self._render_filters:
+            result = filter_fn(result, width)
 
         return result
 
@@ -245,6 +278,11 @@ class WrappedInput(Component, Focusable):
         Args:
             data: Raw input data from terminal.
         """
+        # Run input filters first
+        for filter_fn in self._input_filters:
+            if filter_fn(data):
+                return  # Key was consumed by filter
+
         # Check for up/down arrows first
         if matches_key(data, Key.up):
             self.move_cursor_up()
