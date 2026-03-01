@@ -1317,14 +1317,14 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.2.3"
+version = "0.2.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "wcwidth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/43/a5cd8d059a51c4c6e14a551f6aeca9d606af81bb26266573ccd384178885/pypitui-0.2.3.tar.gz", hash = "sha256:24fa1f5a1131316367e811ac395a1e777c89def3094d5d6c7c1291e39c0eafed", size = 35008356, upload-time = "2026-02-27T22:24:42.174Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/5f/57800d2f903e18012862b0f955d7c0038a79e1e2ae49fb5305cbf33d7c3b/pypitui-0.2.6.tar.gz", hash = "sha256:097f8cdc22d399a56af06bf038429e1929780782d8ebe44f529a8cb267492182", size = 35010220, upload-time = "2026-03-01T03:46:44.503Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/80/48/20275d08258a60606e81158dd6559adf0b5a21e3f68d22966aa5a374785a/pypitui-0.2.3-py3-none-any.whl", hash = "sha256:d5b58e13071dac1df2dd20434d2ac88281b6b21e4c177569ce0c31eeff64eab3", size = 62272, upload-time = "2026-02-27T22:24:39.607Z" },
+    { url = "https://files.pythonhosted.org/packages/83/b4/e0c265e2d46140ca863eb0b2015ee3d5b09022d40189580f5c7dc99db35f/pypitui-0.2.6-py3-none-any.whl", hash = "sha256:4db079815a0560ab87043232b5856916c8461dc7d3f6c13470f73a1da623ce00", size = 66827, upload-time = "2026-03-01T03:46:42.927Z" },
 ]
 
 [[package]]
