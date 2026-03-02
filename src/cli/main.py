@@ -12,6 +12,7 @@ from rich.console import Console
 from src.alfred import Alfred
 from src.cli.cron import app as cron_app
 from src.config import load_config
+from src.data_manager import init_xdg_directories
 
 if TYPE_CHECKING:
     from src.interfaces.pypitui.toast import ToastManager
@@ -70,10 +71,13 @@ async def _run_interactive() -> None:
     if not _run_telegram:
         toast_manager = ToastManager()
 
+    # Initialize XDG directories and load config
+    init_xdg_directories()
+    config = load_config()
+
     # Set up logging with optional toast handler
     _setup_logging(toast_manager)
 
-    config = load_config()
     alfred = Alfred(config, telegram_mode=_run_telegram)
 
     try:
