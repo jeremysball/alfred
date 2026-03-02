@@ -14,6 +14,8 @@ from collections.abc import Callable
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
+from src.interfaces.pypitui.ansi import RESET, REVERSE
+
 
 class WrappedInput(Component, Focusable):
     """Text input with display-line navigation for wrapped text.
@@ -42,6 +44,7 @@ class WrappedInput(Component, Focusable):
         Args:
             placeholder: Placeholder text when empty and unfocused.
         """
+        super().__init__()
         self._input = Input(placeholder=placeholder)
         self._input.on_submit = self._on_submit
         self._display_column = 0  # Desired column for vertical movement
@@ -50,6 +53,63 @@ class WrappedInput(Component, Focusable):
         # Callbacks
         self.on_submit: Callable | None = None
         self.on_cancel: Callable | None = None
+
+        # Hook filters for composable behaviors
+        self._input_hooks: list[Callable[[str], bool]] = []
+        self._render_hooks: list[Callable[[list[str], int], list[str]]] = []
+
+    def add_input_hook(self, hook_fn: Callable[[str], bool]) -> None:
+        """Register an input filter.
+
+        Filters are called in order before normal input processing.
+        If a filter returns True, the key is consumed and not processed further.
+
+        Args:
+            hook_fn: Function taking key string, returning True if consumed.
+        """
+        self._input_hooks.append(hook_fn)
+
+    def add_render_hook(self, hook_fn: Callable[[list[str], int], list[str]]) -> None:
+        """Register a render filter.
+
+        Filters are applied in order to transform rendered output lines.
+
+        Args:
+            hook_fn: Function taking lines and width, returning modified lines.
+        """
+        self._render_hooks.append(hook_fn)
+
+    def with_completion(
+        self,
+        provider: Callable[[str], list[tuple[str, str | None]]],
+        trigger: str = "/",
+    ) -> "WrappedInput":
+        """Add command completion with fluent API.
+
+        Attaches a CompletionAddon to this input for command completion.
+        Returns self for chaining.
+
+        Args:
+            provider: Function that takes current text and returns
+                     list of (value, description) tuples.
+            trigger: Character that triggers completion (default: "/").
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            def my_provider(text: str) -> list[tuple[str, str | None]]:
+                if text.startswith("/"):
+                    return [("/new", "New session"), ("/resume", "Resume")]
+                return []
+
+            input_field = WrappedInput().with_completion(my_provider)
+        """
+        # Import here to avoid circular imports
+        from src.interfaces.pypitui.completion_addon import CompletionAddon
+
+        CompletionAddon(self, provider, trigger=trigger)
+        return self
 
     @property
     def focused(self) -> bool:
@@ -85,8 +145,9 @@ class WrappedInput(Component, Focusable):
         self._input._cursor_pos = value  # type: ignore[attr-defined]
 
     def invalidate(self) -> None:
-        """Invalidate cache."""
+        """Invalidate cache and bubble up for targeted invalidation."""
         self._input.invalidate()
+        self._child_invalidated(self)
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.
@@ -102,7 +163,11 @@ class WrappedInput(Component, Focusable):
 
         if not text and not self.focused:
             # Show placeholder
-            return self._input.render(width)
+            result = self._input.render(width)
+            # Apply render filters
+            for hook_fn in self._render_hooks:
+                result = hook_fn(result, width)
+            return result
 
         if width <= 0:
             return [text] if text else [""]
@@ -131,6 +196,10 @@ class WrappedInput(Component, Focusable):
                 # Plain line (pad to width for consistent display)
                 result.append(line)
 
+        # Apply render filters
+        for hook_fn in self._render_hooks:
+            result = hook_fn(result, width)
+
         return result
 
     def _render_line_with_cursor(self, line: str, cursor_col: int) -> str:
@@ -140,7 +209,7 @@ class WrappedInput(Component, Focusable):
         after = line[cursor_col + 1 :]
 
         # Use reverse video for cursor and emit CURSOR_MARKER for hardware cursor positioning
-        return f"{before}{CURSOR_MARKER}\x1b[7m{at}\x1b[27m{after}"
+        return f"{before}{CURSOR_MARKER}{REVERSE}{at}{RESET}{after}"
 
     def _get_cursor_display_pos(self, width: int) -> tuple[int, int]:
         """Get cursor position in display coordinates.
@@ -245,6 +314,11 @@ class WrappedInput(Component, Focusable):
         Args:
             data: Raw input data from terminal.
         """
+        # Run input filters first
+        for hook_fn in self._input_hooks:
+            if hook_fn(data):
+                return  # Key was consumed by filter
+
         # Check for up/down arrows first
         if matches_key(data, Key.up):
             self.move_cursor_up()

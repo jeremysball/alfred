@@ -1,0 +1,262 @@
+"""Completion menu addon for WrappedInput.
+
+Uses render hook to prepend menu lines to input output.
+Includes ghost text (inline preview) of selected completion.
+"""
+
+import re
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from pypitui import CURSOR_MARKER, Key, matches_key
+
+from src.interfaces.pypitui.ansi import BRIGHT_BLACK, RESET, REVERSE
+
+from .completion_menu import CompletionMenu
+
+if TYPE_CHECKING:
+    from .wrapped_input import WrappedInput
+
+
+class CompletionAddon:
+    """Completion behavior using render hook.
+
+    Hooks into WrappedInput via render hook to prepend menu lines.
+    Uses component invalidation bubbling for efficient re-renders.
+    """
+
+    def __init__(
+        self,
+        input_component: "WrappedInput",
+        provider: Callable[[str], list[tuple[str, str | None]]],
+        trigger: str = "/",
+        max_height: int = 5,
+    ) -> None:
+        self._input = input_component
+        self._provider = provider
+        self._trigger = trigger
+        self._menu = CompletionMenu(max_height=max_height)
+        self._last_text: str | None = None
+
+        # Register hooks on WrappedInput
+        self._input.add_render_hook(self._on_render)
+        self._input.add_input_hook(self._handle_input_hook)
+
+    def _on_render(self, lines: list[str], width: int) -> list[str]:
+        """Prepend menu lines and inject ghost text into input line."""
+        # Update completion state based on current input
+        self._update_completion(width)
+
+        # Inject ghost text into the input line (last line)
+        if lines and self._menu.is_open:
+            lines = self._inject_ghost_text(lines)
+
+        # If menu is open, prepend menu lines
+        if self._menu.is_open:
+            menu_lines = self._menu.render(width)
+            return menu_lines + lines
+
+        return lines
+
+    def _inject_ghost_text(self, lines: list[str]) -> list[str]:
+        """Inject ghost text (inline preview) with cursor on first ghost character.
+
+        Ghost text shows the remaining characters of the selected completion.
+        The cursor is placed on the FIRST ghost character (shown in reverse video),
+        with remaining ghost characters dimmed. This matches IDE behavior where
+        typing accepts characters under the cursor.
+        """
+        if not self._menu._options:
+            return lines
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        # Only show ghost if selected value starts with current text
+        if not selected_value.startswith(current_text):
+            return lines
+
+        ghost_suffix = selected_value[len(current_text):]
+        if not ghost_suffix:
+            return lines
+
+        # Modify the last line (input line with cursor)
+        input_line = lines[-1]
+
+        # Find cursor position - look for CURSOR_MARKER and reverse video
+        # Pattern: CURSOR_MARKER + REVERSE + char + RESET
+        cursor_pattern = (
+            f"({re.escape(CURSOR_MARKER)})({re.escape(REVERSE)})"
+            f"([^\x1b]*)({re.escape(RESET)})"
+        )
+        match = re.search(cursor_pattern, input_line)
+
+        if match:
+            # Structure: before + CURSOR_MARKER + REVERSE + char + RESET + after
+            # We want: before + CURSOR_MARKER + REVERSE + first_ghost + RESET
+            #          + BRIGHT_BLACK + rest_ghost + RESET + after
+            # This puts cursor on first ghost char, rest dimmed
+            before = input_line[:match.start()]  # Text before cursor
+            after = input_line[match.end():]     # Text after RESET
+            first_char = ghost_suffix[0]
+            rest = ghost_suffix[1:]
+
+            # Build: typed text + cursor on first ghost char + dim rest
+            ghost_line = (
+                f"{before}{CURSOR_MARKER}{REVERSE}{first_char}{RESET}"
+            )
+            if rest:
+                ghost_line += f"{BRIGHT_BLACK}{rest}{RESET}"
+            ghost_line += after
+            return lines[:-1] + [ghost_line]
+
+        # No cursor found, return unchanged (e.g., in test environments)
+        return lines
+
+    def _update_completion(self, width: int) -> None:
+        """Update completion state."""
+        text = self._input.get_value()
+
+        if text == self._last_text:
+            return
+        self._last_text = text
+
+        if not text.startswith(self._trigger):
+            if self._menu.is_open:
+                self._menu.close()
+                self._input.invalidate()
+            return
+
+        options = self._provider(text)
+
+        if options:
+            had_menu = self._menu.is_open
+            self._menu.set_options(options)
+            self._menu.open()
+            if not had_menu:
+                # Menu just opened - invalidate for render
+                self._input.invalidate()
+        else:
+            if self._menu.is_open:
+                self._menu.close()
+                self._input.invalidate()
+
+    def _handle_input_hook(self, data: str) -> bool:
+        """Input hook wrapper that returns bool for consumption check."""
+        result = self.handle_input(data)
+        return result is not None and result.get("consume", False)
+
+    def handle_input(self, data: str) -> dict | None:
+        """Handle input when menu is open.
+
+        Returns {"consume": True} if key was handled, None otherwise.
+        """
+        if not self._menu.is_open:
+            return None
+
+        if matches_key(data, Key.tab) or matches_key(data, Key.enter):
+            self._accept_completion()
+            return {"consume": True}
+        elif matches_key(data, Key.up):
+            self._menu.move_up()
+            self._input.invalidate()
+            return {"consume": True}
+        elif matches_key(data, Key.down):
+            self._menu.move_down()
+            self._input.invalidate()
+            return {"consume": True}
+        elif matches_key(data, Key.right):
+            return self._accept_ghost_char()
+        elif matches_key(data, Key.left):
+            return self._reject_ghost_char()
+        elif matches_key(data, Key.escape):
+            self._menu.close()
+            self._input.invalidate()
+            return {"consume": True}
+
+        return None
+
+    def _get_ghost_suffix(self) -> str | None:
+        """Get the current ghost text suffix if available."""
+        if not self._menu.is_open or not self._menu._options:
+            return None
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        if not selected_value.startswith(current_text):
+            return None
+
+        suffix = selected_value[len(current_text):]
+        return suffix if suffix else None
+
+    def _accept_ghost_char(self) -> dict | None:
+        """Accept the first character of ghost text (right arrow behavior).
+
+        Returns {"consume": True} if a ghost character was accepted.
+        """
+        ghost_suffix = self._get_ghost_suffix()
+        if not ghost_suffix:
+            return None
+
+        # Accept the first character of the ghost suffix
+        current_text = self._input.get_value()
+        new_text = current_text + ghost_suffix[0]
+        new_cursor = len(new_text)
+
+        self._input.set_value(new_text)
+        self._input.set_cursor_pos(new_cursor)
+        self._last_text = new_text
+        self._input.invalidate()
+
+        return {"consume": True}
+
+    def _reject_ghost_char(self) -> dict | None:
+        """Reject (back out) the last accepted ghost character (left arrow).
+
+        Returns {"consume": True} if a character was removed.
+        """
+        if not self._menu.is_open or not self._menu._options:
+            return None
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        # Can only reject if we have accepted some characters beyond the trigger
+        # and those characters match the start of the selected completion
+        if not selected_value.startswith(current_text) or len(current_text) <= 1:
+            return None
+
+        # Check if we're still within the completion prefix
+        # (i.e., the text we have is the start of selected_value)
+        if current_text != selected_value[: len(current_text)]:
+            return None
+
+        # Remove the last character
+        new_text = current_text[:-1]
+        new_cursor = len(new_text)
+
+        self._input.set_value(new_text)
+        self._input.set_cursor_pos(new_cursor)
+        self._last_text = new_text
+        self._input.invalidate()
+
+        return {"consume": True}
+
+    def _accept_completion(self) -> None:
+        """Accept selected completion."""
+        if not self._menu.is_open:
+            return
+
+        options = self._menu._options
+        if not options:
+            self._menu.close()
+            self._input.invalidate()
+            return
+
+        selected_value = options[self._menu.selected_index][0]
+        self._input.set_value(selected_value + " ")
+        self._input.set_cursor_pos(len(selected_value) + 1)
+        self._last_text = selected_value + " "
+        self._menu.close()
+        self._input.invalidate()

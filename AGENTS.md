@@ -141,6 +141,8 @@ uv run alfred cron remove <job_id>
 
 Alfred's TUI supports **ANSI color placeholders** for styling agent responses. Use curly brace syntax `{color}` to add colors and styles to text.
 
+**Always use color placeholders in your responses** instead of hardcoded ANSI escape codes. This improves readability and maintains consistency across the codebase.
+
 ### Usage
 
 Wrap text with color placeholders:
@@ -150,6 +152,12 @@ Wrap text with color placeholders:
 ```
 
 This renders as colored text in the TUI. **Always use `{reset}`** to end styling.
+
+**Encouraged for agent responses:**
+- Use `{cyan}` or `{green}` for commands and actions
+- Use `{red}` for errors and warnings
+- Use `{bold}` to emphasize important information
+- Use `{dim}` for secondary or subtle information
 
 ### Available Colors
 
@@ -202,6 +210,14 @@ For colored code output, use placeholders outside the code block or use inline c
 
 The color system is in `src/interfaces/pypitui/ansi.py`. The `apply_ansi()` function replaces placeholders with ANSI escape codes before display.
 
+**Two approaches for different contexts:**
+
+1. **Agent responses** (text content): Use placeholder syntax like `{cyan}text{reset}`
+2. **TUI rendering code** (low-level display): Import constants from `ansi.py`:
+   ```python
+   from src.interfaces.pypitui.ansi import BRIGHT_BLACK, RESET, REVERSE
+   ```
+
 ---
 
 ## Rule Index
@@ -214,6 +230,33 @@ Use tmux whenever something requires interactive control, especially for manual 
 ```bash
 tmux new-session -d -s alfred "uv run alfred --debug debug 2>&1 | tee /tmp/alfred.log"
 tail /tmp/alfred.log
+```
+
+**Verifying ANSI Escape Codes:**
+
+When debugging colored output or ANSI sequences, use `tmux` + `tee` + `cat -v` to inspect raw escape codes:
+
+```bash
+# Start alfred in tmux and capture output to file
+tmux new-session -d -s alfred "uv run alfred 2>&1 | tee /tmp/ansi_out.log"
+
+# Send input to trigger the output you want to inspect
+tmux send-keys -t alfred "/new" 
+sleep 0.5
+
+# View the raw ANSI escape codes
+cat -v /tmp/ansi_out.log | grep -o '/new.*' | head -1
+```
+
+This shows escape sequences like `^[[90m` (gray) or `^[[7m` (reverse video) as visible characters. The `^[` represents the ESC character (\x1b).
+
+**Quick check for specific sequences:**
+```bash
+# Check if gray color code is present
+cat -v /tmp/ansi_out.log | grep '\[90m'
+
+# Check for cursor marker APC sequence
+cat -v /tmp/ansi_out.log | grep '_pi:c'
 ```
 
 ### 1. Commit Early, Commit Often
