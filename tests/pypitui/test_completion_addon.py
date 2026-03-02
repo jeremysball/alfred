@@ -170,6 +170,103 @@ class TestCompletionAddon:
         assert len(invalidated) == 2
 
 
+class TestGhostTextAccept:
+    """Tests for accepting ghost text with right arrow."""
+
+    @pytest.fixture
+    def setup(self):
+        """Create input and completion addon."""
+        input_field = WrappedInput(placeholder="Test")
+
+        def provider(text: str) -> list[tuple[str, str | None]]:
+            if text.startswith("/"):
+                return [
+                    ("/new", "New session"),
+                    ("/resume", "Resume session"),
+                ]
+            return []
+
+        addon = CompletionAddon(
+            input_component=input_field,
+            provider=provider,
+            trigger="/",
+        )
+
+        return input_field, addon
+
+    def test_right_arrow_accepts_ghost_char(self, setup):
+        """Right arrow accepts first ghost character."""
+        input_field, addon = setup
+
+        # Open menu with "/"
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+
+        # Ghost suffix should be "new"
+        assert addon._get_ghost_suffix() == "new"
+
+        # Press right arrow
+        result = addon.handle_input("\x1b[C")
+        assert result == {"consume": True}
+
+        # First ghost char accepted
+        assert input_field.get_value() == "/n"
+        assert addon._get_ghost_suffix() == "ew"
+
+    def test_right_arrow_multiple_times(self, setup):
+        """Right arrow can accept multiple ghost characters."""
+        input_field, addon = setup
+
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+
+        # Accept 'n'
+        addon.handle_input("\x1b[C")
+        assert input_field.get_value() == "/n"
+
+        # Accept 'e'
+        addon.handle_input("\x1b[C")
+        assert input_field.get_value() == "/ne"
+
+        # Accept 'w'
+        addon.handle_input("\x1b[C")
+        assert input_field.get_value() == "/new"
+
+        # No more ghost text
+        assert addon._get_ghost_suffix() is None
+
+    def test_right_arrow_no_ghost_passthrough(self, setup):
+        """Right arrow passes through when no ghost text."""
+        input_field, addon = setup
+
+        # Open menu
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+
+        # Accept all ghost chars
+        for _ in range(3):
+            addon.handle_input("\x1b[C")
+
+        assert input_field.get_value() == "/new"
+        assert addon._get_ghost_suffix() is None
+
+        # Right arrow now passes through (not consumed)
+        result = addon.handle_input("\x1b[C")
+        assert result is None
+
+    def test_right_arrow_updates_last_text(self, setup):
+        """Right arrow updates _last_text to prevent duplicate updates."""
+        input_field, addon = setup
+
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+
+        addon.handle_input("\x1b[C")
+
+        # _last_text should be updated
+        assert addon._last_text == "/n"
+
+
 class TestCompletionAddonIntegration:
     """Integration tests with real TUI flow."""
 

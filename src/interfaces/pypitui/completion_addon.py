@@ -165,12 +165,49 @@ class CompletionAddon:
             self._menu.move_down()
             self._input.invalidate()
             return {"consume": True}
+        elif matches_key(data, Key.right):
+            return self._accept_ghost_char()
         elif matches_key(data, Key.escape):
             self._menu.close()
             self._input.invalidate()
             return {"consume": True}
 
         return None
+
+    def _get_ghost_suffix(self) -> str | None:
+        """Get the current ghost text suffix if available."""
+        if not self._menu.is_open or not self._menu._options:
+            return None
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        if not selected_value.startswith(current_text):
+            return None
+
+        suffix = selected_value[len(current_text):]
+        return suffix if suffix else None
+
+    def _accept_ghost_char(self) -> dict | None:
+        """Accept the first character of ghost text (right arrow behavior).
+
+        Returns {"consume": True} if a ghost character was accepted.
+        """
+        ghost_suffix = self._get_ghost_suffix()
+        if not ghost_suffix:
+            return None
+
+        # Accept the first character of the ghost suffix
+        current_text = self._input.get_value()
+        new_text = current_text + ghost_suffix[0]
+        new_cursor = len(new_text)
+
+        self._input.set_value(new_text)
+        self._input.set_cursor_pos(new_cursor)
+        self._last_text = new_text
+        self._input.invalidate()
+
+        return {"consume": True}
 
     def _accept_completion(self) -> None:
         """Accept selected completion."""
