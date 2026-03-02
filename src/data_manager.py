@@ -97,7 +97,8 @@ def init_xdg_directories() -> None:
     elif config_path.exists():
         logger.debug(f"Using existing config: {config_path}")
 
-    # Copy templates as data files to workspace (not as templates)
+    # Copy templates as data files to workspace
+    # These become the user's editable context files (SOUL.md, USER.md, etc.)
     if BUNDLED_TEMPLATES.exists():
         for template_file in BUNDLED_TEMPLATES.glob("*.md"):
             target_path = workspace_dir / template_file.name

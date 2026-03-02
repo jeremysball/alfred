@@ -62,5 +62,16 @@ def load_config(config_path: Path | None = None) -> Config:
         with open(config_path) as f:
             base_config = json.load(f)
 
-    # Pydantic merges: env vars override base_config values
-    return Config(**base_config)
+    # Create config with XDG defaults
+    config = Config(**base_config)
+
+    # Compute context_files if not provided
+    if config.context_files is None:
+        config.context_files = {
+            "agents": config.workspace_dir / "AGENTS.md",
+            "soul": config.workspace_dir / "SOUL.md",
+            "user": config.workspace_dir / "USER.md",
+            "tools": config.workspace_dir / "TOOLS.md",
+        }
+
+    return config
