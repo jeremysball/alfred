@@ -167,6 +167,8 @@ class CompletionAddon:
             return {"consume": True}
         elif matches_key(data, Key.right):
             return self._accept_ghost_char()
+        elif matches_key(data, Key.left):
+            return self._reject_ghost_char()
         elif matches_key(data, Key.escape):
             self._menu.close()
             self._input.invalidate()
@@ -200,6 +202,38 @@ class CompletionAddon:
         # Accept the first character of the ghost suffix
         current_text = self._input.get_value()
         new_text = current_text + ghost_suffix[0]
+        new_cursor = len(new_text)
+
+        self._input.set_value(new_text)
+        self._input.set_cursor_pos(new_cursor)
+        self._last_text = new_text
+        self._input.invalidate()
+
+        return {"consume": True}
+
+    def _reject_ghost_char(self) -> dict | None:
+        """Reject (back out) the last accepted ghost character (left arrow).
+
+        Returns {"consume": True} if a character was removed.
+        """
+        if not self._menu.is_open or not self._menu._options:
+            return None
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        # Can only reject if we have accepted some characters beyond the trigger
+        # and those characters match the start of the selected completion
+        if not selected_value.startswith(current_text) or len(current_text) <= 1:
+            return None
+
+        # Check if we're still within the completion prefix
+        # (i.e., the text we have is the start of selected_value)
+        if current_text != selected_value[: len(current_text)]:
+            return None
+
+        # Remove the last character
+        new_text = current_text[:-1]
         new_cursor = len(new_text)
 
         self._input.set_value(new_text)

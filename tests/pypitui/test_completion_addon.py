@@ -266,6 +266,67 @@ class TestGhostTextAccept:
         # _last_text should be updated
         assert addon._last_text == "/n"
 
+    def test_left_arrow_rejects_ghost_char(self, setup):
+        """Left arrow removes last accepted ghost character."""
+        input_field, addon = setup
+
+        # Open menu and accept two chars
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+        addon.handle_input("\x1b[C")  # Accept 'n'
+        addon.handle_input("\x1b[C")  # Accept 'e'
+
+        assert input_field.get_value() == "/ne"
+        assert addon._get_ghost_suffix() == "w"
+
+        # Left arrow rejects 'e'
+        result = addon.handle_input("\x1b[D")
+        assert result == {"consume": True}
+        assert input_field.get_value() == "/n"
+        assert addon._get_ghost_suffix() == "ew"
+
+    def test_left_arrow_rejects_back_to_trigger(self, setup):
+        """Left arrow can reject back to just the trigger character."""
+        input_field, addon = setup
+
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+        addon.handle_input("\x1b[C")  # Accept 'n'
+
+        # Left arrow rejects 'n'
+        result = addon.handle_input("\x1b[D")
+        assert result == {"consume": True}
+        assert input_field.get_value() == "/"
+        assert addon._get_ghost_suffix() == "new"
+
+    def test_left_arrow_passthrough_at_trigger(self, setup):
+        """Left arrow passes through when at trigger (can't go below)."""
+        input_field, addon = setup
+
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+
+        # Left arrow at trigger should pass through
+        result = addon.handle_input("\x1b[D")
+        assert result is None
+        assert input_field.get_value() == "/"
+
+    def test_left_right_roundtrip(self, setup):
+        """Right then Left returns to original state."""
+        input_field, addon = setup
+
+        input_field.set_value("/")
+        addon._on_render(["> /"], 80)
+
+        original_ghost = addon._get_ghost_suffix()
+
+        # Right then Left
+        addon.handle_input("\x1b[C")
+        addon.handle_input("\x1b[D")
+
+        assert input_field.get_value() == "/"
+        assert addon._get_ghost_suffix() == original_ghost
+
 
 class TestCompletionAddonIntegration:
     """Integration tests with real TUI flow."""
