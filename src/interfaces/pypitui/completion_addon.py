@@ -34,8 +34,9 @@ class CompletionAddon:
         self._menu = CompletionMenu(max_height=max_height)
         self._last_text: str | None = None
 
-        # Register render hook on WrappedInput
+        # Register hooks on WrappedInput
         self._input.add_render_hook(self._on_render)
+        self._input.add_input_hook(self._handle_input_hook)
 
     def _on_render(self, lines: list[str], width: int) -> list[str]:
         """Prepend menu lines to input render output."""
@@ -76,6 +77,11 @@ class CompletionAddon:
             if self._menu.is_open:
                 self._menu.close()
                 self._input.invalidate()
+
+    def _handle_input_hook(self, data: str) -> bool:
+        """Input hook wrapper that returns bool for consumption check."""
+        result = self.handle_input(data)
+        return result is not None and result.get("consume", False)
 
     def handle_input(self, data: str) -> dict | None:
         """Handle input when menu is open.
