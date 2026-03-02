@@ -8,6 +8,8 @@
 
 3. **Conventional Commits**: All commits must follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+4. **Your Workspace**: You can freely edit files in `~/.local/share/alfred/workspace/`. This is your workspace where SOUL.md, USER.md, and other context files live.
+
 ## Available Tools
 
 You have tools to interact with the system and manage memories.
