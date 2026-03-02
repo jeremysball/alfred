@@ -59,11 +59,12 @@ class CompletionAddon:
         return lines
 
     def _inject_ghost_text(self, lines: list[str]) -> list[str]:
-        """Inject ghost text (inline preview) at cursor position on input line.
+        """Inject ghost text (inline preview) with cursor on first ghost character.
 
-        Ghost text shows the remaining characters of the selected completion,
-        appearing inline at the cursor position with dim styling. The cursor
-        is moved to the end of the ghost text.
+        Ghost text shows the remaining characters of the selected completion.
+        The cursor is placed on the FIRST ghost character (shown in reverse video),
+        with remaining ghost characters dimmed. This matches IDE behavior where
+        typing accepts characters under the cursor.
         """
         if not self._menu._options:
             return lines
@@ -92,15 +93,21 @@ class CompletionAddon:
 
         if match:
             # Structure: before + CURSOR_MARKER + REVERSE + char + RESET + after
-            # We want: before + ghost_text + CURSOR_MARKER + REVERSE + " " + RESET + after
-            # This puts ghost text inline, then cursor at end of ghost text
+            # We want: before + CURSOR_MARKER + REVERSE + first_ghost + RESET
+            #          + BRIGHT_BLACK + rest_ghost + RESET + after
+            # This puts cursor on first ghost char, rest dimmed
             before = input_line[:match.start()]  # Text before cursor
             after = input_line[match.end():]     # Text after RESET
-            # Reconstruct: typed text + ghost + cursor (on space) + rest
+            first_char = ghost_suffix[0]
+            rest = ghost_suffix[1:]
+
+            # Build: typed text + cursor on first ghost char + dim rest
             ghost_line = (
-                f"{before}{BRIGHT_BLACK}{ghost_suffix}{RESET}"
-                f"{CURSOR_MARKER}{REVERSE} {RESET}{after}"
+                f"{before}{CURSOR_MARKER}{REVERSE}{first_char}{RESET}"
             )
+            if rest:
+                ghost_line += f"{BRIGHT_BLACK}{rest}{RESET}"
+            ghost_line += after
             return lines[:-1] + [ghost_line]
 
         # No cursor found, return unchanged (e.g., in test environments)
