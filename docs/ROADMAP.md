@@ -189,6 +189,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 22 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 23 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 24 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
+| 25 | Config TOML + Status Line | XDG config dir, TOML format, context budget clarity, responsive status line (PRD #100) |
 
 ### Medium-term 📅
 
@@ -199,9 +200,6 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 24 | Configurable Context Budget | User-defined context percentages: 50% conversation, 10% tools, etc. |
 | 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
 | 26 | HTTP API + Cron | Local API for scheduled actions |
-| 27 | Config TOML Migration | Replace config.json with alfred.toml |
-
-| 29 | Enhanced CLI Status Line | Token usage, model display, context summary, collapsible tool panels (PRD #81) |
 
 ### Long-term 🔮
 
