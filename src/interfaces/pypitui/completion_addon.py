@@ -1,12 +1,16 @@
 """Completion menu addon for WrappedInput.
 
 Uses render hook to prepend menu lines to input output.
+Includes ghost text (inline preview) of selected completion.
 """
 
+import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from pypitui import Key, matches_key
+from pypitui import CURSOR_MARKER, Key, matches_key
+
+from src.interfaces.pypitui.ansi import BRIGHT_BLACK, RESET, REVERSE
 
 from .completion_menu import CompletionMenu
 
@@ -39,15 +43,60 @@ class CompletionAddon:
         self._input.add_input_hook(self._handle_input_hook)
 
     def _on_render(self, lines: list[str], width: int) -> list[str]:
-        """Prepend menu lines to input render output."""
+        """Prepend menu lines and inject ghost text into input line."""
         # Update completion state based on current input
         self._update_completion(width)
 
-        # If menu is open, render and prepend menu lines
+        # Inject ghost text into the input line (last line)
+        if lines and self._menu.is_open:
+            lines = self._inject_ghost_text(lines)
+
+        # If menu is open, prepend menu lines
         if self._menu.is_open:
             menu_lines = self._menu.render(width)
             return menu_lines + lines
 
+        return lines
+
+    def _inject_ghost_text(self, lines: list[str]) -> list[str]:
+        """Inject ghost text (inline preview) after cursor on input line.
+
+        Ghost text shows the remaining characters of the selected completion,
+        appearing immediately after the cursor position with dim styling.
+        """
+        if not self._menu._options:
+            return lines
+
+        selected_value = self._menu._options[self._menu.selected_index][0]
+        current_text = self._input.get_value()
+
+        # Only show ghost if selected value starts with current text
+        if not selected_value.startswith(current_text):
+            return lines
+
+        ghost_suffix = selected_value[len(current_text):]
+        if not ghost_suffix:
+            return lines
+
+        # Modify the last line (input line with cursor)
+        input_line = lines[-1]
+
+        # Find cursor position - look for CURSOR_MARKER and reverse video
+        # Pattern: CURSOR_MARKER + REVERSE + char + RESET
+        cursor_pattern = (
+            f"({re.escape(CURSOR_MARKER)})({re.escape(REVERSE)})"
+            f"([^\x1b]*)(\\\x1b\\[27m)"
+        )
+        match = re.search(cursor_pattern, input_line)
+
+        if match:
+            # Insert ghost text between cursor char and RESET
+            before = input_line[:match.end(3)]  # Up to and including cursor char
+            after = input_line[match.end():]     # After RESET
+            ghost_line = f"{before}{BRIGHT_BLACK}{ghost_suffix}{RESET}{after}"
+            return lines[:-1] + [ghost_line]
+
+        # No cursor found, return unchanged (e.g., in test environments)
         return lines
 
     def _update_completion(self, width: int) -> None:
