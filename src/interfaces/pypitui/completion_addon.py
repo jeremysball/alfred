@@ -59,10 +59,11 @@ class CompletionAddon:
         return lines
 
     def _inject_ghost_text(self, lines: list[str]) -> list[str]:
-        """Inject ghost text (inline preview) after cursor on input line.
+        """Inject ghost text (inline preview) at cursor position on input line.
 
         Ghost text shows the remaining characters of the selected completion,
-        appearing immediately after the cursor position with dim styling.
+        appearing inline at the cursor position with dim styling. The cursor
+        is moved to the end of the ghost text.
         """
         if not self._menu._options:
             return lines
@@ -90,10 +91,16 @@ class CompletionAddon:
         match = re.search(cursor_pattern, input_line)
 
         if match:
-            # Insert ghost text between cursor char and RESET
-            before = input_line[:match.end(3)]  # Up to and including cursor char
-            after = input_line[match.end():]     # After RESET
-            ghost_line = f"{before}{BRIGHT_BLACK}{ghost_suffix}{RESET}{after}"
+            # Structure: before + CURSOR_MARKER + REVERSE + char + RESET + after
+            # We want: before + ghost_text + CURSOR_MARKER + REVERSE + " " + RESET + after
+            # This puts ghost text inline, then cursor at end of ghost text
+            before = input_line[:match.start()]  # Text before cursor
+            after = input_line[match.end():]     # Text after RESET
+            # Reconstruct: typed text + ghost + cursor (on space) + rest
+            ghost_line = (
+                f"{before}{BRIGHT_BLACK}{ghost_suffix}{RESET}"
+                f"{CURSOR_MARKER}{REVERSE} {RESET}{after}"
+            )
             return lines[:-1] + [ghost_line]
 
         # No cursor found, return unchanged (e.g., in test environments)
