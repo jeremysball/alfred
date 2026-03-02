@@ -1,0 +1,222 @@
+"""Tests for XDG directory initialization and management."""
+
+import json
+import os
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from src.data_manager import (
+    APP_NAME,
+    get_config_dir,
+    get_config_path,
+    get_data_dir,
+    get_templates_dir,
+    get_workspace_dir,
+    init_xdg_directories,
+)
+
+
+class TestXDGDirectoryPaths:
+    """Test XDG directory path functions."""
+
+    def test_get_config_dir_uses_xdg_config_home(self):
+        """get_config_dir respects XDG_CONFIG_HOME."""
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/test/config"}):
+            result = get_config_dir()
+            assert result == Path("/test/config") / APP_NAME
+
+    def test_get_config_dir_defaults_to_dot_config(self):
+        """get_config_dir defaults to ~/.config/alfred."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch.object(Path, "home", return_value=Path("/home/test")):
+                result = get_config_dir()
+                assert result == Path("/home/test/.config") / APP_NAME
+
+    def test_get_data_dir_uses_xdg_data_home(self):
+        """get_data_dir respects XDG_DATA_HOME."""
+        with patch.dict(os.environ, {"XDG_DATA_HOME": "/test/data"}):
+            result = get_data_dir()
+            assert result == Path("/test/data") / APP_NAME
+
+    def test_get_data_dir_defaults_to_dot_local_share(self):
+        """get_data_dir defaults to ~/.local/share/alfred."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch.object(Path, "home", return_value=Path("/home/test")):
+                result = get_data_dir()
+                assert result == Path("/home/test/.local/share") / APP_NAME
+
+    def test_get_config_path_in_config_dir(self):
+        """get_config_path returns config.json in config dir."""
+        with patch("src.data_manager.get_config_dir", return_value=Path("/test/config")):
+            result = get_config_path()
+            assert result == Path("/test/config/config.json")
+
+    def test_get_templates_dir_in_data_dir(self):
+        """get_templates_dir returns templates in data dir."""
+        with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
+            result = get_templates_dir()
+            assert result == Path("/test/data/templates")
+
+    def test_get_workspace_dir_in_data_dir(self):
+        """get_workspace_dir returns workspace in data dir."""
+        with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
+            result = get_workspace_dir()
+            assert result == Path("/test/data/workspace")
+
+
+class TestXDGDirectoryInit:
+    """Test XDG directory initialization."""
+
+    @pytest.fixture
+    def xdg_dirs(self, tmp_path):
+        """Provide temporary XDG directories."""
+        config_dir = tmp_path / "config" / APP_NAME
+        data_dir = tmp_path / "data" / APP_NAME
+
+        with (
+            patch("src.data_manager.get_config_dir", return_value=config_dir),
+            patch("src.data_manager.get_data_dir", return_value=data_dir),
+        ):
+            yield config_dir, data_dir
+
+    @pytest.fixture
+    def bundled_files(self, tmp_path):
+        """Create mock bundled config and templates."""
+        bundled_config = tmp_path / "bundled_config.json"
+        config_content = {
+            "default_llm_provider": "kimi",
+            "workspace_dir": "~/.local/share/alfred/workspace",
+        }
+        bundled_config.write_text(json.dumps(config_content))
+
+        bundled_templates = tmp_path / "bundled_templates"
+        bundled_templates.mkdir()
+        (bundled_templates / "SOUL.md").write_text("# Soul Template")
+        (bundled_templates / "USER.md").write_text("# User Template")
+
+        with (
+            patch("src.data_manager.BUNDLED_CONFIG", bundled_config),
+            patch("src.data_manager.BUNDLED_TEMPLATES", bundled_templates),
+        ):
+            yield bundled_config, bundled_templates
+
+    def test_creates_config_directory(self, xdg_dirs, bundled_files):
+        """Config directory created if missing."""
+        config_dir, _ = xdg_dirs
+        assert not config_dir.exists()
+
+        init_xdg_directories()
+
+        assert config_dir.exists()
+        assert config_dir.is_dir()
+
+    def test_creates_data_directory(self, xdg_dirs, bundled_files):
+        """Data directory created if missing."""
+        _, data_dir = xdg_dirs
+        assert not data_dir.exists()
+
+        init_xdg_directories()
+
+        assert data_dir.exists()
+        assert data_dir.is_dir()
+
+    def test_creates_workspace_directory(self, xdg_dirs, bundled_files):
+        """Workspace subdirectory created."""
+        _, data_dir = xdg_dirs
+
+        init_xdg_directories()
+
+        workspace_dir = data_dir / "workspace"
+        assert workspace_dir.exists()
+        assert workspace_dir.is_dir()
+
+    def test_copies_config_if_missing(self, xdg_dirs, bundled_files):
+        """Config copied from bundled if missing."""
+        init_xdg_directories()
+
+        config_dir, _ = xdg_dirs
+        config_path = config_dir / "config.json"
+        assert config_path.exists()
+
+        content = json.loads(config_path.read_text())
+        assert content["default_llm_provider"] == "kimi"
+
+    def test_copies_templates_if_missing(self, xdg_dirs, bundled_files):
+        """Templates copied from bundled if missing."""
+        init_xdg_directories()
+
+        _, data_dir = xdg_dirs
+        templates_dir = data_dir / "templates"
+        assert templates_dir.exists()
+        assert (templates_dir / "SOUL.md").exists()
+        assert (templates_dir / "USER.md").exists()
+
+    def test_does_not_overwrite_existing_config(self, xdg_dirs, bundled_files):
+        """Existing config is not overwritten."""
+        config_dir, _ = xdg_dirs
+        config_dir.mkdir(parents=True)
+        existing_config = config_dir / "config.json"
+        existing_config.write_text(json.dumps({"custom": "value"}))
+
+        init_xdg_directories()
+
+        content = json.loads(existing_config.read_text())
+        assert content["custom"] == "value"
+
+    def test_does_not_overwrite_existing_templates(self, xdg_dirs, bundled_files):
+        """Existing templates are not overwritten."""
+        _, data_dir = xdg_dirs
+        templates_dir = data_dir / "templates"
+        templates_dir.mkdir(parents=True)
+        (templates_dir / "SOUL.md").write_text("# Custom Soul")
+
+        init_xdg_directories()
+
+        content = (templates_dir / "SOUL.md").read_text()
+        assert content == "# Custom Soul"
+
+    def test_handles_missing_bundled_config(self, xdg_dirs):
+        """Handles missing bundled config gracefully."""
+        with patch("src.data_manager.BUNDLED_CONFIG", Path("/nonexistent")):
+            init_xdg_directories()  # Should not raise
+
+            config_dir, _ = xdg_dirs
+            assert config_dir.exists()
+
+    def test_handles_missing_bundled_templates(self, xdg_dirs):
+        """Handles missing bundled templates gracefully."""
+        with patch("src.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")):
+            init_xdg_directories()  # Should not raise
+
+            _, data_dir = xdg_dirs
+            assert data_dir.exists()
+
+
+class TestIntegration:
+    """Integration tests with actual file system."""
+
+    def test_full_init_sequence(self, tmp_path):
+        """Complete initialization sequence works."""
+        # Set up XDG dirs in temp
+        config_dir = tmp_path / ".config" / APP_NAME
+        data_dir = tmp_path / ".local" / "share" / APP_NAME
+
+        with (
+            patch("src.data_manager.get_config_dir", return_value=config_dir),
+            patch("src.data_manager.get_data_dir", return_value=data_dir),
+            patch("src.data_manager.BUNDLED_CONFIG", Path("/nonexistent")),
+            patch("src.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")),
+        ):
+            # Before init
+            assert not config_dir.exists()
+            assert not data_dir.exists()
+
+            # Init
+            init_xdg_directories()
+
+            # After init
+            assert config_dir.exists()
+            assert data_dir.exists()
+            assert (data_dir / "workspace").exists()
