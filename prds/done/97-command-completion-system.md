@@ -190,8 +190,30 @@ input_field.with_completion(
 | `Enter` | Accept selected (or first) completion |
 | `Up` | Move selection up (don't move text cursor) |
 | `Down` | Move selection down (don't move text cursor) |
+| `→` | Accept one ghost character |
+| `←` | Reject one ghost character |
 | `Esc` | Close menu without accepting |
 | Any other key | Pass to input, re-filter menu |
+
+### Ghost Text (Inline Preview)
+
+When a completion is selected, ghost text appears inline showing the remaining characters:
+
+```
+Typed: /          Shows: /n̲ew  ('n' has cursor, 'ew' dimmed)
+Typed: /n         Shows: /n e̲w  ('n' accepted, 'e' has cursor)
+Typed: /ne        Shows: /ne w̲ ('ne' accepted, 'w' has cursor)
+```
+
+**Ghost text styling:**
+- First ghost character: reverse video (cursor position)
+- Remaining characters: dim (BRIGHT_BLACK)
+- Updates dynamically as characters accepted/rejected
+
+**Bidirectional flow:**
+- `→` moves cursor forward, accepting characters into input
+- `←` moves cursor backward, returning characters to ghost text
+- Once back to trigger (`/`), `←` passes through to normal cursor movement
 
 ### Fuzzy Matching
 
@@ -321,6 +343,33 @@ class SessionManager:
 
 **Validation:** All tests pass, manual stress testing
 
+### Milestone 6: Ghost Text (Inline Preview) ✅
+**Deliverable:** Inline preview of selected completion with bidirectional navigation
+- [x] Ghost text renders after typed text with cursor on first ghost character
+- [x] First ghost character shown in reverse video (cursor)
+- [x] Remaining ghost characters dimmed (BRIGHT_BLACK)
+- [x] Right arrow accepts one ghost character into input
+- [x] Left arrow rejects one character back to ghost text
+- [x] Ghost suffix updates dynamically as characters accepted/rejected
+
+**Visual Example:**
+```
+User types: /
+Shows:      /n̲ew  ('n' has cursor, 'ew' is dimmed)
+
+Press RIGHT: /n e̲w  ('n' accepted, cursor on 'e')
+Press RIGHT: /ne w̲  ('e' accepted, cursor on 'w')
+Press LEFT:  /n e̲w  ('w' back to ghost, cursor on 'e')
+```
+
+**Key Bindings Added:**
+| Key | Action |
+|-----|--------|
+| `→` | Accept one ghost character |
+| `←` | Reject one ghost character |
+
+**Validation:** Tests verify bidirectional ghost text flow
+
 ---
 
 ## Success Criteria ✅
@@ -334,6 +383,9 @@ class SessionManager:
 - [x] Menu renders above input (not below)
 - [x] Provider called on every keystroke (Option 2 behavior)
 - [x] `with_completion()` fluent API works for attaching completion
+- [x] Ghost text shows inline preview with cursor on first character
+- [x] Right arrow accepts ghost characters one at a time
+- [x] Left arrow rejects ghost characters one at a time
 
 ---
 
@@ -350,7 +402,9 @@ class SessionManager:
 - `src/interfaces/pypitui/wrapped_input.py` - Added hook support and `with_completion()` API
 - `src/interfaces/pypitui/tui.py` - Integrated completion into AlfredTUI
 
-**Tests:** 61 tests in `tests/pypitui/test_completion*.py` - all passing
+**Tests:** 87+ tests in `tests/pypitui/test_completion*.py` - all passing
+
+**Documentation:** `docs/COMPLETION.md` - User guide for completion system
 
 **Deferred:** Visual highlight of matched characters (stretch goal, not required for MVP)
 
