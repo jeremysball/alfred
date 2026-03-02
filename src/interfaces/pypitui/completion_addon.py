@@ -85,7 +85,7 @@ class CompletionAddon:
         # Pattern: CURSOR_MARKER + REVERSE + char + RESET
         cursor_pattern = (
             f"({re.escape(CURSOR_MARKER)})({re.escape(REVERSE)})"
-            f"([^\x1b]*)(\\\x1b\\[27m)"
+            f"([^\x1b]*)({re.escape(RESET)})"
         )
         match = re.search(cursor_pattern, input_line)
 
