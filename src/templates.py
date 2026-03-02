@@ -26,16 +26,12 @@ class TemplateManager:
         """Resolve template directory with priority order.
 
         Priority:
-        1. Workspace templates (for tests and local override)
-        2. XDG data directory templates (~/.local/share/alfred/templates)
-        3. /app/templates/ (Docker bundled)
-        4. Bundled templates with package
+        1. Workspace templates (for tests/local override)
+        2. /app/templates/ (Docker bundled)
+        3. Bundled templates with package
         """
-        from src.data_manager import get_templates_dir
-
         candidates = [
             self.workspace_dir / "templates",  # Workspace/local (highest priority)
-            get_templates_dir(),  # XDG data directory
             Path("/app/templates"),  # Docker bundled
             Path(__file__).parent.parent / "templates",  # Development
         ]

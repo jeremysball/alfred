@@ -9,10 +9,11 @@ import pytest
 
 from src.data_manager import (
     APP_NAME,
+    BUNDLED_TEMPLATES,
     get_config_dir,
     get_config_path,
     get_data_dir,
-    get_templates_dir,
+    get_memory_dir,
     get_workspace_dir,
     init_xdg_directories,
 )
@@ -53,17 +54,17 @@ class TestXDGDirectoryPaths:
             result = get_config_path()
             assert result == Path("/test/config/config.json")
 
-    def test_get_templates_dir_in_data_dir(self):
-        """get_templates_dir returns templates in data dir."""
-        with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
-            result = get_templates_dir()
-            assert result == Path("/test/data/templates")
-
     def test_get_workspace_dir_in_data_dir(self):
         """get_workspace_dir returns workspace in data dir."""
         with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
             result = get_workspace_dir()
             assert result == Path("/test/data/workspace")
+
+    def test_get_memory_dir_in_data_dir(self):
+        """get_memory_dir returns memory in data dir."""
+        with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
+            result = get_memory_dir()
+            assert result == Path("/test/data/memory")
 
 
 class TestXDGDirectoryInit:
@@ -132,6 +133,16 @@ class TestXDGDirectoryInit:
         assert workspace_dir.exists()
         assert workspace_dir.is_dir()
 
+    def test_creates_memory_directory(self, xdg_dirs, bundled_files):
+        """Memory subdirectory created."""
+        _, data_dir = xdg_dirs
+
+        init_xdg_directories()
+
+        memory_dir = data_dir / "memory"
+        assert memory_dir.exists()
+        assert memory_dir.is_dir()
+
     def test_copies_config_if_missing(self, xdg_dirs, bundled_files):
         """Config copied from bundled if missing."""
         init_xdg_directories()
@@ -143,15 +154,29 @@ class TestXDGDirectoryInit:
         content = json.loads(config_path.read_text())
         assert content["default_llm_provider"] == "kimi"
 
-    def test_copies_templates_if_missing(self, xdg_dirs, bundled_files):
-        """Templates copied from bundled if missing."""
+    def test_copies_templates_as_workspace_files(self, xdg_dirs, bundled_files):
+        """Templates copied as data files to workspace (not templates folder)."""
         init_xdg_directories()
 
         _, data_dir = xdg_dirs
-        templates_dir = data_dir / "templates"
-        assert templates_dir.exists()
-        assert (templates_dir / "SOUL.md").exists()
-        assert (templates_dir / "USER.md").exists()
+        workspace_dir = data_dir / "workspace"
+
+        # Templates should be in workspace as data files
+        assert (workspace_dir / "SOUL.md").exists()
+        assert (workspace_dir / "USER.md").exists()
+
+        # Should NOT have a templates subdir
+        assert not (data_dir / "templates").exists()
+
+    def test_template_content_in_workspace(self, xdg_dirs, bundled_files):
+        """Template content preserved when copied to workspace."""
+        init_xdg_directories()
+
+        _, data_dir = xdg_dirs
+        soul_file = data_dir / "workspace" / "SOUL.md"
+
+        content = soul_file.read_text()
+        assert content == "# Soul Template"
 
     def test_does_not_overwrite_existing_config(self, xdg_dirs, bundled_files):
         """Existing config is not overwritten."""
@@ -165,16 +190,16 @@ class TestXDGDirectoryInit:
         content = json.loads(existing_config.read_text())
         assert content["custom"] == "value"
 
-    def test_does_not_overwrite_existing_templates(self, xdg_dirs, bundled_files):
-        """Existing templates are not overwritten."""
+    def test_does_not_overwrite_existing_workspace_files(self, xdg_dirs, bundled_files):
+        """Existing workspace files are not overwritten."""
         _, data_dir = xdg_dirs
-        templates_dir = data_dir / "templates"
-        templates_dir.mkdir(parents=True)
-        (templates_dir / "SOUL.md").write_text("# Custom Soul")
+        workspace_dir = data_dir / "workspace"
+        workspace_dir.mkdir(parents=True)
+        (workspace_dir / "SOUL.md").write_text("# Custom Soul")
 
         init_xdg_directories()
 
-        content = (templates_dir / "SOUL.md").read_text()
+        content = (workspace_dir / "SOUL.md").read_text()
         assert content == "# Custom Soul"
 
     def test_handles_missing_bundled_config(self, xdg_dirs):
@@ -220,3 +245,4 @@ class TestIntegration:
             assert config_dir.exists()
             assert data_dir.exists()
             assert (data_dir / "workspace").exists()
+            assert (data_dir / "memory").exists()

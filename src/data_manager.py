@@ -1,7 +1,7 @@
 """XDG directory initialization and management.
 
 Handles creation of XDG-compliant directories and copying of bundled
-configuration files on first run.
+configuration and data files on first run.
 """
 
 import logging
@@ -47,11 +47,6 @@ def get_config_path() -> Path:
     return get_config_dir() / "config.json"
 
 
-def get_templates_dir() -> Path:
-    """Get path to templates in XDG data directory."""
-    return get_data_dir() / "templates"
-
-
 def get_workspace_dir() -> Path:
     """Get path to workspace in XDG data directory."""
     return get_data_dir() / "workspace"
@@ -73,7 +68,7 @@ def init_xdg_directories() -> None:
 
     Copies bundled files only if they don't exist:
         - config.json -> $XDG_CONFIG_HOME/alfred/config.json
-        - templates/ -> $XDG_DATA_HOME/alfred/templates/
+        - templates/* -> $XDG_DATA_HOME/alfred/workspace/* (as data files)
     """
     # Create directories
     config_dir = get_config_dir()
@@ -102,13 +97,15 @@ def init_xdg_directories() -> None:
     elif config_path.exists():
         logger.debug(f"Using existing config: {config_path}")
 
-    # Copy templates if missing
-    templates_dir = get_templates_dir()
-    if not templates_dir.exists() and BUNDLED_TEMPLATES.exists():
-        try:
-            shutil.copytree(BUNDLED_TEMPLATES, templates_dir)
-            logger.info(f"Created default templates: {templates_dir}")
-        except Exception as e:
-            logger.warning(f"Failed to copy default templates: {e}")
-    elif templates_dir.exists():
-        logger.debug(f"Using existing templates: {templates_dir}")
+    # Copy templates as data files to workspace (not as templates)
+    if BUNDLED_TEMPLATES.exists():
+        for template_file in BUNDLED_TEMPLATES.glob("*.md"):
+            target_path = workspace_dir / template_file.name
+            if not target_path.exists():
+                try:
+                    shutil.copy2(template_file, target_path)
+                    logger.info(f"Created workspace file: {target_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to copy {template_file.name}: {e}")
+            else:
+                logger.debug(f"Using existing workspace file: {target_path}")
