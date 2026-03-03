@@ -190,11 +190,11 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 - [x] Commit
 
 #### 1.4 Template Copy on Init
-- [ ] Test: `test_init_xdg_directories_copies_config_toml()` - verify config.toml copied when missing
-- [ ] Implement: Update `init_xdg_directories()` to copy `templates/config.toml` to XDG config dir
-- [ ] Test: `test_init_xdg_preserves_existing_config_toml()` - verify existing file not overwritten
-- [ ] Implement: Check existence before copy
-- [ ] Commit
+- [x] Test: `test_init_xdg_directories_copies_config_toml()` - verify config.toml copied when missing
+- [x] Implement: Update `init_xdg_directories()` to copy `templates/config.toml` to XDG config dir
+- [x] Test: `test_init_xdg_preserves_existing_config_toml()` - verify existing file not overwritten
+- [x] Implement: Check existence before copy
+- [x] Commit
 
 #### 1.5 Config Class TOML Loading
 - [ ] Test: `test_load_config_reads_toml()` - verify `load_config()` parses TOML file
