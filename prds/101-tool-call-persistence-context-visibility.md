@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #101  
 **Priority**: High  
-**Status**: In Progress (Milestone 4 Complete)
+**Status**: In Progress (Milestone 5 - Ready for PR)
 
 ---
 
@@ -206,7 +206,7 @@ include_output = true  # Include tool output or just call info
 
 ### Milestone 5: Integration and Cleanup
 
-- [ ] All tests pass
+- [x] All tests pass
 - [ ] Documentation updated
 - [ ] PR merged
 
@@ -242,11 +242,11 @@ None
 
 ## 7. Success Criteria
 
-- [ ] Tool calls visible in session history
-- [ ] Tool calls included in LLM context
-- [ ] /context command works
-- [ ] Tool arguments visible in UI
-- [ ] All tests pass
+- [x] Tool calls visible in session history
+- [x] Tool calls included in LLM context
+- [x] /context command works
+- [x] Tool arguments visible in UI
+- [x] All tests pass
 
 ---
 
