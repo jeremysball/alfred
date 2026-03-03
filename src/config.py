@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import tomli  # noqa: F401 - Will be used for TOML config loading
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
