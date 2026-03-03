@@ -181,6 +181,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
+| 102 | Three-Tier Memory System | Unify memory architecture: Tier 1 (working memory with TTL), Tier 2 (context files with auto-consolidation), Tier 3 (session archive) (PRD #102) |
 | 17 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 18 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 19 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
