@@ -178,11 +178,11 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 - [x] Commit
 
 #### 1.2 XDG Config Path
-- [ ] Test: `test_get_config_toml_path_returns_xdg_location()` - verify path is `$XDG_CONFIG_HOME/alfred/config.toml`
-- [ ] Implement: Add `get_config_toml_path()` to `data_manager.py`
-- [ ] Test: `test_get_config_toml_path_fallback_to_home()` - verify fallback when `XDG_CONFIG_HOME` unset
-- [ ] Implement: Fallback to `~/.config/alfred/config.toml`
-- [ ] Commit
+- [x] Test: `test_get_config_toml_path_returns_xdg_location()` - verify path uses `XDG_CONFIG_HOME`
+- [x] Implement: Add `get_config_toml_path()` to `data_manager.py`
+- [x] Test: `test_get_config_toml_path_fallback_to_home()` - verify fallback to `~/.config`
+- [x] Implement: Fallback logic via `get_config_dir()` reuse
+- [x] Commit
 
 #### 1.3 Config Template Creation
 - [ ] Test: `test_config_template_exists()` - verify `templates/config.toml` exists with required sections
