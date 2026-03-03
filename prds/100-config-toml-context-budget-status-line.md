@@ -185,9 +185,9 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 - [x] Commit
 
 #### 1.3 Config Template Creation
-- [ ] Test: `test_config_template_exists()` - verify `templates/config.toml` exists with required sections
-- [ ] Implement: Create `templates/config.toml` with `[provider]`, `[embeddings]`, `[memory]`, `[search]`, `[ui.status_line]` sections
-- [ ] Commit
+- [x] Test: `test_config_template_exists()` - verify `templates/config.toml` exists with required sections
+- [x] Implement: Create `templates/config.toml` with `[provider]`, `[embeddings]`, `[memory]`, `[search]`, `[ui.status_line]` sections
+- [x] Commit
 
 #### 1.4 Template Copy on Init
 - [ ] Test: `test_init_xdg_directories_copies_config_toml()` - verify config.toml copied when missing
