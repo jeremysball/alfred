@@ -290,23 +290,23 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 ### Milestone 4: Tool Call Formatting (TDD)
 
 #### 4.1 ANSI Constants for Tool Titles
-- [ ] Test: `test_tool_title_uses_ansi_bold()` - verify `BOLD`/`RESET` constants in title
-- [ ] Implement: Replace `f"[bold]{name}[/bold]"` with `f"{BOLD}{name}{RESET}"` in `message_panel.py`
-- [ ] Test: `test_tool_title_no_rich_markup()` - verify no `[bold]` in output
-- [ ] Implement: Remove Rich markup entirely
-- [ ] Commit
+- [x] Test: `test_tool_title_uses_ansi_bold()` - verify `BOLD`/`RESET` constants in title
+- [x] Implement: Replace `f"[bold]{name}[/bold]"` with `f"{BOLD}{name}{RESET}"` in `message_panel.py`
+- [x] Test: `test_tool_title_no_rich_markup()` - verify no `[bold]` in output
+- [x] Implement: Remove Rich markup entirely
+- [x] Commit
 
 #### 4.2 Tool Output Truncation Direction
-- [ ] Test: `test_tool_output_shows_beginning_not_end()` - verify `[:200]` not `[-200:]`
-- [ ] Implement: Change slice direction in `_build_content_with_tools()`
-- [ ] Test: `test_tool_output_truncates_at_200_chars()` - verify truncation still happens at 200
-- [ ] Implement: Preserve truncation limit, just change direction
-- [ ] Commit
+- [x] Test: `test_tool_output_shows_beginning_not_end()` - verify `[:200]` not `[-200:]`
+- [x] Implement: Change slice direction in `_build_content_with_tools()`
+- [x] Test: `test_tool_output_truncates_at_200_chars()` - verify truncation still happens at 200
+- [x] Implement: Preserve truncation limit, just change direction
+- [x] Commit
 
 #### 4.3 Box Utils ANSI Handling
-- [ ] Test: `test_build_bordered_box_preserves_ansi_in_title()` - verify ANSI codes not counted in width
-- [ ] Implement: Update `box_utils.py` to handle ANSI in title parameter
-- [ ] Commit
+- [x] Test: `test_build_bordered_box_preserves_ansi_in_title()` - verify ANSI codes not counted in width
+- [x] Implement: Update `box_utils.py` to handle ANSI in title parameter
+- [x] Commit
 
 **Success Criteria:**
 - Tool titles use ANSI constants (no Rich markup)

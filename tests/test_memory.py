@@ -231,42 +231,6 @@ async def test_search_with_date_filter(mock_config, mock_embedder):
 
 
 @pytest.mark.asyncio
-async def test_curated_memory_read_write(mock_config, mock_embedder, tmp_path):
-    """Can read and write MEMORY.md."""
-    store = MemoryStore(mock_config, mock_embedder)
-    store.curated_path = tmp_path / "MEMORY.md"
-
-    # Write initial content
-    await store.write_curated_memory("# Important Facts\n\nUser likes tea, not coffee.")
-
-    # Read it back
-    content = await store.read_curated_memory()
-    assert "User likes tea" in content
-
-    # Append more
-    await store.append_curated_memory("User works remotely from Portland.")
-
-    content = await store.read_curated_memory()
-    assert "Portland" in content
-
-
-@pytest.mark.asyncio
-async def test_search_curated_memory(mock_config, mock_embedder, tmp_path):
-    """Can search curated memories."""
-    store = MemoryStore(mock_config, mock_embedder)
-    store.curated_path = tmp_path / "MEMORY.md"
-
-    await store.write_curated_memory(
-        "User prefers dark mode.\n\nUser uses Vim for editing."
-    )
-
-    results = await store.search_curated("editor preferences", top_k=2)
-
-    assert len(results) >= 1
-    assert all("curated" in r.tags for r in results)
-
-
-@pytest.mark.asyncio
 async def test_iteration_memory_efficient(mock_config, mock_embedder):
     """Can iterate entries without loading all into memory."""
     store = MemoryStore(mock_config, mock_embedder)

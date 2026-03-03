@@ -271,8 +271,8 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 formatted_output = self._format_tool_output(display_output, renderer)
                 content_lines = formatted_output.split("\n")
 
-            # Bold tool name in title using ANSI constants
-            fancy_title = f"{BOLD}{tc.tool_name}{RESET}"
+            # Bold tool name in title using ANSI constants, then restore box color
+            fancy_title = f"{BOLD}{tc.tool_name}{RESET}{color}"
 
             box_lines = build_bordered_box(
                 lines=content_lines,
