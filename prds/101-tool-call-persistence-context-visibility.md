@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #101  
 **Priority**: High  
-**Status**: In Progress (Milestone 2 Complete)
+**Status**: In Progress (Milestone 4 Complete)
 
 ---
 
@@ -199,10 +199,10 @@ include_output = true  # Include tool output or just call info
 
 ### Milestone 4: /context Command
 
-- [ ] Add `/context` command handler
-- [ ] Format system context for display
-- [ ] Show token counts per section
-- [ ] Test: Context displays correctly
+- [x] Add `/context` command handler
+- [x] Format system context for display
+- [x] Show token counts per section
+- [x] Test: Context displays correctly
 
 ### Milestone 5: Integration and Cleanup
 
