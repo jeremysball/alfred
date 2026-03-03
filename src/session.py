@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from src.session_storage import SessionStorage
@@ -34,6 +34,29 @@ class Role(Enum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+@dataclass
+class ToolCallRecord:
+    """Record of a tool call execution within a message.
+
+    Attributes:
+        tool_call_id: Unique identifier for this tool call
+        tool_name: Name of the tool (e.g., "bash", "read")
+        arguments: Dictionary of arguments passed to the tool
+        output: Complete output from the tool execution
+        status: Execution status ("success" or "error")
+        insert_position: Character position in message.content where tool occurred
+        sequence: Ordering when multiple tools at same position
+    """
+
+    tool_call_id: str
+    tool_name: str
+    arguments: dict[str, Any]
+    output: str
+    status: Literal["success", "error"]
+    insert_position: int = 0
+    sequence: int = 0
 
 
 @dataclass
@@ -51,6 +74,7 @@ class Message:
     )
     cached_tokens: int = 0  # Cache read tokens from LLM usage
     reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
+    tool_calls: list[ToolCallRecord] | None = None  # Tool calls made during this message
 
 
 @dataclass
