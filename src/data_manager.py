@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 APP_NAME = "alfred"
 
 # Default paths (bundled with package)
-BUNDLED_CONFIG = Path(__file__).parent.parent / "config.json"
 BUNDLED_TEMPLATES = Path(__file__).parent.parent / "templates"
 
 
@@ -42,9 +41,13 @@ def get_data_dir() -> Path:
     return Path.home() / ".local" / "share" / APP_NAME
 
 
-def get_config_path() -> Path:
-    """Get path to config.json in XDG config directory."""
-    return get_config_dir() / "config.json"
+def get_config_toml_path() -> Path:
+    """Get path to config.toml in XDG config directory.
+
+    Returns:
+        Path to $XDG_CONFIG_HOME/alfred/config.toml (default: ~/.config/alfred/config.toml)
+    """
+    return get_config_dir() / "config.toml"
 
 
 def get_workspace_dir() -> Path:
@@ -67,7 +70,7 @@ def init_xdg_directories() -> None:
         - $XDG_DATA_HOME/alfred/memory/
 
     Copies bundled files only if they don't exist:
-        - config.json -> $XDG_CONFIG_HOME/alfred/config.json
+        - config.toml -> $XDG_CONFIG_HOME/alfred/config.toml
         - templates/* -> $XDG_DATA_HOME/alfred/workspace/* (as data files)
     """
     # Create directories
@@ -86,16 +89,17 @@ def init_xdg_directories() -> None:
     logger.debug(f"Workspace directory: {workspace_dir}")
     logger.debug(f"Memory directory: {memory_dir}")
 
-    # Copy config if missing
-    config_path = get_config_path()
-    if not config_path.exists() and BUNDLED_CONFIG.exists():
+    # Copy config.toml template if missing
+    config_toml_path = get_config_toml_path()
+    bundled_config_toml = BUNDLED_TEMPLATES / "config.toml"
+    if not config_toml_path.exists() and bundled_config_toml.exists():
         try:
-            shutil.copy2(BUNDLED_CONFIG, config_path)
-            logger.info(f"Created default config: {config_path}")
+            shutil.copy2(bundled_config_toml, config_toml_path)
+            logger.info(f"Created default config.toml: {config_toml_path}")
         except Exception as e:
-            logger.warning(f"Failed to copy default config: {e}")
-    elif config_path.exists():
-        logger.debug(f"Using existing config: {config_path}")
+            logger.warning(f"Failed to copy default config.toml: {e}")
+    elif config_toml_path.exists():
+        logger.debug(f"Using existing config.toml: {config_toml_path}")
 
     # Copy templates as data files to workspace
     # These become the user's editable context files (SOUL.md, USER.md, etc.)

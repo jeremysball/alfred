@@ -6,7 +6,7 @@ from typing import Literal
 
 from pypitui import BorderedBox, Text  # type: ignore
 
-from src.interfaces.pypitui.constants import CYAN, DIM, GREEN, RED, RESET
+from src.interfaces.pypitui.constants import BOLD, CYAN, DIM, GREEN, RED, RESET
 from src.interfaces.pypitui.models import ToolCallInfo
 
 
@@ -264,15 +264,15 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             # Build tool box lines with Rich formatting
             content_lines: list[str] = []
             if tc.output:
-                # Truncate output for display
-                display_output = tc.output[-200:] if len(tc.output) > 200 else tc.output
+                # Truncate output for display (show beginning, not end)
+                display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 
                 # Try to format as JSON if applicable
                 formatted_output = self._format_tool_output(display_output, renderer)
                 content_lines = formatted_output.split("\n")
 
-            # Bold tool name in title
-            fancy_title = f"[bold]{tc.tool_name}[/bold]"
+            # Bold tool name in title using ANSI constants, then restore box color
+            fancy_title = f"{BOLD}{tc.tool_name}{RESET}{color}"
 
             box_lines = build_bordered_box(
                 lines=content_lines,

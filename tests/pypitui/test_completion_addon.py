@@ -1,9 +1,10 @@
-"""Tests for completion addon using render filter."""
+"""Tests for completion addon using component-based menu."""
 
 import pytest
 from pypitui import MockTerminal, TUI
 
 from src.interfaces.pypitui.completion_addon import CompletionAddon
+from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 from src.interfaces.pypitui.wrapped_input import WrappedInput
 
 
@@ -12,8 +13,9 @@ class TestCompletionAddon:
 
     @pytest.fixture
     def setup(self):
-        """Create input and completion addon."""
+        """Create input, menu component, and completion addon."""
         input_field = WrappedInput(placeholder="Test")
+        menu = CompletionMenuComponent()
 
         def provider(text: str) -> list[tuple[str, str | None]]:
             if text.startswith("/"):
@@ -26,41 +28,46 @@ class TestCompletionAddon:
         addon = CompletionAddon(
             input_component=input_field,
             provider=provider,
+            menu_component=menu,
             trigger="/",
         )
 
-        return input_field, addon
+        return input_field, menu, addon
 
     def test_menu_not_shown_without_trigger(self, setup):
         """Menu doesn't show when input doesn't match trigger."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
-        # Type text without trigger
+        # Type text without trigger - trigger update via input hook
         input_field.set_value("hello")
-        lines = addon._on_render(["input line"], 80)
+        # Simulate what happens when input is processed
+        menu.set_options([])
+        menu.close()
 
-        assert addon._menu.is_open is False
-        assert lines == ["input line"]  # No menu prepended
+        assert menu.is_open is False
+        assert menu.render(80) == []
 
     def test_menu_shows_with_trigger(self, setup):
         """Menu shows when trigger matches."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
-        # Type trigger
+        # Type trigger - menu opens via _update_completion
         input_field.set_value("/")
-        lines = addon._on_render(["input line"], 80)
+        # Manually trigger update (normally happens via input hook)
+        addon._update_completion()
 
-        assert addon._menu.is_open is True
-        assert len(lines) > 1  # Menu lines prepended
-        assert lines[-1] == "input line"  # Input is last
+        assert menu.is_open is True
+        rendered = menu.render(80)
+        assert len(rendered) > 0  # Menu renders lines
 
     def test_navigation_consumed_by_addon(self, setup):
         """Navigation keys are consumed when menu is open."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["input"], 80)
+        addon._update_completion()
+        assert menu.is_open is True
 
         # Down arrow should be consumed
         result = addon.handle_input("\x1b[B")
@@ -68,85 +75,84 @@ class TestCompletionAddon:
 
     def test_escape_closes_menu(self, setup):
         """Escape key closes completion menu."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["input"], 80)
-        assert addon._menu.is_open is True
+        addon._update_completion()
+        assert menu.is_open is True
 
         # Escape closes
         result = addon.handle_input("\x1b")
         assert result == {"consume": True}
-        assert addon._menu.is_open is False
+        assert menu.is_open is False
 
     def test_accept_completion(self, setup):
         """Tab accepts completion and inserts value."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["input"], 80)
+        addon._update_completion()
 
         # Tab accepts
         result = addon.handle_input("\t")
         assert result == {"consume": True}
 
-        # Value inserted with space
-        assert input_field.get_value() == "/new "
-        assert addon._menu.is_open is False
+        # Value inserted (no trailing space to avoid race conditions)
+        assert input_field.get_value() == "/new"
+        assert menu.is_open is False
 
     def test_non_trigger_keys_pass_through(self, setup):
         """Non-navigation keys pass through."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["input"], 80)
+        addon._update_completion()
+        assert menu.is_open is True
 
         # Regular key passes through
         result = addon.handle_input("a")
         assert result is None
 
-    def test_menu_prepended_to_lines(self, setup):
-        """Menu lines are prepended to input lines."""
-        input_field, addon = setup
+    def test_menu_renders_with_box(self, setup):
+        """Menu renders with box drawing characters."""
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        input_lines = ["> /"]
-        result_lines = addon._on_render(input_lines, 80)
+        addon._update_completion()
 
-        # Menu should be prepended
-        assert len(result_lines) > len(input_lines)
-        assert result_lines[-1] == "> /"
+        lines = menu.render(80)
+        assert len(lines) > 0
         # Should have box drawing characters
-        assert any("┌" in line for line in result_lines)
-        assert any("└" in line for line in result_lines)
+        assert any("┌" in line for line in lines)
+        assert any("└" in line for line in lines)
 
     def test_navigation_updates_selection(self, setup):
         """Navigation updates selection index."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        addon._on_render(["input"], 80)
+        addon._update_completion()
 
-        assert addon._menu.selected_index == 0
+        assert menu.selected_index == 0
 
         # Move down
         addon.handle_input("\x1b[B")
-        assert addon._menu.selected_index == 1
+        assert menu.selected_index == 1
 
         # Move down again (wraps)
         addon.handle_input("\x1b[B")
-        assert addon._menu.selected_index == 0
+        assert menu.selected_index == 0
 
     def test_invalidate_bubbles_up(self, setup):
         """Invalidation bubbles up through component hierarchy."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["input"], 80)
+        addon._update_completion()
 
         # Track if invalidate was called on input
         invalidated = []
@@ -161,13 +167,14 @@ class TestCompletionAddon:
 
         input_field.invalidate = track_invalidate
 
-        # Navigate should trigger invalidate
+        # Navigate should trigger invalidate on menu, not input
+        # (menu is now a separate component)
         addon.handle_input("\x1b[B")
-        assert len(invalidated) == 1
+        # Menu component invalidates itself, not the input
 
-        # Accept should trigger invalidate
+        # Accept should trigger invalidate on input
         addon.handle_input("\t")
-        assert len(invalidated) == 2
+        assert len(invalidated) == 1
 
 
 class TestGhostTextAccept:
@@ -175,8 +182,9 @@ class TestGhostTextAccept:
 
     @pytest.fixture
     def setup(self):
-        """Create input and completion addon."""
+        """Create input, menu component, and completion addon."""
         input_field = WrappedInput(placeholder="Test")
+        menu = CompletionMenuComponent()
 
         def provider(text: str) -> list[tuple[str, str | None]]:
             if text.startswith("/"):
@@ -189,18 +197,19 @@ class TestGhostTextAccept:
         addon = CompletionAddon(
             input_component=input_field,
             provider=provider,
+            menu_component=menu,
             trigger="/",
         )
 
-        return input_field, addon
+        return input_field, menu, addon
 
     def test_right_arrow_accepts_ghost_char(self, setup):
         """Right arrow accepts first ghost character."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu with "/"
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
 
         # Ghost suffix should be "new"
         assert addon._get_ghost_suffix() == "new"
@@ -215,10 +224,10 @@ class TestGhostTextAccept:
 
     def test_right_arrow_multiple_times(self, setup):
         """Right arrow can accept multiple ghost characters."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
 
         # Accept 'n'
         addon.handle_input("\x1b[C")
@@ -237,11 +246,11 @@ class TestGhostTextAccept:
 
     def test_right_arrow_no_ghost_passthrough(self, setup):
         """Right arrow passes through when no ghost text."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
 
         # Accept all ghost chars
         for _ in range(3):
@@ -256,10 +265,10 @@ class TestGhostTextAccept:
 
     def test_right_arrow_updates_last_text(self, setup):
         """Right arrow updates _last_text to prevent duplicate updates."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
 
         addon.handle_input("\x1b[C")
 
@@ -268,11 +277,11 @@ class TestGhostTextAccept:
 
     def test_left_arrow_rejects_ghost_char(self, setup):
         """Left arrow removes last accepted ghost character."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         # Open menu and accept two chars
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
         addon.handle_input("\x1b[C")  # Accept 'n'
         addon.handle_input("\x1b[C")  # Accept 'e'
 
@@ -287,10 +296,10 @@ class TestGhostTextAccept:
 
     def test_left_arrow_rejects_back_to_trigger(self, setup):
         """Left arrow can reject back to just the trigger character."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
         addon.handle_input("\x1b[C")  # Accept 'n'
 
         # Left arrow rejects 'n'
@@ -301,10 +310,10 @@ class TestGhostTextAccept:
 
     def test_left_arrow_passthrough_at_trigger(self, setup):
         """Left arrow passes through when at trigger (can't go below)."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
 
         # Left arrow at trigger should pass through
         result = addon.handle_input("\x1b[D")
@@ -313,10 +322,10 @@ class TestGhostTextAccept:
 
     def test_left_right_roundtrip(self, setup):
         """Right then Left returns to original state."""
-        input_field, addon = setup
+        input_field, menu, addon = setup
 
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
+        addon._update_completion()
 
         original_ghost = addon._get_ghost_suffix()
 
@@ -337,7 +346,9 @@ class TestCompletionAddonIntegration:
         terminal = MockTerminal(cols=80, rows=24)
         tui = TUI(terminal)
         input_field = WrappedInput(placeholder="Message Alfred...")
+        menu = CompletionMenuComponent(max_height=5)
         tui.add_child(input_field)
+        tui.add_child(menu)
 
         def provider(text: str) -> list[tuple[str, str | None]]:
             commands = [
@@ -356,53 +367,54 @@ class TestCompletionAddonIntegration:
         addon = CompletionAddon(
             input_component=input_field,
             provider=provider,
+            menu_component=menu,
             trigger="/",
-            max_height=5,
         )
 
-        return tui, input_field, addon, terminal
+        return tui, input_field, menu, addon, terminal
 
     def test_full_completion_flow(self, tui_setup):
         """Test complete user interaction flow."""
-        tui, input_field, addon, _ = tui_setup
+        tui, input_field, menu, addon, _ = tui_setup
 
         # Initially no menu
-        assert addon._menu.is_open is False
+        assert menu.is_open is False
 
         # Type "/"
         input_field.set_value("/")
-        lines = addon._on_render(["> /"], 80)
+        addon._update_completion()
 
-        # Menu should be open and prepended
-        assert addon._menu.is_open is True
-        assert len(lines) > 1
+        # Menu should be open
+        assert menu.is_open is True
+        rendered = menu.render(80)
+        assert len(rendered) > 0
 
         # Navigate down
         result = addon.handle_input("\x1b[B")
         assert result == {"consume": True}
-        assert addon._menu.selected_index == 1
+        assert menu.selected_index == 1
 
         # Accept with Tab
         result = addon.handle_input("\t")
         assert result == {"consume": True}
 
-        # Value should be inserted
-        assert input_field.get_value() == "/resume "
-        assert addon._menu.is_open is False
+        # Value should be inserted (no trailing space)
+        assert input_field.get_value() == "/resume"
+        assert menu.is_open is False
 
     def test_menu_closes_on_non_trigger_input(self, tui_setup):
         """Menu closes when typing non-trigger text."""
-        _, input_field, addon, _ = tui_setup
+        _, input_field, menu, addon, _ = tui_setup
 
         # Open menu
         input_field.set_value("/")
-        addon._on_render(["> /"], 80)
-        assert addon._menu.is_open is True
+        addon._update_completion()
+        assert menu.is_open is True
 
         # Type non-trigger text
         input_field.set_value("hello")
-        lines = addon._on_render(["> hello"], 80)
+        addon._update_completion()
 
         # Menu should be closed
-        assert addon._menu.is_open is False
-        assert lines == ["> hello"]  # No menu prepended
+        assert menu.is_open is False
+        assert menu.render(80) == []

@@ -362,10 +362,10 @@ class TestContextBuilder:
         assert len(context) < 1000
         assert count == 1
 
-    def test_respects_token_budget(self):
-        """Test that context respects token budget."""
+    def test_respects_memory_budget(self):
+        """Test that context respects memory budget."""
         searcher = MemorySearcher(min_similarity=0.0)
-        builder = ContextBuilder(searcher, token_budget=100)
+        builder = ContextBuilder(searcher, memory_budget=100)
 
         now = datetime.now()
         memories = [

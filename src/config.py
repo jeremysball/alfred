@@ -1,12 +1,12 @@
 """Configuration management for Alfred."""
 
-import json
 from pathlib import Path
 
+import tomli
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.data_manager import get_config_path, get_memory_dir, get_workspace_dir
+from src.data_manager import get_config_toml_path, get_memory_dir, get_workspace_dir
 
 
 class Config(BaseSettings):
@@ -32,37 +32,68 @@ class Config(BaseSettings):
     kimi_api_key: str = Field(..., validation_alias=AliasChoices("KIMI_API_KEY", "kimi_api_key"))
     kimi_base_url: str = Field(..., validation_alias=AliasChoices("KIMI_BASE_URL", "kimi_base_url"))
 
-    # Runtime settings (from config.json or XDG defaults)
+    # Runtime settings (from config.toml or XDG defaults)
     default_llm_provider: str
     embedding_model: str
     chat_model: str
+    memory_budget: int = 32000
     workspace_dir: Path = Field(default_factory=get_workspace_dir)
     memory_dir: Path = Field(default_factory=get_memory_dir)
     context_files: dict[str, Path] | None = None
 
 
+def _load_toml_config(toml_path: Path) -> dict:
+    """Load and flatten TOML config to flat dict.
+
+    Converts nested sections like [provider] default = "x"
+    to flat keys like default_llm_provider = "x".
+    """
+    with open(toml_path, "rb") as f:
+        toml_data = tomli.load(f)
+
+    flat_config: dict = {}
+
+    # Map TOML sections to flat config keys
+    if "provider" in toml_data:
+        provider = toml_data["provider"]
+        if "default" in provider:
+            flat_config["default_llm_provider"] = provider["default"]
+        if "chat_model" in provider:
+            flat_config["chat_model"] = provider["chat_model"]
+
+    if "embeddings" in toml_data:
+        embeddings = toml_data["embeddings"]
+        if "model" in embeddings:
+            flat_config["embedding_model"] = embeddings["model"]
+
+    if "memory" in toml_data:
+        memory = toml_data["memory"]
+        if "budget" in memory:
+            flat_config["memory_budget"] = memory["budget"]
+
+    return flat_config
+
+
 def load_config(config_path: Path | None = None) -> Config:
-    """Load configuration with config.json as source of truth.
+    """Load configuration from config.toml.
 
     Precedence (highest to lowest):
     1. Environment variables
     2. .env file
-    3. config.json file (source of truth for defaults)
+    3. config.toml file (source of truth for defaults)
     4. XDG directory defaults
 
     Args:
-        config_path: Path to config.json. Defaults to XDG config directory.
+        config_path: Path to config file. Defaults to XDG config directory.
     """
-    if config_path is None:
-        config_path = get_config_path()
+    toml_path = config_path or get_config_toml_path()
 
-    # Load base config from config.json
-    base_config = {}
-    if config_path.exists():
-        with open(config_path) as f:
-            base_config = json.load(f)
+    base_config: dict = {}
 
-    # Create config with XDG defaults
+    if toml_path.exists():
+        base_config = _load_toml_config(toml_path)
+
+    # Create config with defaults
     config = Config(**base_config)
 
     # Compute context_files if not provided

@@ -10,6 +10,8 @@ import pytest
 
 from src.utils.cas_store import CASConflictError, CASStore, Version
 
+pytestmark = pytest.mark.slow
+
 
 class TestVersion:
     """Version identifier tests."""

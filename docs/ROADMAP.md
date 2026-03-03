@@ -163,12 +163,14 @@ See PRDs #76 and #77 for contextual retrieval details.
 | M11 | PyPI Trusted Publishing - Automated package distribution |
 | M12 | Rich Markdown Output - Streaming markdown rendering with Rich Live for CLI |
 | M13 | Code Health & Simplification - Removed 1,421 lines of dead code, duplication, over-engineering (PRD #82) |
-| M14 | PyPiTUI CLI - Native scrollback, differential rendering, streaming responses, status line, input queue (PRD #95) |
+| M14 | PyPiTUI CLI - Native scrollback, differential rendering, streaming responses, status line, input queue, command completion with fuzzy filtering (PRDs #94, #95, #97) |
+| M15 | Config & Storage - XDG directories, TOML config, lock-free CAS JSONL store, context budget clarification (PRD #100) |
 
 ### In Progress / Next Up 🔨
 
 | # | Milestone | Description |
 |---|-----------|-------------|
+| 101 | Tool Call Persistence | Persist tool calls in session, include in context, `/context` command |
 | 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
 | 13 | Learning System | Prompt-based learning to update USER.md/SOUL.md |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
@@ -179,17 +181,15 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 16 | Command Completion System | Tab-triggered completion with fuzzy filtering and upward menu (PRD #97) |
 | 17 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 18 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
-| 18 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
-| 19 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector (PRD #90) |
-| 20 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
-| 21 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
-| 22 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
-| 23 | Type Safety | Fix Tool class type safety, complete type annotations |
-| 24 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
-| 25 | Config TOML + Status Line | XDG config dir, TOML format, context budget clarity, responsive status line (PRD #100) |
+| 19 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
+| 20 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector (PRD #90) |
+| 21 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
+| 22 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
+| 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
+| 24 | Type Safety | Fix Tool class type safety, complete type annotations |
+| 25 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
 
 ### Medium-term 📅
 
@@ -290,8 +290,12 @@ EMBEDDING_MODEL=text-embedding-3-small
 | 2026-02-19 | Templates → data/ | Keeps templates clean, allows user reset |
 | 2026-02-19 | Model-driven memory | Alfred decides what to remember, not automatic logging |
 | 2026-02-19 | In-memory sessions | PRD #54 |
-| 2026-02-22 | Persistent sessions | PRD #53 - CLI commands, Telegram integration, context injection |
 | 2026-02-20 | Rich Live for CLI markdown | Proper in-place markdown rendering without scrollback pollution |
+| 2026-02-22 | Persistent sessions | PRD #53 - CLI commands, Telegram integration, context injection |
+| 2026-02-25 | XDG directories | Standard Linux config paths (~/.config/alfred/) |
+| 2026-02-26 | TOML config | Human-readable, better than JSON for configuration |
+| 2026-02-26 | PyPiTUI for CLI | Native scrollback, differential rendering, single library |
+| 2026-03-01 | CAS store | Lock-free concurrent writes with automatic retry |
 
 ---
 

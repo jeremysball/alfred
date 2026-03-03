@@ -3,7 +3,6 @@
 import json
 from collections.abc import AsyncIterator
 from datetime import date, datetime
-from pathlib import Path
 
 import aiofiles
 
@@ -17,7 +16,6 @@ class MemoryStore:
 
     All memories stored in a single JSONL file with embeddings.
     Date is metadata (timestamp), not structural (file names).
-    MEMORY.md holds curated long-term memories separately.
     """
 
     def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
@@ -26,7 +24,6 @@ class MemoryStore:
         self.memory_dir = config.memory_dir
         self.memory_dir.mkdir(parents=True, exist_ok=True)
         self.memories_path = self.memory_dir / "memories.jsonl"
-        self.curated_path = Path("MEMORY.md")
 
     def _entry_to_jsonl(self, entry: MemoryEntry) -> str:
         """Serialize MemoryEntry to JSONL line."""
@@ -333,61 +330,4 @@ class MemoryStore:
         # Atomic replace
         temp_path.replace(self.memories_path)
 
-    # --- MEMORY.md (Curated Long-term Memory) ---
 
-    async def read_curated_memory(self) -> str:
-        """Read MEMORY.md content."""
-        if not self.curated_path.exists():
-            return ""
-        async with aiofiles.open(self.curated_path) as f:
-            return await f.read()
-
-    async def write_curated_memory(self, content: str) -> None:
-        """Write to MEMORY.md (overwrites existing content).
-
-        Use this for durable, important memories that should persist
-        across sessions and be loaded into every context.
-        """
-        async with aiofiles.open(self.curated_path, "w") as f:
-            await f.write(content)
-
-    async def append_curated_memory(self, content: str) -> None:
-        """Append to MEMORY.md."""
-        async with aiofiles.open(self.curated_path, "a") as f:
-            await f.write(f"\n\n{content}\n")
-
-    async def search_curated(
-        self,
-        query: str,
-        top_k: int = 5,
-    ) -> list[MemoryEntry]:
-        """Search curated memories by semantic similarity."""
-        content = await self.read_curated_memory()
-        if not content:
-            return []
-
-        # Split into sections (by headers or paragraphs)
-        sections = [s.strip() for s in content.split("\n\n") if s.strip()]
-
-        query_embedding = await self.embedder.embed(query)
-
-        scored = []
-        for section in sections:
-            section_embedding = await self.embedder.embed(section)
-            score = cosine_similarity(query_embedding, section_embedding)
-            scored.append((score, section))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-
-        # Return as MemoryEntry objects
-        now = datetime.now()
-        return [
-            MemoryEntry(
-                timestamp=now,
-                role="system",
-                content=section,
-                embedding=None,  # Could cache these later
-                tags=["curated"],
-            )
-            for _, section in scored[:top_k]
-        ]

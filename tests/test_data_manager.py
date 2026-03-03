@@ -1,6 +1,5 @@
 """Tests for XDG directory initialization and management."""
 
-import json
 import os
 from pathlib import Path
 from unittest.mock import patch
@@ -11,7 +10,7 @@ from src.data_manager import (
     APP_NAME,
     BUNDLED_TEMPLATES,
     get_config_dir,
-    get_config_path,
+    get_config_toml_path,
     get_data_dir,
     get_memory_dir,
     get_workspace_dir,
@@ -48,12 +47,6 @@ class TestXDGDirectoryPaths:
                 result = get_data_dir()
                 assert result == Path("/home/test/.local/share") / APP_NAME
 
-    def test_get_config_path_in_config_dir(self):
-        """get_config_path returns config.json in config dir."""
-        with patch("src.data_manager.get_config_dir", return_value=Path("/test/config")):
-            result = get_config_path()
-            assert result == Path("/test/config/config.json")
-
     def test_get_workspace_dir_in_data_dir(self):
         """get_workspace_dir returns workspace in data dir."""
         with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
@@ -65,6 +58,21 @@ class TestXDGDirectoryPaths:
         with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
             result = get_memory_dir()
             assert result == Path("/test/data/memory")
+
+    def test_get_config_toml_path_uses_xdg_config_home(self):
+        """get_config_toml_path respects XDG_CONFIG_HOME."""
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/test/config"}):
+            from src.data_manager import get_config_toml_path
+            result = get_config_toml_path()
+            assert result == Path("/test/config") / APP_NAME / "config.toml"
+
+    def test_get_config_toml_path_defaults_to_dot_config(self):
+        """get_config_toml_path defaults to ~/.config/alfred/config.toml."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch.object(Path, "home", return_value=Path("/home/test")):
+                from src.data_manager import get_config_toml_path
+                result = get_config_toml_path()
+                assert result == Path("/home/test/.config") / APP_NAME / "config.toml"
 
 
 class TestXDGDirectoryInit:
@@ -84,24 +92,15 @@ class TestXDGDirectoryInit:
 
     @pytest.fixture
     def bundled_files(self, tmp_path):
-        """Create mock bundled config and templates."""
-        bundled_config = tmp_path / "bundled_config.json"
-        config_content = {
-            "default_llm_provider": "kimi",
-            "workspace_dir": "~/.local/share/alfred/workspace",
-        }
-        bundled_config.write_text(json.dumps(config_content))
-
+        """Create mock bundled templates."""
         bundled_templates = tmp_path / "bundled_templates"
         bundled_templates.mkdir()
         (bundled_templates / "SOUL.md").write_text("# Soul Template")
         (bundled_templates / "USER.md").write_text("# User Template")
+        (bundled_templates / "config.toml").write_text("[provider]\\ndefault = \"kimi\"\\n\\n[memory]\\nbudget = 32000\\n")
 
-        with (
-            patch("src.data_manager.BUNDLED_CONFIG", bundled_config),
-            patch("src.data_manager.BUNDLED_TEMPLATES", bundled_templates),
-        ):
-            yield bundled_config, bundled_templates
+        with patch("src.data_manager.BUNDLED_TEMPLATES", bundled_templates):
+            yield bundled_templates
 
     def test_creates_config_directory(self, xdg_dirs, bundled_files):
         """Config directory created if missing."""
@@ -143,17 +142,6 @@ class TestXDGDirectoryInit:
         assert memory_dir.exists()
         assert memory_dir.is_dir()
 
-    def test_copies_config_if_missing(self, xdg_dirs, bundled_files):
-        """Config copied from bundled if missing."""
-        init_xdg_directories()
-
-        config_dir, _ = xdg_dirs
-        config_path = config_dir / "config.json"
-        assert config_path.exists()
-
-        content = json.loads(config_path.read_text())
-        assert content["default_llm_provider"] == "kimi"
-
     def test_copies_templates_as_workspace_files(self, xdg_dirs, bundled_files):
         """Templates copied as data files to workspace (not templates folder)."""
         init_xdg_directories()
@@ -178,18 +166,6 @@ class TestXDGDirectoryInit:
         content = soul_file.read_text()
         assert content == "# Soul Template"
 
-    def test_does_not_overwrite_existing_config(self, xdg_dirs, bundled_files):
-        """Existing config is not overwritten."""
-        config_dir, _ = xdg_dirs
-        config_dir.mkdir(parents=True)
-        existing_config = config_dir / "config.json"
-        existing_config.write_text(json.dumps({"custom": "value"}))
-
-        init_xdg_directories()
-
-        content = json.loads(existing_config.read_text())
-        assert content["custom"] == "value"
-
     def test_does_not_overwrite_existing_workspace_files(self, xdg_dirs, bundled_files):
         """Existing workspace files are not overwritten."""
         _, data_dir = xdg_dirs
@@ -202,13 +178,29 @@ class TestXDGDirectoryInit:
         content = (workspace_dir / "SOUL.md").read_text()
         assert content == "# Custom Soul"
 
-    def test_handles_missing_bundled_config(self, xdg_dirs):
-        """Handles missing bundled config gracefully."""
-        with patch("src.data_manager.BUNDLED_CONFIG", Path("/nonexistent")):
-            init_xdg_directories()  # Should not raise
+    def test_copies_config_toml_if_missing(self, xdg_dirs, bundled_files):
+        """Config.toml copied from templates if missing."""
+        init_xdg_directories()
 
-            config_dir, _ = xdg_dirs
-            assert config_dir.exists()
+        config_dir, _ = xdg_dirs
+        config_toml_path = config_dir / "config.toml"
+        assert config_toml_path.exists()
+
+        content = config_toml_path.read_text()
+        assert "[provider]" in content
+        assert "[memory]" in content
+
+    def test_does_not_overwrite_existing_config_toml(self, xdg_dirs, bundled_files):
+        """Existing config.toml is not overwritten."""
+        config_dir, _ = xdg_dirs
+        config_dir.mkdir(parents=True)
+        existing_config = config_dir / "config.toml"
+        existing_config.write_text("[custom]\\nvalue = 123")
+
+        init_xdg_directories()
+
+        content = existing_config.read_text()
+        assert "value = 123" in content
 
     def test_handles_missing_bundled_templates(self, xdg_dirs):
         """Handles missing bundled templates gracefully."""
@@ -231,7 +223,6 @@ class TestIntegration:
         with (
             patch("src.data_manager.get_config_dir", return_value=config_dir),
             patch("src.data_manager.get_data_dir", return_value=data_dir),
-            patch("src.data_manager.BUNDLED_CONFIG", Path("/nonexistent")),
             patch("src.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")),
         ):
             # Before init

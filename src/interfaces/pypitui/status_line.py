@@ -141,10 +141,20 @@ class StatusLine(Component):
         Returns:
             Truncated model name with ellipsis if needed
         """
-        max_len = 25 if width >= STATUS_WIDTH_MEDIUM else 15
-        if len(self._model) > max_len:
-            return self._model[: max_len - 1] + "…"
-        return self._model
+        # Strip provider prefix to save space
+        model = self._model.replace("kimi/", "").replace("openai/", "")
+
+        # Three tiers: full (25), medium (15), compact (10)
+        if width >= STATUS_WIDTH_FULL:
+            max_len = 25
+        elif width >= STATUS_WIDTH_MEDIUM:
+            max_len = 15
+        else:
+            max_len = 10
+
+        if len(model) > max_len:
+            return model[: max_len - 1] + "…"
+        return model
 
     def _format_input_tokens(self, show_cache: bool = False) -> str:
         """Format input tokens.
@@ -174,6 +184,28 @@ class StatusLine(Component):
             return f"{SYMBOL_OUT}{out_str}/{reason_str}{SYMBOL_REASONING}"
         return f"{SYMBOL_OUT}{format_tokens(self._out)}"
 
+    def _format_input_tokens_compact(self) -> str:
+        """Format input tokens with icon as separator (compact).
+
+        Format: ↑in⚡cached (no slash, icon acts as separator)
+        """
+        if self._cached > 0:
+            in_str = format_tokens(self._in)
+            cache_str = format_tokens(self._cached)
+            return f"{SYMBOL_IN}{in_str}{SYMBOL_CACHE}{cache_str}"
+        return f"{SYMBOL_IN}{format_tokens(self._in)}"
+
+    def _format_output_tokens_compact(self) -> str:
+        """Format output tokens with icon as separator (compact).
+
+        Format: ↓outρreasoning (no slash, icon acts as separator)
+        """
+        if self._reasoning > 0:
+            out_str = format_tokens(self._out)
+            reason_str = format_tokens(self._reasoning)
+            return f"{SYMBOL_OUT}{out_str}{SYMBOL_REASONING}{reason_str}"
+        return f"{SYMBOL_OUT}{format_tokens(self._out)}"
+
     def _render_full(self) -> list[str]:
         """Render full layout (80+ chars)."""
         parts: list[str] = []
@@ -196,12 +228,12 @@ class StatusLine(Component):
         """Render medium layout (50-79 chars)."""
         parts: list[str] = []
 
-        # Group 2: tokens with arrows
+        # Group 2: tokens with arrows (compact format: icon as separator)
         token_parts: list[str] = []
         if self._ctx > 0:
             token_parts.append(f"ctx {format_tokens(self._ctx)}")
-        token_parts.append(self._format_input_tokens(show_cache=True))
-        token_parts.append(self._format_output_tokens(show_reasoning=True))
+        token_parts.append(self._format_input_tokens_compact())
+        token_parts.append(self._format_output_tokens_compact())
         parts.append(" ".join(token_parts))
 
         # Group 3: queued messages (only if non-zero)

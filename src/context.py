@@ -68,7 +68,10 @@ class ContextLoader:
         self._searcher = searcher
         self._context_builder: ContextBuilder | None = None
         if searcher:
-            self._context_builder = ContextBuilder(searcher)
+            self._context_builder = ContextBuilder(
+                searcher,
+                memory_budget=config.memory_budget,
+            )
 
     async def load_file(self, name: str, path: Path) -> ContextFile:
         """Load a context file, auto-creating from template if missing.

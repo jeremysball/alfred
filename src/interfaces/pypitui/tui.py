@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
+from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 from src.interfaces.pypitui.constants import USE_MARKDOWN_RENDERING
 from src.interfaces.pypitui.fuzzy import fuzzy_match
 from src.interfaces.pypitui.message_panel import MessagePanel
@@ -48,21 +49,29 @@ class AlfredTUI:
         # Status line for model/token info
         self.status_line = StatusLine()
 
+        # Completion menu as proper component (renders empty when closed)
+        self.completion_menu = CompletionMenuComponent(max_height=5)
+
         # Input field for user messages (with wrapped text navigation and completion)
-        self.input_field = WrappedInput(
-            placeholder="Message Alfred..."
-        ).with_completion(
-            self._command_provider,
-            trigger="/",
-        ).with_completion(
-            self._session_id_provider,
-            trigger="/resume ",
-        )
+        self.input_field = WrappedInput(placeholder="Message Alfred...")
         self.input_field.on_submit = self._on_submit
 
-        # Build layout: conversation (flex), status, input
+        # Wire up completion to use the menu component
+        self.input_field.with_completion_component(
+            self._command_provider,
+            self.completion_menu,
+            trigger="/",
+        )
+        self.input_field.with_completion_component(
+            self._session_id_provider,
+            CompletionMenuComponent(max_height=5),
+            trigger="/resume ",
+        )
+
+        # Build layout: conversation (flex), status, completion menu, input
         self.tui.add_child(self.conversation)
         self.tui.add_child(self.status_line)
+        self.tui.add_child(self.completion_menu)
         self.tui.add_child(self.input_field)
         self.tui.set_focus(self.input_field)
 
@@ -293,6 +302,9 @@ class AlfredTUI:
         Args:
             text: The submitted text
         """
+        # NOTE: Input field is already cleared by WrappedInput._on_submit
+        # before this method is called, to prevent race conditions.
+
         # Strip whitespace and ignore empty
         text = text.strip()
         if not text:
@@ -306,7 +318,6 @@ class AlfredTUI:
 
         # Check for session commands
         if text.startswith("/") and self._handle_session_command(text):
-            self.input_field.set_value("")
             return
 
         # Add user message to conversation
@@ -317,9 +328,6 @@ class AlfredTUI:
             use_markdown=USE_MARKDOWN_RENDERING,
         )
         self.conversation.add_child(user_msg)
-
-        # Clear input field
-        self.input_field.set_value("")
 
         # Start sending state immediately for throbber feedback
         self._is_sending = True
@@ -397,6 +405,9 @@ class AlfredTUI:
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
         self.conversation.clear()
+        # Force full redraw to ensure old content is cleared from screen.
+        # Container.clear() preserves _previous_lines for differential rendering,
+        # so we need force=True to ensure the cleared state is properly rendered.
         self.tui.request_render(force=True)
 
     def _load_session_messages(self) -> None:

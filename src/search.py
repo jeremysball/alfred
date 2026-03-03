@@ -143,10 +143,10 @@ class ContextBuilder:
     def __init__(
         self,
         searcher: MemorySearcher,
-        token_budget: int = 8000,
+        memory_budget: int = 32000,
     ) -> None:
         self.searcher = searcher
-        self.token_budget = token_budget
+        self.memory_budget = memory_budget
 
     def build_context(
         self,
@@ -198,9 +198,9 @@ class ContextBuilder:
             f"Context: {token_count} tokens ({mem_count} memories, {sess_count} session msg)"
         )
 
-        if token_count > self.token_budget:
+        if token_count > self.memory_budget:
             logger.warning(
-                f"Context exceeds budget: {token_count} > {self.token_budget} tokens, truncating"
+                f"Context exceeds budget: {token_count} > {self.memory_budget} tokens, truncating"
             )
             # Simple truncation: limit memories included
             # More sophisticated: could trim oldest or least relevant
@@ -208,7 +208,7 @@ class ContextBuilder:
                 system_prompt,
                 relevant,
                 session_messages or [],
-                self.token_budget,
+                self.memory_budget,
                 similarities,
                 scores,
             )

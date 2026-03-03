@@ -67,7 +67,10 @@ data/
 USER.md
 SOUL.md
 TOOLS.md
-MEMORY.md
+
+# Config files (user-specific)
+config.toml
+config.json
 
 # Scraped reference files (not for repo)
 .scraped/

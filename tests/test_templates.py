@@ -267,11 +267,10 @@ class TestEnsureAllExist:
         """Test creating all missing templates."""
         result = manager.ensure_all_exist()
 
-        assert len(result) == 4
+        assert len(result) == 3
         assert "SOUL.md" in result
         assert "USER.md" in result
         assert "TOOLS.md" in result
-        assert "MEMORY.md" in result
 
         for path in result.values():
             assert path.exists()
@@ -284,7 +283,7 @@ class TestEnsureAllExist:
 
         result = manager.ensure_all_exist()
 
-        assert len(result) == 4
+        assert len(result) == 3
         assert result["SOUL.md"].read_text() == "existing"
 
 
@@ -311,7 +310,7 @@ class TestListMethods:
         """Test listing missing templates."""
         missing = manager.list_missing()
 
-        assert len(missing) == 4
+        assert len(missing) == 3
 
     def test_list_missing_after_creation(self, manager):
         """Test listing missing after creating some."""
@@ -320,7 +319,7 @@ class TestListMethods:
         missing = manager.list_missing()
 
         assert "SOUL.md" not in missing
-        assert len(missing) == 3
+        assert len(missing) == 2
 
 
 # Tests for path methods
