@@ -221,25 +221,25 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 ### Milestone 2: Context Budget Refactoring (TDD)
 
 #### 2.1 Rename token_budget to memory_budget
-- [ ] Test: `test_context_builder_has_memory_budget_parameter()` - verify `ContextBuilder.__init__` accepts `memory_budget`
-- [ ] Implement: Rename parameter in `ContextBuilder.__init__`
-- [ ] Test: `test_context_builder_uses_memory_budget_attribute()` - verify internal usage updated
-- [ ] Implement: Rename `self.token_budget` → `self.memory_budget`
-- [ ] Commit
+- [x] Test: `test_context_builder_has_memory_budget_parameter()` - verify `ContextBuilder.__init__` accepts `memory_budget`
+- [x] Implement: Rename parameter in `ContextBuilder.__init__`
+- [x] Test: `test_context_builder_uses_memory_budget_attribute()` - verify internal usage updated
+- [x] Implement: Rename `self.token_budget` → `self.memory_budget`
+- [x] Commit
 
 #### 2.2 Update Default Budget
-- [ ] Test: `test_context_builder_default_memory_budget_is_32k()` - verify default is 32000
-- [ ] Implement: Change default from 8000 to 32000 in `ContextBuilder`
-- [ ] Test: `test_context_builder_accepts_custom_memory_budget()` - verify custom value passes through
-- [ ] Implement: Ensure parameter properly sets the attribute
-- [ ] Commit
+- [x] Test: `test_context_builder_default_memory_budget_is_32k()` - verify default is 32000
+- [x] Implement: Change default from 8000 to 32000 in `ContextBuilder`
+- [x] Test: `test_context_builder_accepts_custom_memory_budget()` - verify custom value passes through
+- [x] Implement: Ensure parameter properly sets the attribute
+- [x] Commit
 
 #### 2.3 Wire Config to ContextBuilder
-- [ ] Test: `test_context_loader_passes_memory_budget_to_builder()` - verify `ContextLoader` passes config value
-- [ ] Implement: Update `ContextLoader` to pass `config.memory_budget` to `ContextBuilder`
-- [ ] Test: `test_context_assembly_uses_configured_budget()` - verify end-to-end budget application
-- [ ] Implement: Integration between config and context building
-- [ ] Commit
+- [x] Test: `test_context_loader_passes_memory_budget_to_builder()` - verify `ContextLoader` passes config value
+- [x] Implement: Update `ContextLoader` to pass `config.memory_budget` to `ContextBuilder`
+- [x] Test: `test_context_assembly_uses_configured_budget()` - verify end-to-end budget application
+- [x] Implement: Integration between config and context building
+- [x] Commit
 
 **Success Criteria:**
 - Variable names clearly distinguish memory budget from model context
