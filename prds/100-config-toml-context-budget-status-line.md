@@ -318,28 +318,27 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 ### Milestone 5: Migration and Cleanup (TDD)
 
 #### 5.1 Remove config.json from Repo
-- [ ] Test: `test_config_json_not_in_repo()` - verify `config.json` removed
-- [ ] Implement: Delete `config.json`, move to `templates/config.json` if backward compat needed
-- [ ] Commit
+- [x] Test: `test_config_json_not_in_repo()` - verify `config.json` removed
+- [x] Implement: Delete `config.json`
+- [x] Commit
 
 #### 5.2 Update .gitignore
-- [ ] Test: `test_gitignore_ignores_config_files()` - verify patterns exist
-- [ ] Implement: Add `config.toml` and `config.json` to `.gitignore`
-- [ ] Commit
+- [x] Test: `test_gitignore_ignores_config_files()` - verify patterns exist
+- [x] Implement: Add `config.toml` and `config.json` to `.gitignore`
+- [x] Commit
 
 #### 5.3 Documentation Updates
-- [ ] Test: `test_readme_mentions_toml_config()` - verify README references new config location
-- [ ] Implement: Update README.md configuration section
-- [ ] Test: `test_roadmap_marks_prd_complete()` - verify ROADMAP updated
-- [ ] Implement: Mark PRD #100 items complete in ROADMAP.md
-- [ ] Commit
+- [x] Test: `test_readme_mentions_toml_config()` - verify README references new config location
+- [x] Implement: Update README.md configuration section
+- [x] Test: `test_roadmap_marks_prd_complete()` - verify ROADMAP updated
+- [x] Implement: Mark PRD #100 items complete in ROADMAP.md
+- [x] Commit
 
 #### 5.4 Full Test Suite
-- [ ] Run: `uv run pytest` - verify all tests pass
-- [ ] Run: `uv run ruff check src/` - verify no lint errors
-- [ ] Run: `uv run mypy src/` - verify type checking passes
-- [ ] Fix any issues
-- [ ] Commit
+- [x] Run: `uv run pytest` - 901 tests pass
+- [x] Run: `uv run ruff check src/` - no lint errors
+- [x] Run: `uv run mypy src/` - type checking passes
+- [x] Commit
 
 **Success Criteria:**
 - Old config.json no longer in repository
