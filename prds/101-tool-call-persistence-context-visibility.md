@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #101  
 **Priority**: High  
-**Status**: Planning
+**Status**: In Progress (Milestone 1 Complete)
 
 ---
 
@@ -178,11 +178,11 @@ include_output = true  # Include tool output or just call info
 
 ### Milestone 1: Tool Call Persistence
 
-- [ ] Add `ToolCallRecord` dataclass
-- [ ] Add `tool_calls` field to Message dataclass
-- [ ] Update session storage serialization/deserialization
-- [ ] Update Alfred to capture and store tool calls
-- [ ] Test: Tool calls persisted in current.jsonl
+- [x] Add `ToolCallRecord` dataclass
+- [x] Add `tool_calls` field to Message dataclass
+- [x] Update session storage serialization/deserialization
+- [x] Update Alfred to capture and store tool calls
+- [x] Test: Tool calls persisted in current.jsonl
 
 ### Milestone 2: Context Assembly with Tool Calls
 
