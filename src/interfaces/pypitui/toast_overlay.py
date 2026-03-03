@@ -28,7 +28,7 @@ class ToastOverlay(Component):
         self._toast_manager = toast_manager
 
     def invalidate(self) -> None:
-        """Mark component as needing re-render (no-op)."""
+        """No-op - required by Component ABC."""
         pass
 
     def render(self, width: int) -> list[str]:

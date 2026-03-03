@@ -175,6 +175,10 @@ class WrappedInput(Component, Focusable):
         """Set input value."""
         self._input.set_value(text)
 
+    def invalidate(self) -> None:
+        """No-op - required by Component ABC."""
+        pass
+
     def set_cursor_pos(self, pos: int) -> None:
         """Set cursor position directly."""
         max_pos = len(self.get_value())
@@ -190,10 +194,7 @@ class WrappedInput(Component, Focusable):
         """Set cursor position."""
         self._input._cursor_pos = value  # type: ignore[attr-defined]
 
-    def invalidate(self) -> None:
-        """Invalidate cache and bubble up for targeted invalidation."""
-        self._input.invalidate()
-        self._child_invalidated(self)
+
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.

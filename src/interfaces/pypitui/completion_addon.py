@@ -132,7 +132,6 @@ class CompletionAddon:
         self._input.set_value(new_text)
         self._input.set_cursor_pos(new_cursor)
         self._last_text = new_text
-        self._input.invalidate()
 
         return {"consume": True}
 
@@ -164,7 +163,6 @@ class CompletionAddon:
         self._input.set_value(new_text)
         self._input.set_cursor_pos(new_cursor)
         self._last_text = new_text
-        self._input.invalidate()
 
         return {"consume": True}
 
@@ -184,7 +182,6 @@ class CompletionAddon:
         self._input.set_cursor_pos(len(selected_value))
         self._last_text = selected_value
         self._menu.close()
-        self._input.invalidate()
         # Trigger submit after accepting completion
         if self._input.on_submit:
             self._input.on_submit(selected_value)

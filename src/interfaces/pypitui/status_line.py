@@ -55,8 +55,7 @@ class StatusLine(Component):
         self._throbber: Throbber = Throbber()
 
     def invalidate(self) -> None:
-        """Mark this component as needing re-render."""
-        # StatusLine is simple - no cached state to invalidate
+        """No-op - required by Component ABC."""
         pass
 
     def update(

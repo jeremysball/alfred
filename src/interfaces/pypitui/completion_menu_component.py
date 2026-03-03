@@ -57,37 +57,32 @@ class CompletionMenuComponent(Component):
         """
         self._options = options
         self._selected_index = 0
-        self._child_invalidated(self)
 
     def open(self) -> None:
         """Open the menu."""
         if self._options and not self._is_open:
             self._is_open = True
-            self._child_invalidated(self)
 
     def close(self) -> None:
         """Close the menu."""
         if self._is_open:
             self._is_open = False
-            self._child_invalidated(self)
 
     def move_down(self) -> None:
         """Move selection down, wrapping to top if at bottom."""
         if not self._options:
             return
         self._selected_index = (self._selected_index + 1) % len(self._options)
-        self.invalidate()
 
     def move_up(self) -> None:
         """Move selection up, wrapping to bottom if at top."""
         if not self._options:
             return
         self._selected_index = (self._selected_index - 1) % len(self._options)
-        self.invalidate()
 
     def invalidate(self) -> None:
-        """Invalidate cache and bubble up for targeted invalidation."""
-        self._child_invalidated(self)
+        """No-op - required by Component ABC."""
+        pass
 
     def render(self, width: int) -> list[str]:
         """Render the menu as a list of strings.
