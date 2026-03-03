@@ -170,7 +170,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 100 | Responsive Status Line | Width-aware layout (compact/medium/full tiers), tool output fixes |
+| 101 | Tool Call Persistence | Persist tool calls in session, include in context, `/context` command |
 | 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
 | 13 | Learning System | Prompt-based learning to update USER.md/SOUL.md |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
