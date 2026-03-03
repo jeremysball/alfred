@@ -193,9 +193,9 @@ include_output = true  # Include tool output or just call info
 
 ### Milestone 3: Tool Box Enhancement
 
-- [ ] Modify message_panel.py to show arguments first
-- [ ] Format arguments as JSON or key=value pairs
-- [ ] Test: Arguments visible in tool box
+- [x] Modify message_panel.py to show arguments first
+- [x] Format arguments as JSON or key=value pairs
+- [x] Test: Arguments visible in tool box
 
 ### Milestone 4: /context Command
 
