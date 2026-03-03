@@ -41,6 +41,13 @@ class Config(BaseSettings):
     memory_dir: Path = Field(default_factory=get_memory_dir)
     context_files: dict[str, Path] | None = None
 
+    # Tool calls in context configuration
+    tool_calls_enabled: bool = True
+    tool_calls_max_calls: int = 5
+    tool_calls_max_tokens: int = 2000
+    tool_calls_include_output: bool = True
+    tool_calls_include_arguments: bool = True
+
 
 def _load_toml_config(toml_path: Path) -> dict:
     """Load and flatten TOML config to flat dict.
@@ -70,6 +77,22 @@ def _load_toml_config(toml_path: Path) -> dict:
         memory = toml_data["memory"]
         if "budget" in memory:
             flat_config["memory_budget"] = memory["budget"]
+
+    # Tool calls configuration
+    if "context" in toml_data:
+        context = toml_data["context"]
+        if "tool_calls" in context:
+            tool_calls = context["tool_calls"]
+            if "enabled" in tool_calls:
+                flat_config["tool_calls_enabled"] = tool_calls["enabled"]
+            if "max_calls" in tool_calls:
+                flat_config["tool_calls_max_calls"] = tool_calls["max_calls"]
+            if "max_tokens" in tool_calls:
+                flat_config["tool_calls_max_tokens"] = tool_calls["max_tokens"]
+            if "include_output" in tool_calls:
+                flat_config["tool_calls_include_output"] = tool_calls["include_output"]
+            if "include_arguments" in tool_calls:
+                flat_config["tool_calls_include_arguments"] = tool_calls["include_arguments"]
 
     return flat_config
 

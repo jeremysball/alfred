@@ -260,11 +260,16 @@ class Alfred:
 
         # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
-        session_messages = self._get_session_messages_for_context(session_id)
+        session_messages = self.session_manager.get_messages_for_context(session_id)
+        # Get full messages with tool_calls for context
+        session_messages_with_tools = (
+            self.session_manager.get_messages_with_tools_for_context(session_id)
+        )
         system_prompt, memories_count = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
             session_messages=session_messages,
+            session_messages_with_tools=session_messages_with_tools,
         )
         system_prompt = self._build_system_prompt(system_prompt)
 
@@ -471,33 +476,6 @@ You can then continue the conversation with the tool results.
         """Trigger conversation compaction."""
         # TODO: Implement in M9
         return "Compaction not yet implemented"
-
-    def _get_session_messages_for_context(
-        self, session_id: str | None = None
-    ) -> list[tuple[str, str]]:
-        """Get session messages formatted for context injection.
-
-        Args:
-            session_id: Optional session ID. If None, uses current CLI session.
-
-        Returns:
-            List of (role, content) tuples for session history.
-        """
-        if session_id:
-            # Telegram mode - get specific session
-            messages = self.session_manager.get_session_messages(session_id)
-        else:
-            # CLI mode - get current CLI session
-            if not self.session_manager.has_active_session():
-                return []
-            messages = self.session_manager.get_messages()
-
-        # Convert to (role, content) tuples, excluding the most recent user message
-        # (which is the current query being processed)
-        result = []
-        for msg in messages[:-1] if messages else []:  # Exclude last (current) message
-            result.append((msg.role.value, msg.content))
-        return result
 
     async def start(self) -> None:
         """Start Alfred and all subsystems.

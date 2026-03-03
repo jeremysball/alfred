@@ -133,6 +133,7 @@ class ContextLoader:
         query_embedding: list[float],
         memories: list[MemoryEntry],
         session_messages: list[tuple[str, str]] | None = None,
+        session_messages_with_tools: list | None = None,
     ) -> tuple[str, int]:
         """Assemble context with semantic memory search.
 
@@ -143,6 +144,7 @@ class ContextLoader:
             query_embedding: Pre-computed embedding of the user's query
             memories: All available memories (caller loads these)
             session_messages: Optional list of (role, content) tuples from session history
+            session_messages_with_tools: Optional list of Message objects with tool_calls
 
         Returns:
             Tuple of (context_string, memories_count) where:
@@ -164,6 +166,12 @@ class ContextLoader:
             memories=memories,
             system_prompt=system_prompt,
             session_messages=session_messages,
+            session_messages_with_tools=session_messages_with_tools,
+            tool_calls_enabled=getattr(self.config, 'tool_calls_enabled', True),
+            tool_calls_max_calls=getattr(self.config, 'tool_calls_max_calls', 5),
+            tool_calls_max_tokens=getattr(self.config, 'tool_calls_max_tokens', 2000),
+            tool_calls_include_output=getattr(self.config, 'tool_calls_include_output', True),
+            tool_calls_include_arguments=getattr(self.config, 'tool_calls_include_arguments', True),
         )
 
     def _build_system_prompt_sync(self) -> str:
