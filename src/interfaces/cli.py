@@ -38,7 +38,7 @@ class SessionCommandCompleter(Completer):
             get_session_ids: Callable that returns list of session IDs for /resume completion.
         """
         self._get_session_ids = get_session_ids
-        self._commands = ["/new", "/resume", "/sessions", "/session"]
+        self._commands = ["/new", "/resume", "/sessions", "/session", "/context"]
 
     def get_completions(self, document: Any, complete_event: Any) -> Any:
         """Yield completions for session commands."""
@@ -285,6 +285,8 @@ class CLIInterface:
             return self._cmd_list_sessions()
         elif cmd == "/session":
             return self._cmd_show_current_session()
+        elif cmd == "/context":
+            return self._cmd_context()
         return False
 
     def _cmd_new_session(self) -> bool:
@@ -405,6 +407,97 @@ class CLIInterface:
                 border_style="cyan",
             )
         )
+        return True
+
+    def _cmd_context(self) -> bool:
+        """Show current system context."""
+        import asyncio
+
+        from src.context_display import get_context_display
+
+        if not self.alfred.session_manager.has_active_session():
+            self.console.print("[bold yellow]No active session.[/]\n")
+            return True
+
+        try:
+            # Get context data
+            context_data = asyncio.run(get_context_display(self.alfred))
+
+            # Build display sections
+            lines: list[str] = []
+
+            # System prompt section
+            sys_prompt = context_data["system_prompt"]
+            lines.append(f"[bold]SYSTEM PROMPT[/] ({sys_prompt['total_tokens']:,} tokens)")
+            lines.append("─" * 40)
+            for section in sys_prompt["sections"]:
+                lines.append(f"  {section['name']}: {section['tokens']:,} tokens")
+            lines.append("")
+
+            # Memories section
+            memories = context_data["memories"]
+            lines.append(
+                f"[bold]MEMORIES[/] ({memories['displayed']} of {memories['total']} memories, "
+                f"{memories['tokens']:,} tokens)"
+            )
+            lines.append("─" * 40)
+            for mem in memories["items"]:
+                role = "User" if mem["role"] == "user" else "Assistant"
+                lines.append(f"  [{mem['timestamp']}] {role}: {mem['content']}")
+            if memories["total"] > memories["displayed"]:
+                lines.append(f"  ... and {memories['total'] - memories['displayed']} more")
+            lines.append("")
+
+            # Session history section
+            history = context_data["session_history"]
+            lines.append(
+                f"[bold]SESSION HISTORY[/] ({history['count']} messages, "
+                f"{history['tokens']:,} tokens)"
+            )
+            lines.append("─" * 40)
+            for msg in history["messages"]:
+                role = msg["role"].capitalize()
+                lines.append(f"  {role}: {msg['content']}")
+            lines.append("")
+
+            # Tool calls section
+            tool_calls = context_data["tool_calls"]
+            if tool_calls["count"] > 0:
+                lines.append(
+                    f"[bold]RECENT TOOL CALLS[/] ({tool_calls['count']} calls, "
+                    f"{tool_calls['tokens']:,} tokens)"
+                )
+                lines.append("─" * 40)
+                for i, tc in enumerate(tool_calls["items"], 1):
+                    status_icon = "✓" if tc["status"] == "success" else "✗"
+                    args_str = ", ".join(f"{k}={v}" for k, v in tc["arguments"].items())
+                    if len(args_str) > 50:
+                        args_str = args_str[:47] + "..."
+                    lines.append(f"  {i}. {status_icon} {tc['tool_name']}: {args_str}")
+                    if tc["output"]:
+                        output = tc["output"].replace("\n", " ")
+                        if len(output) > 60:
+                            output = output[:57] + "..."
+                        lines.append(f"     → {output}")
+                lines.append("")
+
+            # Total
+            lines.append(f"[bold]TOTAL CONTEXT:[/] ~{context_data['total_tokens']:,} tokens")
+
+            # Print the context panel
+            self.console.print(
+                Panel(
+                    "\n".join(lines),
+                    title="System Context",
+                    border_style="yellow",
+                    padding=(0, 1),
+                )
+            )
+            self.console.print()
+
+        except Exception as e:
+            self.console.print(f"[bold red]Error displaying context: {e}[/]\n")
+
         return True
 
     async def run(self) -> None:

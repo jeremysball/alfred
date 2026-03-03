@@ -351,6 +351,8 @@ class AlfredTUI:
             return self._cmd_list_sessions()
         elif cmd == "/session":
             return self._cmd_show_current_session()
+        elif cmd == "/context":
+            return self._cmd_context()
         return False
 
     def _command_provider(self, text: str) -> list[tuple[str, str | None]]:
@@ -371,6 +373,7 @@ class AlfredTUI:
             ("/resume", "Resume session by ID"),
             ("/sessions", "List all sessions"),
             ("/session", "Show current session info"),
+            ("/context", "Show system context"),
         ]
 
         # Filter by fuzzy match
@@ -534,6 +537,88 @@ class AlfredTUI:
             f"Last Active: {last_active}\n"
             f"Messages: {meta.message_count}"
         )
+        return True
+
+    def _cmd_context(self) -> bool:
+        """Show current system context."""
+        import asyncio
+
+        from src.context_display import get_context_display
+
+        if not self.alfred.session_manager.has_active_session():
+            self._add_user_message("No active session.")
+            return True
+
+        try:
+            # Get context data
+            context_data = asyncio.run(get_context_display(self.alfred))
+
+            # Build display text
+            lines: list[str] = []
+
+            # System prompt section
+            sys_prompt = context_data["system_prompt"]
+            lines.append(f"SYSTEM PROMPT ({sys_prompt['total_tokens']:,} tokens)")
+            lines.append("─" * 40)
+            for section in sys_prompt["sections"]:
+                lines.append(f"  {section['name']}: {section['tokens']:,} tokens")
+            lines.append("")
+
+            # Memories section
+            memories = context_data["memories"]
+            lines.append(
+                f"MEMORIES ({memories['displayed']} of {memories['total']} memories, "
+                f"{memories['tokens']:,} tokens)"
+            )
+            lines.append("─" * 40)
+            for mem in memories["items"]:
+                role = "User" if mem["role"] == "user" else "Assistant"
+                lines.append(f"  [{mem['timestamp']}] {role}: {mem['content']}")
+            if memories["total"] > memories["displayed"]:
+                lines.append(f"  ... and {memories['total'] - memories['displayed']} more")
+            lines.append("")
+
+            # Session history section
+            history = context_data["session_history"]
+            lines.append(
+                f"SESSION HISTORY ({history['count']} messages, {history['tokens']:,} tokens)"
+            )
+            lines.append("─" * 40)
+            for msg in history["messages"]:
+                role = msg["role"].capitalize()
+                lines.append(f"  {role}: {msg['content']}")
+            lines.append("")
+
+            # Tool calls section
+            tool_calls = context_data["tool_calls"]
+            if tool_calls["count"] > 0:
+                lines.append(
+                    f"RECENT TOOL CALLS ({tool_calls['count']} calls, "
+                    f"{tool_calls['tokens']:,} tokens)"
+                )
+                lines.append("─" * 40)
+                for i, tc in enumerate(tool_calls["items"], 1):
+                    status_icon = "✓" if tc["status"] == "success" else "✗"
+                    args_str = ", ".join(f"{k}={v}" for k, v in tc["arguments"].items())
+                    if len(args_str) > 50:
+                        args_str = args_str[:47] + "..."
+                    lines.append(f"  {i}. {status_icon} {tc['tool_name']}: {args_str}")
+                    if tc["output"]:
+                        output = tc["output"].replace("\n", " ")
+                        if len(output) > 60:
+                            output = output[:57] + "..."
+                        lines.append(f"     → {output}")
+                lines.append("")
+
+            # Total
+            lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
+
+            # Add as system message
+            self._add_user_message("\n".join(lines))
+
+        except Exception as e:
+            self._add_user_message(f"Error displaying context: {e}")
+
         return True
 
     async def _send_message(self, text: str) -> None:
