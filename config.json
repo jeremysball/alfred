@@ -1,5 +1,0 @@
-{
-  "default_llm_provider": "kimi",
-  "embedding_model": "text-embedding-3-small",
-  "chat_model": "kimi-k2-5"
-}

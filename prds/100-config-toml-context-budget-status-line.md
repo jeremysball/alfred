@@ -251,33 +251,33 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 ### Milestone 3: Responsive Status Line (TDD)
 
 #### 3.1 Model Name Truncation
-- [ ] Test: `test_truncate_model_at_full_width()` - verify 25 char limit at 80+ width
-- [ ] Implement: `_truncate_model()` logic for full width tier
-- [ ] Test: `test_truncate_model_at_medium_width()` - verify 15 char limit at 50-79 width
-- [ ] Implement: Medium width truncation
-- [ ] Test: `test_truncate_model_at_compact_width()` - verify 10 char limit at <50 width
-- [ ] Implement: Compact width truncation
-- [ ] Commit
+- [x] Test: `test_truncate_model_at_full_width()` - verify 25 char limit at 80+ width
+- [x] Implement: `_truncate_model()` logic for full width tier
+- [x] Test: `test_truncate_model_at_medium_width()` - verify 15 char limit at 50-79 width
+- [x] Implement: Medium width truncation
+- [x] Test: `test_truncate_model_at_compact_width()` - verify 10 char limit at <50 width
+- [x] Implement: Compact width truncation
+- [x] Commit
 
 #### 3.2 Prevent Wrapping
-- [ ] Test: `test_status_line_never_exceeds_width()` - verify render output fits within specified width
-- [ ] Implement: Fix width calculation to account for all separators and padding
-- [ ] Test: `test_status_line_single_element_returned()` - verify always returns single string
-- [ ] Implement: Ensure no line breaks in output
-- [ ] Commit
+- [x] Test: `test_status_line_never_exceeds_width()` - verify render output fits within specified width
+- [x] Implement: Fix width calculation to account for all separators and padding
+- [x] Test: `test_status_line_single_element_returned()` - verify always returns single string
+- [x] Implement: Ensure no line breaks in output
+- [x] Commit
 
 #### 3.3 Responsive Tier Display
-- [ ] Test: `test_full_tier_shows_cached_reasoning()` - verify cached/reasoning tokens shown at 80+
-- [ ] Test: `test_medium_tier_hides_cached_reasoning()` - verify cached/reasoning hidden at 50-79
-- [ ] Test: `test_compact_tier_shows_minimal()` - verify only model + in/out at <50
-- [ ] Implement: Tiered display logic in `_render_full()`, `_render_medium()`, `_render_compact()`
-- [ ] Commit
+- [x] Test: `test_full_tier_shows_cached_reasoning()` - verify cached/reasoning tokens shown at 80+
+- [x] Test: `test_medium_tier_shows_cached_reasoning_compact()` - verify compact format at 50-79
+- [x] Test: `test_compact_tier_shows_minimal()` - verify only model + in/out at <50
+- [x] Implement: Tiered display logic in `_render_full()`, `_render_medium()`, `_render_compact()`
+- [x] Commit
 
 #### 3.4 Queued Indicator Conditional
-- [ ] Test: `test_queued_shows_when_positive()` - verify queued appears when > 0
-- [ ] Test: `test_queued_hidden_when_zero()` - verify queued omitted when 0
-- [ ] Implement: Conditional queued display
-- [ ] Commit
+- [x] Test: `test_queued_shows_when_positive()` - verify queued appears when > 0
+- [x] Test: `test_queued_hidden_when_zero()` - verify queued omitted when 0
+- [x] Implement: Conditional queued display
+- [x] Commit
 
 **Success Criteria:**
 - Status line never wraps to multiple lines
