@@ -1,6 +1,5 @@
 """Tests for renaming token_budget to memory_budget in ContextBuilder."""
 
-import pytest
 from src.search import ContextBuilder, MemorySearcher
 
 

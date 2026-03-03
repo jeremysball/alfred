@@ -1,6 +1,5 @@
 """Tests for fuzzy matching utility."""
 
-import pytest
 
 from src.interfaces.pypitui.fuzzy import fuzzy_match
 
@@ -65,6 +64,6 @@ class TestFuzzyMatchOrdering:
         """Shorter query that matches is better."""
         targets = ["/resume", "/restart", "/reload"]
         query = "/r"
-        
+
         results = [t for t in targets if fuzzy_match(query, t)]
         assert len(results) == 3  # All match

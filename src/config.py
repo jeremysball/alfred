@@ -48,6 +48,9 @@ class Config(BaseSettings):
     tool_calls_include_output: bool = True
     tool_calls_include_arguments: bool = True
 
+    # UI/TUI settings
+    use_markdown_rendering: bool = True
+
 
 def _load_toml_config(toml_path: Path) -> dict:
     """Load and flatten TOML config to flat dict.

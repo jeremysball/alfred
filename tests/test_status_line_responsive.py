@@ -1,7 +1,6 @@
 """Tests for responsive status line behavior."""
 
-import pytest
-from src.interfaces.pypitui.status_line import StatusLine, STATUS_WIDTH_FULL, STATUS_WIDTH_MEDIUM
+from src.interfaces.pypitui.status_line import STATUS_WIDTH_FULL, STATUS_WIDTH_MEDIUM, StatusLine
 
 
 class TestStatusLineResponsiveTiers:

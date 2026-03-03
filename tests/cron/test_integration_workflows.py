@@ -4,6 +4,7 @@ End-to-end tests that verify complete user journeys through the system.
 """
 
 import asyncio
+
 import pytest
 
 from src.cron.scheduler import CronScheduler

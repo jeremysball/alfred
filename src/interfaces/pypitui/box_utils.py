@@ -2,7 +2,7 @@
 
 from pypitui.utils import visible_width, wrap_text_with_ansi
 
-from src.interfaces.pypitui.constants import RESET
+from src.interfaces.ansi import RESET
 
 # Box characters
 TOP_LEFT = "┌"

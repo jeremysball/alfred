@@ -1,6 +1,5 @@
 """Tests for natural language cron parser."""
 
-import pytest
 
 from src.cron.nlp_parser import NaturalLanguageCronParser, ParsedSchedule
 

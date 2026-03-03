@@ -1,7 +1,7 @@
 """Tests for completion addon using component-based menu."""
 
 import pytest
-from pypitui import MockTerminal, TUI
+from pypitui import TUI, MockTerminal
 
 from src.interfaces.pypitui.completion_addon import CompletionAddon
 from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent

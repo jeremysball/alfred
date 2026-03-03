@@ -1,7 +1,7 @@
 """PyPiTUI components for Alfred CLI."""
 
 # ANSI colors (comprehensive set)
-from src.interfaces.pypitui.ansi import (
+from src.interfaces.ansi import (
     BLACK,
     BLUE,
     BOLD,
@@ -41,8 +41,6 @@ from src.interfaces.pypitui.constants import (
     DIM_BLUE,
     DIM_GREEN,
     DIM_RED,
-    MAX_TOOL_OUTPUT,
-    USE_MARKDOWN_RENDERING,
 )
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.models import ToolCallInfo
@@ -98,10 +96,8 @@ __all__ = [
     "RED",
     "RESET",
     "YELLOW",
-    # Other constants
+    # Dim border colors
     "DIM_BLUE",
     "DIM_GREEN",
     "DIM_RED",
-    "MAX_TOOL_OUTPUT",
-    "USE_MARKDOWN_RENDERING",
 ]

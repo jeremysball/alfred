@@ -47,7 +47,9 @@ class MemorySearcher:
             f"Searching {len(memories)} memories with min_similarity={self.min_similarity}"
         )
 
-        scored: list[tuple[float, MemoryEntry, float]] = []  # (score, memory, similarity)
+        scored: list[tuple[float, MemoryEntry, float]] = (
+            []
+        )  # (score, memory, similarity)
 
         for memory in memories:
             if not memory.embedding:
@@ -64,9 +66,7 @@ class MemorySearcher:
         scored.sort(key=lambda x: x[0], reverse=True)
 
         results = [memory for _, memory, _ in scored]
-        similarities = {
-            memory.entry_id or "": sim for _, memory, sim in scored
-        }
+        similarities = {memory.entry_id or "": sim for _, memory, sim in scored}
         scores = {memory.entry_id or "": scr for scr, memory, _ in scored}
         logger.info(
             f"Memory search: {len(memories)} total, {len(scored)} scored, {len(results)} returned"
@@ -107,7 +107,9 @@ class MemorySearcher:
         if not memories:
             return []
 
-        logger.debug(f"Deduplicating {len(memories)} memories with threshold={threshold}")
+        logger.debug(
+            f"Deduplicating {len(memories)} memories with threshold={threshold}"
+        )
 
         unique: list[MemoryEntry] = []
 
@@ -133,7 +135,9 @@ class MemorySearcher:
 
         removed = len(memories) - len(unique)
         if removed > 0:
-            logger.info(f"Deduplication removed {removed} memories ({len(unique)} remaining)")
+            logger.info(
+                f"Deduplication removed {removed} memories ({len(unique)} remaining)"
+            )
         return unique
 
 
@@ -213,10 +217,12 @@ class ContextBuilder:
         if tool_calls_section:
             parts.append(tool_calls_section)
 
-        parts.extend([
-            session_section,
-            "## CURRENT CONVERSATION\n",
-        ])
+        parts.extend(
+            [
+                session_section,
+                "## CURRENT CONVERSATION\n",
+            ]
+        )
 
         context = "\n\n".join(parts)
 
@@ -224,10 +230,13 @@ class ContextBuilder:
         token_count = approximate_tokens(context)
         mem_count = len(relevant)
         sess_count = len(session_messages or [])
-        tool_calls_count = len([
-            m for m in (session_messages_with_tools or [])
-            if hasattr(m, 'tool_calls') and m.tool_calls
-        ])
+        tool_calls_count = len(
+            [
+                m
+                for m in (session_messages_with_tools or [])
+                if hasattr(m, "tool_calls") and m.tool_calls
+            ]
+        )
         logger.info(
             f"Context: {token_count} tokens ({mem_count} memories, {sess_count} "
             f"session msg, {tool_calls_count} with tool calls)"
@@ -295,7 +304,7 @@ class ContextBuilder:
         # Collect all tool calls from messages
         all_tool_calls = []
         for msg in messages:
-            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
                 for tc in msg.tool_calls:
                     all_tool_calls.append(tc)
 
@@ -375,11 +384,11 @@ class ContextBuilder:
         for memory in memories:
             prefix = "User" if memory.role == "user" else "Assistant"
             date = memory.timestamp.strftime("%Y-%m-%d")
-            # Truncate long content for prompt efficiency
+
             content = memory.content[:200]
             if len(memory.content) > 200:
                 content += "..."
-            # Get similarity and format as percentage
+
             sim = similarities.get(memory.entry_id or "", 0.0)
             sim_pct = int(sim * 100)
             # Get hybrid score and format as percentage
@@ -405,17 +414,22 @@ class ContextBuilder:
         similarities = similarities or {}
         scores = scores or {}
         # Reserve tokens for system prompt, headers, and conversation
-        reserved = approximate_tokens(system_prompt) + 300  # Increased for session section
+        reserved = (
+            approximate_tokens(system_prompt) + 300
+        )  # Increased for session section
         available = budget - reserved
 
         if available <= 0:
             # No room for memories at all
-            return "\n\n".join(
-                [
-                    system_prompt,
-                    "## CURRENT CONVERSATION\n",
-                ]
-            ), 0
+            return (
+                "\n\n".join(
+                    [
+                        system_prompt,
+                        "## CURRENT CONVERSATION\n",
+                    ]
+                ),
+                0,
+            )
 
         # First, include all session messages (they're critical for context)
         session_lines = ["## SESSION HISTORY\n"]
@@ -431,13 +445,16 @@ class ContextBuilder:
 
         if available_for_memories <= 0:
             # No room for memories, just return system + session
-            return "\n\n".join(
-                [
-                    system_prompt,
-                    session_section,
-                    "## CURRENT CONVERSATION\n",
-                ]
-            ), 0
+            return (
+                "\n\n".join(
+                    [
+                        system_prompt,
+                        session_section,
+                        "## CURRENT CONVERSATION\n",
+                    ]
+                ),
+                0,
+            )
 
         # Include memories until budget exhausted
         memory_lines = ["## RELEVANT MEMORIES\n"]
@@ -472,11 +489,14 @@ class ContextBuilder:
         # Count actual memories included (excluding header line)
         included_count = len(memory_lines) - 1
 
-        return "\n\n".join(
-            [
-                system_prompt,
-                "\n".join(memory_lines),
-                session_section,
-                "## CURRENT CONVERSATION\n",
-            ]
-        ), included_count
+        return (
+            "\n\n".join(
+                [
+                    system_prompt,
+                    "\n".join(memory_lines),
+                    session_section,
+                    "## CURRENT CONVERSATION\n",
+                ]
+            ),
+            included_count,
+        )

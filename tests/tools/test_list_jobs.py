@@ -2,7 +2,6 @@
 
 import pytest
 
-from src.cron.models import Job
 from src.cron.scheduler import CronScheduler
 from src.cron.store import CronStore
 from src.tools.list_jobs import ListJobsParams, ListJobsTool
@@ -31,7 +30,7 @@ class TestListJobsTool:
         result = []
         async for chunk in list_jobs_tool.execute_stream(status_filter="all"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "don't have any jobs" in output.lower()
 
@@ -44,11 +43,11 @@ class TestListJobsTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         result = []
         async for chunk in list_jobs_tool.execute_stream(status_filter="pending"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Test Job" in output
         assert "pending" in output.lower()
@@ -62,7 +61,7 @@ class TestListJobsTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         # Create and approve an active job
         job_id = await scheduler.submit_user_job(
             name="Active Job",
@@ -70,11 +69,11 @@ class TestListJobsTool:
             code="async def run(): pass"
         )
         await scheduler.approve_job(job_id, "test")
-        
+
         result = []
         async for chunk in list_jobs_tool.execute_stream(status_filter="all"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Pending Job" in output
         assert "Active Job" in output
@@ -86,7 +85,7 @@ class TestListJobsTool:
         result = []
         async for chunk in list_jobs_tool.execute_stream(status_filter="invalid"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Error" in output
         assert "Invalid status filter" in output
@@ -100,12 +99,12 @@ class TestListJobsTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         # Ask for active jobs
         result = []
         async for chunk in list_jobs_tool.execute_stream(status_filter="active"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "No active jobs" in output
 

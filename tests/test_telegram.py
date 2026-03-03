@@ -26,8 +26,9 @@ async def mock_chat_stream(message: str) -> AsyncIterator[str]:
 @pytest.fixture
 def mock_alfred() -> MagicMock:
     """Create a mock Alfred engine."""
-    from src.session import Session, SessionMeta
     from datetime import datetime
+
+    from src.session import Session, SessionMeta
 
     alfred = MagicMock(spec=Alfred)
     alfred.chat_stream.side_effect = mock_chat_stream

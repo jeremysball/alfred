@@ -1,6 +1,5 @@
 """Tests for TokenTracker."""
 
-import pytest
 
 from src.token_tracker import TokenTracker, TokenUsage
 

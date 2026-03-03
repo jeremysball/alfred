@@ -1,6 +1,5 @@
 """Edge case tests for command completion system."""
 
-import pytest
 
 from src.interfaces.pypitui.completion_addon import CompletionAddon
 from src.interfaces.pypitui.completion_menu import CompletionMenu

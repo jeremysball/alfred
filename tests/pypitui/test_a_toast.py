@@ -3,8 +3,6 @@
 import logging
 from datetime import datetime, timedelta
 
-import pytest
-
 
 class TestToastMessage:
     """Tests for ToastMessage dataclass."""

@@ -1,7 +1,5 @@
 """Tests for ContextLoader passing memory_budget from config to ContextBuilder."""
 
-import pytest
-from unittest.mock import Mock, patch
 from src.config import Config
 from src.context import ContextLoader
 from src.search import MemorySearcher

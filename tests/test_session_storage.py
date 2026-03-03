@@ -1,9 +1,9 @@
 """Tests for session storage persistence (PRD #53)."""
 
-import json
-import pytest
 from datetime import datetime
 from pathlib import Path
+
+import pytest
 
 from src.session import Message, Role, SessionMeta
 from src.session_storage import SessionStorage

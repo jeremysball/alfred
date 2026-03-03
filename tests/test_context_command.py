@@ -1,12 +1,11 @@
 """Tests for /context command functionality (PRD #101)."""
 
-from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from src.alfred import Alfred
-from src.session import Message, Role, ToolCallRecord
+from src.session import ToolCallRecord
 
 
 class TestContextDisplay:
@@ -27,7 +26,6 @@ class TestContextDisplay:
     def test_get_context_display_returns_sections(self, mock_alfred):
         """Test that get_context_display returns all context sections."""
         # Arrange
-        from src.context_display import get_context_display
 
         # This test verifies the structure of context display data
         # The actual function is async and takes an Alfred instance
@@ -73,7 +71,7 @@ class TestContextDisplay:
             },
             "total_tokens": 1850,
         }
-        
+
         # Assert
         assert "system_prompt" in result
         assert "memories" in result
@@ -93,7 +91,7 @@ class TestContextDisplay:
                 status="success",
             )
         ]
-        
+
         # Act - Simulate formatting
         formatted = []
         for tc in tool_calls:
@@ -107,7 +105,7 @@ class TestContextDisplay:
                 "output": output,
                 "status": tc.status,
             })
-        
+
         # Assert
         assert len(formatted) == 1
         assert formatted[0]["tool_name"] == "bash"
@@ -119,10 +117,10 @@ class TestContextDisplay:
         # Arrange
         memories = [{"content": f"Memory {i}"} for i in range(5)]
         total_memories = 12
-        
+
         # Act
         display_text = f"{len(memories)} of {total_memories} memories"
-        
+
         # Assert
         assert display_text == "5 of 12 memories"
 
@@ -130,10 +128,10 @@ class TestContextDisplay:
         """Test that token estimation uses len(text) // 4."""
         # Arrange
         text = "a" * 100  # 100 characters
-        
+
         # Act
         estimated_tokens = len(text) // 4
-        
+
         # Assert
         assert estimated_tokens == 25
 
@@ -145,13 +143,13 @@ class TestContextCommandIntegration:
         """Test that CLI has handler for /context command."""
         # This test verifies the CLI interface has the method
         from src.interfaces.cli import CLIInterface
-        
+
         # Assert the method exists (will fail until we implement)
         assert hasattr(CLIInterface, '_handle_session_command')
 
     def test_context_command_handler_exists_in_tui(self):
         """Test that TUI has handler for /context command."""
         from src.interfaces.pypitui.tui import AlfredTUI
-        
+
         # Assert the method exists (will fail until we implement)
         assert hasattr(AlfredTUI, '_handle_session_command')

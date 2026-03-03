@@ -1,12 +1,11 @@
 """Tests for session storage (PRD #53)."""
 
-import pytest
 from datetime import datetime
 from pathlib import Path
-from uuid import UUID
 
-from src.session import Message, Role, Session, SessionMeta, SessionManager
-from src.session_storage import SessionStorage
+import pytest
+
+from src.session import Message, Role, Session, SessionManager, SessionMeta
 
 
 class MockStorage:

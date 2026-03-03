@@ -1,7 +1,6 @@
 """Tests for the notifier interface and implementations."""
 
 import io
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -109,7 +108,7 @@ class TestCLINotifier:
         """CLINotifier logs error on write failure but doesn't raise."""
         class BrokenStream:
             def write(self, s: str) -> None:
-                raise IOError("Stream broken")
+                raise OSError("Stream broken")
             def flush(self) -> None:
                 pass
 

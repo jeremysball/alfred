@@ -214,7 +214,7 @@ class TestAgent:
 
         # Agent stops at max iterations (logs warning)
         # Tool events should have been emitted
-        from src.agent import ToolStart, ToolEnd
+        from src.agent import ToolEnd, ToolStart
         assert any(isinstance(e, ToolStart) for e in tool_events)
         assert any(isinstance(e, ToolEnd) for e in tool_events)
 
@@ -261,7 +261,7 @@ class TestAgent:
 
         # Verify tool events were emitted
         assert len(tool_events) >= 2  # ToolStart and ToolEnd
-        from src.agent import ToolStart, ToolEnd
+        from src.agent import ToolEnd, ToolStart
         assert any(isinstance(e, ToolStart) for e in tool_events)
         assert any(isinstance(e, ToolEnd) for e in tool_events)
 

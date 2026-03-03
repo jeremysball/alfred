@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from pypitui import Component
 
+from src.interfaces.ansi import RED, RESET, YELLOW
 from src.interfaces.pypitui.box_utils import build_bordered_box
-from src.interfaces.pypitui.constants import RED, RESET, YELLOW
 
 if TYPE_CHECKING:
     from src.interfaces.pypitui.toast import ToastManager

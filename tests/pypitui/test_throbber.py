@@ -1,6 +1,5 @@
 """Tests for Throbber animation component."""
 
-import pytest
 
 from src.interfaces.pypitui.throbber import ASCII_FRAMES, BRAILLE_FRAMES, Throbber
 

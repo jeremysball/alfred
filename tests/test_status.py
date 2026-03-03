@@ -1,6 +1,5 @@
 """Tests for status line rendering."""
 
-import pytest
 from rich.console import Group
 from rich.text import Text
 

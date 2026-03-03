@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from pypitui import Component
 
-from src.interfaces.pypitui.ansi import RESET, REVERSE
+from src.interfaces.ansi import RESET, REVERSE
 
 if TYPE_CHECKING:
     pass

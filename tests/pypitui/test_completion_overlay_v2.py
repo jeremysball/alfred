@@ -1,7 +1,7 @@
 """Tests for completion overlay v2 using pypitui 0.3.0 overlay system."""
 
 import pytest
-from pypitui import MockTerminal, TUI
+from pypitui import TUI, MockTerminal
 
 from src.interfaces.pypitui.completion_overlay_v2 import CompletionOverlayV2
 from src.interfaces.pypitui.wrapped_input import WrappedInput

@@ -2,8 +2,7 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-from pypitui import MockTerminal, TUI
+from pypitui import TUI, MockTerminal
 
 from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 from src.interfaces.pypitui.wrapped_input import WrappedInput
@@ -23,7 +22,6 @@ class TestWithCompletionFluentAPI:
 
     def test_attaches_completion_addon(self) -> None:
         """with_completion attaches CompletionAddon to input."""
-        from src.interfaces.pypitui.completion_addon import CompletionAddon
 
         input_field = WrappedInput()
         menu = CompletionMenuComponent()

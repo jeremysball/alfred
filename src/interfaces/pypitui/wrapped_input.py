@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
-from src.interfaces.pypitui.ansi import RESET, REVERSE
+from src.interfaces.ansi import RESET, REVERSE
 
 if TYPE_CHECKING:
     from .completion_menu_component import CompletionMenuComponent

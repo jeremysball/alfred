@@ -2,7 +2,7 @@
 
 from pypitui import Component
 
-from src.interfaces.pypitui.constants import RESET, YELLOW
+from src.interfaces.ansi import RESET, YELLOW
 from src.interfaces.pypitui.throbber import Throbber
 from src.interfaces.pypitui.utils import format_tokens
 

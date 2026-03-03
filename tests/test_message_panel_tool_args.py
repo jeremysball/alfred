@@ -1,7 +1,7 @@
 """Tests for tool arguments display in message panel (PRD #101 Milestone 3)."""
 
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.models import ToolCallInfo

@@ -1,12 +1,12 @@
 """Tests for Alfred tool call capturing (PRD #101)."""
 
-import pytest
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from src.agent import ToolEnd, ToolOutput, ToolStart
 from src.alfred import Alfred
-from src.agent import ToolStart, ToolOutput, ToolEnd
-from src.session import Role, ToolCallRecord
 
 
 class TestAlfredToolCallCapturing:

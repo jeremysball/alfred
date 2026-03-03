@@ -1,9 +1,10 @@
 """Tests for session context integration (PRD #54 Milestone 3)."""
 
-import pytest
 from pathlib import Path
 
-from src.session import Message, Role, Session, SessionMeta, SessionManager
+import pytest
+
+from src.session import Message, Session, SessionManager, SessionMeta
 from src.session_context import SessionContextBuilder
 
 
@@ -37,8 +38,8 @@ class MockStorage:
         self._sessions[meta.session_id] = meta
 
     def create_session(self, session_id: str | None = None) -> SessionMeta:
-        from uuid import uuid4
         from datetime import datetime
+        from uuid import uuid4
 
         sid = session_id or f"sess_{uuid4().hex[:12]}"
         now = datetime.now()

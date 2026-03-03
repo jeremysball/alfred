@@ -33,11 +33,11 @@ class TestApproveJobTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         result = []
         async for chunk in approve_tool.execute_stream(job_identifier="Daily Report"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "approved" in output.lower()
         assert "Daily Report" in output
@@ -53,11 +53,11 @@ class TestApproveJobTool:
             code="async def run(): pass"
         )
         await scheduler.approve_job(job_id, "test")
-        
+
         result = []
         async for chunk in approve_tool.execute_stream(job_identifier="Already Active"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "already active" in output.lower()
 
@@ -67,7 +67,7 @@ class TestApproveJobTool:
         result = []
         async for chunk in approve_tool.execute_stream(job_identifier="Nonexistent Job"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Couldn't find" in output
 
@@ -80,11 +80,11 @@ class TestApproveJobTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         result = []
         async for chunk in approve_tool.execute_stream(job_identifier=job_id):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "approved" in output.lower()
         assert "By ID Test" in output
@@ -98,11 +98,11 @@ class TestApproveJobTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         result = []
         async for chunk in approve_tool.execute_stream(job_identifier="Morning"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "approved" in output.lower()
         assert "Daily Morning Report" in output

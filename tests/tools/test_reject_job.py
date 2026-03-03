@@ -33,11 +33,11 @@ class TestRejectJobTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         result = []
         async for chunk in reject_tool.execute_stream(job_identifier="Delete Me"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Deleted" in output
         assert "Delete Me" in output
@@ -51,12 +51,12 @@ class TestRejectJobTool:
             expression="0 8 * * *",
             code="async def run(): pass"
         )
-        
+
         # Delete it
         result = []
         async for chunk in reject_tool.execute_stream(job_identifier="To Delete"):
             result.append(chunk)
-        
+
         # Verify it's gone
         jobs = await scheduler._store.load_jobs()
         assert len(jobs) == 0
@@ -67,7 +67,7 @@ class TestRejectJobTool:
         result = []
         async for chunk in reject_tool.execute_stream(job_identifier="Nonexistent"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Couldn't find" in output
 
@@ -81,15 +81,15 @@ class TestRejectJobTool:
             code="async def run(): pass"
         )
         await scheduler.approve_job(job_id, "test")
-        
+
         # Delete it
         result = []
         async for chunk in reject_tool.execute_stream(job_identifier="Active to Delete"):
             result.append(chunk)
-        
+
         output = "".join(result)
         assert "Deleted" in output
-        
+
         # Verify it's gone
         jobs = await scheduler._store.load_jobs()
         assert len(jobs) == 0

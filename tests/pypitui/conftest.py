@@ -47,4 +47,8 @@ def mock_alfred():
     alfred.session_manager.has_active_session = Mock(return_value=False)
     alfred.session_manager.get_current_cli_session = Mock(return_value=None)
 
+    # Add mock config
+    alfred.config = Mock()
+    alfred.config.use_markdown_rendering = True
+
     return alfred

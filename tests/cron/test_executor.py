@@ -3,8 +3,6 @@
 import asyncio
 from datetime import UTC, datetime
 
-import pytest
-
 from src.cron.executor import ExecutionContext, ExecutionResult, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
 

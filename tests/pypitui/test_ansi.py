@@ -1,8 +1,7 @@
 """Tests for ANSI color placeholder system."""
 
-import pytest
 
-from src.interfaces.pypitui.ansi import (
+from src.interfaces.ansi import (
     BLACK,
     BLUE,
     BOLD,

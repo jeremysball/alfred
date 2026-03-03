@@ -29,16 +29,14 @@ Usage:
 """
 
 import os
+import re
 import subprocess
 import time
-import re
-import sys
-from pathlib import Path
 
 
 class TerminalSession:
     """Terminal session using ttyd + tmux + playwright."""
-    
+
     def __init__(self, name: str, cols: int = 120, rows: int = 35, port: int = 7681):
         """
         Initialize terminal session.
@@ -55,22 +53,22 @@ class TerminalSession:
         self.port = port
         self.ttyd_proc = None
         self._screenshot_count = 0
-    
+
     def __enter__(self):
         """Create tmux session and start ttyd."""
         # Kill any existing session
         subprocess.run(["tmux", "kill-session", "-t", self.name], capture_output=True)
-        
+
         # Create new tmux session
         subprocess.run([
             "tmux", "new-session", "-d", "-s", self.name,
             "-x", str(self.cols), "-y", str(self.rows)
         ], capture_output=True)
-        
+
         # Clear screen for clean start
         subprocess.run(["tmux", "send-keys", "-t", self.name, "C-l"], check=True)
         time.sleep(0.2)
-        
+
         # Start ttyd attached to tmux session
         self.ttyd_proc = subprocess.Popen(
             ["ttyd", "--port", str(self.port), "--writable",
@@ -78,12 +76,12 @@ class TerminalSession:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        
+
         # Wait for ttyd to be ready
         time.sleep(1)
-        
+
         return self
-    
+
     def __exit__(self, *args):
         """Cleanup ttyd and tmux."""
         if self.ttyd_proc:
@@ -92,9 +90,9 @@ class TerminalSession:
                 self.ttyd_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.ttyd_proc.kill()
-        
+
         subprocess.run(["tmux", "kill-session", "-t", self.name], capture_output=True)
-    
+
     def send(self, text: str) -> None:
         """
         Send text to the terminal.
@@ -103,7 +101,7 @@ class TerminalSession:
             text: Text to type
         """
         subprocess.run(["tmux", "send-keys", "-t", self.name, text], check=True)
-    
+
     def send_key(self, key: str) -> None:
         """
         Send special key to the terminal.
@@ -112,7 +110,7 @@ class TerminalSession:
             key: Key name (Enter, C-c, C-d, C-l, Escape, Tab, Space, Up, Down, Left, Right)
         """
         subprocess.run(["tmux", "send-keys", "-t", self.name, key], check=True)
-    
+
     def sleep(self, seconds: float) -> None:
         """
         Wait for specified duration.
@@ -121,7 +119,7 @@ class TerminalSession:
             seconds: Time to wait
         """
         time.sleep(seconds)
-    
+
     def capture_text(self) -> str:
         """
         Capture terminal text content (ANSI-stripped).
@@ -134,18 +132,18 @@ class TerminalSession:
             capture_output=True, text=True
         )
         raw = result.stdout
-        
+
         # Strip ANSI escape sequences
         pattern = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07')
         plain = pattern.sub('', raw)
-        
+
         # Clean up trailing whitespace and empty lines
         lines = [line.rstrip() for line in plain.split('\n')]
         while lines and not lines[-1]:
             lines.pop()
-        
+
         return '\n'.join(lines)
-    
+
     def capture_raw(self) -> str:
         """
         Capture terminal with ANSI escape codes (for debugging).
@@ -158,7 +156,7 @@ class TerminalSession:
             capture_output=True, text=True
         )
         return result.stdout
-    
+
     def capture_screenshot(self, filename: str = None, upload: bool = False) -> dict:
         """
         Capture screenshot via ttyd + playwright.
@@ -173,10 +171,10 @@ class TerminalSession:
         self._screenshot_count += 1
         if filename is None:
             filename = f"screenshot_{self._screenshot_count}.png"
-        
+
         # Calculate viewport size
         viewport = f"{self.cols * 10},{self.rows * 20}"
-        
+
         # Take screenshot with playwright
         result = subprocess.run(
             ["npx", "playwright", "screenshot",
@@ -186,19 +184,19 @@ class TerminalSession:
              filename],
             capture_output=True, text=True
         )
-        
+
         if result.returncode != 0:
             return {"error": result.stderr, "screenshot": None}
-        
+
         print(f"Screenshot: {filename}")
-        
+
         result = {"screenshot": filename}
-        
+
         if upload:
             result["url"] = self.upload(filename)
-        
+
         return result
-    
+
     def capture(self, filename: str = None, upload: bool = False) -> dict:
         """
         Capture both text and screenshot.
@@ -214,7 +212,7 @@ class TerminalSession:
         screenshot = self.capture_screenshot(filename, upload)
         screenshot["text"] = text
         return screenshot
-    
+
     def upload(self, filepath: str) -> str:
         """
         Upload image to imgbb.
@@ -259,26 +257,26 @@ class TerminalSession:
 def main():
     """Demo/test of TerminalSession."""
     print("=== Terminal Session Demo ===\n")
-    
+
     with TerminalSession("demo", port=7681) as s:
         print("Running demo commands...")
-        
+
         # Simple echo test
         s.send("echo 'Hello from ttyd!'")
         s.send_key("Enter")
         s.sleep(1)
-        
+
         # Capture
         result = s.capture("demo.png", upload=True)
-        
+
         print("\nText output:")
         print(result["text"])
-        
+
         if result.get("url"):
             print(f"\nScreenshot: {result['url']}")
         elif result.get("screenshot"):
             print(f"\nScreenshot: {result['screenshot']}")
-    
+
     print("\n=== Demo Complete ===")
 
 

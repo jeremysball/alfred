@@ -219,7 +219,6 @@ class TestCASCompareAndSwap:
         def slow_transform(records):
             attempts.append(len(attempts))
             # Simulate slow operation
-            import asyncio
             # Note: can't actually sleep in sync function, but conceptually
             records[0]["value"] += 1
             return records
@@ -347,7 +346,7 @@ class TestCASConflictRecovery:
         try:
             await store.rewrite([{"value": 999}], expected_version=version)
             assert False, "Should have raised CASConflictError"
-        except CASConflictError as e:
+        except CASConflictError:
             # Recover: re-read and retry with fresh version
             records, fresh_version = await store.read_all()
             records.append({"value": 999})

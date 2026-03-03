@@ -8,9 +8,7 @@ import pytest
 
 from src.data_manager import (
     APP_NAME,
-    BUNDLED_TEMPLATES,
     get_config_dir,
-    get_config_toml_path,
     get_data_dir,
     get_memory_dir,
     get_workspace_dir,

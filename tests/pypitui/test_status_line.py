@@ -1,13 +1,12 @@
 """Tests for StatusLine component."""
 
-import pytest
 
 from src.interfaces.pypitui.status_line import (
     STATUS_WIDTH_COMPACT,
     STATUS_WIDTH_FULL,
     STATUS_WIDTH_MEDIUM,
-    StatusLine,
     SYMBOL_CACHE,
+    StatusLine,
 )
 from src.interfaces.pypitui.utils import format_tokens
 

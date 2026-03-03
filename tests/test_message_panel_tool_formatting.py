@@ -1,8 +1,7 @@
 """Tests for message panel tool call formatting."""
 
-import pytest
+from src.interfaces.ansi import RESET
 from src.interfaces.pypitui.message_panel import MessagePanel
-from src.interfaces.pypitui.constants import BOLD, RESET
 
 
 class TestToolTitleFormatting:
@@ -74,7 +73,7 @@ class TestBoxUtilsAnsiHandling:
     def test_build_bordered_box_preserves_ansi_in_title(self):
         """Box drawing handles ANSI codes in title parameter."""
         from src.interfaces.pypitui.box_utils import build_bordered_box
-        from src.interfaces.pypitui.constants import GREEN, RESET
+        from src.interfaces.ansi import GREEN
 
         title_with_ansi = f"{GREEN}Title{RESET}"
         lines = build_bordered_box(

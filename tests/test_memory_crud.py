@@ -4,8 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from src.memory import MemoryStore
-from src.memory import MemoryEntry
+from src.memory import MemoryEntry, MemoryStore
 
 
 class MockEmbedder:

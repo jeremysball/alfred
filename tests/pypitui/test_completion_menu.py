@@ -2,10 +2,7 @@
 
 import re
 
-import pytest
-
 from src.interfaces.pypitui.completion_menu import CompletionMenu
-
 
 # Helper to strip ANSI escape codes for width checks
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")

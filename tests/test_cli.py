@@ -157,7 +157,7 @@ class TestCLIMarkdownRendering:
     @pytest.mark.asyncio
     async def test_chat_uses_live_for_streaming(self, mock_alfred: MagicMock) -> None:
         """Streaming uses Live to render content."""
-        from unittest.mock import MagicMock, patch, AsyncMock
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         interface = CLIInterface(mock_alfred)
 

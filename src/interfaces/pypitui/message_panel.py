@@ -6,7 +6,7 @@ from typing import Literal
 
 from pypitui import BorderedBox, Text  # type: ignore
 
-from src.interfaces.pypitui.constants import BOLD, CYAN, DIM, GREEN, RED, RESET
+from src.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from src.interfaces.pypitui.models import ToolCallInfo
 
 
@@ -201,7 +201,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def _rebuild_content(self) -> None:
         """Rebuild the content with embedded tool call boxes."""
-        from src.interfaces.pypitui.ansi import apply_ansi
+        from src.interfaces.ansi import apply_ansi
 
         self.clear()
 
@@ -226,7 +226,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     def _build_content_with_tools(self) -> None:
         """Build content string with tool call boxes embedded."""
-        from src.interfaces.pypitui.ansi import apply_ansi
+        from src.interfaces.ansi import apply_ansi
         from src.interfaces.pypitui.box_utils import build_bordered_box
         from src.interfaces.pypitui.constants import DIM_BLUE, DIM_GREEN, DIM_RED
 

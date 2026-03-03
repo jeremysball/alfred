@@ -2,7 +2,7 @@
 
 import re
 
-from src.interfaces.pypitui.ansi import RESET, REVERSE
+from src.interfaces.ansi import RESET, REVERSE
 
 # ANSI escape pattern for stripping codes
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")

@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.tools.update_memory import UpdateMemoryTool
 from src.memory import MemoryEntry
+from src.tools.update_memory import UpdateMemoryTool
 
 
 @pytest.fixture

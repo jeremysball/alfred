@@ -8,7 +8,8 @@ from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
 from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
-from src.interfaces.pypitui.constants import USE_MARKDOWN_RENDERING
+
+# Settings now accessed via self.alfred.config
 from src.interfaces.pypitui.fuzzy import fuzzy_match
 from src.interfaces.pypitui.message_panel import MessagePanel
 from src.interfaces.pypitui.status_line import StatusLine
@@ -329,7 +330,7 @@ class AlfredTUI:
             role="user",
             content=text,
             terminal_width=self._terminal_width,
-            use_markdown=USE_MARKDOWN_RENDERING,
+            use_markdown=self.alfred.config.use_markdown_rendering,
         )
         self.conversation.add_child(user_msg)
 
@@ -435,7 +436,7 @@ class AlfredTUI:
                 role=msg.role.value,
                 content=msg.content,
                 terminal_width=self._terminal_width,
-                use_markdown=USE_MARKDOWN_RENDERING,
+                use_markdown=self.alfred.config.use_markdown_rendering,
             )
             self.conversation.add_child(panel)
 
@@ -450,7 +451,7 @@ class AlfredTUI:
             role="user",
             content=content,
             terminal_width=self._terminal_width,
-            use_markdown=USE_MARKDOWN_RENDERING,
+            use_markdown=self.alfred.config.use_markdown_rendering,
         )
         self.conversation.add_child(msg)
         self.tui.request_render()
@@ -664,7 +665,7 @@ class AlfredTUI:
             role="assistant",
             content="",
             terminal_width=self._terminal_width,
-            use_markdown=USE_MARKDOWN_RENDERING,
+            use_markdown=self.alfred.config.use_markdown_rendering,
         )
         self.conversation.add_child(assistant_msg)
         self._current_assistant_msg = assistant_msg
@@ -720,7 +721,7 @@ class AlfredTUI:
                 role="user",
                 content=next_to_process,
                 terminal_width=self._terminal_width,
-                use_markdown=USE_MARKDOWN_RENDERING,
+                use_markdown=self.alfred.config.use_markdown_rendering,
             )
             self.conversation.add_child(user_msg)
             self._update_status()

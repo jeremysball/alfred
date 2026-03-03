@@ -1,14 +1,12 @@
 """Tests for tool call persistence (PRD #101 Milestone 1)."""
 
 import json
-import pytest
-from datetime import datetime, UTC
-from pathlib import Path
+from datetime import UTC, datetime
 
-from src.session import Message, Role, ToolCallRecord, SessionMeta, Session
+import pytest
+
+from src.session import Message, Role, ToolCallRecord
 from src.session_storage import SessionStorage
-from src.embeddings import EmbeddingClient
-from src.config import Config
 
 
 class TestToolCallRecord:

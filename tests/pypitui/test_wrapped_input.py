@@ -2,8 +2,6 @@
 
 import re
 
-import pytest
-
 from src.interfaces.pypitui.wrapped_input import WrappedInput
 
 
