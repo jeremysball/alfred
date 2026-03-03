@@ -173,9 +173,9 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 ### Milestone 1: Config Infrastructure (TDD)
 
 #### 1.1 TOML Parsing Setup
-- [ ] Test: `test_toml_import_falls_back_to_tomli()` - verify import works on Python <3.11
-- [ ] Implement: Add conditional import `tomllib` / `tomli` in `config.py`
-- [ ] Commit
+- [x] Test: `test_toml_import_works()` - verify tomli import works
+- [x] Implement: Add `import tomli` in `config.py`
+- [x] Commit
 
 #### 1.2 XDG Config Path
 - [ ] Test: `test_get_config_toml_path_returns_xdg_location()` - verify path is `$XDG_CONFIG_HOME/alfred/config.toml`
