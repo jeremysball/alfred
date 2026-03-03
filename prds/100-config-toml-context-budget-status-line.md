@@ -170,65 +170,189 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 
 ## 4. Implementation Milestones
 
-### Milestone 1: Config Infrastructure
-- [ ] Add TOML parsing dependency (`tomli` for Python <3.11, builtin for 3.11+)
-- [ ] Create `Config` class that loads from `XDG_CONFIG_HOME/alfred/config.toml`
-- [ ] Add `memory_budget` field (default 32000)
-- [ ] Add `xdg_config_dir` to `data_manager.py`
-- [ ] Create default config file generation if missing
-- [ ] Update `load_config()` to use TOML instead of JSON
-- [ ] Add backward compatibility: read `config.json` if `config.toml` doesn't exist
+### Milestone 1: Config Infrastructure (TDD)
+
+#### 1.1 TOML Parsing Setup
+- [ ] Test: `test_toml_import_falls_back_to_tomli()` - verify import works on Python <3.11
+- [ ] Implement: Add conditional import `tomllib` / `tomli` in `config.py`
+- [ ] Commit
+
+#### 1.2 XDG Config Path
+- [ ] Test: `test_get_config_toml_path_returns_xdg_location()` - verify path is `$XDG_CONFIG_HOME/alfred/config.toml`
+- [ ] Implement: Add `get_config_toml_path()` to `data_manager.py`
+- [ ] Test: `test_get_config_toml_path_fallback_to_home()` - verify fallback when `XDG_CONFIG_HOME` unset
+- [ ] Implement: Fallback to `~/.config/alfred/config.toml`
+- [ ] Commit
+
+#### 1.3 Config Template Creation
+- [ ] Test: `test_config_template_exists()` - verify `templates/config.toml` exists with required sections
+- [ ] Implement: Create `templates/config.toml` with `[provider]`, `[embeddings]`, `[memory]`, `[search]`, `[ui.status_line]` sections
+- [ ] Commit
+
+#### 1.4 Template Copy on Init
+- [ ] Test: `test_init_xdg_directories_copies_config_toml()` - verify config.toml copied when missing
+- [ ] Implement: Update `init_xdg_directories()` to copy `templates/config.toml` to XDG config dir
+- [ ] Test: `test_init_xdg_preserves_existing_config_toml()` - verify existing file not overwritten
+- [ ] Implement: Check existence before copy
+- [ ] Commit
+
+#### 1.5 Config Class TOML Loading
+- [ ] Test: `test_load_config_reads_toml()` - verify `load_config()` parses TOML file
+- [ ] Implement: Replace JSON loading with TOML parsing in `load_config()`
+- [ ] Test: `test_config_default_llm_provider_from_toml()` - verify nested `[provider]` section loads
+- [ ] Implement: Update `Config` class to read nested TOML sections
+- [ ] Commit
+
+#### 1.6 Memory Budget Field
+- [ ] Test: `test_config_has_memory_budget_field()` - verify `Config.memory_budget` exists
+- [ ] Implement: Add `memory_budget: int = 32000` to `Config` class
+- [ ] Test: `test_memory_budget_loads_from_toml()` - verify `[memory]` section `budget` key loads
+- [ ] Implement: Map `memory.budget` TOML key to `memory_budget` field
+- [ ] Commit
+
+#### 1.7 Backward Compatibility
+- [ ] Test: `test_load_config_falls_back_to_json()` - verify `config.json` read when `config.toml` missing
+- [ ] Implement: Check for TOML first, fallback to JSON if not found
+- [ ] Test: `test_load_config_prefers_toml_over_json()` - verify TOML takes precedence when both exist
+- [ ] Implement: TOML priority logic
+- [ ] Commit
 
 **Success Criteria:**
 - Config loads from TOML file in XDG config directory
 - All existing functionality works with new config system
-- Missing config file generates sensible defaults
+- Missing config file generates sensible defaults from template
+- Backward compatibility with config.json maintained
 
-### Milestone 2: Context Budget Refactoring
-- [ ] Rename `token_budget` → `memory_budget` in `ContextBuilder`
-- [ ] Update default from 8000 → 32000
-- [ ] Pass `memory_budget` from `Config` to `ContextBuilder`
-- [ ] Update `search.py` docstrings to clarify memory_budget vs model context
-- [ ] Verify context assembly respects the new budget
+---
+
+### Milestone 2: Context Budget Refactoring (TDD)
+
+#### 2.1 Rename token_budget to memory_budget
+- [ ] Test: `test_context_builder_has_memory_budget_parameter()` - verify `ContextBuilder.__init__` accepts `memory_budget`
+- [ ] Implement: Rename parameter in `ContextBuilder.__init__`
+- [ ] Test: `test_context_builder_uses_memory_budget_attribute()` - verify internal usage updated
+- [ ] Implement: Rename `self.token_budget` → `self.memory_budget`
+- [ ] Commit
+
+#### 2.2 Update Default Budget
+- [ ] Test: `test_context_builder_default_memory_budget_is_32k()` - verify default is 32000
+- [ ] Implement: Change default from 8000 to 32000 in `ContextBuilder`
+- [ ] Test: `test_context_builder_accepts_custom_memory_budget()` - verify custom value passes through
+- [ ] Implement: Ensure parameter properly sets the attribute
+- [ ] Commit
+
+#### 2.3 Wire Config to ContextBuilder
+- [ ] Test: `test_context_loader_passes_memory_budget_to_builder()` - verify `ContextLoader` passes config value
+- [ ] Implement: Update `ContextLoader` to pass `config.memory_budget` to `ContextBuilder`
+- [ ] Test: `test_context_assembly_uses_configured_budget()` - verify end-to-end budget application
+- [ ] Implement: Integration between config and context building
+- [ ] Commit
 
 **Success Criteria:**
 - Variable names clearly distinguish memory budget from model context
 - Default budget increased to 32k
-- Documentation explains the distinction
+- Config value flows through to `ContextBuilder`
 
-### Milestone 3: Responsive Status Line
-- [ ] Fix status line width calculation to prevent wrapping
-- [ ] Implement truncation logic for model names at each tier
-- [ ] Verify responsive thresholds work correctly
-- [ ] Add unit tests for status line rendering at different widths
+---
+
+### Milestone 3: Responsive Status Line (TDD)
+
+#### 3.1 Model Name Truncation
+- [ ] Test: `test_truncate_model_at_full_width()` - verify 25 char limit at 80+ width
+- [ ] Implement: `_truncate_model()` logic for full width tier
+- [ ] Test: `test_truncate_model_at_medium_width()` - verify 15 char limit at 50-79 width
+- [ ] Implement: Medium width truncation
+- [ ] Test: `test_truncate_model_at_compact_width()` - verify 10 char limit at <50 width
+- [ ] Implement: Compact width truncation
+- [ ] Commit
+
+#### 3.2 Prevent Wrapping
+- [ ] Test: `test_status_line_never_exceeds_width()` - verify render output fits within specified width
+- [ ] Implement: Fix width calculation to account for all separators and padding
+- [ ] Test: `test_status_line_single_element_returned()` - verify always returns single string
+- [ ] Implement: Ensure no line breaks in output
+- [ ] Commit
+
+#### 3.3 Responsive Tier Display
+- [ ] Test: `test_full_tier_shows_cached_reasoning()` - verify cached/reasoning tokens shown at 80+
+- [ ] Test: `test_medium_tier_hides_cached_reasoning()` - verify cached/reasoning hidden at 50-79
+- [ ] Test: `test_compact_tier_shows_minimal()` - verify only model + in/out at <50
+- [ ] Implement: Tiered display logic in `_render_full()`, `_render_medium()`, `_render_compact()`
+- [ ] Commit
+
+#### 3.4 Queued Indicator Conditional
+- [ ] Test: `test_queued_shows_when_positive()` - verify queued appears when > 0
+- [ ] Test: `test_queued_hidden_when_zero()` - verify queued omitted when 0
+- [ ] Implement: Conditional queued display
+- [ ] Commit
 
 **Success Criteria:**
 - Status line never wraps to multiple lines
 - Responsive tiers display correctly at each width threshold
-- Model name truncates appropriately
+- Model name truncates appropriately per tier
+- Queued only shows when non-zero
 
-### Milestone 4: Tool Call Formatting
-- [ ] Replace Rich `[bold]` markup with `BOLD`/`RESET` ANSI constants in tool titles
-- [ ] Change tool output truncation from `[-200:]` to `[:200]`
-- [ ] Update `box_utils.py` to handle ANSI in titles correctly
-- [ ] Verify tool call boxes render correctly
+---
+
+### Milestone 4: Tool Call Formatting (TDD)
+
+#### 4.1 ANSI Constants for Tool Titles
+- [ ] Test: `test_tool_title_uses_ansi_bold()` - verify `BOLD`/`RESET` constants in title
+- [ ] Implement: Replace `f"[bold]{name}[/bold]"` with `f"{BOLD}{name}{RESET}"` in `message_panel.py`
+- [ ] Test: `test_tool_title_no_rich_markup()` - verify no `[bold]` in output
+- [ ] Implement: Remove Rich markup entirely
+- [ ] Commit
+
+#### 4.2 Tool Output Truncation Direction
+- [ ] Test: `test_tool_output_shows_beginning_not_end()` - verify `[:200]` not `[-200:]`
+- [ ] Implement: Change slice direction in `_build_content_with_tools()`
+- [ ] Test: `test_tool_output_truncates_at_200_chars()` - verify truncation still happens at 200
+- [ ] Implement: Preserve truncation limit, just change direction
+- [ ] Commit
+
+#### 4.3 Box Utils ANSI Handling
+- [ ] Test: `test_build_bordered_box_preserves_ansi_in_title()` - verify ANSI codes not counted in width
+- [ ] Implement: Update `box_utils.py` to handle ANSI in title parameter
+- [ ] Commit
 
 **Success Criteria:**
 - Tool titles use ANSI constants (no Rich markup)
 - Tool output shows beginning (not end) of output
-- Visual appearance unchanged or improved
+- Box drawing handles ANSI codes correctly
 
-### Milestone 5: Migration and Cleanup
-- [ ] Remove `config.json` from repository
-- [ ] Update `.gitignore` to exclude config files
-- [ ] Update documentation (README, ROADMAP)
-- [ ] Create migration note for existing users
-- [ ] Run full test suite
+---
+
+### Milestone 5: Migration and Cleanup (TDD)
+
+#### 5.1 Remove config.json from Repo
+- [ ] Test: `test_config_json_not_in_repo()` - verify `config.json` removed
+- [ ] Implement: Delete `config.json`, move to `templates/config.json` if backward compat needed
+- [ ] Commit
+
+#### 5.2 Update .gitignore
+- [ ] Test: `test_gitignore_ignores_config_files()` - verify patterns exist
+- [ ] Implement: Add `config.toml` and `config.json` to `.gitignore`
+- [ ] Commit
+
+#### 5.3 Documentation Updates
+- [ ] Test: `test_readme_mentions_toml_config()` - verify README references new config location
+- [ ] Implement: Update README.md configuration section
+- [ ] Test: `test_roadmap_marks_prd_complete()` - verify ROADMAP updated
+- [ ] Implement: Mark PRD #100 items complete in ROADMAP.md
+- [ ] Commit
+
+#### 5.4 Full Test Suite
+- [ ] Run: `uv run pytest` - verify all tests pass
+- [ ] Run: `uv run ruff check src/` - verify no lint errors
+- [ ] Run: `uv run mypy src/` - verify type checking passes
+- [ ] Fix any issues
+- [ ] Commit
 
 **Success Criteria:**
-- Old config.json no longer used
+- Old config.json no longer in repository
 - Documentation reflects new configuration approach
 - All tests pass
+- Code quality checks pass
 
 ---
 
