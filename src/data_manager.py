@@ -47,6 +47,15 @@ def get_config_path() -> Path:
     return get_config_dir() / "config.json"
 
 
+def get_config_toml_path() -> Path:
+    """Get path to config.toml in XDG config directory.
+
+    Returns:
+        Path to $XDG_CONFIG_HOME/alfred/config.toml (default: ~/.config/alfred/config.toml)
+    """
+    return get_config_dir() / "config.toml"
+
+
 def get_workspace_dir() -> Path:
     """Get path to workspace in XDG data directory."""
     return get_data_dir() / "workspace"
