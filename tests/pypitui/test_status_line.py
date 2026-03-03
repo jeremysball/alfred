@@ -110,9 +110,10 @@ class TestStatusLine:
         text = lines[0]
         assert "test-model" in text
         assert "ctx 1K" in text
-        # Input: total/cached⚡, Output: total/reasoningρ
-        assert f"↑500/50{SYMBOL_CACHE}" in text
-        assert "↓100/20ρ" in text
+        # Input: ↑total⚡cached (compact format, icon as separator)
+        # Output: ↓totalρreasoning (compact format, icon as separator)
+        assert f"↑500{SYMBOL_CACHE}50" in text
+        assert "↓100ρ20" in text
         assert "queued" in text
 
     def test_status_compact_width(self):
