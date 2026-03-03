@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #101  
 **Priority**: High  
-**Status**: Planning
+**Status**: In Progress (Milestone 5 - Ready for PR)
 
 ---
 
@@ -73,6 +73,8 @@ class ToolCallRecord:
     arguments: dict[str, Any]
     output: str
     status: Literal["success", "error"]
+    insert_position: int = 0  # Character position in message.content where tool occurred
+    sequence: int = 0          # Ordering when multiple tools at same position
 
 @dataclass
 class Message:
@@ -87,6 +89,8 @@ class Message:
     reasoning_tokens: int = 0
     tool_calls: list[ToolCallRecord] | None = None  # NEW
 ```
+
+**Design Decision:** Tool calls are attached to the assistant message that generated them. The `insert_position` field tracks where in the message text the tool execution occurred, enabling accurate reconstruction of the conversation flow during display.
 
 ### 3.2 Session Storage Format
 
@@ -103,11 +107,15 @@ Tool calls stored in `current.jsonl`:
       "tool_name": "bash",
       "arguments": {"command": "ls /tmp"},
       "output": "a.txt\nb.txt\nc.txt",
-      "status": "success"
+      "status": "success",
+      "insert_position": 11,
+      "sequence": 0
     }
   ]
 }
 ```
+
+**Storage Decision:** Tool calls include `insert_position` (character offset in message text) and `sequence` (ordering for multiple tools at same position) to enable precise reconstruction of where tool execution occurred within the conversation flow.
 
 ### 3.3 Context Assembly with Tool Calls
 
@@ -170,35 +178,35 @@ include_output = true  # Include tool output or just call info
 
 ### Milestone 1: Tool Call Persistence
 
-- [ ] Add `ToolCallRecord` dataclass
-- [ ] Add `tool_calls` field to Message dataclass
-- [ ] Update session storage serialization/deserialization
-- [ ] Update Alfred to capture and store tool calls
-- [ ] Test: Tool calls persisted in current.jsonl
+- [x] Add `ToolCallRecord` dataclass
+- [x] Add `tool_calls` field to Message dataclass
+- [x] Update session storage serialization/deserialization
+- [x] Update Alfred to capture and store tool calls
+- [x] Test: Tool calls persisted in current.jsonl
 
 ### Milestone 2: Context Assembly with Tool Calls
 
-- [ ] Add `[context.tool_calls]` config section
-- [ ] Update ContextBuilder to include tool calls
-- [ ] Implement token budget for tool calls in context
-- [ ] Test: Tool calls included in LLM context
+- [x] Add `[context.tool_calls]` config section
+- [x] Update ContextBuilder to include tool calls
+- [x] Implement token budget for tool calls in context
+- [x] Test: Tool calls included in LLM context
 
 ### Milestone 3: Tool Box Enhancement
 
-- [ ] Modify message_panel.py to show arguments first
-- [ ] Format arguments as JSON or key=value pairs
-- [ ] Test: Arguments visible in tool box
+- [x] Modify message_panel.py to show arguments first
+- [x] Format arguments as JSON or key=value pairs
+- [x] Test: Arguments visible in tool box
 
 ### Milestone 4: /context Command
 
-- [ ] Add `/context` command handler
-- [ ] Format system context for display
-- [ ] Show token counts per section
-- [ ] Test: Context displays correctly
+- [x] Add `/context` command handler
+- [x] Format system context for display
+- [x] Show token counts per section
+- [x] Test: Context displays correctly
 
 ### Milestone 5: Integration and Cleanup
 
-- [ ] All tests pass
+- [x] All tests pass
 - [ ] Documentation updated
 - [ ] PR merged
 
@@ -234,11 +242,11 @@ None
 
 ## 7. Success Criteria
 
-- [ ] Tool calls visible in session history
-- [ ] Tool calls included in LLM context
-- [ ] /context command works
-- [ ] Tool arguments visible in UI
-- [ ] All tests pass
+- [x] Tool calls visible in session history
+- [x] Tool calls included in LLM context
+- [x] /context command works
+- [x] Tool arguments visible in UI
+- [x] All tests pass
 
 ---
 
@@ -249,3 +257,54 @@ None
 | Session file size increase | Configurable limits on stored tool calls |
 | Context token budget exceeded | Respect max_tokens config, truncate if needed |
 | Backward compatibility | Handle missing tool_calls field gracefully |
+
+---
+
+## 9. Design Decisions Log
+
+### Decision: Tool Call Placement Within Messages
+**Date:** 2026-03-02  
+**Decision:** Store `insert_position` and `sequence` in `ToolCallRecord` to track exactly where within a message's text the tool execution occurred.
+
+**Rationale:**
+- Enables accurate reconstruction of conversation flow when displaying messages
+- Supports multiple tool calls at the same position (ordered by sequence)
+- Maintains relationship between text and tool execution for context assembly
+
+**Impact:**
+- `ToolCallRecord` includes two additional integer fields
+- Storage format includes these fields in JSON
+- Loading code must handle backward compatibility (missing fields default to 0)
+
+### Decision: Attach Tool Calls to Assistant Messages
+**Date:** 2026-03-02  
+**Decision:** Tool calls are stored on the assistant message that generated them, not as separate messages.
+
+**Rationale:**
+- Natural mapping: the assistant message at idx=X with `tool_calls` triggered those tools
+- Tool results follow as separate messages (idx=X+1, X+2, etc.)
+- Enables easy lookup of which assistant response triggered which tools
+
+**Example:**
+```
+idx=0: User message
+idx=1: Assistant message with tool_calls=[...]  ← Tools triggered here
+idx=2: Tool result (bash output)
+idx=3: Assistant final response
+```
+
+### Decision: Capture via Existing Callback
+**Date:** 2026-03-02  
+**Decision:** Use the existing `tool_callback` mechanism in `Alfred.chat_stream()` to capture tool calls, avoiding changes to the Agent class.
+
+**Rationale:**
+- Agent already emits `ToolStart`, `ToolOutput`, `ToolEnd` events
+- Can accumulate tool call data and attach to assistant message when saved
+- Minimizes changes to core agent loop
+- Existing event data provides all needed information (id, name, args, output, status)
+
+**Implementation:**
+1. Track `full_response` length when `ToolStart` fires → that's `insert_position`
+2. Accumulate tool output from `ToolOutput` chunks
+3. On `ToolEnd`, create `ToolCallRecord` with complete data
+4. When assistant message saved, include accumulated `tool_calls` list

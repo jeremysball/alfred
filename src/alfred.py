@@ -7,7 +7,7 @@ from typing import Any
 
 from telegram import Bot
 
-from src.agent import Agent, ToolEvent
+from src.agent import Agent, ToolEnd, ToolEvent, ToolOutput, ToolStart
 from src.config import Config
 from src.context import ContextLoader
 from src.cron.notifier import CLINotifier, Notifier, TelegramNotifier
@@ -17,7 +17,7 @@ from src.embeddings import EmbeddingClient
 from src.llm import ChatMessage, LLMFactory
 from src.memory import MemoryStore
 from src.search import MemorySearcher
-from src.session import SessionManager
+from src.session import Session, SessionManager, ToolCallRecord
 from src.session_storage import SessionStorage
 from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
@@ -260,11 +260,16 @@ class Alfred:
 
         # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
-        session_messages = self._get_session_messages_for_context(session_id)
+        session_messages = self.session_manager.get_messages_for_context(session_id)
+        # Get full messages with tool_calls for context
+        session_messages_with_tools = (
+            self.session_manager.get_messages_with_tools_for_context(session_id)
+        )
         system_prompt, memories_count = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
             session_messages=session_messages,
+            session_messages_with_tools=session_messages_with_tools,
         )
         system_prompt = self._build_system_prompt(system_prompt)
 
@@ -280,22 +285,117 @@ class Alfred:
         )
 
         logger.debug("Starting agent loop...")
-        full_response = []
+
+        # Accumulator for tool calls during this turn
+        tool_calls_accumulator: list[dict[str, Any]] = []
+        full_response: list[str] = []
+
+        def _tool_callback_wrapper(event: ToolEvent) -> None:
+            """Wrapper to capture tool calls while still calling external callback."""
+            nonlocal full_response
+
+            # Call external callback if provided
+            if tool_callback:
+                tool_callback(event)
+
+            # Capture tool call data
+            if isinstance(event, ToolStart):
+                # Calculate insert position based on current response length
+                insert_position = len("".join(full_response))
+
+                # Find sequence number for tools at same position
+                sequence = sum(
+                    1 for tc in tool_calls_accumulator
+                    if tc.get("insert_position") == insert_position
+                )
+
+                tool_calls_accumulator.append({
+                    "tool_call_id": event.tool_call_id,
+                    "tool_name": event.tool_name,
+                    "arguments": event.arguments,
+                    "output_chunks": [],
+                    "insert_position": insert_position,
+                    "sequence": sequence,
+                    "is_error": False,
+                })
+
+            elif isinstance(event, ToolOutput):
+                # Find matching tool call and append output
+                for tc in tool_calls_accumulator:
+                    if tc["tool_call_id"] == event.tool_call_id:
+                        tc["output_chunks"].append(event.chunk)
+                        break
+
+            elif isinstance(event, ToolEnd):
+                # Finalize tool call with status
+                for tc in tool_calls_accumulator:
+                    if tc["tool_call_id"] == event.tool_call_id:
+                        tc["is_error"] = event.is_error
+                        break
+
         async for chunk in self.agent.run_stream(
             messages,
             system_prompt,
             usage_callback=self._on_usage,
-            tool_callback=tool_callback,
+            tool_callback=_tool_callback_wrapper,
         ):
             full_response.append(chunk)
             yield chunk
 
-        # Add assistant response to session and get its index
+        # Build ToolCallRecord objects from accumulated data
+        tool_calls: list[ToolCallRecord] | None = None
+        if tool_calls_accumulator:
+            tool_calls = [
+                ToolCallRecord(
+                    tool_call_id=tc["tool_call_id"],
+                    tool_name=tc["tool_name"],
+                    arguments=tc["arguments"],
+                    output="".join(tc["output_chunks"]),
+                    status="error" if tc["is_error"] else "success",
+                    insert_position=tc["insert_position"],
+                    sequence=tc["sequence"],
+                )
+                for tc in tool_calls_accumulator
+            ]
+
+        # Add assistant response to session with tool calls
         assistant_message = "".join(full_response)
-        self.session_manager.add_message("assistant", assistant_message, session_id=session_id)
+
+        # Create message manually to include tool_calls
+        from datetime import UTC, datetime
+
+        from src.session import Message, Role
+
         messages_list = self.session_manager.get_session_messages(session_id)
-        assistant_msg_idx = messages_list[-1].idx if messages_list else 0
-        msg_count = len(messages_list)
+        idx = messages_list[-1].idx + 1 if messages_list else 0
+
+        assistant_msg_obj = Message(
+            idx=idx,
+            role=Role.ASSISTANT,
+            content=assistant_message,
+            timestamp=datetime.now(UTC),
+            tool_calls=tool_calls,
+        )
+
+        # Get session and append message
+        session: Session
+        if session_id:
+            session = self.session_manager.get_or_create_session(session_id)
+        else:
+            maybe_session = self.session_manager.get_current_cli_session()
+            if maybe_session is None:
+                raise RuntimeError("No active session")
+            session = maybe_session
+
+        session.messages.append(assistant_msg_obj)
+        session.meta.last_active = datetime.now(UTC)
+        session.meta.current_count += 1
+
+        # Persist to storage
+        self.session_manager._spawn_persist_task(session.meta.session_id, assistant_msg_obj)
+
+        assistant_msg_idx = assistant_msg_obj.idx
+        msg_count = len(session.messages)
         logger.debug(f"Added assistant message. Session now has {msg_count} messages")
 
         # Store actual token counts with the messages
@@ -376,33 +476,6 @@ You can then continue the conversation with the tool results.
         """Trigger conversation compaction."""
         # TODO: Implement in M9
         return "Compaction not yet implemented"
-
-    def _get_session_messages_for_context(
-        self, session_id: str | None = None
-    ) -> list[tuple[str, str]]:
-        """Get session messages formatted for context injection.
-
-        Args:
-            session_id: Optional session ID. If None, uses current CLI session.
-
-        Returns:
-            List of (role, content) tuples for session history.
-        """
-        if session_id:
-            # Telegram mode - get specific session
-            messages = self.session_manager.get_session_messages(session_id)
-        else:
-            # CLI mode - get current CLI session
-            if not self.session_manager.has_active_session():
-                return []
-            messages = self.session_manager.get_messages()
-
-        # Convert to (role, content) tuples, excluding the most recent user message
-        # (which is the current query being processed)
-        result = []
-        for msg in messages[:-1] if messages else []:  # Exclude last (current) message
-            result.append((msg.role.value, msg.content))
-        return result
 
     async def start(self) -> None:
         """Start Alfred and all subsystems.

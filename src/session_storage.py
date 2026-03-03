@@ -21,7 +21,7 @@ from pathlib import Path
 import aiofiles
 
 from src.embeddings import EmbeddingClient
-from src.session import Message, Role, Session, SessionMeta
+from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
 
 
 class SessionStorage:
@@ -161,6 +161,28 @@ class SessionStorage:
                         deltas[idx][key] = data[key]
         return deltas
 
+    def _load_tool_calls(self, data: dict) -> list[ToolCallRecord] | None:
+        """Load tool calls from message data.
+
+        Returns None if no tool_calls field (backward compatibility).
+        """
+        tool_calls_data = data.get("tool_calls")
+        if not tool_calls_data:
+            return None
+
+        return [
+            ToolCallRecord(
+                tool_call_id=tc["tool_call_id"],
+                tool_name=tc["tool_name"],
+                arguments=tc["arguments"],
+                output=tc["output"],
+                status=tc["status"],
+                insert_position=tc.get("insert_position", 0),
+                sequence=tc.get("sequence", 0),
+            )
+            for tc in tool_calls_data
+        ]
+
     def load_messages(self, session_id: str) -> list[Message]:
         """Load messages from current.jsonl and merge token deltas."""
         messages_path = self.sessions_dir / session_id / "current.jsonl"
@@ -182,6 +204,9 @@ class SessionStorage:
                 # Get token deltas for this message (if any)
                 deltas = token_deltas.get(idx, {})
 
+                # Load tool calls (handles backward compatibility)
+                tool_calls = self._load_tool_calls(data)
+
                 messages.append(
                     Message(
                         idx=idx,
@@ -201,26 +226,55 @@ class SessionStorage:
                         reasoning_tokens=deltas.get(
                             "reasoning_tokens", data.get("reasoning_tokens", 0)
                         ),
+                        tool_calls=tool_calls,
                     )
                 )
         return messages
 
+    def _serialize_tool_calls(self, tool_calls: list[ToolCallRecord] | None) -> list[dict] | None:
+        """Serialize tool calls to JSON-compatible format.
+
+        Returns None if tool_calls is None or empty.
+        """
+        if not tool_calls:
+            return None
+
+        return [
+            {
+                "tool_call_id": tc.tool_call_id,
+                "tool_name": tc.tool_name,
+                "arguments": tc.arguments,
+                "output": tc.output,
+                "status": tc.status,
+                "insert_position": tc.insert_position,
+                "sequence": tc.sequence,
+            }
+            for tc in tool_calls
+        ]
+
     async def append_message(self, session_id: str, message: Message) -> None:
         """Append message to current.jsonl."""
         messages_path = self.sessions_dir / session_id / "current.jsonl"
-        line = json.dumps(
-            {
-                "idx": message.idx,
-                "role": message.role.value,
-                "content": message.content,
-                "timestamp": message.timestamp.isoformat(),
-                "embedding": message.embedding,
-                "input_tokens": message.input_tokens,
-                "output_tokens": message.output_tokens,
-                "cached_tokens": message.cached_tokens,
-                "reasoning_tokens": message.reasoning_tokens,
-            }
-        )
+
+        # Build message data
+        data: dict = {
+            "idx": message.idx,
+            "role": message.role.value,
+            "content": message.content,
+            "timestamp": message.timestamp.isoformat(),
+            "embedding": message.embedding,
+            "input_tokens": message.input_tokens,
+            "output_tokens": message.output_tokens,
+            "cached_tokens": message.cached_tokens,
+            "reasoning_tokens": message.reasoning_tokens,
+        }
+
+        # Add tool_calls if present
+        tool_calls_data = self._serialize_tool_calls(message.tool_calls)
+        if tool_calls_data:
+            data["tool_calls"] = tool_calls_data
+
+        line = json.dumps(data)
         async with aiofiles.open(messages_path, "a") as f:
             await f.write(line + "\n")
 
@@ -245,19 +299,25 @@ class SessionStorage:
         # Rewrite the file
         async with aiofiles.open(messages_path, "w") as f:
             for msg in messages:
-                line = json.dumps(
-                    {
-                        "idx": msg.idx,
-                        "role": msg.role.value,
-                        "content": msg.content,
-                        "timestamp": msg.timestamp.isoformat(),
-                        "embedding": msg.embedding,
-                        "input_tokens": msg.input_tokens,
-                        "output_tokens": msg.output_tokens,
-                        "cached_tokens": msg.cached_tokens,
-                        "reasoning_tokens": msg.reasoning_tokens,
-                    }
-                )
+                # Build message data
+                data: dict = {
+                    "idx": msg.idx,
+                    "role": msg.role.value,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat(),
+                    "embedding": msg.embedding,
+                    "input_tokens": msg.input_tokens,
+                    "output_tokens": msg.output_tokens,
+                    "cached_tokens": msg.cached_tokens,
+                    "reasoning_tokens": msg.reasoning_tokens,
+                }
+
+                # Add tool_calls if present
+                tool_calls_data = self._serialize_tool_calls(msg.tool_calls)
+                if tool_calls_data:
+                    data["tool_calls"] = tool_calls_data
+
+                line = json.dumps(data)
                 await f.write(line + "\n")
 
     async def update_message_tokens(

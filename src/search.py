@@ -154,6 +154,12 @@ class ContextBuilder:
         memories: list[MemoryEntry],
         system_prompt: str,
         session_messages: list[tuple[str, str]] | None = None,
+        session_messages_with_tools: list | None = None,
+        tool_calls_enabled: bool = True,
+        tool_calls_max_calls: int = 5,
+        tool_calls_max_tokens: int = 2000,
+        tool_calls_include_output: bool = True,
+        tool_calls_include_arguments: bool = True,
     ) -> tuple[str, int]:
         """Build full context with relevant memories and session history injected.
 
@@ -162,6 +168,12 @@ class ContextBuilder:
             memories: All available memories (caller loads these)
             system_prompt: Base system prompt from context files
             session_messages: Optional list of (role, content) tuples from current session
+            session_messages_with_tools: Optional list of Message objects with tool_calls
+            tool_calls_enabled: Whether to include tool calls in context
+            tool_calls_max_calls: Maximum number of tool calls to include
+            tool_calls_max_tokens: Maximum tokens for tool calls section
+            tool_calls_include_output: Whether to include tool output
+            tool_calls_include_arguments: Whether to include tool arguments
 
         Returns:
             Tuple of (context_string, memories_count) where:
@@ -180,13 +192,31 @@ class ContextBuilder:
         # Build session history section
         session_section = self._format_session_messages(session_messages or [])
 
+        # Build tool calls section (if enabled and messages provided)
+        tool_calls_section = ""
+        if tool_calls_enabled and session_messages_with_tools:
+            tool_calls_section = self._format_tool_calls(
+                session_messages_with_tools,
+                max_calls=tool_calls_max_calls,
+                max_tokens=tool_calls_max_tokens,
+                include_output=tool_calls_include_output,
+                include_arguments=tool_calls_include_arguments,
+            )
+
         # Combine parts
         parts = [
             system_prompt,
             memory_section,
+        ]
+
+        # Add tool calls section if present
+        if tool_calls_section:
+            parts.append(tool_calls_section)
+
+        parts.extend([
             session_section,
             "## CURRENT CONVERSATION\n",
-        ]
+        ])
 
         context = "\n\n".join(parts)
 
@@ -194,8 +224,13 @@ class ContextBuilder:
         token_count = approximate_tokens(context)
         mem_count = len(relevant)
         sess_count = len(session_messages or [])
+        tool_calls_count = len([
+            m for m in (session_messages_with_tools or [])
+            if hasattr(m, 'tool_calls') and m.tool_calls
+        ])
         logger.info(
-            f"Context: {token_count} tokens ({mem_count} memories, {sess_count} session msg)"
+            f"Context: {token_count} tokens ({mem_count} memories, {sess_count} "
+            f"session msg, {tool_calls_count} with tool calls)"
         )
 
         if token_count > self.memory_budget:
@@ -236,6 +271,93 @@ class ContextBuilder:
             lines.append(f"{display_role}: {content}")
 
         return "\n".join(lines)
+
+    def _format_tool_calls(
+        self,
+        messages: list,
+        max_calls: int = 5,
+        max_tokens: int = 2000,
+        include_output: bool = True,
+        include_arguments: bool = True,
+    ) -> str:
+        """Format tool calls section for context.
+
+        Args:
+            messages: List of Message objects (may have tool_calls attribute)
+            max_calls: Maximum number of tool calls to include
+            max_tokens: Maximum tokens for tool calls section
+            include_output: Whether to include tool output
+            include_arguments: Whether to include tool arguments
+
+        Returns:
+            Formatted tool calls section, or empty string if no tool calls
+        """
+        # Collect all tool calls from messages
+        all_tool_calls = []
+        for msg in messages:
+            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    all_tool_calls.append(tc)
+
+        if not all_tool_calls:
+            return ""
+
+        # Limit to max_calls (take most recent = last ones)
+        if len(all_tool_calls) > max_calls:
+            tool_calls = all_tool_calls[-max_calls:]
+        else:
+            tool_calls = all_tool_calls
+
+        lines = ["## RECENT TOOL CALLS\n"]
+
+        for i, tc in enumerate(tool_calls, 1):
+            # Format tool call info
+            status_indicator = "✓" if tc.status == "success" else "✗"
+
+            # Format arguments
+            if include_arguments and tc.arguments:
+                # Format as key=value pairs for readability
+                args_str = ", ".join(f"{k}={v}" for k, v in tc.arguments.items())
+                args_str = args_str[:100]  # Limit arg length
+                tool_line = f"{i}. {status_indicator} {tc.tool_name}: {args_str}"
+            else:
+                tool_line = f"{i}. {status_indicator} {tc.tool_name}"
+
+            lines.append(tool_line)
+
+            # Include output if enabled
+            if include_output and tc.output:
+                output = tc.output.strip()
+                # Truncate long output
+                if len(output) > 200:
+                    output = output[:200] + "..."
+                # Indent output
+                for output_line in output.split("\n")[:5]:  # Limit to 5 lines
+                    lines.append(f"   {output_line}")
+
+        result = "\n".join(lines)
+
+        # Check token budget and truncate if needed
+        if approximate_tokens(result) > max_tokens:
+            # Simple truncation: keep header and as many calls as fit
+            header = "## RECENT TOOL CALLS\n"
+            header_tokens = approximate_tokens(header)
+            available_tokens = max_tokens - header_tokens
+
+            truncated_lines = [header]
+            current_tokens = 0
+
+            for line in lines[1:]:  # Skip header, already added
+                line_tokens = approximate_tokens(line)
+                if current_tokens + line_tokens > available_tokens:
+                    truncated_lines.append("   ... (truncated)")
+                    break
+                truncated_lines.append(line)
+                current_tokens += line_tokens
+
+            result = "\n".join(truncated_lines)
+
+        return result
 
     def _format_memories(
         self,

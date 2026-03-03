@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from src.session_storage import SessionStorage
@@ -34,6 +34,29 @@ class Role(Enum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+@dataclass
+class ToolCallRecord:
+    """Record of a tool call execution within a message.
+
+    Attributes:
+        tool_call_id: Unique identifier for this tool call
+        tool_name: Name of the tool (e.g., "bash", "read")
+        arguments: Dictionary of arguments passed to the tool
+        output: Complete output from the tool execution
+        status: Execution status ("success" or "error")
+        insert_position: Character position in message.content where tool occurred
+        sequence: Ordering when multiple tools at same position
+    """
+
+    tool_call_id: str
+    tool_name: str
+    arguments: dict[str, Any]
+    output: str
+    status: Literal["success", "error"]
+    insert_position: int = 0
+    sequence: int = 0
 
 
 @dataclass
@@ -51,6 +74,7 @@ class Message:
     )
     cached_tokens: int = 0  # Cache read tokens from LLM usage
     reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
+    tool_calls: list[ToolCallRecord] | None = None  # Tool calls made during this message
 
 
 @dataclass
@@ -252,6 +276,57 @@ class SessionManager:
     def get_messages(self) -> list[Message]:
         """Get all messages from current CLI session. Backwards-compatible."""
         return self.get_session_messages()
+
+    def get_messages_for_context(
+        self, session_id: str | None = None
+    ) -> list[tuple[str, str]]:
+        """Get session messages formatted for context injection.
+
+        Returns messages as (role, content) tuples, excluding the most
+        recent user message (which is the current query being processed).
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
+
+        Returns:
+            List of (role, content) tuples for session history.
+        """
+        if session_id:
+            messages = self.get_session_messages(session_id)
+        else:
+            if not self.has_active_session():
+                return []
+            messages = self.get_messages()
+
+        # Convert to (role, content) tuples, excluding the most recent user message
+        result = []
+        for msg in messages[:-1] if messages else []:  # Exclude last (current) message
+            result.append((msg.role.value, msg.content))
+        return result
+
+    def get_messages_with_tools_for_context(
+        self, session_id: str | None = None
+    ) -> list[Message]:
+        """Get full session messages with tool_calls for context injection.
+
+        Returns full Message objects (may have tool_calls attribute),
+        excluding the most recent user message.
+
+        Args:
+            session_id: Optional session ID. If None, uses current CLI session.
+
+        Returns:
+            List of Message objects.
+        """
+        if session_id:
+            messages = self.get_session_messages(session_id)
+        else:
+            if not self.has_active_session():
+                return []
+            messages = self.get_messages()
+
+        # Return full message objects, excluding the most recent user message
+        return list(messages[:-1] if messages else [])
 
     def _spawn_persist_task(self, session_id: str, message: Message) -> None:
         """Spawn background task to persist message (if event loop running)."""
