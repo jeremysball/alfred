@@ -1,0 +1,251 @@
+# PRD: Tool Call Persistence and Context Visibility
+
+**GitHub Issue**: #101  
+**Priority**: High  
+**Status**: Planning
+
+---
+
+## 1. Problem Statement
+
+### 1.1 Invisible Tool Execution
+Currently, when Alfred uses tools to answer a question, the tool calls are not persisted in session history. Users see:
+
+```
+User: What files are in /tmp?
+Assistant: I found 3 files in /tmp: a.txt, b.txt, c.txt
+```
+
+But they **don't see** that the assistant used the `bash` tool with `ls /tmp` to get that answer. This makes it impossible to:
+- Debug what tools were used
+- Understand how answers were derived
+- Learn from past tool usage patterns
+
+### 1.2 Lost Context
+Tool calls and their outputs contain valuable context that could help the LLM in subsequent turns. Currently this context is lost after each turn.
+
+### 1.3 No Context Inspection
+Users have no way to see what Alfred currently "knows" - the system prompt, memories, and recent conversation context are invisible.
+
+---
+
+## 2. Solution Overview
+
+### 2.1 Persist Tool Calls
+Add `tool_calls` field to the Message dataclass and persist tool execution in session storage.
+
+### 2.2 Include Tool Calls in Context
+When building context for the LLM, include recent tool calls (configurable: last X calls or up to Y tokens).
+
+### 2.3 Context Visibility Command
+Add `/context` command that outputs the current system context as a system message in the chat.
+
+### 2.4 Enhanced Tool Display
+Show tool parameters as the first line inside the tool box for immediate visibility.
+
+---
+
+## 3. Detailed Requirements
+
+### 3.1 Message DTO Extension
+
+**Current Message dataclass:**
+```python
+@dataclass
+class Message:
+    idx: int
+    role: Role
+    content: str
+    timestamp: datetime
+    embedding: list[float] | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_tokens: int = 0
+    reasoning_tokens: int = 0
+```
+
+**New Message dataclass:**
+```python
+@dataclass
+class ToolCallRecord:
+    tool_call_id: str
+    tool_name: str
+    arguments: dict[str, Any]
+    output: str
+    status: Literal["success", "error"]
+
+@dataclass
+class Message:
+    idx: int
+    role: Role
+    content: str
+    timestamp: datetime
+    embedding: list[float] | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_tokens: int = 0
+    reasoning_tokens: int = 0
+    tool_calls: list[ToolCallRecord] | None = None  # NEW
+```
+
+### 3.2 Session Storage Format
+
+Tool calls stored in `current.jsonl`:
+```json
+{
+  "idx": 5,
+  "role": "assistant",
+  "content": "I found 3 files in /tmp...",
+  "timestamp": "2026-03-02T20:00:00Z",
+  "tool_calls": [
+    {
+      "tool_call_id": "call_abc123",
+      "tool_name": "bash",
+      "arguments": {"command": "ls /tmp"},
+      "output": "a.txt\nb.txt\nc.txt",
+      "status": "success"
+    }
+  ]
+}
+```
+
+### 3.3 Context Assembly with Tool Calls
+
+**Config options:**
+```toml
+[context.tool_calls]
+max_calls = 5          # Include last N tool calls
+max_tokens = 2000      # Or up to N tokens (whichever is smaller)
+include_output = true  # Include tool output or just call info
+```
+
+**Context format:**
+```
+## RECENT TOOL CALLS
+
+1. bash: ls /tmp
+   Output: a.txt, b.txt, c.txt
+
+2. search_memories: "project setup"
+   Output: Found 3 memories...
+```
+
+### 3.4 Tool Box Enhancement
+
+**Current display:**
+```
+┌─ bash ─────────────────┐
+│                        │
+│ a.txt                  │
+│ b.txt                  │
+│ c.txt                  │
+└────────────────────────┘
+```
+
+**Enhanced display:**
+```
+┌─ bash ─────────────────┐
+│ ls /tmp                │
+│                        │
+│ a.txt                  │
+│ b.txt                  │
+│ c.txt                  │
+└────────────────────────┘
+```
+
+### 3.5 /context Command
+
+**Usage:** `/context`
+
+**Output:** System message showing:
+- System prompt (AGENTS.md + SOUL.md + USER.md + TOOLS.md)
+- Relevant memories (summarized)
+- Recent conversation history
+- Recent tool calls
+- Token counts for each section
+
+---
+
+## 4. Implementation Milestones
+
+### Milestone 1: Tool Call Persistence
+
+- [ ] Add `ToolCallRecord` dataclass
+- [ ] Add `tool_calls` field to Message dataclass
+- [ ] Update session storage serialization/deserialization
+- [ ] Update Alfred to capture and store tool calls
+- [ ] Test: Tool calls persisted in current.jsonl
+
+### Milestone 2: Context Assembly with Tool Calls
+
+- [ ] Add `[context.tool_calls]` config section
+- [ ] Update ContextBuilder to include tool calls
+- [ ] Implement token budget for tool calls in context
+- [ ] Test: Tool calls included in LLM context
+
+### Milestone 3: Tool Box Enhancement
+
+- [ ] Modify message_panel.py to show arguments first
+- [ ] Format arguments as JSON or key=value pairs
+- [ ] Test: Arguments visible in tool box
+
+### Milestone 4: /context Command
+
+- [ ] Add `/context` command handler
+- [ ] Format system context for display
+- [ ] Show token counts per section
+- [ ] Test: Context displays correctly
+
+### Milestone 5: Integration and Cleanup
+
+- [ ] All tests pass
+- [ ] Documentation updated
+- [ ] PR merged
+
+---
+
+## 5. File Changes
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `src/session.py` | Add ToolCallRecord, update Message |
+| `src/session_storage.py` | Serialize/deserialize tool_calls |
+| `src/alfred.py` | Capture tool calls from agent |
+| `src/context.py` | Include tool calls in context |
+| `src/config.py` | Add tool_calls config section |
+| `src/interfaces/cli.py` | Add /context command |
+| `src/interfaces/pypitui/message_panel.py` | Show arguments first |
+| `templates/config.toml` | Add tool_calls config defaults |
+
+### New Files
+None
+
+---
+
+## 6. Testing Strategy
+
+- Unit tests for serialization/deserialization
+- Integration tests for context assembly
+- Manual testing for /context command
+- Manual testing for tool box display
+
+---
+
+## 7. Success Criteria
+
+- [ ] Tool calls visible in session history
+- [ ] Tool calls included in LLM context
+- [ ] /context command works
+- [ ] Tool arguments visible in UI
+- [ ] All tests pass
+
+---
+
+## 8. Risks and Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Session file size increase | Configurable limits on stored tool calls |
+| Context token budget exceeded | Respect max_tokens config, truncate if needed |
+| Backward compatibility | Handle missing tool_calls field gracefully |
