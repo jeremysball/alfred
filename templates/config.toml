@@ -1,0 +1,23 @@
+# Alfred Configuration
+# Located at: $XDG_CONFIG_HOME/alfred/config.toml
+
+[provider]
+default = "kimi"
+chat_model = "kimi-k2-5"
+
+[embeddings]
+model = "text-embedding-3-small"
+
+[memory]
+# Token budget for memory search context (not model context window)
+# This is how many tokens of memories to include in the prompt
+budget = 32000
+
+[search]
+min_similarity = 0.3
+recency_half_life_days = 30
+
+[ui.status_line]
+# Width thresholds for responsive layout
+compact_threshold = 50
+full_threshold = 80
