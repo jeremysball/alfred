@@ -197,25 +197,18 @@ display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 - [x] Commit
 
 #### 1.5 Config Class TOML Loading
-- [ ] Test: `test_load_config_reads_toml()` - verify `load_config()` parses TOML file
-- [ ] Implement: Replace JSON loading with TOML parsing in `load_config()`
-- [ ] Test: `test_config_default_llm_provider_from_toml()` - verify nested `[provider]` section loads
-- [ ] Implement: Update `Config` class to read nested TOML sections
-- [ ] Commit
+- [x] Test: `test_load_config_reads_toml()` - verify `load_config()` parses TOML file
+- [x] Implement: Replace JSON loading with TOML parsing in `load_config()`
+- [x] Test: `test_config_default_llm_provider_from_toml()` - verify nested `[provider]` section loads
+- [x] Implement: Update `Config` class to read nested TOML sections
+- [x] Commit
 
 #### 1.6 Memory Budget Field
-- [ ] Test: `test_config_has_memory_budget_field()` - verify `Config.memory_budget` exists
-- [ ] Implement: Add `memory_budget: int = 32000` to `Config` class
-- [ ] Test: `test_memory_budget_loads_from_toml()` - verify `[memory]` section `budget` key loads
-- [ ] Implement: Map `memory.budget` TOML key to `memory_budget` field
-- [ ] Commit
-
-#### 1.7 Backward Compatibility
-- [ ] Test: `test_load_config_falls_back_to_json()` - verify `config.json` read when `config.toml` missing
-- [ ] Implement: Check for TOML first, fallback to JSON if not found
-- [ ] Test: `test_load_config_prefers_toml_over_json()` - verify TOML takes precedence when both exist
-- [ ] Implement: TOML priority logic
-- [ ] Commit
+- [x] Test: `test_config_has_memory_budget_field()` - verify `Config.memory_budget` exists
+- [x] Implement: Add `memory_budget: int = 32000` to `Config` class
+- [x] Test: `test_memory_budget_loads_from_toml()` - verify `[memory]` section `budget` key loads
+- [x] Implement: Map `memory.budget` TOML key to `memory_budget` field
+- [x] Commit
 
 **Success Criteria:**
 - Config loads from TOML file in XDG config directory
