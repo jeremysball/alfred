@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 APP_NAME = "alfred"
 
 # Default paths (bundled with package)
-BUNDLED_CONFIG = Path(__file__).parent.parent / "config.json"
 BUNDLED_TEMPLATES = Path(__file__).parent.parent / "templates"
 
 
@@ -40,11 +39,6 @@ def get_data_dir() -> Path:
     if xdg_data:
         return Path(xdg_data) / APP_NAME
     return Path.home() / ".local" / "share" / APP_NAME
-
-
-def get_config_path() -> Path:
-    """Get path to config.json in XDG config directory."""
-    return get_config_dir() / "config.json"
 
 
 def get_config_toml_path() -> Path:
@@ -76,7 +70,7 @@ def init_xdg_directories() -> None:
         - $XDG_DATA_HOME/alfred/memory/
 
     Copies bundled files only if they don't exist:
-        - config.json -> $XDG_CONFIG_HOME/alfred/config.json
+        - config.toml -> $XDG_CONFIG_HOME/alfred/config.toml
         - templates/* -> $XDG_DATA_HOME/alfred/workspace/* (as data files)
     """
     # Create directories
@@ -94,17 +88,6 @@ def init_xdg_directories() -> None:
     logger.debug(f"Data directory: {data_dir}")
     logger.debug(f"Workspace directory: {workspace_dir}")
     logger.debug(f"Memory directory: {memory_dir}")
-
-    # Copy config if missing
-    config_path = get_config_path()
-    if not config_path.exists() and BUNDLED_CONFIG.exists():
-        try:
-            shutil.copy2(BUNDLED_CONFIG, config_path)
-            logger.info(f"Created default config: {config_path}")
-        except Exception as e:
-            logger.warning(f"Failed to copy default config: {e}")
-    elif config_path.exists():
-        logger.debug(f"Using existing config: {config_path}")
 
     # Copy config.toml template if missing
     config_toml_path = get_config_toml_path()

@@ -10,11 +10,15 @@ Shows ALL display lines at once, with cursor on the appropriate line.
 """
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
 from src.interfaces.pypitui.ansi import RESET, REVERSE
+
+if TYPE_CHECKING:
+    from .completion_menu_component import CompletionMenuComponent
 
 
 class WrappedInput(Component, Focusable):
@@ -57,6 +61,7 @@ class WrappedInput(Component, Focusable):
         # Hook filters for composable behaviors
         self._input_hooks: list[Callable[[str], bool]] = []
         self._render_hooks: list[Callable[[list[str], int], list[str]]] = []
+        self._post_input_hooks: list[Callable[[], None]] = []
 
     def add_input_hook(self, hook_fn: Callable[[str], bool]) -> None:
         """Register an input filter.
@@ -79,12 +84,26 @@ class WrappedInput(Component, Focusable):
         """
         self._render_hooks.append(hook_fn)
 
+    def add_post_input_hook(self, hook_fn: Callable[[], None]) -> None:
+        """Register a hook that runs after input is processed.
+
+        Use this when you need to react to input changes after the value
+        has been updated (e.g., for completion menus).
+
+        Args:
+            hook_fn: Function taking no arguments, called after input processing.
+        """
+        self._post_input_hooks.append(hook_fn)
+
     def with_completion(
         self,
         provider: Callable[[str], list[tuple[str, str | None]]],
         trigger: str = "/",
     ) -> "WrappedInput":
-        """Add command completion with fluent API.
+        """Add command completion with fluent API (legacy render hook approach).
+
+        DEPRECATED: Use with_completion_component() instead for proper
+        component-based rendering.
 
         Attaches a CompletionAddon to this input for command completion.
         Returns self for chaining.
@@ -96,19 +115,46 @@ class WrappedInput(Component, Focusable):
 
         Returns:
             Self for method chaining.
-
-        Example:
-            def my_provider(text: str) -> list[tuple[str, str | None]]:
-                if text.startswith("/"):
-                    return [("/new", "New session"), ("/resume", "Resume")]
-                return []
-
-            input_field = WrappedInput().with_completion(my_provider)
         """
         # Import here to avoid circular imports
         from src.interfaces.pypitui.completion_addon import CompletionAddon
+        from src.interfaces.pypitui.completion_menu_component import (
+            CompletionMenuComponent,
+        )
 
-        CompletionAddon(self, provider, trigger=trigger)
+        # Create a menu component that won't be added to layout (render hook mode)
+        menu = CompletionMenuComponent()
+        CompletionAddon(self, provider, menu, trigger=trigger)
+        return self
+
+    def with_completion_component(
+        self,
+        provider: Callable[[str], list[tuple[str, str | None]]],
+        menu_component: "CompletionMenuComponent",
+        trigger: str = "/",
+    ) -> "WrappedInput":
+        """Add command completion using a separate menu component.
+
+        The menu_component must be added to the TUI layout separately.
+        It will be shown/hidden based on input changes.
+
+        Args:
+            provider: Function that takes current text and returns
+                     list of (value, description) tuples.
+            menu_component: CompletionMenuComponent to control (must be in layout).
+            trigger: Character that triggers completion (default: "/").
+
+        Returns:
+            Self for method chaining.
+
+        Example:
+            menu = CompletionMenuComponent()
+            tui.add_child(menu)  # Add to layout
+            input_field.with_completion_component(my_provider, menu, trigger="/")
+        """
+        from src.interfaces.pypitui.completion_addon import CompletionAddon
+
+        CompletionAddon(self, provider, menu_component, trigger=trigger)
         return self
 
     @property
@@ -305,6 +351,11 @@ class WrappedInput(Component, Focusable):
 
     def _on_submit(self, text: str) -> None:
         """Internal submit handler that forwards to external callback."""
+        # CRITICAL: Clear input BEFORE calling on_submit to prevent race condition.
+        # pypitui's Input calls on_submit but doesn't clear _text until after.
+        # If new terminal input arrives before on_submit returns, it appends to _text.
+        # We must clear now so any subsequent input starts fresh.
+        self._input.set_value("")
         if self.on_submit:
             self.on_submit(text)
 
@@ -341,6 +392,10 @@ class WrappedInput(Component, Focusable):
 
         # Delegate everything else to wrapped input
         self._input.handle_input(data)
+
+        # Run post-input hooks after value is updated
+        for hook_fn in self._post_input_hooks:
+            hook_fn()
 
         # Update display column after typing
         _, col = self._get_cursor_display_pos(self._last_width)

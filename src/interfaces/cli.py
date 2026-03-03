@@ -468,9 +468,6 @@ class CLIInterface:
             self.buffer.clear()
             self._is_streaming = True
 
-            self.buffer.clear()
-            self._is_streaming = True
-
             try:
                 with Live(
                     console=self.console,
