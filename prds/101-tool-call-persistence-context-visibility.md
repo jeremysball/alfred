@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #101  
 **Priority**: High  
-**Status**: In Progress (Milestone 1 Complete)
+**Status**: In Progress (Milestone 2 Complete)
 
 ---
 
@@ -186,10 +186,10 @@ include_output = true  # Include tool output or just call info
 
 ### Milestone 2: Context Assembly with Tool Calls
 
-- [ ] Add `[context.tool_calls]` config section
-- [ ] Update ContextBuilder to include tool calls
-- [ ] Implement token budget for tool calls in context
-- [ ] Test: Tool calls included in LLM context
+- [x] Add `[context.tool_calls]` config section
+- [x] Update ContextBuilder to include tool calls
+- [x] Implement token budget for tool calls in context
+- [x] Test: Tool calls included in LLM context
 
 ### Milestone 3: Tool Box Enhancement
 
