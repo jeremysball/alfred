@@ -76,14 +76,14 @@ class CompletionMenuComponent(Component):
         if not self._options:
             return
         self._selected_index = (self._selected_index + 1) % len(self._options)
-        self._child_invalidated(self)
+        self.invalidate()
 
     def move_up(self) -> None:
         """Move selection up, wrapping to bottom if at top."""
         if not self._options:
             return
         self._selected_index = (self._selected_index - 1) % len(self._options)
-        self._child_invalidated(self)
+        self.invalidate()
 
     def invalidate(self) -> None:
         """Invalidate cache and bubble up for targeted invalidation."""
@@ -96,9 +96,12 @@ class CompletionMenuComponent(Component):
             width: Total width including box borders.
 
         Returns:
-            List of rendered lines, or empty list if closed or no options.
+            List of rendered lines. Returns empty list when closed.
         """
-        if not self._is_open or not self._options or width < 3:
+        if width < 3:
+            return []
+
+        if not self._is_open or not self._options:
             return []
 
         visible_options = self._options[: self._max_height]

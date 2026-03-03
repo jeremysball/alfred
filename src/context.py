@@ -5,12 +5,34 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from src.config import Config
+from src.memory import MemoryEntry
 from src.search import ContextBuilder, MemorySearcher
 from src.templates import TemplateManager
-from src.types import AssembledContext, ContextFile, MemoryEntry
 
 logger = logging.getLogger(__name__)
+
+
+class ContextFile(BaseModel):
+    """A loaded context file with metadata."""
+
+    name: str
+    path: str
+    content: str
+    last_modified: datetime
+
+
+class AssembledContext(BaseModel):
+    """Complete assembled context for LLM prompt."""
+
+    agents: str
+    soul: str
+    user: str
+    tools: str
+    memories: list[MemoryEntry]
+    system_prompt: str  # Combined
 
 # Map context file names to template filenames
 CONTEXT_TO_TEMPLATE = {

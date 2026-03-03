@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from src.types import MemoryEntry
+from src.memory import MemoryEntry
 
 from .base import Tool
 

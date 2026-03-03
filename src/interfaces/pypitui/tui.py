@@ -110,6 +110,10 @@ class AlfredTUI:
         # Add input listener for queue navigation (ESC to cancel, UP/DOWN for history)
         self.tui.add_input_listener(self._input_listener)
 
+        # Track completion menu height for forced redraws when menu shrinks
+        # (pypitui's invalidate_component + clear_on_shrink don't work together)
+        self._completion_menu_height = 0
+
         # Initialize status line with current values
         self._update_status()
 
@@ -451,6 +455,21 @@ class AlfredTUI:
         self.conversation.add_child(msg)
         self.tui.request_render()
 
+    def _add_system_message(self, content: str) -> None:
+        """Add a system message panel to the conversation.
+
+        System messages are displayed with 'System' role and do not use
+        markdown rendering to preserve their pre-formatted output.
+        """
+        msg = MessagePanel(
+            role="system",
+            content=content,
+            terminal_width=self._terminal_width,
+            use_markdown=False,  # Disable markdown to preserve formatting
+        )
+        self.conversation.add_child(msg)
+        self.tui.request_render()
+
     def _cmd_new_session(self) -> bool:
         """Create a new session."""
         self._clear_conversation()
@@ -546,7 +565,7 @@ class AlfredTUI:
         from src.context_display import get_context_display
 
         if not self.alfred.session_manager.has_active_session():
-            self._add_user_message("No active session.")
+            self._add_system_message("No active session.")
             return True
 
         async def _fetch_and_display() -> None:
@@ -615,11 +634,11 @@ class AlfredTUI:
                 # Total
                 lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
 
-                # Add as system message
-                self._add_user_message("\n".join(lines))
+                # Add as system message (no markdown to preserve formatting)
+                self._add_system_message("\n".join(lines))
 
             except Exception as e:
-                self._add_user_message(f"Error displaying context: {e}")
+                self._add_system_message(f"Error displaying context: {e}")
 
         # Schedule async work on event loop (we're already in async context)
         try:
@@ -747,8 +766,24 @@ class AlfredTUI:
                 # Animate throbber during streaming
                 self.status_line.tick_throbber()
 
+                # Check if completion menu height changed (for forced redraw)
+                # pypitui's invalidate_component corrupts _previous_lines which breaks
+                # clear_on_shrink, so we force full redraw when menu shrinks
+                menu_options = len(self.completion_menu._options_prop)
+                menu_is_open = self.completion_menu.is_open
+                # Effective height: options (capped) + 2 borders when open, 0 when closed
+                effective_height = 0
+                if menu_is_open and menu_options > 0:
+                    effective_height = min(menu_options, self.completion_menu._max_height) + 2
+
+                force_render = False
+                if effective_height < self._completion_menu_height:
+                    # Menu height decreased - force full redraw to clear orphaned lines
+                    force_render = True
+                self._completion_menu_height = effective_height
+
                 # Render frame
-                self.tui.request_render()
+                self.tui.request_render(force=force_render)
                 self.tui.render_frame()
 
                 # Yield to event loop (~60fps)

@@ -5,7 +5,7 @@ from datetime import date, datetime
 import pytest
 
 from src.memory import MemoryStore
-from src.types import MemoryEntry
+from src.memory import MemoryEntry
 
 
 class MockEmbedder:

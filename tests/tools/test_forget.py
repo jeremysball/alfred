@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from src.tools.forget import ForgetTool, PendingDeletion
-from src.types import MemoryEntry
+from src.memory import MemoryEntry
 
 
 # ============================================================================

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from src.search import ContextBuilder, MemorySearcher, approximate_tokens
-from src.types import MemoryEntry
+from src.memory import MemoryEntry
 
 
 class TestApproximateTokens:

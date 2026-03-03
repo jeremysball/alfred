@@ -5,7 +5,7 @@ import math
 from datetime import datetime
 
 from src.embeddings import cosine_similarity
-from src.types import MemoryEntry
+from src.memory import MemoryEntry
 
 logger = logging.getLogger(__name__)
 

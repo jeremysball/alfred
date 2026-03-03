@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from src.search import ContextBuilder, MemorySearcher
 from src.session import Message, Role, ToolCallRecord
-from src.types import MemoryEntry
+from src.memory import MemoryEntry
 
 
 class TestToolCallsContextConfig:
