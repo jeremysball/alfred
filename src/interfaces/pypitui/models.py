@@ -13,9 +13,13 @@ class ToolCallInfo:
         status: Current status (running/success/error)
         insert_position: Character position in text where tool box appears
         sequence: Monotonic sequence number to order tools at same position
+        arguments: Tool arguments (dict of key=value pairs)
     """
 
-    __slots__ = ("tool_name", "tool_call_id", "output", "status", "insert_position", "sequence")
+    __slots__ = (
+        "tool_name", "tool_call_id", "output", "status",
+        "insert_position", "sequence", "arguments",
+    )
 
     def __init__(
         self,
@@ -25,6 +29,7 @@ class ToolCallInfo:
         status: Literal["running", "success", "error"] = "running",
         insert_position: int = 0,
         sequence: int = 0,
+        arguments: dict[str, object] | None = None,
     ) -> None:
         self.tool_name = tool_name
         self.tool_call_id = tool_call_id
@@ -32,3 +37,4 @@ class ToolCallInfo:
         self.status = status
         self.insert_position = insert_position
         self.sequence = sequence
+        self.arguments = arguments or {}

@@ -279,7 +279,7 @@ class AlfredTUI:
         if isinstance(event, ToolStart):
             # Add tool call to current message at current position
             self._current_assistant_msg.add_tool_call(
-                event.tool_name, event.tool_call_id
+                event.tool_name, event.tool_call_id, event.arguments
             )
 
         elif isinstance(event, ToolOutput):

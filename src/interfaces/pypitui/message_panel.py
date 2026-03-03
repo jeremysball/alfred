@@ -115,12 +115,18 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
     # --- Tool Call Methods ---
 
-    def add_tool_call(self, tool_name: str, tool_call_id: str) -> None:
+    def add_tool_call(
+        self,
+        tool_name: str,
+        tool_call_id: str,
+        arguments: dict[str, object] | None = None,
+    ) -> None:
         """Add an embedded tool call box at current text position.
 
         Args:
             tool_name: Name of the tool
             tool_call_id: Unique ID for this tool call
+            arguments: Optional tool arguments (dict of key=value pairs)
         """
         # Use text length as insert position, but add sequence number to
         # disambiguate when multiple tools are added at the same position.
@@ -133,6 +139,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             tool_call_id=tool_call_id,
             insert_position=insert_position,
             sequence=sequence,
+            arguments=arguments,
         )
         self._tool_calls.append(tool_info)
         self._rebuild_content()
@@ -263,13 +270,23 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
             # Build tool box lines with Rich formatting
             content_lines: list[str] = []
+
+            # Add arguments as first line (NEW)
+            if tc.arguments:
+                args_str = ", ".join(f"{k}={v}" for k, v in tc.arguments.items())
+                # Truncate if too long
+                if len(args_str) > 60:
+                    args_str = args_str[:57] + "..."
+                content_lines.append(f"{DIM}{args_str}{RESET}")
+                content_lines.append("")  # Empty line after args
+
             if tc.output:
                 # Truncate output for display (show beginning, not end)
                 display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
 
                 # Try to format as JSON if applicable
                 formatted_output = self._format_tool_output(display_output, renderer)
-                content_lines = formatted_output.split("\n")
+                content_lines = content_lines + formatted_output.split("\n")
 
             # Bold tool name in title using ANSI constants, then restore box color
             fancy_title = f"{BOLD}{tc.tool_name}{RESET}{color}"
