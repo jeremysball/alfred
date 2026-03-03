@@ -106,6 +106,18 @@ def init_xdg_directories() -> None:
     elif config_path.exists():
         logger.debug(f"Using existing config: {config_path}")
 
+    # Copy config.toml template if missing
+    config_toml_path = get_config_toml_path()
+    bundled_config_toml = BUNDLED_TEMPLATES / "config.toml"
+    if not config_toml_path.exists() and bundled_config_toml.exists():
+        try:
+            shutil.copy2(bundled_config_toml, config_toml_path)
+            logger.info(f"Created default config.toml: {config_toml_path}")
+        except Exception as e:
+            logger.warning(f"Failed to copy default config.toml: {e}")
+    elif config_toml_path.exists():
+        logger.debug(f"Using existing config.toml: {config_toml_path}")
+
     # Copy templates as data files to workspace
     # These become the user's editable context files (SOUL.md, USER.md, etc.)
     if BUNDLED_TEMPLATES.exists():

@@ -111,6 +111,7 @@ class TestXDGDirectoryInit:
         bundled_templates.mkdir()
         (bundled_templates / "SOUL.md").write_text("# Soul Template")
         (bundled_templates / "USER.md").write_text("# User Template")
+        (bundled_templates / "config.toml").write_text("[provider]\\ndefault = \"kimi\"\\n\\n[memory]\\nbudget = 32000\\n")
 
         with (
             patch("src.data_manager.BUNDLED_CONFIG", bundled_config),
@@ -216,6 +217,30 @@ class TestXDGDirectoryInit:
 
         content = (workspace_dir / "SOUL.md").read_text()
         assert content == "# Custom Soul"
+
+    def test_copies_config_toml_if_missing(self, xdg_dirs, bundled_files):
+        """Config.toml copied from templates if missing."""
+        init_xdg_directories()
+
+        config_dir, _ = xdg_dirs
+        config_toml_path = config_dir / "config.toml"
+        assert config_toml_path.exists()
+
+        content = config_toml_path.read_text()
+        assert "[provider]" in content
+        assert "[memory]" in content
+
+    def test_does_not_overwrite_existing_config_toml(self, xdg_dirs, bundled_files):
+        """Existing config.toml is not overwritten."""
+        config_dir, _ = xdg_dirs
+        config_dir.mkdir(parents=True)
+        existing_config = config_dir / "config.toml"
+        existing_config.write_text("[custom]\\nvalue = 123")
+
+        init_xdg_directories()
+
+        content = existing_config.read_text()
+        assert "value = 123" in content
 
     def test_handles_missing_bundled_config(self, xdg_dirs):
         """Handles missing bundled config gracefully."""
