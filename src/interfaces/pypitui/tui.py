@@ -420,8 +420,13 @@ class AlfredTUI:
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
         self.conversation.clear()
-        # Force full redraw when clearing - ensures old content is fully removed
+        # Force full redraw and reset scrollback tracking
+        # This ensures resumed session content flows into scrollback properly
         self.tui.request_render(force=True)
+        # These are internal pypitui TUI attributes that track scrollback state.
+        # Resetting them ensures content growth is properly detected after clear.
+        self.tui._emitted_scrollback_lines = 0  # type: ignore[attr-defined]
+        self.tui._max_lines_rendered = 0  # type: ignore[attr-defined]
 
     def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
