@@ -2,7 +2,7 @@
 
 from pypitui import Component
 
-from src.interfaces.ansi import RESET, YELLOW
+from src.interfaces.ansi import DIM, RESET, YELLOW
 from src.interfaces.pypitui.throbber import Throbber
 from src.interfaces.pypitui.utils import format_tokens
 
@@ -125,7 +125,7 @@ class StatusLine(Component):
         else:
             parts.extend(self._render_compact())
 
-        return [" | ".join(parts)]
+        return [f"{DIM}{' | '.join(parts)}{RESET}"]
 
     def _truncate_model(self, width: int) -> str:
         """Truncate model name based on available width.

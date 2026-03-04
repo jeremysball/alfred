@@ -29,7 +29,7 @@ app.add_typer(cron_app, name="cron", help="Manage cron jobs")
 
 # Global state for callback
 _run_telegram = False
-_debug_level: str | None = None
+_log_level: str | None = None
 
 
 @app.callback(invoke_without_command=True)
@@ -41,11 +41,11 @@ def main(
         "-t",
         help="Run as Telegram bot (default: run as CLI)",
     ),
-    debug: str | None = typer.Option(
+    log: str | None = typer.Option(
         None,
-        "--debug",
-        "-d",
-        help="Set debug level: 'info' or 'debug'. Default: warnings only",
+        "--log",
+        "-l",
+        help="Set log level: 'info' or 'debug'. Default: warnings only",
     ),
 ) -> None:
     """Alfred - Persistent memory-augmented LLM assistant.
@@ -53,9 +53,9 @@ def main(
     Run without arguments to start interactive chat.
     Use 'alfred cron' for cron job management.
     """
-    global _run_telegram, _debug_level
+    global _run_telegram, _log_level
     _run_telegram = telegram
-    _debug_level = debug
+    _log_level = log
 
     # If no subcommand, run interactive chat
     if ctx.invoked_subcommand is None:
@@ -119,12 +119,12 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
     Args:
         toast_manager: If provided, show warnings/errors as toast notifications.
     """
-    if _debug_level == "debug":
-        log_level = logging.DEBUG
-    elif _debug_level == "info":
-        log_level = logging.INFO
+    if _log_level == "debug":
+        level = logging.DEBUG
+    elif _log_level == "info":
+        level = logging.INFO
     else:
-        log_level = logging.WARNING
+        level = logging.WARNING
 
     # Import here to avoid circular import
     from src.data_manager import get_log_file
@@ -135,7 +135,7 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
 
     # Always log to file
     file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
-    file_handler.setLevel(log_level)
+    file_handler.setLevel(level)
     file_handler.setFormatter(
         logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s")
     )
@@ -151,7 +151,7 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
         handlers.append(toast_handler)
 
     logging.basicConfig(
-        level=log_level,
+        level=level,
         handlers=handlers,
     )
 
