@@ -179,6 +179,87 @@ Before merging TUI changes, test at:
 
 ---
 
+## Pitfall #6: Scrollback Doesn't Populate With Absolute Positioning
+
+**Bug:** Using only absolute positioning on resume leaves scrollback empty.
+
+**Example:**
+```python
+# BUGGY - renders all content to screen coordinates, scrollback stays empty
+for i, line in enumerate(all_322_lines):
+    buffer += f"\x1b[{i+1};1H{line}"  # Lines 0-300 render off-screen
+# User sees last 24 lines, but Shift+PgUp shows nothing
+```
+
+**Fix:** Populate scrollback first with SU, then render visible content:
+```python
+# CORRECT - populate scrollback in chunks
+scrollback_lines = total_lines - scrollable_height
+
+for chunk in chunks(content[:scrollback_lines], scrollable_height):
+    for i, line in enumerate(chunk):
+        buffer += f"\x1b[{i+1};1H\x1b[2K{line}"
+    buffer += f"\x1b[{len(chunk)}S"  # Push into scrollback
+
+# Tell TUI content is in scrollback
+tui.set_scrollback_position(scrollback_lines)
+
+# Normal render for visible portion
+tui.request_render()
+```
+
+**Key Insight:** Absolute positioning renders to screen coordinates. Line 200 goes to row 200 (off-screen), but it never enters the terminal's scrollback buffer because the terminal didn't "scroll" it off. You need SU (Scroll Up) to actually push content into scrollback history.
+
+**Symptoms:**
+- Resume session with 100+ messages
+- Only last screenful visible
+- Shift+PgUp shows empty or unrelated content
+- Normal conversation (growing incrementally) works fine
+
+**When This Happens:**
+- Session resume with many messages
+- Loading large chat history
+- Switching to a conversation with lots of context
+
+**Not About Cursor Movement:** This is NOT about absolute vs relative cursor positioning. Both work fine. The issue is that absolute positioning doesn't trigger terminal scrollback - you need actual scroll operations (SU) to populate it.
+
+---
+
+## Pitfall #7: DECSTBM Protects Static UI From Scrollback
+
+**Bug:** Static components (status bar, input) get pushed into scrollback during scroll operations.
+
+**Example:**
+```python
+# BUGGY - scrolling pushes status bar into scrollback
+buffer += "\x1b[300S"  # Scroll up 300 lines
+# Status bar scrolled off screen into history!
+```
+
+**Fix:** Set scroll region with DECSTBM:
+```python
+# CORRECT - protect static components at bottom
+scrollable_height = term_height - static_height
+buffer += f"\x1b[1;{scrollable_height}r"  # Only scroll top N lines
+buffer += "\x1b[300S"  # Scroll only affects rows 1-N
+buffer += "\x1b[r"  # Reset when done
+```
+
+**Mark components as static:**
+```python
+class StatusLine(Component):
+    @property
+    def is_static(self) -> bool:
+        return True  # Fixed at bottom, don't scroll
+```
+
+**Symptoms:**
+- Status bar disappears during heavy scrolling
+- Input field pushed into scrollback
+- UI elements "float" up during session resume
+
+---
+
 ## The Meta-Lesson
 
 Terminal rendering is **stateful** but the state is **invisible**. Every time you emit output, you're modifying hidden terminal state (cursor position, scrollback, etc.). Always ask:
@@ -186,5 +267,6 @@ Terminal rendering is **stateful** but the state is **invisible**. Every time yo
 1. What state am I modifying?
 2. Did I already modify it in a previous frame?
 3. Will this work at 53 columns?
+4. **Is scrollback being populated correctly?**
 
 When in doubt, **track what you've already done** and **only emit new content**.
