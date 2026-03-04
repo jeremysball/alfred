@@ -421,6 +421,12 @@ class CronScheduler:
 
             end_time = datetime.now(UTC)
 
+            # Log stdout/stderr for debugging
+            if result.stdout:
+                logger.debug("Job %s stdout:\n%s", job.job_id, result.stdout)
+            if result.stderr:
+                logger.debug("Job %s stderr:\n%s", job.job_id, result.stderr)
+
             # Update job state
             job.last_run = end_time
             if job.job_id in self._job_code:
@@ -429,11 +435,11 @@ class CronScheduler:
 
             # Log result
             if result.status == ExecutionStatus.SUCCESS:
-                logger.debug(f"Job completed: {job.name} ({job.job_id})")
+                logger.debug("Job completed: %s (%s)", job.name, job.job_id)
             elif result.status == ExecutionStatus.TIMEOUT:
-                logger.warning(f"Job timed out: {job.name} ({job.job_id})")
+                logger.warning("Job timed out: %s (%s)", job.name, job.job_id)
             else:
-                logger.error(f"Job failed: {job.name} ({job.job_id})")
+                logger.error("Job failed: %s (%s)", job.name, job.job_id)
 
             # Record execution
             record = ExecutionRecord(
