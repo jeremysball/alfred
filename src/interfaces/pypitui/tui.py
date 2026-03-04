@@ -114,12 +114,8 @@ class AlfredTUI:
             "/context": ShowContextCommand(),
         }
 
-        # Enable toast mode for cron job notifications
-        if toast_manager is not None:
-            from src.cron.notifier import CLINotifier
-
-            if isinstance(self.alfred.notifier, CLINotifier):
-                self.alfred.notifier.set_toast_manager(toast_manager)
+        # Toast manager is passed directly, no need to configure through notifier
+        # Socket-based cron runner sends notifications via Unix socket
 
         # Add input listener for queue navigation (ESC to cancel, UP/DOWN for history)
         self.tui.add_input_listener(self._input_listener)
@@ -180,8 +176,9 @@ class AlfredTUI:
             )
             self._toast_handle = self.tui.show_overlay(self._toast_overlay, options)
         elif not has_toasts and self._toast_handle is not None:
-            # Hide toast overlay
-            self._toast_handle.hide()
+            # Hide toast overlay only if it's not already hidden
+            if not self._toast_handle.is_hidden():
+                self._toast_handle.hide()
             self._toast_handle = None
 
     def _update_status(self, estimated_out: int | None = None) -> None:
@@ -433,16 +430,19 @@ class AlfredTUI:
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
         self.conversation.clear()
-        # Force visible redraw and reset scrollback tracking.
-        # This ensures resumed session content flows into scrollback properly
-        # after clearing the conversation container.
-        self.tui.request_render(force=True, reset_scrollback=True)
+        # Clear terminal screen and reset scrollback tracking.
+        # This ensures old content is gone before loading resumed session.
+        self.tui.terminal.write("\x1b[2J\x1b[H")
+        self.tui.reset_scrollback_state()
 
     def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
 
         Called on startup (if resuming) and after /resume command.
         Renders all historical messages as MessagePanels.
+
+        Sets scrollback position so older messages flow into terminal
+        scrollback history instead of all being rendered on screen.
         """
         if not self.alfred.session_manager.has_active_session():
             return
@@ -451,6 +451,7 @@ class AlfredTUI:
         if not session or not session.messages:
             return
 
+        # Add all message panels to conversation
         for msg in session.messages:
             panel = MessagePanel(
                 role=msg.role.value,
@@ -463,7 +464,65 @@ class AlfredTUI:
         # Sync token tracker with loaded session messages
         self.alfred.sync_token_tracker_from_session()
 
+        # Populate scrollback: render screenfuls and scroll them into history
+        self._populate_scrollback_by_scrolling()
+
         self.tui.request_render()
+
+    def _populate_scrollback_by_scrolling(self) -> None:
+        """Populate terminal scrollback by rendering and scrolling content.
+
+        To get content into the terminal's scrollback buffer, we need to:
+        1. Render a screenful of content (oldest content first)
+        2. Use SU (Scroll Up) to push it into scrollback
+        3. Repeat until all old content is in scrollback
+        4. Leave recent content for normal absolute-position render
+        """
+        term_width, term_height = self.tui.terminal.get_size()
+        static_height = self.tui._calculate_static_height(term_width)
+        scrollable_height = max(1, term_height - static_height)
+
+        # Get rendered conversation lines
+        content_lines = self.conversation.render(term_width)
+
+        if len(content_lines) <= scrollable_height:
+            return  # Content fits, no scrollback needed
+
+        # Lines that should go into scrollback
+        lines_for_scrollback = len(content_lines) - scrollable_height
+
+        buffer = "\x1b[?2026h"  # Begin sync
+
+        # Set scroll region to protect static components
+        buffer += f"\x1b[1;{scrollable_height}r"
+
+        # Process scrollback content in screen-sized chunks
+        # Render a screenful, then scroll it all into scrollback
+        scrollback_content = content_lines[:lines_for_scrollback]
+        pos = 0
+
+        while pos < len(scrollback_content):
+            # Get next screenful of content
+            chunk = scrollback_content[pos:pos + scrollable_height]
+
+            # Render this chunk at absolute positions
+            for i, line in enumerate(chunk):
+                buffer += f"\x1b[{i + 1};1H"  # Position cursor
+                buffer += "\x1b[2K"  # Clear line
+                buffer += line
+
+            # Scroll this chunk into scrollback
+            buffer += f"\x1b[{len(chunk)}S"
+
+            pos += len(chunk)
+
+        buffer += "\x1b[r"  # Reset scroll region
+        buffer += "\x1b[?2026l"  # End sync
+
+        self.tui.terminal.write(buffer)
+
+        # Tell TUI this content is already in scrollback
+        self.tui.set_scrollback_position(lines_for_scrollback)
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
