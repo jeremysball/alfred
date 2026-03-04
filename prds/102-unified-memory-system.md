@@ -567,12 +567,10 @@ This helps debug what's actually loaded in the prompt.
 - [ ] Update all references to old three-tier model
 - [ ] End-to-end test: file loading → placeholder resolution → memory usage
 - [ ] Performance test: large prompt with many placeholders
-- [ ] Update documentation
 
 **Success Criteria:**
 - Full system works end-to-end
 - All tests pass
-- Documentation updated
 - Ready for release
 
 ### M9: Migration (if needed)
@@ -587,6 +585,31 @@ This helps debug what's actually loaded in the prompt.
 - Existing users can upgrade smoothly
 - Old memories preserved or migrated
 - Clear migration message to user
+
+### M10: Documentation Update
+**Scope:** Update all documentation to reflect new architecture
+
+**Files to update:**
+- [ ] `docs/ROADMAP.md` - Update memory system section
+- [ ] `docs/ARCHITECTURE.md` (if exists) - Update file descriptions
+- [ ] `README.md` - Update quickstart and architecture overview
+- [ ] `templates/README.md` (if exists) - Explain file purposes
+
+**Content changes:**
+- [ ] Document SYSTEM.md purpose and content
+- [ ] Document AGENTS.md as minimal behavior rules only
+- [ ] Document TOOLS.md phase-out (content moved)
+- [ ] Update file loading order (SYSTEM.md first)
+- [ ] Update memory system explanation (simplified model)
+- [ ] Add placeholder system documentation
+- [ ] Update decision log references
+
+**Success Criteria:**
+- All documentation reflects new file architecture
+- No references to old three-tier model
+- TOOLS.md phase-out explained
+- Placeholder system documented
+- Migration guide for existing users
 
 ---
 
@@ -603,6 +626,9 @@ This helps debug what's actually loaded in the prompt.
 - [ ] Session archive searchable with contextual retrieval
 - [ ] All existing tests pass or updated
 - [ ] New tests for placeholder system
+- [ ] All documentation updated (ROADMAP, README, etc.)
+- [ ] TOOLS.md phase-out documented
+- [ ] Migration guide for existing users
 
 ---
 
