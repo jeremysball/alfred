@@ -111,10 +111,6 @@ class AlfredTUI:
         # Add input listener for queue navigation (ESC to cancel, UP/DOWN for history)
         self.tui.add_input_listener(self._input_listener)
 
-        # Track completion menu height for forced redraws when menu shrinks
-        # (pypitui's invalidate_component + clear_on_shrink don't work together)
-        self._completion_menu_height = 0
-
         # Initialize status line with current values
         self._update_status()
 
@@ -233,9 +229,7 @@ class AlfredTUI:
                 else:
                     return {"consume": True}  # Already at top
 
-                self.input_field.set_value(
-                    self._message_queue[self._queue_nav_index]
-                )
+                self.input_field.set_value(self._message_queue[self._queue_nav_index])
                 return {"consume": True}
             return None
 
@@ -295,7 +289,9 @@ class AlfredTUI:
 
         elif isinstance(event, ToolEnd):
             # Set final status
-            status: Literal["success", "error"] = "error" if event.is_error else "success"
+            status: Literal["success", "error"] = (
+                "error" if event.is_error else "success"
+            )
             self._current_assistant_msg.finalize_tool_call(event.tool_call_id, status)
 
         # Request re-render
@@ -413,9 +409,7 @@ class AlfredTUI:
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
         self.conversation.clear()
-        # Force full redraw to ensure old content is cleared from screen.
-        # Container.clear() preserves _previous_lines for differential rendering,
-        # so we need force=True to ensure the cleared state is properly rendered.
+        # Force full redraw when clearing - ensures old content is fully removed
         self.tui.request_render(force=True)
 
     def _load_session_messages(self) -> None:
@@ -443,7 +437,7 @@ class AlfredTUI:
         # Sync token tracker with loaded session messages
         self.alfred.sync_token_tracker_from_session()
 
-        self.tui.request_render(force=True)
+        self.tui.request_render()
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
@@ -597,7 +591,9 @@ class AlfredTUI:
                     role = "User" if mem["role"] == "user" else "Assistant"
                     lines.append(f"  [{mem['timestamp']}] {role}: {mem['content']}")
                 if memories["total"] > memories["displayed"]:
-                    lines.append(f"  ... and {memories['total'] - memories['displayed']} more")
+                    lines.append(
+                        f"  ... and {memories['total'] - memories['displayed']} more"
+                    )
                 lines.append("")
 
                 # Session history section
@@ -621,10 +617,14 @@ class AlfredTUI:
                     lines.append("─" * 40)
                     for i, tc in enumerate(tool_calls["items"], 1):
                         status_icon = "✓" if tc["status"] == "success" else "✗"
-                        args_str = ", ".join(f"{k}={v}" for k, v in tc["arguments"].items())
+                        args_str = ", ".join(
+                            f"{k}={v}" for k, v in tc["arguments"].items()
+                        )
                         if len(args_str) > 50:
                             args_str = args_str[:47] + "..."
-                        lines.append(f"  {i}. {status_icon} {tc['tool_name']}: {args_str}")
+                        lines.append(
+                            f"  {i}. {status_icon} {tc['tool_name']}: {args_str}"
+                        )
                         if tc["output"]:
                             output = tc["output"].replace("\n", " ")
                             if len(output) > 60:
@@ -767,24 +767,8 @@ class AlfredTUI:
                 # Animate throbber during streaming
                 self.status_line.tick_throbber()
 
-                # Check if completion menu height changed (for forced redraw)
-                # pypitui's invalidate_component corrupts _previous_lines which breaks
-                # clear_on_shrink, so we force full redraw when menu shrinks
-                menu_options = len(self.completion_menu._options_prop)
-                menu_is_open = self.completion_menu.is_open
-                # Effective height: options (capped) + 2 borders when open, 0 when closed
-                effective_height = 0
-                if menu_is_open and menu_options > 0:
-                    effective_height = min(menu_options, self.completion_menu._max_height) + 2
-
-                force_render = False
-                if effective_height < self._completion_menu_height:
-                    # Menu height decreased - force full redraw to clear orphaned lines
-                    force_render = True
-                self._completion_menu_height = effective_height
-
                 # Render frame
-                self.tui.request_render(force=force_render)
+                self.tui.request_render()
                 self.tui.render_frame()
 
                 # Yield to event loop (~60fps)
