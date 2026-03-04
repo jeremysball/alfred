@@ -22,6 +22,11 @@ class CompletionMenuComponent(Component):
     Integrates as a proper Component in the TUI layout.
     """
 
+    @property
+    def is_static(self) -> bool:
+        """Completion menu is fixed above input and should not scroll."""
+        return True
+
     def __init__(self, max_height: int = 5) -> None:
         """Initialize the completion menu component.
 

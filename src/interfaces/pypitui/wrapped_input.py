@@ -43,6 +43,11 @@ class WrappedInput(Component, Focusable):
         inp.handle_input(data)
     """
 
+    @property
+    def is_static(self) -> bool:
+        """Input field is fixed at the bottom and should not scroll."""
+        return True
+
     def __init__(self, placeholder: str = "") -> None:
         """Initialize WrappedInput.
 

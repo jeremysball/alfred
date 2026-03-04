@@ -41,6 +41,11 @@ class StatusLine(Component):
     - ρ for reasoning tokens
     """
 
+    @property
+    def is_static(self) -> bool:
+        """Status bar is fixed at the bottom and should not scroll."""
+        return True
+
     def __init__(self) -> None:
         """Initialize status line with empty state."""
         super().__init__()
@@ -215,7 +220,7 @@ class StatusLine(Component):
 
         # Group 3: queued messages (only if non-zero)
         if self._queued > 0:
-            parts.append(f"{YELLOW}queued {self._queued}{RESET}")
+            parts.append(f"{YELLOW}queued {self._queued}")
 
         return parts
 
@@ -233,7 +238,7 @@ class StatusLine(Component):
 
         # Group 3: queued messages (only if non-zero)
         if self._queued > 0:
-            parts.append(f"{YELLOW}queued {self._queued}{RESET}")
+            parts.append(f"{YELLOW}queued {self._queued}")
 
         return parts
 
@@ -249,6 +254,6 @@ class StatusLine(Component):
 
         # Queued if present
         if self._queued > 0:
-            parts.append(f"{YELLOW}{self._queued}{RESET}")
+            parts.append(f"{YELLOW}{self._queued}")
 
         return parts

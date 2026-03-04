@@ -219,8 +219,9 @@ class CompletionManager:
         self._menu.close()
         self._active_trigger = None
 
-        if self._input.on_submit:
-            self._input.on_submit(selected_value)
+        # NOTE: We do NOT call on_submit here. When this is triggered by
+        # Enter key, the Enter propagates to pypitui's Input which calls
+        # on_submit naturally. Calling it here would cause double-submit.
 
 
 # Backward compatibility alias
