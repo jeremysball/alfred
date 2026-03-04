@@ -95,52 +95,52 @@ alfred/
 
 ## Memory Systems
 
-Alfred uses a three-layer memory architecture:
+Alfred uses a simplified memory architecture (PRD #102):
 
 ```
-data/
-├── memory/
-│   └── memories.jsonl      # Layer 1: Curated facts
-│
-└── sessions/
-    └── {session_id}/
-        ├── messages.jsonl  # Layer 3: Session messages
-        └── summary.json    # Layer 2: Session summary
+Files (Always Loaded, Durable):
+├── SYSTEM.md              # Core identity
+├── AGENTS.md              # Behavior rules + memory guidance  
+├── USER.md                # User preferences
+├── SOUL.md                # Alfred's personality
+└── prompts/               # Modular prompt components
+    ├── communication-style.md
+    ├── voice.md
+    └── memory-guidance.md
+
+Memories (Curated, 90-day TTL):
+└── memories.jsonl         # Semantic search, model decides writes
+
+Session Archive (Automatic):
+sessions/
+└── {session_id}/
+    ├── messages.jsonl     # Full conversation history
+    └── summary.json       # Session summary for search
 ```
 
-### Layer 1: Curated Memory (Implemented)
-Facts Alfred explicitly remembers:
-- Alfred uses `remember` tool to store important information
-- Stored in `data/memory/memories.jsonl` with embeddings
-- Semantic search via `search_memories` tool
-- Full CRUD: create, read, update, delete operations
-- Can link to sessions via optional `session_id` field
+### Files (USER.md, SOUL.md, SYSTEM.md, AGENTS.md)
+Always loaded in full. Expensive but always available.
+- **SYSTEM.md**: Core identity (extracted from old AGENTS.md)
+- **AGENTS.md**: Behavior rules + how to use memory
+- **USER.md**: User preferences, communication style
+- **SOUL.md**: Alfred's personality, voice
+- **Placeholders**: `{{prompts/file.md}}` includes modular content
 
-### Layer 2: Session Summaries (PRD #76)
-Narrative summaries of conversations:
-- Auto-generated via cron (30 min idle or 20 messages)
-- Stored in `data/sessions/{session_id}/summary.json`
-- Has embedding for semantic search
-- Enables finding past conversations by theme
+Model decides when to write. Ask user first.
 
-### Layer 3: Session Messages (PRD #77)
-Individual messages within sessions:
-- Stored in `data/sessions/{session_id}/messages.jsonl`
-- Each message has embedding
-- Enables contextual narrowing: find session first, then search within
+### Memories (Curated Store)
+Model uses `remember` tool to save facts worth recalling.
+- 90-day TTL (warn user at X memories)
+- Semantic search via `search_memories`
+- Optional `permanent` flag to skip TTL
+- No auto-capture, no auto-consolidation
 
-### Session History (In-Memory)
-Current conversation context:
-- Stored in `SessionManager` singleton during active session
-- Injected into every LLM call for multi-turn conversation
-- Persisted to session folders (PRD #76)
+### Session Archive
+Full conversation history, searchable via `search_sessions`.
+- Contextual retrieval: summaries → messages
+- Use for: "what did we discuss last Tuesday?"
 
-### Curated Memory (MEMORY.md)
-Manually curated long-term insights:
-- Loaded into every context
-- Edited directly or via prompts
-
-See PRDs #76 and #77 for contextual retrieval details.
+See PRD #102 for unified memory system details.
 
 ---
 
@@ -173,7 +173,7 @@ See PRDs #76 and #77 for contextual retrieval details.
 | 101 | Tool Call Persistence | Persist tool calls in session, include in context, `/context` command (PRD #101) |
 | 103 | Tool Calls in Resumed Sessions | Display tool calls when loading historical sessions via `/resume` or startup (PRD #103) |
 | 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
-| 13 | Learning System | Prompt-based learning to update USER.md/SOUL.md |
+| 102 | Unified Memory System | Simplified memory: Files (always loaded) + Memories (90-day TTL) + Session archive (PRD #102) |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
 | 15 | README Landing Page | Transform README into compelling OSS landing page |
 | 16 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
@@ -182,7 +182,6 @@ See PRDs #76 and #77 for contextual retrieval details.
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 102 | Three-Tier Memory System | Unify memory architecture: Tier 1 (working memory with TTL), Tier 2 (context files with auto-consolidation), Tier 3 (session archive) (PRD #102) |
 | 17 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 18 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 19 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
@@ -198,7 +197,6 @@ See PRDs #76 and #77 for contextual retrieval details.
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 22 | Advanced Session Features | LLM context control, substring search, on-demand summaries |
-| 23 | Contextual Retrieval System | Triple-layer memory: global + session summaries + per-session message embeddings (PRD #77) |
 | 24 | Configurable Context Budget | User-defined context percentages: 50% conversation, 10% tools, etc. |
 | 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
 | 26 | HTTP API + Cron | Local API for scheduled actions |
