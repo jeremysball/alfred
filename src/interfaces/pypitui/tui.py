@@ -652,14 +652,6 @@ class AlfredTUI:
 
         try:
             while self.running:
-                # Track terminal width changes
-                new_width = self.terminal.get_size()[0]
-                if new_width != self._terminal_width:
-                    self._terminal_width = new_width
-                    # Update current assistant message if streaming
-                    if self._current_assistant_msg:
-                        self._current_assistant_msg.set_terminal_width(new_width)
-
                 # Read terminal input with timeout
                 data = self.terminal.read_sequence(timeout=0.01)
                 if data:
