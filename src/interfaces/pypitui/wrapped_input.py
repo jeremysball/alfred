@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
-from src.interfaces.ansi import RESET, REVERSE
+from src.interfaces.ansi import DIM, RESET, REVERSE
 
 if TYPE_CHECKING:
     from .completion_addon import CompletionManager
@@ -54,6 +54,7 @@ class WrappedInput(Component, Focusable):
         self._input.on_submit = self._on_submit
         self._display_column = 0  # Desired column for vertical movement
         self._last_width = 80  # Last render width
+        self._disabled = False  # Disabled state (grayed out, no input)
 
         # Callbacks
         self.on_submit: Callable | None = None
@@ -63,6 +64,24 @@ class WrappedInput(Component, Focusable):
         self._input_hooks: list[Callable[[str], bool]] = []
         self._render_hooks: list[Callable[[list[str], int], list[str]]] = []
         self._post_input_hooks: list[Callable[[], None]] = []
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable or disable the input field.
+
+        When disabled, the field shows placeholder and ignores input.
+
+        Args:
+            enabled: True to enable, False to disable.
+        """
+        self._disabled = not enabled
+
+    def set_placeholder(self, placeholder: str) -> None:
+        """Update placeholder text.
+
+        Args:
+            placeholder: New placeholder text.
+        """
+        self._input._placeholder = placeholder
 
     def add_input_hook(self, hook_fn: Callable[[str], bool]) -> None:
         """Register an input filter.
@@ -207,8 +226,10 @@ class WrappedInput(Component, Focusable):
         text = self.get_value()
 
         if not text and not self.focused:
-            # Show placeholder
+            # Show placeholder (dimmed if disabled)
             result = self._input.render(width)
+            if self._disabled and result:
+                result = [f"{DIM}{result[0]}{RESET}"]
             # Apply render filters
             for hook_fn in self._render_hooks:
                 result = hook_fn(result, width)
@@ -364,6 +385,10 @@ class WrappedInput(Component, Focusable):
         Args:
             data: Raw input data from terminal.
         """
+        # Ignore all input when disabled
+        if self._disabled:
+            return
+
         # Run input filters first
         for hook_fn in self._input_hooks:
             if hook_fn(data):

@@ -44,8 +44,28 @@ class ExecutionContext:
         Args:
             message: Message to send
         """
+        logger.debug(
+            "Job %s: notify() called with: %s...",
+            self.job_name,
+            message[:50],
+        )
         if self.notifier:
-            await self.notifier.send(message, chat_id=self.chat_id)
+            try:
+                await self.notifier.send(message, chat_id=self.chat_id)
+                logger.info("Job %s: notification sent successfully", self.job_name)
+            except Exception:
+                logger.error(
+                    "Job %s: failed to send notification",
+                    self.job_name,
+                    exc_info=True,
+                )
+                raise
+        else:
+            logger.warning(
+                "Job %s: no notifier configured, message not sent: %s...",
+                self.job_name,
+                message[:50],
+            )
 
 
 @dataclass
@@ -107,13 +127,21 @@ class JobExecutor:
         self._start_time = datetime.now(UTC)
         self._memory_peak_mb = 0
 
+        logger.debug(
+            "Job %s: starting execution, timeout=%ss",
+            self.job.name,
+            self.limits.timeout_seconds,
+        )
+
         # Start memory tracking
         tracemalloc.start()
 
+        # Capture output - defined before try so available in except blocks
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
         try:
-            # Capture output
-            stdout_capture = io.StringIO()
-            stderr_capture = io.StringIO()
+            logger.debug("Job %s: executing handler", self.job.name)
 
             with (
                 redirect_stdout(stdout_capture),
@@ -126,6 +154,13 @@ class JobExecutor:
             stdout = stdout_capture.getvalue()
             stderr = stderr_capture.getvalue()
 
+            logger.debug(
+                "Job %s: handler completed, stdout=%d chars, stderr=%d chars",
+                self.job.name,
+                len(stdout),
+                len(stderr),
+            )
+
             # Truncate if needed
             stdout_truncated = False
             lines = stdout.splitlines()
@@ -133,8 +168,19 @@ class JobExecutor:
                 lines = lines[: self.limits.max_output_lines]
                 stdout = "\n".join(lines) + "\n[... output truncated ...]"
                 stdout_truncated = True
+                logger.debug(
+                    "Job %s: stdout truncated to %d lines",
+                    self.job.name,
+                    self.limits.max_output_lines,
+                )
 
             duration_ms = self._get_duration_ms()
+
+            logger.debug(
+                "Job %s: execution succeeded in %dms",
+                self.job.name,
+                duration_ms,
+            )
 
             return ExecutionResult(
                 status=ExecutionStatus.SUCCESS,
@@ -147,6 +193,12 @@ class JobExecutor:
 
         except TimeoutError:
             duration_ms = self._get_duration_ms()
+            logger.warning(
+                "Job %s: timeout after %dms (limit=%ds)",
+                self.job.name,
+                duration_ms,
+                self.limits.timeout_seconds,
+            )
             return ExecutionResult(
                 status=ExecutionStatus.TIMEOUT,
                 duration_ms=duration_ms,
@@ -159,6 +211,12 @@ class JobExecutor:
 
         except Exception as e:
             duration_ms = self._get_duration_ms()
+            logger.error(
+                "Job %s: execution failed after %dms",
+                self.job.name,
+                duration_ms,
+                exc_info=True,
+            )
             return ExecutionResult(
                 status=ExecutionStatus.FAILED,
                 duration_ms=duration_ms,
@@ -206,8 +264,10 @@ class JobExecutor:
         # Check if we exceeded memory limit (log warning, don't fail)
         if self._memory_peak_mb > self.limits.max_memory_mb:
             logger.warning(
-                f"Job {self.job.job_id} exceeded memory limit: "
-                f"{self._memory_peak_mb}MB > {self.limits.max_memory_mb}MB"
+                "Job %s exceeded memory limit: %dMB > %dMB",
+                self.job.job_id,
+                self._memory_peak_mb,
+                self.limits.max_memory_mb,
             )
 
     def _get_duration_ms(self) -> int:

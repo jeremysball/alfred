@@ -337,6 +337,7 @@ class CronScheduler:
 
     async def _monitor_loop(self) -> None:
         """Background loop that checks job schedules."""
+        logger.debug(f"Monitor loop started, check interval: {self._check_interval}s")
         while not self._shutdown_event.is_set():
             try:
                 await self._check_jobs()
@@ -352,9 +353,12 @@ class CronScheduler:
     async def _check_jobs(self) -> None:
         """Check all jobs and execute any that are due."""
         now = datetime.now(UTC)
+        logger.debug(f"Checking {len(self._jobs)} jobs at {now.isoformat()}")
 
+        jobs_due = []
         for job in self._jobs.values():
             if job.status != JobStatus.ACTIVE:
+                logger.debug(f"Skipping inactive job: {job.name} (status={job.status})")
                 continue
 
             try:
@@ -363,13 +367,23 @@ class CronScheduler:
                     job.last_run or datetime.min.replace(tzinfo=UTC),
                     now,
                 )
-            except ValueError:
-                logger.warning(f"Invalid cron expression for job {job.job_id}: {job.expression}")
+                if should_run:
+                    jobs_due.append(job)
+                    logger.debug(f"Job due: {job.name} ({job.job_id}), expression={job.expression}")
+            except ValueError as e:
+                logger.warning(
+                    f"Invalid cron expression for job {job.job_id}: "
+                    f"{job.expression} - {e}"
+                )
                 continue
 
-            if should_run:
-                # Start execution without waiting (queue if already running)
-                asyncio.create_task(self._execute_job(job))
+        if jobs_due:
+            logger.info(f"Found {len(jobs_due)} job(s) due for execution")
+
+        for job in jobs_due:
+            # Start execution without waiting (queue if already running)
+            logger.debug(f"Creating task for job: {job.name}")
+            asyncio.create_task(self._execute_job(job))
 
     async def _execute_job(self, job: RunnableJob) -> None:
         """Execute a single job with resource limits.
@@ -378,8 +392,10 @@ class CronScheduler:
         Records execution to store and logs.
         """
         if job._running.locked():
-            logger.debug(f"Job already running, skipping: {job.name} ({job.job_id})")
+            logger.info(f"Job already running, skipping: {job.name} ({job.job_id})")
             return
+
+        logger.info(f"Starting execution of job: {job.name} ({job.job_id})")
 
         async with job._running:
             start_time = datetime.now(UTC)
@@ -389,6 +405,10 @@ class CronScheduler:
             # Get job model for resource limits
             job_model = job.to_job(code_snapshot) if code_snapshot else None
             limits = job_model.resource_limits if job_model else ResourceLimits()
+            logger.debug(
+                f"Job {job.name} resource limits: timeout={limits.timeout_seconds}s, "
+                f"max_memory={limits.max_memory_mb}MB"
+            )
 
             # Create execution context
             context = ExecutionContext(
@@ -396,6 +416,10 @@ class CronScheduler:
                 job_name=job.name,
                 notifier=self._notifier,
                 chat_id=job_model.chat_id if job_model else None,
+            )
+            logger.debug(
+                f"Job {job.name} notifier: "
+                f"{type(self._notifier).__name__ if self._notifier else 'None'}"
             )
 
             # Create executor and run
@@ -414,10 +438,14 @@ class CronScheduler:
 
             # Log start
             await self._logger.log_job_start(job.job_id, job.name, code_snapshot)
-            logger.debug(f"Executing job: {job.name} ({job.job_id})")
+            logger.debug(f"Executing job handler: {job.name} ({job.job_id})")
 
             # Execute with resource limits
-            result = await executor.execute()
+            try:
+                result = await executor.execute()
+            except Exception:
+                logger.exception(f"Job executor crashed: {job.name} ({job.job_id})")
+                raise
 
             end_time = datetime.now(UTC)
 
@@ -427,13 +455,24 @@ class CronScheduler:
                 job_model = job.to_job(self._job_code[job.job_id])
                 await self._store.save_job(job_model)
 
-            # Log result
+            # Log result with details
             if result.status == ExecutionStatus.SUCCESS:
-                logger.debug(f"Job completed: {job.name} ({job.job_id})")
+                logger.info(
+                    f"Job completed successfully: {job.name} ({job.job_id}) "
+                    f"in {result.duration_ms}ms, memory_peak={result.memory_peak_mb}MB"
+                )
             elif result.status == ExecutionStatus.TIMEOUT:
-                logger.warning(f"Job timed out: {job.name} ({job.job_id})")
+                logger.warning(
+                    f"Job timed out: {job.name} ({job.job_id}) "
+                    f"after {result.duration_ms}ms (limit={limits.timeout_seconds}s)"
+                )
             else:
-                logger.error(f"Job failed: {job.name} ({job.job_id})")
+                logger.error(
+                    f"Job failed: {job.name} ({job.job_id}) "
+                    f"after {result.duration_ms}ms - {result.error_message}"
+                )
+                if result.stderr:
+                    logger.error(f"Job stderr: {result.stderr[:500]}")
 
             # Record execution
             record = ExecutionRecord(
