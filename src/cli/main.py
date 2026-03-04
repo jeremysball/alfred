@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 import typer
 from rich.console import Console
 
-from src.alfred_async import AlfredAsync
+from src.alfred import Alfred
 from src.cli.cron import app as cron_app
 from src.config import load_config
 from src.data_manager import init_xdg_directories
@@ -78,16 +78,12 @@ async def _run_interactive() -> None:
     # Set up logging with optional toast handler
     _setup_logging(toast_manager)
 
-    # Create Alfred with async initialization
-    alfred = AlfredAsync(config, telegram_mode=_run_telegram)
+    alfred = Alfred(config, telegram_mode=_run_telegram)
 
     try:
         if _run_telegram:
-            # Telegram mode: initialize fully before starting
-            await alfred.initialize()
             await _run_telegram_bot(alfred)
         else:
-            # TUI mode: start TUI immediately, initialize in background
             await _run_chat(alfred, toast_manager)
     except KeyboardInterrupt:
         pass
@@ -95,21 +91,16 @@ async def _run_interactive() -> None:
         await alfred.stop()
 
 
-async def _run_chat(alfred: AlfredAsync, toast_manager: "ToastManager | None") -> None:
+async def _run_chat(alfred: Alfred, toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
     from src.interfaces.pypitui_cli import AlfredTUI
 
-    # Create TUI immediately (alfred is not fully initialized yet)
     interface = AlfredTUI(alfred, toast_manager=toast_manager)
-
-    # Start Alfred initialization in background
-    asyncio.create_task(alfred.initialize())
-
-    # Start TUI immediately (it will show loading state)
+    await alfred.start()
     await interface.run()
 
 
-async def _run_telegram_bot(alfred: AlfredAsync) -> None:
+async def _run_telegram_bot(alfred: Alfred) -> None:
     """Run Telegram bot."""
     from src.interfaces.telegram import TelegramInterface
 
