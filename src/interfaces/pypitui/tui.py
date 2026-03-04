@@ -53,6 +53,7 @@ class AlfredTUI:
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
         self.tui = TUI(self.terminal)
+        self.tui.on_resize = self._on_resize
         self._toast_manager = toast_manager
 
         # Main conversation container
@@ -204,6 +205,19 @@ class AlfredTUI:
             queued=len(self._message_queue),
             streaming=self._is_streaming or self._is_sending,
         )
+
+    def _on_resize(self, term_width: int, term_height: int) -> None:
+        """Handle terminal resize by re-populating scrollback if needed."""
+        # Update terminal width for message panels
+        self._terminal_width = term_width
+
+        # Update all message panels with new width
+        for child in self.conversation.children:
+            if hasattr(child, 'set_terminal_width'):
+                child.set_terminal_width(term_width)
+
+        # Re-populate scrollback if there's overflow content
+        self._populate_scrollback_by_scrolling()
 
     def _input_listener(self, data: str) -> dict | None:
         """Intercept input for queue navigation and cancellation.
