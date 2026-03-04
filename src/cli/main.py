@@ -12,7 +12,7 @@ from rich.console import Console
 from src.alfred import Alfred
 from src.cli.cron import app as cron_app
 from src.config import load_config
-from src.data_manager import get_log_file, init_xdg_directories
+from src.data_manager import init_xdg_directories
 
 if TYPE_CHECKING:
     from src.interfaces.pypitui.toast import ToastManager
@@ -66,86 +66,37 @@ async def _run_interactive() -> None:
     """Run interactive CLI or Telegram bot."""
     from src.interfaces.pypitui.toast import ToastManager
 
-    # Initialize XDG directories first (needed for log file path)
-    init_xdg_directories()
-
     # Create toast manager for TUI mode
     toast_manager: ToastManager | None = None
     if not _run_telegram:
         toast_manager = ToastManager()
 
-    # Set up logging to file only (never pollute stdout/stderr in TUI)
+    # Initialize XDG directories and load config
+    init_xdg_directories()
+    config = load_config()
+
+    # Set up logging with optional toast handler
     _setup_logging(toast_manager)
 
-    # Load config (lightweight)
-    config = load_config()
+    alfred = Alfred(config, telegram_mode=_run_telegram)
 
     try:
         if _run_telegram:
-            # Telegram mode: create Alfred synchronously (no TUI to show loading)
-            alfred = Alfred(config, telegram_mode=True)
             await _run_telegram_bot(alfred)
         else:
-            # TUI mode: create Alfred in background while TUI shows loading
-            await _run_chat_deferred(config, toast_manager)
+            await _run_chat(alfred, toast_manager)
     except KeyboardInterrupt:
         pass
-
-
-async def _run_chat_deferred(
-    config: Any, toast_manager: "ToastManager | None"
-) -> None:
-    """Run TUI with deferred Alfred initialization."""
-    from src.interfaces.pypitui_cli import AlfredTUI
-
-    # Create TUI without alfred first (shows loading state)
-    interface = AlfredTUI(alfred=None, toast_manager=toast_manager)
-
-    # Initialize Alfred in background
-    async def init_alfred() -> None:
-        try:
-            alfred = Alfred(config, telegram_mode=False)
-            await alfred.start()
-            # Mark TUI as ready once alfred is initialized
-            interface.set_ready(alfred)
-        except Exception:
-            logging.exception("Failed to initialize Alfred")
-            # Show error toast and exit
-            if toast_manager:
-                toast_manager.add("Startup failed - check logs", level="error")
-            interface.running = False
-
-    # Start initialization task
-    asyncio.create_task(init_alfred())
-
-    # Run TUI immediately (shows loading state until ready)
-    await interface.run()
+    finally:
+        await alfred.stop()
 
 
 async def _run_chat(alfred: Alfred, toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
     from src.interfaces.pypitui_cli import AlfredTUI
 
-    # Create TUI without alfred first (shows loading state)
-    interface = AlfredTUI(alfred=None, toast_manager=toast_manager)
-
-    # Start alfred in background
-    async def init_and_start() -> None:
-        try:
-            await alfred.start()
-            # Mark TUI as ready once alfred is initialized
-            interface.set_ready(alfred)
-        except Exception as e:
-            logging.exception("Failed to initialize Alfred")
-            # Show error toast and exit
-            if toast_manager:
-                toast_manager.add(f"Startup failed: {e}", level="error")
-            interface.running = False
-
-    # Start initialization task
-    asyncio.create_task(init_and_start())
-
-    # Run TUI immediately (shows loading state until ready)
+    interface = AlfredTUI(alfred, toast_manager=toast_manager)
+    await alfred.start()
     await interface.run()
 
 
@@ -155,33 +106,14 @@ async def _run_telegram_bot(alfred: Alfred) -> None:
 
     data_dir = getattr(alfred.config, "data_dir", Path("data"))
     interface = TelegramInterface(alfred.config, alfred, data_dir)
-    try:
-        await alfred.start()
-        await interface.run()
-    finally:
-        await alfred.stop()
-
-
-# Third-party loggers that are too verbose at DEBUG level
-_NOISY_LOGGERS = [
-    "markdown_it",  # Extremely verbose markdown parsing logs
-    "httpcore",  # HTTP request/response details
-    "httpx",  # HTTP client logs
-    "urllib3",  # URL handling
-    "asyncio",  # Async internals
-]
-
-
-def _suppress_noisy_loggers() -> None:
-    """Suppress verbose third-party loggers to WARNING level."""
-    for logger_name in _NOISY_LOGGERS:
-        logging.getLogger(logger_name).setLevel(logging.WARNING)
+    await alfred.start()
+    await interface.run()
 
 
 def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
-    """Configure logging to file only (never stdout/stderr in TUI mode).
+    """Configure logging to file (never stdout/stderr in TUI mode).
 
-    Logs always go to $XDG_CACHE_HOME/alfred/alfred.log.
+    Logs go to $XDG_CACHE_HOME/alfred/alfred.log.
     In TUI mode, warnings/errors also appear as toasts.
 
     Args:
@@ -194,7 +126,10 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
     else:
         log_level = logging.WARNING
 
-    # Ensure cache directory exists
+    # Import here to avoid circular import
+    from src.data_manager import get_log_file
+
+    # Ensure log directory exists
     log_file = get_log_file()
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -212,7 +147,7 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
         from src.interfaces.pypitui.toast import ToastHandler
 
         toast_handler = ToastHandler(toast_manager)
-        toast_handler.setLevel(logging.WARNING)  # Only warnings and above
+        toast_handler.setLevel(logging.WARNING)
         handlers.append(toast_handler)
 
     logging.basicConfig(
@@ -220,8 +155,9 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
         handlers=handlers,
     )
 
-    # Suppress verbose third-party loggers
-    _suppress_noisy_loggers()
+    # Suppress noisy third-party loggers
+    for logger_name in ["markdown_it", "httpcore", "httpx", "urllib3", "asyncio"]:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
 def run_async(coro_factory: Callable[[], Coroutine[Any, Any, None]]) -> None:

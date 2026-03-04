@@ -87,7 +87,6 @@ def init_xdg_directories() -> None:
     Creates the following directories:
         - $XDG_CONFIG_HOME/alfred/
         - $XDG_DATA_HOME/alfred/
-        - $XDG_CACHE_HOME/alfred/
         - $XDG_DATA_HOME/alfred/workspace/
         - $XDG_DATA_HOME/alfred/memory/
 
@@ -98,19 +97,16 @@ def init_xdg_directories() -> None:
     # Create directories
     config_dir = get_config_dir()
     data_dir = get_data_dir()
-    cache_dir = get_cache_dir()
     workspace_dir = get_workspace_dir()
     memory_dir = get_memory_dir()
 
     config_dir.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
-    cache_dir.mkdir(parents=True, exist_ok=True)
     workspace_dir.mkdir(parents=True, exist_ok=True)
     memory_dir.mkdir(parents=True, exist_ok=True)
 
     logger.debug(f"Config directory: {config_dir}")
     logger.debug(f"Data directory: {data_dir}")
-    logger.debug(f"Cache directory: {cache_dir}")
     logger.debug(f"Workspace directory: {workspace_dir}")
     logger.debug(f"Memory directory: {memory_dir}")
 

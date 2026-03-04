@@ -52,21 +52,7 @@ class StatusLine(Component):
         self._reasoning: int = 0
         self._queued: int = 0
         self._is_streaming: bool = False
-        self._is_loading: bool = False
-        self._loading_message: str = "Initializing..."
         self._throbber: Throbber = Throbber()
-
-    def set_loading(self, loading: bool, message: str = "Initializing...") -> None:
-        """Set loading state.
-
-        Args:
-            loading: True if loading, False when ready
-            message: Loading message to display
-        """
-        self._is_loading = loading
-        self._loading_message = message
-        if loading:
-            self._throbber.reset()
 
     def update(
         self,
@@ -105,9 +91,9 @@ class StatusLine(Component):
     def tick_throbber(self) -> None:
         """Advance throbber animation by one frame.
 
-        Only animates when _is_streaming or _is_loading is True.
+        Only animates when _is_streaming is True.
         """
-        if self._is_streaming or self._is_loading:
+        if self._is_streaming:
             self._throbber.tick()
 
     def render(self, width: int) -> list[str]:
@@ -119,10 +105,6 @@ class StatusLine(Component):
         Returns:
             Single-element list with status line string
         """
-        # Loading state - show throbber and message
-        if self._is_loading:
-            return [f"{self._throbber.render()} {self._loading_message}"]
-
         parts: list[str] = []
 
         # Throbber first if streaming

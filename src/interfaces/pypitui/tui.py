@@ -37,14 +37,14 @@ class AlfredTUI:
 
     def __init__(
         self,
-        alfred: Alfred | None = None,
+        alfred: Alfred,
         terminal: "ProcessTerminal | None" = None,
         toast_manager: ToastManager | None = None,
     ) -> None:
         """Initialize the Alfred TUI.
 
         Args:
-            alfred: The Alfred instance to interact with (can be None for deferred init)
+            alfred: The Alfred instance to interact with
             terminal: Optional terminal to use (for testing)
             toast_manager: Optional ToastManager for notifications
         """
@@ -65,9 +65,7 @@ class AlfredTUI:
         self.completion_menu = CompletionMenuComponent(max_height=10)
 
         # Input field for user messages (with wrapped text navigation and completion)
-        self.input_field = WrappedInput(
-            placeholder="Initializing..." if alfred is None else "Message Alfred..."
-        )
+        self.input_field = WrappedInput(placeholder="Message Alfred...")
         self.input_field.on_submit = self._on_submit
 
         # Wire up completion with multiple triggers (longest match wins)
@@ -91,12 +89,6 @@ class AlfredTUI:
         # State
         self.running = True
         self._terminal_width: int = 80  # Default width
-        self._is_ready = alfred is not None  # Ready when alfred is set
-
-        # Show loading state if alfred not provided
-        if alfred is None:
-            self.status_line.set_loading(True, "Initializing...")
-            self.input_field.set_enabled(False)
 
         # Ctrl-C state
         self._ctrl_c_pending = False
@@ -123,41 +115,16 @@ class AlfredTUI:
         }
 
         # Enable toast mode for cron job notifications
-        if alfred is not None and toast_manager is not None:
+        if toast_manager is not None:
             from src.cron.notifier import CLINotifier
 
-            if isinstance(alfred.notifier, CLINotifier):
-                alfred.notifier.set_toast_manager(toast_manager)
+            if isinstance(self.alfred.notifier, CLINotifier):
+                self.alfred.notifier.set_toast_manager(toast_manager)
 
         # Add input listener for queue navigation (ESC to cancel, UP/DOWN for history)
         self.tui.add_input_listener(self._input_listener)
 
         # Initialize status line with current values
-        if alfred is not None:
-            self._update_status()
-
-    def set_ready(self, alfred: Alfred) -> None:
-        """Set Alfred instance and mark TUI as ready.
-
-        Called after deferred initialization completes.
-
-        Args:
-            alfred: The initialized Alfred instance.
-        """
-        self.alfred = alfred
-        self._is_ready = True
-
-        # Wire up toast mode for cron job notifications
-        if self._toast_manager is not None:
-            from src.cron.notifier import CLINotifier
-
-            if isinstance(alfred.notifier, CLINotifier):
-                alfred.notifier.set_toast_manager(self._toast_manager)
-
-        # Update UI to show ready state
-        self.status_line.set_loading(False)
-        self.input_field.set_placeholder("Message Alfred...")
-        self.input_field.set_enabled(True)
         self._update_status()
 
     def _handle_ctrl_c(self) -> None:
@@ -224,10 +191,6 @@ class AlfredTUI:
             estimated_out: Estimated output tokens during streaming.
                            If None, uses actual from token_tracker.
         """
-        # Skip if not ready yet
-        if not self._is_ready or self.alfred is None:
-            return
-
         usage = self.alfred.token_tracker.usage
         ctx = self.alfred.token_tracker.context_tokens
 
@@ -353,10 +316,6 @@ class AlfredTUI:
         Args:
             text: The submitted text
         """
-        # Ignore if not ready yet
-        if not self._is_ready or self.alfred is None:
-            return
-
         # NOTE: Input field is already cleared by WrappedInput._on_submit
         # before this method is called, to prevent race conditions.
 
@@ -485,10 +444,6 @@ class AlfredTUI:
         Called on startup (if resuming) and after /resume command.
         Renders all historical messages as MessagePanels.
         """
-        # Skip if not ready yet
-        if not self._is_ready or self.alfred is None:
-            return
-
         if not self.alfred.session_manager.has_active_session():
             return
 
@@ -660,7 +615,3 @@ class AlfredTUI:
                 await asyncio.sleep(0.016)
         finally:
             self.tui.stop()
-            # Cleanup alfred if initialized
-            if self.alfred is not None:
-                with suppress(Exception):
-                    await self.alfred.stop()

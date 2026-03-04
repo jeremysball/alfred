@@ -131,31 +131,21 @@ class CLINotifier(Notifier):
         try:
             # In TUI mode, send as toast
             if self._toast_manager is not None:
-                logger.debug("Sending toast notification: %s...", message[:50])
-                try:
-                    self._toast_manager.add(message, "info")
-                    logger.info("Toast notification sent: %s...", message[:50])
-                except Exception as toast_error:
-                    logger.warning(
-                        "Toast notification failed, falling back to stdout: %s",
-                        toast_error,
-                    )
-                    self._display(message)
+                self._toast_manager.add(message, "info")
+                logger.debug(f"Sent toast notification: {message[:50]}...")
                 return
 
             # Queue if buffer exists and is active
             if self.buffer and self.buffer.is_active:
                 self.buffer.queue(message)
-                logger.debug("Queued notification (buffer active): %s...", message[:50])
+                logger.debug(f"Queued notification (buffer active): {message[:50]}...")
                 return
 
             # Display immediately
-            logger.debug("Displaying notification immediately: %s...", message[:50])
             self._display(message)
-            logger.info("Notification displayed: %s...", message[:50])
         except Exception as e:
             # Log error but don't fail the job
-            logger.error("Failed to send CLI notification: %s", e, exc_info=True)
+            logger.error(f"Failed to send CLI notification: {e}")
 
     def _display(self, message: str) -> None:
         """Display a notification immediately to output stream.
