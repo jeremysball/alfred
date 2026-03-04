@@ -33,6 +33,7 @@ class CompletionAddon:
         self._menu = menu_component
         self._trigger = trigger
         self._last_text: str | None = None
+        self._owns_menu: bool = False  # Track if this addon opened the menu
 
         # Register hooks on WrappedInput
         # Input hook for consuming navigation keys
@@ -57,8 +58,10 @@ class CompletionAddon:
         self._last_text = text
 
         if not text.startswith(self._trigger):
-            if self._menu.is_open:
+            # Only close menu if this addon opened it
+            if self._owns_menu and self._menu.is_open:
                 self._menu.close()
+                self._owns_menu = False
             return
 
         options = self._provider(text)
@@ -66,9 +69,11 @@ class CompletionAddon:
         if options:
             self._menu.set_options(options)
             self._menu.open()
+            self._owns_menu = True
         else:
-            if self._menu.is_open:
+            if self._owns_menu and self._menu.is_open:
                 self._menu.close()
+                self._owns_menu = False
 
     def handle_input(self, data: str) -> dict | None:
         """Handle input when menu is open.
@@ -97,6 +102,7 @@ class CompletionAddon:
             return self._reject_ghost_char()
         elif matches_key(data, Key.escape):
             self._menu.close()
+            self._owns_menu = False
             return {"consume": True}
 
         return None
@@ -174,6 +180,7 @@ class CompletionAddon:
         options = self._menu._options_prop
         if not options:
             self._menu.close()
+            self._owns_menu = False
             return
 
         selected_value = options[self._menu.selected_index][0]
@@ -182,6 +189,7 @@ class CompletionAddon:
         self._input.set_cursor_pos(len(selected_value))
         self._last_text = selected_value
         self._menu.close()
+        self._owns_menu = False
         # Trigger submit after accepting completion
         if self._input.on_submit:
             self._input.on_submit(selected_value)
