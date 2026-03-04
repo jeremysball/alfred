@@ -394,19 +394,92 @@ Press LEFT:  /n e̲w  ('w' back to ghost, cursor on 'e')
 **Status:** ✅ COMPLETE (2026-03-01)
 
 **Files Created:**
-- `src/interfaces/pypitui/completion_menu.py` - Menu rendering component
 - `src/interfaces/pypitui/completion_addon.py` - Composable completion behavior
+- `src/interfaces/pypitui/completion_menu_component.py` - Menu rendering component
 - `src/interfaces/pypitui/fuzzy.py` - Fuzzy matching utility
 
 **Files Modified:**
 - `src/interfaces/pypitui/wrapped_input.py` - Added hook support and `with_completion()` API
 - `src/interfaces/pypitui/tui.py` - Integrated completion into AlfredTUI
+- `src/interfaces/ansi.py` - Consolidated ANSI codes (moved from `pypitui/`)
+
+**Files Deleted (Refactoring):**
+- `src/interfaces/pypitui/completion_menu.py` - merged into component
+- `src/interfaces/pypitui/completion_overlay.py` - replaced by simplified architecture
+- `src/interfaces/pypitui/completion_overlay_v2.py` - experimental approach abandoned
 
 **Tests:** 87+ tests in `tests/pypitui/test_completion*.py` - all passing
 
 **Documentation:** `docs/COMPLETION.md` - User guide for completion system
 
 **Deferred:** Visual highlight of matched characters (stretch goal, not required for MVP)
+
+---
+
+## Post-Completion Refactoring (2026-03-03)
+
+After initial completion, significant refactoring improved code quality and maintainability:
+
+### Code Cleanup
+
+**Removed Dead Code:**
+- Deleted `completion_menu.py` - functionality merged into `completion_menu_component.py`
+- Deleted `completion_overlay.py` - replaced by simplified architecture
+- Deleted `completion_overlay_v2.py` - experimental approach abandoned
+- Consolidated ANSI codes and moved settings to config (moved `ansi.py` to `src/interfaces/`)
+
+**Algorithm Improvements:**
+- Changed from "ownership tracking" to "longest-trigger-wins" for multiple completion addons
+- Simplified addon coordination by removing complex ownership state machine
+- Fixed race conditions in menu redraw during rapid typing
+- Added shared completion menu reuse for `/resume` session ID completion
+
+### Bug Fixes
+
+| Issue | Fix |
+|-------|-----|
+| Multiple addons closing shared menu | Added reference counting to prevent premature menu closure |
+| Scrollback tracking on conversation clear | Reset scrollback state when `/new` command executed |
+| Menu redraw during resize | Removed invalidation workarounds, fixed root cause |
+| Ghost text cursor positioning | Fixed off-by-one error in bidirectional navigation |
+
+### Architecture Decision: Longest-Trigger-Wins
+
+**Date:** 2026-03-03
+
+**Problem:** Multiple completion addons (e.g., `/` for commands, `/resume ` for sessions) competed for menu control with complex ownership tracking.
+
+**Solution:** Simplified to "longest matching trigger wins" - no ownership state needed.
+
+**Before:**
+```python
+# Complex ownership tracking with state machine
+addon.acquire_ownership()
+if addon.has_ownership():
+    addon.show_menu()
+```
+
+**After:**
+```python
+# Simple length comparison
+active_addon = max(addons, key=lambda a: len(a.matched_trigger))
+```
+
+**Benefits:**
+- 200+ lines of ownership code deleted
+- No state synchronization bugs
+- Deterministic behavior
+- Easier to test
+
+**Commit:** `4360962 refactor(completion): use longest-trigger-wins instead of ownership tracking`
+
+### Validation
+
+- [x] All 87+ completion tests still passing
+- [x] Manual testing of `/resume` session completion
+- [x] Rapid typing stress test (100+ chars/sec)
+- [x] Terminal resize during completion
+- [x] Multiple trigger overlap scenarios
 
 ---
 
