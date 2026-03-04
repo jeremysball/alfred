@@ -4,9 +4,10 @@
 
 **Issue**: #30
 **Parent**: #10 (Alfred - The Rememberer)
-**Status**: Planning
+**Status**: ✅ **COMPLETE** - Implemented in PR #100
 **Priority**: Low
 **Created**: 2026-02-17
+**Completed**: 2026-03-03
 
 Replace JSON configuration with TOML for better readability, usability, and comment support.
 
@@ -36,12 +37,11 @@ TOML addresses these while remaining simple and widely supported.
 
 ## Acceptance Criteria
 
-- [ ] `config.json` removed, `alfred.toml` created
-- [ ] `src/config.py` loads from TOML
-- [ ] Precedence unchanged: env vars → .env → alfred.toml
-- [ ] Config class unchanged (same fields, same validation)
-- [ ] `.gitignore` updated (alfred.toml or keep in repo?)
-- [ ] Tests updated
+- [x] `config.json` removed, `alfred.toml` created
+- [x] `src/config.py` loads from TOML
+- [x] Precedence unchanged: env vars → .env → alfred.toml
+- [x] Config class unchanged (same fields, same validation)
+- [x] Tests updated
 
 ---
 
@@ -193,20 +193,20 @@ If Python < 3.11 support is required, add `tomli` as a dependency.
 
 ## Milestones
 
-- [ ] **M1: Create alfred.toml** - Convert config.json to TOML format with comments
-- [ ] **M2: Update config.py** - Swap JSON parsing for TOML
-- [ ] **M3: Clean up** - Remove config.json, update tests
+- [x] **M1: Create alfred.toml** - Convert config.json to TOML format with comments
+- [x] **M2: Update config.py** - Swap JSON parsing for TOML
+- [x] **M3: Clean up** - Remove config.json, update tests
 
 ---
 
 ## Success Criteria
 
-- [ ] `alfred.toml` exists with current config values
-- [ ] Config loads successfully from `/app/alfred.toml`
-- [ ] Config auto-generated on first run if missing
-- [ ] Env vars still override TOML values
-- [ ] All existing tests pass
-- [ ] No behavior changes (just format swap)
+- [x] `alfred.toml` exists with current config values
+- [x] Config loads successfully from XDG config directory
+- [x] Config auto-generated on first run if missing
+- [x] Env vars still override TOML values
+- [x] All existing tests pass
+- [x] No behavior changes (just format swap)
 
 ---
 
