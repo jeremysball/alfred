@@ -2,11 +2,22 @@
 
 import asyncio
 from contextlib import suppress
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
+
+# Import commands
+from src.interfaces.pypitui.commands import (
+    Command,
+    ListSessionsCommand,
+    NewSessionCommand,
+    ResumeSessionCommand,
+    ShowContextCommand,
+    ShowSessionCommand,
+)
 from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 
 # Settings now accessed via self.alfred.config
@@ -51,23 +62,16 @@ class AlfredTUI:
         self.status_line = StatusLine()
 
         # Completion menu as proper component (renders empty when closed)
-        self.completion_menu = CompletionMenuComponent(max_height=5)
+        self.completion_menu = CompletionMenuComponent(max_height=10)
 
         # Input field for user messages (with wrapped text navigation and completion)
         self.input_field = WrappedInput(placeholder="Message Alfred...")
         self.input_field.on_submit = self._on_submit
 
-        # Wire up completion to use the menu component
-        self.input_field.with_completion_component(
-            self._command_provider,
-            self.completion_menu,
-            trigger="/",
-        )
-        self.input_field.with_completion_component(
-            self._session_id_provider,
-            CompletionMenuComponent(max_height=5),
-            trigger="/resume ",
-        )
+        # Wire up completion with multiple triggers (longest match wins)
+        completion = self.input_field.setup_completion(self.completion_menu)
+        completion.register("/", self._command_provider)
+        completion.register("/resume ", self._session_id_provider)
 
         # Build layout: conversation (flex), status, completion menu, input
         self.tui.add_child(self.conversation)
@@ -101,6 +105,15 @@ class AlfredTUI:
         self._queue_nav_index: int = -1  # -1 = not navigating, 0+ = index in queue
         self._queue_draft: str = ""  # Saved draft when navigating queue
 
+        # Command registry - explicit registration
+        self._commands: dict[str, Command] = {
+            "/new": NewSessionCommand(),
+            "/resume": ResumeSessionCommand(),
+            "/sessions": ListSessionsCommand(),
+            "/session": ShowSessionCommand(),
+            "/context": ShowContextCommand(),
+        }
+
         # Enable toast mode for cron job notifications
         if toast_manager is not None:
             from src.cron.notifier import CLINotifier
@@ -110,10 +123,6 @@ class AlfredTUI:
 
         # Add input listener for queue navigation (ESC to cancel, UP/DOWN for history)
         self.tui.add_input_listener(self._input_listener)
-
-        # Track completion menu height for forced redraws when menu shrinks
-        # (pypitui's invalidate_component + clear_on_shrink don't work together)
-        self._completion_menu_height = 0
 
         # Initialize status line with current values
         self._update_status()
@@ -233,9 +242,7 @@ class AlfredTUI:
                 else:
                     return {"consume": True}  # Already at top
 
-                self.input_field.set_value(
-                    self._message_queue[self._queue_nav_index]
-                )
+                self.input_field.set_value(self._message_queue[self._queue_nav_index])
                 return {"consume": True}
             return None
 
@@ -295,7 +302,9 @@ class AlfredTUI:
 
         elif isinstance(event, ToolEnd):
             # Set final status
-            status: Literal["success", "error"] = "error" if event.is_error else "success"
+            status: Literal["success", "error"] = (
+                "error" if event.is_error else "success"
+            )
             self._current_assistant_msg.finalize_tool_call(event.tool_call_id, status)
 
         # Request re-render
@@ -348,16 +357,8 @@ class AlfredTUI:
         cmd = parts[0].lower()
         arg = parts[1].strip() if len(parts) > 1 else None
 
-        if cmd == "/new":
-            return self._cmd_new_session()
-        elif cmd == "/resume":
-            return self._cmd_resume_session(arg)
-        elif cmd == "/sessions":
-            return self._cmd_list_sessions()
-        elif cmd == "/session":
-            return self._cmd_show_current_session()
-        elif cmd == "/context":
-            return self._cmd_context()
+        if cmd in self._commands:
+            return self._commands[cmd].execute(self, arg)
         return False
 
     def _command_provider(self, text: str) -> list[tuple[str, str | None]]:
@@ -401,22 +402,38 @@ class AlfredTUI:
 
         # Get available session IDs (list of strings)
         session_ids = self.alfred.session_manager.storage.list_sessions()
-        results = []
+        sessions_with_meta = []
 
         for sid in session_ids:
             # Fuzzy match against partial ID
-            if fuzzy_match(partial.lower(), sid.lower()):
-                results.append((f"/resume {sid}", None))
+            if not fuzzy_match(partial.lower(), sid.lower()):
+                continue
 
-        return results[:5]  # Limit to 5 results
+            # Get metadata for date and message count
+            meta = self.alfred.session_manager.storage.get_meta(sid)
+            if meta:
+                # Format: "Mar 3 21:45 · 12 msgs"
+                date_str = meta.last_active.strftime("%b %-d %H:%M")
+                msg_count = meta.current_count + meta.archive_count
+                desc = f"{date_str} · {msg_count} msgs"
+                sessions_with_meta.append((sid, desc, meta.last_active))
+            else:
+                # No metadata, use placeholder
+                sessions_with_meta.append((sid, None, datetime.min.replace(tzinfo=UTC)))
+
+        # Sort by last_active descending (most recent first)
+        sessions_with_meta.sort(key=lambda x: x[2], reverse=True)
+
+        # Return (completion_value, description) tuples - show all, menu scrolls
+        return [(f"/resume {sid}", desc) for sid, desc, _ in sessions_with_meta]
 
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
         self.conversation.clear()
-        # Force full redraw to ensure old content is cleared from screen.
-        # Container.clear() preserves _previous_lines for differential rendering,
-        # so we need force=True to ensure the cleared state is properly rendered.
-        self.tui.request_render(force=True)
+        # Force visible redraw and reset scrollback tracking.
+        # This ensures resumed session content flows into scrollback properly
+        # after clearing the conversation container.
+        self.tui.request_render(force=True, reset_scrollback=True)
 
     def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
@@ -443,7 +460,7 @@ class AlfredTUI:
         # Sync token tracker with loaded session messages
         self.alfred.sync_token_tracker_from_session()
 
-        self.tui.request_render(force=True)
+        self.tui.request_render()
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""
@@ -470,186 +487,6 @@ class AlfredTUI:
         )
         self.conversation.add_child(msg)
         self.tui.request_render()
-
-    def _cmd_new_session(self) -> bool:
-        """Create a new session."""
-        self._clear_conversation()
-        self.alfred.token_tracker.reset()
-        session = self.alfred.session_manager.new_session()
-        self._add_user_message(f"New session created: {session.meta.session_id}")
-        self._update_status()
-        return True
-
-    def _cmd_resume_session(self, session_id: str | None) -> bool:
-        """Resume an existing session."""
-        if not session_id:
-            self._add_user_message(
-                "Usage: /resume <session_id>\nUse /sessions to see available sessions."
-            )
-            return True
-
-        try:
-            self._clear_conversation()
-            self.alfred.session_manager.resume_session(session_id)
-
-            # Load all session messages into conversation
-            self._load_session_messages()
-
-            self._update_status()
-        except ValueError as e:
-            self._add_user_message(f"Error: {e}")
-        return True
-
-    def _cmd_list_sessions(self) -> bool:
-        """List all sessions."""
-        sessions = self.alfred.session_manager.list_sessions()
-        if not sessions:
-            self._add_user_message("No sessions found.")
-            return True
-
-        # Build output using non-breaking spaces to prevent word wrapping
-        lines: list[str] = []
-
-        current_id = None
-        current_session = None
-        if self.alfred.session_manager.has_active_session():
-            current_session = self.alfred.session_manager.get_current_cli_session()
-            if current_session:
-                current_id = current_session.meta.session_id
-
-        for meta in sessions[:20]:
-            created = meta.created_at.strftime("%Y-%m-%d %H:%M")
-            marker = " (current)" if meta.session_id == current_id else ""
-            # Use cached session's message count for current session (more up-to-date)
-            msg_count = meta.message_count
-            if meta.session_id == current_id and current_session:
-                msg_count = current_session.meta.message_count
-            # Use non-breaking space (\xa0) between fields to prevent wrapping
-            line = f"{meta.session_id}\xa0\xa0{created}\xa0\xa0{msg_count} msgs{marker}"
-            lines.append(line)
-
-        if len(sessions) > 20:
-            lines.append(f"... and {len(sessions) - 20} more")
-
-        self._add_user_message("\n".join(lines))
-        return True
-
-    def _cmd_show_current_session(self) -> bool:
-        """Show current session details."""
-        if not self.alfred.session_manager.has_active_session():
-            self._add_user_message("No active session.")
-            return True
-
-        session = self.alfred.session_manager.get_current_cli_session()
-        if not session:
-            self._add_user_message("No active session.")
-            return True
-
-        meta = session.meta
-        created = meta.created_at.strftime("%Y-%m-%d %H:%M")
-        last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
-
-        self._add_user_message(
-            f"Current Session\n"
-            f"ID: {meta.session_id}\n"
-            f"Status: {meta.status}\n"
-            f"Created: {created}\n"
-            f"Last Active: {last_active}\n"
-            f"Messages: {meta.message_count}"
-        )
-        return True
-
-    def _cmd_context(self) -> bool:
-        """Show current system context."""
-        import asyncio
-
-        from src.context_display import get_context_display
-
-        if not self.alfred.session_manager.has_active_session():
-            self._add_system_message("No active session.")
-            return True
-
-        async def _fetch_and_display() -> None:
-            """Async helper to fetch and display context."""
-            try:
-                # Get context data
-                context_data = await get_context_display(self.alfred)
-
-                # Build display text
-                lines: list[str] = []
-
-                # System prompt section
-                sys_prompt = context_data["system_prompt"]
-                lines.append(f"SYSTEM PROMPT ({sys_prompt['total_tokens']:,} tokens)")
-                lines.append("─" * 40)
-                for section in sys_prompt["sections"]:
-                    lines.append(f"  {section['name']}: {section['tokens']:,} tokens")
-                lines.append("")
-
-                # Memories section
-                memories = context_data["memories"]
-                lines.append(
-                    f"MEMORIES ({memories['displayed']} of {memories['total']} memories, "
-                    f"{memories['tokens']:,} tokens)"
-                )
-                lines.append("─" * 40)
-                for mem in memories["items"]:
-                    role = "User" if mem["role"] == "user" else "Assistant"
-                    lines.append(f"  [{mem['timestamp']}] {role}: {mem['content']}")
-                if memories["total"] > memories["displayed"]:
-                    lines.append(f"  ... and {memories['total'] - memories['displayed']} more")
-                lines.append("")
-
-                # Session history section
-                history = context_data["session_history"]
-                lines.append(
-                    f"SESSION HISTORY ({history['count']} messages, {history['tokens']:,} tokens)"
-                )
-                lines.append("─" * 40)
-                for msg in history["messages"]:
-                    role = msg["role"].capitalize()
-                    lines.append(f"  {role}: {msg['content']}")
-                lines.append("")
-
-                # Tool calls section
-                tool_calls = context_data["tool_calls"]
-                if tool_calls["count"] > 0:
-                    lines.append(
-                        f"RECENT TOOL CALLS ({tool_calls['count']} calls, "
-                        f"{tool_calls['tokens']:,} tokens)"
-                    )
-                    lines.append("─" * 40)
-                    for i, tc in enumerate(tool_calls["items"], 1):
-                        status_icon = "✓" if tc["status"] == "success" else "✗"
-                        args_str = ", ".join(f"{k}={v}" for k, v in tc["arguments"].items())
-                        if len(args_str) > 50:
-                            args_str = args_str[:47] + "..."
-                        lines.append(f"  {i}. {status_icon} {tc['tool_name']}: {args_str}")
-                        if tc["output"]:
-                            output = tc["output"].replace("\n", " ")
-                            if len(output) > 60:
-                                output = output[:57] + "..."
-                            lines.append(f"     → {output}")
-                    lines.append("")
-
-                # Total
-                lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
-
-                # Add as system message (no markdown to preserve formatting)
-                self._add_system_message("\n".join(lines))
-
-            except Exception as e:
-                self._add_system_message(f"Error displaying context: {e}")
-
-        # Schedule async work on event loop (we're already in async context)
-        try:
-            asyncio.get_running_loop()
-            asyncio.create_task(_fetch_and_display())
-        except RuntimeError:
-            # No event loop running - this shouldn't happen in TUI
-            self._add_user_message("Error: No event loop available")
-
-        return True
 
     async def _send_message(self, text: str) -> None:
         """Send message to Alfred and handle response.
@@ -767,24 +604,8 @@ class AlfredTUI:
                 # Animate throbber during streaming
                 self.status_line.tick_throbber()
 
-                # Check if completion menu height changed (for forced redraw)
-                # pypitui's invalidate_component corrupts _previous_lines which breaks
-                # clear_on_shrink, so we force full redraw when menu shrinks
-                menu_options = len(self.completion_menu._options_prop)
-                menu_is_open = self.completion_menu.is_open
-                # Effective height: options (capped) + 2 borders when open, 0 when closed
-                effective_height = 0
-                if menu_is_open and menu_options > 0:
-                    effective_height = min(menu_options, self.completion_menu._max_height) + 2
-
-                force_render = False
-                if effective_height < self._completion_menu_height:
-                    # Menu height decreased - force full redraw to clear orphaned lines
-                    force_render = True
-                self._completion_menu_height = effective_height
-
                 # Render frame
-                self.tui.request_render(force=force_render)
+                self.tui.request_render()
                 self.tui.render_frame()
 
                 # Yield to event loop (~60fps)

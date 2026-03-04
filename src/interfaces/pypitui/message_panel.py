@@ -92,7 +92,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self.VERTICAL = f"{color}│{RESET}"
         self.T_LEFT = f"{color}├{RESET}"
         self.T_RIGHT = f"{color}┤{RESET}"
-        self._invalidate_cache()
 
     def set_content(self, text: str) -> None:
         """Update the message content.
@@ -221,8 +220,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         else:
             # Build content with tool boxes inline
             self._build_content_with_tools()
-
-        self.invalidate()
 
     def _build_content_with_tools(self) -> None:
         """Build content string with tool call boxes embedded."""

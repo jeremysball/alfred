@@ -212,7 +212,47 @@ include_output = true  # Include tool output or just call info
 
 ---
 
-## 5. File Changes
+## 5. Command Architecture Refactoring
+
+**Date:** 2026-03-03
+
+After implementing individual command handlers in `AlfredTUI`, the command logic was refactored into a structured command architecture:
+
+### Command Base Class
+
+```python
+class Command(ABC):
+    """Base class for TUI commands."""
+
+    name: str           # Command name without leading slash
+    description: str    # Brief description for completion menu
+
+    @abstractmethod
+    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+        """Execute the command."""
+        ...
+```
+
+### Benefits
+
+- **Single Responsibility:** Each command is isolated in its own file
+- **Testability:** Commands can be unit tested independently
+- **Discoverability:** Commands auto-register via `__init__.py` registry
+- **Completion Integration:** Description field populates completion menu automatically
+
+### Commands Implemented
+
+| Command | File | Description |
+|---------|------|-------------|
+| `/new` | `new_session.py` | Start a new conversation session |
+| `/resume` | `resume_session.py` | Resume a previous session by ID |
+| `/sessions` | `list_sessions.py` | List all available sessions |
+| `/session` | `show_session.py` | Show current session info |
+| `/context` | `show_context.py` | Display system context |
+
+---
+
+## 6. File Changes
 
 ### Modified Files
 | File | Changes |
@@ -224,14 +264,23 @@ include_output = true  # Include tool output or just call info
 | `src/config.py` | Add tool_calls config section |
 | `src/interfaces/cli.py` | Add /context command |
 | `src/interfaces/pypitui/message_panel.py` | Show arguments first |
+| `src/interfaces/pypitui/tui.py` | Use command architecture |
 | `templates/config.toml` | Add tool_calls config defaults |
 
 ### New Files
-None
+| File | Purpose |
+|------|---------|
+| `src/interfaces/pypitui/commands/base.py` | Abstract base class for TUI commands |
+| `src/interfaces/pypitui/commands/__init__.py` | Command registry and discovery |
+| `src/interfaces/pypitui/commands/new_session.py` | `/new` command implementation |
+| `src/interfaces/pypitui/commands/resume_session.py` | `/resume` command implementation |
+| `src/interfaces/pypitui/commands/list_sessions.py` | `/sessions` command implementation |
+| `src/interfaces/pypitui/commands/show_session.py` | `/session` command implementation |
+| `src/interfaces/pypitui/commands/show_context.py` | `/context` command implementation |
 
 ---
 
-## 6. Testing Strategy
+## 8. Testing Strategy
 
 - Unit tests for serialization/deserialization
 - Integration tests for context assembly
@@ -240,7 +289,7 @@ None
 
 ---
 
-## 7. Success Criteria
+## 9. Success Criteria
 
 - [x] Tool calls visible in session history
 - [x] Tool calls included in LLM context
@@ -250,7 +299,7 @@ None
 
 ---
 
-## 8. Risks and Mitigation
+## 10. Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
@@ -260,7 +309,7 @@ None
 
 ---
 
-## 9. Design Decisions Log
+## 11. Design Decisions Log
 
 ### Decision: Tool Call Placement Within Messages
 **Date:** 2026-03-02  

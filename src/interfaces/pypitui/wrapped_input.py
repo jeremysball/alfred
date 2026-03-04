@@ -18,6 +18,7 @@ from pypitui.utils import truncate_to_width
 from src.interfaces.ansi import RESET, REVERSE
 
 if TYPE_CHECKING:
+    from .completion_addon import CompletionManager
     from .completion_menu_component import CompletionMenuComponent
 
 
@@ -95,38 +96,6 @@ class WrappedInput(Component, Focusable):
         """
         self._post_input_hooks.append(hook_fn)
 
-    def with_completion(
-        self,
-        provider: Callable[[str], list[tuple[str, str | None]]],
-        trigger: str = "/",
-    ) -> "WrappedInput":
-        """Add command completion with fluent API (legacy render hook approach).
-
-        DEPRECATED: Use with_completion_component() instead for proper
-        component-based rendering.
-
-        Attaches a CompletionAddon to this input for command completion.
-        Returns self for chaining.
-
-        Args:
-            provider: Function that takes current text and returns
-                     list of (value, description) tuples.
-            trigger: Character that triggers completion (default: "/").
-
-        Returns:
-            Self for method chaining.
-        """
-        # Import here to avoid circular imports
-        from src.interfaces.pypitui.completion_addon import CompletionAddon
-        from src.interfaces.pypitui.completion_menu_component import (
-            CompletionMenuComponent,
-        )
-
-        # Create a menu component that won't be added to layout (render hook mode)
-        menu = CompletionMenuComponent()
-        CompletionAddon(self, provider, menu, trigger=trigger)
-        return self
-
     def with_completion_component(
         self,
         provider: Callable[[str], list[tuple[str, str | None]]],
@@ -142,20 +111,55 @@ class WrappedInput(Component, Focusable):
             provider: Function that takes current text and returns
                      list of (value, description) tuples.
             menu_component: CompletionMenuComponent to control (must be in layout).
-            trigger: Character that triggers completion (default: "/").
+            trigger: Prefix that triggers completion (default: "/").
 
         Returns:
             Self for method chaining.
+
+        Note:
+            If called multiple times, the longest matching trigger wins.
+            Use setup_completion() for cleaner multi-trigger setup.
 
         Example:
             menu = CompletionMenuComponent()
             tui.add_child(menu)  # Add to layout
             input_field.with_completion_component(my_provider, menu, trigger="/")
         """
-        from src.interfaces.pypitui.completion_addon import CompletionAddon
+        from src.interfaces.pypitui.completion_addon import CompletionManager
 
-        CompletionAddon(self, provider, menu_component, trigger=trigger)
+        # Lazily create manager on first call
+        if not hasattr(self, "_completion_manager"):
+            self._completion_manager = CompletionManager(self, menu_component)
+
+        self._completion_manager.register(trigger, provider)
         return self
+
+    def setup_completion(
+        self,
+        menu_component: "CompletionMenuComponent",
+    ) -> "CompletionManager":
+        """Set up completion with a shared menu component.
+
+        Use this when you have multiple triggers. Returns the manager
+        so you can call register() for each trigger.
+
+        Args:
+            menu_component: Shared menu component for all completions.
+
+        Returns:
+            CompletionManager to register triggers with.
+
+        Example:
+            menu = CompletionMenuComponent()
+            tui.add_child(menu)
+            manager = input_field.setup_completion(menu)
+            manager.register("/", command_provider)
+            manager.register("/resume ", session_id_provider)
+        """
+        from src.interfaces.pypitui.completion_addon import CompletionManager
+
+        self._completion_manager = CompletionManager(self, menu_component)
+        return self._completion_manager
 
     @property
     def focused(self) -> bool:
@@ -175,6 +179,10 @@ class WrappedInput(Component, Focusable):
         """Set input value."""
         self._input.set_value(text)
 
+    def invalidate(self) -> None:
+        """No-op - required by Component ABC."""
+        pass
+
     def set_cursor_pos(self, pos: int) -> None:
         """Set cursor position directly."""
         max_pos = len(self.get_value())
@@ -189,11 +197,6 @@ class WrappedInput(Component, Focusable):
     def _cursor_pos(self, value: int) -> None:
         """Set cursor position."""
         self._input._cursor_pos = value  # type: ignore[attr-defined]
-
-    def invalidate(self) -> None:
-        """Invalidate cache and bubble up for targeted invalidation."""
-        self._input.invalidate()
-        self._child_invalidated(self)
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.
