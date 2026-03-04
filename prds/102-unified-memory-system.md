@@ -492,7 +492,44 @@ This helps debug what's actually loaded in the prompt.
 - AGENTS.md focuses on behavior and tool usage
 - Both copied to workspace on first run
 
-### M2: Placeholder System
+### M2: AGENTS.md Atomic Unit Extraction
+**Scope:** Extract atomic sections from AGENTS.md into separate files
+
+**Identify atomic units** (self-contained sections that can stand alone):
+- Memory system guidance (detailed how-to-use-memory section)
+- Tool reference section (list of all tools with descriptions)
+- Communication guidelines
+- Best practices section
+- Code style / commit conventions
+
+**Process:**
+- [ ] Audit AGENTS.md and identify atomic sections
+- [ ] Create `prompts/agents/` subdirectory for extracted sections
+- [ ] Extract each atomic unit to its own `.md` file:
+  - `prompts/agents/memory-system.md`
+  - `prompts/agents/tool-reference.md`
+  - `prompts/agents/communication.md`
+  - `prompts/agents/best-practices.md`
+- [ ] Replace extracted content in AGENTS.md with placeholders:
+  ```markdown
+  # Agent Behavior
+
+  ## Memory System
+  {{prompts/agents/memory-system.md}}
+
+  ## Tool Reference
+  {{prompts/agents/tool-reference.md}}
+  ```
+- [ ] Ensure each extracted file is self-contained and makes sense standalone
+- [ ] Tests for each extracted file loading correctly
+
+**Success Criteria:**
+- AGENTS.md uses placeholders for major sections
+- Each extracted file is atomic (self-contained, understandable alone)
+- All placeholders resolve correctly
+- Total prompt content is identical before/after extraction
+
+### M3: Placeholder System
 **Scope:** Implement `{{path}}` placeholder resolution
 
 - [ ] Implement `PromptLoader` class with placeholder resolution
@@ -508,7 +545,7 @@ This helps debug what's actually loaded in the prompt.
 - Missing files log warning, don't crash
 - Nested placeholders work (depth <= 5)
 
-### M3: Prompts Folder Structure
+### M4: Prompts Folder Structure
 **Scope:** Support modular prompts in `prompts/` subdirectory
 
 - [ ] Create `templates/prompts/` directory
@@ -522,7 +559,7 @@ This helps debug what's actually loaded in the prompt.
 - USER.md includes `{{prompts/communication-style.md}}`
 - All placeholders resolve correctly
 
-### M4: Memory System Simplification
+### M5: Memory System Simplification
 **Scope:** Remove three-tier complexity, implement simplified model
 
 - [ ] Remove auto-capture logic
@@ -530,7 +567,7 @@ This helps debug what's actually loaded in the prompt.
 - [ ] Change TTL from 30 to 90 days
 - [ ] Add `permanent` flag to memory schema
 - [ ] Add warning threshold X (default 1000 memories)
-- [ ] Update memory guidance in AGENTS.md
+- [ ] Update memory guidance in AGENTS.md (now extracted to prompts/agents/memory-system.md)
 - [ ] Update all memory-related tests
 
 **Success Criteria:**
@@ -539,11 +576,12 @@ This helps debug what's actually loaded in the prompt.
 - Warning shown at X memories
 - Permanent flag works to skip TTL
 
-### M5: Model Memory Guidance
+### M6: Model Memory Guidance
 **Scope:** Create and inject "How to Use Memory" prompt section
 
 - [ ] Write comprehensive memory guidance prompt (see "Prompt for Model" section)
-- [ ] Inject into system prompt (append to AGENTS.md or as separate section)
+- [ ] Save to `prompts/agents/memory-system.md` (or `prompts/memory-guidance.md`)
+- [ ] Reference from AGENTS.md via placeholder
 - [ ] Include decision framework table
 - [ ] Include TTL explanation
 - [ ] Test that model follows guidance
@@ -554,7 +592,7 @@ This helps debug what's actually loaded in the prompt.
 - Model asks before editing USER.md
 - Model searches memories before asking
 
-### M6: Session Archive Contextual Retrieval
+### M7: Session Archive Contextual Retrieval
 **Scope:** Implement search_sessions with contextual narrowing
 
 - [ ] Store session summaries with embeddings
@@ -568,7 +606,7 @@ This helps debug what's actually loaded in the prompt.
 - Within-session message search works
 - Results include session context + specific messages
 
-### M7: Integration & Testing
+### M8: Integration & Testing
 **Scope:** Wire everything together, comprehensive tests
 
 - [ ] Update context assembly to use new file loading
@@ -583,7 +621,7 @@ This helps debug what's actually loaded in the prompt.
 - Documentation updated
 - Ready for release
 
-### M8: Migration (if needed)
+### M9: Migration (if needed)
 **Scope:** Handle existing users with old memory format
 
 - [ ] Detect old three-tier memory structure
