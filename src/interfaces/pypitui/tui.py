@@ -67,17 +67,10 @@ class AlfredTUI:
         self.input_field = WrappedInput(placeholder="Message Alfred...")
         self.input_field.on_submit = self._on_submit
 
-        # Wire up completion to use the menu component
-        self.input_field.with_completion_component(
-            self._command_provider,
-            self.completion_menu,
-            trigger="/",
-        )
-        self.input_field.with_completion_component(
-            self._session_id_provider,
-            self.completion_menu,  # Reuse shared menu
-            trigger="/resume ",
-        )
+        # Wire up completion with multiple triggers (longest match wins)
+        completion = self.input_field.setup_completion(self.completion_menu)
+        completion.register("/", self._command_provider)
+        completion.register("/resume ", self._session_id_provider)
 
         # Build layout: conversation (flex), status, completion menu, input
         self.tui.add_child(self.conversation)
