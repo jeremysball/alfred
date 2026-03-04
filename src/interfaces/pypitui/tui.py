@@ -2,6 +2,7 @@
 
 import asyncio
 from contextlib import suppress
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
@@ -61,7 +62,7 @@ class AlfredTUI:
         self.status_line = StatusLine()
 
         # Completion menu as proper component (renders empty when closed)
-        self.completion_menu = CompletionMenuComponent(max_height=5)
+        self.completion_menu = CompletionMenuComponent(max_height=10)
 
         # Input field for user messages (with wrapped text navigation and completion)
         self.input_field = WrappedInput(placeholder="Message Alfred...")
@@ -401,25 +402,38 @@ class AlfredTUI:
 
         # Get available session IDs (list of strings)
         session_ids = self.alfred.session_manager.storage.list_sessions()
-        results = []
+        sessions_with_meta = []
 
         for sid in session_ids:
             # Fuzzy match against partial ID
-            if fuzzy_match(partial.lower(), sid.lower()):
-                results.append((f"/resume {sid}", None))
+            if not fuzzy_match(partial.lower(), sid.lower()):
+                continue
 
-        return results[:5]  # Limit to 5 results
+            # Get metadata for date and message count
+            meta = self.alfred.session_manager.storage.get_meta(sid)
+            if meta:
+                # Format: "Mar 3 21:45 · 12 msgs"
+                date_str = meta.last_active.strftime("%b %-d %H:%M")
+                msg_count = meta.current_count + meta.archive_count
+                desc = f"{date_str} · {msg_count} msgs"
+                sessions_with_meta.append((sid, desc, meta.last_active))
+            else:
+                # No metadata, use placeholder
+                sessions_with_meta.append((sid, None, datetime.min.replace(tzinfo=UTC)))
+
+        # Sort by last_active descending (most recent first)
+        sessions_with_meta.sort(key=lambda x: x[2], reverse=True)
+
+        # Return (completion_value, description) tuples - show all, menu scrolls
+        return [(f"/resume {sid}", desc) for sid, desc, _ in sessions_with_meta]
 
     def _clear_conversation(self) -> None:
         """Clear all messages from the conversation."""
         self.conversation.clear()
-        # Force full redraw and reset scrollback tracking
+        # Force visible redraw and reset scrollback tracking.
         # This ensures resumed session content flows into scrollback properly
-        self.tui.request_render(force=True)
-        # These are internal pypitui TUI attributes that track scrollback state.
-        # Resetting them ensures content growth is properly detected after clear.
-        self.tui._emitted_scrollback_lines = 0  # type: ignore[attr-defined]
-        self.tui._max_lines_rendered = 0  # type: ignore[attr-defined]
+        # after clearing the conversation container.
+        self.tui.request_render(force=True, reset_scrollback=True)
 
     def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
