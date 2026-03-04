@@ -179,7 +179,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
-    { name = "pypitui", specifier = ">=0.2.2" },
+    { name = "pypitui", editable = "../pypitui" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
@@ -1319,14 +1319,30 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.3.1"
-source = { registry = "https://pypi.org/simple" }
+version = "0.4.0"
+source = { editable = "../pypitui" }
 dependencies = [
     { name = "wcwidth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/3e/ce5eedcf9c9af81735be44c3f2438dcc85eeaf48ccbaf500952a4a550804/pypitui-0.3.1.tar.gz", hash = "sha256:6fab9db4d55a2ab14e812100b347f49708e66f735da0affb2b25465017ccaa77", size = 35014806, upload-time = "2026-03-01T23:40:34.431Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cf/8b/bb276200ea103e8b35f475852088ac895e2d1524c24c4bc70310d92d3d48/pypitui-0.3.1-py3-none-any.whl", hash = "sha256:bfb0832e8c85f5d339e5d01a0246ffce383deefe4fc96d5b540db1f52f3aa45a", size = 65284, upload-time = "2026-03-01T23:40:32.313Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
+    { name = "rich", marker = "extra == 'dev'", specifier = ">=13.0" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=13.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2" },
+    { name = "wcwidth", specifier = ">=0.2.13" },
+]
+provides-extras = ["rich", "dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
 ]
 
 [[package]]

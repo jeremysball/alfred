@@ -424,7 +424,10 @@ class AlfredTUI:
         # Sort by last_active descending (most recent first)
         sessions_with_meta.sort(key=lambda x: x[2], reverse=True)
 
-        # Return (completion_value, description) tuples - show all, menu scrolls
+        # Limit to 5 results for usability
+        sessions_with_meta = sessions_with_meta[:5]
+
+        # Return (completion_value, description) tuples
         return [(f"/resume {sid}", desc) for sid, desc, _ in sessions_with_meta]
 
     def _clear_conversation(self) -> None:

@@ -80,10 +80,6 @@ class CompletionMenuComponent(Component):
             return
         self._selected_index = (self._selected_index - 1) % len(self._options)
 
-    def invalidate(self) -> None:
-        """No-op - required by Component ABC."""
-        pass
-
     def render(self, width: int) -> list[str]:
         """Render the menu as a list of strings.
 

@@ -1,4 +1,4 @@
-"""Tests for WrappedInput.with_completion() and with_completion_component() APIs."""
+"""Tests for WrappedInput.with_completion_component() and setup_completion() APIs."""
 
 from unittest.mock import MagicMock
 
@@ -12,11 +12,12 @@ class TestWithCompletionFluentAPI:
     """Test fluent API for adding completion."""
 
     def test_returns_self_for_chaining(self) -> None:
-        """with_completion returns self for method chaining."""
+        """with_completion_component returns self for method chaining."""
         input_field = WrappedInput()
+        menu = CompletionMenuComponent()
         provider = MagicMock(return_value=[])
 
-        result = input_field.with_completion(provider)
+        result = input_field.with_completion_component(provider, menu)
 
         assert result is input_field
 

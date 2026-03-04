@@ -1,5 +1,6 @@
 """Tests for /resume command completion."""
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,6 +19,13 @@ def test_session_id_provider_returns_matching_sessions():
         "sess_abc789",
     ]
     mock_alfred.session_manager.storage = mock_storage
+
+    # Mock get_meta to return proper metadata objects
+    mock_meta = MagicMock()
+    mock_meta.last_active = datetime.now(UTC)
+    mock_meta.current_count = 5
+    mock_meta.archive_count = 2
+    mock_storage.get_meta.return_value = mock_meta
 
     # Mock terminal
     mock_terminal = MagicMock()
@@ -50,6 +58,13 @@ def test_session_id_provider_returns_all_if_empty_partial():
     ]
     mock_alfred.session_manager.storage = mock_storage
 
+    # Mock get_meta to return proper metadata objects
+    mock_meta = MagicMock()
+    mock_meta.last_active = datetime.now(UTC)
+    mock_meta.current_count = 5
+    mock_meta.archive_count = 2
+    mock_storage.get_meta.return_value = mock_meta
+
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -74,6 +89,13 @@ def test_session_id_provider_limits_to_5_results():
     # Create 10 sessions
     mock_storage.list_sessions.return_value = [f"sess_{i:03d}" for i in range(10)]
     mock_alfred.session_manager.storage = mock_storage
+
+    # Mock get_meta to return proper metadata objects
+    mock_meta = MagicMock()
+    mock_meta.last_active = datetime.now(UTC)
+    mock_meta.current_count = 5
+    mock_meta.archive_count = 2
+    mock_storage.get_meta.return_value = mock_meta
 
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -110,6 +132,13 @@ def test_session_id_provider_uses_fuzzy_matching():
     mock_storage.list_sessions.return_value = ["sess_abc123xyz"]
     mock_alfred.session_manager.storage = mock_storage
 
+    # Mock get_meta to return proper metadata
+    mock_meta = MagicMock()
+    mock_meta.last_active = datetime.now(UTC)
+    mock_meta.current_count = 5
+    mock_meta.archive_count = 2
+    mock_storage.get_meta.return_value = mock_meta
+
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -130,6 +159,13 @@ def test_session_id_provider_is_case_insensitive():
     mock_storage = MagicMock()
     mock_storage.list_sessions.return_value = ["sess_ABC123"]
     mock_alfred.session_manager.storage = mock_storage
+
+    # Mock get_meta to return proper metadata
+    mock_meta = MagicMock()
+    mock_meta.last_active = datetime.now(UTC)
+    mock_meta.current_count = 5
+    mock_meta.archive_count = 2
+    mock_storage.get_meta.return_value = mock_meta
 
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)

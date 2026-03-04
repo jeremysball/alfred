@@ -27,10 +27,6 @@ class ToastOverlay(Component):
         """
         self._toast_manager = toast_manager
 
-    def invalidate(self) -> None:
-        """No-op - required by Component ABC."""
-        pass
-
     def render(self, width: int) -> list[str]:
         """Render current toasts as bordered overlay lines.
 

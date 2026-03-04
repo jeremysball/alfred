@@ -179,10 +179,6 @@ class WrappedInput(Component, Focusable):
         """Set input value."""
         self._input.set_value(text)
 
-    def invalidate(self) -> None:
-        """No-op - required by Component ABC."""
-        pass
-
     def set_cursor_pos(self, pos: int) -> None:
         """Set cursor position directly."""
         max_pos = len(self.get_value())

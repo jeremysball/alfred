@@ -54,10 +54,6 @@ class StatusLine(Component):
         self._is_streaming: bool = False
         self._throbber: Throbber = Throbber()
 
-    def invalidate(self) -> None:
-        """No-op - required by Component ABC."""
-        pass
-
     def update(
         self,
         model: str,
