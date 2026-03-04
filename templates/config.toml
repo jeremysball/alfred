@@ -21,3 +21,9 @@ recency_half_life_days = 30
 # Width thresholds for responsive layout
 compact_threshold = 50
 full_threshold = 80
+
+[cron]
+# Whether to run cron jobs in sandboxed mode by default
+# Sandbox restricts available builtins - disabled by default since Alfred's jobs
+# often need access to files, network, and other resources
+sandbox_default = false

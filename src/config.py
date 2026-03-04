@@ -51,6 +51,9 @@ class Config(BaseSettings):
     # UI/TUI settings
     use_markdown_rendering: bool = True
 
+    # Cron job settings
+    cron_sandbox_default: bool = False  # Sandbox too restrictive for Alfred's jobs
+
 
 def _load_toml_config(toml_path: Path) -> dict:
     """Load and flatten TOML config to flat dict.
@@ -96,6 +99,12 @@ def _load_toml_config(toml_path: Path) -> dict:
                 flat_config["tool_calls_include_output"] = tool_calls["include_output"]
             if "include_arguments" in tool_calls:
                 flat_config["tool_calls_include_arguments"] = tool_calls["include_arguments"]
+
+    # Cron configuration
+    if "cron" in toml_data:
+        cron = toml_data["cron"]
+        if "sandbox_default" in cron:
+            flat_config["cron_sandbox_default"] = cron["sandbox_default"]
 
     return flat_config
 

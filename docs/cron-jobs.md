@@ -2,7 +2,7 @@
 
 ## Overview
 
-Alfred's cron system allows scheduling recurring tasks. Jobs run in the background at specified intervals using standard cron syntax or natural language.
+Alfred's cron system allows scheduling recurring tasks. Jobs run in the background at specified intervals using standard cron syntax.
 
 ## Creating a Job
 
@@ -10,7 +10,7 @@ Alfred's cron system allows scheduling recurring tasks. Jobs run in the backgrou
 
 ```bash
 # Submit a job for approval
-alfred cron submit "Daily Standup" "0 9 * * 1-5" "async def run(): await notify('Time for standup!')"
+alfred cron submit "Daily Standup" "0 9 * * 1-5" -c "async def run(): await notify('Time for standup!')"
 
 # List all jobs
 alfred cron list
@@ -21,40 +21,6 @@ alfred cron approve <job-id>
 # Reject a pending job
 alfred cron reject <job-id>
 ```
-
-### Natural Language Scheduling
-
-Alfred can parse natural language expressions:
-
-- "every day at 9am"
-- "every monday at 2pm"
-- "every 30 minutes"
-- "weekdays at 9am"
-
-### Job Structure
-
-```python
-from src.cron.models import Job
-
-job = Job(
-    job_id="unique-id",          # Unique identifier
-    name="Human-readable name",   # Display name
-    expression="*/5 * * * *",     # Cron: every 5 minutes
-    code="""
-async def run():
-    # Your code here
-    await notify("Hello from cron!")
-""",
-    status="active",              # active, pending, or paused
-)
-```
-
-### Available Functions in Job Code
-
-Jobs can use these built-in functions:
-
-- `notify(message)` - Send notification to user
-- `print()` - Log output (captured to execution history)
 
 ### Cron Expression Format
 

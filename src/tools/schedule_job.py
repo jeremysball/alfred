@@ -4,14 +4,16 @@ Tool for Alfred to schedule tasks via natural language.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, field_validator
 
 from src.cron import parser
-from src.cron.nlp_parser import NaturalLanguageCronParser
 from src.cron.scheduler import CronScheduler
 from src.tools.base import Tool, ToolResult
+
+if TYPE_CHECKING:
+    from src.config import Config
 
 
 class ScheduleJobParams(BaseModel):
@@ -29,8 +31,8 @@ class ScheduleJobParams(BaseModel):
     )
     cron_expression: str = Field(
         description=(
-            "When to run the job. Can be natural language: 'every morning at 8am', "
-            "'Sundays at 7pm', 'every 15 minutes', or cron format: '0 9 * * *'"
+            "When to run the job. Use cron format: '0 9 * * *' for 9am daily, "
+            "'*/15 * * * *' for every 15 minutes, '0 19 * * 0' for Sundays at 7pm"
         ),
     )
     code: str | None = Field(
@@ -76,15 +78,11 @@ class ScheduleJobTool(Tool):
     The job will be created with "pending" status and require human approval
     before it starts running. This ensures safety for automated job creation.
 
-    Supports natural language for the schedule:
-    - "every morning at 8am" -> cron="0 8 * * *"
-    - "Sundays at 7pm" -> cron="0 19 * * 0"
-    - "every 15 minutes" -> cron="*/15 * * * *"
-    - "weekdays at 9am" -> cron="0 9 * * 1-5"
-
-    Or use standard cron format directly:
+    Use standard cron format:
     - "0 9 * * *" for 9am daily
-    - "0 * * * *" for every hour
+    - "*/15 * * * *" for every 15 minutes
+    - "0 19 * * 0" for Sundays at 7pm
+    - "0 9 * * 1-5" for weekdays at 9am
     """
 
     name = "schedule_job"
@@ -94,14 +92,16 @@ class ScheduleJobTool(Tool):
     )
     param_model = ScheduleJobParams
 
-    def __init__(self, scheduler: CronScheduler) -> None:
+    def __init__(self, scheduler: CronScheduler, config: "Config | None" = None) -> None:
         """Initialize with CronScheduler instance.
 
         Args:
             scheduler: The cron scheduler to submit jobs to
+            config: Optional config for sandbox default
         """
         super().__init__()
         self.scheduler = scheduler
+        self._config = config
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the schedule_job tool (async).
@@ -118,34 +118,19 @@ class ScheduleJobTool(Tool):
             yield f"Error: Invalid parameters - {e}"
             return
 
-        # Try to parse as natural language first
-        nlp_parser = NaturalLanguageCronParser()
-        parsed = nlp_parser.parse(params.cron_expression)
-
-        if parsed is None:
-            # Not valid natural language, try strict cron validation
-            if not parser.is_valid(params.cron_expression):
-                yield (
-                    f"Error: I don't understand '{params.cron_expression}' as a schedule.\n\n"
-                    f"Try natural language like:\n"
-                    f"- 'every morning at 8am'\n"
-                    f"- 'Sundays at 7pm'\n"
-                    f"- 'every 15 minutes'\n"
-                    f"- 'weekdays at 9am'\n\n"
-                    f"Or use cron format: '0 9 * * *' for 9am daily."
-                )
-                return
-            cron_expression = params.cron_expression
-            schedule_desc = cron_expression
-        elif parsed.confidence < 0.7:
-            # Low confidence - ask for clarification
-            clarification = nlp_parser.clarify(params.cron_expression)
-            yield f"I'm not sure I understood. {clarification}"
+        # Validate cron expression
+        if not parser.is_valid(params.cron_expression):
+            yield (
+                f"Error: Invalid cron expression '{params.cron_expression}'.\n\n"
+                f"Use cron format:\n"
+                f"- '0 9 * * *' for 9am daily\n"
+                f"- '*/15 * * * *' for every 15 minutes\n"
+                f"- '0 19 * * 0' for Sundays at 7pm\n"
+                f"- '0 9 * * 1-5' for weekdays at 9am"
+            )
             return
-        else:
-            # Successfully parsed natural language
-            cron_expression = parsed.cron_expression
-            schedule_desc = parsed.description
+
+        cron_expression = params.cron_expression
 
         # Generate or use provided code
         job_code = params.code or self._generate_code(params.description)
@@ -158,18 +143,23 @@ class ScheduleJobTool(Tool):
             return
 
         try:
+            # Get sandbox default from config (disabled by default - too restrictive for Alfred)
+            sandbox_enabled = False
+            if self._config:
+                sandbox_enabled = getattr(self._config, "cron_sandbox_default", False)
+
             # Submit job for approval
             job_id = await self.scheduler.submit_user_job(
                 name=params.name,
                 expression=cron_expression,
                 code=job_code,
+                sandbox_enabled=sandbox_enabled,
             )
 
             result = ScheduleJobResult(
                 success=True,
                 message=(
                     f"✓ Job '{params.name}' submitted for approval.\n\n"
-                    f"Schedule: {schedule_desc}\n"
                     f"Cron: {cron_expression}\n"
                     f"Job ID: {job_id}\n\n"
                     f"This job requires approval before it will run."

@@ -54,13 +54,13 @@ class TestFullJobLifecycle:
     """Test complete job lifecycle: create → list → approve → execute."""
 
     @pytest.mark.asyncio
-    async def test_create_job_via_natural_language(self, cron_system):
-        """Should create job with correct cron from natural language."""
+    async def test_create_job_with_cron_expression(self, cron_system):
+        """Should create job with correct cron expression."""
         result = []
         async for chunk in cron_system["schedule_tool"].execute_stream(
             name="Daily Report",
             description="Send daily summary",
-            cron_expression="every morning at 8am",
+            cron_expression="0 8 * * *",
         ):
             result.append(chunk)
 
@@ -218,47 +218,6 @@ class TestResourceLimits:
         assert job is not None
         assert job.resource_limits.timeout_seconds == 30
         assert job.resource_limits.max_memory_mb == 200
-
-
-class TestNaturalLanguageEndToEnd:
-    """Test natural language parsing through complete flow."""
-
-    @pytest.mark.asyncio
-    async def test_various_natural_language_inputs(self, cron_system):
-        """Various NL inputs should create correct jobs."""
-        test_cases = [
-            ("every morning at 8am", "0 8 * * *"),
-            ("Sundays at 7pm", "0 19 * * 0"),
-            ("daily at noon", "0 12 * * *"),
-            ("weekdays at 9am", "0 9 * * 1-5"),
-        ]
-
-        for nl_input, expected_cron in test_cases:
-            result = []
-            async for chunk in cron_system["schedule_tool"].execute_stream(
-                name=f"Test {nl_input}",
-                description="Test",
-                cron_expression=nl_input,
-            ):
-                result.append(chunk)
-
-            output = "".join(result)
-            assert expected_cron in output, f"Failed for: {nl_input}"
-
-    @pytest.mark.asyncio
-    async def test_low_confidence_triggers_clarification(self, cron_system):
-        """Vague input should ask for clarification."""
-        result = []
-        async for chunk in cron_system["schedule_tool"].execute_stream(
-            name="Vague Job",
-            description="Test",
-            cron_expression="sometimes maybe",
-        ):
-            result.append(chunk)
-
-        output = "".join(result)
-        # Should not create job, should ask for clarification
-        assert "not sure" in output.lower() or "don't understand" in output.lower()
 
 
 class TestConcurrentExecution:

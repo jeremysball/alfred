@@ -99,10 +99,11 @@ class Alfred:
             notifier=notifier,
         )
 
-        # Register built-in tools (inject memory store and scheduler)
+        # Register built-in tools (inject memory store, scheduler, and config)
         register_builtin_tools(
             memory_store=self.memory_store,
             scheduler=self.cron_scheduler,
+            config=self.config,
         )
         self.tools = get_registry()
 

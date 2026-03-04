@@ -115,30 +115,21 @@ async def list_jobs(
 @async_command
 async def submit_job(
     name: str = typer.Argument(..., help="Job name"),
-    cron: str = typer.Argument(..., help="Cron expression or natural language"),
+    cron: str = typer.Argument(..., help="Cron expression (e.g., '0 9 * * *' for 9am daily)"),
     code: str | None = typer.Option(None, "--code", "-c", help="Python code for the job"),
 ) -> None:
     """Submit a new cron job for approval."""
     from src.cron import parser
-    from src.cron.nlp_parser import NaturalLanguageCronParser
 
-    nlp_parser = NaturalLanguageCronParser()
-    parsed = nlp_parser.parse(cron)
+    if not parser.is_valid(cron):
+        console.print(f"[red]Error: Invalid cron expression '{cron}'[/red]")
+        console.print("\nUse cron format:")
+        console.print("  '0 9 * * *' for 9am daily")
+        console.print("  '*/15 * * * *' for every 15 minutes")
+        console.print("  '0 19 * * 0' for Sundays at 7pm")
+        raise typer.Exit(1)
 
-    if parsed is None:
-        if not parser.is_valid(cron):
-            console.print(f"[red]Error: Invalid cron expression '{cron}'[/red]")
-            console.print("\nTry: 'every morning at 8am', 'Sundays at 7pm', or '0 9 * * *'")
-            raise typer.Exit(1)
-        cron_expression = schedule_desc = cron
-    elif parsed.confidence < 0.7:
-        console.print(f"[yellow]Warning: Low confidence parsing '{cron}'[/yellow]")
-        console.print(f"Parsed as: {parsed.cron_expression}")
-        cron_expression = parsed.cron_expression
-        schedule_desc = parsed.description
-    else:
-        cron_expression = parsed.cron_expression
-        schedule_desc = parsed.description
+    cron_expression = cron
 
     if code is None:
         code = f'''"""Job: {name}"""
@@ -156,13 +147,20 @@ async def run():
         console.print(f"[red]Error: Invalid Python code - {e}[/red]")
         raise typer.Exit(1) from None
 
+    config = load_config()
+    sandbox_enabled = getattr(config, "cron_sandbox_default", False)
+
     scheduler = get_scheduler()
-    job_id = await scheduler.submit_user_job(name=name, expression=cron_expression, code=code)
+    job_id = await scheduler.submit_user_job(
+        name=name,
+        expression=cron_expression,
+        code=code,
+        sandbox_enabled=sandbox_enabled,
+    )
 
     console.print(
         Panel(
             f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
-            f"[dim]Schedule:[/dim] {schedule_desc}\n"
             f"[dim]Cron:[/dim] {cron_expression}\n"
             f"[dim]Job ID:[/dim] {job_id}\n\n"
             f"[yellow]This job requires approval before it will run.[/yellow]\n"
