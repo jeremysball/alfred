@@ -57,7 +57,7 @@ class AlfredAsync:
         self.cron_scheduler: CronScheduler | None = None
         self.tools: Any = None
         self.agent: Agent | None = None
-        self.session_manager = SessionManager.get_instance()
+        self.session_manager: SessionManager | None = None
         self.token_tracker = TokenTracker()
         self._last_usage: dict[str, Any] | None = None
         self._telegram_bot: Bot | None = None
@@ -96,6 +96,7 @@ class AlfredAsync:
             asyncio.to_thread(SessionStorage, self.embedder, self._data_dir),
         )
         SessionManager.initialize(session_storage)
+        self.session_manager = SessionManager.get_instance()
 
         # Step 4: Create notifier and cron scheduler (independent)
         logger.debug("Creating notifier and cron scheduler...")

@@ -191,6 +191,9 @@ class AlfredTUI:
             estimated_out: Estimated output tokens during streaming.
                            If None, uses actual from token_tracker.
         """
+        # Guard: token_tracker might not be set if alfred isn't initialized
+        if not hasattr(self.alfred, 'token_tracker') or self.alfred.token_tracker is None:
+            return
         usage = self.alfred.token_tracker.usage
         ctx = self.alfred.token_tracker.context_tokens
 
@@ -397,6 +400,13 @@ class AlfredTUI:
         if not text.startswith("/resume "):
             return []
 
+        # Guard against uninitialized session manager
+        if (
+            self.alfred.session_manager is None
+            or self.alfred.session_manager.storage is None
+        ):
+            return []
+
         # Get the partial ID being typed
         partial = text[8:]  # After '/resume '
 
@@ -444,6 +454,9 @@ class AlfredTUI:
         Called on startup (if resuming) and after /resume command.
         Renders all historical messages as MessagePanels.
         """
+        # Skip if session_manager not initialized yet
+        if self.alfred.session_manager is None:
+            return
         if not self.alfred.session_manager.has_active_session():
             return
 
