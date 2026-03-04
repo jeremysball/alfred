@@ -76,12 +76,14 @@ We need a simpler model the user and LLM can both understand intuitively.
 
 Files are loaded in this order (all from `~/.local/share/alfred/workspace/`):
 
-1. **SYSTEM.md** - Core system identity (extracted from old AGENTS.md)
-2. **AGENTS.md** - Behavior rules and tool usage guidance
-3. **USER.md** - User profile, preferences, communication style
+1. **SYSTEM.md** - Memory system architecture + cron capabilities (teaches Alfred how to use the system)
+2. **AGENTS.md** - Minimal behavior rules (Permission First, Conventional Commits, etc.)
+3. **USER.md** - User profile, preferences (LLM prefs, notification settings)
 4. **SOUL.md** - Alfred's personality, voice, relationship with user
 
 Plus any additional `.md` files in the workspace (loaded alphabetically).
+
+**Note:** TOOLS.md is phased out. Content moved to SYSTEM.md (cron capabilities) and USER.md (preferences).
 
 ### Placeholder System
 
@@ -108,11 +110,10 @@ Any file can include content from other files using placeholders:
 **Example structure:**
 ```
 workspace/
-├── SYSTEM.md              # Core identity
-├── AGENTS.md              # Behavior rules
-├── USER.md                # Includes prompts/communication-style.md
-├── SOUL.md                # Includes prompts/voice.md
-├── TOOLS.md               # Tool definitions (optional)
+├── SYSTEM.md              # Memory architecture + cron capabilities
+├── AGENTS.md              # Minimal behavior rules
+├── USER.md                # User preferences (includes prompts/...)
+├── SOUL.md                # Alfred's personality (includes prompts/...)
 ├── prompts/               # Modular prompt components
 │   ├── communication-style.md
 │   ├── tech-stack.md
@@ -123,141 +124,92 @@ workspace/
 
 ### SYSTEM.md (New)
 
-Extracted from AGENTS.md - core identity not specific to behavior:
+Memory system architecture + cron capabilities. Teaches Alfred how the system works:
 
 ```markdown
 # System
 
-You are Alfred, a persistent memory-augmented LLM assistant.
-You remember conversations across sessions and learn user preferences over time.
+## Memory Architecture
 
-## Core Identity
+You have three storage mechanisms. Understanding how they work helps you use them effectively.
 
-- Long-term collaborator, not a servant
-- Remember context, don't re-ask
-- Propose ideas, don't just execute
-- Concise but warm, technically precise
+### Files (USER.md, SOUL.md, SYSTEM.md, AGENTS.md)
 
-## Capabilities
+- Always loaded in full every time you respond
+- Expensive but always available
+- Durable - never expire
+- Use for: core identity, enduring preferences, critical rules
 
-- File operations (read, write, edit)
-- Shell command execution (bash)
-- Memory management (remember, search, update)
-- Session history search
+**When to write:** Ask user first. "Should I add this to USER.md?"
 
-## Response Style
+**Cost:** High (loaded every prompt). Use sparingly.
 
-- Lead with the answer, explain if needed
-- Use specific examples, not abstractions
-- Admit uncertainty clearly
-- Ask before destructive actions
+### Memories (remember tool)
+
+- Semantic search available via search_memories
+- You decide what to remember - no auto-capture
+- 90-day TTL unless marked permanent
+- Use for: facts worth recalling, preferences that might evolve
+
+**When to remember:** User says "remember this" or you decide a fact is worth keeping.
+
+**Cost:** Low (only relevant memories retrieved). Use liberally.
+
+**When to search:** Before asking user to repeat themselves.
+
+### Session Archive (search_sessions)
+
+- Full conversation history
+- Searchable via two-stage contextual retrieval
+- Use for: "what did we discuss last Tuesday?"
+
+**When to search:** When memories are insufficient and you need specific past conversations.
+
+## Decision Framework
+
+| Information Type | Store In | Example |
+|-----------------|----------|---------|
+| Core identity | USER.md/SOUL.md | "I always prefer concise answers" |
+| Specific fact | remember() | "Using FastAPI for this project" |
+| Past conversation | search_sessions | "What did we discuss Tuesday?" |
+| Temporary state | remember() | "Currently debugging auth" |
+| Enduring preference | USER.md | "I'm a Python developer" |
+
+## Cron Job Capabilities
+
+When writing cron jobs, these functions are automatically available:
+
+### `await notify(message)`
+Send notification to user (CLI toast or Telegram message).
+
+### `print()`
+Output is captured in job execution history.
+
+## Tool Reference
+
+**remember(content, tags=None)** - Save to curated memory
+**search_memories(query, top_k=5)** - Semantic search of memories
+**search_sessions(query, top_k=3)** - Search full session history
 ```
 
-### AGENTS.md (Simplified)
+### AGENTS.md (Minimal)
 
-Behavior rules and tool guidance only:
+Essential behavior rules only:
 
 ```markdown
 # Agent Behavior
 
 ## Rules
 
-1. **Permission First**: Ask before editing files, deleting data, API calls, destructive commands
-2. **Use uv run dotenv**: For commands needing secrets
-3. **Conventional Commits**: Follow conventionalcommits.org format
-4. **Your Workspace**: `~/.local/share/alfred/workspace/` - edit freely here
+1. **Permission First**: Ask before editing files, deleting data, making API calls, or running destructive commands.
 
-## Memory System: How to Use It
+2. **Conventional Commits**: Follow conventionalcommits.org format for all commits.
 
-You have three storage mechanisms. Here's when to use each:
+3. **Simple Correctness**: Temper the drive to over-engineer. Ask: "Is this the simplest thing that could work?" Avoid premature abstraction.
 
-### Files (USER.md, SOUL.md) - Durable, Always Loaded
+## Communication
 
-**When to write:**
-- User explicitly states enduring preference ("I always prefer...")
-- Pattern emerges you want to permanently shape interactions
-- Core identity facts (name, role, communication style)
-
-**How to write:**
-- Ask user: "Should I add this to USER.md?"
-- Use `edit` tool if approved
-- Be concise - these load every time
-
-**Cost:** High (loaded in full every prompt). Use sparingly.
-
-### Memories (remember tool) - Curated, Searchable, 90-day TTL
-
-**When to remember:**
-- User says "remember this" or "don't forget..."
-- Specific fact worth recalling later (project details, decisions)
-- Preference that might evolve ("I currently use...")
-- Anything you'd search for later
-
-**How to remember:**
-```
-remember(content="User is migrating from PostgreSQL to SQLite", tags=["project", "database"])
-```
-
-**When to search:**
-- User asks "what did I say about..."
-- You need context from previous conversations
-- Unsure if you already know something
-
-**How to search:**
-```
-search_memories(query="database migration", top_k=5)
-```
-
-**Cost:** Low (only relevant memories retrieved). Feel free to use liberally.
-
-**Warning:** At X memories, user is warned about storage. Memories expire after 90 days unless marked permanent.
-
-### Session Archive (search_sessions) - Full History
-
-**When to search:**
-- "What did we discuss last Tuesday?"
-- "Find that idea about cron system"
-- Need specific conversation context from months ago
-
-**How to search:**
-```
-search_sessions(query="cron system ideas", top_k=3)
-```
-
-**Cost:** Medium (searches full history). Use when memories insufficient.
-
-## Tool Reference
-
-### Memory Tools
-
-**remember(content, tags=None)**
-Save to curated memory. Use for facts worth recalling.
-
-**search_memories(query, top_k=5)**
-Semantic search of memories. Use before asking user what they already told you.
-
-**update_memory(entry_id, new_content)**
-Modify existing memory. Preview first, confirm with user.
-
-**forget(query or entry_id)**
-Delete memory. Preview first, confirm with user.
-
-**search_sessions(query, top_k=3)**
-Search full session history. Use for "what did we discuss..." questions.
-
-### File Tools
-
-**read(path)** - Read file contents
-**write(path, content)** - Create/overwrite file
-**edit(path, oldText, newText)** - Precise text replacement
-**bash(command)** - Execute shell command
-
-## Best Practices
-
-1. **Search before asking** - Check memories before asking user to repeat themselves
-2. **Prefer memories over files** - For facts that might change, use remember() not USER.md
-3. **Files for identity, memories for facts** - USER.md = who they are; memories = what they said
-4. **Expire gracefully** - 90-day TTL means stale memories fade; refresh important ones
+Be concise. Confirm ambiguous requests. Admit uncertainty.
 ```
 
 ---
@@ -479,17 +431,19 @@ This helps debug what's actually loaded in the prompt.
 
 ## Milestones
 
-### M1: SYSTEM.md Extraction
-**Scope:** Create SYSTEM.md from AGENTS.md, simplify AGENTS.md
+### M1: SYSTEM.md Creation
+**Scope:** Create SYSTEM.md with memory architecture, simplify AGENTS.md
 
-- [ ] Create `templates/SYSTEM.md` with core identity (from AGENTS.md)
-- [ ] Simplify `templates/AGENTS.md` to behavior rules + memory guidance only
+- [ ] Create `templates/SYSTEM.md` with memory system architecture + cron capabilities
+- [ ] Create `templates/AGENTS.md` with minimal behavior rules (3 rules + communication)
+- [ ] Remove operational details (uv dotenv, workspace paths) from AGENTS.md
 - [ ] Update template copying to include SYSTEM.md
 - [ ] Test both files load correctly
 
 **Success Criteria:**
-- SYSTEM.md exists and contains core identity
-- AGENTS.md focuses on behavior and tool usage
+- SYSTEM.md contains memory architecture + cron capabilities
+- AGENTS.md has minimal behavior rules only
+- No operational details (uv, paths) in AGENTS.md
 - Both copied to workspace on first run
 
 ### M2: AGENTS.md Atomic Unit Extraction
@@ -660,7 +614,10 @@ This helps debug what's actually loaded in the prompt.
 | 2026-03-04 | Model decides all writes | Auto-capture created noise, auto-consolidation was complex |
 | 2026-03-04 | 90-day TTL (not 30) | Longer horizon for memories, warn at threshold instead |
 | 2026-03-04 | Placeholder system | Modular prompts, separation of concerns |
-| 2026-03-04 | SYSTEM.md extraction | Core identity separate from behavior rules |
+| 2026-03-04 | SYSTEM.md extraction | Contains memory architecture + cron capabilities (the "programming") |
+| 2026-03-04 | AGENTS.md stripped down | Minimal behavior rules only (no uv dotenv, no workspace details) |
+| 2026-03-04 | Phase out TOOLS.md | Content moves to SYSTEM.md (cron) and USER.md (preferences) |
+| 2026-03-04 | Tool definitions from code | Pydantic schemas define tools, not TOOLS.md |
 | 2026-03-04 | Merge #21 concepts | Learning system = model deciding when to write (simpler) |
 
 ---
