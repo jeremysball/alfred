@@ -351,65 +351,61 @@ At X memories, the user gets a warning. They can review and clean up, or mark im
 ### Implementation
 
 ```python
-class PromptLoader:
-    """Load files with placeholder resolution."""
-    
-    PLACEHOLDER_PATTERN = re.compile(r'\{\{([^}]+)\}\}')
-    MAX_DEPTH = 5  # Prevent infinite recursion
-    
-    def __init__(self, workspace_dir: Path):
-        self.workspace_dir = workspace_dir
-        self.loaded = set()  # Track for circular detection
-    
-    async def load(self, filename: str, depth: int = 0) -> str:
-        """Load file and resolve placeholders."""
-        if depth > self.MAX_DEPTH:
-            raise RecursionError(f"Max placeholder depth exceeded in {filename}")
-        
-        if filename in self.loaded:
-            raise CircularReferenceError(f"Circular reference detected: {filename}")
-        
-        self.loaded.add(filename)
-        
-        try:
-            file_path = self.workspace_dir / filename
-            content = await self._read_file(file_path)
-            
-            # Resolve placeholders
-            async def replace_placeholder(match: re.Match) -> str:
-                include_path = match.group(1).strip()
-                try:
-                    included = await self.load(include_path, depth + 1)
-                    return f"<!-- included: {include_path} -->\n{included}\n<!-- end: {include_path} -->"
-                except FileNotFoundError:
-                    logger.warning(f"Placeholder file not found: {include_path}")
-                    return f"<!-- missing: {include_path} -->"
-            
-            content = await self.PLACEHOLDER_PATTERN.sub(replace_placeholder, content)
-            return content
-        finally:
-            self.loaded.remove(filename)
-    
-    async def load_all_context(self) -> dict[str, str]:
-        """Load all context files in order."""
-        files = [
-            "SYSTEM.md",
-            "AGENTS.md", 
-            "USER.md",
-            "SOUL.md",
-        ]
-        
-        # Add any other .md files in workspace
-        for md_file in sorted(self.workspace_dir.glob("*.md")):
-            if md_file.name not in files:
-                files.append(md_file.name)
-        
-        context = {}
-        for filename in files:
-            if (self.workspace_dir / filename).exists():
-                context[filename] = await self.load(filename)
-        
-        return context
+class ResolutionContext:
+    """Context passed through placeholder resolution."""
+
+    def __init__(self, base_dir: Path, max_depth: int = 5):
+        self.base_dir = base_dir
+        self.max_depth = max_depth
+        self._loaded: set[Path] = set()
+        self._depth: int = 0
+
+    def with_loaded(self, path: Path) -> ResolutionContext:
+        """Create new context with path added to loaded set."""
+        ctx = ResolutionContext(self.base_dir, self.max_depth)
+        ctx._loaded = self._loaded | {path}
+        ctx._depth = self._depth
+        return ctx
+
+    def with_incremented_depth(self) -> ResolutionContext:
+        """Create new context with depth + 1."""
+        ctx = ResolutionContext(self.base_dir, self.max_depth)
+        ctx._loaded = self._loaded.copy()
+        ctx._depth = self._depth + 1
+        return ctx
+
+    def is_depth_exceeded(self) -> bool:
+        """Check if max depth exceeded (log, don't raise)."""
+        if self._depth > self.max_depth:
+            logger.warning(f"Max placeholder depth ({self.max_depth}) exceeded")
+            return True
+        return False
+
+    def is_circular(self, path: Path) -> bool:
+        """Check for circular references (log, don't raise)."""
+        if path in self._loaded:
+            logger.error(f"Circular reference detected: {path}")
+            return True
+        return False
+
+
+class PlaceholderResolver(Protocol):
+    """Protocol for placeholder resolvers."""
+    pattern: re.Pattern
+
+    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+        """Resolve a placeholder match to its replacement text."""
+        ...
+
+
+def resolve_placeholders(
+    text: str,
+    context: ResolutionContext,
+    resolvers: list[PlaceholderResolver] | None = None,
+) -> str:
+    """Resolve all placeholders in text."""
+    # Implementation handles all placeholder types
+    # Supports file includes {{path}} and colors {color}
 ```
 
 ### Placeholder Comments
@@ -484,20 +480,28 @@ This helps debug what's actually loaded in the prompt.
 - Total prompt content is identical before/after extraction
 
 ### M3: Placeholder System
-**Scope:** Implement `{{path}}` placeholder resolution
+**Scope:** Implement unified placeholder system for files and colors
 
-- [ ] Implement `PromptLoader` class with placeholder resolution
-- [ ] Add circular reference detection
-- [ ] Add max depth protection
+- [ ] Create `src/placeholders.py` module
+- [ ] Implement `ResolutionContext` class with parameter-based recursion
+- [ ] Implement `PlaceholderResolver` Protocol
+- [ ] Implement `FileIncludeResolver` for `{{path}}` placeholders
+- [ ] Implement `ColorResolver` for `{color}` placeholders
+- [ ] Add circular reference detection (log, don't raise)
+- [ ] Add max depth protection (log, don't raise)
 - [ ] Handle missing files gracefully (log warning, insert comment)
 - [ ] Add HTML comment wrappers for transparency
-- [ ] Tests for placeholder resolution
+- [ ] Create convenience functions: `resolve_file_includes()`, `resolve_colors()`, `resolve_all()`
+- [ ] Update `ContextLoader` to use new system
+- [ ] Tests for all resolver types
 
 **Success Criteria:**
 - `{{prompts/example.md}}` resolves and includes content
-- Circular references raise clear error
-- Missing files log warning, don't crash
+- `{cyan}text{reset}` resolves to ANSI codes
+- Circular references log error and return `<!-- circular: path -->` comment
+- Missing files log warning and return `<!-- missing: path -->` comment
 - Nested placeholders work (depth <= 5)
+- Max depth exceeded logs warning, returns original placeholder
 
 ### M4: Prompts Folder Structure
 **Scope:** Support modular prompts in `prompts/` subdirectory
@@ -645,6 +649,10 @@ This helps debug what's actually loaded in the prompt.
 | 2026-03-04 | Phase out TOOLS.md | Content moves to SYSTEM.md (cron) and USER.md (preferences) |
 | 2026-03-04 | Tool definitions from code | Pydantic schemas define tools, not TOOLS.md |
 | 2026-03-04 | Merge #21 concepts | Learning system = model deciding when to write (simpler) |
+| 2026-03-04 | Unified placeholder system | Single API for file includes {{path}} and colors {color}, extensible via Protocol pattern |
+| 2026-03-04 | Parameter-based recursion | Pass ResolutionContext through calls for clean state management |
+| 2026-03-04 | Defensive error handling | Log warnings/errors instead of raising for circular refs and max depth |
+| 2026-03-04 | No backward compatibility | Directly update ContextLoader, no legacy support needed |
 
 ---
 
