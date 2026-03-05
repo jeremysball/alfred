@@ -210,7 +210,7 @@ class TestAgent:
             tool_events.append(event)
 
         messages = [ChatMessage(role="user", content="Keep calling")]
-        result = await agent.run(messages, tool_callback=on_tool_event)
+        await agent.run(messages, tool_callback=on_tool_event)
 
         # Agent stops at max iterations (logs warning)
         # Tool events should have been emitted

@@ -39,21 +39,21 @@ class TestCosineSimilaritySearch:
                 role="user",
                 content="I love Python programming",
                 embedding=[1.0, 0.0, 0.0],  # Similar to query
-                importance=0.5,
+
             ),
             MemoryEntry(
                 timestamp=now,
                 role="user",
                 content="My favorite color is blue",
                 embedding=[0.0, 1.0, 0.0],  # Orthogonal to query
-                importance=0.5,
+
             ),
             MemoryEntry(
                 timestamp=now,
                 role="user",
                 content="I enjoy coding",
                 embedding=[0.9, 0.1, 0.0],  # Very similar to query
-                importance=0.5,
+
             ),
         ]
 

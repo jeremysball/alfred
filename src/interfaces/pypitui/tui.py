@@ -219,6 +219,33 @@ class AlfredTUI:
         # Re-populate scrollback if there's overflow content
         self._populate_scrollback_by_scrolling()
 
+    def _calculate_static_height(self) -> int:
+        """Calculate total height of fixed (non-scrollable) UI components.
+
+        Walks from bottom to top, summing heights of static components.
+        This includes: status_line, completion_menu (if open), input_field.
+
+        Returns:
+            Total height in terminal rows occupied by fixed components.
+        """
+        static_height = 0
+
+        # Input field (always visible at bottom)
+        # WrappedInput renders at least 1 line, more if text wraps
+        input_lines = len(self.input_field.render(self._terminal_width))
+        static_height += input_lines
+
+        # Completion menu (conditional, above input)
+        if self.completion_menu.is_open:
+            menu_lines = len(self.completion_menu.render(self._terminal_width))
+            static_height += menu_lines
+
+        # Status line (always visible, above completion menu)
+        status_lines = len(self.status_line.render(self._terminal_width))
+        static_height += status_lines
+
+        return static_height
+
     def _input_listener(self, data: str) -> dict | None:
         """Intercept input for queue navigation and cancellation.
 
@@ -493,7 +520,8 @@ class AlfredTUI:
         4. Leave recent content for normal absolute-position render
         """
         term_width, term_height = self.tui.terminal.get_size()
-        static_height = self.tui._calculate_static_height(term_width)
+        self._terminal_width = term_width  # Update cached width
+        static_height = self._calculate_static_height()
         scrollable_height = max(1, term_height - static_height)
 
         # Get rendered conversation lines
@@ -535,8 +563,8 @@ class AlfredTUI:
 
         self.tui.terminal.write(buffer)
 
-        # Tell TUI this content is already in scrollback
-        self.tui.set_scrollback_position(lines_for_scrollback)
+        # Track scrollback position to avoid re-rendering
+        self._scrollback_position = lines_for_scrollback
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""

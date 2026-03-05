@@ -3,9 +3,7 @@
 Tests the complete flow: file loading → placeholder resolution → memory usage
 """
 
-import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -198,8 +196,9 @@ class TestOldModelReferencesRemoved:
 
     def test_memory_schema_uses_simplified_model(self, tmp_path: Path) -> None:
         """MemoryEntry uses simplified schema (no tier field)."""
-        from src.memory import MemoryEntry
         from datetime import datetime
+
+        from src.memory import MemoryEntry
 
         # Create memory - should not have "tier" field
         memory = MemoryEntry(
@@ -330,6 +329,7 @@ class TestMemorySystemIntegration:
     def test_memory_has_required_fields(self) -> None:
         """MemoryEntry has required fields for simplified model."""
         from datetime import datetime
+
         from src.memory import MemoryEntry
 
         memory = MemoryEntry(
@@ -353,6 +353,7 @@ class TestMemorySystemIntegration:
     def test_permanent_flag_exists(self) -> None:
         """MemoryEntry has permanent flag field."""
         from datetime import datetime
+
         from src.memory import MemoryEntry
 
         memory = MemoryEntry(

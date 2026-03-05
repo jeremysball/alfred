@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from src.embeddings import EmbeddingClient
-from src.memory import MemoryStore
+from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
 from src.tools.forget import ForgetTool
 from src.tools.remember import RememberTool
 from src.tools.search_memories import SearchMemoriesTool

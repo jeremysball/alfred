@@ -22,7 +22,7 @@ from pathlib import Path
 import aiofiles
 
 from src.data_manager import get_data_dir
-from src.embeddings import EmbeddingClient
+from src.embeddings.openai_provider import OpenAIProvider
 from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
 
 
@@ -31,7 +31,7 @@ class SessionStorage:
 
     def __init__(
         self,
-        embedder: EmbeddingClient,
+        embedder: OpenAIProvider,
         data_dir: Path | None = None,
     ) -> None:
         self.embedder = embedder

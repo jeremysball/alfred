@@ -72,8 +72,8 @@ class TestBoxUtilsAnsiHandling:
 
     def test_build_bordered_box_preserves_ansi_in_title(self):
         """Box drawing handles ANSI codes in title parameter."""
-        from src.interfaces.pypitui.box_utils import build_bordered_box
         from src.interfaces.ansi import GREEN
+        from src.interfaces.pypitui.box_utils import build_bordered_box
 
         title_with_ansi = f"{GREEN}Title{RESET}"
         lines = build_bordered_box(

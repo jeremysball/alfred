@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from src.config import Config
 from src.embeddings import EmbeddingClient, cosine_similarity
+from src.memory.base import MemoryStore
 
 
 class MemoryEntry(BaseModel):
@@ -42,7 +43,7 @@ class DailyMemory(BaseModel):
     entries: list[MemoryEntry] = Field(default_factory=list)
 
 
-class MemoryStore:
+class JSONLMemoryStore(MemoryStore):
     """Unified memory store with semantic search.
 
     All memories stored in a single JSONL file with embeddings.
@@ -124,6 +125,11 @@ class MemoryStore:
         async with aiofiles.open(self.memories_path, "a") as f:
             for entry in entries:
                 await f.write(self._entry_to_jsonl(entry) + "\n")
+
+    async def add(self, entry: Any) -> None:
+        """Implement MemoryStore abstract method."""
+        # Allow passing either MemoryEntry or a dict that needs wrapping
+        await self.add_entries([entry])
 
     async def get_all_entries(self) -> list[MemoryEntry]:
         """Load all memory entries."""

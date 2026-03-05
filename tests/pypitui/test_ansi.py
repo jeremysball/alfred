@@ -241,7 +241,7 @@ class TestAnsiRenderingBehavior:
         )
 
         lines = panel.render(width=80)
-        rendered = "".join(lines)
+        "".join(lines)
 
         # The placeholder inside backticks should NOT be converted to ANSI
         # (markdown renders it as code, then ANSI is applied after)

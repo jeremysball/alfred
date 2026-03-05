@@ -1,7 +1,6 @@
 """Tests for StatusLine component."""
 
 
-from src.interfaces.ansi import DIM, RESET
 from src.interfaces.pypitui.status_line import (
     STATUS_WIDTH_COMPACT,
     STATUS_WIDTH_FULL,

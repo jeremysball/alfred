@@ -139,7 +139,7 @@ class TestSessionStorageToolCalls:
     async def test_append_message_with_tool_calls(self, temp_storage):
         """Test appending message with tool calls to current.jsonl."""
         # Create session
-        meta = temp_storage.create_session("test_session")
+        temp_storage.create_session("test_session")
 
         # Create message with tool calls
         tool_call = ToolCallRecord(
@@ -185,7 +185,7 @@ class TestSessionStorageToolCalls:
     def test_load_messages_with_tool_calls(self, temp_storage):
         """Test loading messages with tool calls."""
         # Create session and write raw JSON
-        meta = temp_storage.create_session("test_session2")
+        temp_storage.create_session("test_session2")
 
         raw_message = {
             "idx": 1,
@@ -232,7 +232,7 @@ class TestSessionStorageToolCalls:
     def test_backward_compatibility_no_tool_calls(self, temp_storage):
         """Test loading old messages without tool_calls field."""
         # Create session and write legacy message (no tool_calls)
-        meta = temp_storage.create_session("legacy_session")
+        temp_storage.create_session("legacy_session")
 
         legacy_message = {
             "idx": 0,
@@ -259,7 +259,7 @@ class TestSessionStorageToolCalls:
     @pytest.mark.asyncio
     async def test_multiple_messages_mixed(self, temp_storage):
         """Test session with mix of messages with and without tool calls."""
-        meta = temp_storage.create_session("mixed_session")
+        temp_storage.create_session("mixed_session")
 
         # User message (no tool calls)
         user_msg = Message(
@@ -301,7 +301,7 @@ class TestSessionStorageToolCalls:
     def test_load_full_session_with_tool_calls(self, temp_storage):
         """Test load_session returns Session with tool_calls."""
         # Create session with raw data
-        meta = temp_storage.create_session("full_session")
+        temp_storage.create_session("full_session")
 
         raw_data = {
             "idx": 0,
