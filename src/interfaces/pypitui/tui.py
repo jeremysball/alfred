@@ -315,6 +315,24 @@ class AlfredTUI:
         cursor_pos = self.input_field._cursor_pos
         return cursor_pos // width
 
+    def _ensure_assistant_message(self) -> MessagePanel:
+        """Create assistant message panel if it doesn't exist yet.
+
+        Returns:
+            The assistant message panel (existing or newly created).
+        """
+        if self._current_assistant_msg is None:
+            # Create assistant message panel
+            self._current_assistant_msg = MessagePanel(
+                role="assistant",
+                content="",
+                terminal_width=self._terminal_width,
+                use_markdown=self.alfred.config.use_markdown_rendering,
+            )
+            self.conversation.add_child(self._current_assistant_msg)
+            self.tui.request_render()
+        return self._current_assistant_msg
+
     def _tool_callback(self, event: object) -> None:
         """Handle tool execution events - embed in current assistant message.
 
@@ -323,18 +341,18 @@ class AlfredTUI:
         """
         from src.agent import ToolEnd, ToolOutput, ToolStart
 
-        if self._current_assistant_msg is None:
-            return  # No message to embed into
+        # Ensure message panel exists (create on first tool event if needed)
+        assistant_msg = self._ensure_assistant_message()
 
         if isinstance(event, ToolStart):
             # Add tool call to current message at current position
-            self._current_assistant_msg.add_tool_call(
+            assistant_msg.add_tool_call(
                 event.tool_name, event.tool_call_id, event.arguments
             )
 
         elif isinstance(event, ToolOutput):
             # Append output to existing tool call
-            self._current_assistant_msg.update_tool_call(
+            assistant_msg.update_tool_call(
                 event.tool_call_id, event.chunk
             )
 
@@ -343,7 +361,7 @@ class AlfredTUI:
             status: Literal["success", "error"] = (
                 "error" if event.is_error else "success"
             )
-            self._current_assistant_msg.finalize_tool_call(event.tool_call_id, status)
+            assistant_msg.finalize_tool_call(event.tool_call_id, status)
 
         # Request re-render
         self.tui.request_render()
@@ -601,16 +619,7 @@ class AlfredTUI:
         # Mark as streaming (is_sending was already set in _on_submit)
         self._is_streaming = True
 
-        # Create assistant message panel (empty, will stream content)
-        assistant_msg = MessagePanel(
-            role="assistant",
-            content="",
-            terminal_width=self._terminal_width,
-            use_markdown=self.alfred.config.use_markdown_rendering,
-        )
-        self.conversation.add_child(assistant_msg)
-        self._current_assistant_msg = assistant_msg
-
+        # Don't create assistant message panel yet - wait for first chunk or tool call
         first_chunk = True
         next_to_process: str | None = None
         try:
@@ -619,12 +628,17 @@ class AlfredTUI:
             async for chunk in self.alfred.chat_stream(
                 text, tool_callback=self._tool_callback
             ):
-                # Clear sending state on first chunk (now actually streaming)
+                # Create message panel on first chunk
                 if first_chunk:
                     self._is_sending = False
                     first_chunk = False
+                    # Create panel now that content is arriving
+                    self._ensure_assistant_message()
+
+                # Panel is guaranteed to exist now (either created above or by tool callback)
+                assert self._current_assistant_msg is not None
                 accumulated += chunk
-                assistant_msg.set_content(accumulated)
+                self._current_assistant_msg.set_content(accumulated)
 
                 # Estimate output tokens during streaming (chars / 4)
                 estimated_out = len(accumulated) // 4
@@ -632,9 +646,12 @@ class AlfredTUI:
 
                 self.tui.request_render()
 
-            # Final update with actual token counts
-            self._update_status()
+            # Final update with actual token counts (only if panel exists)
+            if self._current_assistant_msg is not None:
+                self._update_status()
         except Exception as e:
+            # Ensure panel exists to show error
+            assistant_msg = self._ensure_assistant_message()
             # Show error in panel with red border
             assistant_msg.set_error(str(e))
             self._update_status()
