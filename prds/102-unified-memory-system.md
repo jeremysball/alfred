@@ -5,7 +5,7 @@
 **Issue**: #102  
 **Replaces**: #77 (Contextual Retrieval System), #21 (Learning System) - concepts merged  
 **Parent**: #10 (Alfred - The Rememberer)  
-**Status**: Planning  
+**Status**: Complete  
 **Priority**: High  
 **Created**: 2026-03-04
 
@@ -648,45 +648,57 @@ This helps debug what's actually loaded in the prompt.
 **Scope:** Update all documentation to reflect new architecture
 
 **Files to update:**
-- [ ] `docs/ROADMAP.md` - Update memory system section
-- [ ] `docs/ARCHITECTURE.md` (if exists) - Update file descriptions
-- [ ] `README.md` - Update quickstart and architecture overview
-- [ ] `templates/README.md` (if exists) - Explain file purposes
+- [x] `docs/ROADMAP.md` - Update memory system section
+- [x] `README.md` - Update quickstart and architecture overview
 
 **Content changes:**
-- [ ] Document SYSTEM.md purpose and content
-- [ ] Document AGENTS.md as minimal behavior rules only
-- [ ] Document TOOLS.md phase-out (content moved)
-- [ ] Update file loading order (SYSTEM.md first)
-- [ ] Update memory system explanation (simplified model)
-- [ ] Add placeholder system documentation
-- [ ] Update decision log references
+- [x] Document SYSTEM.md purpose and content
+- [x] Document AGENTS.md as minimal behavior rules only
+- [x] Document TOOLS.md phase-out (content moved)
+- [x] Update file loading order (SYSTEM.md first)
+- [x] Update memory system explanation (simplified model)
+- [x] Add placeholder system documentation
+- [x] Update decision log references
+
+**Status:** ✅ Complete
+
+**Evidence:**
+- Updated `docs/ROADMAP.md` "Memory Systems" section with simplified architecture (Files + Memories + Session Archive)
+- Added detailed placeholder system documentation with syntax and resolution rules
+- Added migration note for existing users about TOOLS.md phase-out
+- Moved PRD #102 to Completed (M16) in ROADMAP.md
+- Added 6 new entries to Decision Log (unified placeholder system, SYSTEM.md extraction, AGENTS.md minimalism, TOOLS.md phase-out, 90-day TTL, no backward compatibility)
+- Updated `README.md` "What It Does" section to mention session archive and search_sessions
+- Updated `README.md` "Data Storage" section to show SYSTEM.md, sessions/ folder, and prompts/ folder
+- Added note about modular prompts with `{{}}` syntax
+- Removed TOOLS.md from data directory listing
+- All 1007 tests pass
 
 **Success Criteria:**
-- All documentation reflects new file architecture
-- No references to old three-tier model
-- TOOLS.md phase-out explained
-- Placeholder system documented
-- Migration guide for existing users
+- [x] All documentation reflects new file architecture
+- [x] No references to old three-tier model
+- [x] TOOLS.md phase-out explained
+- [x] Placeholder system documented
+- [x] Migration guide for existing users
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] SYSTEM.md and AGENTS.md separation clear and documented
+- [x] SYSTEM.md and AGENTS.md separation clear and documented
 - [x] Placeholder system works: `{{path}}` resolves correctly
 - [x] Circular reference detection prevents infinite loops
-- [ ] Memory TTL is 90 days (not 30)
-- [ ] Warning at X memories (configurable threshold)
-- [ ] Permanent flag skips TTL
-- [ ] No auto-capture or auto-consolidation
+- [x] Memory TTL is 90 days (not 30)
+- [x] Warning at X memories (configurable threshold)
+- [x] Permanent flag skips TTL
+- [x] No auto-capture or auto-consolidation
 - [x] Model guidance prompt explains memory system clearly
 - [x] Session archive searchable with contextual retrieval
 - [x] All existing tests pass or updated
 - [x] New tests for placeholder system
 - [x] All documentation updated (ROADMAP, README, etc.)
-- [ ] TOOLS.md phase-out documented
-- [ ] Migration guide for existing users
+- [x] TOOLS.md phase-out documented
+- [x] Migration guide for existing users
 
 ---
 
