@@ -574,16 +574,27 @@ This helps debug what's actually loaded in the prompt.
 ### M7: Session Archive Contextual Retrieval
 **Scope:** Implement search_sessions with contextual narrowing
 
-- [ ] Store session summaries with embeddings
-- [ ] Implement two-stage search (summaries → messages)
-- [ ] Create `search_sessions` tool
-- [ ] Return hierarchical results
-- [ ] Tests for contextual retrieval
+- [x] Store session summaries with embeddings
+- [x] Implement two-stage search (summaries → messages)
+- [x] Create `search_sessions` tool
+- [x] Return hierarchical results
+- [x] Tests for contextual retrieval
+
+**Status:** ✅ Complete
+
+**Evidence:**
+- Created `src/tools/search_sessions.py` (159 lines, 87% test coverage)
+- Implemented `SessionSummarizer` class for LLM-generated summaries stored in `summary.json`
+- Two-stage search: Stage 1 finds relevant sessions via summary embeddings, Stage 2 searches messages within those sessions
+- Hierarchical results show session context (date, message count) + specific matching messages
+- Added 11 comprehensive tests in `tests/test_search_sessions.py`
+- Registered tool in `src/tools/__init__.py` with dependency injection for storage, embedder, and llm_client
+- Commits: `0db0e90`, `0904987`
 
 **Success Criteria:**
-- `search_sessions(query)` finds relevant sessions
-- Within-session message search works
-- Results include session context + specific messages
+- [x] `search_sessions(query)` finds relevant sessions
+- [x] Within-session message search works
+- [x] Results include session context + specific messages
 
 ### M8: Integration & Testing
 **Scope:** Wire everything together, comprehensive tests
@@ -647,8 +658,8 @@ This helps debug what's actually loaded in the prompt.
 - [ ] Warning at X memories (configurable threshold)
 - [ ] Permanent flag skips TTL
 - [ ] No auto-capture or auto-consolidation
-- [ ] Model guidance prompt explains memory system clearly
-- [ ] Session archive searchable with contextual retrieval
+- [x] Model guidance prompt explains memory system clearly
+- [x] Session archive searchable with contextual retrieval
 - [x] All existing tests pass or updated
 - [x] New tests for placeholder system
 - [x] All documentation updated (ROADMAP, README, etc.)
