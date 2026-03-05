@@ -3,8 +3,6 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-import pytest
-
 
 def test_session_id_provider_returns_matching_sessions():
     """Test that _session_id_provider returns session IDs matching partial input."""

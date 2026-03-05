@@ -195,7 +195,7 @@ class TestWrappedInputFocus:
     def test_wrapped_input_focused_property(self) -> None:
         """focused property works."""
         inp = WrappedInput()
-        assert inp.focused == False
+        assert not inp.focused
 
         inp.focused = True
-        assert inp.focused == True
+        assert inp.focused

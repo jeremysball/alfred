@@ -4,6 +4,7 @@ Multiple (trigger, provider) pairs can be registered. When the input
 text changes, the longest matching trigger wins and its provider is used.
 """
 
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,10 @@ class CompletionManager:
     matching prefix. This prevents conflicts between overlapping triggers
     like "/" and "/resume ".
     """
+
+    # Debounce configuration
+    _debounce_delay_ms: int = 50
+    _pending_update_time: float = 0
 
     def __init__(
         self,
@@ -222,6 +227,12 @@ class CompletionManager:
         # NOTE: We do NOT call on_submit here. When this is triggered by
         # Enter key, the Enter propagates to pypitui's Input which calls
         # on_submit naturally. Calling it here would cause double-submit.
+
+    def check_pending_update(self) -> None:
+        """Check if a pending update should be executed (debounce mechanism)."""
+        if self._pending_update_time and time.time() > self._pending_update_time:
+            self._pending_update_time = 0
+            self._update_completion()
 
 
 # Backward compatibility alias

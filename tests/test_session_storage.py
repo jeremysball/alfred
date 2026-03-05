@@ -148,7 +148,7 @@ class TestSessionCreation:
 
     def test_create_session_creates_files(self, storage: SessionStorage):
         """create_session creates session folder and files."""
-        meta = storage.create_session("test123")
+        storage.create_session("test123")
 
         session_dir = storage.sessions_dir / "test123"
         assert session_dir.is_dir()

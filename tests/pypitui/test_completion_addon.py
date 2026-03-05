@@ -66,7 +66,7 @@ class TestCompletionManager:
             hook()
 
         # Down arrow should navigate menu
-        result = input_field.handle_input("\x1b[B")  # Down arrow
+        input_field.handle_input("\x1b[B")  # Down arrow
         # Menu selection should change (first -> second option)
         assert menu.selected_index == 1
 
@@ -170,9 +170,7 @@ class TestGhostTextAccept:
         menu = CompletionMenuComponent()
 
         def provider(text: str) -> list[tuple[str, str | None]]:
-            if text == "/":
-                return [("/new", "New session")]
-            elif text.startswith("/n"):
+            if text == "/" or text.startswith("/n"):
                 return [("/new", "New session")]
             return []
 
@@ -241,7 +239,6 @@ class TestGhostTextAccept:
         for hook in input_field._post_input_hooks:
             hook()
 
-        initial_text = manager._last_text
 
         # Accept ghost char
         input_field.handle_input("\x1b[C")
@@ -311,7 +308,6 @@ class TestGhostTextAccept:
         for hook in input_field._post_input_hooks:
             hook()
 
-        initial_pos = input_field._cursor_pos
 
         # Left arrow moves cursor left (rejects ghost if any)
         input_field.handle_input("\x1b[D")  # Left

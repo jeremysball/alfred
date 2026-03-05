@@ -228,7 +228,6 @@ class TestSessionManager:
     ):
         """start_session clears any existing session."""
         session1 = initialized_manager.start_session()
-        session1_id = session1.meta.session_id
 
         session2 = initialized_manager.start_session()
 

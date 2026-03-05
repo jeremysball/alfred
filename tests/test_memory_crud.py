@@ -4,7 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from src.memory import MemoryEntry, MemoryStore
+from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+from src.memory.jsonl_store import MemoryEntry
 
 
 class MockEmbedder:
@@ -57,7 +58,7 @@ def mock_embedder():
 
 @pytest.fixture
 async def memory_store(mock_config, mock_embedder):
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
     return store
 
@@ -65,7 +66,7 @@ async def memory_store(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_update_entry_content(mock_config, mock_embedder):
     """Can update memory content."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     # Add a memory
@@ -106,7 +107,7 @@ async def test_update_entry_importance(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_update_entry_no_changes(mock_config, mock_embedder):
     """Returns error if no changes specified."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     success, message = await store.update_entry(
@@ -120,7 +121,7 @@ async def test_update_entry_no_changes(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_update_entry_no_match(mock_config, mock_embedder):
     """Returns error if no matching memory found."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     # Add unrelated memory
@@ -147,7 +148,7 @@ async def test_update_entry_no_match(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_update_entry_empty_store(mock_config, mock_embedder):
     """Returns error if store is empty."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     success, message = await store.update_entry(
@@ -162,7 +163,7 @@ async def test_update_entry_empty_store(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_delete_entries_by_query(mock_config, mock_embedder):
     """Can delete memories matching a query."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     # Add a single memory to delete
@@ -190,7 +191,7 @@ async def test_delete_entries_by_query(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_delete_entries_no_match(mock_config, mock_embedder):
     """Returns zero if no memories match."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     entries = [
@@ -217,7 +218,7 @@ async def test_delete_entries_no_match(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_delete_entries_empty_store(mock_config, mock_embedder):
     """Returns zero if store is empty."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     count, message = await store.delete_entries(query="anything")
@@ -229,7 +230,7 @@ async def test_delete_entries_empty_store(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_delete_entries_multiple_matches(mock_config, mock_embedder):
     """Can delete multiple matching memories."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     # Add multiple similar memories with common prefix for deletion
@@ -270,7 +271,7 @@ async def test_delete_entries_multiple_matches(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_update_preserves_other_entries(mock_config, mock_embedder):
     """Updating one entry doesn't affect others."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     # Add multiple memories

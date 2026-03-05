@@ -3,7 +3,7 @@
 
 import pytest
 
-from src.memory import MemoryStore
+from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
 from src.tools import clear_registry, get_registry, register_builtin_tools
 from src.tools.remember import RememberTool
 
@@ -61,7 +61,7 @@ async def test_remember_tool_saves_memory(mock_config, mock_embedder):
     """Remember tool saves a memory to the store."""
     clear_registry()
 
-    memory_store = MemoryStore(mock_config, mock_embedder)
+    memory_store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await memory_store.clear()
 
     # Register tool with memory store
@@ -104,7 +104,7 @@ async def test_remember_tool_without_tags(mock_config, mock_embedder):
     """Remember tool works without optional tags."""
     clear_registry()
 
-    memory_store = MemoryStore(mock_config, mock_embedder)
+    memory_store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await memory_store.clear()
 
     register_builtin_tools(memory_store=memory_store)
@@ -145,7 +145,7 @@ async def test_remember_tool_content_truncation(mock_config, mock_embedder):
     """Remember tool truncates long content in response."""
     clear_registry()
 
-    memory_store = MemoryStore(mock_config, mock_embedder)
+    memory_store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await memory_store.clear()
 
     register_builtin_tools(memory_store=memory_store)
@@ -180,7 +180,7 @@ async def test_remember_tool_creates_permanent_entry(mock_config, mock_embedder)
     """Remember tool creates permanent memory when permanent=True."""
     clear_registry()
 
-    memory_store = MemoryStore(mock_config, mock_embedder)
+    memory_store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await memory_store.clear()
 
     register_builtin_tools(memory_store=memory_store)
@@ -204,7 +204,7 @@ async def test_remember_tool_default_permanent_false(mock_config, mock_embedder)
     """Remember tool defaults to non-permanent memory."""
     clear_registry()
 
-    memory_store = MemoryStore(mock_config, mock_embedder)
+    memory_store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await memory_store.clear()
 
     register_builtin_tools(memory_store=memory_store)

@@ -2,8 +2,7 @@
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -79,11 +78,11 @@ class TestSessionSummarizer:
         """Test generating session summary using LLM."""
         mock_llm = AsyncMock()
         mock_llm.generate_summary = AsyncMock(return_value="Discussion about implementing search_sessions tool with LLM summaries")
-        
+
         summarizer = SessionSummarizer(llm_client=mock_llm, embedder=mock_embedder)
-        
+
         summary = await summarizer.generate_summary(sample_session)
-        
+
         assert summary.text == "Discussion about implementing search_sessions tool with LLM summaries"
         assert summary.session_id == "sess_test123"
         assert summary.message_count == 3
@@ -98,19 +97,19 @@ class TestSessionSummarizer:
         """Test saving and loading summary to/from summary.json."""
         mock_llm = AsyncMock()
         mock_llm.generate_summary = AsyncMock(return_value="Test summary")
-        
+
         summarizer = SessionSummarizer(llm_client=mock_llm, embedder=mock_embedder)
         summary = await summarizer.generate_summary(sample_session)
-        
+
         # Save summary
         session_dir = temp_storage_dir / "sess_test123"
         session_dir.mkdir(parents=True)
         await summarizer.save_summary(summary, session_dir)
-        
+
         # Verify file exists
         summary_path = session_dir / "summary.json"
         assert summary_path.exists()
-        
+
         # Load and verify
         loaded = await summarizer.load_summary(session_dir)
         assert loaded is not None
@@ -121,9 +120,9 @@ class TestSessionSummarizer:
     async def test_load_missing_summary(self, mock_embedder, temp_storage_dir):
         """Test loading summary when file doesn't exist."""
         summarizer = SessionSummarizer(llm_client=AsyncMock(), embedder=mock_embedder)
-        
+
         loaded = await summarizer.load_summary(temp_storage_dir / "nonexistent")
-        
+
         assert loaded is None
 
 
@@ -135,7 +134,7 @@ class TestSearchSessionsTool:
         """Create SearchSessionsTool instance."""
         mock_llm = AsyncMock()
         mock_llm.generate_summary = AsyncMock(return_value="Test summary")
-        
+
         storage = SessionStorage(mock_embedder, data_dir=temp_storage_dir.parent)
         tool = SearchSessionsTool(
             storage=storage,
@@ -156,7 +155,7 @@ class TestSearchSessionsTool:
         results = []
         async for chunk in search_tool.execute_stream(query=""):
             results.append(chunk)
-        
+
         result = "".join(results)
         assert "Error" in result or "query" in result.lower()
 
@@ -167,7 +166,7 @@ class TestSearchSessionsTool:
         for i, session_id in enumerate(["sess_aaa", "sess_bbb", "sess_ccc"]):
             session_dir = temp_storage_dir / session_id
             session_dir.mkdir(parents=True)
-            
+
             # Create meta.json
             meta = {
                 "session_id": session_id,
@@ -178,7 +177,7 @@ class TestSearchSessionsTool:
                 "archive_count": 0,
             }
             (session_dir / "meta.json").write_text(json.dumps(meta))
-            
+
             # Create summary.json
             summary = {
                 "session_id": session_id,
@@ -189,13 +188,13 @@ class TestSearchSessionsTool:
                 "last_active": meta["last_active"],
             }
             (session_dir / "summary.json").write_text(json.dumps(summary))
-        
+
         # Mock query embedding
         mock_embedder.embed = AsyncMock(return_value=[0.15] * 384)
-        
+
         # Test finding relevant sessions
         sessions = await search_tool._find_relevant_sessions("topic 1", top_k=2)
-        
+
         assert len(sessions) <= 2
         assert all(s["session_id"] in ["sess_aaa", "sess_bbb", "sess_ccc"] for s in sessions)
 
@@ -205,7 +204,7 @@ class TestSearchSessionsTool:
         # Create a session with messages
         session_dir = temp_storage_dir / "sess_msg_test"
         session_dir.mkdir(parents=True)
-        
+
         # Create meta.json
         meta = {
             "session_id": "sess_msg_test",
@@ -216,7 +215,7 @@ class TestSearchSessionsTool:
             "archive_count": 0,
         }
         (session_dir / "meta.json").write_text(json.dumps(meta))
-        
+
         # Create current.jsonl with messages
         messages = [
             {
@@ -244,13 +243,13 @@ class TestSearchSessionsTool:
         with open(session_dir / "current.jsonl", "w") as f:
             for msg in messages:
                 f.write(json.dumps(msg) + "\n")
-        
+
         # Mock query embedding to match first message
         mock_embedder.embed = AsyncMock(return_value=[0.1] * 384)
-        
+
         # Search messages
         results = await search_tool._search_session_messages("sess_msg_test", "search sessions", top_k=2)
-        
+
         assert len(results) <= 2
         # First result should be most relevant
         assert "search" in results[0]["content"].lower()
@@ -261,7 +260,7 @@ class TestSearchSessionsTool:
         # Create a complete session
         session_dir = temp_storage_dir / "sess_full_test"
         session_dir.mkdir(parents=True)
-        
+
         # Create meta.json
         meta = {
             "session_id": "sess_full_test",
@@ -272,7 +271,7 @@ class TestSearchSessionsTool:
             "archive_count": 0,
         }
         (session_dir / "meta.json").write_text(json.dumps(meta))
-        
+
         # Create summary.json
         summary = {
             "session_id": "sess_full_test",
@@ -283,7 +282,7 @@ class TestSearchSessionsTool:
             "last_active": meta["last_active"],
         }
         (session_dir / "summary.json").write_text(json.dumps(summary))
-        
+
         # Create messages
         messages = [
             {
@@ -304,17 +303,17 @@ class TestSearchSessionsTool:
         with open(session_dir / "current.jsonl", "w") as f:
             for msg in messages:
                 f.write(json.dumps(msg) + "\n")
-        
+
         # Mock embeddings
         mock_embedder.embed = AsyncMock(return_value=[0.1] * 384)
-        
+
         # Execute search
         results = []
         async for chunk in search_tool.execute_stream(query="memory search implementation", top_k=1):
             results.append(chunk)
-        
+
         result_text = "".join(results)
-        
+
         # Verify hierarchical format
         assert "Session:" in result_text
         assert "sess_full_test" in result_text
@@ -326,11 +325,11 @@ class TestSearchSessionsTool:
     async def test_no_sessions_found(self, search_tool, mock_embedder):
         """Test behavior when no sessions match."""
         mock_embedder.embed = AsyncMock(return_value=[0.99] * 384)  # Different from all
-        
+
         results = []
         async for chunk in search_tool.execute_stream(query="xyz nonexistent topic", top_k=3):
             results.append(chunk)
-        
+
         result_text = "".join(results)
         assert "No relevant sessions found" in result_text or "No sessions" in result_text
 
@@ -341,7 +340,7 @@ class TestSearchSessionsTool:
         for i in range(5):
             session_dir = temp_storage_dir / f"sess_{i}"
             session_dir.mkdir(parents=True)
-            
+
             meta = {
                 "session_id": f"sess_{i}",
                 "created_at": datetime(2026, 3, i + 1, tzinfo=UTC).isoformat(),
@@ -351,7 +350,7 @@ class TestSearchSessionsTool:
                 "archive_count": 0,
             }
             (session_dir / "meta.json").write_text(json.dumps(meta))
-            
+
             summary = {
                 "session_id": f"sess_{i}",
                 "text": f"Session {i} content",
@@ -361,15 +360,15 @@ class TestSearchSessionsTool:
                 "last_active": meta["last_active"],
             }
             (session_dir / "summary.json").write_text(json.dumps(summary))
-        
+
         mock_embedder.embed = AsyncMock(return_value=[0.3] * 384)
-        
+
         # Search with different top_k values
         for top_k in [1, 3, 5]:
             results = []
             async for chunk in search_tool.execute_stream(query="session", top_k=top_k):
                 results.append(chunk)
-            
+
             result_text = "".join(results)
             # Should not error with different top_k values
             assert "Error" not in result_text or "No relevant" in result_text
@@ -382,10 +381,10 @@ class TestSearchSessionsIntegration:
     async def test_end_to_end_with_llm_summary(self, mock_embedder, temp_storage_dir):
         """Test complete flow: create session → generate summary → search."""
         # This test demonstrates the full workflow
-        
+
         # Setup storage
         storage = SessionStorage(mock_embedder, data_dir=temp_storage_dir.parent)
-        
+
         # Create session with messages
         session = Session(
             meta=SessionMeta(
@@ -412,41 +411,41 @@ class TestSearchSessionsIntegration:
                 ),
             ],
         )
-        
+
         # Save session components (meta and messages)
         storage.save_meta(session.meta)
         for msg in session.messages:
             await storage.append_message(session.meta.session_id, msg)
-        
+
         # Mock LLM for summary generation
         mock_llm = AsyncMock()
         mock_llm.generate_summary = AsyncMock(
             return_value="Overview of the three-component memory system"
         )
-        
+
         # Generate and save summary
         summarizer = SessionSummarizer(llm_client=mock_llm, embedder=mock_embedder)
         summary = await summarizer.generate_summary(session)
         session_dir = temp_storage_dir / "sess_integration"
         await summarizer.save_summary(summary, session_dir)
-        
+
         # Create search tool
         tool = SearchSessionsTool(
             storage=storage,
             embedder=mock_embedder,
             llm_client=mock_llm,
         )
-        
+
         # Mock query embedding
         mock_embedder.embed = AsyncMock(return_value=[0.15] * 384)
-        
+
         # Search
         results = []
         async for chunk in tool.execute_stream(query="memory system components", top_k=1):
             results.append(chunk)
-        
+
         result_text = "".join(results)
-        
+
         # Verify results
         assert "sess_integration" in result_text
         assert "memory" in result_text.lower()

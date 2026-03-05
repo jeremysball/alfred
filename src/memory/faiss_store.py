@@ -74,6 +74,8 @@ class MemoryEntry:
             permanent=data.get("permanent", False),
         )
 
+    model_config = {"arbitrary_types_allowed": True}
+
 
 class FAISSMemoryStore(MemoryStore):
     """FAISS-backed memory store with fast semantic search.

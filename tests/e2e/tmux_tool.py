@@ -40,7 +40,7 @@ class TerminalSession:
     def __init__(self, name: str, cols: int = 120, rows: int = 35, port: int = 7681):
         """
         Initialize terminal session.
-        
+
         Args:
             name: Unique tmux session name
             cols: Terminal width in columns
@@ -96,7 +96,7 @@ class TerminalSession:
     def send(self, text: str) -> None:
         """
         Send text to the terminal.
-        
+
         Args:
             text: Text to type
         """
@@ -105,7 +105,7 @@ class TerminalSession:
     def send_key(self, key: str) -> None:
         """
         Send special key to the terminal.
-        
+
         Args:
             key: Key name (Enter, C-c, C-d, C-l, Escape, Tab, Space, Up, Down, Left, Right)
         """
@@ -114,7 +114,7 @@ class TerminalSession:
     def sleep(self, seconds: float) -> None:
         """
         Wait for specified duration.
-        
+
         Args:
             seconds: Time to wait
         """
@@ -123,7 +123,7 @@ class TerminalSession:
     def capture_text(self) -> str:
         """
         Capture terminal text content (ANSI-stripped).
-        
+
         Returns:
             Plain text from terminal
         """
@@ -147,7 +147,7 @@ class TerminalSession:
     def capture_raw(self) -> str:
         """
         Capture terminal with ANSI escape codes (for debugging).
-        
+
         Returns:
             Raw text with ANSI codes preserved
         """
@@ -160,11 +160,11 @@ class TerminalSession:
     def capture_screenshot(self, filename: str = None, upload: bool = False) -> dict:
         """
         Capture screenshot via ttyd + playwright.
-        
+
         Args:
             filename: Output filename (default: screenshot_N.png)
             upload: Upload to 0x0.st and include URL in result
-        
+
         Returns:
             dict with 'screenshot' path and optionally 'url'
         """
@@ -200,11 +200,11 @@ class TerminalSession:
     def capture(self, filename: str = None, upload: bool = False) -> dict:
         """
         Capture both text and screenshot.
-        
+
         Args:
             filename: Screenshot filename (default: screenshot_N.png)
             upload: Upload screenshot to 0x0.st
-        
+
         Returns:
             dict with 'text', 'screenshot', and optionally 'url'
         """

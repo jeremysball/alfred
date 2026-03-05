@@ -34,6 +34,8 @@ class AssembledContext(BaseModel):
     memories: list[MemoryEntry]
     system_prompt: str  # Combined
 
+    model_config = {"arbitrary_types_allowed": True}
+
 # Map context file names to template filenames
 # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md per PRD #102)
 CONTEXT_TO_TEMPLATE = {

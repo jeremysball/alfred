@@ -217,7 +217,7 @@ class TestPromptsDirectoryStructure:
 
         # Modify a file
         memory_file = tmp_path / "prompts" / "agents" / "memory-system.md"
-        original_content = memory_file.read_text()
+        memory_file.read_text()
         memory_file.write_text("MODIFIED")
 
         # Second call should not overwrite

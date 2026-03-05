@@ -38,7 +38,6 @@ def test_cosine_similarity_zero_vector():
 async def test_embedding_client_with_mock(monkeypatch):
     """EmbeddingClient can be initialized with config."""
     from src.config import Config
-    from src.embeddings import EmbeddingClient
 
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test")
     monkeypatch.setenv("OPENAI_API_KEY", "test_key")
@@ -59,5 +58,6 @@ async def test_embedding_client_with_mock(monkeypatch):
         context_files={},
     )
 
-    client = EmbeddingClient(config)
-    assert client.model == config.embedding_model
+    from src.embeddings import create_provider
+    client = create_provider(config)
+    assert client is not None

@@ -4,7 +4,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from src.memory import MemoryEntry, MemoryStore
+from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+from src.memory.jsonl_store import MemoryEntry
 
 
 class MockEmbedder:
@@ -61,7 +62,7 @@ def mock_embedder():
 
 @pytest.fixture
 async def memory_store(mock_config, mock_embedder):
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()  # Start fresh
     return store
 
@@ -69,7 +70,7 @@ async def memory_store(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_add_and_retrieve_entries(mock_config, mock_embedder):
     """Can add entries and retrieve them."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     entries = [
@@ -104,7 +105,7 @@ async def test_add_and_retrieve_entries(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_entries_persisted_to_jsonl(mock_config, mock_embedder, tmp_path):
     """Entries are written to JSONL file."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     entry = MemoryEntry(
@@ -127,7 +128,7 @@ async def test_entries_persisted_to_jsonl(mock_config, mock_embedder, tmp_path):
 @pytest.mark.asyncio
 async def test_filter_by_date(mock_config, mock_embedder):
     """Can filter entries by date range."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     entries = [
@@ -167,7 +168,7 @@ async def test_filter_by_date(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_search_by_semantic_similarity(mock_config, mock_embedder):
     """Can search memories by semantic similarity."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     entries = [
@@ -198,7 +199,7 @@ async def test_search_by_semantic_similarity(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_search_with_date_filter(mock_config, mock_embedder):
     """Can search with date filtering."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     entries = [
@@ -232,7 +233,7 @@ async def test_search_with_date_filter(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_iteration_memory_efficient(mock_config, mock_embedder):
     """Can iterate entries without loading all into memory."""
-    store = MemoryStore(mock_config, mock_embedder)
+    store = MemoryStore(config=mock_config, embedder=mock_embedder)
     await store.clear()
 
     # Add some entries
@@ -260,7 +261,7 @@ class TestMemoryStoreErrorHandling:
     @pytest.mark.asyncio
     async def test_add_entries_fails_fast_on_embedding_error(self, mock_config, tmp_path):
         """If embedding fails, no entries are written (fail fast)."""
-        from src.embeddings import EmbeddingError
+        from src.embeddings.openai_provider import EmbeddingError
 
         class FailingEmbedder:
             async def embed(self, text: str) -> list[float]:
@@ -269,7 +270,7 @@ class TestMemoryStoreErrorHandling:
             async def embed_batch(self, texts: list[str]) -> list[list[float]]:
                 raise EmbeddingError("API failure")
 
-        store = MemoryStore(mock_config, FailingEmbedder())
+        store = MemoryStore(config=mock_config, embedder=FailingEmbedder())
         await store.clear()
 
         entries = [
@@ -302,7 +303,7 @@ class TestMemoryStoreErrorHandling:
                 # Return fewer embeddings than requested (simulating API bug)
                 return [[0.1] * 1536] * (len(texts) - 1)
 
-        store = MemoryStore(mock_config, PartialEmbedder())
+        store = MemoryStore(config=mock_config, embedder=PartialEmbedder())
         await store.clear()
 
         entries = [
@@ -333,7 +334,7 @@ class TestMemoryStoreErrorHandling:
     @pytest.mark.asyncio
     async def test_add_entries_with_pre_existing_embeddings(self, mock_config):
         """Entries with pre-existing embeddings are written successfully."""
-        store = MemoryStore(mock_config, MockEmbedder())
+        store = MemoryStore(config=mock_config, embedder=MockEmbedder())
         await store.clear()
 
         entries = [
@@ -355,7 +356,7 @@ class TestMemoryStoreErrorHandling:
     @pytest.mark.asyncio
     async def test_add_entries_mixed_embeddings(self, mock_config):
         """Mix of pre-embedded and new entries works correctly."""
-        store = MemoryStore(mock_config, MockEmbedder())
+        store = MemoryStore(config=mock_config, embedder=MockEmbedder())
         await store.clear()
 
         entries = [
@@ -424,7 +425,7 @@ class TestMemoryStoreCount:
     @pytest.mark.asyncio
     async def test_get_memory_count_empty_store(self, mock_config, mock_embedder):
         """get_memory_count returns 0 when store is empty."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         count = await store.get_memory_count()
@@ -433,7 +434,7 @@ class TestMemoryStoreCount:
     @pytest.mark.asyncio
     async def test_get_memory_count_with_entries(self, mock_config, mock_embedder):
         """get_memory_count returns correct count after adding entries."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         entries = [
@@ -466,7 +467,7 @@ class TestMemoryEntrySerialization:
     @pytest.mark.asyncio
     async def test_entry_to_jsonl_includes_permanent(self, mock_config, mock_embedder):
         """Serialization includes permanent field."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         entry = MemoryEntry(
@@ -482,7 +483,7 @@ class TestMemoryEntrySerialization:
     @pytest.mark.asyncio
     async def test_entry_from_jsonl_parses_permanent(self, mock_config, mock_embedder):
         """Deserialization parses permanent field."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
 
         # Create JSONL line with permanent=True
         jsonl_line = '{"timestamp": "2026-03-04T10:00:00", "role": "user", "content": "Important", "embedding": null, "tags": [], "entry_id": "test123", "permanent": true}'
@@ -493,7 +494,7 @@ class TestMemoryEntrySerialization:
     @pytest.mark.asyncio
     async def test_entry_from_jsonl_backward_compatible(self, mock_config, mock_embedder):
         """Old data without permanent field defaults to False."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
 
         # Create JSONL line without permanent field (old format)
         jsonl_line = '{"timestamp": "2026-03-04T10:00:00", "role": "user", "content": "Old memory", "embedding": null, "tags": [], "entry_id": "test456"}'
@@ -509,7 +510,7 @@ class TestMemoryStoreTTLPruning:
     @pytest.mark.asyncio
     async def test_prune_expired_memories_removes_old_non_permanent(self, mock_config, mock_embedder):
         """Pruning removes non-permanent memories older than TTL."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Create old non-permanent memory (91 days ago)
@@ -544,7 +545,7 @@ class TestMemoryStoreTTLPruning:
     @pytest.mark.asyncio
     async def test_prune_expired_memories_keeps_permanent(self, mock_config, mock_embedder):
         """Pruning never removes permanent memories."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Create old permanent memory (91 days ago)
@@ -571,7 +572,7 @@ class TestMemoryStoreTTLPruning:
     @pytest.mark.asyncio
     async def test_prune_expired_memories_keeps_recent(self, mock_config, mock_embedder):
         """Pruning keeps memories newer than TTL."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Create memory exactly 89 days old
@@ -597,7 +598,7 @@ class TestMemoryStoreTTLPruning:
     @pytest.mark.asyncio
     async def test_prune_expired_memories_dry_run(self, mock_config, mock_embedder):
         """Dry run returns count without deleting."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Create old memory (91 days ago)
@@ -623,7 +624,7 @@ class TestMemoryStoreTTLPruning:
     @pytest.mark.asyncio
     async def test_prune_expired_memories_boundary(self, mock_config, mock_embedder):
         """Memory exactly 90 days old is kept (end-of-day boundary)."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Create memory exactly 90 days old
@@ -654,7 +655,7 @@ class TestMemoryStoreThreshold:
     @pytest.mark.asyncio
     async def test_check_memory_threshold_below_threshold(self, mock_config, mock_embedder):
         """Returns False when count below threshold."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Add 5 memories
@@ -673,7 +674,7 @@ class TestMemoryStoreThreshold:
     @pytest.mark.asyncio
     async def test_check_memory_threshold_at_threshold(self, mock_config, mock_embedder):
         """Returns False when count equals threshold (only exceeds triggers warning)."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Add exactly 10 memories
@@ -692,7 +693,7 @@ class TestMemoryStoreThreshold:
     @pytest.mark.asyncio
     async def test_check_memory_threshold_above_threshold(self, mock_config, mock_embedder):
         """Returns True when count exceeds threshold."""
-        store = MemoryStore(mock_config, mock_embedder)
+        store = MemoryStore(config=mock_config, embedder=mock_embedder)
         await store.clear()
 
         # Add 15 memories

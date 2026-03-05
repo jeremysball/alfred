@@ -4,6 +4,7 @@ These tests verify that CAS prevents TOCTOU bugs and enables lock-free concurren
 """
 
 import asyncio
+import contextlib
 from pathlib import Path
 
 import pytest
@@ -235,11 +236,10 @@ class TestCASCompareAndSwap:
 
         # Pre-create file with known content
         await store.append({"data": "x"})
-        version = await store.read_version()
+        await store.read_version()
 
         # Simulate external modification during each attempt by using
         # a background task that modifies the file
-        modification_count = [0]  # Use list for mutable closure
 
         async def external_modifier():
             """Continuously modify the file to cause conflicts."""
@@ -266,10 +266,8 @@ class TestCASCompareAndSwap:
                 await store.compare_and_swap(transform, max_retries=5)
         finally:
             modifier_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await modifier_task
-            except asyncio.CancelledError:
-                pass
 
 
 class TestConcurrencyScenarios:
@@ -345,7 +343,7 @@ class TestCASConflictRecovery:
         # Try to write with stale version
         try:
             await store.rewrite([{"value": 999}], expected_version=version)
-            assert False, "Should have raised CASConflictError"
+            raise AssertionError("Should have raised CASConflictError")
         except CASConflictError:
             # Recover: re-read and retry with fresh version
             records, fresh_version = await store.read_all()
