@@ -151,9 +151,7 @@ class SocketServer:
                 await writer.wait_closed()
             logger.debug(f"Client disconnected: {peer}")
 
-    async def _dispatch_message(
-        self, message: SocketMessage, writer: asyncio.StreamWriter
-    ) -> None:
+    async def _dispatch_message(self, message: SocketMessage, writer: asyncio.StreamWriter) -> None:
         """Dispatch a message to the appropriate callback."""
         try:
             if isinstance(message, NotifyMessage):

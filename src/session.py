@@ -69,9 +69,7 @@ class Message:
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     embedding: list[float] | None = None
     input_tokens: int = 0  # Actual input tokens from LLM usage (for user messages)
-    output_tokens: int = (
-        0  # Actual output tokens from LLM usage (for assistant messages)
-    )
+    output_tokens: int = 0  # Actual output tokens from LLM usage (for assistant messages)
     cached_tokens: int = 0  # Cache read tokens from LLM usage
     reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
     tool_calls: list[ToolCallRecord] | None = None  # Tool calls made during this message
@@ -214,9 +212,7 @@ class SessionManager:
         """Create new CLI session. Backwards-compatible."""
         return self.new_session()
 
-    def add_message(
-        self, role: str, content: str, session_id: str | None = None
-    ) -> None:
+    def add_message(self, role: str, content: str, session_id: str | None = None) -> None:
         """Append message to session.
 
         Args:
@@ -277,9 +273,7 @@ class SessionManager:
         """Get all messages from current CLI session. Backwards-compatible."""
         return self.get_session_messages()
 
-    def get_messages_for_context(
-        self, session_id: str | None = None
-    ) -> list[tuple[str, str]]:
+    def get_messages_for_context(self, session_id: str | None = None) -> list[tuple[str, str]]:
         """Get session messages formatted for context injection.
 
         Returns messages as (role, content) tuples, excluding the most
@@ -304,9 +298,7 @@ class SessionManager:
             result.append((msg.role.value, msg.content))
         return result
 
-    def get_messages_with_tools_for_context(
-        self, session_id: str | None = None
-    ) -> list[Message]:
+    def get_messages_with_tools_for_context(self, session_id: str | None = None) -> list[Message]:
         """Get full session messages with tool_calls for context injection.
 
         Returns full Message objects (may have tool_calls attribute),

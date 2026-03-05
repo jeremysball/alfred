@@ -144,17 +144,19 @@ class Alfred:
             elif msg.role == Role.ASSISTANT and msg.output_tokens > 0:
                 output_tokens += msg.output_tokens
             # Accumulate cached and reasoning tokens from all messages that have them
-            cached_tokens += getattr(msg, 'cached_tokens', 0)
-            reasoning_tokens += getattr(msg, 'reasoning_tokens', 0)
+            cached_tokens += getattr(msg, "cached_tokens", 0)
+            reasoning_tokens += getattr(msg, "reasoning_tokens", 0)
 
         # Reset and set total tokens for the session
         self.token_tracker.reset()
-        self.token_tracker.add({
-            "prompt_tokens": input_tokens,
-            "completion_tokens": output_tokens,
-            "prompt_tokens_details": {"cached_tokens": cached_tokens},
-            "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
-        })
+        self.token_tracker.add(
+            {
+                "prompt_tokens": input_tokens,
+                "completion_tokens": output_tokens,
+                "prompt_tokens_details": {"cached_tokens": cached_tokens},
+                "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
+            }
+        )
 
     def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
         """Update context token estimate.
@@ -238,8 +240,8 @@ class Alfred:
         logger.debug("Assembling context with memory search...")
         session_messages = self.session_manager.get_messages_for_context(session_id)
         # Get full messages with tool_calls for context
-        session_messages_with_tools = (
-            self.session_manager.get_messages_with_tools_for_context(session_id)
+        session_messages_with_tools = self.session_manager.get_messages_with_tools_for_context(
+            session_id
         )
         system_prompt, memories_count = self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
@@ -281,19 +283,22 @@ class Alfred:
 
                 # Find sequence number for tools at same position
                 sequence = sum(
-                    1 for tc in tool_calls_accumulator
+                    1
+                    for tc in tool_calls_accumulator
                     if tc.get("insert_position") == insert_position
                 )
 
-                tool_calls_accumulator.append({
-                    "tool_call_id": event.tool_call_id,
-                    "tool_name": event.tool_name,
-                    "arguments": event.arguments,
-                    "output_chunks": [],
-                    "insert_position": insert_position,
-                    "sequence": sequence,
-                    "is_error": False,
-                })
+                tool_calls_accumulator.append(
+                    {
+                        "tool_call_id": event.tool_call_id,
+                        "tool_name": event.tool_name,
+                        "arguments": event.arguments,
+                        "output_chunks": [],
+                        "insert_position": insert_position,
+                        "sequence": sequence,
+                        "is_error": False,
+                    }
+                )
 
             elif isinstance(event, ToolOutput):
                 # Find matching tool call and append output

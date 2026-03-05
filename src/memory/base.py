@@ -40,10 +40,7 @@ class MemoryStore(ABC):
 
     @abstractmethod
     async def search(
-        self,
-        query: str,
-        top_k: int = 10,
-        **kwargs
+        self, query: str, top_k: int = 10, **kwargs
     ) -> tuple[list[Any], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
 

@@ -182,9 +182,7 @@ class JSONLMemoryStore(MemoryStore):
             count += 1
         return count
 
-    async def prune_expired_memories(
-        self, ttl_days: int = 90, dry_run: bool = False
-    ) -> int:
+    async def prune_expired_memories(self, ttl_days: int = 90, dry_run: bool = False) -> int:
         """Remove non-permanent memories older than TTL.
 
         Args:
@@ -429,5 +427,3 @@ class JSONLMemoryStore(MemoryStore):
 
         # Atomic replace
         temp_path.replace(self.memories_path)
-
-

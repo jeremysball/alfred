@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class CircularReferenceError(Exception):
     """Raised when a circular placeholder reference is detected."""
+
     pass
 
 
@@ -87,8 +88,7 @@ class ResolutionContext:
         """
         if self._depth > self.max_depth:
             logger.warning(
-                f"Max placeholder depth ({self.max_depth}) exceeded, "
-                f"stopping resolution"
+                f"Max placeholder depth ({self.max_depth}) exceeded, stopping resolution"
             )
             return True
         return False
@@ -115,7 +115,7 @@ class PlaceholderResolver(Protocol):
 class FileIncludeResolver:
     """Resolves {{path}} file include placeholders."""
 
-    pattern = re.compile(r'\{\{([^}]+)\}\}')
+    pattern = re.compile(r"\{\{([^}]+)\}\}")
 
     def resolve(self, match: re.Match, context: ResolutionContext) -> str:
         """Resolve file include placeholder.
@@ -142,7 +142,7 @@ class FileIncludeResolver:
 
         # Try to load file
         try:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
         except FileNotFoundError:
             logger.warning(f"Placeholder file not found: {include_path}")
             return f"<!-- missing: {include_path} -->"
@@ -160,7 +160,7 @@ class FileIncludeResolver:
 class ColorResolver:
     """Resolves {color} ANSI placeholder syntax."""
 
-    pattern = re.compile(r'\{([a-z_]+)\}')
+    pattern = re.compile(r"\{([a-z_]+)\}")
 
     # ANSI escape codes
     CODES = {
@@ -261,8 +261,7 @@ def resolve_placeholders(
     for resolver in resolvers:
         # Use partial to bind resolver immediately
         result = resolver.pattern.sub(
-            partial(_resolve_match, resolver=resolver, context=context),
-            result
+            partial(_resolve_match, resolver=resolver, context=context), result
         )
 
     return result
@@ -287,6 +286,7 @@ def _resolve_match(
 
 
 # Convenience functions for common use cases
+
 
 def resolve_file_includes(
     text: str,

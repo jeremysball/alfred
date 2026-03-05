@@ -17,8 +17,13 @@ class ToolCallInfo:
     """
 
     __slots__ = (
-        "tool_name", "tool_call_id", "output", "status",
-        "insert_position", "sequence", "arguments",
+        "tool_name",
+        "tool_call_id",
+        "output",
+        "status",
+        "insert_position",
+        "sequence",
+        "arguments",
     )
 
     def __init__(

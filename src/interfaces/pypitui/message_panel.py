@@ -62,9 +62,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self._tool_calls: list[ToolCallInfo] = []
 
         # Set title based on role
-        title = {"user": "You", "assistant": "Alfred", "system": "System"}.get(
-            role, "Alfred"
-        )
+        title = {"user": "You", "assistant": "Alfred", "system": "System"}.get(role, "Alfred")
         self.set_title(title)
 
         # Set border color based on role
@@ -156,9 +154,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 self._rebuild_content()
                 return
 
-    def finalize_tool_call(
-        self, tool_call_id: str, status: Literal["success", "error"]
-    ) -> None:
+    def finalize_tool_call(self, tool_call_id: str, status: Literal["success", "error"]) -> None:
         """Set final status for a tool call.
 
         Args:
@@ -325,6 +321,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
                 import json
+
                 parsed = json.loads(stripped)
                 # Pretty print JSON
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
@@ -339,6 +336,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         if stripped.startswith("[") and stripped.endswith("]"):
             try:
                 import json
+
                 parsed = json.loads(stripped)
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
                 if renderer:

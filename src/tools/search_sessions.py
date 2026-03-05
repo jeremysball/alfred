@@ -123,8 +123,12 @@ class SessionSummarizer:
                 text=data["text"],
                 embedding=data.get("embedding"),
                 message_count=data.get("message_count", 0),
-                created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,  # noqa: E501
-                last_active=datetime.fromisoformat(data["last_active"]) if data.get("last_active") else None,  # noqa: E501
+                created_at=datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else None,  # noqa: E501
+                last_active=datetime.fromisoformat(data["last_active"])
+                if data.get("last_active")
+                else None,  # noqa: E501
             )
         except (json.JSONDecodeError, KeyError, ValueError):
             return None
@@ -183,9 +187,7 @@ class SearchSessionsTool(Tool):
             meta = session_info.get("meta")
 
             # Search messages in this session
-            messages = await self._search_session_messages(
-                session_id, query, messages_per_session
-            )
+            messages = await self._search_session_messages(session_id, query, messages_per_session)
 
             if messages:
                 results_found = True
@@ -216,9 +218,7 @@ class SearchSessionsTool(Tool):
         if not results_found:
             yield "Found sessions but no matching messages within them."
 
-    async def _find_relevant_sessions(
-        self, query: str, top_k: int
-    ) -> list[dict[str, Any]]:
+    async def _find_relevant_sessions(self, query: str, top_k: int) -> list[dict[str, Any]]:
         """Stage 1: Find relevant sessions by searching summaries.
 
         Returns list of session info dicts with session_id, summary, meta, similarity.

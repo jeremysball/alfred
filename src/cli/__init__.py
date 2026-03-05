@@ -1,5 +1,4 @@
 """Alfred CLI package."""
 
-from src.cli.main import app
-
-__all__ = ["app"]
+# Empty to avoid circular imports and enable lazy loading
+# Use `from src.cli.main import app` directly when needed

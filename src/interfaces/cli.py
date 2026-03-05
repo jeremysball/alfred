@@ -602,9 +602,7 @@ class CLIInterface:
         m = status_data.memories_count
         s = status_data.session_messages
         sections_str = (
-            ",".join(status_data.prompt_sections)
-            if status_data.prompt_sections
-            else "none"
+            ",".join(status_data.prompt_sections) if status_data.prompt_sections else "none"
         )
         if len(sections_str) > 20:
             sections_str = sections_str[:17] + "..."

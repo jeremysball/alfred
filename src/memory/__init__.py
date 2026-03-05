@@ -18,6 +18,7 @@ __all__ = [
 # JSONL store is optional (may not be needed if FAISS works well)
 try:
     from src.memory.jsonl_store import JSONLMemoryStore
+
     __all__.append("JSONLMemoryStore")
 except ImportError:
     JSONLMemoryStore = None  # type: ignore

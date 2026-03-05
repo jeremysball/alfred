@@ -213,7 +213,7 @@ class AlfredTUI:
 
         # Update all message panels with new width
         for child in self.conversation.children:
-            if hasattr(child, 'set_terminal_width'):
+            if hasattr(child, "set_terminal_width"):
                 child.set_terminal_width(term_width)
 
         # Re-populate scrollback if there's overflow content
@@ -290,9 +290,7 @@ class AlfredTUI:
                 if self._queue_nav_index < len(self._message_queue) - 1:
                     # Navigate down in queue
                     self._queue_nav_index += 1
-                    self.input_field.set_value(
-                        self._message_queue[self._queue_nav_index]
-                    )
+                    self.input_field.set_value(self._message_queue[self._queue_nav_index])
                 else:
                     # Exit queue nav, restore draft
                     self._queue_nav_index = -1
@@ -346,21 +344,15 @@ class AlfredTUI:
 
         if isinstance(event, ToolStart):
             # Add tool call to current message at current position
-            assistant_msg.add_tool_call(
-                event.tool_name, event.tool_call_id, event.arguments
-            )
+            assistant_msg.add_tool_call(event.tool_name, event.tool_call_id, event.arguments)
 
         elif isinstance(event, ToolOutput):
             # Append output to existing tool call
-            assistant_msg.update_tool_call(
-                event.tool_call_id, event.chunk
-            )
+            assistant_msg.update_tool_call(event.tool_call_id, event.chunk)
 
         elif isinstance(event, ToolEnd):
             # Set final status
-            status: Literal["success", "error"] = (
-                "error" if event.is_error else "success"
-            )
+            status: Literal["success", "error"] = "error" if event.is_error else "success"
             assistant_msg.finalize_tool_call(event.tool_call_id, status)
 
         # Request re-render
@@ -563,7 +555,7 @@ class AlfredTUI:
 
         while pos < len(scrollback_content):
             # Get next screenful of content
-            chunk = scrollback_content[pos:pos + scrollable_height]
+            chunk = scrollback_content[pos : pos + scrollable_height]
 
             # Render this chunk at absolute positions
             for i, line in enumerate(chunk):
@@ -625,9 +617,7 @@ class AlfredTUI:
         try:
             # Stream response from Alfred
             accumulated = ""
-            async for chunk in self.alfred.chat_stream(
-                text, tool_callback=self._tool_callback
-            ):
+            async for chunk in self.alfred.chat_stream(text, tool_callback=self._tool_callback):
                 # Create message panel on first chunk
                 if first_chunk:
                     self._is_sending = False
@@ -669,9 +659,7 @@ class AlfredTUI:
         # Process queued message outside finally block
         if next_to_process is not None:
             # Check if it's a session command
-            if next_to_process.startswith("/") and self._handle_session_command(
-                next_to_process
-            ):
+            if next_to_process.startswith("/") and self._handle_session_command(next_to_process):
                 return  # Command handled, don't send to LLM
 
             # Add user message and send to LLM

@@ -47,9 +47,7 @@ class MemorySearcher:
             f"Searching {len(memories)} memories with min_similarity={self.min_similarity}"
         )
 
-        scored: list[tuple[float, MemoryEntry, float]] = (
-            []
-        )  # (score, memory, similarity)
+        scored: list[tuple[float, MemoryEntry, float]] = []  # (score, memory, similarity)
 
         for memory in memories:
             if not memory.embedding:
@@ -107,9 +105,7 @@ class MemorySearcher:
         if not memories:
             return []
 
-        logger.debug(
-            f"Deduplicating {len(memories)} memories with threshold={threshold}"
-        )
+        logger.debug(f"Deduplicating {len(memories)} memories with threshold={threshold}")
 
         unique: list[MemoryEntry] = []
 
@@ -135,9 +131,7 @@ class MemorySearcher:
 
         removed = len(memories) - len(unique)
         if removed > 0:
-            logger.info(
-                f"Deduplication removed {removed} memories ({len(unique)} remaining)"
-            )
+            logger.info(f"Deduplication removed {removed} memories ({len(unique)} remaining)")
         return unique
 
 
@@ -414,9 +408,7 @@ class ContextBuilder:
         similarities = similarities or {}
         scores = scores or {}
         # Reserve tokens for system prompt, headers, and conversation
-        reserved = (
-            approximate_tokens(system_prompt) + 300
-        )  # Increased for session section
+        reserved = approximate_tokens(system_prompt) + 300  # Increased for session section
         available = budget - reserved
 
         if available <= 0:

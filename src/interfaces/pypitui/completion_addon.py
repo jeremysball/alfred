@@ -158,7 +158,7 @@ class CompletionManager:
         if not selected_value.startswith(current_text):
             return None
 
-        suffix = selected_value[len(current_text):]
+        suffix = selected_value[len(current_text) :]
         return suffix if suffix else None
 
     def _accept_ghost_char(self) -> dict | None:

@@ -148,6 +148,7 @@ class TemplateManager:
         # Temporarily protect {{placeholders}} from str.format()
         # by replacing them with sentinel values
         import re
+
         placeholders: list[str] = re.findall(r"\{\{[^}]+\}\}", content)
         sentinel_map: dict[str, str] = {}
         for i, ph in enumerate(placeholders):

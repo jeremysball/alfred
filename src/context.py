@@ -36,6 +36,7 @@ class AssembledContext(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
+
 # Map context file names to template filenames
 # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md per PRD #102)
 CONTEXT_TO_TEMPLATE = {
@@ -197,11 +198,11 @@ class ContextLoader:
             system_prompt=system_prompt,
             session_messages=session_messages,
             session_messages_with_tools=session_messages_with_tools,
-            tool_calls_enabled=getattr(self.config, 'tool_calls_enabled', True),
-            tool_calls_max_calls=getattr(self.config, 'tool_calls_max_calls', 5),
-            tool_calls_max_tokens=getattr(self.config, 'tool_calls_max_tokens', 2000),
-            tool_calls_include_output=getattr(self.config, 'tool_calls_include_output', True),
-            tool_calls_include_arguments=getattr(self.config, 'tool_calls_include_arguments', True),
+            tool_calls_enabled=getattr(self.config, "tool_calls_enabled", True),
+            tool_calls_max_calls=getattr(self.config, "tool_calls_max_calls", 5),
+            tool_calls_max_tokens=getattr(self.config, "tool_calls_max_tokens", 2000),
+            tool_calls_include_output=getattr(self.config, "tool_calls_include_output", True),
+            tool_calls_include_arguments=getattr(self.config, "tool_calls_include_arguments", True),
         )
 
     def _build_system_prompt_sync(self) -> str:

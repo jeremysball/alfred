@@ -184,6 +184,7 @@ class DaemonManager:
             on_shutdown: Callback for SIGTERM/SIGINT
             on_reload: Callback for SIGHUP
         """
+
         def handle_shutdown(signum: int, frame) -> None:
             """Handle shutdown signals (SIGTERM, SIGINT)."""
             sig_name = signal.Signals(signum).name

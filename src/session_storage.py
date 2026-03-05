@@ -61,11 +61,7 @@ class SessionStorage:
         """List all session metadata, using cache if fresh."""
         now = time.time()
         if self._session_cache is not None and (now - self._cache_timestamp) < self._cache_ttl:
-            return sorted(
-                self._session_cache.values(),
-                key=lambda m: m.last_active,
-                reverse=True
-            )
+            return sorted(self._session_cache.values(), key=lambda m: m.last_active, reverse=True)
 
         # Cache miss or expired - refresh
         sessions = self.list_sessions()
@@ -256,15 +252,9 @@ class SessionStorage:
                         content=data["content"],
                         timestamp=datetime.fromisoformat(data["timestamp"]),
                         embedding=data.get("embedding"),
-                        input_tokens=deltas.get(
-                            "input_tokens", data.get("input_tokens", 0)
-                        ),
-                        output_tokens=deltas.get(
-                            "output_tokens", data.get("output_tokens", 0)
-                        ),
-                        cached_tokens=deltas.get(
-                            "cached_tokens", data.get("cached_tokens", 0)
-                        ),
+                        input_tokens=deltas.get("input_tokens", data.get("input_tokens", 0)),
+                        output_tokens=deltas.get("output_tokens", data.get("output_tokens", 0)),
+                        cached_tokens=deltas.get("cached_tokens", data.get("cached_tokens", 0)),
                         reasoning_tokens=deltas.get(
                             "reasoning_tokens", data.get("reasoning_tokens", 0)
                         ),

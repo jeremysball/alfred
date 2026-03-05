@@ -51,9 +51,7 @@ class ShowContextCommand(Command):
                     role = "User" if mem["role"] == "user" else "Assistant"
                     lines.append(f"  [{mem['timestamp']}] {role}: {mem['content']}")
                 if memories["total"] > memories["displayed"]:
-                    lines.append(
-                        f"  ... and {memories['total'] - memories['displayed']} more"
-                    )
+                    lines.append(f"  ... and {memories['total'] - memories['displayed']} more")
                 lines.append("")
 
                 # Session history section
@@ -77,14 +75,10 @@ class ShowContextCommand(Command):
                     lines.append("─" * 40)
                     for i, tc in enumerate(tool_calls["items"], 1):
                         status_icon = "✓" if tc["status"] == "success" else "✗"
-                        args_str = ", ".join(
-                            f"{k}={v}" for k, v in tc["arguments"].items()
-                        )
+                        args_str = ", ".join(f"{k}={v}" for k, v in tc["arguments"].items())
                         if len(args_str) > 50:
                             args_str = args_str[:47] + "..."
-                        lines.append(
-                            f"  {i}. {status_icon} {tc['tool_name']}: {args_str}"
-                        )
+                        lines.append(f"  {i}. {status_icon} {tc['tool_name']}: {args_str}")
                         if tc["output"]:
                             output = tc["output"].replace("\n", " ")
                             if len(output) > 60:

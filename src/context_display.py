@@ -40,10 +40,12 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         if name in context_files:
             content = context_files[name].content
             tokens = _estimate_tokens(content)
-            system_sections.append({
-                "name": name.upper() + ".md",
-                "tokens": tokens,
-            })
+            system_sections.append(
+                {
+                    "name": name.upper() + ".md",
+                    "tokens": tokens,
+                }
+            )
             total_system_tokens += tokens
 
     # Get all memories
@@ -86,20 +88,17 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     # Format memories - show first 5 with counts
     memory_display = []
     for mem in all_memories[:5]:
-        memory_display.append({
-            "content": mem.content[:100] + "..." if len(mem.content) > 100 else mem.content,
-            "role": mem.role,
-            "timestamp": mem.timestamp.isoformat()[:10],  # Just date
-        })
+        memory_display.append(
+            {
+                "content": mem.content[:100] + "..." if len(mem.content) > 100 else mem.content,
+                "role": mem.role,
+                "timestamp": mem.timestamp.isoformat()[:10],  # Just date
+            }
+        )
 
     memory_tokens = sum(_estimate_tokens(m.content) for m in all_memories[:5])
 
-    total_tokens = (
-        total_system_tokens +
-        memory_tokens +
-        session_tokens +
-        tool_call_tokens
-    )
+    total_tokens = total_system_tokens + memory_tokens + session_tokens + tool_call_tokens
 
     return {
         "system_prompt": {

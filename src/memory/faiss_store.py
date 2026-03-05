@@ -293,9 +293,7 @@ class FAISSMemoryStore(MemoryStore):
             List of all entries
         """
         return [
-            entry
-            for entry_id, entry in self._metadata.items()
-            if entry_id not in self._deleted_ids
+            entry for entry_id, entry in self._metadata.items() if entry_id not in self._deleted_ids
         ]
 
     async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
@@ -395,9 +393,7 @@ class FAISSMemoryStore(MemoryStore):
         embeddings_file = self._index_path / "embeddings.npy"
         if self._metadata:
             embeddings = [
-                entry.embedding
-                for entry in self._metadata.values()
-                if entry.embedding is not None
+                entry.embedding for entry in self._metadata.values() if entry.embedding is not None
             ]
             if embeddings:
                 np.save(embeddings_file, np.array(embeddings, dtype=np.float32))

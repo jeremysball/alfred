@@ -49,8 +49,7 @@ def get_model(model_name: str = "bge-base") -> Any:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
             raise ImportError(
-                "sentence-transformers not installed. "
-                "Install with: uv add sentence-transformers"
+                "sentence-transformers not installed. Install with: uv add sentence-transformers"
             ) from e
 
         config = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["bge-base"])

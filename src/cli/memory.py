@@ -77,7 +77,7 @@ def migrate_command(
             console.print("\n[bold green]✓[/] Migration complete!")
             console.print("Update your config.toml to use FAISS:")
             console.print("  [memory]")
-            console.print("  store = \"faiss\"")
+            console.print('  store = "faiss"')
         elif stats.get("error"):
             console.print(f"\n[bold red]✗[/] Error: {stats['error']}")
         else:
@@ -121,6 +121,7 @@ def status_command() -> None:
 
             if metadata_file.exists():
                 import json
+
                 with open(metadata_file) as f:
                     meta = json.load(f)
                 console.print(f"Entries: [cyan]{len(meta.get('entries', []))}[/]")

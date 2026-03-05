@@ -17,6 +17,7 @@ class EmbeddingClient:
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("EmbeddingClient is deprecated. Use create_provider() instead.")
 
+
 if TYPE_CHECKING:
     from src.config import Config
 

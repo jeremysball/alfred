@@ -38,8 +38,7 @@ class CASConflictError(Exception):
         self.expected_version = expected_version
         self.actual_version = actual_version
         super().__init__(
-            f"CAS conflict: expected version {expected_version}, "
-            f"but found {actual_version}"
+            f"CAS conflict: expected version {expected_version}, but found {actual_version}"
         )
 
 
@@ -51,6 +50,7 @@ class Version:
     are informational but NOT part of equality - only content_hash
     matters for detecting changes.
     """
+
     content_hash: str
     mtime_ns: int
     size: int
@@ -193,10 +193,7 @@ class CASStore:
             return expected_version or await self.read_version() or Version.from_content(b"")
 
         if expected_version is not None:
-            lines = [
-                json.dumps(r, separators=(",", ":")) + self.line_separator
-                for r in records
-            ]
+            lines = [json.dumps(r, separators=(",", ":")) + self.line_separator for r in records]
             content = "".join(lines).encode("utf-8")
             return await self._append_bytes(content, expected_version)
 
@@ -226,10 +223,7 @@ class CASStore:
             CASConflictError: If file was modified since expected_version
                 (only when expected_version is provided)
         """
-        lines = [
-            json.dumps(r, separators=(",", ":")) + self.line_separator
-            for r in records
-        ]
+        lines = [json.dumps(r, separators=(",", ":")) + self.line_separator for r in records]
         content = "".join(lines).encode("utf-8")
 
         if expected_version is not None:
@@ -346,6 +340,7 @@ class CASStore:
         """Async wrapper for version computation."""
         # Run sync file ops in thread pool
         import asyncio
+
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, Version.from_path, path)
 
