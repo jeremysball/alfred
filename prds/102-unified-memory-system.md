@@ -520,19 +520,21 @@ This helps debug what's actually loaded in the prompt.
 ### M5: Memory System Simplification
 **Scope:** Remove three-tier complexity, implement simplified model
 
-- [ ] Remove auto-capture logic
-- [ ] Remove auto-consolidation logic  
-- [ ] Change TTL from 30 to 90 days
-- [ ] Add `permanent` flag to memory schema
-- [ ] Add warning threshold X (default 1000 memories)
+- [x] Remove auto-capture logic (already removed - no auto-capture exists)
+- [x] Remove auto-consolidation logic (already removed - no auto-consolidation exists)
+- [x] Change TTL from 30 to 90 days (implemented in prune_expired_memories, default 90)
+- [x] Add `permanent` flag to memory schema (MemoryEntry.permanent: bool = False)
+- [x] Add warning threshold X (default 1000 memories) (check_memory_threshold method + config)
 - [ ] Update memory guidance in AGENTS.md (now extracted to prompts/agents/memory-system.md)
-- [ ] Update all memory-related tests
+- [x] Update all memory-related tests (comprehensive test coverage added)
+
+**Status:** 85% Complete - Core implementation done, documentation pending
 
 **Success Criteria:**
-- No auto-capture or auto-consolidation
-- 90-day TTL active
-- Warning shown at X memories
-- Permanent flag works to skip TTL
+- [x] No auto-capture or auto-consolidation
+- [x] 90-day TTL active
+- [x] Warning shown at X memories
+- [x] Permanent flag works to skip TTL
 
 ### M6: Model Memory Guidance
 **Scope:** Create and inject "How to Use Memory" prompt section
