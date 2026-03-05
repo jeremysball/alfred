@@ -130,6 +130,8 @@ class CLINotifier(Notifier):
         """
         try:
             # In TUI mode, send as toast
+            # ToastManager automatically defers toasts when stdout is captured
+            # (e.g., during cron job execution) and shows them once freed.
             if self._toast_manager is not None:
                 self._toast_manager.add(message, "info")
                 logger.debug(f"Sent toast notification: {message[:50]}...")

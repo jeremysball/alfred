@@ -14,12 +14,14 @@ from collections.abc import Callable
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import psutil
 
 from src.cron.models import ExecutionStatus, Job, ResourceLimits
-from src.cron.notifier import Notifier
+
+if TYPE_CHECKING:
+    from src.cron.socket_client import SocketClient
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +37,7 @@ class ExecutionContext:
     job_id: str
     job_name: str
     memory_store: Any | None = None
-    notifier: Notifier | None = None
-    chat_id: int | None = None  # Per-job chat_id for notifications
+    socket_client: "SocketClient | None" = None
 
     async def notify(self, message: str) -> None:
         """Send a notification to the user.
@@ -44,8 +45,8 @@ class ExecutionContext:
         Args:
             message: Message to send
         """
-        if self.notifier:
-            await self.notifier.send(message, chat_id=self.chat_id)
+        if self.socket_client:
+            await self.socket_client.notify(message, level="info")
 
 
 @dataclass
@@ -192,8 +193,8 @@ class JobExecutor:
         process = psutil.Process()
         initial_memory = process.memory_info().rss
 
-        # Inject notify into handler's globals if notifier is available
-        if self.context.notifier is not None:
+        # Inject notify into handler's globals if socket_client is available
+        if self.context.socket_client is not None:
             self.handler.__globals__["notify"] = self.context.notify
 
         # Execute the handler

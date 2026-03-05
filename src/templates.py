@@ -11,7 +11,7 @@ class TemplateManager:
     """Manages template discovery and auto-creation of context files."""
 
     # Templates that should be auto-created if missing
-    AUTO_CREATE_TEMPLATES = {"SOUL.md", "USER.md", "TOOLS.md"}
+    AUTO_CREATE_TEMPLATES = {"SYSTEM.md", "AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md"}
 
     def __init__(self, workspace_dir: Path) -> None:
         """Initialize template manager.

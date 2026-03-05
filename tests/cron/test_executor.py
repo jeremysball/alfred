@@ -16,18 +16,18 @@ class TestExecutionContext:
             job_id="test-1",
             job_name="Test Job",
             memory_store=None,
-            notifier=None,
+            socket_client=None,
         )
 
         assert context.job_id == "test-1"
         assert context.job_name == "Test Job"
 
-    async def test_notify_without_notifier(self):
-        """Should silently succeed without notifier."""
+    async def test_notify_without_socket_client(self):
+        """Should silently succeed without socket_client."""
         context = ExecutionContext(
             job_id="test-1",
             job_name="Test Job",
-            notifier=None,
+            socket_client=None,
         )
 
         # Should not raise

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from src.config import Config
 from src.memory import MemoryEntry
+from src.placeholders import resolve_all
 from src.search import ContextBuilder, MemorySearcher
 from src.templates import TemplateManager
 
@@ -36,6 +37,7 @@ class AssembledContext(BaseModel):
 
 # Map context file names to template filenames
 CONTEXT_TO_TEMPLATE = {
+    "system": "SYSTEM.md",
     "agents": "AGENTS.md",
     "soul": "SOUL.md",
     "user": "USER.md",
@@ -120,6 +122,9 @@ class ContextLoader:
         loop = asyncio.get_event_loop()
         content = await loop.run_in_executor(None, path.read_text, "utf-8")
         stat = await loop.run_in_executor(None, path.stat)
+
+        # Resolve placeholders (file includes {{path}} and colors {color})
+        content = resolve_all(content, self.config.workspace_dir)
 
         file = ContextFile(
             name=name,
@@ -240,6 +245,7 @@ class ContextLoader:
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:
         """Combine context files into system prompt."""
         parts = [
+            "# SYSTEM\n\n" + files["system"].content,
             "# AGENTS\n\n" + files["agents"].content,
             "# SOUL\n\n" + files["soul"].content,
             "# USER\n\n" + files["user"].content,

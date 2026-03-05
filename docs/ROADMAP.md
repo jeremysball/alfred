@@ -128,6 +128,8 @@ Always loaded in full. Expensive but always available.
 
 Model decides when to write. Ask user first.
 
+See [PLACEHOLDERS.md](PLACEHOLDERS.md) for placeholder syntax and API.
+
 ### Memories (Curated Store)
 Model uses `remember` tool to save facts worth recalling.
 - 90-day TTL (warn user at X memories)

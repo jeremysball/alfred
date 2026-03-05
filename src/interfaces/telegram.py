@@ -15,6 +15,7 @@ from telegram.ext import (
 
 from src.alfred import Alfred
 from src.config import Config
+from src.data_manager import get_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class TelegramInterface:
         self.application: Application | None = None
 
         # Initialize state for chat_id persistence
-        self._data_dir = data_dir or Path("data")
+        self._data_dir = data_dir or get_data_dir()
         self._state_file = self._data_dir / "telegram_state.json"
         self._chat_id: int | None = None
 

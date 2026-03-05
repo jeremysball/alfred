@@ -14,15 +14,17 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
 from src.cron.models import ExecutionRecord, ExecutionStatus, Job, JobStatus, ResourceLimits
-from src.cron.notifier import Notifier
 from src.cron.observability import StructuredLogger
-from src.cron.sandbox import SANDBOX_BUILTINS
 from src.cron.store import CronStore
+from src.data_manager import get_data_dir
+
+if TYPE_CHECKING:
+    from src.cron.socket_client import SocketClient
 
 logger = logging.getLogger(__name__)
 
@@ -76,15 +78,15 @@ class CronScheduler:
         store: CronStore | None = None,
         check_interval: float = 60.0,
         data_dir: Path | None = None,
-        notifier: Notifier | None = None,
+        socket_client: "SocketClient | None" = None,
     ) -> None:
         """Initialize scheduler.
 
         Args:
             store: CronStore for persistence (creates default if None)
             check_interval: Seconds between schedule checks
-            data_dir: Directory for log files (default: data/)
-            notifier: Notifier for sending messages to users (optional)
+            data_dir: Directory for log files (default: XDG data dir)
+            socket_client: Socket client for TUI communication (optional)
         """
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
@@ -92,10 +94,10 @@ class CronScheduler:
         self._task: asyncio.Task | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
-        self._notifier = notifier
+        self._socket_client = socket_client
 
         # Initialize logger
-        log_file = (data_dir or Path("data")) / "cron_logs.jsonl"
+        log_file = (data_dir or get_data_dir()) / "cron_logs.jsonl"
         self._logger = StructuredLogger(log_file)
 
     async def start(self) -> None:
@@ -130,6 +132,15 @@ class CronScheduler:
         await self._logger.log_scheduler_event("scheduler_stop", "Cron scheduler stopped")
         logger.info("Cron scheduler stopped")
 
+    async def reload_jobs(self) -> None:
+        """Reload all jobs from the store.
+
+        Called when SIGHUP is received to pick up external changes.
+        """
+        logger.info("Reloading jobs from store...")
+        await self._load_jobs()
+        logger.info(f"Reloaded {len(self._jobs)} jobs")
+
     async def register_job(self, job: Job) -> None:
         """Register a job for execution.
 
@@ -140,7 +151,7 @@ class CronScheduler:
             ValueError: If job code fails to compile or doesn't define run() function
         """
         # Compile code to handler (raises ValueError on failure)
-        handler = self._compile_handler(job.code, job.sandbox_enabled)
+        handler = self._compile_handler(job.code)
         runnable = RunnableJob.from_job(job, handler)
 
         self._jobs[job.job_id] = runnable
@@ -155,7 +166,6 @@ class CronScheduler:
         name: str,
         expression: str,
         code: str,
-        sandbox_enabled: bool = False,
     ) -> str:
         """Submit a user job for approval.
 
@@ -163,7 +173,6 @@ class CronScheduler:
             name: Job name
             expression: Cron expression
             code: Python code as string
-            sandbox_enabled: Whether to run in sandbox with restricted builtins
 
         Returns:
             Job ID (pending approval)
@@ -180,7 +189,6 @@ class CronScheduler:
             expression=expression,
             code=code,
             status="pending",
-            sandbox_enabled=sandbox_enabled,
         )
         await self._store.save_job(job)
         logger.info(f"Submitted user job for approval: {name} ({job.job_id})")
@@ -256,7 +264,7 @@ class CronScheduler:
         for job in jobs:
             if job.status == "active":
                 try:
-                    handler = self._compile_handler(job.code, job.sandbox_enabled)
+                    handler = self._compile_handler(job.code)
                     runnable = RunnableJob.from_job(job, handler)
                     self._jobs[job.job_id] = runnable
                     self._job_code[job.job_id] = job.code
@@ -289,14 +297,11 @@ class CronScheduler:
         if not inspect.iscoroutinefunction(namespace["run"]):
             raise ValueError("Job run() function must be async (defined with 'async def')")
 
-    def _compile_handler(
-        self, code: str, sandbox_enabled: bool = False
-    ) -> Callable[[], Awaitable[None]]:
+    def _compile_handler(self, code: str) -> Callable[[], Awaitable[None]]:
         """Compile job code into executable handler.
 
         Args:
             code: Python code as string
-            sandbox_enabled: If True, use restricted builtins. If False, full access.
 
         Returns:
             Compiled async function
@@ -309,18 +314,11 @@ class CronScheduler:
             """Placeholder notify function - replaced at runtime."""
             pass
 
-        if sandbox_enabled:
-            # Restricted builtins for sandboxed jobs
-            namespace: dict[str, Any] = {
-                "__builtins__": SANDBOX_BUILTINS,
-                "notify": _placeholder_notify,
-            }
-        else:
-            # Full builtins access for non-sandboxed jobs
-            namespace = {
-                "__builtins__": __builtins__,
-                "notify": _placeholder_notify,
-            }
+        # Full builtins access for jobs
+        namespace: dict[str, Any] = {
+            "__builtins__": __builtins__,
+            "notify": _placeholder_notify,
+        }
 
         # Execute code in namespace
         exec(code, namespace)  # noqa: S102
@@ -394,8 +392,7 @@ class CronScheduler:
             context = ExecutionContext(
                 job_id=job.job_id,
                 job_name=job.name,
-                notifier=self._notifier,
-                chat_id=job_model.chat_id if job_model else None,
+                socket_client=self._socket_client,
             )
 
             # Create executor and run
@@ -415,6 +412,14 @@ class CronScheduler:
             # Log start
             await self._logger.log_job_start(job.job_id, job.name, code_snapshot)
             logger.debug(f"Executing job: {job.name} ({job.job_id})")
+
+            # Send job started notification
+            if self._socket_client:
+                from src.cron.socket_protocol import JobStartedMessage
+
+                await self._socket_client.send(
+                    JobStartedMessage(job_id=job.job_id, job_name=job.name)
+                )
 
             # Execute with resource limits
             result = await executor.execute()
@@ -436,10 +441,47 @@ class CronScheduler:
             # Log result
             if result.status == ExecutionStatus.SUCCESS:
                 logger.debug("Job completed: %s (%s)", job.name, job.job_id)
+                # Send completion notification
+                if self._socket_client:
+                    from src.cron.socket_protocol import JobCompletedMessage
+
+                    stdout_preview = (result.stdout or "")[:200]
+                    await self._socket_client.send(
+                        JobCompletedMessage(
+                            job_id=job.job_id,
+                            job_name=job.name,
+                            duration_ms=result.duration_ms,
+                            stdout_preview=stdout_preview,
+                        )
+                    )
             elif result.status == ExecutionStatus.TIMEOUT:
                 logger.warning("Job timed out: %s (%s)", job.name, job.job_id)
+                # Send failure notification
+                if self._socket_client:
+                    from src.cron.socket_protocol import JobFailedMessage
+
+                    await self._socket_client.send(
+                        JobFailedMessage(
+                            job_id=job.job_id,
+                            job_name=job.name,
+                            error="Job timed out",
+                            duration_ms=result.duration_ms,
+                        )
+                    )
             else:
                 logger.error("Job failed: %s (%s)", job.name, job.job_id)
+                # Send failure notification
+                if self._socket_client:
+                    from src.cron.socket_protocol import JobFailedMessage
+
+                    await self._socket_client.send(
+                        JobFailedMessage(
+                            job_id=job.job_id,
+                            job_name=job.name,
+                            error=result.error_message or "Unknown error",
+                            duration_ms=result.duration_ms,
+                        )
+                    )
 
             # Record execution
             record = ExecutionRecord(

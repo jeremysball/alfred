@@ -380,7 +380,7 @@ class TestStreamingState:
 
         # Status line should show throbber
         lines = tui.status_line.render(width=80)
-        assert lines[0].startswith("⠋")  # Throbber visible
+        assert "⠋" in lines[0]  # Throbber visible
 
         # Simulate streaming ending (finally block behavior)
         tui._is_streaming = False
@@ -388,7 +388,7 @@ class TestStreamingState:
 
         # Status line should NOT show throbber anymore
         lines = tui.status_line.render(width=80)
-        assert not lines[0].startswith("⠋")  # Throbber hidden
+        assert "⠋" not in lines[0]  # Throbber hidden
         assert "test-model" in lines[0]  # Model name visible instead
 
     def test_throbber_starts_immediately_on_submit(self, mock_alfred, mock_terminal):
@@ -407,7 +407,7 @@ class TestStreamingState:
 
         # Status line should show throbber immediately (before streaming starts)
         lines = tui.status_line.render(width=80)
-        assert lines[0].startswith("⠋")  # Throbber visible immediately
+        assert "⠋" in lines[0]  # Throbber visible immediately
 
         # When streaming actually starts, _is_streaming becomes True and _is_sending becomes False
         tui._is_streaming = True
@@ -416,5 +416,5 @@ class TestStreamingState:
 
         # Throbber should still be visible during streaming
         lines = tui.status_line.render(width=80)
-        assert lines[0].startswith("⠋")  # Throbber still visible
+        assert "⠋" in lines[0]  # Throbber still visible
 

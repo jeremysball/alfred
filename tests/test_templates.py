@@ -23,7 +23,13 @@ def temp_templates(temp_workspace):
     template_dir = temp_workspace / "templates"
     template_dir.mkdir()
 
-    # Create sample templates
+    # Create sample templates (including new SYSTEM.md and AGENTS.md)
+    (template_dir / "SYSTEM.md").write_text(
+        "# System\n\n## Memory Architecture\n\nThree storage mechanisms.\n"
+    )
+    (template_dir / "AGENTS.md").write_text(
+        "# Agent Behavior Rules\n\n1. Permission First\n"
+    )
     (template_dir / "SOUL.md").write_text(
         "---\ntitle: SOUL\n---\n# Soul\nDate: {current_date}\nYear: {current_year}\n"
     )
@@ -267,7 +273,9 @@ class TestEnsureAllExist:
         """Test creating all missing templates."""
         result = manager.ensure_all_exist()
 
-        assert len(result) == 3
+        assert len(result) == 5  # SYSTEM.md, AGENTS.md, SOUL.md, USER.md, TOOLS.md
+        assert "SYSTEM.md" in result
+        assert "AGENTS.md" in result
         assert "SOUL.md" in result
         assert "USER.md" in result
         assert "TOOLS.md" in result
@@ -283,7 +291,7 @@ class TestEnsureAllExist:
 
         result = manager.ensure_all_exist()
 
-        assert len(result) == 3
+        assert len(result) == 5
         assert result["SOUL.md"].read_text() == "existing"
 
 
@@ -310,7 +318,7 @@ class TestListMethods:
         """Test listing missing templates."""
         missing = manager.list_missing()
 
-        assert len(missing) == 3
+        assert len(missing) == 5  # SYSTEM.md, AGENTS.md, SOUL.md, USER.md, TOOLS.md
 
     def test_list_missing_after_creation(self, manager):
         """Test listing missing after creating some."""
@@ -319,7 +327,7 @@ class TestListMethods:
         missing = manager.list_missing()
 
         assert "SOUL.md" not in missing
-        assert len(missing) == 2
+        assert len(missing) == 4  # SYSTEM.md, AGENTS.md, USER.md, TOOLS.md
 
 
 # Tests for path methods

@@ -492,8 +492,8 @@ This helps debug what's actually loaded in the prompt.
 - [x] Handle missing files gracefully (log warning, insert comment)
 - [x] Add HTML comment wrappers for transparency
 - [x] Create convenience functions: `resolve_file_includes()`, `resolve_colors()`, `resolve_all()`
-- [ ] Update `ContextLoader` to use new system
-- [ ] Tests for all resolver types
+- [x] Update `ContextLoader` to use new system
+- [x] Tests for all resolver types
 
 **Success Criteria:**
 - `{{prompts/example.md}}` resolves and includes content
@@ -620,8 +620,8 @@ This helps debug what's actually loaded in the prompt.
 ## Acceptance Criteria
 
 - [ ] SYSTEM.md and AGENTS.md separation clear and documented
-- [ ] Placeholder system works: `{{path}}` resolves correctly
-- [ ] Circular reference detection prevents infinite loops
+- [x] Placeholder system works: `{{path}}` resolves correctly
+- [x] Circular reference detection prevents infinite loops
 - [ ] Memory TTL is 90 days (not 30)
 - [ ] Warning at X memories (configurable threshold)
 - [ ] Permanent flag skips TTL
@@ -629,8 +629,8 @@ This helps debug what's actually loaded in the prompt.
 - [ ] Model guidance prompt explains memory system clearly
 - [ ] Session archive searchable with contextual retrieval
 - [x] All existing tests pass or updated
-- [ ] New tests for placeholder system
-- [ ] All documentation updated (ROADMAP, README, etc.)
+- [x] New tests for placeholder system
+- [x] All documentation updated (ROADMAP, README, etc.)
 - [ ] TOOLS.md phase-out documented
 - [ ] Migration guide for existing users
 

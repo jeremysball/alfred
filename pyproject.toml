@@ -49,6 +49,7 @@ Issues = "https://github.com/jeremysball/alfred/issues"
 
 [project.scripts]
 alfred = "src.cli.main:app"
+alfred-cron-runner = "src.cli.cron_runner:main"
 
 [project.optional-dependencies]
 dev = [

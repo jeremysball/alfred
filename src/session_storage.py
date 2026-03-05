@@ -1,7 +1,7 @@
 """Session persistence layer (PRD #53).
 
 Handles file I/O for session storage:
-    data/sessions/
+    $XDG_DATA_HOME/alfred/sessions/
     ├── current.json             # CLI current session_id
     └── {session_id}/
         ├── meta.json            # Session metadata
@@ -20,6 +20,7 @@ from pathlib import Path
 
 import aiofiles
 
+from src.data_manager import get_data_dir
 from src.embeddings import EmbeddingClient
 from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
 
@@ -33,7 +34,7 @@ class SessionStorage:
         data_dir: Path | None = None,
     ) -> None:
         self.embedder = embedder
-        self.sessions_dir = (data_dir or Path("data")) / "sessions"
+        self.sessions_dir = (data_dir or get_data_dir()) / "sessions"
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.current_path = self.sessions_dir / "current.json"
 

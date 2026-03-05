@@ -679,4 +679,6 @@ class AlfredTUI:
                 # Yield to event loop (~60fps)
                 await asyncio.sleep(0.016)
         finally:
+            # Clear screen and reset cursor before exit
+            self.terminal.write("\x1b[2J\x1b[H\x1b[?25h")
             self.tui.stop()
