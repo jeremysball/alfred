@@ -10,6 +10,7 @@ from rich.console import Console
 
 from src.alfred import Alfred
 from src.cli.cron import app as cron_app
+from src.cli.memory import app as memory_app
 from src.config import load_config
 from src.data_manager import init_xdg_directories
 
@@ -31,6 +32,7 @@ console = Console()
 
 # Register cron subcommands
 app.add_typer(cron_app, name="cron", help="Manage cron jobs")
+app.add_typer(memory_app, name="memory", help="Manage memory system")
 
 # Global state for callback
 _run_telegram = False
