@@ -47,7 +47,7 @@ class Config(BaseSettings):
     # Embedding provider settings (PRD #105)
     embedding_provider: str = "openai"  # "openai" or "local"
     local_embedding_model: str = "bge-base"  # "bge-small", "bge-base", "bge-large"
-    
+
     # Memory store settings (PRD #105)
     memory_store: str = "jsonl"  # "jsonl" or "faiss"
     faiss_index_type: str = "auto"  # "flat", "ivf", or "auto"

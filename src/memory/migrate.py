@@ -165,8 +165,8 @@ async def migrate_command(
         Migration stats
     """
     from src.config import load_config
-    from src.embeddings import create_provider
     from src.data_manager import get_memory_dir
+    from src.embeddings import create_provider
 
     # Default paths
     if jsonl_path is None:
@@ -228,7 +228,7 @@ def main() -> None:
     )
 
     # Print results
-    print(f"\nMigration complete:")
+    print("\nMigration complete:")
     print(f"  Migrated: {stats['migrated']}")
     print(f"  Failed: {stats['failed']}")
     print(f"  Skipped: {stats['skipped']}")

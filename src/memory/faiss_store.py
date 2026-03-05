@@ -102,7 +102,6 @@ class FAISSMemoryStore(MemoryStore):
             ivf_threshold: Memory count to switch from flat to IVF (when auto)
             rebuild_threshold: Ratio of deleted entries before rebuild (unused)
         """
-        import faiss
 
         self._index_path = Path(index_path)
         self._index_path.mkdir(parents=True, exist_ok=True)
@@ -319,7 +318,6 @@ class FAISSMemoryStore(MemoryStore):
 
     async def _rebuild_index(self) -> None:
         """Rebuild FAISS index without deleted entries."""
-        import faiss
 
         # Get all non-deleted entries with embeddings
         entries_to_keep = [

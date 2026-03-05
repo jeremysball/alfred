@@ -130,7 +130,6 @@ class BGEProvider(EmbeddingProvider):
 
     def _embed_sync(self, text: str) -> list[float]:
         """Synchronous embedding (called from thread pool)."""
-        import numpy as np
 
         embedding = self._model.encode(text, normalize_embeddings=True)
         return embedding.tolist()

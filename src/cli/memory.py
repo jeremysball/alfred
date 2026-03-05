@@ -16,23 +16,23 @@ console = Console()
 
 @app.command("migrate")
 def migrate_command(
-    provider: str = typer.Option(
+    provider: str = typer.Option(  # noqa: B008
         "local",
         "--provider",
         "-p",
         help="Embedding provider: 'local' (BGE) or 'openai'",
     ),
-    backup: bool = typer.Option(
+    backup: bool = typer.Option(  # noqa: B008
         True,
         "--backup/--no-backup",
         help="Create backup of JSONL file",
     ),
-    jsonl_path: Path | None = typer.Option(
+    jsonl_path: Path | None = typer.Option(  # noqa: B008
         None,
         "--jsonl-path",
         help="Path to memories.jsonl (default: XDG data dir)",
     ),
-    faiss_path: Path | None = typer.Option(
+    faiss_path: Path | None = typer.Option(  # noqa: B008
         None,
         "--faiss-path",
         help="Path for FAISS index (default: XDG data dir /faiss)",
@@ -135,22 +135,26 @@ def status_command() -> None:
         console.print(f"JSONL entries: [cyan]{count}[/]")
 
     # Config settings
-    console.print(f"\n[bold]Configuration[/]")
-    console.print(f"Embedding provider: [cyan]{getattr(config, 'embedding_provider', 'openai')}[/]")
-    console.print(f"Local model: [cyan]{getattr(config, 'local_embedding_model', 'bge-base')}[/]")
-    console.print(f"TTL days: [cyan]{getattr(config, 'memory_ttl_days', 90)}[/]")
-    console.print(f"Warning threshold: [cyan]{getattr(config, 'memory_warning_threshold', 1000)}[/]")
+    console.print("\n[bold]Configuration[/]")
+    provider = getattr(config, "embedding_provider", "openai")
+    local_model = getattr(config, "local_embedding_model", "bge-base")
+    ttl_days = getattr(config, "memory_ttl_days", 90)
+    warning = getattr(config, "memory_warning_threshold", 1000)
+    console.print(f"Embedding provider: [cyan]{provider}[/]")
+    console.print(f"Local model: [cyan]{local_model}[/]")
+    console.print(f"TTL days: [cyan]{ttl_days}[/]")
+    console.print(f"Warning threshold: [cyan]{warning}[/]")
 
 
 @app.command("prune")
 def prune_command(
-    ttl_days: int = typer.Option(
+    ttl_days: int = typer.Option(  # noqa: B008
         90,
         "--ttl",
         "-t",
         help="Remove memories older than this many days",
     ),
-    dry_run: bool = typer.Option(
+    dry_run: bool = typer.Option(  # noqa: B008
         True,
         "--dry-run/--no-dry-run",
         help="Show what would be deleted without deleting",
