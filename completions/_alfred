@@ -1,0 +1,30 @@
+#compdef alfred
+# Generated automatically - do not edit manually
+
+_alfred() {
+    local line
+    _arguments -C \
+        '(-t --telegram)'{-t,--telegram}'[Run as Telegram bot]' \
+        '(-l --log)'{-l,--log}'[Set log level]:level:(info debug)' \
+        '--install-completions[Install shell completions]' \
+        '1: :->cmds' \
+        '*:: :->args'
+
+    case $state in
+        cmds)
+            _values "alfred commands" \
+                "--telegram" \
+                "-t" \
+                "--log" \
+                "-l" \
+                "--install-completions" \
+                "--help" \
+            ;;
+        args)
+            case $line[1] in
+            esac
+            ;;
+    esac
+}
+
+_alfred "$@"
