@@ -231,6 +231,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 
 | # | Milestone | Description |
 |---|-----------|-------------|
+| 109 | Great Consolidation | Systematic cleanup: remove dead code (cli.py, MagicMock/), unify storage drivers, complete FAISS implementation, consolidate search logic, simplify session management (PRD #109) |
 | 17 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 18 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 19 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
