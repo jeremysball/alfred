@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from collections.abc import Callable, Coroutine
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import typer
@@ -15,6 +14,12 @@ from src.config import load_config
 from src.data_manager import init_xdg_directories
 
 if TYPE_CHECKING:
+    from src.cron.socket_protocol import (
+        JobCompletedMessage,
+        JobFailedMessage,
+        JobStartedMessage,
+        NotifyMessage,
+    )
     from src.interfaces.pypitui.toast import ToastManager
 
 app = typer.Typer(
@@ -93,18 +98,75 @@ async def _run_interactive() -> None:
 
 async def _run_chat(alfred: Alfred, toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
+    from src.cron.socket_server import SocketServer
     from src.interfaces.pypitui_cli import AlfredTUI
 
-    interface = AlfredTUI(alfred, toast_manager=toast_manager)
-    await alfred.start()
-    await interface.run()
+    # Create socket server for cron runner communication
+    socket_server = SocketServer(
+        on_notify=lambda msg: _handle_notify(toast_manager, msg),
+        on_job_started=lambda msg: _handle_job_started(toast_manager, msg),
+        on_job_completed=lambda msg: _handle_job_completed(toast_manager, msg),
+        on_job_failed=lambda msg: _handle_job_failed(toast_manager, msg),
+    )
+
+    # Start socket server
+    await socket_server.start()
+
+    try:
+        interface = AlfredTUI(alfred, toast_manager=toast_manager)
+        await alfred.start()
+        await interface.run()
+    finally:
+        await socket_server.stop()
+
+
+def _handle_notify(
+    toast_manager: "ToastManager | None",
+    msg: "NotifyMessage",
+) -> None:
+    """Handle notify message from cron runner."""
+    if toast_manager:
+        toast_manager.add(msg.message, msg.level)
+
+
+def _handle_job_started(
+    toast_manager: "ToastManager | None",
+    msg: "JobStartedMessage",
+) -> None:
+    """Handle job started message."""
+    if toast_manager:
+        toast_manager.add(f"Cron job started: {msg.job_name}", "info")
+
+
+def _handle_job_completed(
+    toast_manager: "ToastManager | None",
+    msg: "JobCompletedMessage",
+) -> None:
+    """Handle job completed message."""
+    if toast_manager:
+        toast_manager.add(
+            f"Cron job completed: {msg.job_name} ({msg.duration_ms}ms)",
+            "info",
+        )
+
+
+def _handle_job_failed(
+    toast_manager: "ToastManager | None",
+    msg: "JobFailedMessage",
+) -> None:
+    """Handle job failed message."""
+    if toast_manager:
+        toast_manager.add(
+            f"Cron job failed: {msg.job_name} - {msg.error}",
+            "error",
+        )
 
 
 async def _run_telegram_bot(alfred: Alfred) -> None:
     """Run Telegram bot."""
     from src.interfaces.telegram import TelegramInterface
 
-    data_dir = getattr(alfred.config, "data_dir", Path("data"))
+    data_dir = alfred.config.data_dir
     interface = TelegramInterface(alfred.config, alfred, data_dir)
     await alfred.start()
     await interface.run()

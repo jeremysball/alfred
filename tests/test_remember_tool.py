@@ -163,3 +163,61 @@ async def test_remember_tool_content_truncation(mock_config, mock_embedder):
     # But full content should be saved
     memories = await memory_store.get_all_entries()
     assert memories[0].content == long_content
+
+
+@pytest.mark.asyncio
+async def test_remember_tool_has_permanent_parameter():
+    """RememberToolParams has permanent field."""
+    from src.tools.remember import RememberToolParams
+
+    params = RememberToolParams(content="Test")
+    assert hasattr(params, "permanent")
+    assert params.permanent is False
+
+
+@pytest.mark.asyncio
+async def test_remember_tool_creates_permanent_entry(mock_config, mock_embedder):
+    """Remember tool creates permanent memory when permanent=True."""
+    clear_registry()
+
+    memory_store = MemoryStore(mock_config, mock_embedder)
+    await memory_store.clear()
+
+    register_builtin_tools(memory_store=memory_store)
+    tool = get_registry().get("remember")
+
+    result_chunks = []
+    async for chunk in tool.execute_stream(content="Important memory", permanent=True):
+        result_chunks.append(chunk)
+
+    result = "".join(result_chunks)
+    assert "Remembered" in result
+
+    # Verify memory is permanent
+    memories = await memory_store.get_all_entries()
+    assert len(memories) == 1
+    assert memories[0].permanent is True
+
+
+@pytest.mark.asyncio
+async def test_remember_tool_default_permanent_false(mock_config, mock_embedder):
+    """Remember tool defaults to non-permanent memory."""
+    clear_registry()
+
+    memory_store = MemoryStore(mock_config, mock_embedder)
+    await memory_store.clear()
+
+    register_builtin_tools(memory_store=memory_store)
+    tool = get_registry().get("remember")
+
+    result_chunks = []
+    async for chunk in tool.execute_stream(content="Regular memory"):
+        result_chunks.append(chunk)
+
+    result = "".join(result_chunks)
+    assert "Remembered" in result
+
+    # Verify memory is NOT permanent
+    memories = await memory_store.get_all_entries()
+    assert len(memories) == 1
+    assert memories[0].permanent is False

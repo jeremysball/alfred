@@ -97,7 +97,7 @@ class ScheduleJobTool(Tool):
 
         Args:
             scheduler: The cron scheduler to submit jobs to
-            config: Optional config for sandbox default
+
         """
         super().__init__()
         self.scheduler = scheduler
@@ -143,17 +143,11 @@ class ScheduleJobTool(Tool):
             return
 
         try:
-            # Get sandbox default from config (disabled by default - too restrictive for Alfred)
-            sandbox_enabled = False
-            if self._config:
-                sandbox_enabled = getattr(self._config, "cron_sandbox_default", False)
-
             # Submit job for approval
             job_id = await self.scheduler.submit_user_job(
                 name=params.name,
                 expression=cron_expression,
                 code=job_code,
-                sandbox_enabled=sandbox_enabled,
             )
 
             result = ScheduleJobResult(

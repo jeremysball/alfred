@@ -38,26 +38,64 @@ class ToastManager:
     This class owns the toast list and provides methods to add, get,
     and dismiss toasts. It should be instantiated once and injected
     into components that need toast functionality.
+
+    Deferred toasts: When stdout is captured (e.g., during cron job execution),
+    toasts are queued instead of displayed. They're automatically shown once
+    stdout is freed.
     """
 
     def __init__(self) -> None:
         """Initialize the toast manager."""
         self._toasts: list[ToastMessage] = []
+        self._deferred: list[ToastMessage] = []  # Toasts queued during stdout capture
+
+    def _is_stdout_captured(self) -> bool:
+        """Check if stdout is currently captured (e.g., during job execution)."""
+        import sys
+        from io import StringIO
+
+        return isinstance(sys.stdout, StringIO)
+
+    def _merge_deferred(self) -> None:
+        """Merge deferred toasts into active list if stdout is now free."""
+        if self._deferred and not self._is_stdout_captured():
+            self._toasts.extend(self._deferred)
+            self._deferred.clear()
+            # Trim to max visible (keep most recent)
+            if len(self._toasts) > MAX_VISIBLE_TOASTS:
+                self._toasts = self._toasts[-MAX_VISIBLE_TOASTS:]
 
     def add(self, message: str, level: Literal["warning", "error", "info"]) -> None:
         """Add a toast notification.
+
+        If stdout is currently captured (e.g., during cron job execution),
+        the toast is deferred and shown once stdout is freed.
 
         Args:
             message: The notification text to display
             level: Severity level (affects styling)
         """
-        self._toasts.append(ToastMessage(message=message, level=level))
+        toast = ToastMessage(message=message, level=level)
+
+        # If stdout is captured, defer the toast for later
+        if self._is_stdout_captured():
+            self._deferred.append(toast)
+            # Also trim deferred to prevent unbounded growth
+            if len(self._deferred) > MAX_VISIBLE_TOASTS:
+                self._deferred = self._deferred[-MAX_VISIBLE_TOASTS:]
+            return
+
+        self._toasts.append(toast)
         # Trim to max visible (keep most recent)
         if len(self._toasts) > MAX_VISIBLE_TOASTS:
             self._toasts = self._toasts[-MAX_VISIBLE_TOASTS:]
 
     def get_all(self) -> list[ToastMessage]:
-        """Get current toast list."""
+        """Get current toast list.
+
+        Automatically merges any deferred toasts if stdout is no longer captured.
+        """
+        self._merge_deferred()
         return self._toasts
 
     def dismiss_expired(self) -> None:
@@ -95,6 +133,9 @@ class ToastHandler(logging.Handler):
         # Only capture src.* modules
         if not record.name.startswith("src."):
             return
+
+        # Note: ToastManager automatically defers toasts when stdout is captured
+        # (e.g., during cron job execution) and shows them once freed.
 
         # Map log level to toast level
         level: Literal["warning", "error", "info"]

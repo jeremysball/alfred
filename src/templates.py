@@ -1,6 +1,7 @@
 """Template management and auto-creation for Alfred context files."""
 
 import logging
+import shutil
 from datetime import date
 from pathlib import Path
 
@@ -11,7 +12,8 @@ class TemplateManager:
     """Manages template discovery and auto-creation of context files."""
 
     # Templates that should be auto-created if missing
-    AUTO_CREATE_TEMPLATES = {"SOUL.md", "USER.md", "TOOLS.md"}
+    # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md)
+    AUTO_CREATE_TEMPLATES = {"SYSTEM.md", "AGENTS.md", "SOUL.md", "USER.md"}
 
     def __init__(self, workspace_dir: Path) -> None:
         """Initialize template manager.
@@ -122,6 +124,7 @@ class TemplateManager:
         """Substitute variables in template content.
 
         Uses Python's str.format() style: {variable_name}
+        Preserves {{file}} placeholders for later resolution.
 
         Default variables:
             - current_date: Today's date (YYYY-MM-DD)
@@ -142,12 +145,27 @@ class TemplateManager:
         if variables:
             defaults.update(variables)
 
+        # Temporarily protect {{placeholders}} from str.format()
+        # by replacing them with sentinel values
+        import re
+        placeholders: list[str] = re.findall(r"\{\{[^}]+\}\}", content)
+        sentinel_map: dict[str, str] = {}
+        for i, ph in enumerate(placeholders):
+            sentinel = f"___PLACEHOLDER_{i}___"
+            sentinel_map[sentinel] = ph
+            content = content.replace(ph, sentinel, 1)
+
         try:
-            return content.format(**defaults)
+            content = content.format(**defaults)
         except KeyError as e:
             # If a variable is missing, leave it as-is rather than crashing
             logger.warning(f"Missing template variable: {e}")
-            return content
+
+        # Restore {{placeholders}}
+        for sentinel, ph in sentinel_map.items():
+            content = content.replace(sentinel, ph)
+
+        return content
 
     def create_from_template(
         self, name: str, variables: dict[str, str] | None = None, overwrite: bool = False
@@ -251,3 +269,50 @@ class TemplateManager:
             List of template filenames not yet created
         """
         return [name for name in self.AUTO_CREATE_TEMPLATES if not self.target_exists(name)]
+
+    def ensure_prompts_exist(self) -> Path | None:
+        """Ensure prompts directory exists in workspace, copy from templates if missing.
+
+        Copies all files from templates/prompts/ to workspace/prompts/.
+        Does not overwrite existing files.
+
+        Returns:
+            Path to prompts directory, or None if creation failed
+        """
+        if self._template_dir is None:
+            return None
+
+        source_prompts = self._template_dir / "prompts"
+        if not source_prompts.exists():
+            logger.debug("No prompts directory in templates")
+            return None
+
+        target_prompts = self.workspace_dir / "prompts"
+
+        # Copy prompts directory tree using shutil
+        # Use dirs_exist_ok=True to not fail if directory exists
+        # Use ignore callback to skip existing files
+        def ignore_existing(src: str, names: list[str]) -> set[str]:
+            """Ignore files that already exist in the destination."""
+            ignored = set()
+            src_path = Path(src)
+            for name in names:
+                rel_path = src_path.relative_to(source_prompts) / name
+                target_file = target_prompts / rel_path
+                if target_file.exists():
+                    ignored.add(name)
+            return ignored
+
+        try:
+            shutil.copytree(
+                source_prompts,
+                target_prompts,
+                ignore=ignore_existing,
+                dirs_exist_ok=True,
+            )
+            logger.info(f"Prompts directory synchronized: {target_prompts}")
+        except Exception as e:
+            logger.error(f"Failed to copy prompts directory: {e}")
+            return None
+
+        return target_prompts

@@ -1,6 +1,6 @@
 """Tests for unified memory storage system."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -382,3 +382,328 @@ class TestMemoryStoreErrorHandling:
         # Second entry got embedded
         assert retrieved[1].embedding is not None
         assert len(retrieved[1].embedding) == 1536
+
+
+# Tests for permanent flag
+class TestMemoryEntryPermanentFlag:
+    """Test permanent flag on MemoryEntry."""
+
+    def test_memory_entry_has_permanent_field(self):
+        """MemoryEntry has permanent field."""
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Test memory",
+        )
+        assert hasattr(entry, "permanent")
+
+    def test_memory_entry_permanent_defaults_to_false(self):
+        """MemoryEntry permanent field defaults to False."""
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Test memory",
+        )
+        assert entry.permanent is False
+
+    def test_memory_entry_permanent_can_be_set_true(self):
+        """MemoryEntry permanent can be set to True."""
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Important memory",
+            permanent=True,
+        )
+        assert entry.permanent is True
+
+
+# Tests for memory count
+class TestMemoryStoreCount:
+    """Test memory count functionality."""
+
+    @pytest.mark.asyncio
+    async def test_get_memory_count_empty_store(self, mock_config, mock_embedder):
+        """get_memory_count returns 0 when store is empty."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        count = await store.get_memory_count()
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_get_memory_count_with_entries(self, mock_config, mock_embedder):
+        """get_memory_count returns correct count after adding entries."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        entries = [
+            MemoryEntry(
+                timestamp=datetime(2026, 3, 4, 10, 0),
+                role="user",
+                content="First memory",
+            ),
+            MemoryEntry(
+                timestamp=datetime(2026, 3, 4, 10, 1),
+                role="user",
+                content="Second memory",
+            ),
+            MemoryEntry(
+                timestamp=datetime(2026, 3, 4, 10, 2),
+                role="user",
+                content="Third memory",
+            ),
+        ]
+
+        await store.add_entries(entries)
+        count = await store.get_memory_count()
+        assert count == 3
+
+
+# Tests for permanent flag serialization
+class TestMemoryEntrySerialization:
+    """Test permanent flag is serialized/deserialized correctly."""
+
+    @pytest.mark.asyncio
+    async def test_entry_to_jsonl_includes_permanent(self, mock_config, mock_embedder):
+        """Serialization includes permanent field."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Important memory",
+            permanent=True,
+        )
+
+        jsonl_line = store._entry_to_jsonl(entry)
+        assert '"permanent": true' in jsonl_line
+
+    @pytest.mark.asyncio
+    async def test_entry_from_jsonl_parses_permanent(self, mock_config, mock_embedder):
+        """Deserialization parses permanent field."""
+        store = MemoryStore(mock_config, mock_embedder)
+
+        # Create JSONL line with permanent=True
+        jsonl_line = '{"timestamp": "2026-03-04T10:00:00", "role": "user", "content": "Important", "embedding": null, "tags": [], "entry_id": "test123", "permanent": true}'
+
+        entry = store._entry_from_jsonl(jsonl_line)
+        assert entry.permanent is True
+
+    @pytest.mark.asyncio
+    async def test_entry_from_jsonl_backward_compatible(self, mock_config, mock_embedder):
+        """Old data without permanent field defaults to False."""
+        store = MemoryStore(mock_config, mock_embedder)
+
+        # Create JSONL line without permanent field (old format)
+        jsonl_line = '{"timestamp": "2026-03-04T10:00:00", "role": "user", "content": "Old memory", "embedding": null, "tags": [], "entry_id": "test456"}'
+
+        entry = store._entry_from_jsonl(jsonl_line)
+        assert entry.permanent is False
+
+
+# Tests for TTL pruning
+class TestMemoryStoreTTLPruning:
+    """Test TTL-based memory pruning."""
+
+    @pytest.mark.asyncio
+    async def test_prune_expired_memories_removes_old_non_permanent(self, mock_config, mock_embedder):
+        """Pruning removes non-permanent memories older than TTL."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Create old non-permanent memory (91 days ago)
+        old_date = datetime.now() - timedelta(days=91)
+        old_entry = MemoryEntry(
+            timestamp=old_date,
+            role="user",
+            content="Old memory to prune",
+            permanent=False,
+        )
+
+        # Create recent memory
+        recent_entry = MemoryEntry(
+            timestamp=datetime.now(),
+            role="user",
+            content="Recent memory to keep",
+            permanent=False,
+        )
+
+        await store.add_entries([old_entry, recent_entry])
+
+        # Prune with 90-day TTL
+        pruned_count = await store.prune_expired_memories(ttl_days=90, dry_run=False)
+
+        assert pruned_count == 1
+
+        # Verify old memory removed, recent kept
+        remaining = await store.get_all_entries()
+        assert len(remaining) == 1
+        assert remaining[0].content == "Recent memory to keep"
+
+    @pytest.mark.asyncio
+    async def test_prune_expired_memories_keeps_permanent(self, mock_config, mock_embedder):
+        """Pruning never removes permanent memories."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Create old permanent memory (91 days ago)
+        old_date = datetime.now() - timedelta(days=91)
+        old_permanent = MemoryEntry(
+            timestamp=old_date,
+            role="user",
+            content="Old permanent memory",
+            permanent=True,
+        )
+
+        await store.add_entries([old_permanent])
+
+        # Prune with 90-day TTL
+        pruned_count = await store.prune_expired_memories(ttl_days=90, dry_run=False)
+
+        assert pruned_count == 0
+
+        # Verify permanent memory kept
+        remaining = await store.get_all_entries()
+        assert len(remaining) == 1
+        assert remaining[0].content == "Old permanent memory"
+
+    @pytest.mark.asyncio
+    async def test_prune_expired_memories_keeps_recent(self, mock_config, mock_embedder):
+        """Pruning keeps memories newer than TTL."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Create memory exactly 89 days old
+        recent_date = datetime.now() - timedelta(days=89)
+        recent_entry = MemoryEntry(
+            timestamp=recent_date,
+            role="user",
+            content="Memory under TTL",
+            permanent=False,
+        )
+
+        await store.add_entries([recent_entry])
+
+        # Prune with 90-day TTL
+        pruned_count = await store.prune_expired_memories(ttl_days=90, dry_run=False)
+
+        assert pruned_count == 0
+
+        # Verify memory kept
+        remaining = await store.get_all_entries()
+        assert len(remaining) == 1
+
+    @pytest.mark.asyncio
+    async def test_prune_expired_memories_dry_run(self, mock_config, mock_embedder):
+        """Dry run returns count without deleting."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Create old memory (91 days ago)
+        old_date = datetime.now() - timedelta(days=91)
+        old_entry = MemoryEntry(
+            timestamp=old_date,
+            role="user",
+            content="Old memory",
+            permanent=False,
+        )
+
+        await store.add_entries([old_entry])
+
+        # Dry run
+        pruned_count = await store.prune_expired_memories(ttl_days=90, dry_run=True)
+
+        assert pruned_count == 1
+
+        # Verify memory NOT deleted
+        remaining = await store.get_all_entries()
+        assert len(remaining) == 1
+
+    @pytest.mark.asyncio
+    async def test_prune_expired_memories_boundary(self, mock_config, mock_embedder):
+        """Memory exactly 90 days old is kept (end-of-day boundary)."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Create memory exactly 90 days old
+        boundary_date = datetime.now() - timedelta(days=90)
+        boundary_entry = MemoryEntry(
+            timestamp=boundary_date,
+            role="user",
+            content="Exactly 90 days old",
+            permanent=False,
+        )
+
+        await store.add_entries([boundary_entry])
+
+        # Prune with 90-day TTL
+        pruned_count = await store.prune_expired_memories(ttl_days=90, dry_run=False)
+
+        assert pruned_count == 0
+
+        # Verify memory kept (end of day 90)
+        remaining = await store.get_all_entries()
+        assert len(remaining) == 1
+
+
+# Tests for threshold checking
+class TestMemoryStoreThreshold:
+    """Test memory threshold checking."""
+
+    @pytest.mark.asyncio
+    async def test_check_memory_threshold_below_threshold(self, mock_config, mock_embedder):
+        """Returns False when count below threshold."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Add 5 memories
+        for i in range(5):
+            entry = MemoryEntry(
+                timestamp=datetime.now(),
+                role="user",
+                content=f"Memory {i}",
+            )
+            await store.add_entries([entry])
+
+        exceeded, count = store.check_memory_threshold(threshold=10)
+        assert exceeded is False
+        assert count == 5
+
+    @pytest.mark.asyncio
+    async def test_check_memory_threshold_at_threshold(self, mock_config, mock_embedder):
+        """Returns False when count equals threshold (only exceeds triggers warning)."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Add exactly 10 memories
+        for i in range(10):
+            entry = MemoryEntry(
+                timestamp=datetime.now(),
+                role="user",
+                content=f"Memory {i}",
+            )
+            await store.add_entries([entry])
+
+        exceeded, count = store.check_memory_threshold(threshold=10)
+        assert exceeded is False
+        assert count == 10
+
+    @pytest.mark.asyncio
+    async def test_check_memory_threshold_above_threshold(self, mock_config, mock_embedder):
+        """Returns True when count exceeds threshold."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        # Add 15 memories
+        for i in range(15):
+            entry = MemoryEntry(
+                timestamp=datetime.now(),
+                role="user",
+                content=f"Memory {i}",
+            )
+            await store.add_entries([entry])
+
+        exceeded, count = store.check_memory_threshold(threshold=10)
+        assert exceeded is True
+        assert count == 15

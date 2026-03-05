@@ -99,8 +99,8 @@ Alfred uses a simplified memory architecture (PRD #102):
 
 ```
 Files (Always Loaded, Durable):
-├── SYSTEM.md              # Core identity
-├── AGENTS.md              # Behavior rules + memory guidance  
+├── SYSTEM.md              # Memory system architecture + cron capabilities
+├── AGENTS.md              # Minimal behavior rules
 ├── USER.md                # User preferences
 ├── SOUL.md                # Alfred's personality
 └── prompts/               # Modular prompt components
@@ -118,29 +118,78 @@ sessions/
     └── summary.json       # Session summary for search
 ```
 
-### Files (USER.md, SOUL.md, SYSTEM.md, AGENTS.md)
-Always loaded in full. Expensive but always available.
-- **SYSTEM.md**: Core identity (extracted from old AGENTS.md)
-- **AGENTS.md**: Behavior rules + how to use memory
-- **USER.md**: User preferences, communication style
-- **SOUL.md**: Alfred's personality, voice
-- **Placeholders**: `{{prompts/file.md}}` includes modular content
+### Files (SYSTEM.md, AGENTS.md, USER.md, SOUL.md)
 
-Model decides when to write. Ask user first.
+Always loaded in full every prompt. Expensive but always available.
+
+| File | Purpose | Content |
+|------|---------|---------|
+| **SYSTEM.md** | Memory architecture + cron capabilities | Teaches Alfred how the system works |
+| **AGENTS.md** | Minimal behavior rules | Permission First, Conventional Commits, Simple Correctness |
+| **USER.md** | User preferences | Communication style, technical preferences |
+| **SOUL.md** | Alfred's personality | Voice, boundaries, relationship with user |
+
+**Model decides when to write.** Ask user first: "Should I add this to USER.md?"
+
+#### Placeholder System
+
+Any file can include content from other files using placeholders:
+
+```markdown
+# USER.md
+
+{{prompts/communication-style.md}}
+
+## Technical Preferences
+{{prompts/tech-stack.md}}
+```
+
+**Syntax:** `{{relative/path/from/workspace.md}}`
+
+**Resolution rules:**
+- Path is relative to `~/.local/share/alfred/workspace/`
+- Can reference `.md` files or any text file
+- Nested placeholders allowed (A includes B, B includes C)
+- Circular references detected and logged
+- Missing files logged but don't crash
+- Max depth: 5 levels
+
+**Transparency:** Resolved placeholders are wrapped in HTML comments:
+```markdown
+<!-- included: prompts/communication-style.md -->
+## Communication Style
+- Prefers concise responses
+<!-- end: prompts/communication-style.md -->
+```
 
 ### Memories (Curated Store)
+
 Model uses `remember` tool to save facts worth recalling.
-- 90-day TTL (warn user at X memories)
+- 90-day TTL (warns at 1000 memories by default)
 - Semantic search via `search_memories`
-- Optional `permanent` flag to skip TTL
+- `permanent` flag to skip TTL
 - No auto-capture, no auto-consolidation
 
+**When to remember:** User says "remember this" or you decide a fact is worth keeping.
+
+**When to search:** Before asking the user to repeat themselves.
+
 ### Session Archive
+
 Full conversation history, searchable via `search_sessions`.
 - Contextual retrieval: summaries → messages
 - Use for: "what did we discuss last Tuesday?"
 
 See PRD #102 for unified memory system details.
+
+### Migration from Old Structure
+
+**For existing users:** The three-tier memory model has been replaced. Your memories are preserved in `memories.jsonl`. Key changes:
+- **TOOLS.md is phased out** — content moved to SYSTEM.md (cron) and USER.md (preferences)
+- **AGENTS.md is simplified** — operational details removed, now references modular prompts
+- **SYSTEM.md is new** — contains memory architecture guidance previously mixed into AGENTS.md
+
+To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates will be created on next run.
 
 ---
 
@@ -165,6 +214,7 @@ See PRD #102 for unified memory system details.
 | M13 | Code Health & Simplification - Removed 1,421 lines of dead code, duplication, over-engineering (PRD #82) |
 | M14 | PyPiTUI CLI - Native scrollback, differential rendering, streaming responses, status line, input queue, command completion with fuzzy filtering (PRDs #94, #95, #97) |
 | M15 | Config & Storage - XDG directories, TOML config, lock-free CAS JSONL store, context budget clarification (PRD #100) |
+| M16 | Unified Memory System - Files + Memories (90-day TTL) + Session archive, placeholder system, TOOLS.md phase-out (PRD #102) |
 
 ### In Progress / Next Up 🔨
 
@@ -173,7 +223,6 @@ See PRD #102 for unified memory system details.
 | 101 | Tool Call Persistence | Persist tool calls in session, include in context, `/context` command (PRD #101) |
 | 103 | Tool Calls in Resumed Sessions | Display tool calls when loading historical sessions via `/resume` or startup (PRD #103) |
 | 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
-| 102 | Unified Memory System | Simplified memory: Files (always loaded) + Memories (90-day TTL) + Session archive (PRD #102) |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
 | 15 | README Landing Page | Transform README into compelling OSS landing page |
 | 16 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
@@ -191,6 +240,7 @@ See PRD #102 for unified memory system details.
 | 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 25 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
+| 26 | Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
 
 ### Medium-term 📅
 
@@ -296,6 +346,12 @@ EMBEDDING_MODEL=text-embedding-3-small
 | 2026-02-26 | TOML config | Human-readable, better than JSON for configuration |
 | 2026-02-26 | PyPiTUI for CLI | Native scrollback, differential rendering, single library |
 | 2026-03-01 | CAS store | Lock-free concurrent writes with automatic retry |
+| 2026-03-04 | Unified placeholder system | Single API for file includes {{path}} and colors {color}, extensible via Protocol pattern |
+| 2026-03-04 | SYSTEM.md extraction | Contains memory architecture + cron capabilities (the "programming"), separates from AGENTS.md behavior rules |
+| 2026-03-04 | AGENTS.md minimalism | Stripped to 3 core rules + communication guidelines, details extracted to prompts/agents/ |
+| 2026-03-04 | TOOLS.md phase-out | Content moved to SYSTEM.md (cron capabilities) and USER.md (preferences), tool definitions from Pydantic schemas |
+| 2026-03-04 | 90-day memory TTL | Extended from 30 days, warns at threshold instead of auto-pruning |
+| 2026-03-04 | No backward compatibility | Direct update to ContextLoader, no legacy placeholder support needed |
 
 ---
 

@@ -358,36 +358,34 @@ def run():
             scheduler._compile_handler(code)
 
 
-class TestCronSchedulerNotifier:
-    """Tests for notifier integration."""
+class TestCronSchedulerSocketClient:
+    """Tests for socket client integration."""
 
-    def test_scheduler_accepts_notifier_parameter(self, temp_data_dir: Path):
-        """CronScheduler accepts notifier in constructor."""
-        from src.cron.notifier import CLINotifier
+    def test_scheduler_accepts_socket_client_parameter(self, temp_data_dir: Path):
+        """CronScheduler accepts socket_client in constructor."""
+        from src.cron.socket_client import SocketClient
 
         store = CronStore(data_dir=temp_data_dir)
-        notifier = CLINotifier()
-        scheduler = CronScheduler(store=store, notifier=notifier)
+        socket_client = SocketClient()
+        scheduler = CronScheduler(store=store, socket_client=socket_client)
 
-        assert scheduler._notifier is notifier
+        assert scheduler._socket_client is socket_client
 
-    def test_scheduler_notifier_defaults_to_none(self, temp_data_dir: Path):
-        """CronScheduler notifier defaults to None."""
+    def test_scheduler_socket_client_defaults_to_none(self, temp_data_dir: Path):
+        """CronScheduler socket_client defaults to None."""
         store = CronStore(data_dir=temp_data_dir)
         scheduler = CronScheduler(store=store)
 
-        assert scheduler._notifier is None
+        assert scheduler._socket_client is None
 
-    async def test_notifier_passed_to_execution_context(self, temp_data_dir: Path):
-        """Notifier is passed to ExecutionContext during job execution."""
-        import io
-
-        from src.cron.notifier import CLINotifier
+    async def test_socket_client_passed_to_execution_context(self, temp_data_dir: Path):
+        """Socket client is passed to ExecutionContext during job execution."""
+        from src.cron.socket_client import SocketClient
+        from src.cron.socket_protocol import NotifyMessage
 
         store = CronStore(data_dir=temp_data_dir)
-        output = io.StringIO()
-        notifier = CLINotifier(output_stream=output)
-        scheduler = CronScheduler(store=store, check_interval=0.1, notifier=notifier)
+        socket_client = SocketClient()
+        scheduler = CronScheduler(store=store, check_interval=0.1, socket_client=socket_client)
 
         # Register job that calls notify
         job_code = """
@@ -407,7 +405,8 @@ async def run():
         runnable_job = scheduler._jobs["test-notify-job"]
         await scheduler._execute_job(runnable_job)
 
-        # Check output contains notification
-        result = output.getvalue()
-        assert "JOB NOTIFICATION" in result
-        assert "Hello from test job!" in result
+        # Check the message was buffered (socket not connected)
+        # First message is JobStarted, second should be NotifyMessage
+        notify_messages = [m for m in socket_client._buffer if isinstance(m, NotifyMessage)]
+        assert len(notify_messages) > 0
+        assert notify_messages[0].message == "Hello from test job!"

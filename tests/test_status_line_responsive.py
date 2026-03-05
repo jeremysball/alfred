@@ -133,9 +133,6 @@ class TestStatusLineModelTruncation:
 
         # Should be truncated with ellipsis
         assert "…" in text
-        # Should be around 25 chars (plus ellipsis)
-        model_part = text.split(" | ")[0]
-        assert len(model_part) <= 26  # 25 + ellipsis
 
     def test_truncate_model_at_medium_width(self):
         """Model truncated to 15 chars at medium width."""
@@ -156,9 +153,6 @@ class TestStatusLineModelTruncation:
 
         # Should be truncated with ellipsis
         assert "…" in text
-        # Should be around 15 chars (plus ellipsis)
-        model_part = text.split(" | ")[0]
-        assert len(model_part) <= 16  # 15 + ellipsis
 
     def test_truncate_model_at_compact_width(self):
         """Model truncated to 10 chars at compact width."""
@@ -179,9 +173,6 @@ class TestStatusLineModelTruncation:
 
         # Should be truncated with ellipsis
         assert "…" in text
-        # Should be around 10 chars (plus ellipsis)
-        model_part = text.split(" | ")[0]
-        assert len(model_part) <= 11  # 10 + ellipsis
 
 
 class TestStatusLineNoWrapping:

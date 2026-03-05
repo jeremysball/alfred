@@ -6,7 +6,7 @@ import tomli
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.data_manager import get_config_toml_path, get_memory_dir, get_workspace_dir
+from src.data_manager import get_config_toml_path, get_data_dir, get_memory_dir, get_workspace_dir
 
 
 class Config(BaseSettings):
@@ -37,6 +37,9 @@ class Config(BaseSettings):
     embedding_model: str
     chat_model: str
     memory_budget: int = 32000
+    memory_ttl_days: int = 90
+    memory_warning_threshold: int = 1000
+    data_dir: Path = Field(default_factory=get_data_dir)
     workspace_dir: Path = Field(default_factory=get_workspace_dir)
     memory_dir: Path = Field(default_factory=get_memory_dir)
     context_files: dict[str, Path] | None = None
@@ -50,9 +53,6 @@ class Config(BaseSettings):
 
     # UI/TUI settings
     use_markdown_rendering: bool = True
-
-    # Cron job settings
-    cron_sandbox_default: bool = False  # Sandbox too restrictive for Alfred's jobs
 
 
 def _load_toml_config(toml_path: Path) -> dict:
@@ -100,12 +100,6 @@ def _load_toml_config(toml_path: Path) -> dict:
             if "include_arguments" in tool_calls:
                 flat_config["tool_calls_include_arguments"] = tool_calls["include_arguments"]
 
-    # Cron configuration
-    if "cron" in toml_data:
-        cron = toml_data["cron"]
-        if "sandbox_default" in cron:
-            flat_config["cron_sandbox_default"] = cron["sandbox_default"]
-
     return flat_config
 
 
@@ -132,12 +126,13 @@ def load_config(config_path: Path | None = None) -> Config:
     config = Config(**base_config)
 
     # Compute context_files if not provided
+    # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md per PRD #102)
     if config.context_files is None:
         config.context_files = {
+            "system": config.workspace_dir / "SYSTEM.md",
             "agents": config.workspace_dir / "AGENTS.md",
             "soul": config.workspace_dir / "SOUL.md",
             "user": config.workspace_dir / "USER.md",
-            "tools": config.workspace_dir / "TOOLS.md",
         }
 
     return config

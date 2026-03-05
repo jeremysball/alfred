@@ -2,7 +2,6 @@
 
 import logging
 from collections.abc import AsyncIterator, Callable
-from pathlib import Path
 from typing import Any
 
 from telegram import Bot
@@ -10,7 +9,6 @@ from telegram import Bot
 from src.agent import Agent, ToolEnd, ToolEvent, ToolOutput, ToolStart
 from src.config import Config
 from src.context import ContextLoader
-from src.cron.notifier import CLINotifier, Notifier, TelegramNotifier
 from src.cron.scheduler import CronScheduler
 from src.cron.store import CronStore
 from src.embeddings import EmbeddingClient
@@ -59,44 +57,21 @@ class Alfred:
         self.context_loader = ContextLoader(config, searcher=self.searcher)
 
         # Initialize data directory
-        data_dir = getattr(config, "data_dir", Path("data"))
+        data_dir = config.data_dir
 
-        # Create notifier based on mode
-        notifier: Notifier
+        # Initialize Telegram bot if in telegram mode
         self._telegram_bot: Bot | None = None
-
         if telegram_mode:
             try:
                 self._telegram_bot = Bot(token=config.telegram_bot_token)
-                # Read chat_id from telegram state file
-                state_file = data_dir / "telegram_state.json"
-                chat_id: int | None = None
-                if state_file.exists():
-                    import json
-
-                    with open(state_file) as f:
-                        chat_id = json.load(f).get("chat_id")
-
-                notifier = TelegramNotifier(
-                    bot=self._telegram_bot,
-                    default_chat_id=chat_id,
-                )
-                logger.info("TelegramNotifier initialized")
+                logger.info("Telegram bot initialized")
             except Exception as e:
-                logger.warning(f"Failed to initialize TelegramNotifier, falling back to CLI: {e}")
-                notifier = CLINotifier()
-        else:
-            notifier = CLINotifier()
-            logger.info("CLINotifier initialized")
+                logger.warning(f"Failed to initialize Telegram bot: {e}")
 
-        # Store notifier for buffer configuration
-        self.notifier = notifier
-
-        # Initialize cron scheduler with notifier
+        # Initialize cron scheduler (uses socket for TUI communication)
         self.cron_scheduler = CronScheduler(
             store=CronStore(data_dir),
             data_dir=data_dir,
-            notifier=notifier,
         )
 
         # Register built-in tools (inject memory store, scheduler, and config)

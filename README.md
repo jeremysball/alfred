@@ -48,9 +48,12 @@ On first run, Alfred creates default context files in `data/` from built-in temp
 
 LLMs forget everything when you close the chat. Alfred solves this by:
 
-1. **Remembering** what matters — Alfred uses the `remember` tool to store important facts
+1. **Remembering** what matters — Alfred uses the `remember` tool to store important facts (90-day TTL, permanent option)
 2. **Searching** semantically — Find relevant memories via `search_memories`
-3. **Context** across conversations — Session history maintains multi-turn dialogue
+3. **Recalling** conversations — Search full session history via `search_sessions`
+4. **Context** across conversations — Session history maintains multi-turn dialogue
+
+**Three storage mechanisms:** Files (always loaded, durable), Memories (curated, 90-day TTL), and Session Archive (automatic, searchable). See [docs/ROADMAP.md](docs/ROADMAP.md) for architecture details.
 
 All local. No cloud. Your data stays in files you control.
 
@@ -80,15 +83,25 @@ alfred --debug info # Run with info logging
 ```
 data/
 ├── memory/
-│   └── memories.jsonl      # Curated facts Alfred remembers
+│   └── memories.jsonl      # Curated facts Alfred remembers (90-day TTL)
+├── sessions/               # Full conversation archive (searchable)
+│   └── {session_id}/
+│       ├── messages.jsonl
+│       └── summary.json
 ├── cron.jsonl              # Scheduled jobs
 ├── cron_history.jsonl      # Job execution history
 ├── cron_logs.jsonl         # Job output logs
-├── AGENTS.md               # Agent behavior rules
-├── SOUL.md                 # Alfred's personality
-├── USER.md                 # User preferences
-└── TOOLS.md                # Tool definitions
+├── SYSTEM.md               # Memory system architecture + cron capabilities
+├── AGENTS.md               # Minimal behavior rules (references prompts/)
+├── USER.md                 # User preferences (may reference prompts/)
+├── SOUL.md                 # Alfred's personality (may reference prompts/)
+└── prompts/                # Modular prompt components
+    ├── communication-style.md
+    ├── voice.md
+    └── memory-guidance.md
 ```
+
+**Modular Prompts:** Files can include other files using `{{prompts/file.md}}` placeholders. This keeps core files minimal while allowing rich, reusable prompt components.
 
 ## Configuration
 

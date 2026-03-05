@@ -124,3 +124,41 @@ budget = 32000
         config = load_config(config_path=config_path)
 
         assert config.default_llm_provider == "kimi"
+
+
+def test_config_has_memory_ttl_days():
+    """Verify Config has memory_ttl_days with default 90."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.toml"
+        config_path.write_text("""
+[provider]
+default = "kimi"
+
+[embeddings]
+model = "text-embedding-3-small"
+
+[memory]
+budget = 32000
+""")
+        config = load_config(config_path=config_path)
+
+        assert config.memory_ttl_days == 90
+
+
+def test_config_has_memory_warning_threshold():
+    """Verify Config has memory_warning_threshold with default 1000."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.toml"
+        config_path.write_text("""
+[provider]
+default = "kimi"
+
+[embeddings]
+model = "text-embedding-3-small"
+
+[memory]
+budget = 32000
+""")
+        config = load_config(config_path=config_path)
+
+        assert config.memory_warning_threshold == 1000

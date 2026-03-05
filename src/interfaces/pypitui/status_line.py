@@ -2,7 +2,7 @@
 
 from pypitui import Component
 
-from src.interfaces.ansi import DIM, RESET, YELLOW
+from src.interfaces.ansi import BRIGHT_BLACK, RESET
 from src.interfaces.pypitui.throbber import Throbber
 from src.interfaces.pypitui.utils import format_tokens
 
@@ -130,7 +130,7 @@ class StatusLine(Component):
         else:
             parts.extend(self._render_compact())
 
-        return [f"{DIM}{' | '.join(parts)}{RESET}"]
+        return [f"{BRIGHT_BLACK}{' | '.join(parts)}{RESET}"]
 
     def _truncate_model(self, width: int) -> str:
         """Truncate model name based on available width.
@@ -220,7 +220,7 @@ class StatusLine(Component):
 
         # Group 3: queued messages (only if non-zero)
         if self._queued > 0:
-            parts.append(f"{YELLOW}queued {self._queued}")
+            parts.append(f"queued {self._queued}")
 
         return parts
 
@@ -238,7 +238,7 @@ class StatusLine(Component):
 
         # Group 3: queued messages (only if non-zero)
         if self._queued > 0:
-            parts.append(f"{YELLOW}queued {self._queued}")
+            parts.append(f"queued {self._queued}")
 
         return parts
 
@@ -254,6 +254,6 @@ class StatusLine(Component):
 
         # Queued if present
         if self._queued > 0:
-            parts.append(f"{YELLOW}{self._queued}")
+            parts.append(f"{self._queued}")
 
         return parts

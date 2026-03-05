@@ -12,6 +12,7 @@ from pathlib import Path
 import aiofiles
 
 from src.cron.models import ExecutionRecord, Job
+from src.data_manager import get_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,8 @@ logger = logging.getLogger(__name__)
 class CronStore:
     """Persistent storage for cron jobs and execution history.
 
-    Jobs are stored in data/cron.jsonl (full rewrite on change).
-    History is stored in data/cron_history.jsonl (append-only).
+    Jobs are stored in $XDG_DATA_HOME/alfred/cron.jsonl (full rewrite on change).
+    History is stored in $XDG_DATA_HOME/alfred/cron_history.jsonl (append-only).
     All writes are atomic (temp file + rename).
     """
 
@@ -28,10 +29,10 @@ class CronStore:
         """Initialize store with data directory.
 
         Args:
-            data_dir: Directory for JSONL files (default: data/)
+            data_dir: Directory for JSONL files (default: XDG data dir)
         """
         if data_dir is None:
-            data_dir = Path("data")
+            data_dir = get_data_dir()
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 

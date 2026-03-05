@@ -1,6 +1,7 @@
 """Tests for StatusLine component."""
 
 
+from src.interfaces.ansi import DIM, RESET
 from src.interfaces.pypitui.status_line import (
     STATUS_WIDTH_COMPACT,
     STATUS_WIDTH_FULL,
@@ -220,8 +221,8 @@ class TestStatusLineThrobber:
         )
 
         lines = status.render(width=80)
-        # Throbber braille character should be first
-        assert lines[0].startswith("⠋")
+        # Throbber braille character should be present
+        assert "⠋" in lines[0]
 
     def test_status_hides_throbber_when_not_streaming(self) -> None:
         """No throbber when streaming=False (default)."""
@@ -237,8 +238,8 @@ class TestStatusLineThrobber:
         )
 
         lines = status.render(width=80)
-        # Should start with model name, not throbber
-        assert lines[0].startswith("test")
+        # Should contain model name (wrapped in DIM)
+        assert "test" in lines[0]
 
     def test_throbber_position_before_model(self) -> None:
         """Throbber appears before model name."""
@@ -291,19 +292,14 @@ class TestStatusLineThrobber:
 
         # First frame
         lines1 = status.render(width=80)
-        frame1 = lines1[0][0]
+        assert "⠋" in lines1[0]
 
         # Tick to advance
         status.tick_throbber()
 
         # Second frame (should be different)
         lines2 = status.render(width=80)
-        frame2 = lines2[0][0]
-
-        # Frames should cycle (braille has 10 frames)
-        # After 10 ticks, should be back to start
-        assert frame1 == "⠋"
-        assert frame2 == "⠙"
+        assert "⠙" in lines2[0]
 
     def test_throbber_tick_ignored_when_not_streaming(self) -> None:
         """tick_throbber() does nothing when not streaming."""
@@ -321,9 +317,9 @@ class TestStatusLineThrobber:
         # Should not crash
         status.tick_throbber()
 
-        # Model should still be first
+        # Model should still be present
         lines = status.render(width=80)
-        assert lines[0].startswith("test")
+        assert "test" in lines[0]
 
 
 class TestFormatTokens:

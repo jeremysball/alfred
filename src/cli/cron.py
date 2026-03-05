@@ -4,7 +4,6 @@ import asyncio
 import functools
 import json
 from collections.abc import Callable, Coroutine
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import aiofiles
@@ -15,6 +14,7 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from src.config import load_config
+from src.cron.daemon import DaemonManager
 
 if TYPE_CHECKING:
     from src.cron.models import Job
@@ -42,8 +42,7 @@ def get_store() -> CronStore:
     from src.cron.store import CronStore
 
     config = load_config()
-    data_dir = getattr(config, "data_dir", Path("data"))
-    return CronStore(data_dir)
+    return CronStore(config.data_dir)
 
 
 def get_scheduler() -> CronScheduler:
@@ -52,9 +51,8 @@ def get_scheduler() -> CronScheduler:
     from src.cron.store import CronStore
 
     config = load_config()
-    data_dir = getattr(config, "data_dir", Path("data"))
-    store = CronStore(data_dir)
-    return CronScheduler(store=store, data_dir=data_dir)
+    store = CronStore(config.data_dir)
+    return CronScheduler(store=store, data_dir=config.data_dir)
 
 
 @app.command("list")
@@ -147,15 +145,11 @@ async def run():
         console.print(f"[red]Error: Invalid Python code - {e}[/red]")
         raise typer.Exit(1) from None
 
-    config = load_config()
-    sandbox_enabled = getattr(config, "cron_sandbox_default", False)
-
     scheduler = get_scheduler()
     job_id = await scheduler.submit_user_job(
         name=name,
         expression=cron_expression,
         code=code,
-        sandbox_enabled=sandbox_enabled,
     )
 
     console.print(
@@ -340,6 +334,107 @@ async def show_history(
             console.print(f"\n[dim]{record.started_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
             if record.error_message:
                 console.print(f"[red]{record.error_message}[/red]")
+
+
+@app.command("start")
+def start_daemon() -> None:
+    """Start the cron daemon."""
+    daemon = DaemonManager()
+
+    # Check if already running
+    pid = daemon.read_pid()
+    if pid:
+        console.print(f"[yellow]Daemon already running (PID {pid})[/yellow]")
+        raise typer.Exit(1)
+
+    # Clean up any stale PID file
+    if daemon.pid_file.exists():
+        daemon.pid_file.unlink()
+
+    # Start the daemon
+    console.print("[dim]Starting cron daemon...[/dim]")
+    import subprocess
+    import sys
+    import time
+
+    # Use Popen instead of run so we don't wait for the intermediate parent
+    process = subprocess.Popen(
+        [sys.executable, "-m", "src.cli.cron_runner", "--daemon"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Wait a bit for daemon to initialize
+    time.sleep(0.3)
+
+    # Check if process is still running (it should have exited after forking)
+    ret = process.poll()
+    if ret is not None and ret != 0:
+        # Process exited with error
+        stdout, stderr = process.communicate()
+        console.print("[red]Failed to start daemon:[/red]")
+        if stderr:
+            console.print(stderr.decode())
+        raise typer.Exit(1)
+
+    # Wait for PID file with timeout
+    start = time.monotonic()
+    while time.monotonic() - start < 5.0:
+        pid = daemon.read_pid()
+        if pid:
+            console.print(f"[green]✓[/green] Daemon started (PID {pid})")
+            return
+        time.sleep(0.1)
+
+    console.print("[red]Daemon started but PID file not found[/red]")
+    raise typer.Exit(1)
+
+
+@app.command("stop")
+def stop_daemon() -> None:
+    """Stop the cron daemon."""
+    daemon = DaemonManager()
+
+    if not daemon.is_running():
+        console.print("[yellow]Daemon is not running[/yellow]")
+        raise typer.Exit(1)
+
+    pid = daemon.read_pid()
+    console.print(f"[dim]Stopping daemon (PID {pid})...[/dim]")
+
+    if daemon.stop():
+        console.print("[green]✓[/green] Daemon stopped")
+    else:
+        console.print("[red]Failed to stop daemon[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("status")
+def daemon_status() -> None:
+    """Check daemon status."""
+    daemon = DaemonManager()
+
+    if daemon.is_running():
+        pid = daemon.read_pid()
+        console.print(f"[green]●[/green] Daemon running (PID {pid})")
+    else:
+        console.print("[dim]○[/dim] Daemon not running")
+
+
+@app.command("reload")
+def reload_daemon() -> None:
+    """Reload daemon jobs (send SIGHUP)."""
+    daemon = DaemonManager()
+
+    if not daemon.is_running():
+        console.print("[yellow]Daemon is not running[/yellow]")
+        raise typer.Exit(1)
+
+    if daemon.reload():
+        console.print("[green]✓[/green] Reload signal sent")
+    else:
+        console.print("[red]Failed to send reload signal[/red]")
+        raise typer.Exit(1)
 
 
 def _find_job(jobs: list[Job], identifier: str) -> Job | None:

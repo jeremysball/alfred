@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from src.config import Config
 from src.memory import MemoryEntry
+from src.placeholders import resolve_all
 from src.search import ContextBuilder, MemorySearcher
 from src.templates import TemplateManager
 
@@ -30,16 +31,16 @@ class AssembledContext(BaseModel):
     agents: str
     soul: str
     user: str
-    tools: str
     memories: list[MemoryEntry]
     system_prompt: str  # Combined
 
 # Map context file names to template filenames
+# Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md per PRD #102)
 CONTEXT_TO_TEMPLATE = {
+    "system": "SYSTEM.md",
     "agents": "AGENTS.md",
     "soul": "SOUL.md",
     "user": "USER.md",
-    "tools": "TOOLS.md",
 }
 
 
@@ -106,6 +107,9 @@ class ContextLoader:
         if cached:
             return cached
 
+        # Ensure prompts directory exists (for placeholders)
+        self._template_manager.ensure_prompts_exist()
+
         # Auto-create from template if missing
         if not path.exists():
             template_name = CONTEXT_TO_TEMPLATE.get(name)
@@ -120,6 +124,9 @@ class ContextLoader:
         loop = asyncio.get_event_loop()
         content = await loop.run_in_executor(None, path.read_text, "utf-8")
         stat = await loop.run_in_executor(None, path.stat)
+
+        # Resolve placeholders (file includes {{path}} and colors {color})
+        content = resolve_all(content, self.config.workspace_dir)
 
         file = ContextFile(
             name=name,
@@ -145,7 +152,6 @@ class ContextLoader:
             agents=files["agents"].content,
             soul=files["soul"].content,
             user=files["user"].content,
-            tools=files["tools"].content,
             memories=memories or [],
             system_prompt=self._build_system_prompt(files),
         )
@@ -222,7 +228,7 @@ class ContextLoader:
                     logger.warning(f"Failed to load context file {name}: {e}")
 
         if len(files) < 4:
-            # Minimal fallback prompt
+            # Minimal fallback prompt (need system, agents, soul, user)
             return "You are Alfred, a helpful AI assistant."
 
         return self._build_system_prompt(files)
@@ -239,10 +245,11 @@ class ContextLoader:
 
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:
         """Combine context files into system prompt."""
+        # Note: TOOLS.md phased out per PRD #102 (content moved to SYSTEM.md and USER.md)
         parts = [
+            "# SYSTEM\n\n" + files["system"].content,
             "# AGENTS\n\n" + files["agents"].content,
             "# SOUL\n\n" + files["soul"].content,
             "# USER\n\n" + files["user"].content,
-            "# TOOLS\n\n" + files["tools"].content,
         ]
         return "\n\n---\n\n".join(parts)
