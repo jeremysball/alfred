@@ -16,8 +16,8 @@ class TestAlfredToolCallCapturing:
     def mock_alfred(self):
         """Create an Alfred instance with mocked dependencies."""
         with patch("src.alfred.LLMFactory"), \
-             patch("src.alfred.EmbeddingClient") as mock_embedder_class, \
-             patch("src.alfred.MemoryStore") as mock_memory_class, \
+             patch("src.alfred.create_provider") as mock_embedder_class, \
+             patch("src.alfred.create_memory_store") as mock_memory_class, \
              patch("src.alfred.MemorySearcher"), \
              patch("src.alfred.ContextLoader") as mock_context_loader, \
              patch("src.alfred.CronScheduler"), \

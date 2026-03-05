@@ -11,9 +11,9 @@ from src.config import Config
 from src.context import ContextLoader
 from src.cron.scheduler import CronScheduler
 from src.cron.store import CronStore
-from src.embeddings import EmbeddingClient
+from src.embeddings import create_provider
 from src.llm import ChatMessage, LLMFactory
-from src.memory import MemoryStore
+from src.memory import create_memory_store
 from src.search import MemorySearcher
 from src.session import Session, SessionManager, ToolCallRecord
 from src.session_storage import SessionStorage
@@ -49,8 +49,8 @@ class Alfred:
         self.llm = LLMFactory.create(config)
 
         # Initialize memory system
-        self.embedder = EmbeddingClient(config)
-        self.memory_store = MemoryStore(config, self.embedder)
+        self.embedder = create_provider(config)
+        self.memory_store = create_memory_store(config, self.embedder)
         self.searcher = MemorySearcher(
             min_similarity=0.3,
         )
