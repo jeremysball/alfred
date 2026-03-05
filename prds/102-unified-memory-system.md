@@ -482,16 +482,16 @@ This helps debug what's actually loaded in the prompt.
 ### M3: Placeholder System
 **Scope:** Implement unified placeholder system for files and colors
 
-- [ ] Create `src/placeholders.py` module
-- [ ] Implement `ResolutionContext` class with parameter-based recursion
-- [ ] Implement `PlaceholderResolver` Protocol
-- [ ] Implement `FileIncludeResolver` for `{{path}}` placeholders
-- [ ] Implement `ColorResolver` for `{color}` placeholders
-- [ ] Add circular reference detection (log, don't raise)
-- [ ] Add max depth protection (log, don't raise)
-- [ ] Handle missing files gracefully (log warning, insert comment)
-- [ ] Add HTML comment wrappers for transparency
-- [ ] Create convenience functions: `resolve_file_includes()`, `resolve_colors()`, `resolve_all()`
+- [x] Create `src/placeholders.py` module
+- [x] Implement `ResolutionContext` class with parameter-based recursion
+- [x] Implement `PlaceholderResolver` Protocol
+- [x] Implement `FileIncludeResolver` for `{{path}}` placeholders
+- [x] Implement `ColorResolver` for `{color}` placeholders
+- [x] Add circular reference detection (log, don't raise)
+- [x] Add max depth protection (log, don't raise)
+- [x] Handle missing files gracefully (log warning, insert comment)
+- [x] Add HTML comment wrappers for transparency
+- [x] Create convenience functions: `resolve_file_includes()`, `resolve_colors()`, `resolve_all()`
 - [ ] Update `ContextLoader` to use new system
 - [ ] Tests for all resolver types
 
@@ -628,7 +628,7 @@ This helps debug what's actually loaded in the prompt.
 - [ ] No auto-capture or auto-consolidation
 - [ ] Model guidance prompt explains memory system clearly
 - [ ] Session archive searchable with contextual retrieval
-- [ ] All existing tests pass or updated
+- [x] All existing tests pass or updated
 - [ ] New tests for placeholder system
 - [ ] All documentation updated (ROADMAP, README, etc.)
 - [ ] TOOLS.md phase-out documented
