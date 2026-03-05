@@ -165,6 +165,17 @@ class MemoryStore:
             results.append(entry)
         return results
 
+    async def get_memory_count(self) -> int:
+        """Get total count of memories in store.
+
+        Returns:
+            Number of memory entries
+        """
+        count = 0
+        async for _ in self.iter_entries():
+            count += 1
+        return count
+
     async def search(
         self,
         query: str,

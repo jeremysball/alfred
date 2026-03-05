@@ -417,6 +417,48 @@ class TestMemoryEntryPermanentFlag:
         assert entry.permanent is True
 
 
+# Tests for memory count
+class TestMemoryStoreCount:
+    """Test memory count functionality."""
+
+    @pytest.mark.asyncio
+    async def test_get_memory_count_empty_store(self, mock_config, mock_embedder):
+        """get_memory_count returns 0 when store is empty."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        count = await store.get_memory_count()
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_get_memory_count_with_entries(self, mock_config, mock_embedder):
+        """get_memory_count returns correct count after adding entries."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        entries = [
+            MemoryEntry(
+                timestamp=datetime(2026, 3, 4, 10, 0),
+                role="user",
+                content="First memory",
+            ),
+            MemoryEntry(
+                timestamp=datetime(2026, 3, 4, 10, 1),
+                role="user",
+                content="Second memory",
+            ),
+            MemoryEntry(
+                timestamp=datetime(2026, 3, 4, 10, 2),
+                role="user",
+                content="Third memory",
+            ),
+        ]
+
+        await store.add_entries(entries)
+        count = await store.get_memory_count()
+        assert count == 3
+
+
 # Tests for permanent flag serialization
 class TestMemoryEntrySerialization:
     """Test permanent flag is serialized/deserialized correctly."""
