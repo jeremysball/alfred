@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #109  
 **Priority**: High  
-**Status**: Draft  
+**Status**: In Progress - M1 Complete  
 
 ## Problem Statement
 
@@ -42,7 +42,7 @@ A systematic consolidation effort to:
 
 ## Milestones
 
-### M1: Delete Dead Code (Remove, Don't Preserve)
+### M1: Delete Dead Code (Remove, Don't Preserve) ✅ COMPLETE
 
 **Goal**: Eliminate truly unused code without deprecation cycle.
 
@@ -256,7 +256,8 @@ Storage Drivers:
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| TBD | Delete cli.py without deprecation | Per AGENTS.md Rule 3: "Prefer clean deletion over preservation." File is dead code. |
+| 2026-03-05 | Delete cli.py without deprecation | Per AGENTS.md Rule 3: "Prefer clean deletion over preservation." File is dead code. |
+| 2026-03-05 | Keep dog-fooding-notes.txt | User requested to retain for reference. Minimal impact on codebase health. |
 | TBD | Merge SessionStorage into SessionManager | Both manage session lifecycle; separation adds indirection without benefit. |
 | TBD | Keep SessionContextBuilder separate | Different responsibility (prompt assembly vs. lifecycle management). |
 | TBD | Complete FAISS before deleting JSONL | User data preservation is critical. Migration path must be tested. |
