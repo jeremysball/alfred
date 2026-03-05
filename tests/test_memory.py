@@ -415,3 +415,46 @@ class TestMemoryEntryPermanentFlag:
             permanent=True,
         )
         assert entry.permanent is True
+
+
+# Tests for permanent flag serialization
+class TestMemoryEntrySerialization:
+    """Test permanent flag is serialized/deserialized correctly."""
+
+    @pytest.mark.asyncio
+    async def test_entry_to_jsonl_includes_permanent(self, mock_config, mock_embedder):
+        """Serialization includes permanent field."""
+        store = MemoryStore(mock_config, mock_embedder)
+        await store.clear()
+
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Important memory",
+            permanent=True,
+        )
+
+        jsonl_line = store._entry_to_jsonl(entry)
+        assert '"permanent": true' in jsonl_line
+
+    @pytest.mark.asyncio
+    async def test_entry_from_jsonl_parses_permanent(self, mock_config, mock_embedder):
+        """Deserialization parses permanent field."""
+        store = MemoryStore(mock_config, mock_embedder)
+
+        # Create JSONL line with permanent=True
+        jsonl_line = '{"timestamp": "2026-03-04T10:00:00", "role": "user", "content": "Important", "embedding": null, "tags": [], "entry_id": "test123", "permanent": true}'
+
+        entry = store._entry_from_jsonl(jsonl_line)
+        assert entry.permanent is True
+
+    @pytest.mark.asyncio
+    async def test_entry_from_jsonl_backward_compatible(self, mock_config, mock_embedder):
+        """Old data without permanent field defaults to False."""
+        store = MemoryStore(mock_config, mock_embedder)
+
+        # Create JSONL line without permanent field (old format)
+        jsonl_line = '{"timestamp": "2026-03-04T10:00:00", "role": "user", "content": "Old memory", "embedding": null, "tags": [], "entry_id": "test456"}'
+
+        entry = store._entry_from_jsonl(jsonl_line)
+        assert entry.permanent is False

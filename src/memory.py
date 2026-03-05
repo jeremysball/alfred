@@ -69,6 +69,7 @@ class MemoryStore:
                 "embedding": entry.embedding,
                 "tags": entry.tags,
                 "entry_id": entry.entry_id,
+                "permanent": entry.permanent,
             }
         )
 
@@ -85,6 +86,7 @@ class MemoryStore:
             embedding=data.get("embedding"),
             tags=data.get("tags", []),
             entry_id=data.get("entry_id"),  # Auto-generated if None
+            permanent=data.get("permanent", False),  # Default False for old data
         )
 
     async def add_entries(self, entries: list[MemoryEntry]) -> None:
