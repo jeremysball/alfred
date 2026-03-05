@@ -251,3 +251,47 @@ class TemplateManager:
             List of template filenames not yet created
         """
         return [name for name in self.AUTO_CREATE_TEMPLATES if not self.target_exists(name)]
+
+    def ensure_prompts_exist(self) -> Path | None:
+        """Ensure prompts directory exists in workspace, copy from templates if missing.
+
+        Copies all files from templates/prompts/ to workspace/prompts/.
+        Does not overwrite existing files.
+
+        Returns:
+            Path to prompts directory, or None if creation failed
+        """
+        if self._template_dir is None:
+            return None
+
+        source_prompts = self._template_dir / "prompts"
+        if not source_prompts.exists():
+            logger.debug("No prompts directory in templates")
+            return None
+
+        target_prompts = self.workspace_dir / "prompts"
+
+        # Create target directory if missing
+        if not target_prompts.exists():
+            target_prompts.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created prompts directory: {target_prompts}")
+
+        # Copy each prompt file that doesn't already exist
+        for source_file in source_prompts.glob("*"):
+            if not source_file.is_file():
+                continue
+
+            target_file = target_prompts / source_file.name
+
+            # Don't overwrite existing files
+            if target_file.exists():
+                logger.debug(f"Prompt file already exists: {source_file.name}")
+                continue
+
+            try:
+                target_file.write_text(source_file.read_text(encoding="utf-8"), encoding="utf-8")
+                logger.info(f"Copied prompt file: {source_file.name}")
+            except Exception as e:
+                logger.error(f"Failed to copy prompt file {source_file.name}: {e}")
+
+        return target_prompts

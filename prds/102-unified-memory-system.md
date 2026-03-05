@@ -506,15 +506,15 @@ This helps debug what's actually loaded in the prompt.
 ### M4: Prompts Folder Structure
 **Scope:** Support modular prompts in `prompts/` subdirectory
 
-- [ ] Create `templates/prompts/` directory
-- [ ] Move reusable prompt sections to individual files
-- [ ] Update USER.md and SOUL.md to use placeholders
-- [ ] Example: `prompts/communication-style.md`, `prompts/voice.md`
-- [ ] Tests for loading prompts folder
+- [x] Create `templates/prompts/` directory
+- [x] Move reusable prompt sections to individual files
+- [x] Update USER.md and SOUL.md to use placeholders
+- [x] Example: `prompts/communication-style.md`, `prompts/voice.md`
+- [x] Tests for loading prompts folder
 
 **Success Criteria:**
 - `templates/prompts/` created with example files
-- USER.md includes `{{prompts/communication-style.md}}`
+- SOUL.md includes `{{prompts/voice.md}}` and `{{prompts/boundaries.md}}`
 - All placeholders resolve correctly
 
 ### M5: Memory System Simplification

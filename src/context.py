@@ -108,6 +108,9 @@ class ContextLoader:
         if cached:
             return cached
 
+        # Ensure prompts directory exists (for placeholders)
+        self._template_manager.ensure_prompts_exist()
+
         # Auto-create from template if missing
         if not path.exists():
             template_name = CONTEXT_TO_TEMPLATE.get(name)

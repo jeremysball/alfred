@@ -347,3 +347,52 @@ class TestPathMethods:
 
         assert path.name == "SOUL.md"
         assert path.parent == manager.workspace_dir
+
+
+# Tests for prompts directory
+class TestPromptsDirectory:
+    """Test prompts directory copying."""
+
+    @pytest.fixture
+    def manager_with_prompts(self, temp_templates):
+        """Create a TemplateManager with prompts directory."""
+        prompts_dir = temp_templates / "templates" / "prompts"
+        prompts_dir.mkdir()
+        (prompts_dir / "voice.md").write_text("Voice guidelines\n")
+        (prompts_dir / "boundaries.md").write_text("Boundaries content\n")
+        return TemplateManager(temp_templates)
+
+    def test_ensure_prompts_creates_directory(self, manager_with_prompts):
+        """Test that ensure_prompts_exist creates the prompts directory."""
+        result = manager_with_prompts.ensure_prompts_exist()
+
+        assert result is not None
+        assert result.exists()
+        assert result.name == "prompts"
+
+    def test_ensure_prompts_copies_files(self, manager_with_prompts):
+        """Test that prompt files are copied."""
+        manager_with_prompts.ensure_prompts_exist()
+
+        prompts_dir = manager_with_prompts.workspace_dir / "prompts"
+        assert (prompts_dir / "voice.md").exists()
+        assert (prompts_dir / "boundaries.md").exists()
+
+    def test_ensure_prompts_does_not_overwrite(self, manager_with_prompts):
+        """Test that existing prompt files are not overwritten."""
+        prompts_dir = manager_with_prompts.workspace_dir / "prompts"
+        prompts_dir.mkdir()
+        (prompts_dir / "voice.md").write_text("Custom voice content\n")
+
+        manager_with_prompts.ensure_prompts_exist()
+
+        # Should keep custom content
+        content = (prompts_dir / "voice.md").read_text()
+        assert content == "Custom voice content\n"
+
+    def test_ensure_prompts_returns_none_if_no_prompts_in_templates(self, temp_templates):
+        """Test returns None if templates dir has no prompts subdirectory."""
+        manager = TemplateManager(temp_templates)
+        result = manager.ensure_prompts_exist()
+
+        assert result is None
