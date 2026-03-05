@@ -37,6 +37,8 @@ class Config(BaseSettings):
     embedding_model: str
     chat_model: str
     memory_budget: int = 32000
+    memory_ttl_days: int = 90
+    memory_warning_threshold: int = 1000
     data_dir: Path = Field(default_factory=get_data_dir)
     workspace_dir: Path = Field(default_factory=get_workspace_dir)
     memory_dir: Path = Field(default_factory=get_memory_dir)
