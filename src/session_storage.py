@@ -15,6 +15,7 @@ the entire message file on every token update.
 
 import asyncio
 import json
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -37,6 +38,10 @@ class SessionStorage:
         self.sessions_dir = (data_dir or get_data_dir()) / "sessions"
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.current_path = self.sessions_dir / "current.json"
+        # Session metadata cache
+        self._session_cache: dict[str, SessionMeta] | None = None
+        self._cache_timestamp: float = 0
+        self._cache_ttl: float = 5.0  # seconds
 
     # === Session Discovery ===
 
@@ -51,6 +56,42 @@ class SessionStorage:
             if item.is_dir() and item.name not in (".", ".."):
                 sessions.append(item.name)
         return sorted(sessions, reverse=True)  # Most recent first
+
+    def list_sessions_cached(self) -> list[SessionMeta]:
+        """List all session metadata, using cache if fresh."""
+        now = time.time()
+        if self._session_cache is not None and (now - self._cache_timestamp) < self._cache_ttl:
+            return sorted(
+                self._session_cache.values(),
+                key=lambda m: m.last_active,
+                reverse=True
+            )
+
+        # Cache miss or expired - refresh
+        sessions = self.list_sessions()
+        cache = {}
+        result = []
+
+        for sid in sessions:
+            meta = self.get_meta(sid)
+            if meta:
+                cache[sid] = meta
+                result.append(meta)
+
+        self._session_cache = cache
+        self._cache_timestamp = now
+
+        return sorted(result, key=lambda m: m.last_active, reverse=True)
+
+    def invalidate_session_cache(self) -> None:
+        """Clear the session metadata cache."""
+        self._session_cache = None
+
+    def get_meta_cached(self, session_id: str) -> SessionMeta | None:
+        """Get session metadata, preferably from cache."""
+        if self._session_cache is not None and session_id in self._session_cache:
+            return self._session_cache[session_id]
+        return self.get_meta(session_id)
 
     # === CLI Current Session ===
 
