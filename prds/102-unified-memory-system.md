@@ -456,37 +456,47 @@ This helps debug what's actually loaded in the prompt.
 
 **Identify atomic units** (self-contained sections that can stand alone):
 - Memory system guidance (detailed how-to-use-memory section)
-- Tool reference section (list of all tools with descriptions)
-- Communication guidelines
-- Best practices section
-- Code style / commit conventions
+- Beta product notice
+- Pre-flight check
+- Design questions guidance
+- TDD guidelines
+- Secrets and authentication
+- Running project commands
+- TUI color system
+- Rules index (0-11)
 
 **Process:**
-- [ ] Audit AGENTS.md and identify atomic sections
-- [ ] Create `prompts/agents/` subdirectory for extracted sections
-- [ ] Extract each atomic unit to its own `.md` file:
-  - `prompts/agents/memory-system.md`
-  - `prompts/agents/tool-reference.md`
-  - `prompts/agents/communication.md`
-  - `prompts/agents/best-practices.md`
-- [ ] Replace extracted content in AGENTS.md with placeholders:
-  ```markdown
-  # Agent Behavior
+- [x] Audit AGENTS.md and identify atomic sections
+- [x] Create `prompts/agents/` subdirectory for extracted sections
+- [x] Extract each atomic unit to its own `.md` file:
+  - `prompts/agents/memory-system.md` (existed)
+  - `prompts/agents/beta-notice.md` (created)
+  - `prompts/agents/pre-flight.md` (created)
+  - `prompts/agents/design-questions.md` (created)
+  - `prompts/agents/tdd.md` (created)
+  - `prompts/agents/secrets.md` (created)
+  - `prompts/agents/running-project.md` (created)
+  - `prompts/agents/tui-colors.md` (created)
+  - `prompts/agents/rules-index.md` (created)
+- [x] Replace extracted content in AGENTS.md with placeholders
+- [x] Ensure each extracted file is self-contained and makes sense standalone
+- [x] Tests for each extracted file loading correctly
 
-  ## Memory System
-  {{prompts/agents/memory-system.md}}
+**Status:** ✅ Complete
 
-  ## Tool Reference
-  {{prompts/agents/tool-reference.md}}
-  ```
-- [ ] Ensure each extracted file is self-contained and makes sense standalone
-- [ ] Tests for each extracted file loading correctly
+**Evidence:**
+- Created 8 new atomic files in `templates/prompts/agents/`
+- Updated `templates/AGENTS.md` to use 9 placeholders
+- Added HTML comment note explaining the placeholder pattern
+- Created `tests/test_agents_atomic_extraction.py` (8 tests, all passing)
+- All 42 template-related tests pass
+- Full test suite: 1003 passed
 
 **Success Criteria:**
-- AGENTS.md uses placeholders for major sections
-- Each extracted file is atomic (self-contained, understandable alone)
-- All placeholders resolve correctly
-- Total prompt content is identical before/after extraction
+- [x] AGENTS.md uses placeholders for major sections
+- [x] Each extracted file is atomic (self-contained, understandable alone)
+- [x] All placeholders resolve correctly
+- [x] Total prompt content is identical before/after extraction
 
 ### M3: Placeholder System
 **Scope:** Implement unified placeholder system for files and colors
@@ -534,16 +544,17 @@ This helps debug what's actually loaded in the prompt.
 - [x] Change TTL from 30 to 90 days (implemented in prune_expired_memories, default 90)
 - [x] Add `permanent` flag to memory schema (MemoryEntry.permanent: bool = False)
 - [x] Add warning threshold X (default 1000 memories) (check_memory_threshold method + config)
-- [ ] Update memory guidance in AGENTS.md (now extracted to prompts/agents/memory-system.md)
+- [x] Update memory guidance in AGENTS.md (extracted to prompts/agents/memory-system.md, referenced via placeholder)
 - [x] Update all memory-related tests (comprehensive test coverage added)
 
-**Status:** 85% Complete - Core implementation done, documentation pending
+**Status:** ✅ Complete
 
 **Success Criteria:**
 - [x] No auto-capture or auto-consolidation
 - [x] 90-day TTL active
 - [x] Warning shown at X memories
 - [x] Permanent flag works to skip TTL
+- [x] Memory guidance extracted to prompts/agents/memory-system.md
 
 ### M6: Model Memory Guidance
 **Scope:** Create and inject "How to Use Memory" prompt section

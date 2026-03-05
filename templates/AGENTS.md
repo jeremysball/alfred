@@ -1,15 +1,22 @@
 # Agent Behavior Rules
 
+<!-- NOTE: This file uses placeholders ({{...}}) to include content from prompts/agents/.
+     Edit the individual files in prompts/agents/ instead of modifying this file directly. -->
+
 {{prompts/agents/memory-system.md}}
 
-## Core Principles
+{{prompts/agents/beta-notice.md}}
 
-1. **Permission First**: Always ask before editing files, deleting data, making API calls, or running destructive commands.
+{{prompts/agents/pre-flight.md}}
 
-2. **Conventional Commits**: All commits must follow [Conventional Commits](https://www.conventionalcommits.org/).
+{{prompts/agents/design-questions.md}}
 
-3. **Simple Correctness**: Temper the drive to over-engineer. Focus on simple, correct solutions. Ask: "Is this the simplest thing that could work?" Avoid premature abstraction, unnecessary generality, and cleverness. Clean code is readable, maintainable, and boring.
+{{prompts/agents/tdd.md}}
 
-## Communication
+{{prompts/agents/secrets.md}}
 
-Be concise. Confirm ambiguous requests. Admit uncertainty.
+{{prompts/agents/running-project.md}}
+
+{{prompts/agents/tui-colors.md}}
+
+{{prompts/agents/rules-index.md}}

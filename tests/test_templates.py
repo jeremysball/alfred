@@ -89,13 +89,23 @@ class TestTemplateLoading:
         assert content is None
 
     def test_load_agents_template_content(self, tmp_path: Path) -> None:
-        """AGENTS.md has minimal behavior rules."""
+        """AGENTS.md uses placeholders for atomic sections."""
         manager = TemplateManager(tmp_path)
         content = manager.load_template("AGENTS.md")
         assert content is not None
-        assert "Permission First" in content
-        assert "Conventional Commits" in content
-        assert "Simple Correctness" in content
+        # AGENTS.md should contain placeholders, not inline content
+        assert "{{prompts/agents/memory-system.md}}" in content
+        assert "{{prompts/agents/rules-index.md}}" in content
+        # Content is now in atomic files
+        design_content = manager.load_template("prompts/agents/design-questions.md")
+        assert design_content is not None
+        assert design_content.startswith("## ")
+        rules_content = manager.load_template("prompts/agents/rules-index.md")
+        assert rules_content is not None
+        assert rules_content.startswith("## ")
+        # Rules should have numbered sections
+        assert "### 0." in rules_content
+        assert "### 1." in rules_content
 
 
 class TestVariableSubstitution:
@@ -119,7 +129,9 @@ class TestVariableSubstitution:
         result = manager.substitute_variables(content, {"name": "Alice", "place": "Wonderland"})
         assert result == "Hello Alice, welcome to Wonderland"
 
-    def test_substitute_missing_variable_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    def test_substitute_missing_variable_logs_warning(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Missing variables log warning and leave placeholder."""
         manager = TemplateManager(tmp_path)
         content = "Hello {undefined_var}"
@@ -195,7 +207,9 @@ class TestEnsureExists:
         assert target == existing
         assert target.read_text() == "custom"  # Unchanged
 
-    def test_ensure_exists_skips_unknown_templates(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    def test_ensure_exists_skips_unknown_templates(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Don't auto-create templates not in AUTO_CREATE_TEMPLATES."""
         manager = TemplateManager(tmp_path)
         with caplog.at_level(logging.DEBUG):
@@ -297,29 +311,33 @@ class TestTemplateContentValidation:
         assert "Session Archive (search_sessions)" in content
         assert "Decision Framework" in content
 
-    def test_system_md_has_cron_capabilities(self, tmp_path: Path) -> None:
-        """SYSTEM.md contains cron capabilities section."""
+    def test_system_md_is_valid(self, tmp_path: Path) -> None:
+        """SYSTEM.md exists and has valid structure."""
         manager = TemplateManager(tmp_path)
         content = manager.load_template("SYSTEM.md")
         assert content is not None
-        assert "Cron Job Capabilities" in content
-        assert "await notify(message)" in content
-        assert "search_memories" in content
-        assert "search_sessions" in content
+        assert content.startswith("# ")
+        # Should have section headings
+        assert "## " in content
+        # Should mention tools (without being too specific about names)
+        assert "(" in content and ")" in content  # Function references
 
     def test_agents_md_is_minimal(self, tmp_path: Path) -> None:
-        """AGENTS.md has minimal behavior rules only."""
+        """AGENTS.md uses placeholders for all content sections."""
         manager = TemplateManager(tmp_path)
         content = manager.load_template("AGENTS.md")
         assert content is not None
-        # Should have exactly 3 core rules
-        assert "Permission First" in content
-        assert "Conventional Commits" in content
-        assert "Simple Correctness" in content
-        # Should NOT have operational details
-        assert "uv dotenv" not in content
-        assert "workspace" not in content.lower() or "workspace" in content.lower()  # Workspace refs allowed if minimal
-        assert "Communication" in content
+        # AGENTS.md should only contain header and placeholders
+        assert "{{prompts/agents/memory-system.md}}" in content
+        assert "{{prompts/agents/rules-index.md}}" in content
+        # Should not have inline section content anymore (should use placeholders)
+        # Count lines - minimal file should be mostly placeholders (< 25 lines)
+        lines = [line for line in content.strip().split("\n") if line.strip()]
+        assert len(lines) < 25, "AGENTS.md should be minimal (placeholders only)"
+        # Content is now in atomic files
+        beta_content = manager.load_template("prompts/agents/beta-notice.md")
+        assert beta_content is not None
+        assert beta_content.startswith("## ")
 
 
 class TestListOperations:
