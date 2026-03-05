@@ -40,6 +40,9 @@ dependencies = [
     "playwright>=1.58.0",
     "markdownify>=1.2.2",
     "tomli>=2.0.0",
+    "torch>=2.0.0",
+    "sentence-transformers>=2.5.0",
+    "faiss-cpu>=1.7.4",
 ]
 
 [project.urls]
@@ -118,6 +121,11 @@ source = "vcs"
 
 [tool.uv.sources]
 pypitui = { path = "../pypitui", editable = true }
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
 
 [dependency-groups]
 dev = [
