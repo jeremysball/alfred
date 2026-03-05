@@ -44,6 +44,11 @@ class Config(BaseSettings):
     memory_dir: Path = Field(default_factory=get_memory_dir)
     context_files: dict[str, Path] | None = None
 
+    # Embedding provider settings (PRD #105)
+    embedding_provider: str = "openai"  # "openai" or "local"
+    local_embedding_model: str = "bge-base"  # "bge-small", "bge-base", "bge-large"
+    memory_store: str = "jsonl"  # "jsonl" or "faiss"
+
     # Tool calls in context configuration
     tool_calls_enabled: bool = True
     tool_calls_max_calls: int = 5
@@ -78,11 +83,21 @@ def _load_toml_config(toml_path: Path) -> dict:
         embeddings = toml_data["embeddings"]
         if "model" in embeddings:
             flat_config["embedding_model"] = embeddings["model"]
+        if "provider" in embeddings:
+            flat_config["embedding_provider"] = embeddings["provider"]
+        if "local_model" in embeddings:
+            flat_config["local_embedding_model"] = embeddings["local_model"]
 
     if "memory" in toml_data:
         memory = toml_data["memory"]
         if "budget" in memory:
             flat_config["memory_budget"] = memory["budget"]
+        if "store" in memory:
+            flat_config["memory_store"] = memory["store"]
+        if "ttl_days" in memory:
+            flat_config["memory_ttl_days"] = memory["ttl_days"]
+        if "warning_threshold" in memory:
+            flat_config["memory_warning_threshold"] = memory["warning_threshold"]
 
     # Tool calls configuration
     if "context" in toml_data:
