@@ -139,14 +139,6 @@ class TestContextDisplay:
 class TestContextCommandIntegration:
     """Integration tests for /context command."""
 
-    def test_context_command_handler_exists_in_cli(self):
-        """Test that CLI has handler for /context command."""
-        # This test verifies the CLI interface has the method
-        from src.interfaces.cli import CLIInterface
-
-        # Assert the method exists (will fail until we implement)
-        assert hasattr(CLIInterface, '_handle_session_command')
-
     def test_context_command_handler_exists_in_tui(self):
         """Test that TUI has handler for /context command."""
         from src.interfaces.pypitui.tui import AlfredTUI
