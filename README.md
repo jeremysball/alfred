@@ -75,6 +75,8 @@ alfred              # Start interactive chat
 alfred --telegram   # Run as Telegram bot
 alfred cron list    # List scheduled jobs
 alfred cron submit  # Submit a new job
+alfred memory migrate   # Convert JSONL memories to FAISS
+alfred memory status    # Show memory store info
 alfred --debug info # Run with info logging
 ```
 
@@ -110,7 +112,6 @@ Environment variables (required):
 | Variable | Description |
 |----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot API token |
-| `OPENAI_API_KEY` | OpenAI API key (embeddings) |
 | `KIMI_API_KEY` | Kimi API key |
 | `KIMI_BASE_URL` | Kimi API endpoint |
 
@@ -118,10 +119,15 @@ Optional:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `OPENAI_API_KEY` | — | Required when using OpenAI embeddings; not needed for local BGE |
 | `DEFAULT_LLM_PROVIDER` | `kimi` | LLM provider |
-| `EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
+| `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model (ignored when using local) |
 | `CHAT_MODEL` | `kimi-k2-5` | Chat model |
 | `MEMORY_CONTEXT_LIMIT` | `20` | Max memories in context |
+
+**System requirements for local embeddings (BGE):** ~4 GB RAM, ~2 GB disk (model download on first use).
+
+For TOML-based configuration (`~/.config/alfred/config.toml`), see [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md).
 
 ## Documentation
 
@@ -129,6 +135,8 @@ Optional:
 - [API Reference](docs/API.md) — Module documentation
 - [Deployment](docs/DEPLOYMENT.md) — Production setup
 - [Cron Jobs](docs/cron-jobs.md) — Scheduled tasks
+- [Embeddings and FAISS](docs/EMBEDDINGS.md) — Local embeddings, migration, performance tuning
+- [Memory System](docs/MEMORY.md) — Three-layer memory architecture
 - [Roadmap](docs/ROADMAP.md) — Development progress
 
 ## Contributing
