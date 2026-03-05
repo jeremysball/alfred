@@ -610,15 +610,26 @@ This helps debug what's actually loaded in the prompt.
 ### M8: Integration & Testing
 **Scope:** Wire everything together, comprehensive tests
 
-- [ ] Update context assembly to use new file loading
-- [ ] Update all references to old three-tier model
-- [ ] End-to-end test: file loading → placeholder resolution → memory usage
-- [ ] Performance test: large prompt with many placeholders
+- [x] Update context assembly to use new file loading
+- [x] Update all references to old three-tier model
+- [x] End-to-end test: file loading → placeholder resolution → memory usage
+- [x] Performance test: large prompt with many placeholders
+
+**Status:** ✅ Complete
+
+**Evidence:**
+- Created `tests/test_m8_integration.py` with 9 comprehensive tests
+- End-to-end tests validate: file loading → placeholder resolution → assembled context
+- Verified no old three-tier model references remain in codebase
+- MemoryEntry uses simplified schema (permanent flag, no tier field)
+- Performance: 20 placeholders resolve in <1 second
+- Performance: handles large prompts (~80KB) efficiently
+- All 1007 tests pass
 
 **Success Criteria:**
-- Full system works end-to-end
-- All tests pass
-- Ready for release
+- [x] Full system works end-to-end
+- [x] All tests pass
+- [x] Ready for release
 
 ### M9: Migration (if needed)
 **Scope:** Handle existing users with old memory format
