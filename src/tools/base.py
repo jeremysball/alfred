@@ -5,25 +5,23 @@ from abc import ABC
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar
 
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.fields import FieldInfo
 
 
 class ToolParameter(BaseModel):
     """Base model for tool parameters."""
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class ToolResult(BaseModel):
     """Base model for tool results."""
 
+    model_config = ConfigDict(extra="allow")
+
     success: bool = Field(default=True, description="Whether the tool executed successfully")
     error: str | None = Field(default=None, description="Error message if execution failed")
-
-    class Config:
-        extra = "allow"
 
 
 class Tool(ABC):

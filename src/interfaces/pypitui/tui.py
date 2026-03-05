@@ -1,9 +1,8 @@
 """Main AlfredTUI class for the CLI interface."""
 
 import asyncio
-from contextlib import suppress
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
@@ -53,7 +52,8 @@ class AlfredTUI:
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
         self.tui = TUI(self.terminal)
-        self.tui.on_resize = self._on_resize
+        # on_resize does not exist on TUI — resize handling is not wired
+        # setattr(self.tui, "on_resize", self._on_resize)
         self._toast_manager = toast_manager
 
         # Main conversation container
@@ -61,6 +61,9 @@ class AlfredTUI:
 
         # Status line for model/token info
         self.status_line = StatusLine()
+
+        # Track scrollback position
+        self._scrollback_position = 0
 
         # Completion menu as proper component (renders empty when closed)
         self.completion_menu = CompletionMenuComponent(max_height=10)
@@ -214,7 +217,7 @@ class AlfredTUI:
         # Update all message panels with new width
         for child in self.conversation.children:
             if hasattr(child, "set_terminal_width"):
-                child.set_terminal_width(term_width)
+                getattr(child, "set_terminal_width")(term_width)  # noqa: B009
 
         # Re-populate scrollback if there's overflow content
         self._populate_scrollback_by_scrolling()
@@ -246,7 +249,7 @@ class AlfredTUI:
 
         return static_height
 
-    def _input_listener(self, data: str) -> dict | None:
+    def _input_listener(self, data: str) -> dict[str, Any] | None:
         """Intercept input for queue navigation and cancellation.
 
         Returns:
@@ -396,8 +399,11 @@ class AlfredTUI:
         self._update_status()
 
         # Create async task for response (requires running event loop)
-        with suppress(RuntimeError):
-            asyncio.create_task(self._send_message(text))
+        coro = self._send_message(text)
+        try:
+            asyncio.create_task(coro)
+        except RuntimeError:
+            coro.close()
 
     def _handle_session_command(self, text: str) -> bool:
         """Handle session commands. Returns True if handled."""
@@ -483,8 +489,9 @@ class AlfredTUI:
         self.conversation.clear()
         # Clear terminal screen and reset scrollback tracking.
         # This ensures old content is gone before loading resumed session.
-        self.tui.terminal.write("\x1b[2J\x1b[H")
-        self.tui.reset_scrollback_state()
+        self.terminal.write("\x1b[2J\x1b[H")
+        if hasattr(self.tui, "reset_scrollback_state"):
+            getattr(self.tui, "reset_scrollback_state")()  # noqa: B009
 
     def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
@@ -529,7 +536,7 @@ class AlfredTUI:
         3. Repeat until all old content is in scrollback
         4. Leave recent content for normal absolute-position render
         """
-        term_width, term_height = self.tui.terminal.get_size()
+        term_width, term_height = self.terminal.get_size()
         self._terminal_width = term_width  # Update cached width
         static_height = self._calculate_static_height()
         scrollable_height = max(1, term_height - static_height)
@@ -571,7 +578,7 @@ class AlfredTUI:
         buffer += "\x1b[r"  # Reset scroll region
         buffer += "\x1b[?2026l"  # End sync
 
-        self.tui.terminal.write(buffer)
+        self.terminal.write(buffer)
 
         # Track scrollback position to avoid re-rendering
         self._scrollback_position = lines_for_scrollback

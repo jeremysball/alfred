@@ -167,7 +167,9 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "types-aiofiles" },
+    { name = "types-croniter" },
     { name = "types-psutil" },
+    { name = "types-torch" },
 ]
 
 [package.metadata]
@@ -207,7 +209,9 @@ provides-extras = ["dev"]
 [package.metadata.requires-dev]
 dev = [
     { name = "types-aiofiles", specifier = ">=25.1.0.20251011" },
+    { name = "types-croniter", specifier = ">=6.0.0.20250809" },
     { name = "types-psutil", specifier = ">=7.2.2.20260130" },
+    { name = "types-torch", specifier = ">=0.1.1" },
 ]
 
 [[package]]
@@ -1340,7 +1344,7 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "../pypitui" }
 dependencies = [
     { name = "wcwidth" },
@@ -1348,7 +1352,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
@@ -1361,7 +1364,7 @@ provides-extras = ["rich", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "basedpyright", specifier = ">=1.38.2" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
 ]
@@ -2124,12 +2127,30 @@ wheels = [
 ]
 
 [[package]]
+name = "types-croniter"
+version = "6.0.0.20250809"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/ac/7b26a9b19cc2b137293b14af71402ba83d13674c208b141474b6887465ae/types_croniter-6.0.0.20250809.tar.gz", hash = "sha256:c829295d4d65eaddcfafec905b0fbab59e72c3c91ee934a4d504dcafad79ff95", size = 11745, upload-time = "2025-08-09T03:14:10.729Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/99/e8e40592fbecb6671b32e4dab4cca2a1d4fa7d5b2f54aece134ccb42e839/types_croniter-6.0.0.20250809-py3-none-any.whl", hash = "sha256:d9f53f3e837eb6af509e2090fd2f5bb29b38425dd78f77d7b3bf37ccd2b2bf93", size = 9712, upload-time = "2025-08-09T03:14:09.966Z" },
+]
+
+[[package]]
 name = "types-psutil"
 version = "7.2.2.20260130"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/69/14/fc5fb0a6ddfadf68c27e254a02ececd4d5c7fdb0efcb7e7e917a183497fb/types_psutil-7.2.2.20260130.tar.gz", hash = "sha256:15b0ab69c52841cf9ce3c383e8480c620a4d13d6a8e22b16978ebddac5590950", size = 26535, upload-time = "2026-01-30T03:58:14.116Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/17/d7/60974b7e31545d3768d1770c5fe6e093182c3bfd819429b33133ba6b3e89/types_psutil-7.2.2.20260130-py3-none-any.whl", hash = "sha256:15523a3caa7b3ff03ac7f9b78a6470a59f88f48df1d74a39e70e06d2a99107da", size = 32876, upload-time = "2026-01-30T03:58:13.172Z" },
+]
+
+[[package]]
+name = "types-torch"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/cb/266771f686bc10562b93a90b5b1dbf11342dfae1c159da15b1003a082b74/types-torch-0.1.1.tar.gz", hash = "sha256:2bde1448110ab1b7eaf774c9ad78d81ea1b7c1b162610ca225e277195d1bb7d7", size = 75907, upload-time = "2025-04-01T09:01:13.843Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/f0/47fadeb4fabe8193932934b272a5ce5c9dfc18b2f44cdd6ba680e1a7d6c3/types_torch-0.1.1-py3-none-any.whl", hash = "sha256:40326cb077c041279090257b1529d1705a3e0018a395fd52bb19d9d68a1af363", size = 86265, upload-time = "2025-04-01T09:01:11.861Z" },
 ]
 
 [[package]]

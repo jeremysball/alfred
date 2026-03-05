@@ -3,6 +3,7 @@
 import logging
 import math
 from datetime import datetime
+from typing import Any
 
 from src.embeddings import cosine_similarity
 from src.memory import MemoryEntry
@@ -152,7 +153,7 @@ class ContextBuilder:
         memories: list[MemoryEntry],
         system_prompt: str,
         session_messages: list[tuple[str, str]] | None = None,
-        session_messages_with_tools: list | None = None,
+        session_messages_with_tools: list[Any] | None = None,
         tool_calls_enabled: bool = True,
         tool_calls_max_calls: int = 5,
         tool_calls_max_tokens: int = 2000,
@@ -277,7 +278,7 @@ class ContextBuilder:
 
     def _format_tool_calls(
         self,
-        messages: list,
+        messages: list[Any],
         max_calls: int = 5,
         max_tokens: int = 2000,
         include_output: bool = True,

@@ -124,7 +124,7 @@ class ApproveJobTool(Tool):
         except Exception as e:
             yield f"Error: Failed to approve job - {e}"
 
-    def _find_job(self, jobs: list, identifier: str) -> Any | None:
+    def _find_job(self, jobs: list[Any], identifier: str) -> Any | None:
         """Find job by ID or fuzzy name match.
 
         Args:

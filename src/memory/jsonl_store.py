@@ -10,7 +10,8 @@ import aiofiles
 from pydantic import BaseModel, Field
 
 from src.config import Config
-from src.embeddings import EmbeddingClient, cosine_similarity
+from src.embeddings import cosine_similarity
+from src.embeddings.provider import EmbeddingProvider
 from src.memory.base import MemoryStore
 
 
@@ -50,7 +51,7 @@ class JSONLMemoryStore(MemoryStore):
     Date is metadata (timestamp), not structural (file names).
     """
 
-    def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
+    def __init__(self, config: Config, embedder: EmbeddingProvider) -> None:
         self.config = config
         self.embedder = embedder
         self.memory_dir = config.memory_dir
@@ -236,6 +237,7 @@ class JSONLMemoryStore(MemoryStore):
         top_k: int = 10,
         start_date: date | None = None,
         end_date: date | None = None,
+        **kwargs: Any,
     ) -> tuple[list[MemoryEntry], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
 

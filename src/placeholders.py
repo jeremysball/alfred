@@ -97,9 +97,9 @@ class ResolutionContext:
 class PlaceholderResolver(Protocol):
     """Protocol for placeholder resolvers."""
 
-    pattern: re.Pattern
+    pattern: re.Pattern[str]
 
-    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve a placeholder match to its replacement text.
 
         Args:
@@ -117,7 +117,7 @@ class FileIncludeResolver:
 
     pattern = re.compile(r"\{\{([^}]+)\}\}")
 
-    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve file include placeholder.
 
         Args:
@@ -212,7 +212,7 @@ class ColorResolver:
         "on_bright_white": "\033[107m",
     }
 
-    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve color placeholder.
 
         Args:
@@ -227,7 +227,7 @@ class ColorResolver:
 
 
 # Default resolvers
-DEFAULT_RESOLVERS = [
+DEFAULT_RESOLVERS: list[PlaceholderResolver] = [
     FileIncludeResolver(),
     ColorResolver(),
 ]
@@ -268,7 +268,7 @@ def resolve_placeholders(
 
 
 def _resolve_match(
-    match: re.Match,
+    match: re.Match[str],
     resolver: PlaceholderResolver,
     context: ResolutionContext,
 ) -> str:

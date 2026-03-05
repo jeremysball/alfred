@@ -44,7 +44,7 @@ async def migrate_jsonl_to_faiss(
     import time
 
     start_time = time.time()
-    stats = {
+    stats: dict[str, Any] = {
         "migrated": 0,
         "failed": 0,
         "skipped": 0,
@@ -72,7 +72,7 @@ async def migrate_jsonl_to_faiss(
     )
 
     # Load entries from JSONL
-    entries_to_migrate: list[dict] = []
+    entries_to_migrate: list[dict[str, Any]] = []
     with open(jsonl_path) as f:
         for line_num, line in enumerate(f, 1):
             line = line.strip()
@@ -111,10 +111,10 @@ async def migrate_jsonl_to_faiss(
 
 
 async def _migrate_batch(
-    batch: list[dict],
+    batch: list[dict[str, Any]],
     store: FAISSMemoryStore,
     provider: EmbeddingProvider,
-    stats: dict[str, int],
+    stats: dict[str, Any],
 ) -> None:
     """Migrate a batch of entries."""
     for entry_data in batch:

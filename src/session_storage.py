@@ -18,11 +18,12 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import aiofiles
 
 from src.data_manager import get_data_dir
-from src.embeddings.openai_provider import OpenAIProvider
+from src.embeddings.provider import EmbeddingProvider
 from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
 
 
@@ -31,7 +32,7 @@ class SessionStorage:
 
     def __init__(
         self,
-        embedder: OpenAIProvider,
+        embedder: EmbeddingProvider,
         data_dir: Path | None = None,
     ) -> None:
         self.embedder = embedder
@@ -199,7 +200,7 @@ class SessionStorage:
                         deltas[idx][key] = data[key]
         return deltas
 
-    def _load_tool_calls(self, data: dict) -> list[ToolCallRecord] | None:
+    def _load_tool_calls(self, data: dict[str, Any]) -> list[ToolCallRecord] | None:
         """Load tool calls from message data.
 
         Returns None if no tool_calls field (backward compatibility).
@@ -252,18 +253,26 @@ class SessionStorage:
                         content=data["content"],
                         timestamp=datetime.fromisoformat(data["timestamp"]),
                         embedding=data.get("embedding"),
-                        input_tokens=deltas.get("input_tokens", data.get("input_tokens", 0)),
-                        output_tokens=deltas.get("output_tokens", data.get("output_tokens", 0)),
-                        cached_tokens=deltas.get("cached_tokens", data.get("cached_tokens", 0)),
-                        reasoning_tokens=deltas.get(
-                            "reasoning_tokens", data.get("reasoning_tokens", 0)
+                        input_tokens=int(
+                            deltas.get("input_tokens", data.get("input_tokens")) or 0
+                        ),
+                        output_tokens=int(
+                            deltas.get("output_tokens", data.get("output_tokens")) or 0
+                        ),
+                        cached_tokens=int(
+                            deltas.get("cached_tokens", data.get("cached_tokens")) or 0
+                        ),
+                        reasoning_tokens=int(
+                            deltas.get("reasoning_tokens", data.get("reasoning_tokens")) or 0
                         ),
                         tool_calls=tool_calls,
                     )
                 )
         return messages
 
-    def _serialize_tool_calls(self, tool_calls: list[ToolCallRecord] | None) -> list[dict] | None:
+    def _serialize_tool_calls(
+        self, tool_calls: list[ToolCallRecord] | None
+    ) -> list[dict[str, Any]] | None:
         """Serialize tool calls to JSON-compatible format.
 
         Returns None if tool_calls is None or empty.
@@ -289,7 +298,7 @@ class SessionStorage:
         messages_path = self.sessions_dir / session_id / "current.jsonl"
 
         # Build message data
-        data: dict = {
+        data: dict[str, Any] = {
             "idx": message.idx,
             "role": message.role.value,
             "content": message.content,
@@ -332,7 +341,7 @@ class SessionStorage:
         async with aiofiles.open(messages_path, "w") as f:
             for msg in messages:
                 # Build message data
-                data: dict = {
+                data: dict[str, Any] = {
                     "idx": msg.idx,
                     "role": msg.role.value,
                     "content": msg.content,

@@ -4,7 +4,7 @@ import logging
 import sys
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, Protocol, TextIO, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TextIO, runtime_checkable
 
 if TYPE_CHECKING:
     from telegram import Bot
@@ -28,7 +28,7 @@ class ToastManagerProtocol(Protocol):
         """Add a toast notification."""
         ...
 
-    def get_all(self) -> list:
+    def get_all(self) -> list[Any]:
         """Get all active toasts."""
         ...
 

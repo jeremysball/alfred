@@ -17,7 +17,7 @@ from src.tools.search_memories import SearchMemoriesTool
 from src.tools.update_memory import UpdateMemoryTool
 
 
-class TestEmbedder(EmbeddingClient):
+class FakeEmbedder(EmbeddingClient):
     """Test embedder that returns deterministic embeddings without API calls."""
 
     def __init__(self):
@@ -67,7 +67,7 @@ async def memory_store(temp_memory_dir):
             self.memory_dir = Path(memory_dir)
 
     config = TestConfig(temp_memory_dir)
-    embedder = TestEmbedder()
+    embedder = FakeEmbedder()
     store = MemoryStore(config, embedder)
     return store
 

@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -143,7 +144,10 @@ class ContextLoader:
 
     async def load_all(self) -> dict[str, ContextFile]:
         """Load all required context files concurrently."""
-        tasks = [self.load_file(name, path) for name, path in self.config.context_files.items()]
+        tasks = [
+            self.load_file(name, path)
+            for name, path in (self.config.context_files or {}).items()
+        ]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
 
@@ -162,9 +166,9 @@ class ContextLoader:
     def assemble_with_search(
         self,
         query_embedding: list[float],
-        memories: list[MemoryEntry],
+        memories: list[Any],
         session_messages: list[tuple[str, str]] | None = None,
-        session_messages_with_tools: list | None = None,
+        session_messages_with_tools: list[Any] | None = None,
     ) -> tuple[str, int]:
         """Assemble context with semantic memory search.
 
@@ -212,7 +216,7 @@ class ContextLoader:
         """
         # Try to use cached files
         files: dict[str, ContextFile] = {}
-        for name, path in self.config.context_files.items():
+        for name, path in (self.config.context_files or {}).items():
             cached = self._cache.get(name)
             if cached:
                 files[name] = cached
@@ -238,12 +242,15 @@ class ContextLoader:
 
     def add_context_file(self, name: str, path: Path) -> None:
         """Dynamically add a custom context file."""
+        if self.config.context_files is None:
+            self.config.context_files = {}
         self.config.context_files[name] = path
         self._cache.invalidate(name)
 
     def remove_context_file(self, name: str) -> None:
         """Remove a context file from loading."""
-        self.config.context_files.pop(name, None)
+        if self.config.context_files is not None:
+            self.config.context_files.pop(name, None)
         self._cache.invalidate(name)
 
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:

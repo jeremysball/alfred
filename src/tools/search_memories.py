@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .base import Tool
 
@@ -11,12 +11,11 @@ from .base import Tool
 class SearchMemoriesToolParams(BaseModel):
     """Parameters for SearchMemoriesTool."""
 
+    model_config = ConfigDict(extra="forbid")
+
     query: str = Field("", description="Search query to find relevant memories")
     entry_id: str = Field("", description="Direct lookup by memory ID")
     top_k: int = Field(5, description="Maximum number of results to return")
-
-    class Config:
-        extra = "forbid"
 
 
 class SearchMemoriesTool(Tool):

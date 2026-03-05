@@ -1,6 +1,6 @@
 """Status line rendering for CLI interface."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import cycle
 from typing import Any
 
@@ -23,13 +23,13 @@ class StatusData:
     context_tokens: int
     memories_count: int = 0
     session_messages: int = 0
-    prompt_sections: list[str] = None  # type: ignore[assignment]
+    prompt_sections: list[str] = field(default_factory=list)
     is_streaming: bool = False
+    _spinner_cycle: Any = field(init=False, repr=False, compare=False)
+    _current_frame: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Initialize defaults and spinner cycle."""
-        if self.prompt_sections is None:
-            self.prompt_sections = []
         self._spinner_cycle = cycle(SPINNER_FRAMES)
         self._current_frame = ">"
 

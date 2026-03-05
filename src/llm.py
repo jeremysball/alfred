@@ -5,15 +5,17 @@ import json
 import logging
 import random
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar, cast
 
 import tiktoken
 
 from src.config import Config
 
 T = TypeVar("T")
+P = ParamSpec("P")
+_AsyncFunc = Callable[P, Coroutine[Any, Any, T]]
 
 logger = logging.getLogger(__name__)
 
@@ -118,14 +120,18 @@ def retry_with_backoff(
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+) -> Callable[
+    [Callable[P, Coroutine[Any, Any, T]]], Callable[P, Coroutine[Any, Any, T]]
+]:
     """Decorator for retrying async functions with exponential backoff.
 
     Uses _retry_async internally for consistent retry logic.
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def decorator(
+        func: Callable[P, Coroutine[Any, Any, T]],
+    ) -> Callable[P, Coroutine[Any, Any, T]]:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             return await _retry_async(
                 operation=lambda: func(*args, **kwargs),
                 max_retries=max_retries,
@@ -136,7 +142,7 @@ def retry_with_backoff(
                 operation_name=func.__name__,
             )
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 
@@ -191,90 +197,95 @@ class KimiProvider(LLMProvider):
         )
         self.model = config.chat_model
 
-    @retry_with_backoff(max_retries=3, base_delay=1.0)
+    async def _retry(self, name: str, fn: "Callable[[], Coroutine[Any, Any, T]]") -> "T":
+        """Run fn with exponential-backoff retry. Single source of retry logic."""
+        return await _retry_async(fn, max_retries=3, base_delay=1.0, operation_name=name)
+
     async def chat(self, messages: list[ChatMessage]) -> ChatResponse:
         """Send chat to Kimi with retry logic."""
         import openai
         from openai.types.chat import ChatCompletionMessageParam
 
-        logger.debug(f"Sending chat request to Kimi with {len(messages)} messages")
-
-        api_messages: list[ChatCompletionMessageParam] = [
-            {"role": m.role, "content": m.content}  # type: ignore[misc]
-            for m in messages
-        ]
-
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=api_messages,
-                reasoning_effort="high",
-            )
-        except openai.RateLimitError as e:
-            logger.error(f"Kimi rate limit exceeded: {e}")
-            raise RateLimitError(f"Rate limit exceeded: {e}") from e
-        except openai.APIError as e:
-            logger.error(f"Kimi API error: {e}")
-            raise APIError(f"API error: {e}") from e
-        except openai.APITimeoutError as e:
-            logger.error(f"Kimi request timed out: {e}")
-            raise TimeoutError(f"Request timed out: {e}") from e
-        except Exception as e:
-            logger.error(f"Unexpected error calling Kimi: {e}")
-            raise LLMError(f"Unexpected error: {e}") from e
-
-        content = response.choices[0].message.content or ""
-        logger.debug(f"Received response from Kimi: {len(content)} chars")
-
-        return ChatResponse(
-            content=content,
-            model=response.model,
-            usage={
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-            }
-            if response.usage
-            else None,
+        api_messages = cast(
+            list[ChatCompletionMessageParam],
+            [{"role": m.role, "content": m.content} for m in messages],
         )
 
-    @retry_with_backoff(max_retries=3, base_delay=1.0)
+        async def _impl() -> ChatResponse:
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=api_messages,
+                    extra_body={"reasoning_effort": "high"},
+                )
+            except openai.RateLimitError as e:
+                raise RateLimitError(f"Rate limit exceeded: {e}") from e
+            except openai.APITimeoutError as e:
+                raise TimeoutError(f"Request timed out: {e}") from e
+            except openai.APIError as e:
+                raise APIError(f"API error: {e}") from e
+            except Exception as e:
+                raise LLMError(f"Unexpected error: {e}") from e
+
+            content = response.choices[0].message.content or ""
+            return ChatResponse(
+                content=content,
+                model=response.model,
+                usage={
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                }
+                if response.usage
+                else None,
+            )
+
+        return await self._retry("chat", _impl)
+
     async def chat_with_tools(
         self,
         messages: list[ChatMessage],
         tools: list[dict[str, Any]] | None = None,
     ) -> ChatResponse:
         """Send chat with tool definitions."""
+        from openai import Omit
+        from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
 
-        try:
-            response = await self.client.chat.completions.create(  # type: ignore[call-overload]
-                model=self.model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],
-                tools=tools,
-                reasoning_effort="high",
-            )
+        cast_messages = cast(
+            list[ChatCompletionMessageParam],
+            [{"role": m.role, "content": m.content} for m in messages],
+        )
+        tools_param = cast(list[ChatCompletionToolUnionParam], tools) if tools else Omit()
+
+        async def _impl() -> ChatResponse:
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=cast_messages,
+                    tools=tools_param,
+                    extra_body={"reasoning_effort": "high"},
+                )
+            except Exception as e:
+                logger.error(f"Error in chat_with_tools: {e}")
+                raise
 
             message = response.choices[0].message
             content = message.content or ""
             tool_calls = None
-            reasoning_content = None
 
-            # Check for tool calls
             if message.tool_calls:
                 tool_calls = [
                     {
                         "id": tc.id,
                         "type": "function",
                         "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
+                            "name": getattr(getattr(tc, "function", None), "name", ""),
+                            "arguments": getattr(getattr(tc, "function", None), "arguments", ""),
                         },
                     }
                     for tc in message.tool_calls
                 ]
 
-            # Capture reasoning_content for thinking mode
-            if hasattr(message, "reasoning_content") and message.reasoning_content:
-                reasoning_content = message.reasoning_content
+            reasoning_content: str | None = getattr(message, "reasoning_content", None) or None
 
             return ChatResponse(
                 content=content,
@@ -289,9 +300,7 @@ class KimiProvider(LLMProvider):
                 reasoning_content=reasoning_content,
             )
 
-        except Exception as e:
-            logger.error(f"Error in chat_with_tools: {e}")
-            raise
+        return await self._retry("chat_with_tools", _impl)
 
     async def stream_chat(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         """Stream chat from Kimi with retry logic."""
@@ -299,18 +308,17 @@ class KimiProvider(LLMProvider):
 
         logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
 
-        from openai.types.chat import ChatCompletionMessageParam
-
         async def _create_stream() -> Any:
-            api_messages: list[ChatCompletionMessageParam] = [
-                {"role": m.role, "content": m.content}  # type: ignore[misc]
-                for m in messages
-            ]
+            from openai.types.chat import ChatCompletionMessageParam
+
             return await self.client.chat.completions.create(
                 model=self.model,
-                messages=api_messages,
+                messages=cast(
+                    list[ChatCompletionMessageParam],
+                    [{"role": m.role, "content": m.content} for m in messages],
+                ),
                 stream=True,
-                reasoning_effort="high",
+                extra_body={"reasoning_effort": "high"},
             )
 
         try:
@@ -320,12 +328,12 @@ class KimiProvider(LLMProvider):
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
             raise RateLimitError(f"Rate limit exceeded: {e}") from e
-        except openai.APIError as e:
-            logger.error(f"Kimi API error: {e}")
-            raise APIError(f"API error: {e}") from e
         except openai.APITimeoutError as e:
             logger.error(f"Kimi request timed out: {e}")
             raise TimeoutError(f"Request timed out: {e}") from e
+        except openai.APIError as e:
+            logger.error(f"Kimi API error: {e}")
+            raise APIError(f"API error: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error calling Kimi: {e}")
             raise LLMError(f"Unexpected error: {e}") from e
@@ -368,13 +376,17 @@ class KimiProvider(LLMProvider):
             api_messages.append(msg)
 
         async def _create_stream() -> Any:
-            return await self.client.chat.completions.create(  # type: ignore[call-overload]
+            from openai import Omit
+            from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
+
+            tools_param = cast(list[ChatCompletionToolUnionParam], tools) if tools else Omit()
+            return await self.client.chat.completions.create(
                 model=self.model,
-                messages=api_messages,
-                tools=tools,
+                messages=cast(list[ChatCompletionMessageParam], api_messages),
+                tools=tools_param,
                 stream=True,
                 stream_options={"include_usage": True},
-                reasoning_effort="high",
+                extra_body={"reasoning_effort": "high"},
             )
 
         try:
@@ -387,19 +399,19 @@ class KimiProvider(LLMProvider):
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
             raise RateLimitError(f"Rate limit exceeded: {e}") from e
-        except openai.APIError as e:
-            logger.error(f"Kimi API error: {e}")
-            raise APIError(f"API error: {e}") from e
         except openai.APITimeoutError as e:
             logger.error(f"Kimi request timed out: {e}")
             raise TimeoutError(f"Request timed out: {e}") from e
+        except openai.APIError as e:
+            logger.error(f"Kimi API error: {e}")
+            raise APIError(f"API error: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error calling Kimi: {e}")
             raise LLMError(f"Unexpected error: {e}") from e
 
         # Collect streaming data
-        tool_calls_data = []
-        current_tool_call = None
+        tool_calls_data: list[dict[str, Any]] = []
+        current_tool_call: dict[str, Any] | None = None
         full_content = ""
         full_reasoning = ""  # Accumulate reasoning content for token counting
         encoder = tiktoken.get_encoding("cl100k_base")  # Tokenizer for counting

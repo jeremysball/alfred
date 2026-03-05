@@ -111,16 +111,17 @@ class JobExecutor:
         # Start memory tracking
         tracemalloc.start()
 
+        # Initialize captures before try block so except clauses can access them
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
         try:
             # Capture output
-            stdout_capture = io.StringIO()
-            stderr_capture = io.StringIO()
 
             with (
                 redirect_stdout(stdout_capture),
                 redirect_stderr(stderr_capture),
             ):
-                # Execute with timeout
                 await self._execute_with_timeout()
 
             # Get results

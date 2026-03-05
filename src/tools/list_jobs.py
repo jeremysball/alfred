@@ -24,7 +24,7 @@ class ListJobsParams(BaseModel):
 class ListJobsResult(ToolResult):
     """Result from listing jobs."""
 
-    jobs: list[dict] = Field(default_factory=list, description="List of job details")
+    jobs: list[dict[str, Any]] = Field(default_factory=list, description="List of job details")
     total_count: int = Field(default=0, description="Total number of jobs")
 
 

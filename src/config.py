@@ -1,6 +1,7 @@
 """Configuration management for Alfred."""
 
 from pathlib import Path
+from typing import Any
 
 import tomli
 from pydantic import AliasChoices, Field
@@ -65,7 +66,7 @@ class Config(BaseSettings):
     use_markdown_rendering: bool = True
 
 
-def _load_toml_config(toml_path: Path) -> dict:
+def _load_toml_config(toml_path: Path) -> dict[str, Any]:
     """Load and flatten TOML config to flat dict.
 
     Converts nested sections like [provider] default = "x"
@@ -74,7 +75,7 @@ def _load_toml_config(toml_path: Path) -> dict:
     with open(toml_path, "rb") as f:
         toml_data = tomli.load(f)
 
-    flat_config: dict = {}
+    flat_config: dict[str, Any] = {}
 
     # Map TOML sections to flat config keys
     if "provider" in toml_data:
@@ -144,7 +145,7 @@ def load_config(config_path: Path | None = None) -> Config:
     """
     toml_path = config_path or get_config_toml_path()
 
-    base_config: dict = {}
+    base_config: dict[str, Any] = {}
 
     if toml_path.exists():
         base_config = _load_toml_config(toml_path)

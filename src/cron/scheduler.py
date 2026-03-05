@@ -91,7 +91,7 @@ class CronScheduler:
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
         self._job_code: dict[str, str] = {}  # Store code for each job
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
         self._socket_client = socket_client

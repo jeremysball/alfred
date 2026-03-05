@@ -3,6 +3,7 @@
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from telegram import Update
 from telegram.ext import (
@@ -29,7 +30,7 @@ class TelegramInterface:
     def __init__(self, config: Config, alfred: Alfred, data_dir: Path | None = None) -> None:
         self.config = config
         self.alfred = alfred
-        self.application: Application | None = None
+        self.application: Application[Any, Any, Any, Any, Any, Any] | None = None
 
         # Initialize state for chat_id persistence
         self._data_dir = data_dir or get_data_dir()
@@ -70,7 +71,7 @@ class TelegramInterface:
         except Exception as e:
             logger.error(f"Failed to save telegram state: {e}")
 
-    def setup(self) -> Application:
+    def setup(self) -> Application[Any, Any, Any, Any, Any, Any]:
         """Initialize telegram application."""
         self.application = Application.builder().token(self.config.telegram_bot_token).build()
 

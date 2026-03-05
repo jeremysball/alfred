@@ -106,7 +106,7 @@ def cron_list(
     """List all cron jobs."""
     from src.cli.cron import list_jobs
 
-    asyncio.run(list_jobs(status))
+    list_jobs(status)
 
 
 @cron_app.command(name="submit")
@@ -118,7 +118,7 @@ def cron_submit(
     """Submit a new cron job for approval."""
     from src.cli.cron import submit_job
 
-    asyncio.run(submit_job(name, cron, code))
+    submit_job(name, cron, code)
 
 
 @cron_app.command(name="review")
@@ -128,7 +128,7 @@ def cron_review(
     """Review a pending job's details."""
     from src.cli.cron import review_job
 
-    asyncio.run(review_job(job_id))
+    review_job(job_id)
 
 
 @cron_app.command(name="approve")
@@ -138,7 +138,7 @@ def cron_approve(
     """Approve a pending job."""
     from src.cli.cron import approve_job
 
-    asyncio.run(approve_job(job_id))
+    approve_job(job_id)
 
 
 @cron_app.command(name="reject")
@@ -148,7 +148,7 @@ def cron_reject(
     """Reject and delete a pending job."""
     from src.cli.cron import reject_job
 
-    asyncio.run(reject_job(job_id))
+    reject_job(job_id)
 
 
 @cron_app.command(name="history")
@@ -159,7 +159,7 @@ def cron_history(
     """Show job execution history."""
     from src.cli.cron import show_history
 
-    asyncio.run(show_history(job_id, limit))
+    show_history(job_id, limit)
 
 
 @cron_app.command(name="start")
@@ -221,7 +221,7 @@ def memory_migrate(
     """Migrate memories from JSONL to FAISS."""
     from src.cli.memory import migrate_command
 
-    migrate_command(dry_run=dry_run)
+    migrate_command()
 
 
 @memory_app.command(name="status")
@@ -249,7 +249,7 @@ def memory_prune(
     """Prune expired memories."""
     from src.cli.memory import prune_command
 
-    prune_command(days=days, dry_run=dry_run)
+    prune_command(ttl_days=days, dry_run=dry_run)
 
 
 app.add_typer(memory_app)

@@ -38,7 +38,7 @@ class SocketClient:
         self._writer: asyncio.StreamWriter | None = None
         self._reader: asyncio.StreamReader | None = None
         self._connected = False
-        self._connect_task: asyncio.Task | None = None
+        self._connect_task: asyncio.Task[None] | None = None
         self._running = False
 
     @property

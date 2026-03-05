@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .base import Tool
 
@@ -11,13 +11,12 @@ from .base import Tool
 class UpdateMemoryToolParams(BaseModel):
     """Parameters for UpdateMemoryTool."""
 
+    model_config = ConfigDict(extra="forbid")
+
     search_query: str = Field("", description="Query to find the memory to update")
     entry_id: str = Field("", description="Direct lookup by memory ID")
     new_content: str = Field("", description="New content for the memory (empty = no change)")
     confirm: bool = Field(False, description="Set to True to actually update (False = preview)")
-
-    class Config:
-        extra = "forbid"
 
 
 class UpdateMemoryTool(Tool):

@@ -13,10 +13,8 @@ import warnings
 # Re-export from new package for backward compatibility
 from src.embeddings import cosine_similarity
 from src.embeddings.openai_provider import (
-    EmbeddingClient as OpenAIProvider,
-)
-from src.embeddings.openai_provider import (
     EmbeddingError,
+    OpenAIProvider,
     _is_transient_error,
     _with_retry,
 )

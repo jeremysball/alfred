@@ -6,6 +6,7 @@ into cron expressions with timezone support.
 
 import re
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -299,7 +300,7 @@ class NaturalLanguageCronParser:
     def _calculate_confidence(
         self,
         text: str,
-        time: tuple | None,
+        time: tuple[Any, ...] | None,
         frequency: str | None,
         day: int | str | None,
     ) -> float:

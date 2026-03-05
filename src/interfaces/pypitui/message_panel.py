@@ -316,12 +316,12 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         if not output:
             return output
 
+        import json
+
         # Try to detect and format JSON
         stripped = output.strip()
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
-                import json
-
                 parsed = json.loads(stripped)
                 # Pretty print JSON
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
@@ -335,8 +335,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Try to detect and format JSON arrays
         if stripped.startswith("[") and stripped.endswith("]"):
             try:
-                import json
-
                 parsed = json.loads(stripped)
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
                 if renderer:

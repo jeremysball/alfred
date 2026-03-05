@@ -22,7 +22,7 @@ def mock_alfred() -> MagicMock:
             yield "CLI response"
         return async_gen()
 
-    alfred.chat_stream = AsyncMock(side_effect=make_stream)
+    alfred.chat_stream = MagicMock(side_effect=make_stream)
     alfred.compact = AsyncMock(return_value="Compacted")
 
     alfred.model_name = "kimi/moonshot-v1-128k"
@@ -164,8 +164,8 @@ class TestCLIMarkdownRendering:
         async def mock_stream_impl(message: str, **kwargs: object) -> AsyncGenerator[str, None]:
             yield "CLI response"
 
-        # Use AsyncMock to track calls while still yielding
-        mock_alfred.chat_stream = AsyncMock(side_effect=mock_stream_impl)
+        # Use MagicMock to track calls while still yielding
+        mock_alfred.chat_stream = MagicMock(side_effect=mock_stream_impl)
 
         # Track whether Live was used
         live_context_used = False
@@ -211,8 +211,8 @@ class TestCLIMarkdownRendering:
             return
             yield  # pragma: no cover
 
-        # Use AsyncMock to track calls
-        mock_alfred.chat_stream = AsyncMock(side_effect=empty_stream_impl)
+        # Use MagicMock to track calls
+        mock_alfred.chat_stream = MagicMock(side_effect=empty_stream_impl)
 
         interface = CLIInterface(mock_alfred)
 

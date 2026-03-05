@@ -6,7 +6,7 @@ Implements singleton pattern for model loading.
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, TypedDict
 
 from src.embeddings.provider import EmbeddingProvider
 
@@ -16,8 +16,14 @@ logger = logging.getLogger(__name__)
 _model_instance: Any = None
 _model_name: str | None = None
 
+
+class _ModelConfig(TypedDict):
+    model_id: str
+    dimension: int
+
+
 # Model configurations
-MODEL_CONFIGS = {
+MODEL_CONFIGS: dict[str, _ModelConfig] = {
     "bge-small": {
         "model_id": "BAAI/bge-small-en-v1.5",
         "dimension": 384,

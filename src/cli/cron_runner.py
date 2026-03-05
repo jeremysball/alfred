@@ -82,9 +82,15 @@ async def run_scheduler(
     )
 
     # Set up signal handlers
+    def _on_shutdown() -> None:
+        asyncio.create_task(scheduler.stop())  # noqa: RUF006
+
+    def _on_reload() -> None:
+        asyncio.ensure_future(scheduler.reload_jobs())
+
     daemon_manager.setup_signals(
-        on_shutdown=lambda: asyncio.create_task(scheduler.stop()),
-        on_reload=lambda: scheduler.reload_jobs(),
+        on_shutdown=_on_shutdown,
+        on_reload=_on_reload,
     )
 
     # Write PID file

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from src.embeddings import cosine_similarity
 from src.session import Session
@@ -25,19 +25,19 @@ class SessionSummary(BaseModel):
     created_at: datetime | None = None
     last_active: datetime | None = None
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    @field_serializer("created_at", "last_active")
+    def serialize_datetime(self, v: datetime | None) -> str | None:
+        return v.isoformat() if v is not None else None
 
 
 class SearchSessionsToolParams(BaseModel):
     """Parameters for SearchSessionsTool."""
 
+    model_config = ConfigDict(extra="forbid")
+
     query: str = Field("", description="Search query to find relevant sessions")
     top_k: int = Field(3, description="Maximum number of sessions to search")
     messages_per_session: int = Field(3, description="Maximum messages to return per session")
-
-    class Config:
-        extra = "forbid"
 
 
 class SessionSummarizer:

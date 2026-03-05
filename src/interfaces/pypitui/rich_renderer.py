@@ -1,9 +1,9 @@
 """Rich markdown rendering for PyPiTUI integration."""
 
 from io import StringIO
-from typing import Literal
+from typing import Literal, cast
 
-from rich.console import Console
+from rich.console import Console, JustifyMethod
 from rich.markdown import Markdown
 
 
@@ -52,7 +52,7 @@ class RichRenderer:
             md = Markdown(
                 text,
                 code_theme=self.code_theme,
-                justify=self.justify,
+                justify=cast(JustifyMethod, self.justify),
             )
 
             console.print(md, end="")
