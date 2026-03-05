@@ -87,12 +87,19 @@ def register_builtin_tools(
     memory_store: Any = None,
     scheduler: Any = None,
     config: Any = None,
+    session_storage: Any = None,
+    embedder: Any = None,
+    llm_client: Any = None,
 ) -> None:
     """Register all built-in tools.
 
     Args:
         memory_store: Optional MemoryStore to inject into tools that need it
         scheduler: Optional CronScheduler to inject into tools that need it
+        config: Optional Config for tool configuration
+        session_storage: Optional SessionStorage for session-related tools
+        embedder: Optional EmbeddingClient for semantic search tools
+        llm_client: Optional LLM client for summary generation
     """
     from src.tools.approve_job import ApproveJobTool
     from src.tools.bash import BashTool
@@ -104,6 +111,7 @@ def register_builtin_tools(
     from src.tools.remember import RememberTool
     from src.tools.schedule_job import ScheduleJobTool
     from src.tools.search_memories import SearchMemoriesTool
+    from src.tools.search_sessions import SearchSessionsTool
     from src.tools.update_memory import UpdateMemoryTool
     from src.tools.write import WriteTool
 
@@ -135,6 +143,16 @@ def register_builtin_tools(
     if memory_store:
         forget_tool.set_memory_store(memory_store)
     register_tool(forget_tool)
+
+    # Register search_sessions tool with dependencies injected
+    if session_storage and embedder:
+        search_sessions_tool = SearchSessionsTool(
+            storage=session_storage,
+            embedder=embedder,
+            llm_client=llm_client,
+        )
+        register_tool(search_sessions_tool)
+        logger.debug("Registered search_sessions tool")
 
     # Register cron tools with scheduler injected
     if scheduler:
