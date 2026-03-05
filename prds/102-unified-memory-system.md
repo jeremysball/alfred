@@ -430,17 +430,26 @@ This helps debug what's actually loaded in the prompt.
 ### M1: SYSTEM.md Creation
 **Scope:** Create SYSTEM.md with memory architecture, simplify AGENTS.md
 
-- [ ] Create `templates/SYSTEM.md` with memory system architecture + cron capabilities
-- [ ] Create `templates/AGENTS.md` with minimal behavior rules (3 rules + communication)
-- [ ] Remove operational details (uv dotenv, workspace paths) from AGENTS.md
-- [ ] Update template copying to include SYSTEM.md
-- [ ] Test both files load correctly
+- [x] Create `templates/SYSTEM.md` with memory system architecture + cron capabilities
+- [x] Create `templates/AGENTS.md` with minimal behavior rules (3 rules + communication)
+- [x] Remove operational details (uv dotenv, workspace paths) from AGENTS.md
+- [x] Update template copying to include SYSTEM.md
+- [x] Test both files load correctly
+
+**Status:** ✅ Complete
+
+**Evidence:**
+- SYSTEM.md created with memory architecture + cron capabilities + tool reference
+- AGENTS.md created with 3 core rules (Permission First, Conventional Commits, Simple Correctness) + communication guidelines
+- TOOLS.md phased out (removed from AUTO_CREATE_TEMPLATES)
+- Comprehensive tests created in `tests/test_templates.py` (34 tests, all passing)
+- Template loading verified through integration tests
 
 **Success Criteria:**
-- SYSTEM.md contains memory architecture + cron capabilities
-- AGENTS.md has minimal behavior rules only
-- No operational details (uv, paths) in AGENTS.md
-- Both copied to workspace on first run
+- [x] SYSTEM.md contains memory architecture + cron capabilities
+- [x] AGENTS.md has minimal behavior rules only
+- [x] No operational details (uv, paths) in AGENTS.md
+- [x] Both copied to workspace on first run
 
 ### M2: AGENTS.md Atomic Unit Extraction
 **Scope:** Extract atomic sections from AGENTS.md into separate files

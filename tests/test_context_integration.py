@@ -61,7 +61,7 @@ def config(temp_workspace):
         context_files={
             "soul": workspace_dir / "SOUL.md",
             "user": workspace_dir / "USER.md",
-            "tools": workspace_dir / "TOOLS.md",
+            # Note: TOOLS.md phased out (content moved to SYSTEM.md and USER.md per PRD #102)
         },
     )
 
@@ -131,14 +131,14 @@ class TestContextLoaderTemplateAutoCreation:
         """load_all() creates all missing context files."""
         files = await loader.load_all()
 
+        # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md)
         assert "soul" in files
         assert "user" in files
-        assert "tools" in files
+        assert "tools" not in files  # TOOLS.md not auto-created
 
-        # All files should exist on disk
+        # All auto-create files should exist on disk
         assert config.context_files["soul"].exists()
         assert config.context_files["user"].exists()
-        assert config.context_files["tools"].exists()
 
     @pytest.mark.asyncio
     async def test_cached_file_returned_on_subsequent_load(self, loader, config):
@@ -160,20 +160,17 @@ class TestContextLoaderTemplateAutoCreation:
     async def test_assemble_creates_missing_files(self, loader, config):
         """assemble() creates missing context files."""
         # Note: assemble() requires 'agents' file which isn't auto-created
-        # This test verifies soul/user/tools are created
+        # This test verifies soul/user are created (TOOLS.md phased out)
         soul_path = config.context_files["soul"]
         user_path = config.context_files["user"]
-        tools_path = config.context_files["tools"]
 
         # Load individual files to create them
         await loader.load_file("soul", soul_path)
         await loader.load_file("user", user_path)
-        await loader.load_file("tools", tools_path)
 
         # Verify all files exist
         assert soul_path.exists()
         assert user_path.exists()
-        assert tools_path.exists()
 
 
 class TestTemplateManagerIntegration:

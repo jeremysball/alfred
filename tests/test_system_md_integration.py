@@ -58,8 +58,10 @@ class TestSystemMdInAutoCreateTemplates:
         assert "AGENTS.md" in TemplateManager.AUTO_CREATE_TEMPLATES
 
     def test_auto_create_count(self):
-        """Should have 5 auto-create templates."""
-        assert len(TemplateManager.AUTO_CREATE_TEMPLATES) == 5
+        """Should have 4 auto-create templates (TOOLS.md phased out)."""
+        assert len(TemplateManager.AUTO_CREATE_TEMPLATES) == 4
+        # Verify TOOLS.md is not in auto-create (phased out per PRD)
+        assert "TOOLS.md" not in TemplateManager.AUTO_CREATE_TEMPLATES
 
 
 class TestSystemMdTemplateExists:
@@ -131,7 +133,7 @@ class TestContextLoaderWithSystemMd:
                 "agents": workspace_dir / "AGENTS.md",
                 "soul": workspace_dir / "SOUL.md",
                 "user": workspace_dir / "USER.md",
-                "tools": workspace_dir / "TOOLS.md",
+                # Note: TOOLS.md phased out (content moved to SYSTEM.md and USER.md)
             },
         )
 
