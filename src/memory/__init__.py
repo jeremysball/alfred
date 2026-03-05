@@ -5,22 +5,22 @@ Supports multiple storage backends:
 - FAISS (ANN index, 5,400x faster search)
 """
 
-from src.memory.base import MemoryStore, MemoryMetadata
-from src.memory.jsonl_store import JSONLMemoryStore
+from src.memory.base import MemoryStore
+from src.memory.faiss_store import MemoryEntry, FAISSMemoryStore
 
 __all__ = [
     "MemoryStore",
-    "MemoryMetadata", 
-    "JSONLMemoryStore",
+    "MemoryEntry",
+    "FAISSMemoryStore",
     "create_memory_store",
 ]
 
-# FAISS store is optional (requires faiss-cpu)
+# JSONL store is optional (may not be needed if FAISS works well)
 try:
-    from src.memory.faiss_store import FAISSMemoryStore
-    __all__.append("FAISSMemoryStore")
+    from src.memory.jsonl_store import JSONLMemoryStore
+    __all__.append("JSONLMemoryStore")
 except ImportError:
-    FAISSMemoryStore = None  # type: ignore
+    JSONLMemoryStore = None  # type: ignore
 
 
 def create_memory_store(config, embedder, memory_dir=None):
@@ -37,18 +37,18 @@ def create_memory_store(config, embedder, memory_dir=None):
     store_type = getattr(config, "memory_store", "jsonl")
     
     if store_type == "faiss":
-        if FAISSMemoryStore is None:
-            raise ImportError(
-                "FAISS memory store requested but faiss-cpu not installed. "
-                "Install with: uv add faiss-cpu"
-            )
         return FAISSMemoryStore(
             index_path=memory_dir or config.memory_dir / "faiss",
             provider=embedder,
+            index_type=getattr(config, "faiss_index_type", "auto"),
         )
     else:
-        # Import here to avoid circular dependency
-        from src.memory import JSONLMemoryStore
+        # Fallback to JSONL (legacy)
+        if JSONLMemoryStore is None:
+            raise ImportError(
+                "JSONL memory store requested but not available. "
+                "Use memory_store='faiss' in config."
+            )
         return JSONLMemoryStore(
             config=config,
             embedder=embedder,
