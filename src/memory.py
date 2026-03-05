@@ -22,6 +22,7 @@ class MemoryEntry(BaseModel):
     embedding: list[float] | None = None
     tags: list[str] = Field(default_factory=list)
     entry_id: str | None = None  # Hash of timestamp + content
+    permanent: bool = False  # Skip TTL if True
 
     def generate_id(self) -> str:
         """Generate unique ID from timestamp and content."""

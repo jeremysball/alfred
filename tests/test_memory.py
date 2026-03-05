@@ -382,3 +382,36 @@ class TestMemoryStoreErrorHandling:
         # Second entry got embedded
         assert retrieved[1].embedding is not None
         assert len(retrieved[1].embedding) == 1536
+
+
+# Tests for permanent flag
+class TestMemoryEntryPermanentFlag:
+    """Test permanent flag on MemoryEntry."""
+
+    def test_memory_entry_has_permanent_field(self):
+        """MemoryEntry has permanent field."""
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Test memory",
+        )
+        assert hasattr(entry, "permanent")
+
+    def test_memory_entry_permanent_defaults_to_false(self):
+        """MemoryEntry permanent field defaults to False."""
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Test memory",
+        )
+        assert entry.permanent is False
+
+    def test_memory_entry_permanent_can_be_set_true(self):
+        """MemoryEntry permanent can be set to True."""
+        entry = MemoryEntry(
+            timestamp=datetime(2026, 3, 4, 10, 0),
+            role="user",
+            content="Important memory",
+            permanent=True,
+        )
+        assert entry.permanent is True
