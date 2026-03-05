@@ -3,7 +3,7 @@
 import hashlib
 import json
 from collections.abc import AsyncIterator
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 import aiofiles
@@ -175,6 +175,56 @@ class MemoryStore:
         async for _ in self.iter_entries():
             count += 1
         return count
+
+    async def prune_expired_memories(
+        self, ttl_days: int = 90, dry_run: bool = False
+    ) -> int:
+        """Remove non-permanent memories older than TTL.
+
+        Args:
+            ttl_days: Number of days after which non-permanent memories expire
+            dry_run: If True, return count without deleting
+
+        Returns:
+            Number of memories that would be/were pruned
+        """
+        entries = await self.get_all_entries()
+        cutoff_date = date.today() - timedelta(days=ttl_days)
+
+        entries_to_keep: list[MemoryEntry] = []
+        pruned_count = 0
+
+        for entry in entries:
+            # Keep if permanent or newer than TTL
+            if entry.permanent or entry.timestamp.date() >= cutoff_date:
+                entries_to_keep.append(entry)
+            else:
+                pruned_count += 1
+
+        # Only rewrite if not dry run and memories were pruned
+        if not dry_run and pruned_count > 0:
+            await self._rewrite_entries(entries_to_keep)
+
+        return pruned_count
+
+    def check_memory_threshold(self, threshold: int = 1000) -> tuple[bool, int]:
+        """Check if memory count exceeds threshold.
+
+        Args:
+            threshold: Maximum allowed memories before warning
+
+        Returns:
+            Tuple of (exceeded: bool, count: int)
+        """
+        count = 0
+        if self.memories_path.exists():
+            with open(self.memories_path) as f:
+                for line in f:
+                    if line.strip():
+                        count += 1
+
+        exceeded = count > threshold
+        return exceeded, count
 
     async def search(
         self,
