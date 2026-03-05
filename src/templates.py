@@ -1,6 +1,7 @@
 """Template management and auto-creation for Alfred context files."""
 
 import logging
+import shutil
 from datetime import date
 from pathlib import Path
 
@@ -123,6 +124,7 @@ class TemplateManager:
         """Substitute variables in template content.
 
         Uses Python's str.format() style: {variable_name}
+        Preserves {{file}} placeholders for later resolution.
 
         Default variables:
             - current_date: Today's date (YYYY-MM-DD)
@@ -143,12 +145,27 @@ class TemplateManager:
         if variables:
             defaults.update(variables)
 
+        # Temporarily protect {{placeholders}} from str.format()
+        # by replacing them with sentinel values
+        import re
+        placeholders: list[str] = re.findall(r"\{\{[^}]+\}\}", content)
+        sentinel_map: dict[str, str] = {}
+        for i, ph in enumerate(placeholders):
+            sentinel = f"___PLACEHOLDER_{i}___"
+            sentinel_map[sentinel] = ph
+            content = content.replace(ph, sentinel, 1)
+
         try:
-            return content.format(**defaults)
+            content = content.format(**defaults)
         except KeyError as e:
             # If a variable is missing, leave it as-is rather than crashing
             logger.warning(f"Missing template variable: {e}")
-            return content
+
+        # Restore {{placeholders}}
+        for sentinel, ph in sentinel_map.items():
+            content = content.replace(sentinel, ph)
+
+        return content
 
     def create_from_template(
         self, name: str, variables: dict[str, str] | None = None, overwrite: bool = False
@@ -272,27 +289,30 @@ class TemplateManager:
 
         target_prompts = self.workspace_dir / "prompts"
 
-        # Create target directory if missing
-        if not target_prompts.exists():
-            target_prompts.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created prompts directory: {target_prompts}")
+        # Copy prompts directory tree using shutil
+        # Use dirs_exist_ok=True to not fail if directory exists
+        # Use ignore callback to skip existing files
+        def ignore_existing(src: str, names: list[str]) -> set[str]:
+            """Ignore files that already exist in the destination."""
+            ignored = set()
+            src_path = Path(src)
+            for name in names:
+                rel_path = src_path.relative_to(source_prompts) / name
+                target_file = target_prompts / rel_path
+                if target_file.exists():
+                    ignored.add(name)
+            return ignored
 
-        # Copy each prompt file that doesn't already exist
-        for source_file in source_prompts.glob("*"):
-            if not source_file.is_file():
-                continue
-
-            target_file = target_prompts / source_file.name
-
-            # Don't overwrite existing files
-            if target_file.exists():
-                logger.debug(f"Prompt file already exists: {source_file.name}")
-                continue
-
-            try:
-                target_file.write_text(source_file.read_text(encoding="utf-8"), encoding="utf-8")
-                logger.info(f"Copied prompt file: {source_file.name}")
-            except Exception as e:
-                logger.error(f"Failed to copy prompt file {source_file.name}: {e}")
+        try:
+            shutil.copytree(
+                source_prompts,
+                target_prompts,
+                ignore=ignore_existing,
+                dirs_exist_ok=True,
+            )
+            logger.info(f"Prompts directory synchronized: {target_prompts}")
+        except Exception as e:
+            logger.error(f"Failed to copy prompts directory: {e}")
+            return None
 
         return target_prompts

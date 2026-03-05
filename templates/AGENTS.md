@@ -1,5 +1,7 @@
 # Agent Behavior Rules
 
+{{prompts/agents/memory-system.md}}
+
 ## Core Principles
 
 1. **Permission First**: Always ask before editing files, deleting data, making API calls, or running destructive commands.
