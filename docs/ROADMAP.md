@@ -193,6 +193,7 @@ See PRD #102 for unified memory system details.
 | 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 25 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
+| 26 | Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
 
 ### Medium-term 📅
 
