@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from src.storage.sqlite import SQLiteStore
+from src.utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +157,7 @@ class SessionManager:
     def session_exists(self, session_id: str) -> bool:
         """Check if session exists."""
         try:
-            # Run async check in sync context
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(self.store.load_session(session_id))
+            result = _run_async(self.store.load_session(session_id))
             return result is not None
         except Exception:
             return False
@@ -174,8 +173,7 @@ class SessionManager:
 
         # Try to load from store
         try:
-            loop = asyncio.get_event_loop()
-            data = loop.run_until_complete(self.store.load_session(session_id))
+            data = run_async(self.store.load_session(session_id))
 
             if data:
                 # Parse messages
@@ -253,8 +251,7 @@ class SessionManager:
     def list_sessions(self) -> list[SessionMeta]:
         """List all sessions."""
         try:
-            loop = asyncio.get_event_loop()
-            sessions_data = loop.run_until_complete(self.store.list_sessions(limit=1000))
+            sessions_data = run_async(self.store.list_sessions(limit=1000))
 
             metas = []
             for data in sessions_data:
