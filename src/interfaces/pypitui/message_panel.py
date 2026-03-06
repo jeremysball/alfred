@@ -31,6 +31,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         padding_y: int = 0,
         terminal_width: int = 80,
         use_markdown: bool = True,
+        tool_calls: list[ToolCallInfo] | None = None,
     ) -> None:
         """Initialize the message panel.
 
@@ -41,6 +42,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             padding_y: Vertical padding inside border
             terminal_width: Current terminal width for box sizing
             use_markdown: Enable Rich markdown rendering
+            tool_calls: Pre-populated tool calls for resumed sessions
         """
         super().__init__(padding_x=padding_x, padding_y=padding_y)
 
@@ -59,7 +61,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
             self._renderer = RichRenderer(width=max(40, terminal_width - 4))
 
         # Tool calls embedded in this message
-        self._tool_calls: list[ToolCallInfo] = []
+        self._tool_calls: list[ToolCallInfo] = tool_calls if tool_calls is not None else []
 
         # Set title based on role
         title = {"user": "You", "assistant": "Alfred", "system": "System"}.get(role, "Alfred")

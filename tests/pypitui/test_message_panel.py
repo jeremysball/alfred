@@ -1,8 +1,50 @@
 """Tests for MessagePanel component."""
 
+import pytest
+
 
 class TestMessagePanel:
     """Tests for MessagePanel component (Phase 1.5)."""
+
+    def test_message_panel_accepts_tool_calls_parameter(self):
+        """Verify __init__ accepts tool_calls parameter for resumed sessions."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+        from src.interfaces.pypitui.models import ToolCallInfo
+
+        # Create tool calls as would come from stored session
+        tool_calls = [
+            ToolCallInfo(
+                tool_name="bash",
+                tool_call_id="call-1",
+                insert_position=0,
+                sequence=0,
+                arguments={"command": "ls -la"},
+                output="file1.txt file2.txt",
+                status="success",
+            )
+        ]
+
+        # Should accept tool_calls parameter without error
+        panel = MessagePanel(
+            role="assistant",
+            content="Files in directory:",
+            tool_calls=tool_calls,
+        )
+
+        # Verify tool calls are stored
+        assert len(panel._tool_calls) == 1
+        assert panel._tool_calls[0].tool_name == "bash"
+        assert panel._tool_calls[0].status == "success"
+
+    def test_message_panel_tool_calls_none_by_default(self):
+        """Verify tool_calls parameter defaults to None for backward compatibility."""
+        from src.interfaces.pypitui.message_panel import MessagePanel
+
+        # Should work without tool_calls parameter
+        panel = MessagePanel(role="assistant", content="Hello")
+
+        # Tool calls list should be empty
+        assert panel._tool_calls == []
 
     def test_message_panel_renders_with_title(self):
         """Verify 'You' or 'Alfred' in title."""
