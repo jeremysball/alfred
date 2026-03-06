@@ -406,13 +406,22 @@ class SessionStorage:
     async def store_summary(self, summary: "SessionSummary") -> None:
         """Store summary to {session_id}/summary.json.
 
-        Overwrites existing summary. Caller is responsible for version
-        management via SessionSummary.version field.
+        Overwrites existing summary and auto-increments version if
+        a previous summary exists.
 
         Args:
-            summary: SessionSummary to persist
+            summary: SessionSummary to persist (version will be updated)
         """
         from src.session import SessionSummary
+
+        # Check for existing summary to increment version
+        try:
+            existing = await self.get_summary(summary.session_id)
+            if existing is not None:
+                summary.version = existing.version + 1
+        except ValueError:
+            # Corrupt file - start fresh with caller's version
+            pass
 
         session_dir = self.sessions_dir / summary.session_id
         session_dir.mkdir(parents=True, exist_ok=True)
