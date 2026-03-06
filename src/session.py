@@ -73,6 +73,7 @@ class Message:
     cached_tokens: int = 0  # Cache read tokens from LLM usage
     reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
     tool_calls: list[ToolCallRecord] | None = None  # Tool calls made during this message
+    session_id: str = ""  # Session ID for grouping messages (PRD #76)
 
 
 @dataclass
