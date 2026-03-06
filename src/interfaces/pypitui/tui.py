@@ -23,10 +23,12 @@ from src.interfaces.pypitui.completion_menu_component import CompletionMenuCompo
 # Settings now accessed via self.alfred.config
 from src.interfaces.pypitui.fuzzy import fuzzy_match
 from src.interfaces.pypitui.message_panel import MessagePanel
+from src.interfaces.pypitui.models import ToolCallInfo
 from src.interfaces.pypitui.status_line import StatusLine
 from src.interfaces.pypitui.toast import ToastManager
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
 from src.interfaces.pypitui.wrapped_input import WrappedInput
+from src.session import ToolCallRecord
 
 if TYPE_CHECKING:
     from pypitui import OverlayHandle, ProcessTerminal
@@ -486,6 +488,42 @@ class AlfredTUI:
         self.tui.terminal.write("\x1b[2J\x1b[H")
         self.tui.reset_scrollback_state()
 
+    @staticmethod
+    def _convert_tool_call_record(record: ToolCallRecord) -> ToolCallInfo:
+        """Convert a ToolCallRecord to ToolCallInfo for display.
+
+        Args:
+            record: ToolCallRecord from session storage
+
+        Returns:
+            ToolCallInfo for display in MessagePanel
+        """
+        return ToolCallInfo(
+            tool_name=record.tool_name,
+            tool_call_id=record.tool_call_id,
+            insert_position=record.insert_position,
+            sequence=record.sequence,
+            arguments=record.arguments,
+            output=record.output,
+            status=record.status,  # ToolCallRecord uses "success"/"error", ToolCallInfo accepts these
+        )
+
+    @staticmethod
+    def _convert_tool_calls(
+        records: list[ToolCallRecord] | None,
+    ) -> list[ToolCallInfo] | None:
+        """Convert a list of ToolCallRecords to ToolCallInfos.
+
+        Args:
+            records: List of ToolCallRecords from session storage, or None
+
+        Returns:
+            List of ToolCallInfos for display, or None if input was None
+        """
+        if records is None:
+            return None
+        return [AlfredTUI._convert_tool_call_record(r) for r in records]
+
     def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
 
@@ -504,11 +542,15 @@ class AlfredTUI:
 
         # Add all message panels to conversation
         for msg in session.messages:
+            # Convert stored tool calls to ToolCallInfo for display
+            tool_calls = self._convert_tool_calls(msg.tool_calls)
+
             panel = MessagePanel(
                 role=msg.role.value,
                 content=msg.content,
                 terminal_width=self._terminal_width,
                 use_markdown=self.alfred.config.use_markdown_rendering,
+                tool_calls=tool_calls,
             )
             self.conversation.add_child(panel)
 
