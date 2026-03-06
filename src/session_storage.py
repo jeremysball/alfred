@@ -15,6 +15,7 @@ the entire message file on every token update.
 
 import asyncio
 import json
+import logging
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,8 @@ import aiofiles
 from src.data_manager import get_data_dir
 from src.embeddings.provider import EmbeddingProvider
 from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
+
+logger = logging.getLogger(__name__)
 
 
 class SessionStorage:
@@ -413,8 +416,12 @@ class SessionStorage:
             await self.update_message_embedding(session_id, idx, embedding)
         except Exception:
             # Log but don't raise - this is a background task
-            # TODO: Add proper logging
-            pass
+            logger.warning(
+                "Failed to embed message for session %s at index %d",
+                session_id,
+                idx,
+                exc_info=True,
+            )
 
     def spawn_embed_task(self, session_id: str, idx: int, content: str) -> None:
         """Spawn background task to embed message."""

@@ -184,8 +184,7 @@ class ScheduleJobTool(Tool):
 
 async def run():
     """{safe_description}"""
-    # TODO: Implement the job logic
-    # This is an auto-generated placeholder
+    # User should replace this with actual job logic
     # Description: {safe_description}
 
     # Example: Send notification, log to file, etc.
