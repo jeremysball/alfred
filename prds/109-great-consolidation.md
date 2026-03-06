@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #109
 **Priority**: High
-**Status**: In Progress - M1 & M7 Complete, M2 Implementation Done  
+**Status**: ✅ COMPLETE  
 
 ## Problem Statement
 
@@ -124,9 +124,11 @@ Storage Layer:
 
 ---
 
-### M3: Delete FAISS and JSONL Stores
+### M3: Delete FAISS and JSONL Stores ✅ COMPLETE
 
 **Goal**: Remove obsolete storage implementations after SQLite migration.
+
+**Status**: Completed as part of M2 - all old store files deleted.
 
 **Files to Delete**:
 - `src/memory/faiss_store.py` (470 lines)
@@ -178,9 +180,11 @@ Storage Layer:
 
 ---
 
-### M5: Simplify Session Management (5 → 3 Classes)
+### M5: Simplify Session Management (5 → 3 Classes) ✅ COMPLETE
 
 **Goal**: Reduce session sprawl while maintaining separation of concerns.
+
+**Status**: Completed as part of M2 - SessionStorage merged into SessionManager.
 
 **Current State (5 classes)**:
 - `Session`: In-memory state
