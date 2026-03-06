@@ -131,22 +131,22 @@
 
 ### Summary Generation Pipeline
 
-- [ ] **Test:** `test_generate_session_summary_creates_embedding()` - verify embedding created for summary
+- [x] ~~**Test:** `test_generate_session_summary_creates_embedding()` - verify embedding created for summary~~ ✅
   - **Commit:** `test(summary): verify generate_session_summary creates embedding`
 
-- [ ] **Implement:** Create `generate_session_summary(session)` async function
+- [x] ~~**Implement:** Create `generate_session_summary(session)` async function~~ ✅
   - **Commit:** `feat(summary): implement generate_session_summary pipeline`
 
-- [ ] **Test:** `test_generate_session_summary_uses_existing_summary_id()` - verify ID reuse on regeneration
+- [x] ~~**Test:** `test_generate_session_summary_uses_existing_summary_id()` - verify ID reuse on regeneration~~ ✅
   - **Commit:** `test(summary): verify generate_session_summary reuses existing summary ID`
 
-- [ ] **Implement:** Update `generate_session_summary` to check for existing and reuse ID
+- [x] ~~**Implement:** Update `generate_session_summary` to check for existing and reuse ID~~ ✅
   - **Commit:** `feat(summary): reuse existing summary ID on regeneration`
 
-- [ ] **Test:** `test_generate_session_summary_sets_correct_message_range()` - verify message_range accurate
+- [x] ~~**Test:** `test_generate_session_summary_sets_correct_message_range()` - verify message_range accurate~~ ✅
   - **Commit:** `test(summary): verify generate_session_summary sets correct message range`
 
-- [ ] **Implement:** Set message_range to (0, len(messages)) in generate_session_summary
+- [x] ~~**Implement:** Set message_range to (0, len(messages)) in generate_session_summary~~ ✅
   - **Commit:** `feat(summary): set full message range in summary generation`
 
 ---
