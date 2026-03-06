@@ -507,6 +507,8 @@ async def summarize_conversation(messages: list[Any]) -> str:
     """
     from src.session import Message
 
+    logger.debug(f"summarize_conversation called with {len(messages)} messages")
+
     # Build conversation transcript
     lines = []
     for msg in messages:
@@ -516,6 +518,7 @@ async def summarize_conversation(messages: list[Any]) -> str:
             lines.append(f"{role}: {content}")
 
     transcript = "\n".join(lines)
+    logger.debug(f"Built transcript: {len(transcript)} chars, {len(lines)} messages")
 
     # Create prompt messages
     prompt_messages = [
@@ -541,8 +544,12 @@ Provide a single paragraph summary suitable for semantic search retrieval.
     ]
 
     # Get LLM and generate summary
+    logger.debug("Creating LLM and sending summarization request")
     config = Config()
     llm = LLMFactory.create(config)
     response = await llm.chat(prompt_messages)
 
-    return response.content
+    summary = response.content
+    logger.debug(f"Summary generated: {len(summary)} chars")
+
+    return summary

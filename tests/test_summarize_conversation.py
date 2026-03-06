@@ -36,3 +36,32 @@ class TestSummarizeConversationCallsLLM:
             assert len(call_args) == 2  # System prompt + user content
             assert call_args[0].role == "system"
             assert call_args[1].role == "user"
+
+
+class TestSummarizeConversationReturnsSummaryText:
+    """Test that summarize_conversation returns proper summary text."""
+
+    @pytest.mark.asyncio
+    async def test_returns_summary_text_from_llm_response(self):
+        """Verify returns string summary from LLM response content."""
+        # Arrange
+        messages = [
+            Message(idx=0, role=Role.USER, content="What's the best database?"),
+            Message(idx=1, role=Role.ASSISTANT, content="PostgreSQL is excellent for most use cases."),
+        ]
+
+        expected_summary = "User inquired about databases. Assistant recommended PostgreSQL as a versatile choice."
+        mock_response = MagicMock()
+        mock_response.content = expected_summary
+
+        with patch("src.llm.LLMFactory.create") as mock_factory:
+            mock_llm = MagicMock()
+            mock_llm.chat = AsyncMock(return_value=mock_response)
+            mock_factory.return_value = mock_llm
+
+            # Act
+            result = await summarize_conversation(messages)
+
+            # Assert
+            assert result == expected_summary
+            assert isinstance(result, str)
