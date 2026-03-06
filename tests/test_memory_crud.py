@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
-from src.memory.jsonl_store import MemoryEntry
+from alfred.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+from alfred.memory.jsonl_store import MemoryEntry
 
 
 class MockEmbedder:
@@ -29,7 +29,7 @@ class MockEmbedder:
 
 @pytest.fixture
 def mock_config(tmp_path, monkeypatch):
-    from src.config import Config
+    from alfred.config import Config
 
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test")
     monkeypatch.setenv("OPENAI_API_KEY", "test")

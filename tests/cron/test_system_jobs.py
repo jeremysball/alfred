@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from src.cron.scheduler import CronScheduler
-from src.cron.store import CronStore
-from src.cron.system_jobs import get_system_job_code, list_system_jobs
+from alfred.cron.scheduler import CronScheduler
+from alfred.cron.store import CronStore
+from alfred.cron.system_jobs import get_system_job_code, list_system_jobs
 
 
 class TestSystemJobRegistry:

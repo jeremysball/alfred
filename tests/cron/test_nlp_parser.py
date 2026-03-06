@@ -1,7 +1,7 @@
 """Tests for natural language cron parser."""
 
 
-from src.cron.nlp_parser import NaturalLanguageCronParser, ParsedSchedule
+from alfred.cron.nlp_parser import NaturalLanguageCronParser, ParsedSchedule
 
 
 class TestTimeExtraction:

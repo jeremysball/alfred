@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.memory import MemoryEntry
-from src.tools.search_memories import SearchMemoriesTool
+from alfred.memory import MemoryEntry
+from alfred.tools.search_memories import SearchMemoriesTool
 
 
 @pytest.fixture

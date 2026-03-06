@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.cron.notifier import CLINotifier, Notifier, NotifierError, TelegramNotifier
+from alfred.cron.notifier import CLINotifier, Notifier, NotifierError, TelegramNotifier
 
 
 class TestNotifierABC:

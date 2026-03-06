@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.alfred import Alfred
+from alfred.alfred import Alfred
 
 
 @pytest.fixture
@@ -173,7 +173,7 @@ def test_sync_token_tracker_from_session(mock_config):
     """
     from datetime import UTC, datetime
 
-    from src.session import Message, Role
+    from alfred.session import Message, Role
 
     with (
         patch("src.alfred.LLMFactory"),

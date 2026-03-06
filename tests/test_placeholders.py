@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.placeholders import (
+from alfred.placeholders import (
     ColorResolver,
     FileIncludeResolver,
     ResolutionContext,

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.alfred import Alfred
-from src.session import ToolCallRecord
+from alfred.alfred import Alfred
+from alfred.session import ToolCallRecord
 
 
 class TestContextDisplay:
@@ -141,7 +141,7 @@ class TestContextCommandIntegration:
 
     def test_context_command_handler_exists_in_tui(self):
         """Test that TUI has handler for /context command."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         # Assert the method exists (will fail until we implement)
         assert hasattr(AlfredTUI, '_handle_session_command')

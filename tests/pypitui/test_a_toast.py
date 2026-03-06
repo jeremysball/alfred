@@ -9,7 +9,7 @@ class TestToastMessage:
 
     def test_toast_message_defaults(self):
         """Verify created timestamp auto-populates."""
-        from src.interfaces.pypitui.toast import ToastMessage
+        from alfred.interfaces.pypitui.toast import ToastMessage
 
         toast = ToastMessage(message="Test warning", level="warning")
 
@@ -19,7 +19,7 @@ class TestToastMessage:
 
     def test_toast_message_levels(self):
         """Verify warning/error/info levels work."""
-        from src.interfaces.pypitui.toast import ToastMessage
+        from alfred.interfaces.pypitui.toast import ToastMessage
 
         warning = ToastMessage(message="Warn", level="warning")
         error = ToastMessage(message="Err", level="error")
@@ -35,7 +35,7 @@ class TestToastManager:
 
     def test_add_and_get_toasts(self):
         """Verify toasts can be added and retrieved."""
-        from src.interfaces.pypitui.toast import ToastManager
+        from alfred.interfaces.pypitui.toast import ToastManager
 
         manager = ToastManager()
         manager.add("Warning message", "warning")
@@ -50,7 +50,7 @@ class TestToastManager:
 
     def test_max_visible_toasts(self):
         """Verify only MAX_VISIBLE_TOASTS kept."""
-        from src.interfaces.pypitui.toast import MAX_VISIBLE_TOASTS, ToastManager
+        from alfred.interfaces.pypitui.toast import MAX_VISIBLE_TOASTS, ToastManager
 
         manager = ToastManager()
 
@@ -65,7 +65,7 @@ class TestToastManager:
 
     def test_dismiss_expired_toasts(self):
         """Verify expired toasts are removed."""
-        from src.interfaces.pypitui.toast import (
+        from alfred.interfaces.pypitui.toast import (
             TOAST_DURATION_SECONDS,
             ToastManager,
             ToastMessage,
@@ -89,7 +89,7 @@ class TestToastManager:
 
     def test_dismiss_all_toasts(self):
         """Verify dismiss_all clears all toasts."""
-        from src.interfaces.pypitui.toast import ToastManager
+        from alfred.interfaces.pypitui.toast import ToastManager
 
         manager = ToastManager()
         manager.add("Warning 1", "warning")
@@ -107,7 +107,7 @@ class TestToastHandler:
 
     def test_toast_handler_captures_warning(self):
         """Verify WARNING logs create toast."""
-        from src.interfaces.pypitui.toast import ToastHandler, ToastManager
+        from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager
 
         manager = ToastManager()
         handler = ToastHandler(manager)
@@ -126,7 +126,7 @@ class TestToastHandler:
 
     def test_toast_handler_captures_error(self):
         """Verify ERROR logs create toast."""
-        from src.interfaces.pypitui.toast import ToastHandler, ToastManager
+        from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager
 
         manager = ToastManager()
         handler = ToastHandler(manager)
@@ -145,7 +145,7 @@ class TestToastHandler:
 
     def test_toast_handler_ignores_info(self):
         """Verify INFO logs don't create toast."""
-        from src.interfaces.pypitui.toast import ToastHandler, ToastManager
+        from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager
 
         manager = ToastManager()
         handler = ToastHandler(manager)
@@ -162,7 +162,7 @@ class TestToastHandler:
 
     def test_toast_handler_filters_non_src(self):
         """Verify only src.* modules captured."""
-        from src.interfaces.pypitui.toast import ToastHandler, ToastManager
+        from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager
 
         manager = ToastManager()
         handler = ToastHandler(manager)

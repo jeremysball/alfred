@@ -1,6 +1,6 @@
 """Tests for renaming token_budget to memory_budget in ContextBuilder."""
 
-from src.search import ContextBuilder, MemorySearcher
+from alfred.search import ContextBuilder, MemorySearcher
 
 
 class TestContextBuilderMemoryBudget:

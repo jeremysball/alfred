@@ -8,7 +8,7 @@ class TestInputQueue:
 
     def test_queue_empty_on_init(self, mock_alfred, mock_terminal):
         """Verify queue starts empty."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -17,7 +17,7 @@ class TestInputQueue:
 
     def test_queue_message_during_streaming(self, mock_alfred, mock_terminal):
         """Verify message queued when streaming."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         tui._is_streaming = True
@@ -31,7 +31,7 @@ class TestInputQueue:
     @pytest.mark.asyncio
     async def test_queue_processed_after_stream(self, mock_alfred, mock_terminal):
         """Verify queued messages sent after stream ends."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -47,7 +47,7 @@ class TestInputQueue:
     @pytest.mark.asyncio
     async def test_queue_multiple_messages(self, mock_alfred, mock_terminal):
         """Verify multiple messages queue and send in order."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -66,7 +66,7 @@ class TestQueueStatusIndicator:
 
     def test_status_line_shows_queue_count(self, mock_alfred, mock_terminal):
         """Verify 'queued:2' appears in status line."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         tui._is_streaming = True

@@ -3,8 +3,8 @@
 
 import pytest
 
-from src.interfaces.pypitui.message_panel import MessagePanel
-from src.interfaces.pypitui.models import ToolCallInfo
+from alfred.interfaces.pypitui.message_panel import MessagePanel
+from alfred.interfaces.pypitui.models import ToolCallInfo
 
 
 class TestToolCallInfoArguments:

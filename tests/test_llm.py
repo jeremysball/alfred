@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from src.config import Config
-from src.llm import (
+from alfred.config import Config
+from alfred.llm import (
     APIError,
     ChatMessage,
     ChatResponse,

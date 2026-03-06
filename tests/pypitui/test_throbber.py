@@ -1,7 +1,7 @@
 """Tests for Throbber animation component."""
 
 
-from src.interfaces.pypitui.throbber import ASCII_FRAMES, BRAILLE_FRAMES, Throbber
+from alfred.interfaces.pypitui.throbber import ASCII_FRAMES, BRAILLE_FRAMES, Throbber
 
 
 class TestThrobberConstants:

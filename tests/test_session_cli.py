@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.session import Message, Session, SessionManager, SessionMeta
+from alfred.session import Message, Session, SessionManager, SessionMeta
 
 
 class MockStorage:

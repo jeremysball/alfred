@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.cron.notifier import CLINotifier
-from src.interfaces.pypitui.toast import ToastHandler, ToastManager
+from alfred.cron.notifier import CLINotifier
+from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager
 
 
 class TestCLINotifierToasts:
@@ -25,7 +25,7 @@ class TestCLINotifierToasts:
     @pytest.mark.asyncio
     async def test_cli_notifier_respects_max_visible_toasts(self):
         """Only MAX_VISIBLE_TOASTS are kept (most recent)."""
-        from src.interfaces.pypitui.toast import MAX_VISIBLE_TOASTS
+        from alfred.interfaces.pypitui.toast import MAX_VISIBLE_TOASTS
 
         manager = ToastManager()
         notifier = CLINotifier(toast_manager=manager)
@@ -47,13 +47,13 @@ class TestToastHandler:
     """Test that ToastHandler creates toasts from logs."""
 
     def test_toast_handler_creates_toasts_from_src_modules(self):
-        """Create toasts from src.* module logs immediately."""
+        """Create toasts from alfred.* module logs immediately."""
         import logging
 
         manager = ToastManager()
         handler = ToastHandler(manager)
 
-        # Create a WARNING level log record from src.* module
+        # Create a WARNING level log record from alfred.* module
         record = logging.LogRecord(
             name="src.cron.scheduler",
             level=logging.WARNING,
@@ -91,7 +91,7 @@ class TestToastHandler:
 
         handler.emit(record)
 
-        # Toast should NOT be added (not from src.*)
+        # Toast should NOT be added (not from alfred.*)
         toasts = manager.get_all()
         assert len(toasts) == 0
 

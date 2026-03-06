@@ -1,6 +1,6 @@
 """Tests for MessagePanel Rich markdown integration."""
 
-from src.interfaces.pypitui.message_panel import MessagePanel
+from alfred.interfaces.pypitui.message_panel import MessagePanel
 
 
 class TestMessagePanelMarkdownParameter:

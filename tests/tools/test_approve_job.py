@@ -2,9 +2,9 @@
 
 import pytest
 
-from src.cron.scheduler import CronScheduler
-from src.cron.store import CronStore
-from src.tools.approve_job import ApproveJobParams, ApproveJobTool
+from alfred.cron.scheduler import CronScheduler
+from alfred.cron.store import CronStore
+from alfred.tools.approve_job import ApproveJobParams, ApproveJobTool
 
 
 @pytest.fixture

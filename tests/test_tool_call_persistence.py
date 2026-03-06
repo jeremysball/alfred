@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from src.session import Message, Role, ToolCallRecord
-from src.session_storage import SessionStorage
+from alfred.session import Message, Role, ToolCallRecord
+from alfred.session_storage import SessionStorage
 
 
 class TestToolCallRecord:

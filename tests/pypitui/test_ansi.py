@@ -1,7 +1,7 @@
 """Tests for ANSI color placeholder system."""
 
 
-from src.interfaces.ansi import (
+from alfred.interfaces.ansi import (
     BLACK,
     BLUE,
     BOLD,
@@ -148,7 +148,7 @@ class TestAnsiRenderingBehavior:
 
     def test_background_color_renders_ansi_in_panel(self) -> None:
         """Verify {on_red}text{reset} produces \\033[41m in rendered panel."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -167,7 +167,7 @@ class TestAnsiRenderingBehavior:
 
     def test_all_backgrounds_render_in_panel(self) -> None:
         """Verify all 8 backgrounds produce correct escape codes in output."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         backgrounds = [
             ("{on_black}", "\033[40m"),
@@ -195,7 +195,7 @@ class TestAnsiRenderingBehavior:
 
     def test_invalid_placeholder_shows_literal_in_panel(self) -> None:
         """Verify {bg_red} (wrong name) shows as literal text in panel."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -212,7 +212,7 @@ class TestAnsiRenderingBehavior:
 
     def test_background_combined_with_foreground_in_panel(self) -> None:
         """Verify {on_red}{white}text{reset} renders both codes."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -230,7 +230,7 @@ class TestAnsiRenderingBehavior:
 
     def test_placeholder_in_inline_code_preserved(self) -> None:
         """Verify {on_red} in `code` shows literally (markdown processes first)."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         # With markdown enabled, inline code should preserve the placeholder
         panel = MessagePanel(
@@ -251,7 +251,7 @@ class TestAnsiRenderingBehavior:
 
     def test_bright_background_renders_in_panel(self) -> None:
         """Verify bright backgrounds work in rendered output."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -274,7 +274,7 @@ class TestAnsiEndToEnd:
         self, mock_alfred, mock_terminal
     ) -> None:
         """Verify assistant response with {on_green} renders with ANSI code."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -293,7 +293,7 @@ class TestAnsiEndToEnd:
         self, mock_alfred, mock_terminal
     ) -> None:
         """Verify user message with {on_red} renders with ANSI code."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="user",
@@ -391,7 +391,7 @@ class TestMessagePanelAnsiIntegration:
 
     def test_message_panel_replaces_placeholders(self) -> None:
         """Verify MessagePanel applies ANSI placeholders."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -411,7 +411,7 @@ class TestMessagePanelAnsiIntegration:
 
     def test_message_panel_preserves_plain_text(self) -> None:
         """Verify MessagePanel leaves plain text unchanged."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -427,7 +427,7 @@ class TestMessagePanelAnsiIntegration:
 
     def test_message_panel_combines_markdown_and_ansi(self) -> None:
         """Verify MessagePanel handles both markdown and ANSI."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",
@@ -446,7 +446,7 @@ class TestMessagePanelAnsiIntegration:
 
     def test_message_panel_invalid_placeholders_preserved(self) -> None:
         """Verify invalid placeholders are left as-is."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         panel = MessagePanel(
             role="assistant",

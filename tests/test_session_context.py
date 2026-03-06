@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from src.session import Message, Session, SessionManager, SessionMeta
-from src.session_context import SessionContextBuilder
+from alfred.session import Message, Session, SessionManager, SessionMeta
+from alfred.session_context import SessionContextBuilder
 
 
 class MockStorage:

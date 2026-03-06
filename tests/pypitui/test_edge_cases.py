@@ -8,7 +8,7 @@ class TestCleanExit:
 
     def test_ctrl_c_sets_running_false(self, mock_alfred, mock_terminal):
         """Verify second Ctrl+C sets running = False (when input has text)."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         assert tui.running is True
@@ -28,7 +28,7 @@ class TestEmptyMessageHandling:
 
     def test_empty_message_ignored(self, mock_alfred, mock_terminal):
         """Verify whitespace-only ignored."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         initial_count = len(tui.conversation.children)
@@ -39,7 +39,7 @@ class TestEmptyMessageHandling:
 
     def test_message_trimmed(self, mock_alfred, mock_terminal):
         """Verify leading/trailing whitespace stripped."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -55,7 +55,7 @@ class TestStreamingErrorHandling:
     @pytest.mark.asyncio
     async def test_streaming_error_shows_in_panel(self, mock_alfred, mock_terminal):
         """Verify error message in assistant panel."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         async def error_stream(*args, **kwargs):
             raise RuntimeError("Connection lost")
@@ -75,7 +75,7 @@ class TestStreamingErrorHandling:
         self, mock_alfred, mock_terminal
     ):
         """Verify _is_streaming = False even on error."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         async def error_stream(*args, **kwargs):
             raise RuntimeError("Test error")
@@ -94,7 +94,7 @@ class TestLongMessages:
 
     def test_long_message_wraps(self, mock_alfred, mock_terminal):
         """Verify 500+ char message wraps properly."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         long_text = "x" * 600
         panel = MessagePanel(role="user", content=long_text)
@@ -106,7 +106,7 @@ class TestLongMessages:
 
     def test_message_panel_handles_multiline(self, mock_alfred, mock_terminal):
         """Verify newlines preserved."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
 
         multiline = "Line 1\nLine 2\nLine 3"
         panel = MessagePanel(role="user", content=multiline)
@@ -123,7 +123,7 @@ class TestResponsiveStatusLine:
 
     def test_status_full_width(self):
         """Verify all groups shown at 80+ chars."""
-        from src.interfaces.pypitui.status_line import SYMBOL_CACHE, StatusLine
+        from alfred.interfaces.pypitui.status_line import SYMBOL_CACHE, StatusLine
 
         status = StatusLine()
         status.update(
@@ -151,7 +151,7 @@ class TestResponsiveStatusLine:
 
     def test_status_compact_width(self):
         """Verify only model + in/out at <50 chars."""
-        from src.interfaces.pypitui.status_line import StatusLine
+        from alfred.interfaces.pypitui.status_line import StatusLine
 
         status = StatusLine()
         status.update(
@@ -174,7 +174,7 @@ class TestResponsiveStatusLine:
 
     def test_status_shows_queued(self):
         """Verify queued count shown when > 0."""
-        from src.interfaces.pypitui.status_line import StatusLine
+        from alfred.interfaces.pypitui.status_line import StatusLine
 
         status = StatusLine()
         status.update(
@@ -193,7 +193,7 @@ class TestResponsiveStatusLine:
 
     def test_status_hides_queued_when_zero(self):
         """Verify queued hidden when 0."""
-        from src.interfaces.pypitui.status_line import StatusLine
+        from alfred.interfaces.pypitui.status_line import StatusLine
 
         status = StatusLine()
         status.update(

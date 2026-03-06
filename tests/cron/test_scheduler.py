@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.cron.models import Job
-from src.cron.scheduler import CronScheduler, JobStatus, RunnableJob
-from src.cron.store import CronStore
+from alfred.cron.models import Job
+from alfred.cron.scheduler import CronScheduler, JobStatus, RunnableJob
+from alfred.cron.store import CronStore
 
 
 @pytest.fixture
@@ -363,7 +363,7 @@ class TestCronSchedulerSocketClient:
 
     def test_scheduler_accepts_socket_client_parameter(self, temp_data_dir: Path):
         """CronScheduler accepts socket_client in constructor."""
-        from src.cron.socket_client import SocketClient
+        from alfred.cron.socket_client import SocketClient
 
         store = CronStore(data_dir=temp_data_dir)
         socket_client = SocketClient()
@@ -380,8 +380,8 @@ class TestCronSchedulerSocketClient:
 
     async def test_socket_client_passed_to_execution_context(self, temp_data_dir: Path):
         """Socket client is passed to ExecutionContext during job execution."""
-        from src.cron.socket_client import SocketClient
-        from src.cron.socket_protocol import NotifyMessage
+        from alfred.cron.socket_client import SocketClient
+        from alfred.cron.socket_protocol import NotifyMessage
 
         store = CronStore(data_dir=temp_data_dir)
         socket_client = SocketClient()

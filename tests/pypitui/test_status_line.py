@@ -1,14 +1,14 @@
 """Tests for StatusLine component."""
 
 
-from src.interfaces.pypitui.status_line import (
+from alfred.interfaces.pypitui.status_line import (
     STATUS_WIDTH_COMPACT,
     STATUS_WIDTH_FULL,
     STATUS_WIDTH_MEDIUM,
     SYMBOL_CACHE,
     StatusLine,
 )
-from src.interfaces.pypitui.utils import format_tokens
+from alfred.interfaces.pypitui.utils import format_tokens
 
 
 class TestStatusLine:

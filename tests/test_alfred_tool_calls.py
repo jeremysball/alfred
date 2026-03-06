@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.agent import ToolEnd, ToolOutput, ToolStart
-from src.alfred import Alfred
+from alfred.agent import ToolEnd, ToolOutput, ToolStart
+from alfred.alfred import Alfred
 
 
 class TestAlfredToolCallCapturing:

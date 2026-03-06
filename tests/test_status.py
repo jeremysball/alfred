@@ -3,8 +3,8 @@
 from rich.console import Group
 from rich.text import Text
 
-from src.interfaces.status import SPINNER_FRAMES, StatusData, StatusRenderer
-from src.token_tracker import TokenUsage
+from alfred.interfaces.status import SPINNER_FRAMES, StatusData, StatusRenderer
+from alfred.token_tracker import TokenUsage
 
 
 class TestStatusData:

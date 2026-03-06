@@ -7,12 +7,12 @@ import asyncio
 
 import pytest
 
-from src.cron.scheduler import CronScheduler
-from src.cron.store import CronStore
-from src.tools.approve_job import ApproveJobTool
-from src.tools.list_jobs import ListJobsTool
-from src.tools.reject_job import RejectJobTool
-from src.tools.schedule_job import ScheduleJobTool
+from alfred.cron.scheduler import CronScheduler
+from alfred.cron.store import CronStore
+from alfred.tools.approve_job import ApproveJobTool
+from alfred.tools.list_jobs import ListJobsTool
+from alfred.tools.reject_job import RejectJobTool
+from alfred.tools.schedule_job import ScheduleJobTool
 
 
 @pytest.fixture

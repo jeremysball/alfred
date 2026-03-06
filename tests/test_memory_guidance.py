@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.placeholders import resolve_file_includes
-from src.templates import TemplateManager
+from alfred.placeholders import resolve_file_includes
+from alfred.templates import TemplateManager
 
 
 class TestMemoryGuidancePrompt:
@@ -96,8 +96,8 @@ class TestMemoryGuidanceInContext:
     @pytest.mark.asyncio
     async def test_memory_guidance_in_system_prompt(self, tmp_path):
         """Memory guidance appears in assembled system prompt."""
-        from src.config import Config
-        from src.context import ContextLoader
+        from alfred.config import Config
+        from alfred.context import ContextLoader
 
         # Setup workspace with templates
         manager = TemplateManager(tmp_path)
@@ -146,8 +146,8 @@ class TestMemoryGuidanceInContext:
     @pytest.mark.asyncio
     async def test_memory_guidance_placement(self, tmp_path):
         """Memory guidance appears early in system prompt (via AGENTS.md)."""
-        from src.config import Config
-        from src.context import ContextLoader
+        from alfred.config import Config
+        from alfred.context import ContextLoader
 
         manager = TemplateManager(tmp_path)
         manager.ensure_prompts_exist()

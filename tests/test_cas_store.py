@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from src.utils.cas_store import CASConflictError, CASStore, Version
+from alfred.utils.cas_store import CASConflictError, CASStore, Version
 
 pytestmark = pytest.mark.slow
 

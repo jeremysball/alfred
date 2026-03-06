@@ -8,7 +8,7 @@ class TestAlfredTUIInit:
 
     def test_init_creates_components(self, mock_alfred, mock_terminal):
         """Verify TUI creates all required components."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -23,7 +23,7 @@ class TestOnSubmit:
 
     def test_on_submit_creates_user_message(self, mock_alfred, mock_terminal):
         """Verify user message added to conversation."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         initial_count = len(tui.conversation.children)
@@ -39,7 +39,7 @@ class TestOnSubmit:
         calling the external on_submit callback. This test verifies that
         the TUI's _on_submit method works correctly in that state.
         """
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         # Input should already be cleared when _on_submit is called
@@ -52,7 +52,7 @@ class TestOnSubmit:
 
     def test_on_submit_ignores_empty(self, mock_alfred, mock_terminal):
         """Verify empty messages ignored."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         initial_count = len(tui.conversation.children)
@@ -63,8 +63,8 @@ class TestOnSubmit:
 
     def test_on_submit_uses_message_panel(self, mock_alfred, mock_terminal):
         """Verify user messages use MessagePanel."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -81,7 +81,7 @@ class TestSendMessage:
     @pytest.mark.asyncio
     async def test_send_message_creates_assistant_panel(self, mock_alfred, mock_terminal):
         """Verify assistant message panel created."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         initial_count = len(tui.conversation.children)
@@ -94,8 +94,8 @@ class TestSendMessage:
     @pytest.mark.asyncio
     async def test_send_message_uses_message_panel(self, mock_alfred, mock_terminal):
         """Verify assistant messages use MessagePanel."""
-        from src.interfaces.pypitui.message_panel import MessagePanel
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -110,7 +110,7 @@ class TestSendMessage:
     @pytest.mark.asyncio
     async def test_error_sets_red_border(self, mock_alfred, mock_terminal):
         """Verify errors trigger set_error() on panel."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         # Make chat_stream raise an error
         async def error_stream(*args, **kwargs):
@@ -132,9 +132,9 @@ class TestToolCallbackIntegration:
 
     def test_tool_callback_adds_to_current_message(self, mock_alfred, mock_terminal):
         """Verify ToolStart adds tool call to current assistant message."""
-        from src.agent import ToolStart
-        from src.interfaces.pypitui.message_panel import MessagePanel
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.agent import ToolStart
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -152,9 +152,9 @@ class TestToolCallbackIntegration:
 
     def test_tool_callback_appends_on_output(self, mock_alfred, mock_terminal):
         """Verify ToolOutput appends to tool call in message."""
-        from src.agent import ToolOutput, ToolStart
-        from src.interfaces.pypitui.message_panel import MessagePanel
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.agent import ToolOutput, ToolStart
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -173,9 +173,9 @@ class TestToolCallbackIntegration:
 
     def test_tool_callback_finalizes_on_end(self, mock_alfred, mock_terminal):
         """Verify ToolEnd sets final status."""
-        from src.agent import ToolEnd, ToolStart
-        from src.interfaces.pypitui.message_panel import MessagePanel
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.agent import ToolEnd, ToolStart
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -192,9 +192,9 @@ class TestToolCallbackIntegration:
 
     def test_tool_callback_error_style(self, mock_alfred, mock_terminal):
         """Verify error sets error status."""
-        from src.agent import ToolEnd, ToolStart
-        from src.interfaces.pypitui.message_panel import MessagePanel
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.agent import ToolEnd, ToolStart
+        from alfred.interfaces.pypitui.message_panel import MessagePanel
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -217,8 +217,8 @@ class TestCtrlCBehavior:
 
     def test_ctrl_c_clears_input_when_has_text(self, mock_alfred, mock_terminal):
         """Verify first Ctrl-C clears input, shows toast hint."""
-        from src.interfaces.pypitui.toast import ToastManager
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.toast import ToastManager
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         manager = ToastManager()
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal, toast_manager=manager)
@@ -239,7 +239,7 @@ class TestCtrlCBehavior:
 
     def test_ctrl_c_exits_immediately_when_input_empty(self, mock_alfred, mock_terminal):
         """Verify Ctrl-C exits immediately when input is empty."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -254,7 +254,7 @@ class TestCtrlCBehavior:
 
     def test_second_ctrl_c_exits(self, mock_alfred, mock_terminal):
         """Verify running = False after two Ctrl-C presses (with text)."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -272,8 +272,8 @@ class TestCtrlCBehavior:
 
     def test_other_key_resets_ctrl_c_state(self, mock_alfred, mock_terminal):
         """Verify any other key clears state, dismisses toasts."""
-        from src.interfaces.pypitui.toast import ToastManager
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.toast import ToastManager
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         manager = ToastManager()
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal, toast_manager=manager)
@@ -296,7 +296,7 @@ class TestCtrlCBehavior:
 
     def test_ctrl_c_state_persists_across_frames(self, mock_alfred, mock_terminal):
         """Verify state doesn't auto-reset between frames."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -319,8 +319,8 @@ class TestToastTUIIntegration:
 
     def test_keypress_dismisses_toasts(self, mock_alfred, mock_terminal):
         """Verify any keypress dismisses all toasts."""
-        from src.interfaces.pypitui.toast import ToastManager
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.toast import ToastManager
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         manager = ToastManager()
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal, toast_manager=manager)
@@ -341,7 +341,7 @@ class TestToastTUIIntegration:
         """Verify ToastHandler can be created with ToastManager."""
         import logging
 
-        from src.interfaces.pypitui.toast import ToastHandler, ToastManager
+        from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager
 
         manager = ToastManager()
         handler = ToastHandler(manager)
@@ -367,7 +367,7 @@ class TestStreamingState:
     @pytest.mark.asyncio
     async def test_throbber_stops_when_streaming_ends(self, mock_alfred, mock_terminal):
         """Verify throbber stops animating when streaming completes."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
@@ -393,7 +393,7 @@ class TestStreamingState:
 
     def test_throbber_starts_immediately_on_submit(self, mock_alfred, mock_terminal):
         """Bug Fix: Throbber should start immediately when user presses Enter."""
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 

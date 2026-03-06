@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.tools import clear_registry, get_registry, register_builtin_tools
-from src.tools.bash import BashTool
+from alfred.tools import clear_registry, get_registry, register_builtin_tools
+from alfred.tools.bash import BashTool
 
 
 @pytest.fixture(autouse=True)

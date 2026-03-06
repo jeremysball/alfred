@@ -2,7 +2,7 @@
 
 
 
-from src.data_manager import BUNDLED_TEMPLATES
+from alfred.data_manager import BUNDLED_TEMPLATES
 
 
 def test_config_toml_template_exists():

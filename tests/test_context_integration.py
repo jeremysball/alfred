@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from src.config import Config
-from src.context import ContextLoader
+from alfred.config import Config
+from alfred.context import ContextLoader
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """Tests for TokenTracker."""
 
 
-from src.token_tracker import TokenTracker, TokenUsage
+from alfred.token_tracker import TokenTracker, TokenUsage
 
 
 class TestTokenUsage:

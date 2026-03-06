@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from src.session import Message, Role, SessionMeta
-from src.session_storage import SessionStorage
+from alfred.session import Message, Role, SessionMeta
+from alfred.session_storage import SessionStorage
 
 
 @pytest.fixture

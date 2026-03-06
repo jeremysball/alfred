@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from src.config import Config
-from src.context import ContextLoader
-from src.templates import TemplateManager
+from alfred.config import Config
+from alfred.context import ContextLoader
+from alfred.templates import TemplateManager
 
 
 @pytest.fixture
@@ -168,7 +168,7 @@ class TestEndToEndContextLoading:
         (workspace_dir / "USER.md").write_text("# User")
 
         # Load and verify nesting works
-        from src.config import Config as RealConfig
+        from alfred.config import Config as RealConfig
         config = RealConfig(
             telegram_bot_token="test",
             openai_api_key="test",
@@ -198,7 +198,7 @@ class TestOldModelReferencesRemoved:
         """MemoryEntry uses simplified schema (no tier field)."""
         from datetime import datetime
 
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         # Create memory - should not have "tier" field
         memory = MemoryEntry(
@@ -330,7 +330,7 @@ class TestMemorySystemIntegration:
         """MemoryEntry has required fields for simplified model."""
         from datetime import datetime
 
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         memory = MemoryEntry(
             content="Test memory",
@@ -354,7 +354,7 @@ class TestMemorySystemIntegration:
         """MemoryEntry has permanent flag field."""
         from datetime import datetime
 
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         memory = MemoryEntry(
             content="Test memory",
@@ -369,7 +369,7 @@ class TestMemorySystemIntegration:
 
     def test_search_sessions_tool_exists(self) -> None:
         """search_sessions tool module exists and has correct class."""
-        from src.tools.search_sessions import SearchSessionsTool
+        from alfred.tools.search_sessions import SearchSessionsTool
 
         # Verify the class exists and has the right name
         assert SearchSessionsTool.name == "search_sessions"

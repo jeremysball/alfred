@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from src.config import load_config
+from alfred.config import load_config
 
 
 def test_toml_import_works() -> None:

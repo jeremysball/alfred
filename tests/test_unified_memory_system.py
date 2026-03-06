@@ -45,7 +45,7 @@ class TestPromptLoader:
     @pytest.fixture
     def loader(self, temp_workspace):
         """Create a PromptLoader instance."""
-        from src.prompt_loader import PromptLoader
+        from alfred.prompt_loader import PromptLoader
         return PromptLoader(temp_workspace)
 
     @pytest.mark.asyncio
@@ -149,7 +149,7 @@ class TestMemoryTTL:
     @pytest.fixture
     def memory_store(self, tmp_path):
         """Create a memory store for testing."""
-        from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+        from alfred.memory.jsonl_store import JSONLMemoryStore as MemoryStore
         store = MemoryStore(tmp_path / "memory.jsonl")
         return store
 
@@ -343,7 +343,7 @@ class TestSessionArchiveRetrieval:
     @pytest.fixture
     def session_archive(self, tmp_path):
         """Create a session archive for testing."""
-        from src.session_archive import SessionArchive
+        from alfred.session_archive import SessionArchive
         archive = SessionArchive(tmp_path / "sessions")
         return archive
 
@@ -451,7 +451,7 @@ class TestMemoryGuidancePrompt:
 
     def test_guidance_includes_decision_framework(self):
         """Test that guidance includes the decision framework."""
-        from src.prompts import get_memory_guidance
+        from alfred.prompts import get_memory_guidance
 
         guidance = get_memory_guidance()
 
@@ -462,7 +462,7 @@ class TestMemoryGuidancePrompt:
 
     def test_guidance_explains_cost_tradeoffs(self):
         """Test that guidance explains cost trade-offs."""
-        from src.prompts import get_memory_guidance
+        from alfred.prompts import get_memory_guidance
 
         guidance = get_memory_guidance()
 
@@ -474,7 +474,7 @@ class TestMemoryGuidancePrompt:
 
     def test_guidance_includes_ttl_warning(self):
         """Test that guidance includes TTL explanation."""
-        from src.prompts import get_memory_guidance
+        from alfred.prompts import get_memory_guidance
 
         guidance = get_memory_guidance()
 
@@ -495,7 +495,7 @@ class TestUnifiedMemoryIntegration:
         # This is a comprehensive integration test
 
         # 1. Load context with placeholders
-        from src.prompt_loader import PromptLoader
+        from alfred.prompt_loader import PromptLoader
         loader = PromptLoader(tmp_path / "workspace")
 
         # Setup workspace
@@ -510,7 +510,7 @@ class TestUnifiedMemoryIntegration:
         context = await loader.load_all_context()
 
         # 2. Create a memory
-        from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+        from alfred.memory.jsonl_store import JSONLMemoryStore as MemoryStore
         store = MemoryStore(workspace / "memory.jsonl")
 
         memory = await store.remember(

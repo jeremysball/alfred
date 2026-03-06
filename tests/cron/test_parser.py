@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from src.cron.parser import get_next_run, is_valid, should_run
+from alfred.cron.parser import get_next_run, is_valid, should_run
 
 
 class TestIsValid:

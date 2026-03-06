@@ -4,8 +4,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
-from src.memory.jsonl_store import MemoryEntry
+from alfred.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+from alfred.memory.jsonl_store import MemoryEntry
 
 
 class MockEmbedder:
@@ -32,7 +32,7 @@ class MockEmbedder:
 
 @pytest.fixture
 def mock_config(tmp_path, monkeypatch):
-    from src.config import Config
+    from alfred.config import Config
 
     # Set env vars for required fields
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test")
@@ -261,7 +261,7 @@ class TestMemoryStoreErrorHandling:
     @pytest.mark.asyncio
     async def test_add_entries_fails_fast_on_embedding_error(self, mock_config, tmp_path):
         """If embedding fails, no entries are written (fail fast)."""
-        from src.embeddings.openai_provider import EmbeddingError
+        from alfred.embeddings.openai_provider import EmbeddingError
 
         class FailingEmbedder:
             async def embed(self, text: str) -> list[float]:

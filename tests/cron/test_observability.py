@@ -5,8 +5,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from src.cron.models import ExecutionRecord, ExecutionStatus
-from src.cron.observability import StructuredLogger
+from alfred.cron.models import ExecutionRecord, ExecutionStatus
+from alfred.cron.observability import StructuredLogger
 
 
 class TestStructuredLogger:

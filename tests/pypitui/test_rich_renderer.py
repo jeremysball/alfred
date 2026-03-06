@@ -1,6 +1,6 @@
 """Tests for RichRenderer module."""
 
-from src.interfaces.pypitui.rich_renderer import RichRenderer
+from alfred.interfaces.pypitui.rich_renderer import RichRenderer
 
 
 class TestRichRendererInit:

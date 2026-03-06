@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from src.storage.sqlite import SQLiteStore
+from alfred.storage.sqlite import SQLiteStore
 
 
 # =============================================================================

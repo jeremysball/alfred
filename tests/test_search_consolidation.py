@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from src.storage.sqlite import SQLiteStore
+from alfred.storage.sqlite import SQLiteStore
 
 
 class TestSearchConsolidation:
@@ -107,7 +107,7 @@ class TestContextBuilderWithoutSearchPy:
         """ContextBuilder should import without src/search.py."""
         # This test verifies the import works after search.py is deleted
         try:
-            from src.context import ContextBuilder
+            from alfred.context import ContextBuilder
             assert True
         except ImportError as e:
             if "search" in str(e).lower():
@@ -130,7 +130,7 @@ class TestContextBuilderWithoutSearchPy:
         )
         
         # ContextBuilder should be able to search via store
-        from src.context import ContextBuilder
+        from alfred.context import ContextBuilder
         
         builder = ContextBuilder(store=store)
         # The builder should have access to the store for search
@@ -157,7 +157,7 @@ class TestSearchMemoriesToolConsolidation:
         )
         
         # Tool should be able to search via store
-        from src.tools.search_memories import SearchMemoriesTool
+        from alfred.tools.search_memories import SearchMemoriesTool
         
         tool = SearchMemoriesTool()
         # The tool should have access to a store for search

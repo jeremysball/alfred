@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from src.agent import Agent
-from src.llm import ChatMessage
-from src.tools import clear_registry, get_registry, register_builtin_tools
-from src.tools.bash import BashTool
-from src.tools.edit import EditTool
-from src.tools.read import ReadTool
-from src.tools.write import WriteTool
+from alfred.agent import Agent
+from alfred.llm import ChatMessage
+from alfred.tools import clear_registry, get_registry, register_builtin_tools
+from alfred.tools.bash import BashTool
+from alfred.tools.edit import EditTool
+from alfred.tools.read import ReadTool
+from alfred.tools.write import WriteTool
 
 
 @pytest.fixture(autouse=True)
@@ -313,8 +313,8 @@ class TestAgentWithRealLLM:
         """Test agent actually reading a file via LLM."""
         from pathlib import Path
 
-        from src.config import load_config
-        from src.llm import LLMFactory
+        from alfred.config import load_config
+        from alfred.llm import LLMFactory
 
         # Create a test file
         with open("test_content.txt", "w") as f:
@@ -342,8 +342,8 @@ class TestAgentWithRealLLM:
         import os
         from pathlib import Path
 
-        from src.config import load_config
-        from src.llm import LLMFactory
+        from alfred.config import load_config
+        from alfred.llm import LLMFactory
 
         project_root = Path(__file__).parent.parent
         config = load_config(project_root / "config.json")

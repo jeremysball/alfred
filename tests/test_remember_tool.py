@@ -3,9 +3,9 @@
 
 import pytest
 
-from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
-from src.tools import clear_registry, get_registry, register_builtin_tools
-from src.tools.remember import RememberTool
+from alfred.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+from alfred.tools import clear_registry, get_registry, register_builtin_tools
+from alfred.tools.remember import RememberTool
 
 
 class MockEmbedder:
@@ -29,7 +29,7 @@ class MockEmbedder:
 
 @pytest.fixture
 def mock_config(tmp_path, monkeypatch):
-    from src.config import Config
+    from alfred.config import Config
 
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test")
     monkeypatch.setenv("OPENAI_API_KEY", "test")
@@ -168,7 +168,7 @@ async def test_remember_tool_content_truncation(mock_config, mock_embedder):
 @pytest.mark.asyncio
 async def test_remember_tool_has_permanent_parameter():
     """RememberToolParams has permanent field."""
-    from src.tools.remember import RememberToolParams
+    from alfred.tools.remember import RememberToolParams
 
     params = RememberToolParams(content="Test")
     assert hasattr(params, "permanent")

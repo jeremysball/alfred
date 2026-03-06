@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from src.embeddings.bge_provider import BGEProvider
-from src.memory.faiss_store import FAISSMemoryStore
-from src.memory.migrate import migrate_jsonl_to_faiss
+from alfred.embeddings.bge_provider import BGEProvider
+from alfred.memory.faiss_store import FAISSMemoryStore
+from alfred.memory.migrate import migrate_jsonl_to_faiss
 
 
 class TestMigration:

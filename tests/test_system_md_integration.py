@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from src.config import Config
-from src.context import ContextLoader
-from src.templates import TemplateManager
+from alfred.config import Config
+from alfred.context import ContextLoader
+from alfred.templates import TemplateManager
 
 
 # Fixtures

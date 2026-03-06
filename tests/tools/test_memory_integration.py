@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from src.embeddings import EmbeddingClient
-from src.memory.jsonl_store import JSONLMemoryStore as MemoryStore
-from src.tools.forget import ForgetTool
-from src.tools.remember import RememberTool
-from src.tools.search_memories import SearchMemoriesTool
-from src.tools.update_memory import UpdateMemoryTool
+from alfred.embeddings import EmbeddingClient
+from alfred.memory.jsonl_store import JSONLMemoryStore as MemoryStore
+from alfred.tools.forget import ForgetTool
+from alfred.tools.remember import RememberTool
+from alfred.tools.search_memories import SearchMemoriesTool
+from alfred.tools.update_memory import UpdateMemoryTool
 
 
 class FakeEmbedder(EmbeddingClient):

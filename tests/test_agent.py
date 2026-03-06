@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.agent import Agent
-from src.llm import ChatMessage
-from src.tools import Tool, ToolRegistry, clear_registry
+from alfred.agent import Agent
+from alfred.llm import ChatMessage
+from alfred.tools import Tool, ToolRegistry, clear_registry
 
 
 @pytest.fixture(autouse=True)
@@ -214,7 +214,7 @@ class TestAgent:
 
         # Agent stops at max iterations (logs warning)
         # Tool events should have been emitted
-        from src.agent import ToolEnd, ToolStart
+        from alfred.agent import ToolEnd, ToolStart
         assert any(isinstance(e, ToolStart) for e in tool_events)
         assert any(isinstance(e, ToolEnd) for e in tool_events)
 
@@ -261,7 +261,7 @@ class TestAgent:
 
         # Verify tool events were emitted
         assert len(tool_events) >= 2  # ToolStart and ToolEnd
-        from src.agent import ToolEnd, ToolStart
+        from alfred.agent import ToolEnd, ToolStart
         assert any(isinstance(e, ToolStart) for e in tool_events)
         assert any(isinstance(e, ToolEnd) for e in tool_events)
 

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from src.context import ContextLoader
-from src.templates import TemplateManager
+from alfred.context import ContextLoader
+from alfred.templates import TemplateManager
 
 
 class TestAgentsAtomicExtraction:
@@ -107,7 +107,7 @@ class TestAgentsAtomicExtraction:
     @pytest.mark.asyncio
     async def test_placeholders_resolve_correctly(self, tmp_path: Path) -> None:
         """All placeholders should resolve when loading through ContextLoader."""
-        from src.config import Config
+        from alfred.config import Config
 
         # Create a minimal workspace
         workspace_dir = tmp_path / "workspace"

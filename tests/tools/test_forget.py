@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.memory import MemoryEntry
-from src.tools.forget import ForgetTool, PendingDeletion
+from alfred.memory import MemoryEntry
+from alfred.tools.forget import ForgetTool, PendingDeletion
 
 # ============================================================================
 # Fixtures

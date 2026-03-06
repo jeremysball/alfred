@@ -2,7 +2,7 @@
 
 import re
 
-from src.interfaces.pypitui.wrapped_input import WrappedInput
+from alfred.interfaces.pypitui.wrapped_input import WrappedInput
 
 
 def strip_ansi(text: str) -> str:

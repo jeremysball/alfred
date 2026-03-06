@@ -11,8 +11,8 @@ class TestCLINotifierToast:
     @pytest.mark.asyncio
     async def test_cli_notifier_uses_toasts_when_manager_provided(self):
         """Verify CLINotifier sends toasts when toast_manager is provided."""
-        from src.cron.notifier import CLINotifier
-        from src.interfaces.pypitui.toast import ToastManager
+        from alfred.cron.notifier import CLINotifier
+        from alfred.interfaces.pypitui.toast import ToastManager
 
         manager = ToastManager()
         notifier = CLINotifier(toast_manager=manager)
@@ -26,7 +26,7 @@ class TestCLINotifierToast:
     @pytest.mark.asyncio
     async def test_cli_notifier_uses_stdout_when_no_manager(self):
         """Verify CLINotifier writes to stdout when no toast_manager."""
-        from src.cron.notifier import CLINotifier
+        from alfred.cron.notifier import CLINotifier
 
         output = io.StringIO()
         notifier = CLINotifier(output_stream=output)
@@ -40,9 +40,9 @@ class TestCLINotifierToast:
     @pytest.mark.skip(reason="Pre-existing failure: AlfredTUI doesn't set toast_manager on notifier")
     async def test_alfred_tui_enables_toast_mode(self, mock_alfred, mock_terminal):
         """Verify AlfredTUI sets toast_manager on CLINotifier."""
-        from src.cron.notifier import CLINotifier
-        from src.interfaces.pypitui.toast import ToastManager
-        from src.interfaces.pypitui.tui import AlfredTUI
+        from alfred.cron.notifier import CLINotifier
+        from alfred.interfaces.pypitui.toast import ToastManager
+        from alfred.interfaces.pypitui.tui import AlfredTUI
 
         # Set up CLINotifier on mock
         mock_alfred.notifier = CLINotifier()
@@ -57,8 +57,8 @@ class TestCLINotifierToast:
     @pytest.mark.asyncio
     async def test_cli_notifier_set_toast_manager(self):
         """Verify set_toast_manager works."""
-        from src.cron.notifier import CLINotifier
-        from src.interfaces.pypitui.toast import ToastManager
+        from alfred.cron.notifier import CLINotifier
+        from alfred.interfaces.pypitui.toast import ToastManager
 
         manager = ToastManager()
         notifier = CLINotifier()

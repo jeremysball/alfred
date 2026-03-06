@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.alfred import Alfred
-from src.config import Config
-from src.interfaces.telegram import TelegramInterface
+from alfred.alfred import Alfred
+from alfred.config import Config
+from alfred.interfaces.telegram import TelegramInterface
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def mock_alfred() -> MagicMock:
     """Create a mock Alfred engine."""
     from datetime import datetime
 
-    from src.session import Session, SessionMeta
+    from alfred.session import Session, SessionMeta
 
     alfred = MagicMock(spec=Alfred)
     alfred.chat_stream.side_effect = mock_chat_stream

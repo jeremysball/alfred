@@ -59,8 +59,8 @@ Repository = "https://github.com/jeremysball/alfred"
 Issues = "https://github.com/jeremysball/alfred/issues"
 
 [project.scripts]
-alfred = "src.cli.main:app"
-alfred-cron-runner = "src.cli.cron_runner:main"
+alfred = "alfred.cli.main:app"
+alfred-cron-runner = "alfred.cli.cron_runner:main"
 
 [project.optional-dependencies]
 dev = [
@@ -110,7 +110,7 @@ show_error_codes = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=src --cov-report=term-missing -m 'not integration and not e2e and not slow'"
+addopts = "--cov=alfred --cov-report=term-missing -m 'not integration and not e2e and not slow'"
 filterwarnings = [
   # FAISS ships C extensions via SWIG; these warnings come from the C layer, not our code
   "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
@@ -124,11 +124,11 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src/alfred"]
 omit = ["*/tests/*"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["src/alfred"]
 
 [tool.hatch.version]
 source = "vcs"

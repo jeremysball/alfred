@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.session import Message, Role, Session, SessionManager, SessionMeta
+from alfred.session import Message, Role, Session, SessionManager, SessionMeta
 
 
 class MockStorage:

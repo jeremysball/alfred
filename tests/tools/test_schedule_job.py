@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.cron.scheduler import CronScheduler
-from src.tools.schedule_job import ScheduleJobParams, ScheduleJobTool
+from alfred.cron.scheduler import CronScheduler
+from alfred.tools.schedule_job import ScheduleJobParams, ScheduleJobTool
 
 
 @pytest.fixture

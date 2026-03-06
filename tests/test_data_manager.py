@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.data_manager import (
+from alfred.data_manager import (
     APP_NAME,
     get_config_dir,
     get_data_dir,
@@ -60,7 +60,7 @@ class TestXDGDirectoryPaths:
     def test_get_config_toml_path_uses_xdg_config_home(self):
         """get_config_toml_path respects XDG_CONFIG_HOME."""
         with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/test/config"}):
-            from src.data_manager import get_config_toml_path
+            from alfred.data_manager import get_config_toml_path
             result = get_config_toml_path()
             assert result == Path("/test/config") / APP_NAME / "config.toml"
 
@@ -68,7 +68,7 @@ class TestXDGDirectoryPaths:
         """get_config_toml_path defaults to ~/.config/alfred/config.toml."""
         with patch.dict(os.environ, {}, clear=True):
             with patch.object(Path, "home", return_value=Path("/home/test")):
-                from src.data_manager import get_config_toml_path
+                from alfred.data_manager import get_config_toml_path
                 result = get_config_toml_path()
                 assert result == Path("/home/test/.config") / APP_NAME / "config.toml"
 

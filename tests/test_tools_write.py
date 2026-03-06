@@ -5,8 +5,8 @@ import tempfile
 
 import pytest
 
-from src.tools import clear_registry, get_registry, register_builtin_tools
-from src.tools.write import WriteTool
+from alfred.tools import clear_registry, get_registry, register_builtin_tools
+from alfred.tools.write import WriteTool
 
 
 @pytest.fixture(autouse=True)

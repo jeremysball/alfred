@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.memory.faiss_store import FAISSMemoryStore
+from alfred.memory.faiss_store import FAISSMemoryStore
 
 
 class TestFAISSMemoryStore:
@@ -14,7 +14,7 @@ class TestFAISSMemoryStore:
     @pytest.fixture
     def store(self, tmp_path: Path) -> FAISSMemoryStore:
         """Create FAISSMemoryStore with mock provider."""
-        from src.embeddings.bge_provider import BGEProvider
+        from alfred.embeddings.bge_provider import BGEProvider
 
         provider = BGEProvider()
         index_path = tmp_path / "faiss"
@@ -32,7 +32,7 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_add_and_search(self, store: FAISSMemoryStore) -> None:
         """Should add entry and find it via search."""
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         entry = MemoryEntry(
             timestamp=datetime.now(),
@@ -51,7 +51,7 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_search_returns_similarity_scores(self, store: FAISSMemoryStore) -> None:
         """Search should return similarity scores."""
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         entry = MemoryEntry(
             timestamp=datetime.now(),
@@ -72,7 +72,7 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_get_by_id(self, store: FAISSMemoryStore) -> None:
         """Should retrieve entry by ID."""
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         entry = MemoryEntry(
             timestamp=datetime.now(),
@@ -98,7 +98,7 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_delete_by_id(self, store: FAISSMemoryStore) -> None:
         """Should mark entry as deleted."""
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         entry = MemoryEntry(
             timestamp=datetime.now(),
@@ -124,7 +124,7 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_search_top_k_limit(self, store: FAISSMemoryStore) -> None:
         """Should respect top_k limit."""
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         for i in range(5):
             entry = MemoryEntry(
@@ -142,8 +142,8 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_persistence_save_and_load(self, store: FAISSMemoryStore, tmp_path: Path) -> None:
         """Should persist and load index + metadata."""
-        from src.embeddings.bge_provider import BGEProvider
-        from src.memory import MemoryEntry
+        from alfred.embeddings.bge_provider import BGEProvider
+        from alfred.memory import MemoryEntry
 
         # Add some entries
         for i in range(3):
@@ -175,7 +175,7 @@ class TestFAISSMemoryStore:
     @pytest.mark.asyncio
     async def test_get_all_entries(self, store: FAISSMemoryStore) -> None:
         """Should return all non-deleted entries."""
-        from src.memory import MemoryEntry
+        from alfred.memory import MemoryEntry
 
         for i in range(3):
             entry = MemoryEntry(
@@ -199,7 +199,7 @@ class TestFAISSMemoryStore:
 
     def test_auto_index_type_selection(self, tmp_path: Path) -> None:
         """Should auto-select IVF at threshold."""
-        from src.embeddings.bge_provider import BGEProvider
+        from alfred.embeddings.bge_provider import BGEProvider
 
         provider = BGEProvider()
         index_path = tmp_path / "faiss"
@@ -224,7 +224,7 @@ class TestFAISSMemoryStoreConfig:
 
     def test_custom_index_type_flat(self, tmp_path: Path) -> None:
         """Should respect explicit flat index type."""
-        from src.embeddings.bge_provider import BGEProvider
+        from alfred.embeddings.bge_provider import BGEProvider
 
         provider = BGEProvider()
         index_path = tmp_path / "faiss"
@@ -240,7 +240,7 @@ class TestFAISSMemoryStoreConfig:
 
     def test_custom_rebuild_threshold(self, tmp_path: Path) -> None:
         """Should accept custom rebuild threshold."""
-        from src.embeddings.bge_provider import BGEProvider
+        from alfred.embeddings.bge_provider import BGEProvider
 
         provider = BGEProvider()
         index_path = tmp_path / "faiss"

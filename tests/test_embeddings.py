@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.embeddings import cosine_similarity
+from alfred.embeddings import cosine_similarity
 
 
 def test_cosine_similarity_identical_vectors():
@@ -37,7 +37,7 @@ def test_cosine_similarity_zero_vector():
 @pytest.mark.asyncio
 async def test_embedding_client_with_mock(monkeypatch):
     """EmbeddingClient can be initialized with config."""
-    from src.config import Config
+    from alfred.config import Config
 
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test")
     monkeypatch.setenv("OPENAI_API_KEY", "test_key")
@@ -58,6 +58,6 @@ async def test_embedding_client_with_mock(monkeypatch):
         context_files={},
     )
 
-    from src.embeddings import create_provider
+    from alfred.embeddings import create_provider
     client = create_provider(config)
     assert client is not None

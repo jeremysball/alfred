@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from src.session import SessionMeta
+from alfred.session import SessionMeta
 
 # === Session Metadata Cache Tests ===
 
@@ -40,7 +40,7 @@ def embedder():
 @pytest.fixture
 def storage(sessions_dir: Path, embedder):
     """Create SessionStorage instance with cache support."""
-    from src.session_storage import SessionStorage
+    from alfred.session_storage import SessionStorage
 
     storage = SessionStorage.__new__(SessionStorage)
     storage.sessions_dir = sessions_dir
@@ -168,7 +168,7 @@ class TestDebouncedCompletion:
         # by checking the source code contains expected patterns
         import inspect
 
-        from src.interfaces.pypitui import completion_addon
+        from alfred.interfaces.pypitui import completion_addon
 
         source = inspect.getsource(completion_addon.CompletionManager)
 
@@ -179,7 +179,7 @@ class TestDebouncedCompletion:
 
     def test_debounce_mechanism_exists(self):
         """CompletionManager should have debounce mechanism."""
-        from src.interfaces.pypitui.completion_addon import CompletionManager
+        from alfred.interfaces.pypitui.completion_addon import CompletionManager
 
         # Verify the class has the debounce attributes
         assert hasattr(CompletionManager, "_update_completion")

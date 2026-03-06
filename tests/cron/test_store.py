@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from src.cron.models import ExecutionRecord, ExecutionStatus, Job
-from src.cron.store import CronStore
+from alfred.cron.models import ExecutionRecord, ExecutionStatus, Job
+from alfred.cron.store import CronStore
 
 
 @pytest.fixture

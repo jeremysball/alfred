@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.session import Message, Role, Session, SessionMeta
-from src.session_storage import SessionStorage
-from src.tools.search_sessions import SearchSessionsTool, SessionSummarizer
+from alfred.session import Message, Role, Session, SessionMeta
+from alfred.session_storage import SessionStorage
+from alfred.tools.search_sessions import SearchSessionsTool, SessionSummarizer
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """Tests for WrappedInput hook system."""
 
 
-from src.interfaces.pypitui.wrapped_input import WrappedInput
+from alfred.interfaces.pypitui.wrapped_input import WrappedInput
 
 
 class TestInputHooks:

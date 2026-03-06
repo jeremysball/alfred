@@ -1,7 +1,7 @@
 """Tests for fuzzy matching utility."""
 
 
-from src.interfaces.pypitui.fuzzy import fuzzy_match
+from alfred.interfaces.pypitui.fuzzy import fuzzy_match
 
 
 class TestFuzzyMatch:

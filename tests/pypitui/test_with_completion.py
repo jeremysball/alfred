@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 from pypitui import TUI, MockTerminal
 
-from src.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
-from src.interfaces.pypitui.wrapped_input import WrappedInput
+from alfred.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
+from alfred.interfaces.pypitui.wrapped_input import WrappedInput
 
 
 class TestWithCompletionFluentAPI:

@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from src.cron.scheduler import CronScheduler
-from src.cron.store import CronStore
-from src.tools.schedule_job import ScheduleJobTool
+from alfred.cron.scheduler import CronScheduler
+from alfred.cron.store import CronStore
+from alfred.tools.schedule_job import ScheduleJobTool
 
 
 @pytest.fixture

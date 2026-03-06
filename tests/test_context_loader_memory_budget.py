@@ -1,8 +1,8 @@
 """Tests for ContextLoader passing memory_budget from config to ContextBuilder."""
 
-from src.config import Config
-from src.context import ContextLoader
-from src.search import MemorySearcher
+from alfred.config import Config
+from alfred.context import ContextLoader
+from alfred.search import MemorySearcher
 
 
 class TestContextLoaderMemoryBudget:

@@ -3,8 +3,8 @@
 import asyncio
 from datetime import UTC, datetime
 
-from src.cron.executor import ExecutionContext, ExecutionResult, JobExecutor
-from src.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
+from alfred.cron.executor import ExecutionContext, ExecutionResult, JobExecutor
+from alfred.cron.models import ExecutionRecord, ExecutionStatus, Job, ResourceLimits
 
 
 class TestExecutionContext:

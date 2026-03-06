@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.templates import TemplateManager
+from alfred.templates import TemplateManager
 
 
 class TestTemplateManagerInit:
@@ -376,7 +376,7 @@ class TestIntegrationWithPlaceholders:
 
     def test_loaded_templates_can_resolve_placeholders(self, tmp_path: Path) -> None:
         """Templates loaded by TemplateManager work with placeholders."""
-        from src.placeholders import resolve_file_includes
+        from alfred.placeholders import resolve_file_includes
 
         manager = TemplateManager(tmp_path)
         # Ensure prompts exist for include resolution

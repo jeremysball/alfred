@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.search import ContextBuilder, MemorySearcher
-from src.session import Message, Role, ToolCallRecord
+from alfred.search import ContextBuilder, MemorySearcher
+from alfred.session import Message, Role, ToolCallRecord
 
 
 class TestToolCallsContextConfig:
@@ -14,7 +14,7 @@ class TestToolCallsContextConfig:
 
     def test_tool_calls_config_defaults(self):
         """Test that tool calls config has sensible defaults."""
-        from src.config import Config
+        from alfred.config import Config
 
         # Mock the required fields
         config = MagicMock(spec=Config)

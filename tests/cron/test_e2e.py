@@ -6,8 +6,8 @@ These complement the integration tests by focusing on full stack scenarios.
 
 import pytest
 
-from src.cron.scheduler import CronScheduler
-from src.cron.store import CronStore
+from alfred.cron.scheduler import CronScheduler
+from alfred.cron.store import CronStore
 
 
 @pytest.fixture

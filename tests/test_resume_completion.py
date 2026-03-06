@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 def test_session_id_provider_returns_matching_sessions():
     """Test that _session_id_provider returns session IDs matching partial input."""
-    from src.interfaces.pypitui.tui import AlfredTUI
+    from alfred.interfaces.pypitui.tui import AlfredTUI
 
     # Mock Alfred and session manager
     mock_alfred = MagicMock()
@@ -44,7 +44,7 @@ def test_session_id_provider_returns_matching_sessions():
 
 def test_session_id_provider_returns_all_if_empty_partial():
     """Test that empty partial returns all sessions (limited to 5)."""
-    from src.interfaces.pypitui.tui import AlfredTUI
+    from alfred.interfaces.pypitui.tui import AlfredTUI
 
     # Mock Alfred and session manager
     mock_alfred = MagicMock()
@@ -79,7 +79,7 @@ def test_session_id_provider_returns_all_if_empty_partial():
 
 def test_session_id_provider_limits_to_5_results():
     """Test that provider limits results to 5."""
-    from src.interfaces.pypitui.tui import AlfredTUI
+    from alfred.interfaces.pypitui.tui import AlfredTUI
 
     # Mock Alfred and session manager
     mock_alfred = MagicMock()
@@ -106,7 +106,7 @@ def test_session_id_provider_limits_to_5_results():
 
 def test_session_id_provider_returns_empty_if_wrong_prefix():
     """Test that provider returns empty list if text doesn't start with /resume."""
-    from src.interfaces.pypitui.tui import AlfredTUI
+    from alfred.interfaces.pypitui.tui import AlfredTUI
 
     # Mock Alfred
     mock_alfred = MagicMock()
@@ -122,7 +122,7 @@ def test_session_id_provider_returns_empty_if_wrong_prefix():
 
 def test_session_id_provider_uses_fuzzy_matching():
     """Test that provider uses fuzzy matching for session IDs."""
-    from src.interfaces.pypitui.tui import AlfredTUI
+    from alfred.interfaces.pypitui.tui import AlfredTUI
 
     # Mock Alfred and session manager
     mock_alfred = MagicMock()
@@ -150,7 +150,7 @@ def test_session_id_provider_uses_fuzzy_matching():
 
 def test_session_id_provider_is_case_insensitive():
     """Test that matching is case-insensitive."""
-    from src.interfaces.pypitui.tui import AlfredTUI
+    from alfred.interfaces.pypitui.tui import AlfredTUI
 
     # Mock Alfred and session manager
     mock_alfred = MagicMock()

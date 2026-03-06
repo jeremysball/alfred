@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.config import Config
+from alfred.config import Config
 
 
 # Check if sentence-transformers is available
@@ -18,7 +18,7 @@ class TestEmbeddingProviderABC:
 
     def test_cannot_instantiate_directly(self) -> None:
         """EmbeddingProvider should not be instantiable directly."""
-        from src.embeddings.provider import EmbeddingProvider
+        from alfred.embeddings.provider import EmbeddingProvider
 
         with pytest.raises(TypeError):
             EmbeddingProvider()  # type: ignore
@@ -34,7 +34,7 @@ class TestBGEProvider:
     @pytest.fixture
     def provider(self) -> "BGEProvider":
         """Create BGEProvider instance."""
-        from src.embeddings.bge_provider import BGEProvider
+        from alfred.embeddings.bge_provider import BGEProvider
 
         return BGEProvider()
 
@@ -63,7 +63,7 @@ class TestBGEProvider:
     @pytest.mark.asyncio
     async def test_similar_texts_have_high_similarity(self, provider: "BGEProvider") -> None:
         """Similar texts should produce similar embeddings."""
-        from src.embeddings import cosine_similarity
+        from alfred.embeddings import cosine_similarity
 
         emb1 = await provider.embed("The cat sat on the mat")
         emb2 = await provider.embed("A cat is sitting on a mat")
@@ -84,7 +84,7 @@ class TestBGEProvider:
         assert len(embedding) == 768
         # Empty string embedding should be different from random text
         random_emb = await provider.embed("xyz123random")
-        from src.embeddings import cosine_similarity
+        from alfred.embeddings import cosine_similarity
 
         sim = cosine_similarity(embedding, random_emb)
         # They shouldn't be identical
@@ -100,7 +100,7 @@ class TestBGEProviderSingleton:
 
     def test_get_model_returns_same_instance(self) -> None:
         """Multiple calls should return same model instance."""
-        from src.embeddings.bge_provider import get_model
+        from alfred.embeddings.bge_provider import get_model
 
         model1 = get_model()
         model2 = get_model()
@@ -109,7 +109,7 @@ class TestBGEProviderSingleton:
 
     def test_provider_uses_singleton(self) -> None:
         """Provider should use singleton model."""
-        from src.embeddings.bge_provider import BGEProvider, get_model
+        from alfred.embeddings.bge_provider import BGEProvider, get_model
 
         provider = BGEProvider()
         # Access internal model reference
@@ -125,7 +125,7 @@ class TestOpenAIProvider:
     @pytest.fixture
     def provider(self, mock_config: Config) -> "OpenAIProvider":
         """Create OpenAIProvider instance with mock config."""
-        from src.embeddings.openai_provider import OpenAIProvider
+        from alfred.embeddings.openai_provider import OpenAIProvider
 
         return OpenAIProvider(mock_config)
 
@@ -139,8 +139,8 @@ class TestProviderFactory:
 
     def test_create_local_provider(self, mock_config: Config) -> None:
         """Should create BGEProvider when provider='local'."""
-        from src.embeddings import create_provider
-        from src.embeddings.bge_provider import BGEProvider
+        from alfred.embeddings import create_provider
+        from alfred.embeddings.bge_provider import BGEProvider
 
         # Modify config to use local
         mock_config.embedding_provider = "local"
@@ -152,8 +152,8 @@ class TestProviderFactory:
 
     def test_create_openai_provider(self, mock_config: Config) -> None:
         """Should create OpenAIProvider when provider='openai'."""
-        from src.embeddings import create_provider
-        from src.embeddings.openai_provider import OpenAIProvider
+        from alfred.embeddings import create_provider
+        from alfred.embeddings.openai_provider import OpenAIProvider
 
         mock_config.embedding_provider = "openai"
 
@@ -164,8 +164,8 @@ class TestProviderFactory:
 
     def test_default_is_openai(self) -> None:
         """Should default to OpenAI if provider not specified."""
-        from src.embeddings import create_provider
-        from src.embeddings.openai_provider import OpenAIProvider
+        from alfred.embeddings import create_provider
+        from alfred.embeddings.openai_provider import OpenAIProvider
 
         # Create mock config without embedding_provider
         class MockConfigMinimal:
