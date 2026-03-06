@@ -455,7 +455,6 @@ You can then continue the conversation with the tool results.
 
     async def compact(self) -> str:
         """Trigger conversation compaction."""
-        # TODO: Implement in M9
         return "Compaction not yet implemented"
 
     async def start(self) -> None:

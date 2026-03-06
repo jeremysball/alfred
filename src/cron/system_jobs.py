@@ -29,7 +29,7 @@ async def run():
     """Check sessions and trigger compaction for those ready."""
     print("Running session TTL check")
 
-    # TODO: Query session store for sessions ready to compact
+    # Query session store for sessions ready to compact
     # For now, just log that we ran
     print("Session TTL check completed")
 ''',

@@ -1,29 +1,21 @@
-"""Session storage for conversations (PRD #53).
+"""Unified session manager using SQLiteStore (PRD #109 M2/M5).
 
-Persistent session system with per-session folders containing
-messages with embeddings. Supports both Telegram (thread ID as session)
-and CLI (UUID sessions with /new, /resume).
-
-File structure:
-    data/sessions/
-    ├── current.json             # CLI current session_id
-    └── {session_id}/
-        ├── meta.json            # Session metadata
-        ├── current.jsonl        # Recent messages (loaded for context)
-        └── archive.jsonl        # Older messages (post-compaction)
+Replaces SessionStorage with SQLiteStore for persistence.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal
+from pathlib import Path
+from typing import Any, Literal
 
-if TYPE_CHECKING:
-    from src.session_storage import SessionStorage
+from src.storage.sqlite import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
@@ -38,17 +30,7 @@ class Role(Enum):
 
 @dataclass
 class ToolCallRecord:
-    """Record of a tool call execution within a message.
-
-    Attributes:
-        tool_call_id: Unique identifier for this tool call
-        tool_name: Name of the tool (e.g., "bash", "read")
-        arguments: Dictionary of arguments passed to the tool
-        output: Complete output from the tool execution
-        status: Execution status ("success" or "error")
-        insert_position: Character position in message.content where tool occurred
-        sequence: Ordering when multiple tools at same position
-    """
+    """Record of a tool call execution within a message."""
 
     tool_call_id: str
     tool_name: str
@@ -63,33 +45,27 @@ class ToolCallRecord:
 class Message:
     """Single exchange turn with optional embedding and token counts."""
 
-    idx: int  # Position in file (local to current.jsonl or archive.jsonl)
+    idx: int
     role: Role
     content: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     embedding: list[float] | None = None
-    input_tokens: int = 0  # Actual input tokens from LLM usage (for user messages)
-    output_tokens: int = 0  # Actual output tokens from LLM usage (for assistant messages)
-    cached_tokens: int = 0  # Cache read tokens from LLM usage
-    reasoning_tokens: int = 0  # Reasoning tokens from LLM usage
-    tool_calls: list[ToolCallRecord] | None = None  # Tool calls made during this message
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_tokens: int = 0
+    reasoning_tokens: int = 0
+    tool_calls: list[ToolCallRecord] | None = None
 
 
 @dataclass
 class SessionMeta:
-    """Session metadata stored in meta.json."""
+    """Session metadata."""
 
     session_id: str
     created_at: datetime
     last_active: datetime
     status: Literal["active", "idle"]
-    current_count: int = 0  # Messages in current.jsonl
-    archive_count: int = 0  # Messages in archive.jsonl
-
-    @property
-    def message_count(self) -> int:
-        """Total messages across current and archive."""
-        return self.current_count + self.archive_count
+    message_count: int = 0
 
 
 @dataclass
@@ -97,81 +73,160 @@ class Session:
     """In-memory session with loaded messages."""
 
     meta: SessionMeta
-    messages: list[Message] = field(default_factory=list)  # Loaded from current.jsonl
+    messages: list[Message] = field(default_factory=list)
 
 
 class SessionManager:
-    """Singleton manager for CLI sessions.
+    """Singleton session manager using SQLiteStore for persistence.
 
-    Persistent session tracking using SessionStorage.
-    Supports both Telegram (thread ID as session) and CLI (UUID sessions).
+    Replaces the old SessionStorage-based implementation.
     """
 
     _instance: SessionManager | None = None
-    _storage: SessionStorage | None = None  # Set via initialize()
-    _sessions: dict[str, Session] = {}  # Cache of loaded sessions
-    _cli_session_id: str | None = None  # Current CLI session
-    _local_sessions: dict[str, Session] = {}  # Instance-level cache
+    _store: SQLiteStore | None = None
+    _data_dir: Path | None = None
+    _sessions: dict[str, Session] = {}
+    _cli_session_id: str | None = None
 
     def __new__(cls) -> SessionManager:
         """Prevent direct instantiation."""
-        raise RuntimeError("Use SessionManager.get_instance()")
+        raise RuntimeError("Use SessionManager.initialize() or get_instance()")
 
     @classmethod
-    def initialize(cls, storage: SessionStorage) -> None:
-        """Initialize with storage. Must be called before get_instance()."""
-        cls._storage = storage
-        # Load CLI current session if exists
-        cls._cli_session_id = storage.get_cli_current()
+    def initialize(cls, data_dir: Path | None = None) -> SessionManager:
+        """Initialize with SQLiteStore."""
+        if cls._instance is not None:
+            return cls._instance
+
+        from src.data_manager import get_data_dir
+
+        cls._data_dir = data_dir or get_data_dir()
+        db_path = cls._data_dir / "alfred.db"
+        cls._store = SQLiteStore(db_path)
+
+        # Create instance
+        cls._instance = object.__new__(cls)
+        cls._instance._sessions = {}
+
+        # Load CLI current session
+        cls._load_cli_current()
+
+        return cls._instance
 
     @classmethod
     def get_instance(cls) -> SessionManager:
-        """Get or create singleton instance."""
+        """Get singleton instance."""
         if cls._instance is None:
-            if cls._storage is None:
-                raise RuntimeError(
-                    "SessionManager not initialized. Call initialize(storage) first."
-                )
-            # Create instance without calling __new__
-            cls._instance = object.__new__(cls)
-            cls._instance._local_sessions = {}  # Instance-level cache
+            raise RuntimeError("SessionManager not initialized. Call initialize() first.")
         return cls._instance
 
-    @property
-    def storage(self) -> SessionStorage:
-        """Get storage instance."""
-        if SessionManager._storage is None:
-            raise RuntimeError("SessionManager not initialized")
-        return SessionManager._storage
+    @classmethod
+    def _load_cli_current(cls) -> None:
+        """Load CLI current session from file (for backwards compatibility)."""
+        if cls._data_dir is None:
+            return
+        current_file = cls._data_dir / "sessions" / "current.json"
+        if current_file.exists():
+            try:
+                data = json.loads(current_file.read_text())
+                cls._cli_session_id = data.get("session_id")
+            except Exception:
+                pass
 
-    # === Session Lifecycle ===
+    @classmethod
+    def _save_cli_current(cls) -> None:
+        """Save CLI current session to file."""
+        if cls._data_dir is None or cls._cli_session_id is None:
+            return
+        current_file = cls._data_dir / "sessions" / "current.json"
+        current_file.parent.mkdir(parents=True, exist_ok=True)
+        current_file.write_text(json.dumps({"session_id": cls._cli_session_id}))
+
+    @property
+    def store(self) -> SQLiteStore:
+        """Get SQLiteStore instance."""
+        if SessionManager._store is None:
+            raise RuntimeError("SessionManager not initialized")
+        return SessionManager._store
+
+    def _generate_session_id(self) -> str:
+        """Generate unique session ID."""
+        return str(uuid.uuid4())
+
+    def session_exists(self, session_id: str) -> bool:
+        """Check if session exists."""
+        try:
+            # Run async check in sync context
+            loop = asyncio.get_event_loop()
+            result = loop.run_until_complete(self.store.load_session(session_id))
+            return result is not None
+        except Exception:
+            return False
 
     def get_or_create_session(self, session_id: str | None = None) -> Session:
-        """Get existing session or create new one.
-
-        For Telegram: session_id is the thread ID.
-        For CLI: session_id is generated if not provided.
-        """
+        """Get existing session or create new one."""
         if session_id is None:
-            # CLI mode - generate new session
-            session_id = self.storage._generate_session_id()
+            session_id = self._generate_session_id()
 
-        # Check cache first
-        if session_id in self._local_sessions:
-            return self._local_sessions[session_id]
+        # Check cache
+        if session_id in self._sessions:
+            return self._sessions[session_id]
 
-        # Try to load from storage
-        session = self.storage.load_session(session_id)
-        if session is None:
-            # Create new session
-            meta = self.storage.create_session(session_id)
-            session = Session(meta=meta, messages=[])
+        # Try to load from store
+        try:
+            loop = asyncio.get_event_loop()
+            data = loop.run_until_complete(self.store.load_session(session_id))
 
-        self._local_sessions[session_id] = session
-        return session
+            if data:
+                # Parse messages
+                messages = []
+                for msg_data in data.get("messages", []):
+                    msg = Message(
+                        idx=msg_data.get("idx", 0),
+                        role=Role(msg_data["role"]),
+                        content=msg_data["content"],
+                        timestamp=datetime.fromisoformat(msg_data["timestamp"]),
+                        embedding=msg_data.get("embedding"),
+                        input_tokens=msg_data.get("input_tokens", 0),
+                        output_tokens=msg_data.get("output_tokens", 0),
+                        tool_calls=msg_data.get("tool_calls"),
+                    )
+                    messages.append(msg)
+
+                meta = SessionMeta(
+                    session_id=session_id,
+                    created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
+                    last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
+                    status="active",
+                    message_count=len(messages),
+                )
+                session = Session(meta=meta, messages=messages)
+            else:
+                # Create new session
+                meta = SessionMeta(
+                    session_id=session_id,
+                    created_at=datetime.now(UTC),
+                    last_active=datetime.now(UTC),
+                    status="active",
+                )
+                session = Session(meta=meta, messages=[])
+
+            self._sessions[session_id] = session
+            return session
+
+        except Exception as e:
+            logger.error(f"Error loading session {session_id}: {e}")
+            # Create new session on error
+            meta = SessionMeta(
+                session_id=session_id,
+                created_at=datetime.now(UTC),
+                last_active=datetime.now(UTC),
+                status="active",
+            )
+            return Session(meta=meta, messages=[])
 
     def get_current_cli_session(self) -> Session | None:
-        """Get current CLI session, loading from storage if needed."""
+        """Get current CLI session."""
         if SessionManager._cli_session_id is None:
             return None
         return self.get_or_create_session(SessionManager._cli_session_id)
@@ -179,62 +234,63 @@ class SessionManager:
     def set_current_cli_session(self, session_id: str) -> None:
         """Set current CLI session."""
         SessionManager._cli_session_id = session_id
-        self.storage.set_cli_current(session_id)
+        self._save_cli_current()
 
     def new_session(self) -> Session:
-        """Create a new CLI session and set as current."""
-        session = self.get_or_create_session()  # Generates new ID
+        """Create new CLI session."""
+        session = self.get_or_create_session()
         self.set_current_cli_session(session.meta.session_id)
         return session
 
     def resume_session(self, session_id: str) -> Session:
-        """Resume an existing session."""
-        if not self.storage.session_exists(session_id):
+        """Resume existing session."""
+        if not self.session_exists(session_id):
             raise ValueError(f"Session {session_id} not found")
         session = self.get_or_create_session(session_id)
         self.set_current_cli_session(session_id)
         return session
 
     def list_sessions(self) -> list[SessionMeta]:
-        """List all sessions with metadata."""
-        metas = []
-        for session_id in self.storage.list_sessions():
-            meta = self.storage.get_meta(session_id)
-            if meta:
-                metas.append(meta)
-        # Sort by last_active descending
-        metas.sort(key=lambda m: m.last_active, reverse=True)
-        return metas
+        """List all sessions."""
+        try:
+            loop = asyncio.get_event_loop()
+            sessions_data = loop.run_until_complete(self.store.list_sessions(limit=1000))
 
-    # === Backwards-compatible API (for existing code) ===
+            metas = []
+            for data in sessions_data:
+                meta = SessionMeta(
+                    session_id=data["session_id"],
+                    created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
+                    last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
+                    status="active",
+                    message_count=len(data.get("messages", [])),
+                )
+                metas.append(meta)
+
+            # Sort by last_active descending
+            metas.sort(key=lambda m: m.last_active, reverse=True)
+            return metas
+
+        except Exception as e:
+            logger.error(f"Error listing sessions: {e}")
+            return []
 
     def start_session(self) -> Session:
-        """Create new CLI session. Backwards-compatible."""
+        """Create new CLI session (backwards-compatible)."""
         return self.new_session()
 
     def add_message(self, role: str, content: str, session_id: str | None = None) -> None:
-        """Append message to session.
-
-        Args:
-            role: "user", "assistant", or "system"
-            content: Message content
-            session_id: Optional session ID. If None, uses current CLI session.
-
-        Raises:
-            RuntimeError: If no active session exists
-        """
+        """Append message to session."""
         session: Session | None
         if session_id:
-            # Telegram mode - get specific session
             session = self.get_or_create_session(session_id)
         else:
-            # CLI mode - get current CLI session
             session = self.get_current_cli_session()
             if session is None:
                 raise RuntimeError("No active session")
 
         role_enum = Role(role)
-        idx = session.meta.current_count
+        idx = len(session.messages)
         message = Message(
             idx=idx,
             role=role_enum,
@@ -243,48 +299,29 @@ class SessionManager:
         )
         session.messages.append(message)
         session.meta.last_active = datetime.now(UTC)
-        session.meta.current_count += 1
+        session.meta.message_count = len(session.messages)
 
-        # Persist to storage (spawn background task if event loop running)
-        self._spawn_persist_task(session.meta.session_id, message)
+        # Persist
+        self._spawn_persist_task(session.meta.session_id, session.messages)
 
     def get_session_messages(self, session_id: str | None = None) -> list[Message]:
-        """Get all messages from a session.
-
-        Args:
-            session_id: Optional session ID. If None, uses current CLI session.
-
-        Raises:
-            RuntimeError: If no active session exists
-        """
+        """Get all messages from a session."""
         session: Session | None
         if session_id:
-            # Telegram mode - get specific session
             session = self.get_or_create_session(session_id)
             return list(session.messages)
         else:
-            # CLI mode - get current CLI session
             session = self.get_current_cli_session()
             if session is None:
                 raise RuntimeError("No active session")
             return list(session.messages)
 
     def get_messages(self) -> list[Message]:
-        """Get all messages from current CLI session. Backwards-compatible."""
+        """Get messages from current CLI session."""
         return self.get_session_messages()
 
     def get_messages_for_context(self, session_id: str | None = None) -> list[tuple[str, str]]:
-        """Get session messages formatted for context injection.
-
-        Returns messages as (role, content) tuples, excluding the most
-        recent user message (which is the current query being processed).
-
-        Args:
-            session_id: Optional session ID. If None, uses current CLI session.
-
-        Returns:
-            List of (role, content) tuples for session history.
-        """
+        """Get messages formatted for context injection."""
         if session_id:
             messages = self.get_session_messages(session_id)
         else:
@@ -292,60 +329,63 @@ class SessionManager:
                 return []
             messages = self.get_messages()
 
-        # Convert to (role, content) tuples, excluding the most recent user message
         result = []
-        for msg in messages[:-1] if messages else []:  # Exclude last (current) message
+        for msg in messages[:-1] if messages else []:
             result.append((msg.role.value, msg.content))
         return result
 
     def get_messages_with_tools_for_context(self, session_id: str | None = None) -> list[Message]:
-        """Get full session messages with tool_calls for context injection.
-
-        Returns full Message objects (may have tool_calls attribute),
-        excluding the most recent user message.
-
-        Args:
-            session_id: Optional session ID. If None, uses current CLI session.
-
-        Returns:
-            List of Message objects.
-        """
+        """Get full messages with tool_calls for context injection."""
         if session_id:
             messages = self.get_session_messages(session_id)
         else:
             if not self.has_active_session():
                 return []
             messages = self.get_messages()
-
-        # Return full message objects, excluding the most recent user message
         return list(messages[:-1] if messages else [])
 
-    def _spawn_persist_task(self, session_id: str, message: Message) -> None:
-        """Spawn background task to persist message (if event loop running)."""
+    def _spawn_persist_task(self, session_id: str, messages: list[Message]) -> None:
+        """Spawn background task to persist messages."""
         try:
             loop = asyncio.get_running_loop()
-            # Get the session to save its meta (with updated counts)
-            session = self._local_sessions.get(session_id)
-            loop.create_task(self._persist_message(session_id, message, session))
+            loop.create_task(self._persist_messages(session_id, messages))
         except RuntimeError:
-            # No event loop running - message stays in memory
-            # Will be persisted on next message or shutdown
-            logger.debug(
-                "could not find a running event loop. message stays in memory "
-                "and will be persisted on next message or shutdown"
-            )
-            pass
+            # No event loop - persist synchronously
+            asyncio.run(self._persist_messages(session_id, messages))
 
-    async def _persist_message(
-        self, session_id: str, message: Message, session: Session | None = None
-    ) -> None:
-        """Persist message to storage and spawn embedding task."""
-        await self.storage.append_message(session_id, message)
-        # Save the in-memory meta (with updated counts) not stale disk version
-        if session is not None:
-            self.storage.save_meta(session.meta)
-        # Spawn embedding task
-        self.storage.spawn_embed_task(session_id, message.idx, message.content)
+    async def _persist_messages(self, session_id: str, messages: list[Message]) -> None:
+        """Persist messages to SQLiteStore."""
+        try:
+            messages_data = []
+            for msg in messages:
+                msg_dict = {
+                    "idx": msg.idx,
+                    "role": msg.role.value,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat(),
+                    "input_tokens": msg.input_tokens,
+                    "output_tokens": msg.output_tokens,
+                    "cached_tokens": msg.cached_tokens,
+                    "reasoning_tokens": msg.reasoning_tokens,
+                }
+                if msg.embedding:
+                    msg_dict["embedding"] = msg.embedding
+                if msg.tool_calls:
+                    msg_dict["tool_calls"] = [
+                        {
+                            "tool_call_id": tc.tool_call_id,
+                            "tool_name": tc.tool_name,
+                            "arguments": tc.arguments,
+                            "output": tc.output,
+                            "status": tc.status,
+                        }
+                        for tc in msg.tool_calls
+                    ]
+                messages_data.append(msg_dict)
+
+            await self.store.save_session(session_id, messages_data)
+        except Exception as e:
+            logger.error(f"Error persisting session {session_id}: {e}")
 
     def update_message_tokens(
         self,
@@ -356,16 +396,7 @@ class SessionManager:
         reasoning_tokens: int = 0,
         session_id: str | None = None,
     ) -> None:
-        """Update token counts for a specific message.
-
-        Args:
-            idx: Message index (position in current.jsonl)
-            input_tokens: Input token count to set
-            output_tokens: Output token count to set
-            cached_tokens: Cache read token count to set
-            reasoning_tokens: Reasoning token count to set
-            session_id: Optional session ID. If None, uses current CLI session.
-        """
+        """Update token counts for a message."""
         session: Session | None
         if session_id:
             session = self.get_or_create_session(session_id)
@@ -374,7 +405,6 @@ class SessionManager:
             if session is None:
                 return
 
-        # Find and update the message
         for msg in session.messages:
             if msg.idx == idx:
                 msg.input_tokens = input_tokens
@@ -383,47 +413,13 @@ class SessionManager:
                 msg.reasoning_tokens = reasoning_tokens
                 break
 
-        # Persist the updated token counts
-        self._spawn_token_update_task(
-            session.meta.session_id,
-            idx,
-            input_tokens,
-            output_tokens,
-            cached_tokens,
-            reasoning_tokens,
-        )
-
-    def _spawn_token_update_task(
-        self,
-        session_id: str,
-        idx: int,
-        input_tokens: int,
-        output_tokens: int,
-        cached_tokens: int = 0,
-        reasoning_tokens: int = 0,
-    ) -> None:
-        """Spawn background task to persist token counts."""
-        try:
-            loop = asyncio.get_running_loop()
-            # Token updates go to sidecar file (append-only, no race condition)
-            loop.create_task(
-                self.storage.update_message_tokens(
-                    session_id,
-                    idx,
-                    input_tokens,
-                    output_tokens,
-                    cached_tokens,
-                    reasoning_tokens,
-                )
-            )
-        except RuntimeError:
-            # No event loop running - will be persisted on next message
-            pass
+        # Re-persist
+        self._spawn_persist_task(session.meta.session_id, session.messages)
 
     def clear_session(self) -> None:
-        """Clear current CLI session reference (doesn't delete)."""
+        """Clear current CLI session reference."""
         SessionManager._cli_session_id = None
-        self._local_sessions.clear()
+        self._sessions.clear()
 
     def has_active_session(self) -> bool:
         """Check if there's an active CLI session."""

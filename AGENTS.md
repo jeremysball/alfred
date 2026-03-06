@@ -416,3 +416,73 @@ When implementing a feature or PRD phase, create an extremely granular checklist
 ```
 
 **Store in:** `prds/execution-plan-<feature>.md`
+
+### 12. Always Use uv, Never pip
+
+This project uses `uv` for all Python package management. Never use `pip`.
+
+**Wrong:**
+```bash
+pip install requests
+pip install -r requirements.txt
+python -m pip install pytest
+```
+
+**Right:**
+```bash
+uv add requests
+uv sync
+uv add --dev pytest
+```
+
+**For running commands:**
+```bash
+# Wrong
+python src/script.py
+pytest tests/
+
+# Right
+uv run python src/script.py
+uv run pytest tests/
+```
+
+### 13. Use MagicMock Over monkeypatch
+
+When mocking in tests, prefer `unittest.mock.MagicMock` over pytest's `monkeypatch`.
+
+**Why:**
+- MagicMock provides better introspection and assertion methods
+- More explicit about what is being mocked
+- Easier to verify call counts, arguments, and return values
+- Consistent with Python standard library patterns
+
+**Wrong:**
+```python
+def test_something(monkeypatch):
+    monkeypatch.setattr("module.function", lambda: "mocked")
+    result = do_something()
+    assert result == "mocked"
+```
+
+**Right:**
+```python
+from unittest.mock import MagicMock, patch
+
+def test_something():
+    mock_func = MagicMock(return_value="mocked")
+    with patch("module.function", mock_func):
+        result = do_something()
+        assert result == "mocked"
+        mock_func.assert_called_once()
+```
+
+**For async code:**
+```python
+from unittest.mock import AsyncMock, patch
+
+def test_async_function():
+    mock_async = AsyncMock(return_value={"data": "test"})
+    with patch("module.async_func", mock_async):
+        result = await do_async_thing()
+        mock_async.assert_awaited_once_with(expected_arg)
+```
