@@ -1,8 +1,8 @@
 # PRD: Great Consolidation - Cleanup Architectural Cruft
 
-**GitHub Issue**: #109  
-**Priority**: High  
-**Status**: In Progress - M1 Complete  
+**GitHub Issue**: #109
+**Priority**: High
+**Status**: In Progress - M1 & M7 Complete  
 
 ## Problem Statement
 
@@ -226,7 +226,7 @@ Storage Drivers:
 
 ---
 
-### M7: Clean Up TODOs and Orphaned Code
+### M7: Clean Up TODOs and Orphaned Code ✅ COMPLETE
 
 **Goal**: Address 5 TODOs and remove orphaned patterns.
 
@@ -258,6 +258,7 @@ Storage Drivers:
 |------|----------|-----------|
 | 2026-03-05 | Delete cli.py without deprecation | Per AGENTS.md Rule 3: "Prefer clean deletion over preservation." File is dead code. |
 | 2026-03-05 | Keep dog-fooding-notes.txt | User requested to retain for reference. Minimal impact on codebase health. |
+| 2026-03-05 | Keep @async_command decorator | Investigation showed it's actively used on 6 async CLI commands. PRD was mistaken - decorator is essential, not dead code. |
 | TBD | Merge SessionStorage into SessionManager | Both manage session lifecycle; separation adds indirection without benefit. |
 | TBD | Keep SessionContextBuilder separate | Different responsibility (prompt assembly vs. lifecycle management). |
 | TBD | Complete FAISS before deleting JSONL | User data preservation is critical. Migration path must be tested. |
