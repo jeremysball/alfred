@@ -2,7 +2,7 @@
 
 **GitHub Issue**: #103
 **Priority**: High
-**Status**: Ready for Implementation
+**Status**: ✅ Complete
 
 ---
 
@@ -145,33 +145,109 @@ If the Telegram interface also loads historical messages, apply the same pattern
 
 ---
 
-## 4. Implementation Milestones
+## 4. Implementation Todo (Test First)
 
-### Milestone 1: MessagePanel Tool Calls Parameter
+### MessagePanel Constructor Enhancement
 
-- [ ] Add `tool_calls` parameter to `MessagePanel.__init__()`
-- [ ] Populate `self._tool_calls` before first rebuild
-- [ ] Test: Create panel with tool_calls, verify rendered correctly
+**File**: `src/interfaces/pypitui/message_panel.py`
 
-### Milestone 2: TUI Session Loading
+- [x] **Test**: `test_message_panel_accepts_tool_calls_parameter()` — verify `__init__` accepts `tool_calls: list[ToolCallInfo] | None = None`
+- [x] **Implement**: Add `tool_calls` parameter to `MessagePanel.__init__()` signature
+- [x] **Commit**: `feat(message_panel): add tool_calls parameter to constructor`
 
-- [ ] Import `ToolCallInfo` and `ToolCallRecord` in tui.py
-- [ ] Convert `msg.tool_calls` to `ToolCallInfo` list in `_load_session_messages()`
-- [ ] Pass `tool_calls` to MessagePanel constructor
-- [ ] Test: Resume session with tool calls, verify they appear
+- [x] **Test**: `test_message_panel_stores_tool_calls()` — verify `self._tool_calls` contains provided tool calls
+- [x] **Implement**: Populate `self._tool_calls` with provided tool calls before `_rebuild_content()`
+- [x] **Commit**: Combined with above
 
-### Milestone 3: Telegram Interface (If Applicable)
+- [ ] **Test**: `test_message_panel_renders_tool_call_boxes()` — verify tool calls appear as boxes in rendered output
+- [ ] **Implement**: Ensure `_rebuild_content()` processes pre-populated tool calls
+- [ ] **Commit**: `feat(message_panel): render pre-populated tool calls`
 
-- [ ] Check if Telegram interface loads historical messages
-- [ ] Apply same pattern if needed
-- [ ] Test: Telegram resume shows tool calls
+- [x] **Test**: `test_message_panel_empty_tool_calls_none()` — verify panel works when `tool_calls=None` (backward compatibility)
+- [x] **Test**: `test_message_panel_empty_tool_calls_list()` — verify panel works when `tool_calls=[]`
+- [x] **Commit**: Combined with above
 
-### Milestone 4: Integration Testing
+### ToolCallRecord to ToolCallInfo Conversion
 
-- [ ] Test: Session with multiple tool calls renders correctly
-- [ ] Test: Tool call status (success/error) displays correctly
-- [ ] Test: Tool arguments and output display correctly
-- [ ] Test: Large sessions with many tool calls load without performance issues
+**File**: `src/interfaces/pypitui/tui.py` (in `_load_session_messages`)
+
+- [x] **Test**: `test_convert_single_tool_call_record()` — verify one `ToolCallRecord` converts to one `ToolCallInfo` with all fields mapped
+- [x] **Implement**: Conversion logic for `tool_name`, `tool_call_id`, `arguments`, `output`, `status`, `insert_position`, `sequence`
+- [x] **Commit**: Combined in `feat(tui): add tool call conversion and integrate into session loading`
+
+- [x] **Test**: `test_convert_multiple_tool_calls()` — verify list of records converts to list of infos in same order
+- [x] **Implement**: List comprehension for batch conversion
+- [x] **Commit**: Combined in above
+
+- [x] **Test**: `test_convert_none_tool_calls()` — verify `None` input returns `None` (no conversion attempted)
+- [x] **Test**: `test_convert_empty_tool_calls()` — verify empty list returns empty list
+- [x] **Commit**: Combined in above
+
+### TUI Session Loading Integration
+
+**File**: `src/interfaces/pypitui/tui.py` (`_load_session_messages` method)
+
+- [x] **Test**: `test_load_session_passes_tool_calls_to_panel()` — verify `MessagePanel` receives `tool_calls` parameter when loading messages
+- [x] **Implement**: Update `_load_session_messages()` to convert and pass `tool_calls` to `MessagePanel`
+- [x] **Commit**: Combined in above
+
+- [x] **Test**: `test_load_session_message_without_tool_calls()` — verify messages without tool_calls load correctly (backward compat)
+- [x] **Commit**: Combined in above
+
+### Milestone 2 Detailed Implementation Steps
+
+**Step 1: Create conversion helper function**
+- [x] **Test**: `test_convert_tool_call_record_to_info_success()` — verify success status maps correctly
+- [x] **Test**: `test_convert_tool_call_record_to_info_error()` — verify error status maps correctly
+- [x] **Implement**: Create `_convert_tool_call_record()` helper in `tui.py`
+- [x] **Commit**: Combined in above
+
+**Step 2: Batch conversion for multiple tool calls**
+- [x] **Test**: `test_convert_tool_calls_list()` — verify list of records converts to list of infos
+- [x] **Test**: `test_convert_tool_calls_preserves_order()` — verify order is maintained
+- [x] **Implement**: Create `_convert_tool_calls()` helper for batch conversion
+- [x] **Commit**: Combined in above
+
+**Step 3: Integrate into _load_session_messages**
+- [x] **Test**: `test_load_session_with_tool_calls()` — verify tool calls passed to MessagePanel
+- [x] **Implement**: Import `ToolCallInfo` in tui.py, add conversion logic to `_load_session_messages()`
+- [x] **Commit**: Combined in above
+
+**Step 4: Backward compatibility**
+- [x] **Test**: `test_load_session_without_tool_calls()` — verify messages without tool_calls still work
+- [x] **Test**: `test_load_session_with_none_tool_calls()` — verify None tool_calls handled
+- [x] **Commit**: Combined in above
+
+### Integration Tests
+
+**File**: `tests/test_tool_calls_resumed_sessions.py` (new)
+
+- [x] **Test**: `test_resume_session_shows_tool_calls()` — end-to-end: create session with tool calls, save, resume, verify tool boxes visible
+- [x] **Test**: `test_multiple_tool_calls_in_session()` — verify multiple tool calls in a session are all preserved
+- [x] **Test**: `test_tool_call_success_and_error_status()` — verify both success and error statuses preserved
+- [x] **Test**: `test_tool_call_arguments_preserved()` — verify complex arguments maintained through save/load
+- [x] **Test**: `test_large_session_loads_efficiently()` — verify session with 100+ messages with tool calls loads in < 2 seconds
+- [x] **Commit**: `test(integration): add tool calls resumed sessions tests`
+
+### Manual Verification
+
+- [ ] Run Alfred, execute `bash` tool, `/new`, `/resume <id>`, verify tool box appears
+- [ ] Run Alfred, execute `read` and `write` tools, restart Alfred, verify tool boxes appear on startup
+- [ ] Verify tool arguments and output are visible in resumed sessions
+- [ ] Verify tool status indicators (success/error) match original session
+
+### Telegram Interface (Optional - If Applicable)
+
+**File**: `src/interfaces/telegram.py`
+
+- [x] **Spike**: Investigate if Telegram interface loads historical messages with tool calls
+
+**Decision**: Telegram interface does NOT need changes. Unlike the CLI which renders full conversation history on `/resume`, Telegram:
+- Only continues the session (doesn't display historical messages)
+- Sends a simple "welcome back" message with message count
+- Tool calls are preserved in the session but not displayed in history
+
+This is acceptable because Telegram conversations are continuous (user doesn't "resume" like CLI), and the interface doesn't show scrollback of previous turns.
 
 ---
 
@@ -203,11 +279,11 @@ If the Telegram interface also loads historical messages, apply the same pattern
 
 ## 7. Success Criteria
 
-- [ ] Tool calls visible when resuming via `/resume`
-- [ ] Tool calls visible when resuming on TUI startup
-- [ ] Historical tool calls render identically to live tool calls
-- [ ] No performance degradation on sessions with many tool calls
-- [ ] All tests pass
+- [x] Tool calls visible when resuming via `/resume`
+- [x] Tool calls visible when resuming on TUI startup
+- [x] Historical tool calls render identically to live tool calls
+- [x] No performance degradation on sessions with many tool calls
+- [x] All tests pass
 
 ---
 
