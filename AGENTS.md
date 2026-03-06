@@ -486,3 +486,7 @@ def test_async_function():
         result = await do_async_thing()
         mock_async.assert_awaited_once_with(expected_arg)
 ```
+
+### 14. Do The Right Thing, Always
+
+NEVER take shortcuts. ALWAYS do the right thing. Do not ever say "the easier thing" or "the simpler thing." Do not worry about complexity or time in development (but do so in your algorithms!). The human will worry about that. Just do what is right. The hard things. The graft. Do not be lazy.
