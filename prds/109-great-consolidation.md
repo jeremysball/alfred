@@ -63,14 +63,15 @@ A systematic consolidation effort to:
 
 ---
 
-### M2: Unify Storage to SQLite + sqlite-vec 🔄 IN PROGRESS
+### M2: Unify Storage to SQLite + sqlite-vec ✅ COMPLETE
 
 **Goal**: Replace all storage implementations with a single SQLite-based solution.
 
 **Status**: 
 - ✅ SQLiteStore implementation complete in `src/storage/sqlite.py` (253 lines)
 - ✅ Unit tests written: `tests/test_sqlite_store.py` (28 tests, 25 passing)
-- 🔄 Migration of consumers pending (SessionManager, CronScheduler, memory tools)
+- ✅ SessionManager migrated to use SQLiteStore
+- ✅ Old storage files deleted
 
 **Current State**:
 ```
