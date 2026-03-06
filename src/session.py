@@ -129,6 +129,10 @@ class SessionMeta:
     status: Literal["active", "idle"]
     current_count: int = 0  # Messages in current.jsonl
     archive_count: int = 0  # Messages in archive.jsonl
+    # PRD #76: Session summarization tracking
+    first_message_time: datetime | None = None  # Timestamp of first message
+    last_summarized_count: int = 0  # Messages at last summary (0 = never summarized)
+    summary_version: int = 0  # Summary regeneration counter (0 = no summary yet)
 
     @property
     def message_count(self) -> int:

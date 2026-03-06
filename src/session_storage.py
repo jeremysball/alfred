@@ -121,6 +121,9 @@ class SessionStorage:
                 status=data["status"],
                 current_count=data.get("current_count", 0),
                 archive_count=data.get("archive_count", 0),
+                first_message_time=datetime.fromisoformat(data["first_message_time"]) if data.get("first_message_time") else None,
+                last_summarized_count=data.get("last_summarized_count", 0),
+                summary_version=data.get("summary_version", 0),
             )
         except (json.JSONDecodeError, KeyError) as e:
             raise ValueError(f"Invalid meta.json for session {session_id}: {e}") from e
@@ -139,6 +142,9 @@ class SessionStorage:
                     "status": meta.status,
                     "current_count": meta.current_count,
                     "archive_count": meta.archive_count,
+                    "first_message_time": meta.first_message_time.isoformat() if meta.first_message_time else None,
+                    "last_summarized_count": meta.last_summarized_count,
+                    "summary_version": meta.summary_version,
                 },
                 indent=2,
             )
