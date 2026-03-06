@@ -401,6 +401,59 @@ class SessionStorage:
         messages = self.load_messages(session_id)
         return Session(meta=meta, messages=messages)
 
+    # === Summary Storage (PRD #76) ===
+
+    async def store_summary(self, summary: "SessionSummary") -> None:
+        """Store summary to {session_id}/summary.json.
+
+        Overwrites existing summary. Caller is responsible for version
+        management via SessionSummary.version field.
+
+        Args:
+            summary: SessionSummary to persist
+        """
+        from src.session import SessionSummary
+
+        session_dir = self.sessions_dir / summary.session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        summary_path = session_dir / "summary.json"
+
+        # Serialize to JSON
+        data = summary.to_dict()
+        content = json.dumps(data, indent=2)
+
+        # Atomic write: temp file + rename
+        temp_path = summary_path.with_suffix(".tmp")
+        async with aiofiles.open(temp_path, "w") as f:
+            await f.write(content)
+        temp_path.rename(summary_path)
+
+    async def get_summary(self, session_id: str) -> "SessionSummary | None":
+        """Load summary from {session_id}/summary.json.
+
+        Args:
+            session_id: Session ID to load summary for
+
+        Returns:
+            SessionSummary if exists, None otherwise
+
+        Raises:
+            ValueError: If summary.json is corrupted
+        """
+        from src.session import SessionSummary
+
+        summary_path = self.sessions_dir / session_id / "summary.json"
+        if not summary_path.exists():
+            return None
+
+        try:
+            async with aiofiles.open(summary_path) as f:
+                content = await f.read()
+            data = json.loads(content)
+            return SessionSummary.from_dict(data)
+        except (json.JSONDecodeError, KeyError) as e:
+            raise ValueError(f"Invalid summary.json for session {session_id}: {e}") from e
+
     # === Async Embedding Task ===
 
     async def embed_and_update(self, session_id: str, idx: int, content: str) -> None:
