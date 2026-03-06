@@ -171,7 +171,8 @@ class FAISSMemoryStore(MemoryStore):
             return
 
         # Extract all vectors from flat index
-        vectors = self._index.xb.reshape(-1, self._dimension).copy()
+        # type: ignore is needed because mypy/basedpyright doesn't know about faiss structure
+        vectors = self._index.xb.reshape(-1, self._dimension).copy()  # type: ignore
 
         # Create IVF index
         nlist = max(4, int(np.sqrt(len(vectors))))
@@ -179,8 +180,8 @@ class FAISSMemoryStore(MemoryStore):
         ivf_index = faiss.IndexIVFFlat(quantizer, self._dimension, nlist)
 
         # Train on existing vectors
-        ivf_index.train(vectors)
-        ivf_index.add(vectors)
+        ivf_index.train(vectors)  # type: ignore
+        ivf_index.add(vectors)  # type: ignore
 
         self._index = ivf_index
         self._index_type = "ivf"
@@ -203,7 +204,7 @@ class FAISSMemoryStore(MemoryStore):
 
         # Add to FAISS index
         vector = np.array([entry.embedding], dtype=np.float32)
-        self._index.add(vector)
+        self._index.add(vector)  # type: ignore
 
         # Track mapping
         idx = self._next_idx
@@ -241,7 +242,7 @@ class FAISSMemoryStore(MemoryStore):
 
         # Search FAISS
         k = min(top_k, self._index.ntotal)
-        distances, indices = self._index.search(query_vector, k)
+        distances, indices = self._index.search(query_vector, k)  # type: ignore
 
         # Build results
         results: list[MemoryEntry] = []
@@ -348,8 +349,8 @@ class FAISSMemoryStore(MemoryStore):
         self._index = self._create_index(self._index_type)
         if self._index_type == "ivf" and len(vectors) > 0:
             # IVF needs training
-            self._index.train(vectors)
-        self._index.add(vectors)
+            self._index.train(vectors)  # type: ignore
+        self._index.add(vectors)  # type: ignore
 
         # Rebuild mappings
         new_id_to_idx: dict[str, int] = {}
@@ -445,3 +446,116 @@ class FAISSMemoryStore(MemoryStore):
                     entry.embedding = embeddings[i].tolist()
 
         logger.info(f"Loaded FAISS index with {len(self._metadata)} entries")
+
+    async def add_entries(self, entries: list[MemoryEntry]) -> None:
+        """Add multiple memory entries.
+
+        Generates embeddings in batch for better performance.
+        """
+        if not entries:
+            return
+
+        # Generate embeddings for entries that don't have them
+        entries_to_embed = [e for e in entries if e.embedding is None]
+        if entries_to_embed:
+            try:
+                embeddings = await self._provider.embed_batch([e.content for e in entries_to_embed])
+                for entry, embedding in zip(entries_to_embed, embeddings):
+                    entry.embedding = embedding
+            except Exception as e:
+                logger.error(f"Failed to generate embeddings in batch: {e}")
+                raise
+
+        # Add to index and metadata
+        vectors: list[list[float]] = []
+        for entry in entries:
+            if entry.embedding is not None:
+                vectors.append(entry.embedding)
+                idx = self._next_idx
+                self._id_to_idx[entry.entry_id] = idx
+                self._idx_to_id[idx] = entry.entry_id
+                self._metadata[entry.entry_id] = entry
+                self._next_idx += 1
+
+        if vectors:
+            vectors_array = np.array(vectors, dtype=np.float32)
+            self._index.add(vectors_array)  # type: ignore  # type: ignore
+            self._maybe_upgrade_to_ivf()
+
+        logger.debug(f"Added {len(entries)} memories in batch")
+
+    async def prune_expired_memories(self, ttl_days: int = 90, dry_run: bool = False) -> int:
+        """Remove non-permanent memories older than TTL.
+
+        Args:
+            ttl_days: Number of days after which non-permanent memories expire
+            dry_run: If True, return count without deleting
+
+        Returns:
+            Number of memories that would be/were pruned
+        """
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(days=ttl_days)
+        
+        prune_ids: list[str] = []
+        for entry_id, entry in self._metadata.items():
+            if entry_id in self._deleted_ids:
+                continue
+            if not entry.permanent and entry.timestamp < cutoff:
+                prune_ids.append(entry_id)
+
+        if not dry_run and prune_ids:
+            for entry_id in prune_ids:
+                self._deleted_ids.add(entry_id)
+            await self._rebuild_index()
+
+        return len(prune_ids)
+
+    async def update_entry(
+        self,
+        entry_id: str,
+        new_content: str | None = None,
+    ) -> tuple[bool, str]:
+        """Update an existing memory entry.
+
+        If content changes, the embedding is regenerated.
+
+        Args:
+            entry_id: ID of entry to update
+            new_content: New text content (optional)
+
+        Returns:
+            Tuple of (success, message)
+        """
+        if entry_id in self._deleted_ids or entry_id not in self._metadata:
+            return False, f"Memory {entry_id} not found"
+
+        entry = self._metadata[entry_id]
+        
+        if new_content and new_content != entry.content:
+            entry.content = new_content
+            # Re-embed
+            try:
+                entry.embedding = await self._provider.embed(new_content)
+            except Exception as e:
+                logger.error(f"Failed to generate embedding for update: {e}")
+                return False, f"Embedding failed: {e}"
+            
+            # Since vectors can't easily be updated in FAISS, we mark as deleted and re-add
+            self._deleted_ids.add(entry_id)
+            await self._rebuild_index()
+            await self.add(entry)
+            
+        return True, "Memory updated successfully"
+
+    def check_memory_threshold(self, threshold: int = 1000) -> tuple[bool, int]:
+        """Check if memory count exceeds threshold.
+
+        Args:
+            threshold: Maximum allowed memories before warning
+
+        Returns:
+            Tuple of (exceeded: bool, count: int)
+        """
+        count = len([id for id in self._metadata if id not in self._deleted_ids])
+        return count > threshold, count
