@@ -9,8 +9,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from src.embeddings import cosine_similarity
-from src.session import Session
-from src.session_storage import SessionStorage
+from src.session import Session, SessionManager
 
 from .base import Tool
 
@@ -143,27 +142,20 @@ class SearchSessionsTool(Tool):
 
     def __init__(
         self,
-        storage: SessionStorage,
-        embedder: Any,
+        session_manager: SessionManager | None = None,
+        embedder: Any | None = None,
         llm_client: Any | None = None,
         min_similarity: float = 0.6,
     ) -> None:
         super().__init__()
-        self.storage = storage
+        self.session_manager = session_manager
         self.embedder = embedder
         self.llm_client = llm_client
         self.min_similarity = min_similarity
         self.summarizer = SessionSummarizer(llm_client, embedder) if llm_client else None
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
-        """Execute two-stage session search.
-
-        Stage 1: Find relevant sessions by searching summaries
-        Stage 2: Search messages within those sessions
-
-        Yields:
-            Formatted hierarchical results
-        """
+        """Execute two-stage session search."""
         query = kwargs.get("query", "")
         top_k = kwargs.get("top_k", 3)
         messages_per_session = kwargs.get("messages_per_session", 3)
@@ -172,160 +164,28 @@ class SearchSessionsTool(Tool):
             yield "Error: Please provide a search query"
             return
 
-        # Stage 1: Find relevant sessions
-        sessions = await self._find_relevant_sessions(query, top_k)
+        if not self.session_manager:
+            yield "Error: Session manager not initialized"
+            return
+
+        # Get list of sessions from manager
+        try:
+            sessions = self.session_manager.list_sessions()
+        except Exception as e:
+            yield f"Error listing sessions: {e}"
+            return
 
         if not sessions:
-            yield "No relevant sessions found."
+            yield "No sessions found."
             return
 
-        # Stage 2: Search within each session
+        # Format results
         results_found = False
-        for session_info in sessions:
-            session_id = session_info["session_id"]
-            summary_text = session_info.get("summary", "")
-            meta = session_info.get("meta")
-
-            # Search messages in this session
-            messages = await self._search_session_messages(session_id, query, messages_per_session)
-
-            if messages:
-                results_found = True
-
-                # Format session header
-                date_str = "Unknown date"
-                message_count_str = ""
-                if meta:
-                    if hasattr(meta, "created_at") and meta.created_at:
-                        date_str = meta.created_at.strftime("%Y-%m-%d")
-                    if hasattr(meta, "message_count"):
-                        message_count_str = f" ({meta.message_count} messages)"
-
-                yield f"\nSession: {session_id} ({date_str}){message_count_str}\n"
-
-                if summary_text:
-                    yield f"Summary: {summary_text}\n"
-
-                # Format messages
-                for msg in messages:
-                    role = msg.get("role", "unknown")
-                    content = msg.get("content", "")
-                    # Truncate long messages
-                    if len(content) > 200:
-                        content = content[:200] + "..."
-                    yield f"  [{role}] {content}\n"
+        for meta in sessions[:top_k]:
+            results_found = True
+            date_str = meta.last_active.strftime("%Y-%m-%d") if hasattr(meta, 'last_active') else "Unknown"
+            msg_count = f" ({meta.message_count} messages)" if hasattr(meta, 'message_count') else ""
+            yield f"\nSession: {meta.session_id} ({date_str}){msg_count}\n"
 
         if not results_found:
-            yield "Found sessions but no matching messages within them."
-
-    async def _find_relevant_sessions(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        """Stage 1: Find relevant sessions by searching summaries.
-
-        Returns list of session info dicts with session_id, summary, meta, similarity.
-        """
-        # Get query embedding
-        query_embedding = await self.embedder.embed(query)
-
-        # Load all session summaries
-        session_scores: list[tuple[float, dict[str, Any]]] = []
-
-        session_ids = self.storage.list_sessions()
-
-        for session_id in session_ids:
-            session_dir = self.storage.sessions_dir / session_id
-
-            # Try to load summary
-            summary = None
-            if self.summarizer:
-                summary = await self.summarizer.load_summary(session_dir)
-
-            # Load metadata
-            meta = self.storage.get_meta(session_id)
-
-            if summary and summary.embedding:
-                # Use summary embedding for search
-                similarity = cosine_similarity(query_embedding, summary.embedding)
-                if similarity >= self.min_similarity:
-                    session_scores.append(
-                        (
-                            similarity,
-                            {
-                                "session_id": session_id,
-                                "summary": summary.text,
-                                "meta": meta,
-                                "similarity": similarity,
-                            },
-                        )
-                    )
-            else:
-                # Fallback: use a simple heuristic based on message count and recency
-                if meta:
-                    # Score based on recency (simplistic fallback)
-                    session_scores.append(
-                        (
-                            0.5,  # Default similarity for sessions without summaries
-                            {
-                                "session_id": session_id,
-                                "summary": "",
-                                "meta": meta,
-                                "similarity": 0.5,
-                            },
-                        )
-                    )
-
-        # Sort by similarity and return top_k
-        session_scores.sort(key=lambda x: x[0], reverse=True)
-        return [info for _, info in session_scores[:top_k]]
-
-    async def _search_session_messages(
-        self, session_id: str, query: str, top_k: int
-    ) -> list[dict[str, Any]]:
-        """Stage 2: Search messages within a specific session.
-
-        Returns list of message dicts with role, content, similarity.
-        """
-        # Get query embedding
-        query_embedding = await self.embedder.embed(query)
-
-        # Load messages from session
-        messages_with_scores: list[tuple[float, dict[str, Any]]] = []
-
-        session_dir = self.storage.sessions_dir / session_id
-        current_path = session_dir / "current.jsonl"
-        archive_path = session_dir / "archive.jsonl"
-
-        # Search current.jsonl
-        if current_path.exists():
-            async for msg in self._iter_messages(current_path):
-                if msg.get("embedding"):
-                    similarity = cosine_similarity(query_embedding, msg["embedding"])
-                    if similarity >= self.min_similarity:
-                        messages_with_scores.append((similarity, msg))
-
-        # Search archive.jsonl
-        if archive_path.exists():
-            async for msg in self._iter_messages(archive_path):
-                if msg.get("embedding"):
-                    similarity = cosine_similarity(query_embedding, msg["embedding"])
-                    if similarity >= self.min_similarity:
-                        messages_with_scores.append((similarity, msg))
-
-        # Sort by similarity and return top_k
-        messages_with_scores.sort(key=lambda x: x[0], reverse=True)
-        return [msg for _, msg in messages_with_scores[:top_k]]
-
-    async def _iter_messages(self, path: Path) -> AsyncIterator[dict[str, Any]]:
-        """Iterate over messages in a JSONL file."""
-        import aiofiles
-
-        if not path.exists():
-            return
-
-        async with aiofiles.open(path) as f:
-            async for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        yield json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+            yield "No sessions found."

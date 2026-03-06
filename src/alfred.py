@@ -14,9 +14,8 @@ from src.cron.store import CronStore
 from src.embeddings import create_provider
 from src.llm import ChatMessage, LLMFactory
 from src.memory import create_memory_store
-from src.search import MemorySearcher
 from src.session import Session, SessionManager, ToolCallRecord
-from src.session_storage import SessionStorage
+from src.storage.sqlite import SQLiteStore
 from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
 
@@ -51,10 +50,10 @@ class Alfred:
         # Initialize memory system
         self.embedder = create_provider(config)
         self.memory_store = create_memory_store(config, self.embedder)
-        self.searcher = MemorySearcher(
-            min_similarity=0.3,
-        )
-        self.context_loader = ContextLoader(config, searcher=self.searcher)
+        
+        # Initialize SQLiteStore for context loading
+        self.sqlite_store = SQLiteStore(config.data_dir / "alfred.db")
+        self.context_loader = ContextLoader(config, store=self.sqlite_store)
 
         # Initialize data directory
         data_dir = config.data_dir
@@ -74,21 +73,22 @@ class Alfred:
             data_dir=data_dir,
         )
 
+        # Initialize session manager FIRST (before tools that need it)
+        SessionManager.initialize(data_dir=data_dir)
+        self.session_manager = SessionManager.get_instance()
+
         # Register built-in tools (inject memory store, scheduler, and config)
         register_builtin_tools(
             memory_store=self.memory_store,
             scheduler=self.cron_scheduler,
             config=self.config,
+            session_manager=self.session_manager,
+            embedder=self.embedder,
         )
         self.tools = get_registry()
 
         # Create agent
         self.agent = Agent(self.llm, self.tools, max_iterations=-1)
-
-        # Initialize session storage and manager
-        session_storage = SessionStorage(self.embedder, data_dir=data_dir)
-        SessionManager.initialize(session_storage)
-        self.session_manager = SessionManager.get_instance()
 
         # Token tracking for usage display
         self.token_tracker = TokenTracker()

@@ -87,7 +87,7 @@ def register_builtin_tools(
     memory_store: Any = None,
     scheduler: Any = None,
     config: Any = None,
-    session_storage: Any = None,
+    session_manager: Any = None,
     embedder: Any = None,
     llm_client: Any = None,
 ) -> None:
@@ -97,7 +97,7 @@ def register_builtin_tools(
         memory_store: Optional MemoryStore to inject into tools that need it
         scheduler: Optional CronScheduler to inject into tools that need it
         config: Optional Config for tool configuration
-        session_storage: Optional SessionStorage for session-related tools
+        session_manager: Optional SessionManager for session-related tools
         embedder: Optional EmbeddingClient for semantic search tools
         llm_client: Optional LLM client for summary generation
     """
@@ -145,9 +145,9 @@ def register_builtin_tools(
     register_tool(forget_tool)
 
     # Register search_sessions tool with dependencies injected
-    if session_storage and embedder:
+    if session_manager and embedder:
         search_sessions_tool = SearchSessionsTool(
-            storage=session_storage,
+            session_manager=session_manager,
             embedder=embedder,
             llm_client=llm_client,
         )
