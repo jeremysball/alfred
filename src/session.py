@@ -156,6 +156,33 @@ class SessionSummary:
     embedding: list[float] | None = None  # For semantic search
     version: int = 1  # Incremented on regeneration
 
+    def to_dict(self) -> dict:
+        """Serialize to dictionary for JSON storage."""
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "timestamp": self.timestamp.isoformat(),
+            "message_range": list(self.message_range),  # Tuple -> list for JSON
+            "message_count": self.message_count,
+            "summary_text": self.summary_text,
+            "embedding": self.embedding,
+            "version": self.version,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SessionSummary":
+        """Deserialize from dictionary."""
+        return cls(
+            id=data["id"],
+            session_id=data["session_id"],
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+            message_range=(data["message_range"][0], data["message_range"][1]),  # List -> tuple
+            message_count=data["message_count"],
+            summary_text=data["summary_text"],
+            embedding=data.get("embedding"),
+            version=data.get("version", 1),
+        )
+
 
 @dataclass
 class Session:
