@@ -505,3 +505,70 @@ class SessionStorage:
     def spawn_embed_task(self, session_id: str, idx: int, content: str) -> None:
         """Spawn background task to embed message."""
         asyncio.create_task(self.embed_and_update(session_id, idx, content))
+
+
+async def generate_session_summary(
+    session_id: str,
+    storage: SessionStorage,
+    embedder: Any,
+) -> "SessionSummary":
+    """Generate and store summary for a session.
+
+    Orchestrates the full pipeline: fetch messages → summarize → embed → store.
+
+    Args:
+        session_id: Session ID to summarize
+        storage: SessionStorage instance for loading/storing
+        embedder: Embedding provider for creating summary embedding
+
+    Returns:
+        SessionSummary with embedding created and stored
+
+    Raises:
+        Exception: If any step fails (messages fail to load, LLM fails, etc.)
+    """
+    from src.llm import summarize_conversation
+    from src.session import SessionSummary
+    from uuid import uuid4
+
+    logger.debug(f"generate_session_summary called for session {session_id}")
+
+    # 1. Load messages
+    messages = storage.load_messages(session_id)
+    logger.debug(f"Loaded {len(messages)} messages for session {session_id}")
+
+    # 2. Check for existing summary to reuse ID
+    existing = await storage.get_summary(session_id)
+    if existing:
+        summary_id = existing.id
+        logger.debug(f"Found existing summary {summary_id}, will reuse ID")
+    else:
+        summary_id = f"sum_{uuid4().hex[:12]}"
+        logger.debug(f"No existing summary, creating new ID: {summary_id}")
+
+    # 3. Generate summary text via LLM
+    summary_text = await summarize_conversation(messages)
+    logger.debug(f"Generated summary text: {len(summary_text)} chars")
+
+    # 4. Create embedding
+    embedding = await embedder.embed(summary_text)
+    logger.debug(f"Created embedding: {len(embedding)} dimensions")
+
+    # 5. Create SessionSummary
+    summary = SessionSummary(
+        id=summary_id,
+        session_id=session_id,
+        timestamp=datetime.now(UTC),
+        message_range=(0, len(messages)),
+        message_count=len(messages),
+        summary_text=summary_text,
+        embedding=embedding,
+        version=1,  # store_summary will auto-increment if existing
+    )
+    logger.debug(f"Created SessionSummary: {summary.id}, msgs {summary.message_range}")
+
+    # 6. Store summary
+    await storage.store_summary(summary)
+    logger.debug(f"Stored summary for session {session_id}")
+
+    return summary
