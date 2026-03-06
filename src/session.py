@@ -50,24 +50,38 @@ def assign_session_id(
     """
     from uuid import uuid4
 
+    logger.debug(f"assign_session_id called: current_session_id={current_session_id}, threshold={threshold_minutes}min")
+
     # No current session -> new session
     if current_session_id is None:
-        return f"sess_{uuid4().hex[:12]}"
+        new_session_id = f"sess_{uuid4().hex[:12]}"
+        logger.debug(f"No current session, creating new session: {new_session_id}")
+        return new_session_id
 
     # No last message time -> new session (conservative)
     if last_message_time is None:
-        return f"sess_{uuid4().hex[:12]}"
+        new_session_id = f"sess_{uuid4().hex[:12]}"
+        logger.debug(f"No last message time, creating new session: {new_session_id}")
+        return new_session_id
+
+    # Calculate gap
+    gap = (new_message_time - last_message_time).total_seconds() / 60
+    logger.debug(f"Time gap since last message: {gap:.2f} minutes (threshold: {threshold_minutes}min)")
 
     # Clock skew (negative gap) -> new session
-    gap = (new_message_time - last_message_time).total_seconds() / 60
     if gap < 0:
-        return f"sess_{uuid4().hex[:12]}"
+        new_session_id = f"sess_{uuid4().hex[:12]}"
+        logger.debug(f"Clock skew detected (negative gap: {gap:.2f}min), creating new session: {new_session_id}")
+        return new_session_id
 
     # Gap exceeds threshold -> new session
     if gap > threshold_minutes:
-        return f"sess_{uuid4().hex[:12]}"
+        new_session_id = f"sess_{uuid4().hex[:12]}"
+        logger.debug(f"Gap exceeds threshold ({gap:.2f}min > {threshold_minutes}min), creating new session: {new_session_id}")
+        return new_session_id
 
     # Continue current session
+    logger.debug(f"Continuing existing session: {current_session_id}")
     return current_session_id
 
 

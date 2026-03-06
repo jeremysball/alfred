@@ -15,6 +15,7 @@ the entire message file on every token update.
 
 import asyncio
 import json
+import logging
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,6 +25,8 @@ import aiofiles
 from src.data_manager import get_data_dir
 from src.embeddings.openai_provider import OpenAIProvider
 from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
+
+logger = logging.getLogger(__name__)
 
 
 class SessionStorage:
@@ -110,11 +113,15 @@ class SessionStorage:
     def get_meta(self, session_id: str) -> SessionMeta | None:
         """Load session metadata from meta.json."""
         meta_path = self.sessions_dir / session_id / "meta.json"
+        logger.debug(f"get_meta called for session {session_id}: checking {meta_path}")
+
         if not meta_path.exists():
+            logger.debug(f"No metadata found for session {session_id}")
             return None
+
         try:
             data = json.loads(meta_path.read_text())
-            return SessionMeta(
+            meta = SessionMeta(
                 session_id=data["session_id"],
                 created_at=datetime.fromisoformat(data["created_at"]),
                 last_active=datetime.fromisoformat(data["last_active"]),
@@ -125,11 +132,16 @@ class SessionStorage:
                 last_summarized_count=data.get("last_summarized_count", 0),
                 summary_version=data.get("summary_version", 0),
             )
+            logger.debug(f"Metadata loaded for session {session_id}: status={meta.status}, msgs={meta.message_count}, last_summary_v={meta.summary_version}")
+            return meta
         except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Failed to parse meta.json for session {session_id}: {e}")
             raise ValueError(f"Invalid meta.json for session {session_id}: {e}") from e
 
     def save_meta(self, meta: SessionMeta) -> None:
         """Save session metadata to meta.json."""
+        logger.debug(f"save_meta called for session {meta.session_id}: status={meta.status}, msgs={meta.message_count}")
+
         session_dir = self.sessions_dir / meta.session_id
         session_dir.mkdir(parents=True, exist_ok=True)
         meta_path = session_dir / "meta.json"
@@ -149,6 +161,7 @@ class SessionStorage:
                 indent=2,
             )
         )
+        logger.debug(f"Metadata saved for session {meta.session_id}")
 
     # === Session Creation ===
 
@@ -414,18 +427,25 @@ class SessionStorage:
         """
         from src.session import SessionSummary
 
+        logger.debug(f"store_summary called for session {summary.session_id}: id={summary.id}, msg_count={summary.message_count}")
+
         # Check for existing summary to increment version
         try:
             existing = await self.get_summary(summary.session_id)
             if existing is not None:
+                old_version = summary.version
                 summary.version = existing.version + 1
-        except ValueError:
+                logger.debug(f"Found existing summary v{existing.version}, incrementing to v{summary.version}")
+            else:
+                logger.debug(f"No existing summary found, using version {summary.version}")
+        except ValueError as e:
+            logger.warning(f"Error reading existing summary for version check: {e}")
             # Corrupt file - start fresh with caller's version
-            pass
 
         session_dir = self.sessions_dir / summary.session_id
         session_dir.mkdir(parents=True, exist_ok=True)
         summary_path = session_dir / "summary.json"
+        logger.debug(f"Writing summary to {summary_path}")
 
         # Serialize to JSON
         data = summary.to_dict()
@@ -436,6 +456,7 @@ class SessionStorage:
         async with aiofiles.open(temp_path, "w") as f:
             await f.write(content)
         temp_path.rename(summary_path)
+        logger.debug(f"Summary stored successfully: v{summary.version}, {len(content)} bytes")
 
     async def get_summary(self, session_id: str) -> "SessionSummary | None":
         """Load summary from {session_id}/summary.json.
@@ -452,15 +473,21 @@ class SessionStorage:
         from src.session import SessionSummary
 
         summary_path = self.sessions_dir / session_id / "summary.json"
+        logger.debug(f"get_summary called for session {session_id}: checking {summary_path}")
+
         if not summary_path.exists():
+            logger.debug(f"No summary found for session {session_id}")
             return None
 
         try:
             async with aiofiles.open(summary_path) as f:
                 content = await f.read()
             data = json.loads(content)
-            return SessionSummary.from_dict(data)
+            summary = SessionSummary.from_dict(data)
+            logger.debug(f"Summary loaded successfully: id={summary.id}, v{summary.version}, msg_count={summary.message_count}")
+            return summary
         except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Failed to parse summary.json for session {session_id}: {e}")
             raise ValueError(f"Invalid summary.json for session {session_id}: {e}") from e
 
     # === Async Embedding Task ===
