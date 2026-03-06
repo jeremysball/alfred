@@ -1,87 +1,55 @@
-"""Base class for memory stores."""
+"""Base memory types and interfaces."""
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
 
 @dataclass
-class MemoryMetadata:
-    """Memory entry metadata (stored separately from embeddings)."""
-
-    entry_id: str
-    timestamp: datetime
-    role: Literal["user", "assistant", "system"]
-    content: str
-    tags: list[str]
-    permanent: bool = False
-
-
-class MemoryStore(ABC):
-    """Abstract base class for memory storage backends.
-
-    All memory stores must implement:
-    - add(): Add a memory entry
-    - search(): Search by semantic similarity
-    - get_by_id(): Direct lookup by ID
-    - get_all_entries(): Get all entries
-    - delete(): Delete by ID or query
+class MemoryEntry:
+    """A single memory entry with content and metadata.
+    
+    This replaces the old MemoryEntry from jsonl_store.
     """
+    
+    entry_id: str
+    content: str
+    timestamp: datetime
+    role: Literal["user", "assistant", "system"] = "assistant"
+    embedding: list[float] | None = None
+    tags: list[str] = field(default_factory=list)
+    permanent: bool = False
+    
+    def __hash__(self) -> int:
+        """Make MemoryEntry hashable for deduplication."""
+        return hash(self.entry_id)
+    
+    def __eq__(self, other: object) -> bool:
+        """Equality based on entry_id."""
+        if not isinstance(other, MemoryEntry):
+            return NotImplemented
+        return self.entry_id == other.entry_id
 
-    @abstractmethod
-    async def add(self, entry: Any) -> None:
-        """Add a memory entry.
 
-        Args:
-            entry: MemoryEntry to add
-        """
-        ...
-
-    @abstractmethod
+class MemoryStore:
+    """Abstract base class for memory storage backends."""
+    
+    async def add(self, entry: MemoryEntry) -> None:
+        """Add a memory entry."""
+        raise NotImplementedError
+    
+    async def get(self, entry_id: str) -> MemoryEntry | None:
+        """Get a memory by ID."""
+        raise NotImplementedError
+    
     async def search(
-        self, query: str, top_k: int = 10, **kwargs
-    ) -> tuple[list[Any], dict[str, float], dict[str, float]]:
-        """Search memories by semantic similarity.
-
-        Args:
-            query: Search query text
-            top_k: Number of results to return
-
-        Returns:
-            Tuple of (results, similarities, scores)
-        """
-        ...
-
-    @abstractmethod
-    async def get_by_id(self, entry_id: str) -> Any | None:
-        """Get memory by ID.
-
-        Args:
-            entry_id: Unique memory ID
-
-        Returns:
-            Memory entry or None
-        """
-        ...
-
-    @abstractmethod
-    async def get_all_entries(self) -> list[Any]:
-        """Get all memory entries.
-
-        Returns:
-            List of all entries
-        """
-        ...
-
-    @abstractmethod
-    async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
-        """Delete memory by ID.
-
-        Args:
-            entry_id: Unique memory ID
-
-        Returns:
-            Tuple of (success, message)
-        """
-        ...
+        self,
+        query_embedding: list[float],
+        top_k: int = 10,
+    ) -> list[MemoryEntry]:
+        """Search memories by vector similarity."""
+        raise NotImplementedError
+    
+    async def delete(self, entry_id: str) -> bool:
+        """Delete a memory by ID."""
+        raise NotImplementedError

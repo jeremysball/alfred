@@ -624,18 +624,24 @@ class SQLiteStore:
                 scored.sort(key=lambda x: x[0], reverse=True)
                 rows = [row for _, row in scored[:top_k]]
             
-            return [
-                {
+            result = []
+            for row in rows:
+                entry = {
                     "entry_id": row["entry_id"],
                     "timestamp": row["timestamp"],
                     "role": row["role"],
                     "content": row["content"],
                     "tags": json.loads(row["tags"]),
                     "permanent": bool(row["permanent"]),
-                    "similarity": row.get("distance", 0.0),
+                    "similarity": 0.0,
                 }
-                for row in rows
-            ]
+                # sqlite3.Row doesn't support .get()
+                try:
+                    entry["similarity"] = row["distance"]
+                except IndexError:
+                    pass
+                result.append(entry)
+            return result
     
     async def get_memory(self, entry_id: str) -> dict | None:
         """Get a memory by ID.
