@@ -681,44 +681,29 @@ class AlfredTUI:
             asyncio.create_task(self._send_message(next_to_process))
 
     async def run(self) -> None:
-        """Main event loop - reads input, handles events, renders frames."""
+        """Main event loop - delegates to pypitui's run_frame()."""
         self.tui.start()
-
-        # Load existing session messages on startup
         self._load_session_messages()
-
-        # Update status line with current session state
         self._update_status()
 
         try:
             while self.running:
-                # Read terminal input with timeout
-                data = self.terminal.read_sequence(timeout=0.01)
-                if data:
-                    # Check for Ctrl+C
-                    if matches_key(data, Key.ctrl("c")):
-                        self._handle_ctrl_c()
-                        if not self.running:
-                            break  # Second Ctrl-C, exit loop
-                    else:
-                        # Any other key resets Ctrl-C state
-                        if self._ctrl_c_pending:
-                            self._reset_ctrl_c_state()
-                        self.tui.handle_input(data)
+                # Check for Ctrl+C first (custom handling)
+                data = self.terminal.read_sequence(timeout=0.0)
+                if data == "\x03":  # Ctrl+C
+                    self._handle_ctrl_c()
+                    if not self.running:
+                        break
+                    continue
 
-                # Update toast overlay visibility
-                self._update_toast_overlay()
+                # Delegate everything else to pypitui
+                if not self.tui.run_frame():
+                    break
 
-                # Animate throbber during streaming
-                self.status_line.tick_throbber()
+                # Throbber animation
+                if self.status_line.tick_throbber():
+                    self.tui.request_render()
 
-                # Render frame
-                self.tui.request_render()
-                self.tui.render_frame()
-
-                # Yield to event loop (~60fps)
                 await asyncio.sleep(0.016)
         finally:
-            # Clear screen and reset cursor before exit
-            self.terminal.write("\x1b[2J\x1b[H\x1b[?25h")
             self.tui.stop()
