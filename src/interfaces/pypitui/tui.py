@@ -505,7 +505,8 @@ class AlfredTUI:
             sequence=record.sequence,
             arguments=record.arguments,
             output=record.output,
-            status=record.status,  # ToolCallRecord uses "success"/"error", ToolCallInfo accepts these
+            # ToolCallRecord uses "success"/"error", ToolCallInfo accepts these
+            status=record.status,
         )
 
     @staticmethod
