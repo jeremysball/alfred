@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base import Tool
+from .mixins import ErrorHandlingMixin, MemoryStoreMixin, SearchResultMixin
 
 
 class SearchMemoriesToolParams(BaseModel):
@@ -18,7 +19,9 @@ class SearchMemoriesToolParams(BaseModel):
     top_k: int = Field(5, description="Maximum number of results to return")
 
 
-class SearchMemoriesTool(Tool):
+class SearchMemoriesTool(
+    Tool, MemoryStoreMixin, SearchResultMixin, ErrorHandlingMixin
+):
     """Search through saved memories for relevant information."""
 
     name = "search_memories"
@@ -26,70 +29,39 @@ class SearchMemoriesTool(Tool):
     param_model = SearchMemoriesToolParams
 
     def __init__(self, memory_store: Any = None) -> None:
-        super().__init__()
-        self._memory_store = memory_store
-
-    def set_memory_store(self, memory_store: Any) -> None:
-        """Set the memory store after initialization."""
-        self._memory_store = memory_store
+        Tool.__init__(self)
+        MemoryStoreMixin.__init__(self, memory_store)
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
-        """Search memories and return formatted results.
-
-        Args:
-            **kwargs: Tool parameters including:
-                - query: Search query to find relevant memories (semantic search)
-                - entry_id: Direct lookup by memory ID (bypasses search)
-                - top_k: Maximum number of results to return (ignored if entry_id provided)
-
-        Yields:
-            Formatted search results
-        """
+        """Search memories and return formatted results."""
         query = kwargs.get("query", "")
         entry_id = kwargs.get("entry_id", "")
         top_k = kwargs.get("top_k", 5)
+
         if not self._memory_store:
             yield "Error: Memory store not initialized"
             return
 
-        # Direct ID lookup takes precedence
         if entry_id:
             try:
                 entry = await self._memory_store.get_by_id(entry_id)
                 if not entry:
                     yield f"No memory found with ID: {entry_id}"
                     return
-
-                date_str = entry.timestamp.strftime("%Y-%m-%d")
-                result = f"- [{date_str}] {entry.content} (id: {entry.entry_id})"
-                yield result
+                yield self._format_entry(entry)
                 return
             except Exception as e:
                 yield f"Error retrieving memory: {e}"
                 return
 
-        # Semantic search
         if not query:
             yield "Error: Provide either query or entry_id"
             return
 
         try:
-            results, similarities, scores = await self._memory_store.search(query, top_k=top_k)
-
-            if not results:
-                yield "No relevant memories found."
-                return
-
-            lines = []
-            for entry in results:
-                date_str = entry.timestamp.strftime("%Y-%m-%d")
-                sim_pct = int(similarities.get(entry.entry_id, 0) * 100)
-                scr_pct = int(scores.get(entry.entry_id, 0) * 100)
-                lines.append(
-                    f"- [{date_str}] {entry.content} "
-                    f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry.entry_id})"
-                )
-
-            yield "\n".join(lines)
+            results, similarities, scores = await self._memory_store.search(
+                query, top_k=top_k
+            )
+            yield self._format_results(results, similarities, scores)
         except Exception as e:
             yield f"Error searching memories: {e}"

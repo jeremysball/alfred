@@ -148,7 +148,7 @@ Storage Layer:
 
 ---
 
-### M4: Consolidate Search Logic (SQLite-based)
+### M4: Consolidate Search Logic (SQLite-based) ✅ COMPLETE
 
 **Goal**: Merge `search.py` into SQLite store, eliminate duplication.
 
@@ -209,7 +209,7 @@ Storage Layer:
 
 ---
 
-### M6: Extract Tool Patterns (Reduce Boilerplate)
+### M6: Extract Tool Patterns (Reduce Boilerplate) ✅ COMPLETE
 
 **Goal**: Reduce tool boilerplate by 30% via shared mixins.
 
