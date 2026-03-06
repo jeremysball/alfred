@@ -32,14 +32,14 @@ A systematic consolidation effort to:
 
 ## Success Criteria
 
-- [ ] Zero dead code in production (verified via import analysis)
-- [ ] Single storage driver: SQLite + sqlite-vec for ALL data
-- [ ] All memory CLI commands work with SQLite backend
-- [ ] CAS, JSONL, and FAISS stores deleted
-- [ ] `search.py` removed, logic merged into SQLite store
-- [ ] Session classes consolidated from 5 → 3
-- [ ] Tool boilerplate reduced by 30% via shared mixins
-- [ ] CI passes with stricter dead code detection
+- [x] Zero dead code in production (verified via import analysis)
+- [x] Single storage driver: SQLite + sqlite-vec for ALL data
+- [x] All memory CLI commands work with SQLite backend
+- [x] CAS, JSONL, and FAISS stores deleted
+- [x] `search.py` removed, logic merged into SQLite store
+- [x] Session classes consolidated from 5 → 3
+- [x] Tool boilerplate reduced by 30% via shared mixins
+- [x] CI passes with stricter dead code detection
 
 ## Milestones
 
