@@ -19,7 +19,7 @@ class SQLiteStore:
     Uses sqlite-vec for vector similarity search on memories.
     All operations are ACID-compliant via SQLite transactions.
     """
-    
+
     def __init__(self, db_path: Path | str) -> None:
         """Initialize SQLite store.
         
@@ -29,34 +29,34 @@ class SQLiteStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialized = False
-    
+
     async def _init(self) -> None:
         """Lazy initialization of database connection and tables."""
         if self._initialized:
             return
-        
+
         try:
             import aiosqlite
         except ImportError:
             raise ImportError(
                 "aiosqlite required. Install with: uv add aiosqlite"
             )
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             # Enable WAL mode for better concurrency
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute("PRAGMA foreign_keys=ON")
-            
+
             # Create tables
             await self._create_sessions_table(db)
             await self._create_cron_tables(db)
             await self._create_memories_table(db)
-            
+
             await db.commit()
-        
+
         self._initialized = True
         logger.info(f"SQLite store initialized: {self.db_path}")
-    
+
     async def _create_sessions_table(self, db: Any) -> None:
         """Create sessions table."""
         await db.execute("""
@@ -68,13 +68,13 @@ class SQLiteStore:
                 metadata JSON DEFAULT '{}'
             )
         """)
-        
+
         # Index for session lookups
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_sessions_updated 
             ON sessions(updated_at)
         """)
-    
+
     async def _create_cron_tables(self, db: Any) -> None:
         """Create cron jobs and history tables."""
         # Jobs table
@@ -92,7 +92,7 @@ class SQLiteStore:
                 metadata JSON DEFAULT '{}'
             )
         """)
-        
+
         # Execution history table
         await db.execute("""
             CREATE TABLE IF NOT EXISTS cron_history (
@@ -106,7 +106,7 @@ class SQLiteStore:
                 FOREIGN KEY (job_id) REFERENCES cron_jobs(job_id) ON DELETE CASCADE
             )
         """)
-        
+
         # Indexes
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_run 
@@ -116,7 +116,7 @@ class SQLiteStore:
             CREATE INDEX IF NOT EXISTS idx_cron_history_job 
             ON cron_history(job_id, started_at DESC)
         """)
-    
+
     async def _create_memories_table(self, db: Any) -> None:
         """Create memories table with vector support via sqlite-vec."""
         # Check if sqlite-vec is available
@@ -126,7 +126,7 @@ class SQLiteStore:
         except Exception:
             has_vec = False
             logger.warning("sqlite-vec not available, falling back to JSON storage")
-        
+
         if has_vec:
             # Use sqlite-vec virtual table for embeddings
             await db.execute("""
@@ -139,7 +139,7 @@ class SQLiteStore:
                     permanent BOOLEAN DEFAULT 0
                 )
             """)
-            
+
             # Virtual table for vector search
             await db.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS memory_embeddings USING vec0(
@@ -147,13 +147,13 @@ class SQLiteStore:
                     embedding FLOAT[768]  -- Adjustable dimension
                 )
             """)
-            
+
             # Index for timestamp queries
             await db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_timestamp 
                 ON memories(timestamp)
             """)
-            
+
             # Index for permanent flag
             await db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_permanent 
@@ -172,18 +172,18 @@ class SQLiteStore:
                     embedding JSON
                 )
             """)
-            
+
             await db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_timestamp 
                 ON memories(timestamp)
             """)
-    
+
     # === Session Operations ===
-    
+
     async def save_session(
-        self, 
-        session_id: str, 
-        messages: list[dict], 
+        self,
+        session_id: str,
+        messages: list[dict],
         metadata: dict | None = None
     ) -> None:
         """Save or update a session.
@@ -194,9 +194,9 @@ class SQLiteStore:
             metadata: Optional session metadata
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
@@ -210,7 +210,7 @@ class SQLiteStore:
                 (session_id, json.dumps(messages), json.dumps(metadata or {}))
             )
             await db.commit()
-    
+
     async def load_session(self, session_id: str) -> dict | None:
         """Load a session by ID.
         
@@ -221,9 +221,9 @@ class SQLiteStore:
             Session dict or None if not found
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
@@ -231,10 +231,10 @@ class SQLiteStore:
                 (session_id,)
             ) as cursor:
                 row = await cursor.fetchone()
-                
+
                 if row is None:
                     return None
-                
+
                 return {
                     "session_id": row["session_id"],
                     "created_at": row["created_at"],
@@ -242,7 +242,7 @@ class SQLiteStore:
                     "messages": json.loads(row["messages"]),
                     "metadata": json.loads(row["metadata"]),
                 }
-    
+
     async def list_sessions(self, limit: int = 100) -> list[dict]:
         """List recent sessions.
         
@@ -253,9 +253,9 @@ class SQLiteStore:
             List of session dicts
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
@@ -273,7 +273,7 @@ class SQLiteStore:
                     }
                     for row in rows
                 ]
-    
+
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session.
         
@@ -284,9 +284,9 @@ class SQLiteStore:
             True if deleted, False if not found
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 "DELETE FROM sessions WHERE session_id = ?",
@@ -294,9 +294,9 @@ class SQLiteStore:
             )
             await db.commit()
             return cursor.rowcount > 0
-    
+
     # === Cron Operations ===
-    
+
     async def save_job(self, job: dict) -> None:
         """Save or update a cron job.
         
@@ -304,9 +304,9 @@ class SQLiteStore:
             job: Job dict with job_id, name, schedule, command, etc.
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
@@ -337,7 +337,7 @@ class SQLiteStore:
                 )
             )
             await db.commit()
-    
+
     async def load_jobs(self) -> list[dict]:
         """Load all cron jobs.
         
@@ -345,9 +345,9 @@ class SQLiteStore:
             List of job dicts
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT * FROM cron_jobs") as cursor:
@@ -367,7 +367,7 @@ class SQLiteStore:
                     }
                     for row in rows
                 ]
-    
+
     async def delete_job(self, job_id: str) -> bool:
         """Delete a cron job.
         
@@ -378,9 +378,9 @@ class SQLiteStore:
             True if deleted, False if not found
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 "DELETE FROM cron_jobs WHERE job_id = ?",
@@ -388,7 +388,7 @@ class SQLiteStore:
             )
             await db.commit()
             return cursor.rowcount > 0
-    
+
     async def record_execution(self, record: dict) -> None:
         """Record a job execution.
         
@@ -396,9 +396,9 @@ class SQLiteStore:
             record: Execution record dict
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
@@ -419,10 +419,10 @@ class SQLiteStore:
                 )
             )
             await db.commit()
-    
+
     async def get_job_history(
-        self, 
-        job_id: str, 
+        self,
+        job_id: str,
         limit: int | None = None
     ) -> list[dict]:
         """Get execution history for a job.
@@ -435,12 +435,12 @@ class SQLiteStore:
             List of execution records
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            
+
             if limit:
                 async with db.execute(
                     """
@@ -462,7 +462,7 @@ class SQLiteStore:
                     (job_id,)
                 ) as cursor:
                     rows = await cursor.fetchall()
-            
+
             return [
                 {
                     "execution_id": row["execution_id"],
@@ -475,9 +475,9 @@ class SQLiteStore:
                 }
                 for row in rows
             ]
-    
+
     # === Memory Operations ===
-    
+
     async def add_memory(
         self,
         entry_id: str,
@@ -500,11 +500,11 @@ class SQLiteStore:
             timestamp: Optional timestamp (default: now)
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         ts = timestamp or datetime.now()
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             # Insert memory record
             await db.execute(
@@ -519,7 +519,7 @@ class SQLiteStore:
                 """,
                 (entry_id, ts, role, content, json.dumps(tags or []), permanent)
             )
-            
+
             # Insert embedding if provided and sqlite-vec available
             if embedding:
                 try:
@@ -540,9 +540,9 @@ class SQLiteStore:
                         """,
                         (json.dumps(embedding), entry_id)
                     )
-            
+
             await db.commit()
-    
+
     async def search_memories(
         self,
         query_embedding: list[float],
@@ -562,19 +562,19 @@ class SQLiteStore:
             List of memory dicts with similarity scores
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            
+
             # Check if sqlite-vec is available
             try:
                 await db.execute("SELECT vec_version()")
                 has_vec = True
             except Exception:
                 has_vec = False
-            
+
             if has_vec:
                 # Use sqlite-vec for vector search
                 query = """
@@ -584,20 +584,20 @@ class SQLiteStore:
                     WHERE e.embedding MATCH ?
                 """
                 params: list[Any] = [json.dumps(query_embedding)]
-                
+
                 if role:
                     query += " AND m.role = ?"
                     params.append(role)
-                
+
                 if tags:
                     # Simple tag filtering - check if any tag matches
                     for tag in tags:
                         query += " AND json_extract(m.tags, '$') LIKE ?"
                         params.append(f'%"{tag}"%')
-                
+
                 query += " ORDER BY e.distance LIMIT ?"
                 params.append(top_k)
-                
+
                 async with db.execute(query, params) as cursor:
                     rows = await cursor.fetchall()
             else:
@@ -607,12 +607,12 @@ class SQLiteStore:
                     "SELECT * FROM memories WHERE embedding IS NOT NULL"
                 ) as cursor:
                     rows = await cursor.fetchall()
-                
+
                 # Compute cosine similarity
                 import numpy as np
                 query_vec = np.array(query_embedding)
                 scored = []
-                
+
                 for row in rows:
                     emb = json.loads(row["embedding"])
                     vec = np.array(emb)
@@ -620,10 +620,10 @@ class SQLiteStore:
                         np.linalg.norm(query_vec) * np.linalg.norm(vec)
                     )
                     scored.append((similarity, row))
-                
+
                 scored.sort(key=lambda x: x[0], reverse=True)
                 rows = [row for _, row in scored[:top_k]]
-            
+
             result = []
             for row in rows:
                 entry = {
@@ -642,7 +642,7 @@ class SQLiteStore:
                     pass
                 result.append(entry)
             return result
-    
+
     async def get_memory(self, entry_id: str) -> dict | None:
         """Get a memory by ID.
         
@@ -653,9 +653,9 @@ class SQLiteStore:
             Memory dict or None
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
@@ -663,10 +663,10 @@ class SQLiteStore:
                 (entry_id,)
             ) as cursor:
                 row = await cursor.fetchone()
-                
+
                 if row is None:
                     return None
-                
+
                 return {
                     "entry_id": row["entry_id"],
                     "timestamp": row["timestamp"],
@@ -675,7 +675,7 @@ class SQLiteStore:
                     "tags": json.loads(row["tags"]),
                     "permanent": bool(row["permanent"]),
                 }
-    
+
     async def get_all_memories(
         self,
         role: str | None = None,
@@ -693,26 +693,26 @@ class SQLiteStore:
             List of memory dicts
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         query = "SELECT * FROM memories WHERE 1=1"
         params: list[Any] = []
-        
+
         if role:
             query += " AND role = ?"
             params.append(role)
-        
+
         if permanent_only:
             query += " AND permanent = 1"
-        
+
         if tags:
             for tag in tags:
                 query += " AND json_extract(tags, '$') LIKE ?"
                 params.append(f'%"{tag}"%')
-        
+
         query += " ORDER BY timestamp DESC"
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(query, params) as cursor:
@@ -728,7 +728,7 @@ class SQLiteStore:
                     }
                     for row in rows
                 ]
-    
+
     async def delete_memory(self, entry_id: str) -> bool:
         """Delete a memory by ID.
         
@@ -739,9 +739,9 @@ class SQLiteStore:
             True if deleted, False if not found
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             # Delete from embeddings first (if exists)
             try:
@@ -751,7 +751,7 @@ class SQLiteStore:
                 )
             except Exception:
                 pass  # Table might not exist
-            
+
             # Delete from memories
             cursor = await db.execute(
                 "DELETE FROM memories WHERE entry_id = ?",
@@ -759,7 +759,7 @@ class SQLiteStore:
             )
             await db.commit()
             return cursor.rowcount > 0
-    
+
     async def prune_memories(
         self,
         ttl_days: int = 90,
@@ -775,12 +775,13 @@ class SQLiteStore:
             Number of memories pruned (or would be pruned)
         """
         await self._init()
-        
-        import aiosqlite
+
         from datetime import timedelta
-        
+
+        import aiosqlite
+
         cutoff = datetime.now() - timedelta(days=ttl_days)
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             # Count matching records
             async with db.execute(
@@ -792,7 +793,7 @@ class SQLiteStore:
             ) as cursor:
                 row = await cursor.fetchone()
                 count = row[0] if row else 0
-            
+
             if not dry_run and count > 0:
                 # Get IDs to delete
                 async with db.execute(
@@ -803,7 +804,7 @@ class SQLiteStore:
                     (cutoff,)
                 ) as cursor:
                     ids = [r[0] for r in await cursor.fetchall()]
-                
+
                 # Delete from embeddings
                 for entry_id in ids:
                     try:
@@ -813,7 +814,7 @@ class SQLiteStore:
                         )
                     except Exception:
                         pass
-                
+
                 # Delete from memories
                 await db.execute(
                     """
@@ -823,9 +824,9 @@ class SQLiteStore:
                     (cutoff,)
                 )
                 await db.commit()
-            
+
             return count
-    
+
     async def update_memory(
         self,
         entry_id: str,
@@ -845,9 +846,9 @@ class SQLiteStore:
             True if updated, False if not found
         """
         await self._init()
-        
+
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.db_path) as db:
             # Check if exists
             async with db.execute(
@@ -856,27 +857,27 @@ class SQLiteStore:
             ) as cursor:
                 if await cursor.fetchone() is None:
                     return False
-            
+
             # Update content/tags
             if content is not None or tags is not None:
                 updates = []
                 params: list[Any] = []
-                
+
                 if content is not None:
                     updates.append("content = ?")
                     params.append(content)
-                
+
                 if tags is not None:
                     updates.append("tags = ?")
                     params.append(json.dumps(tags))
-                
+
                 params.append(entry_id)
-                
+
                 await db.execute(
                     f"UPDATE memories SET {', '.join(updates)} WHERE entry_id = ?",
                     params
                 )
-            
+
             # Update embedding
             if embedding:
                 try:
@@ -895,6 +896,6 @@ class SQLiteStore:
                         "UPDATE memories SET embedding = ? WHERE entry_id = ?",
                         (json.dumps(embedding), entry_id)
                     )
-            
+
             await db.commit()
             return True

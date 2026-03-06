@@ -116,7 +116,7 @@ class ContextBuilder:
             query_embedding=query_embedding,
             top_k=top_k * 2,  # Get extra for deduplication
         )
-        
+
         # Convert to MemoryEntry objects
         memories = []
         for r in results:
@@ -133,7 +133,7 @@ class ContextBuilder:
             except Exception as e:
                 logger.warning(f"Failed to parse memory entry: {e}")
                 continue
-        
+
         # Apply hybrid scoring
         scored = []
         for memory in memories:
@@ -141,20 +141,20 @@ class ContextBuilder:
             similarity = r.get("similarity", 0.0)
             if similarity < self.min_similarity:
                 continue
-            
+
             score = self._hybrid_score(memory, similarity)
             scored.append((score, memory, similarity))
-        
+
         # Sort by score descending
         scored.sort(key=lambda x: x[0], reverse=True)
-        
+
         # Deduplicate
         unique = self._deduplicate([m for _, m, _ in scored])
-        
+
         # Build result dicts
         similarities = {m.entry_id: sim for _, m, sim in scored if m in unique}
         scores = {m.entry_id: scr for scr, m, _ in scored if m in unique}
-        
+
         return unique, similarities, scores
 
     def _hybrid_score(self, memory: MemoryEntry, similarity: float) -> float:

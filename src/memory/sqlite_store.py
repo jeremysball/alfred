@@ -5,7 +5,6 @@ Replaces JSONLMemoryStore and FAISSMemoryStore with a unified SQLite solution.
 
 import logging
 from datetime import date, datetime
-from pathlib import Path
 from typing import Any
 
 from src.config import Config
@@ -32,11 +31,11 @@ class SQLiteMemoryStore(MemoryStore):
         """
         self.config = config
         self.embedder = embedder
-        
+
         # Use data_dir from config
         db_path = config.data_dir / "memories.db"
         self._store = SQLiteStore(db_path)
-        
+
         logger.info(f"SQLite memory store initialized: {db_path}")
 
     async def add(self, entry: Any) -> None:
@@ -48,7 +47,7 @@ class SQLiteMemoryStore(MemoryStore):
         # Generate embedding if not provided
         if entry.embedding is None:
             entry.embedding = await self.embedder.embed(entry.content)
-        
+
         await self._store.add_memory(
             entry_id=entry.entry_id,
             role=entry.role,
@@ -80,13 +79,13 @@ class SQLiteMemoryStore(MemoryStore):
         """
         # Generate query embedding
         query_embedding = await self.embedder.embed(query)
-        
+
         # Search via SQLite store
         results = await self._store.search_memories(
             query_embedding=query_embedding,
             top_k=top_k,
         )
-        
+
         # Filter by date if specified
         if start_date or end_date:
             filtered = []
@@ -98,14 +97,14 @@ class SQLiteMemoryStore(MemoryStore):
                     continue
                 filtered.append(r)
             results = filtered
-        
+
         # Convert to MemoryEntry objects
         from src.memory.jsonl_store import MemoryEntry
-        
+
         entries = []
         similarities = {}
         scores = {}
-        
+
         for r in results:
             entry = MemoryEntry(
                 entry_id=r["entry_id"],
@@ -119,7 +118,7 @@ class SQLiteMemoryStore(MemoryStore):
             sim = r.get("similarity", 0.0)
             similarities[r["entry_id"]] = sim
             scores[r["entry_id"]] = sim
-        
+
         return entries, similarities, scores
 
     async def get_by_id(self, entry_id: str) -> Any | None:
@@ -132,11 +131,11 @@ class SQLiteMemoryStore(MemoryStore):
             Memory entry or None
         """
         from src.memory.jsonl_store import MemoryEntry
-        
+
         data = await self._store.get_memory(entry_id)
         if data is None:
             return None
-        
+
         return MemoryEntry(
             entry_id=data["entry_id"],
             timestamp=data["timestamp"],
@@ -153,9 +152,9 @@ class SQLiteMemoryStore(MemoryStore):
             List of all entries
         """
         from src.memory.jsonl_store import MemoryEntry
-        
+
         results = await self._store.get_all_memories()
-        
+
         return [
             MemoryEntry(
                 entry_id=r["entry_id"],
@@ -194,7 +193,7 @@ class SQLiteMemoryStore(MemoryStore):
             embeddings = await self.embedder.embed_batch([e.content for e in entries_to_embed])
             for entry, embedding in zip(entries_to_embed, embeddings):
                 entry.embedding = embedding
-        
+
         # Add all entries
         for entry in entries:
             await self.add(entry)
@@ -225,23 +224,23 @@ class SQLiteMemoryStore(MemoryStore):
         entries = await self.get_all_entries()
         if not entries:
             return False, "No memories to update"
-        
+
         # Use simple text search for now
         best_match = None
         for entry in entries:
             if search_query.lower() in entry.content.lower():
                 best_match = entry
                 break
-        
+
         if best_match is None:
             return False, f"No matching memory found for query: {search_query}"
-        
+
         # Update the entry
         updated = await self._store.update_memory(
             entry_id=best_match.entry_id,
             content=new_content,
         )
-        
+
         if updated:
             return True, f"Updated memory {best_match.entry_id}"
         return False, f"Failed to update memory {best_match.entry_id}"
@@ -259,19 +258,19 @@ class SQLiteMemoryStore(MemoryStore):
         entries = await self.get_all_entries()
         if not entries:
             return 0, "No memories to delete"
-        
+
         # Use simple text search
         to_delete = [e for e in entries if query.lower() in e.content.lower()]
-        
+
         if not to_delete:
             return 0, f"No memories matching query: {query}"
-        
+
         # Delete them
         deleted_count = 0
         for entry in to_delete:
             if await self._store.delete_memory(entry.entry_id):
                 deleted_count += 1
-        
+
         return deleted_count, f"Deleted {deleted_count} memories"
 
     def check_memory_threshold(self, threshold: int = 1000) -> tuple[bool, int]:
@@ -285,7 +284,7 @@ class SQLiteMemoryStore(MemoryStore):
         """
         # This is synchronous - run in executor or cache
         import asyncio
-        
+
         try:
             count = asyncio.get_event_loop().run_until_complete(
                 self._get_memory_count()
@@ -293,9 +292,9 @@ class SQLiteMemoryStore(MemoryStore):
         except Exception:
             # Fallback: assume under threshold
             return False, 0
-        
+
         return count > threshold, count
-    
+
     async def _get_memory_count(self) -> int:
         """Get memory count asynchronously."""
         entries = await self._store.get_all_memories()
