@@ -491,3 +491,58 @@ class LLMFactory:
             return KimiProvider(config)
         # Future: add more providers here
         raise ValueError(f"Unknown provider: {config.default_llm_provider}")
+
+
+async def summarize_conversation(messages: list[Any]) -> str:
+    """Generate summary text from conversation messages.
+
+    Args:
+        messages: List of Message objects to summarize
+
+    Returns:
+        Summary text string
+
+    Raises:
+        Exception: If LLM call fails
+    """
+    from src.session import Message
+
+    # Build conversation transcript
+    lines = []
+    for msg in messages:
+        if isinstance(msg, Message):
+            role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            content = msg.content
+            lines.append(f"{role}: {content}")
+
+    transcript = "\n".join(lines)
+
+    # Create prompt messages
+    prompt_messages = [
+        ChatMessage(
+            role="system",
+            content="""You are a conversation summarization assistant.
+
+Your task: Summarize a conversation transcript while preserving:
+1. Key facts and decisions
+2. User preferences revealed
+3. Important context for future conversations
+4. Specific details that matter (names, dates, preferences)
+
+Be concise but complete. Omit pleasantries and filler. Focus on substance.
+
+Provide a single paragraph summary suitable for semantic search retrieval.
+            """.strip(),
+        ),
+        ChatMessage(
+            role="user",
+            content=f"Summarize this conversation:\n\n{transcript}",
+        ),
+    ]
+
+    # Get LLM and generate summary
+    config = Config()
+    llm = LLMFactory.create(config)
+    response = await llm.chat(prompt_messages)
+
+    return response.content
