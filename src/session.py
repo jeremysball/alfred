@@ -28,6 +28,49 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+SESSION_GAP_MINUTES = 30  # Default threshold for new session
+
+
+def assign_session_id(
+    new_message_time: datetime,
+    last_message_time: datetime | None,
+    current_session_id: str | None,
+    threshold_minutes: int = SESSION_GAP_MINUTES,
+) -> str:
+    """Assign session ID based on time gap.
+
+    Args:
+        new_message_time: Timestamp of the new message
+        last_message_time: Timestamp of previous message (None if no previous)
+        current_session_id: Current session ID (None if no active session)
+        threshold_minutes: Minutes of inactivity before new session
+
+    Returns:
+        Session ID to use for the new message
+    """
+    from uuid import uuid4
+
+    # No current session -> new session
+    if current_session_id is None:
+        return f"sess_{uuid4().hex[:12]}"
+
+    # No last message time -> new session (conservative)
+    if last_message_time is None:
+        return f"sess_{uuid4().hex[:12]}"
+
+    # Clock skew (negative gap) -> new session
+    gap = (new_message_time - last_message_time).total_seconds() / 60
+    if gap < 0:
+        return f"sess_{uuid4().hex[:12]}"
+
+    # Gap exceeds threshold -> new session
+    if gap > threshold_minutes:
+        return f"sess_{uuid4().hex[:12]}"
+
+    # Continue current session
+    return current_session_id
+
+
 class Role(Enum):
     """Message roles."""
 
