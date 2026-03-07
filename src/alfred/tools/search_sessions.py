@@ -8,7 +8,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from alfred.embeddings import cosine_similarity
 from alfred.session import Session, SessionManager
 
 from .base import Tool

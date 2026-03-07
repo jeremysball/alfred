@@ -50,7 +50,7 @@ class Alfred:
         # Initialize memory system
         self.embedder = create_provider(config)
         self.memory_store = create_memory_store(config, self.embedder)
-        
+
         # Initialize SQLiteStore for context loading
         self.sqlite_store = SQLiteStore(config.data_dir / "alfred.db")
         self.context_loader = ContextLoader(config, store=self.sqlite_store)
