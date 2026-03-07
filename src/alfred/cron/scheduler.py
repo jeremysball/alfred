@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from alfred.cron import parser
 from alfred.cron.executor import ExecutionContext, JobExecutor
+from alfred.cron.job_linter import format_lint_errors, lint_job_code
 from alfred.cron.models import ExecutionRecord, ExecutionStatus, Job, JobStatus, ResourceLimits
 from alfred.cron.observability import StructuredLogger
 from alfred.cron.store import CronStore
@@ -178,10 +179,16 @@ class CronScheduler:
             Job ID (pending approval)
 
         Raises:
-            ValueError: If code fails validation (compile error or missing run function)
+            ValueError: If code fails validation (compile error, missing run function, or lint errors)
         """
         # Validate code compiles and has run() function before saving
         self._validate_job_code(code)
+
+        # Lint for common foot guns
+        lint_errors = lint_job_code(code)
+        if lint_errors:
+            error_msg = format_lint_errors(lint_errors)
+            raise ValueError(error_msg)
 
         job = Job(
             job_id=str(uuid.uuid4()),
@@ -210,6 +217,14 @@ class CronScheduler:
                 try:
                     # Try to compile before updating status
                     self._validate_job_code(job.code)
+
+                    # Lint for common foot guns (extra safety)
+                    lint_errors = lint_job_code(job.code)
+                    if lint_errors:
+                        error_msg = format_lint_errors(lint_errors)
+                        logger.error(f"Job {job_id} failed lint check during approval")
+                        return {"success": False, "message": f"Job has issues:\n{error_msg}"}
+
                     job.status = "active"
                     await self._store.save_job(job)
                     # Register for execution

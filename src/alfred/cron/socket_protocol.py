@@ -35,6 +35,18 @@ class MessageType(StrEnum):
     PING = "ping"
     PONG = "pong"
 
+    # Query/Request-Response for live data
+    QUERY_JOBS = "query_jobs"
+    QUERY_JOBS_RESPONSE = "query_jobs_response"
+    
+    # Job management commands (request-response)
+    SUBMIT_JOB = "submit_job"
+    SUBMIT_JOB_RESPONSE = "submit_job_response"
+    APPROVE_JOB = "approve_job"
+    APPROVE_JOB_RESPONSE = "approve_job_response"
+    REJECT_JOB = "reject_job"
+    REJECT_JOB_RESPONSE = "reject_job_response"
+
 
 @dataclass
 class SocketMessage:
@@ -78,6 +90,22 @@ class SocketMessage:
             return PingMessage(**obj)
         elif msg_type == MessageType.PONG:
             return PongMessage(**obj)
+        elif msg_type == MessageType.QUERY_JOBS:
+            return QueryJobsRequest(**obj)
+        elif msg_type == MessageType.QUERY_JOBS_RESPONSE:
+            return QueryJobsResponse(**obj)
+        elif msg_type == MessageType.SUBMIT_JOB:
+            return SubmitJobRequest(**obj)
+        elif msg_type == MessageType.SUBMIT_JOB_RESPONSE:
+            return SubmitJobResponse(**obj)
+        elif msg_type == MessageType.APPROVE_JOB:
+            return ApproveJobRequest(**obj)
+        elif msg_type == MessageType.APPROVE_JOB_RESPONSE:
+            return ApproveJobResponse(**obj)
+        elif msg_type == MessageType.REJECT_JOB:
+            return RejectJobRequest(**obj)
+        elif msg_type == MessageType.REJECT_JOB_RESPONSE:
+            return RejectJobResponse(**obj)
         else:
             raise ValueError(f"Unknown message type: {msg_type}")
 
@@ -150,3 +178,88 @@ class PongMessage(SocketMessage):
     """Pong response to ping."""
 
     type: MessageType = field(default=MessageType.PONG, init=False)
+
+
+@dataclass
+class QueryJobsRequest(SocketMessage):
+    """Request current job status from daemon."""
+
+    type: MessageType = field(default=MessageType.QUERY_JOBS, init=False)
+    request_id: str = ""
+
+
+@dataclass
+class QueryJobsResponse(SocketMessage):
+    """Current job statuses and recent executions."""
+
+    type: MessageType = field(default=MessageType.QUERY_JOBS_RESPONSE, init=False)
+    request_id: str = ""
+    jobs: list = field(default_factory=list)
+    recent_failures: list = field(default_factory=list)
+
+
+# Job Management Messages
+
+
+@dataclass
+class SubmitJobRequest(SocketMessage):
+    """Submit a new job for approval."""
+
+    type: MessageType = field(default=MessageType.SUBMIT_JOB, init=False)
+    request_id: str = ""
+    name: str = ""
+    expression: str = ""
+    code: str = ""
+
+
+@dataclass
+class SubmitJobResponse(SocketMessage):
+    """Response to job submission."""
+
+    type: MessageType = field(default=MessageType.SUBMIT_JOB_RESPONSE, init=False)
+    request_id: str = ""
+    success: bool = False
+    job_id: str = ""
+    message: str = ""
+
+
+@dataclass
+class ApproveJobRequest(SocketMessage):
+    """Approve a pending job."""
+
+    type: MessageType = field(default=MessageType.APPROVE_JOB, init=False)
+    request_id: str = ""
+    job_identifier: str = ""  # ID or name
+
+
+@dataclass
+class ApproveJobResponse(SocketMessage):
+    """Response to job approval."""
+
+    type: MessageType = field(default=MessageType.APPROVE_JOB_RESPONSE, init=False)
+    request_id: str = ""
+    success: bool = False
+    job_id: str = ""
+    job_name: str = ""
+    message: str = ""
+
+
+@dataclass
+class RejectJobRequest(SocketMessage):
+    """Reject/delete a job."""
+
+    type: MessageType = field(default=MessageType.REJECT_JOB, init=False)
+    request_id: str = ""
+    job_identifier: str = ""  # ID or name
+
+
+@dataclass
+class RejectJobResponse(SocketMessage):
+    """Response to job rejection."""
+
+    type: MessageType = field(default=MessageType.REJECT_JOB_RESPONSE, init=False)
+    request_id: str = ""
+    success: bool = False
+    job_id: str = ""
+    job_name: str = ""
+    message: str = ""

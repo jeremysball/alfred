@@ -8,7 +8,20 @@ import contextlib
 import logging
 from typing import Literal
 
-from alfred.cron.socket_protocol import SOCKET_NAME, PingMessage, PongMessage, SocketMessage
+from alfred.cron.socket_protocol import (
+    SOCKET_NAME,
+    ApproveJobRequest,
+    ApproveJobResponse,
+    PingMessage,
+    PongMessage,
+    QueryJobsRequest,
+    QueryJobsResponse,
+    RejectJobRequest,
+    RejectJobResponse,
+    SocketMessage,
+    SubmitJobRequest,
+    SubmitJobResponse,
+)
 from alfred.data_manager import get_cache_dir
 
 logger = logging.getLogger(__name__)
@@ -193,6 +206,175 @@ class SocketClient:
         except Exception as e:
             logger.debug(f"Ping failed: {e}")
             return False
+
+    async def query_jobs(self, timeout: float = 5.0) -> QueryJobsResponse | None:
+        """Query the scheduler for current job status.
+
+        Args:
+            timeout: Seconds to wait for response
+
+        Returns:
+            QueryJobsResponse with current job status, or None if failed
+        """
+        if not self._connected or not self._writer or not self._reader:
+            logger.debug("Cannot query jobs: not connected")
+            return None
+
+        try:
+            import uuid
+
+            request_id = str(uuid.uuid4())
+            request = QueryJobsRequest(request_id=request_id)
+
+            # Send query
+            self._writer.write(request.to_json().encode("utf-8"))
+            await self._writer.drain()
+
+            # Wait for response
+            async with asyncio.timeout(timeout):
+                line = await self._reader.readline()
+                if not line:
+                    return None
+
+                response = SocketMessage.from_json(line.decode("utf-8").strip())
+                if isinstance(response, QueryJobsResponse):
+                    return response
+                return None
+
+        except Exception as e:
+            logger.debug(f"Query jobs failed: {e}")
+            return None
+
+    async def submit_job(
+        self, name: str, expression: str, code: str, timeout: float = 10.0
+    ) -> SubmitJobResponse | None:
+        """Submit a new job for approval via the daemon.
+
+        Args:
+            name: Job name
+            expression: Cron expression
+            code: Python code for the job
+            timeout: Seconds to wait for response
+
+        Returns:
+            SubmitJobResponse with result, or None if failed
+        """
+        if not self._connected or not self._writer or not self._reader:
+            logger.debug("Cannot submit job: not connected")
+            return None
+
+        try:
+            import uuid
+
+            request_id = str(uuid.uuid4())
+            request = SubmitJobRequest(
+                request_id=request_id, name=name, expression=expression, code=code
+            )
+
+            # Send request
+            self._writer.write(request.to_json().encode("utf-8"))
+            await self._writer.drain()
+
+            # Wait for response
+            async with asyncio.timeout(timeout):
+                line = await self._reader.readline()
+                if not line:
+                    return None
+
+                response = SocketMessage.from_json(line.decode("utf-8").strip())
+                if isinstance(response, SubmitJobResponse):
+                    return response
+                return None
+
+        except Exception as e:
+            logger.debug(f"Submit job failed: {e}")
+            return None
+
+    async def approve_job(
+        self, job_identifier: str, timeout: float = 10.0
+    ) -> ApproveJobResponse | None:
+        """Approve a pending job via the daemon.
+
+        Args:
+            job_identifier: Job ID or name
+            timeout: Seconds to wait for response
+
+        Returns:
+            ApproveJobResponse with result, or None if failed
+        """
+        if not self._connected or not self._writer or not self._reader:
+            logger.debug("Cannot approve job: not connected")
+            return None
+
+        try:
+            import uuid
+
+            request_id = str(uuid.uuid4())
+            request = ApproveJobRequest(
+                request_id=request_id, job_identifier=job_identifier
+            )
+
+            # Send request
+            self._writer.write(request.to_json().encode("utf-8"))
+            await self._writer.drain()
+
+            # Wait for response
+            async with asyncio.timeout(timeout):
+                line = await self._reader.readline()
+                if not line:
+                    return None
+
+                response = SocketMessage.from_json(line.decode("utf-8").strip())
+                if isinstance(response, ApproveJobResponse):
+                    return response
+                return None
+
+        except Exception as e:
+            logger.debug(f"Approve job failed: {e}")
+            return None
+
+    async def reject_job(
+        self, job_identifier: str, timeout: float = 10.0
+    ) -> RejectJobResponse | None:
+        """Reject/delete a job via the daemon.
+
+        Args:
+            job_identifier: Job ID or name
+            timeout: Seconds to wait for response
+
+        Returns:
+            RejectJobResponse with result, or None if failed
+        """
+        if not self._connected or not self._writer or not self._reader:
+            logger.debug("Cannot reject job: not connected")
+            return None
+
+        try:
+            import uuid
+
+            request_id = str(uuid.uuid4())
+            request = RejectJobRequest(
+                request_id=request_id, job_identifier=job_identifier
+            )
+
+            # Send request
+            self._writer.write(request.to_json().encode("utf-8"))
+            await self._writer.drain()
+
+            # Wait for response
+            async with asyncio.timeout(timeout):
+                line = await self._reader.readline()
+                if not line:
+                    return None
+
+                response = SocketMessage.from_json(line.decode("utf-8").strip())
+                if isinstance(response, RejectJobResponse):
+                    return response
+                return None
+
+        except Exception as e:
+            logger.debug(f"Reject job failed: {e}")
+            return None
 
     # Convenience methods for common message types
 

@@ -12,15 +12,23 @@ from pathlib import Path
 
 from alfred.cron.socket_protocol import (
     SOCKET_NAME,
+    ApproveJobRequest,
+    ApproveJobResponse,
     JobCompletedMessage,
     JobFailedMessage,
     JobStartedMessage,
     NotifyMessage,
     PingMessage,
     PongMessage,
+    QueryJobsRequest,
+    QueryJobsResponse,
+    RejectJobRequest,
+    RejectJobResponse,
     RunnerStartedMessage,
     RunnerStoppingMessage,
     SocketMessage,
+    SubmitJobRequest,
+    SubmitJobResponse,
 )
 from alfred.data_manager import get_cache_dir
 
@@ -41,6 +49,7 @@ class SocketServer:
         on_job_failed: Callable[[JobFailedMessage], None] | None = None,
         on_runner_started: Callable[[RunnerStartedMessage], None] | None = None,
         on_runner_stopping: Callable[[RunnerStoppingMessage], None] | None = None,
+        on_query_jobs: Callable[[QueryJobsRequest], QueryJobsResponse] | None = None,
     ):
         """Initialize the socket server.
 
@@ -63,6 +72,7 @@ class SocketServer:
         self._on_job_failed = on_job_failed
         self._on_runner_started = on_runner_started
         self._on_runner_stopping = on_runner_stopping
+        self._on_query_jobs = on_query_jobs
 
     @property
     def path(self) -> Path:
@@ -187,6 +197,13 @@ class SocketServer:
             elif isinstance(message, PongMessage):
                 # Pong responses are handled by the client
                 pass
+
+            elif isinstance(message, QueryJobsRequest):
+                # Handle job status query
+                if self._on_query_jobs:
+                    response = self._on_query_jobs(message)
+                    writer.write(response.to_json().encode("utf-8"))
+                    await writer.drain()
 
         except Exception as e:
             logger.error(f"Error dispatching message {message.type}: {e}")
