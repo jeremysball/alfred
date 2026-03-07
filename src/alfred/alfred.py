@@ -18,6 +18,7 @@ from alfred.session import Session, SessionManager, ToolCallRecord
 from alfred.storage.sqlite import SQLiteStore
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
+from alfred.tools.factories import SummarizerFactory
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
@@ -77,6 +78,14 @@ class Alfred:
         SessionManager.initialize(data_dir=data_dir)
         self.session_manager = SessionManager.get_instance()
 
+        # Create summarizer via factory
+        self.summarizer_factory = SummarizerFactory(
+            store=self.sqlite_store,
+            llm_client=self.llm,
+            embedder=self.embedder,
+        )
+        self.summarizer = self.summarizer_factory.create()
+
         # Register built-in tools (inject memory store, scheduler, and config)
         register_builtin_tools(
             memory_store=self.memory_store,
@@ -84,7 +93,8 @@ class Alfred:
             config=self.config,
             session_manager=self.session_manager,
             embedder=self.embedder,
-            store=self.sqlite_store,
+            llm_client=self.llm,
+            summarizer=self.summarizer,
         )
         self.tools = get_registry()
 

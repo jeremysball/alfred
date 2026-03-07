@@ -177,7 +177,7 @@ class SearchSessionsTool(Tool):
         session_manager: SessionManager | None = None,
         embedder: Any | None = None,
         llm_client: Any | None = None,
-        store: SQLiteStore | None = None,
+        summarizer: SessionSummarizer | None = None,
         min_similarity: float = 0.6,
     ) -> None:
         super().__init__()
@@ -185,7 +185,7 @@ class SearchSessionsTool(Tool):
         self.embedder = embedder
         self.llm_client = llm_client
         self.min_similarity = min_similarity
-        self.summarizer = SessionSummarizer(llm_client, embedder, store) if llm_client else None
+        self.summarizer = summarizer
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute two-stage session search."""
