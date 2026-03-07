@@ -5,9 +5,40 @@
 **Issue**: #76
 **Parent**: #10 (Alfred - The Rememberer)
 **Depends On**: #53 (Session System), #21 (M11: Learning System)
-**Status**: Planning
+**Status**: In Progress
 **Priority**: High
 **Created**: 2026-02-19
+
+## Implementation Progress
+
+### ✅ Completed
+- **Phase 1: SQLite Storage Layer**
+  - [x] `session_summaries` table with FK constraint to `sessions`
+  - [x] Indexes on `session_id` and `created_at`
+  - [x] `save_summary()` method with embedding serialization
+  - [x] `get_latest_summary()` method (returns most recent by version)
+  - [x] `find_sessions_needing_summary()` method (threshold-based query)
+  - [x] `message_count` column added to `sessions` table
+
+### ⏳ Remaining
+- **Phase 2: SessionSummarizer Integration**
+  - [ ] Update `SessionSummarizer` to use SQLite instead of JSON files
+  - [ ] LLM integration for `generate_summary()`
+  
+- **Phase 3: Cron Job Wiring**
+  - [ ] Update `session_summarizer` system job to actually generate summaries
+  - [ ] Wire up `SessionSummarizer` in job context
+  
+- **Phase 4: Two-Stage Search**
+  - [ ] Implement `_find_relevant_sessions()` for semantic search
+  - [ ] Implement `_search_session_messages()` for in-session search
+  - [ ] Update `SearchSessionsTool.execute_stream()` for two-stage flow
+  
+- **Phase 5: Integration & Testing**
+  - [ ] Pass `llm_client` to `register_builtin_tools()`
+  - [ ] End-to-end integration test
+
+**Overall Progress: 25%** (2 of 5 phases complete)
 
 Implement automatic session summarization using cron jobs. Sessions are summarized after 30 minutes of inactivity or 20 messages, enabling dual embedding search (messages + summaries).
 
@@ -34,12 +65,12 @@ Create automatic session summarization:
 
 ## Acceptance Criteria
 
-- [ ] `session_id` field on all memory entries
-- [ ] `data/session_summaries.jsonl` storage with embeddings
-- [ ] Cron job for automatic summarization (30 min idle OR 20 msg threshold)
-- [ ] `search_sessions` tool for semantic session search
-- [ ] Session summaries replaceable (regenerate, don't append)
-- [ ] Session metadata tracks: message count, timestamp range, summary version
+- [x] `session_id` field on all memory entries — ✅ `SessionMeta` has `session_id`
+- [x] SQLite `session_summaries` storage with embeddings — ✅ Table created with FK constraint
+- [ ] Cron job for automatic summarization (30 min idle OR 20 msg threshold) — ⏳ Job defined but doesn't call LLM
+- [ ] `search_sessions` tool for semantic session search — ⏳ Basic version exists, needs two-stage search
+- [x] Session summaries replaceable (regenerate, don't append) — ✅ Schema supports versioning
+- [x] Session metadata tracks: message count, timestamp range, summary version — ✅ `message_count` column added, `version` in summaries
 
 ---
 

@@ -218,10 +218,13 @@ CREATE INDEX idx_cron_history_job ON cron_history(job_id, started_at DESC);
 - Cron jobs stored in SQLite
 - Old `CronStore` (JSONL) removed
 
-### Phase 5: Add Session Summaries (IN PROGRESS)
-- Create `session_summaries` table
-- Implement summary storage methods
-- Integrate with `SessionSummarizer`
+### Phase 5: Add Session Summaries (IN PROGRESS - PRD #76)
+- ✅ Create `session_summaries` table — Done (2026-03-07)
+- ✅ Implement summary storage methods — Done (2026-03-07)
+  - `save_summary()` with embedding serialization
+  - `get_latest_summary()` by version
+  - `find_sessions_needing_summary()` for cron threshold detection
+- [ ] Integrate with `SessionSummarizer` — Pending PRD #76 Phase 2
 
 ---
 
