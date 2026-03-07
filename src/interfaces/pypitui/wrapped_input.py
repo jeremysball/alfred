@@ -18,6 +18,7 @@ from pypitui.utils import truncate_to_width
 from src.interfaces.ansi import (
     BRIGHT_WHITE,
     ON_BLUE,
+    ON_CYAN,
     ON_GREEN,
     ON_RED,
     RESET,
@@ -273,6 +274,7 @@ class WrappedInput(Component, Focusable):
             "green": f"{ON_GREEN}{BRIGHT_WHITE}",
             "red": f"{ON_RED}{BRIGHT_WHITE}",
             "blue": f"{ON_BLUE}{BRIGHT_WHITE}",
+            "cyan": f"{ON_CYAN}{BRIGHT_WHITE}",
         }
         cursor_style = color_map.get(self._cursor_color, REVERSE)
 

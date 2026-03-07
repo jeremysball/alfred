@@ -68,7 +68,7 @@ class Config(BaseSettings):
 
     # UI/TUI settings
     use_markdown_rendering: bool = True
-    input_cursor_color: str = "reverse"  # "reverse", "green", "red", "blue"
+    input_cursor_color: str = "cyan"  # "reverse", "green", "red", "blue", "cyan"
 
 
 def _load_toml_config(toml_path: Path) -> dict:
