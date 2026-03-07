@@ -67,6 +67,10 @@ class SessionMeta:
     last_active: datetime
     status: Literal["active", "idle"]
     message_count: int = 0
+    # PRD #76: Session summarization tracking
+    first_message_time: datetime | None = None
+    last_summarized_count: int = 0
+    summary_version: int = 0
 
 
 @dataclass
@@ -157,7 +161,7 @@ class SessionManager:
     def session_exists(self, session_id: str) -> bool:
         """Check if session exists."""
         try:
-            result = _run_async(self.store.load_session(session_id))
+            result = run_async(self.store.load_session(session_id))
             return result is not None
         except Exception:
             return False
