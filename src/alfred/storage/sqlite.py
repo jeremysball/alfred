@@ -49,6 +49,7 @@ class SQLiteStore:
 
             # Create tables
             await self._create_sessions_table(db)
+            await self._create_session_summaries_table(db)
             await self._create_cron_tables(db)
             await self._create_memories_table(db)
 
@@ -71,8 +72,35 @@ class SQLiteStore:
 
         # Index for session lookups
         await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_sessions_updated 
+            CREATE INDEX IF NOT EXISTS idx_sessions_updated
             ON sessions(updated_at)
+        """)
+
+    async def _create_session_summaries_table(self, db: Any) -> None:
+        """Create session_summaries table with FK to sessions."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS session_summaries (
+                summary_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                message_count INTEGER NOT NULL,
+                first_message_idx INTEGER NOT NULL,
+                last_message_idx INTEGER NOT NULL,
+                summary_text TEXT NOT NULL,
+                embedding JSON,
+                version INTEGER DEFAULT 1,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+
+        # Indexes
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_summaries_session
+            ON session_summaries(session_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_summaries_created
+            ON session_summaries(created_at)
         """)
 
     async def _create_cron_tables(self, db: Any) -> None:
