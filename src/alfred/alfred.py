@@ -15,6 +15,7 @@ from alfred.embeddings import create_provider
 from alfred.llm import ChatMessage, LLMFactory
 from alfred.memory import create_memory_store
 from alfred.session import Session, SessionManager, ToolCallRecord
+from alfred.storage.sqlite import SQLiteStore
 from alfred.tools.search_sessions import SessionSummarizer
 from alfred.token_tracker import TokenTracker
 from alfred.container import ServiceLocator
