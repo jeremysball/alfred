@@ -38,7 +38,9 @@ async def run():
         "*/5 * * * *",
         '''"""Summarize idle sessions with 30min idle or 20+ new messages."""
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, UTC
+
+from alfred.container import ServiceLocator
 from alfred.session import SessionManager
 from alfred.tools.search_sessions import SessionSummarizer
 
@@ -50,8 +52,10 @@ async def run():
     print("Running session summarization job")
 
     try:
-        # Get session manager
-        session_manager = SessionManager.get_instance()
+        # Get services from locator
+        summarizer = ServiceLocator.resolve(SessionSummarizer)
+        session_manager = ServiceLocator.resolve(SessionManager)
+
         sessions = session_manager.list_sessions()
 
         summarized = 0
@@ -70,10 +74,10 @@ async def run():
                 # Load session and generate summary
                 session = session_manager.load_session(meta.session_id)
                 if session and session.messages:
-                    # Summary generation would happen here
-                    # Update metadata
-                    meta.last_summarized_count = meta.message_count
-                    meta.summary_version += 1
+                    # Generate and save summary
+                    summary = await summarizer.generate_summary(session)
+                    await summarizer.save_summary(summary)
+                    print(f"Saved summary for session {meta.session_id}")
                     summarized += 1
 
         print(f"Session summarization complete: {summarized} sessions summarized")

@@ -15,8 +15,9 @@ from alfred.embeddings import create_provider
 from alfred.llm import ChatMessage, LLMFactory
 from alfred.memory import create_memory_store
 from alfred.session import Session, SessionManager, ToolCallRecord
-from alfred.storage.sqlite import SQLiteStore
+from alfred.tools.search_sessions import SessionSummarizer
 from alfred.token_tracker import TokenTracker
+from alfred.container import ServiceLocator
 from alfred.tools import get_registry, register_builtin_tools
 from alfred.tools.factories import SummarizerFactory
 
@@ -85,6 +86,11 @@ class Alfred:
             embedder=self.embedder,
         )
         self.summarizer = self.summarizer_factory.create()
+
+        # Register services in ServiceLocator for cron jobs
+        ServiceLocator.register(SessionSummarizer, self.summarizer)
+        ServiceLocator.register(SessionManager, self.session_manager)
+        ServiceLocator.register(SQLiteStore, self.sqlite_store)
 
         # Register built-in tools (inject memory store, scheduler, and config)
         register_builtin_tools(
