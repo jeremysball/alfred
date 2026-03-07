@@ -1,10 +1,13 @@
 """Main AlfredTUI class for the CLI interface."""
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
+
+logger = logging.getLogger(__name__)
 
 from alfred.alfred import Alfred
 
@@ -681,23 +684,43 @@ class AlfredTUI:
 
     async def run(self) -> None:
         """Main event loop - delegates to pypitui's run_frame()."""
+        logger.debug("TUI run() starting")
         self.tui.start()
+        logger.debug("tui.start() done")
         await self._load_session_messages()
+        logger.debug("_load_session_messages() done")
         self._update_status()
+        logger.debug("_update_status() done")
         self.tui.request_render()  # Initial render after setup
+        logger.debug("request_render() done, entering main loop")
 
         try:
+            frame_count = 0
             while self.running:
-                # Check for Ctrl+C first (custom handling)
+                frame_count += 1
+                logger.debug(f"frame {frame_count}")
+
+                # Check for input first
                 data = self.terminal.read_sequence(timeout=0.0)
+                if data:
+                    logger.debug(f"read_sequence returned: {repr(data)}")
+
+                # Check for Ctrl+C
                 if data == "\x03":  # Ctrl+C
+                    logger.debug("Ctrl+C detected")
                     self._handle_ctrl_c()
                     if not self.running:
                         break
                     continue
 
-                # Delegate everything else to pypitui
+                # Let pypitui handle other input and rendering
+                if data:
+                    logger.debug(f"calling handle_input with {repr(data)}")
+                    self.tui.handle_input(data)
+                    self.tui.request_render()
+
                 if not self.tui.run_frame():
+                    logger.debug("run_frame() returned False, exiting")
                     break
 
                 # Throbber animation
@@ -706,4 +729,5 @@ class AlfredTUI:
 
                 await asyncio.sleep(0.016)
         finally:
+            logger.debug("TUI stopping")
             self.tui.stop()
