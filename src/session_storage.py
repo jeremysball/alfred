@@ -29,6 +29,8 @@ from src import llm
 from src.data_manager import get_data_dir
 from src.embeddings.provider import EmbeddingProvider
 from src.session import Message, Role, Session, SessionMeta, SessionSummary, ToolCallRecord
+from src.storage.record_store import JsonlRecordStore
+from src.type_defs import JsonObject
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +213,12 @@ class SessionStorage:
         """Generate a new session ID (UUID without dashes, prefixed)."""
         return f"sess_{uuid4().hex[:12]}"
 
+    def _message_store(self, session_id: str) -> JsonlRecordStore:
+        return JsonlRecordStore(self.sessions_dir / session_id / "current.jsonl")
+
+    def _tokens_store(self, session_id: str) -> JsonlRecordStore:
+        return JsonlRecordStore(self.sessions_dir / session_id / "tokens.jsonl")
+
     # === Messages ===
 
     def _load_token_deltas(self, session_id: str) -> dict[int, dict[str, int]]:
@@ -219,24 +227,23 @@ class SessionStorage:
         Returns a dict mapping message idx to token counts.
         Later entries override earlier ones for the same idx.
         """
-        tokens_path = self.sessions_dir / session_id / "tokens.jsonl"
-        if not tokens_path.exists():
+        store = self._tokens_store(session_id)
+        if not store.exists():
             return {}
 
         deltas: dict[int, dict[str, int]] = {}
-        with open(tokens_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                data = json.loads(line)
-                idx = data["idx"]
-                # Merge deltas - later entries take precedence
-                if idx not in deltas:
-                    deltas[idx] = {}
-                for key in ["input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens"]:
-                    if key in data:
-                        deltas[idx][key] = data[key]
+        for data in store.iter_records():
+            idx_value = data.get("idx")
+            if not isinstance(idx_value, int):
+                continue
+            idx = idx_value
+            # Merge deltas - later entries take precedence
+            if idx not in deltas:
+                deltas[idx] = {}
+            for key in ["input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens"]:
+                value = data.get(key)
+                if isinstance(value, int):
+                    deltas[idx][key] = value
         return deltas
 
     def _load_tool_calls(self, data: dict) -> list[ToolCallRecord] | None:
@@ -261,52 +268,96 @@ class SessionStorage:
             for tc in tool_calls_data
         ]
 
+    @staticmethod
+    def _parse_embedding(value: object) -> list[float] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("Session message embedding must be a list of numbers")
+        embedding: list[float] = []
+        for item in value:
+            if not isinstance(item, (int, float)):
+                raise ValueError("Session message embedding must be a list of numbers")
+            embedding.append(float(item))
+        return embedding
+
+    @staticmethod
+    def _parse_token(value: object) -> int:
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        return 0
+
     def load_messages(self, session_id: str) -> list[Message]:
         """Load messages from current.jsonl and merge token deltas."""
-        messages_path = self.sessions_dir / session_id / "current.jsonl"
-        if not messages_path.exists():
+        store = self._message_store(session_id)
+        if not store.exists():
             return []
 
         # Load token deltas from sidecar file
         token_deltas = self._load_token_deltas(session_id)
 
         messages = []
-        with open(messages_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                data = json.loads(line)
-                idx = data["idx"]
-                session_id_value = data.get("session_id")
-                if not isinstance(session_id_value, str) or not session_id_value:
-                    raise ValueError("Session message missing session_id")
-                if session_id_value != session_id:
-                    raise ValueError("Session message session_id mismatch")
+        for data in store.iter_records():
+            idx_value = data.get("idx")
+            if not isinstance(idx_value, int):
+                raise ValueError("Session message idx must be an int")
+            idx = idx_value
 
-                # Get token deltas for this message (if any)
-                deltas = token_deltas.get(idx, {})
+            session_id_value = data.get("session_id")
+            if not isinstance(session_id_value, str) or not session_id_value:
+                raise ValueError("Session message missing session_id")
+            if session_id_value != session_id:
+                raise ValueError("Session message session_id mismatch")
 
-                # Load tool calls (handles backward compatibility)
-                tool_calls = self._load_tool_calls(data)
+            role_value = data.get("role")
+            if not isinstance(role_value, str):
+                raise ValueError("Session message missing role")
 
-                messages.append(
-                    Message(
-                        idx=idx,
-                        role=Role(data["role"]),
-                        content=data["content"],
-                        timestamp=datetime.fromisoformat(data["timestamp"]),
-                        embedding=data.get("embedding"),
-                        session_id=session_id_value,
-                        input_tokens=deltas.get("input_tokens", data.get("input_tokens", 0)),
-                        output_tokens=deltas.get("output_tokens", data.get("output_tokens", 0)),
-                        cached_tokens=deltas.get("cached_tokens", data.get("cached_tokens", 0)),
-                        reasoning_tokens=deltas.get(
-                            "reasoning_tokens", data.get("reasoning_tokens", 0)
-                        ),
-                        tool_calls=tool_calls,
-                    )
+            content_value = data.get("content")
+            if not isinstance(content_value, str):
+                raise ValueError("Session message missing content")
+
+            timestamp_value = data.get("timestamp")
+            if not isinstance(timestamp_value, str):
+                raise ValueError("Session message missing timestamp")
+
+            # Get token deltas for this message (if any)
+            deltas = token_deltas.get(idx, {})
+
+            # Load tool calls (handles backward compatibility)
+            tool_calls = self._load_tool_calls(data)
+
+            embedding = self._parse_embedding(data.get("embedding"))
+            input_tokens = deltas.get("input_tokens")
+            if input_tokens is None:
+                input_tokens = self._parse_token(data.get("input_tokens"))
+            output_tokens = deltas.get("output_tokens")
+            if output_tokens is None:
+                output_tokens = self._parse_token(data.get("output_tokens"))
+            cached_tokens = deltas.get("cached_tokens")
+            if cached_tokens is None:
+                cached_tokens = self._parse_token(data.get("cached_tokens"))
+            reasoning_tokens = deltas.get("reasoning_tokens")
+            if reasoning_tokens is None:
+                reasoning_tokens = self._parse_token(data.get("reasoning_tokens"))
+
+            messages.append(
+                Message(
+                    idx=idx,
+                    role=Role(role_value),
+                    content=content_value,
+                    timestamp=datetime.fromisoformat(timestamp_value),
+                    embedding=embedding,
+                    session_id=session_id_value,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    cached_tokens=cached_tokens,
+                    reasoning_tokens=reasoning_tokens,
+                    tool_calls=tool_calls,
                 )
+            )
         return messages
 
     def _serialize_tool_calls(self, tool_calls: list[ToolCallRecord] | None) -> list[dict] | None:
@@ -330,16 +381,7 @@ class SessionStorage:
             for tc in tool_calls
         ]
 
-    async def append_message(self, session_id: str, message: Message) -> None:
-        """Append message to current.jsonl."""
-        messages_path = self.sessions_dir / session_id / "current.jsonl"
-
-        if not isinstance(message.session_id, str) or not message.session_id:
-            raise ValueError("Message session_id is required")
-        if message.session_id != session_id:
-            raise ValueError("Message session_id does not match session folder")
-
-        # Build message data
+    def _message_to_record(self, message: Message) -> dict:
         data: dict = {
             "session_id": message.session_id,
             "idx": message.idx,
@@ -353,14 +395,21 @@ class SessionStorage:
             "reasoning_tokens": message.reasoning_tokens,
         }
 
-        # Add tool_calls if present
         tool_calls_data = self._serialize_tool_calls(message.tool_calls)
         if tool_calls_data:
             data["tool_calls"] = tool_calls_data
 
-        line = json.dumps(data)
-        async with aiofiles.open(messages_path, "a") as f:
-            await f.write(line + "\n")
+        return data
+
+    async def append_message(self, session_id: str, message: Message) -> None:
+        """Append message to current.jsonl."""
+        if not isinstance(message.session_id, str) or not message.session_id:
+            raise ValueError("Message session_id is required")
+        if message.session_id != session_id:
+            raise ValueError("Message session_id does not match session folder")
+
+        store = self._message_store(session_id)
+        await store.append(self._message_to_record(message))
 
     async def update_message_embedding(
         self, session_id: str, idx: int, embedding: list[float]
@@ -369,8 +418,6 @@ class SessionStorage:
 
         Rewrites the message line with the new embedding.
         """
-        messages_path = self.sessions_dir / session_id / "current.jsonl"
-
         # Read all messages
         messages = self.load_messages(session_id)
 
@@ -380,30 +427,9 @@ class SessionStorage:
                 msg.embedding = embedding
                 break
 
-        # Rewrite the file
-        async with aiofiles.open(messages_path, "w") as f:
-            for msg in messages:
-                # Build message data
-                data: dict = {
-                    "session_id": msg.session_id,
-                    "idx": msg.idx,
-                    "role": msg.role.value,
-                    "content": msg.content,
-                    "timestamp": msg.timestamp.isoformat(),
-                    "embedding": msg.embedding,
-                    "input_tokens": msg.input_tokens,
-                    "output_tokens": msg.output_tokens,
-                    "cached_tokens": msg.cached_tokens,
-                    "reasoning_tokens": msg.reasoning_tokens,
-                }
-
-                # Add tool_calls if present
-                tool_calls_data = self._serialize_tool_calls(msg.tool_calls)
-                if tool_calls_data:
-                    data["tool_calls"] = tool_calls_data
-
-                line = json.dumps(data)
-                await f.write(line + "\n")
+        store = self._message_store(session_id)
+        records = [self._message_to_record(msg) for msg in messages]
+        await store.rewrite(records)
 
     async def update_message_tokens(
         self,
@@ -420,10 +446,8 @@ class SessionStorage:
         Appends a delta entry to tokens.jsonl (append-only, no rewrite).
         This avoids race conditions with concurrent message appends.
         """
-        tokens_path = self.sessions_dir / session_id / "tokens.jsonl"
-
         # Build delta entry with only non-zero values
-        delta: dict[str, int | str] = {"idx": idx}
+        delta: JsonObject = {"idx": idx}
         if input_tokens:
             delta["input_tokens"] = input_tokens
         if output_tokens:
@@ -433,9 +457,8 @@ class SessionStorage:
         if reasoning_tokens:
             delta["reasoning_tokens"] = reasoning_tokens
 
-        # Append delta to sidecar file (no rewrite, no race condition)
-        async with aiofiles.open(tokens_path, "a") as f:
-            await f.write(json.dumps(delta) + "\n")
+        store = self._tokens_store(session_id)
+        await store.append(delta)
 
     # === Full Session Load ===
 

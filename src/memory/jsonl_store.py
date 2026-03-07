@@ -6,14 +6,14 @@ from collections.abc import AsyncIterator
 from datetime import date, datetime, timedelta
 from typing import Literal
 
-import aiofiles
 from pydantic import BaseModel, Field
 
 from src.config import Config
 from src.embeddings import cosine_similarity
 from src.embeddings.provider import EmbeddingProvider
 from src.memory.base import MemoryStore
-from src.type_defs import JsonValue, MemoryEntryLike, MemoryRole, ensure_json_object
+from src.storage.record_store import JsonlRecordStore, RecordStore
+from src.type_defs import JsonObject, JsonValue, MemoryEntryLike, MemoryRole, ensure_json_object
 
 
 def _parse_role(value: object) -> MemoryRole:
@@ -68,6 +68,7 @@ class JSONLMemoryStore(MemoryStore):
         self.memory_dir = config.memory_dir
         self.memory_dir.mkdir(parents=True, exist_ok=True)
         self.memories_path = self.memory_dir / "memories.jsonl"
+        self._record_store: RecordStore = JsonlRecordStore(self.memories_path)
 
     def _require_entry(self, entry: MemoryEntryLike) -> MemoryEntry:
         if isinstance(entry, MemoryEntry):
@@ -77,30 +78,31 @@ class JSONLMemoryStore(MemoryStore):
     def _require_entries(self, entries: list[MemoryEntryLike]) -> list[MemoryEntry]:
         return [self._require_entry(entry) for entry in entries]
 
-    def _entry_to_jsonl(self, entry: MemoryEntry) -> str:
-        """Serialize MemoryEntry to JSONL line."""
+    def _entry_to_record(self, entry: MemoryEntry) -> JsonObject:
+        """Serialize MemoryEntry to a record dictionary."""
         # Ensure ID is generated
         if entry.entry_id is None:
             entry.entry_id = entry.generate_id()
         tags: list[JsonValue] = list(entry.tags)
-        return json.dumps(
-            {
-                "timestamp": entry.timestamp.isoformat(),
-                "role": entry.role,
-                "content": entry.content,
-                "embedding": entry.embedding,
-                "tags": tags,
-                "entry_id": entry.entry_id,
-                "permanent": entry.permanent,
-            }
-        )
+        embedding: list[JsonValue] | None = None
+        if entry.embedding is not None:
+            embedding = [float(value) for value in entry.embedding]
+        return {
+            "timestamp": entry.timestamp.isoformat(),
+            "role": entry.role,
+            "content": entry.content,
+            "embedding": embedding,
+            "tags": tags,
+            "entry_id": entry.entry_id,
+            "permanent": entry.permanent,
+        }
 
-    def _entry_from_jsonl(self, line: str) -> MemoryEntry:
-        """Deserialize JSONL line to MemoryEntry.
+    def _entry_from_record(self, record: JsonObject) -> MemoryEntry:
+        """Deserialize record to MemoryEntry.
 
         Backward compatible: ignores importance field if present in old data.
         """
-        data = ensure_json_object(json.loads(line))
+        data = ensure_json_object(record)
         timestamp_value = data.get("timestamp")
         if not isinstance(timestamp_value, str):
             raise ValueError("Memory entry missing timestamp")
@@ -153,6 +155,21 @@ class JSONLMemoryStore(MemoryStore):
             permanent=permanent_value,  # Default False for old data
         )
 
+    def _entry_to_jsonl(self, entry: MemoryEntry) -> str:
+        """Serialize MemoryEntry to a JSONL line.
+
+        Maintained for backward-compatible tests.
+        """
+        return json.dumps(self._entry_to_record(entry))
+
+    def _entry_from_jsonl(self, line: str) -> MemoryEntry:
+        """Deserialize JSONL line to MemoryEntry.
+
+        Maintained for backward-compatible tests.
+        """
+        data = json.loads(line)
+        return self._entry_from_record(ensure_json_object(data))
+
     async def add_entries(self, entries: list[MemoryEntry]) -> None:
         """Add multiple entries to the unified memory store.
 
@@ -185,9 +202,8 @@ class JSONLMemoryStore(MemoryStore):
             )
 
         # Append to JSONL file (only reached if all embeddings succeeded)
-        async with aiofiles.open(self.memories_path, "a") as f:
-            for entry in entries:
-                await f.write(self._entry_to_jsonl(entry) + "\n")
+        records = [self._entry_to_record(entry) for entry in entries]
+        await self._record_store.append_records(records)
 
     async def add(self, entry: MemoryEntryLike) -> None:
         """Implement MemoryStore abstract method."""
@@ -198,26 +214,15 @@ class JSONLMemoryStore(MemoryStore):
     async def get_all_entries(self) -> list[MemoryEntryLike]:
         """Load all memory entries."""
         entries: list[MemoryEntryLike] = []
-        if not self.memories_path.exists():
-            return entries
-
-        async with aiofiles.open(self.memories_path) as f:
-            async for line in f:
-                line = line.strip()
-                if line:
-                    entries.append(self._entry_from_jsonl(line))
+        records = await self._record_store.read_all_async()
+        for record in records:
+            entries.append(self._entry_from_record(record))
         return entries
 
     async def iter_entries(self) -> AsyncIterator[MemoryEntry]:
         """Iterate over all memory entries (memory-efficient)."""
-        if not self.memories_path.exists():
-            return
-
-        async with aiofiles.open(self.memories_path) as f:
-            async for line in f:
-                line = line.strip()
-                if line:
-                    yield self._entry_from_jsonl(line)
+        async for record in self._record_store.iter_records_async():
+            yield self._entry_from_record(record)
 
     async def filter_by_date(
         self,
@@ -480,15 +485,6 @@ class JSONLMemoryStore(MemoryStore):
         return True, "Deleted 1 memory"
 
     async def _rewrite_entries(self, entries: list[MemoryEntry]) -> None:
-        """Atomically rewrite all entries to the JSONL file.
-
-        Uses a temp file and atomic replace to prevent corruption.
-        """
-        temp_path = self.memories_path.with_suffix(".tmp")
-
-        async with aiofiles.open(temp_path, "w") as f:
-            for entry in entries:
-                await f.write(self._entry_to_jsonl(entry) + "\n")
-
-        # Atomic replace
-        temp_path.replace(self.memories_path)
+        """Atomically rewrite all entries to the JSONL file."""
+        records = [self._entry_to_record(entry) for entry in entries]
+        await self._record_store.rewrite(records)
