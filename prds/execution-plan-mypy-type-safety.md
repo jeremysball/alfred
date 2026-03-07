@@ -1,0 +1,46 @@
+# Execution Plan: Mypy Migration + Remove Any/Cast
+
+- [ ] Create test file `tests/test_type_defs_json.py` with JSON type-guard coverage.
+- [ ] Run: `uv run pytest tests/test_type_defs_json.py -v` (expect failure).
+- [ ] Create `src/type_defs.py` with:
+  - [ ] `JsonPrimitive`, `JsonValue`, `JsonObject` aliases
+  - [ ] `ToolCallFunction`, `ToolCall`, `ToolSchema` TypedDicts
+  - [ ] `UsageDetails`, `UsageData` TypedDicts
+  - [ ] `AsyncHandler` type alias
+  - [ ] `is_json_value()` and `ensure_json_object()` helpers
+- [ ] Update `src/llm.py` to remove `Any` and `cast`:
+  - [ ] Replace tool/usage dicts with `ToolCall`, `UsageData`, `ToolSchema`
+  - [ ] Replace retry helpers with `ParamSpec` + `TypeVar`
+  - [ ] Narrow `summarize_conversation` argument type
+- [ ] Update memory store typing:
+  - [ ] `src/memory/base.py` → `MemoryStore[TEntry]` generic
+  - [ ] `src/memory/jsonl_store.py` → `MemoryStore[MemoryEntry]`, JSON helpers
+  - [ ] `src/memory/faiss_store.py` → `FaissIndex` Protocol, remove `cast`
+  - [ ] `src/memory/migrate.py` → JSON helpers
+- [ ] Update cron typing:
+  - [ ] `src/cron/parser.py` → remove `cast`, add runtime validation
+  - [ ] `src/cron/scheduler.py` → remove `Any`/`cast`, add async-handler guard
+  - [ ] `src/cron/executor.py` → typed handler + `ExecutionContext.memory_store`
+  - [ ] `src/cron/models.py`, `src/cron/observability.py`, `src/cron/notifier.py` → JSON helpers
+- [ ] Update core/session typing:
+  - [ ] `src/agent.py`, `src/alfred.py`, `src/context.py`, `src/context_display.py`
+  - [ ] `src/session.py`, `src/session_storage.py`, `src/token_tracker.py`
+  - [ ] `src/config.py`, `src/utils/cas_store.py`
+- [ ] Update tool typing:
+  - [ ] `src/tools/base.py` and `src/tools/__init__.py` → JSON aliases
+  - [ ] Tool modules (`approve_job`, `schedule_job`, `search_*`, `remember`, `forget`, `reject_job`, `update_memory`, `read`, `write`, `edit`, `bash`, `list_jobs`) → remove `Any`
+- [ ] Update interface typing:
+  - [ ] `src/interfaces/status.py` → typed spinner + toolbar output
+  - [ ] `src/interfaces/cli.py` → prompt_toolkit types
+  - [ ] `src/interfaces/pypitui/wrapped_input.py` → remove `cast` via Protocol
+  - [ ] `src/interfaces/pypitui/tui.py` → remove `Any`
+- [ ] Update tooling configuration:
+  - [ ] `pyproject.toml` dev deps: remove `basedpyright`, add `mypy`
+  - [ ] Install missing stubs via `uv add --dev types-…`
+  - [ ] Update `.githooks/pre-commit` to run `uv run mypy src/`
+  - [ ] Confirm `.github/workflows/ci.yml` uses mypy and has needed deps
+- [ ] Run: `uv run pytest tests/test_type_defs_json.py -v` (should pass).
+- [ ] Run: `uv run ruff check src/`.
+- [ ] Run: `uv run mypy src/`.
+- [ ] Run: `uv run pytest`.
+- [ ] Run full verification: `uv run ruff check src/ && uv run mypy src/ && uv run pytest`.

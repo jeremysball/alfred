@@ -1,0 +1,25 @@
+# Execution Plan: PRD 76 SearchSessionsTool JSON Output
+
+- [ ] Create file `tests/tools/test_search_sessions.py` with new JSON-output tests
+- [ ] Remove legacy `tests/test_search_sessions.py` (streaming text tests)
+- [ ] Add fixture: `mock_embedder` with `AsyncMock` `embed` return value
+- [ ] Add fixture: `session_storage` using `SessionStorage` with temp data dir
+- [ ] Test: `test_search_sessions_tool_exists()` — verify name/description
+- [ ] Test: `test_search_sessions_tool_requires_query()` — empty query returns error JSON
+- [ ] Test: `test_search_sessions_tool_returns_results()` — returns JSON list with summary_text
+- [ ] Test: `test_search_sessions_tool_returns_empty_results()` — no matches yields empty results
+- [ ] Test: `test_search_sessions_tool_uses_default_top_k()` — default top_k=3
+- [ ] Modify `src/tools/search_sessions.py` to remove `SessionSummarizer` and old streaming output
+- [ ] Add `SearchSessionsResult` + `SearchSessionsResultItem` Pydantic models
+- [ ] Implement `SearchSessionsTool.execute_stream()` to:
+  - [ ] Validate `query` and return error JSON when empty
+  - [ ] Embed query via `embedder.embed`
+  - [ ] Call `search_session_summaries` with internal `min_similarity`
+  - [ ] Map `SessionSummary` to JSON-safe dict (exclude embeddings)
+  - [ ] Return JSON with `results`, `count`, `query`, `top_k`
+- [ ] Update imports in `src/tools/search_sessions.py` to use `src.search.search_session_summaries`
+- [ ] Run: `uv run pytest tests/tools/test_search_sessions.py -v`
+- [ ] Fix failures, re-run test
+- [ ] Run: `uv run ruff check src/`
+- [ ] Run: `uv run basedpyright src/`
+- [ ] Run: `uv run pytest`

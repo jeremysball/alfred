@@ -1,0 +1,29 @@
+# Execution Plan: Remove FAISS (JSONL-only)
+
+- [ ] Remove FAISS store implementation
+  - [ ] Delete `src/memory/faiss_store.py`
+  - [ ] Delete `src/memory/migrate.py`
+- [ ] Remove FAISS CLI wiring
+  - [ ] Update `src/cli/memory.py` to drop migrate/faiss options
+  - [ ] Update `src/cli/main.py` to remove `--faiss-path` option
+- [ ] Simplify memory store factory
+  - [ ] Update `src/memory/__init__.py` to return JSONL only
+  - [ ] Update imports to export JSONL `MemoryEntry`
+- [ ] Remove FAISS config fields
+  - [ ] Update `src/config.py` to drop `memory_store`/FAISS options
+  - [ ] Update config TOML parsing to remove FAISS keys
+- [ ] Remove FAISS tests
+  - [ ] Delete `tests/memory/test_faiss_store.py`
+  - [ ] Delete `tests/memory/test_migration.py`
+- [ ] Remove FAISS dependencies
+  - [ ] Update `pyproject.toml` to remove `faiss-cpu`
+  - [ ] Run `uv sync --all-extras` to update `uv.lock`
+- [ ] Update docs to reflect JSONL-only storage
+  - [ ] Update `docs/EMBEDDINGS.md`
+  - [ ] Update `docs/MEMORY.md`
+- [ ] Clean up remaining references
+  - [ ] Search and remove remaining `faiss` references in `src/` and docs
+- [ ] Tests
+  - [ ] Run `uv run ruff check src/`
+  - [ ] Run `uv run mypy src/`
+  - [ ] Run `uv run pytest`
