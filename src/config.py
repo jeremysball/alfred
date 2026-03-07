@@ -7,6 +7,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.data_manager import get_config_toml_path, get_data_dir, get_memory_dir, get_workspace_dir
+from src.type_defs import JsonObject, ensure_json_object
 
 
 class Config(BaseSettings):
@@ -48,12 +49,6 @@ class Config(BaseSettings):
     embedding_provider: str = "openai"  # "openai" or "local"
     local_embedding_model: str = "bge-base"  # "bge-small", "bge-base", "bge-large"
 
-    # Memory store settings (PRD #105)
-    memory_store: str = "jsonl"  # "jsonl" or "faiss"
-    faiss_index_type: str = "auto"  # "flat", "ivf", or "auto"
-    faiss_ivf_threshold: int = 10000  # Switch to IVF at N entries
-    faiss_backup_jsonl: bool = True  # Keep JSONL backup when using FAISS
-
     # Tool calls in context configuration
     tool_calls_enabled: bool = True
     tool_calls_max_calls: int = 5
@@ -71,27 +66,34 @@ class Config(BaseSettings):
     input_cursor_color: str = "cyan"  # "reverse", "green", "red", "blue", "cyan"
 
 
-def _load_toml_config(toml_path: Path) -> dict:
+def _get_section(data: JsonObject, key: str) -> JsonObject | None:
+    value = data.get(key)
+    if isinstance(value, dict):
+        return ensure_json_object(value)
+    return None
+
+
+def _load_toml_config(toml_path: Path) -> JsonObject:
     """Load and flatten TOML config to flat dict.
 
     Converts nested sections like [provider] default = "x"
     to flat keys like default_llm_provider = "x".
     """
     with open(toml_path, "rb") as f:
-        toml_data = tomli.load(f)
+        toml_data = ensure_json_object(tomli.load(f))
 
-    flat_config: dict = {}
+    flat_config: JsonObject = {}
 
     # Map TOML sections to flat config keys
-    if "provider" in toml_data:
-        provider = toml_data["provider"]
+    provider = _get_section(toml_data, "provider")
+    if provider:
         if "default" in provider:
             flat_config["default_llm_provider"] = provider["default"]
         if "chat_model" in provider:
             flat_config["chat_model"] = provider["chat_model"]
 
-    if "embeddings" in toml_data:
-        embeddings = toml_data["embeddings"]
+    embeddings = _get_section(toml_data, "embeddings")
+    if embeddings:
         if "model" in embeddings:
             flat_config["embedding_model"] = embeddings["model"]
         if "provider" in embeddings:
@@ -99,27 +101,18 @@ def _load_toml_config(toml_path: Path) -> dict:
         if "local_model" in embeddings:
             flat_config["local_embedding_model"] = embeddings["local_model"]
 
-    if "memory" in toml_data:
-        memory = toml_data["memory"]
+    memory = _get_section(toml_data, "memory")
+    if memory:
         if "budget" in memory:
             flat_config["memory_budget"] = memory["budget"]
-        if "store" in memory:
-            flat_config["memory_store"] = memory["store"]
         if "ttl_days" in memory:
             flat_config["memory_ttl_days"] = memory["ttl_days"]
         if "warning_threshold" in memory:
             flat_config["memory_warning_threshold"] = memory["warning_threshold"]
-        # FAISS-specific settings
-        if "faiss_index_type" in memory:
-            flat_config["faiss_index_type"] = memory["faiss_index_type"]
-        if "faiss_ivf_threshold" in memory:
-            flat_config["faiss_ivf_threshold"] = memory["faiss_ivf_threshold"]
-        if "faiss_backup_jsonl" in memory:
-            flat_config["faiss_backup_jsonl"] = memory["faiss_backup_jsonl"]
 
     # Session configuration
-    if "session" in toml_data:
-        session = toml_data["session"]
+    session = _get_section(toml_data, "session")
+    if session:
         if "summarize_idle_minutes" in session:
             flat_config["session_summarize_idle_minutes"] = session[
                 "summarize_idle_minutes"
@@ -134,18 +127,18 @@ def _load_toml_config(toml_path: Path) -> dict:
             ]
 
     # UI/TUI configuration
-    if "ui" in toml_data:
-        ui = toml_data["ui"]
+    ui = _get_section(toml_data, "ui")
+    if ui:
         if "use_markdown_rendering" in ui:
             flat_config["use_markdown_rendering"] = ui["use_markdown_rendering"]
         if "input_cursor_color" in ui:
             flat_config["input_cursor_color"] = ui["input_cursor_color"]
 
     # Tool calls configuration
-    if "context" in toml_data:
-        context = toml_data["context"]
-        if "tool_calls" in context:
-            tool_calls = context["tool_calls"]
+    context = _get_section(toml_data, "context")
+    if context:
+        tool_calls = _get_section(context, "tool_calls")
+        if tool_calls:
             if "enabled" in tool_calls:
                 flat_config["tool_calls_enabled"] = tool_calls["enabled"]
             if "max_calls" in tool_calls:
@@ -174,13 +167,13 @@ def load_config(config_path: Path | None = None) -> Config:
     """
     toml_path = config_path or get_config_toml_path()
 
-    base_config: dict = {}
+    base_config: JsonObject = {}
 
     if toml_path.exists():
         base_config = _load_toml_config(toml_path)
 
     # Create config with defaults
-    config = Config(**base_config)
+    config = Config.model_validate(base_config)
 
     # Compute context_files if not provided
     # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md per PRD #102)

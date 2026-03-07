@@ -16,8 +16,6 @@ This document explains Alfred's three-layer memory architecture to avoid confusi
 
 ## Storage Structure
 
-### Default (JSONL)
-
 ```
 data/
 ├── memory/
@@ -29,23 +27,7 @@ data/
         └── summary.json            # Session summary + embedding
 ```
 
-### With FAISS enabled
-
-```
-data/
-├── memory/
-│   ├── memories.jsonl.bak          # Original backup (kept after migration)
-│   └── faiss/
-│       ├── index.faiss             # FAISS vector index
-│       └── metadata.json           # Entry metadata (timestamps, tags, content)
-│
-└── sessions/
-    └── sess_abc123/
-        ├── messages.jsonl
-        └── summary.json
-```
-
-See [docs/EMBEDDINGS.md](EMBEDDINGS.md) to switch from JSONL to FAISS.
+See [docs/EMBEDDINGS.md](EMBEDDINGS.md) for embedding setup.
 
 ---
 
@@ -172,8 +154,8 @@ This gives higher precision than searching all messages globally.
 | Component | Status | PRD |
 |-----------|--------|-----|
 | Curated Memory (JSONL) | ✅ Implemented | — |
-| FAISS Vector Store | ✅ Implemented | #105 |
 | Local Embeddings (BGE) | ✅ Implemented | #105 |
+| Vector Store (SQLite) | 🔲 Planned | — |
 | Session Summaries | 🔲 Planning | #76 |
 | Session Messages | 🔲 Planning | #76 |
 | Contextual Retrieval | 🔲 Planning | #77 |
@@ -182,7 +164,7 @@ This gives higher precision than searching all messages globally.
 
 ## Related Documentation
 
-- [Embeddings and FAISS](EMBEDDINGS.md) — Setup, configuration, migration, and performance tuning
+- [Embeddings](EMBEDDINGS.md) — Setup and configuration
 - [PRD #76: Session Summarization with Cron](../prds/76-session-summarization-cron.md)
 - [PRD #77: Contextual Retrieval System](../prds/77-contextual-retrieval-system.md)
 - [Architecture Overview](ARCHITECTURE.md)

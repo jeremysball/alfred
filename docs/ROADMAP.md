@@ -225,7 +225,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
 | 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
 | 15 | README Landing Page | Transform README into compelling OSS landing page |
-| 16 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
+| 16 | Pluggable Embeddings | Local models + OpenAI fallback; SQLite vector store planned (PRD #93) |
 
 ### Short-term 📋
 
@@ -240,7 +240,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 25 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
-| 26 | Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
+| 26 | Local Embeddings + SQLite | BGE-base local embeddings; SQLite vector store planned (PRD #105) |
 
 ### Medium-term 📅
 

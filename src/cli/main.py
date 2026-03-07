@@ -210,20 +210,6 @@ def memory_callback() -> None:
     pass
 
 
-@memory_app.command(name="migrate")
-def memory_migrate(
-    dry_run: bool = typer.Option(
-        True,
-        "--dry-run/--no-dry-run",
-        help="Show what would be migrated without making changes",
-    ),
-) -> None:
-    """Migrate memories from JSONL to FAISS."""
-    from src.cli.memory import migrate_command
-
-    migrate_command(dry_run=dry_run)
-
-
 @memory_app.command(name="status")
 def memory_status() -> None:
     """Show memory system status."""
@@ -234,10 +220,10 @@ def memory_status() -> None:
 
 @memory_app.command(name="prune")
 def memory_prune(
-    days: int = typer.Option(
+    ttl_days: int = typer.Option(
         90,
-        "--days",
-        "-d",
+        "--ttl",
+        "-t",
         help="Remove memories older than this many days",
     ),
     dry_run: bool = typer.Option(
@@ -249,7 +235,7 @@ def memory_prune(
     """Prune expired memories."""
     from src.cli.memory import prune_command
 
-    prune_command(days=days, dry_run=dry_run)
+    prune_command(ttl_days=ttl_days, dry_run=dry_run)
 
 
 app.add_typer(memory_app)
