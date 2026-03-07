@@ -642,3 +642,61 @@ async def generate_session_summary(
     logger.debug(f"Stored summary for session {session_id}")
 
     return summary
+
+
+# =============================================================================
+# Phase 2: Standalone Storage Functions (PRD #76)
+# =============================================================================
+
+
+def ensure_sessions_dir(data_dir: Path | None = None) -> Path:
+    """Ensure data/sessions/ directory exists.
+
+    Args:
+        data_dir: Base data directory. Defaults to XDG data dir.
+
+    Returns:
+        Path to the sessions directory.
+    """
+    sessions_dir = (data_dir or get_data_dir()) / "sessions"
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    return sessions_dir
+
+
+def create_session_folder(storage: SessionStorage, session_id: str) -> Path:
+    """Create {session_id}/ folder for session isolation.
+
+    Args:
+        storage: SessionStorage instance
+        session_id: Session ID to create folder for
+
+    Returns:
+        Path to the created session folder.
+    """
+    session_dir = storage.sessions_dir / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    return session_dir
+
+
+async def store_session_message(storage: SessionStorage, session_id: str, message: Message) -> None:
+    """Store session message to {session_id}/messages.jsonl.
+
+    Args:
+        storage: SessionStorage instance
+        session_id: Session ID to store message for
+        message: Message to store
+    """
+    await storage.append_message(session_id, message)
+
+
+async def get_session_messages(storage: SessionStorage, session_id: str) -> list[Message]:
+    """Get all messages for a session.
+
+    Args:
+        storage: SessionStorage instance
+        session_id: Session ID to get messages for
+
+    Returns:
+        List of messages in the session.
+    """
+    return storage.load_messages(session_id)
