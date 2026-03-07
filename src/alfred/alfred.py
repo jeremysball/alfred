@@ -8,6 +8,7 @@ from telegram import Bot
 
 from alfred.agent import Agent, ToolEnd, ToolEvent, ToolOutput, ToolStart
 from alfred.config import Config
+from alfred.container import ServiceLocator
 from alfred.context import ContextLoader
 from alfred.cron.scheduler import CronScheduler
 from alfred.cron.store import CronStore
@@ -18,6 +19,8 @@ from alfred.session import Session, SessionManager, ToolCallRecord
 from alfred.storage.sqlite import SQLiteStore
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
+from alfred.tools.factories import SummarizerFactory
+from alfred.tools.search_sessions import SessionSummarizer
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
@@ -50,7 +53,7 @@ class Alfred:
         # Initialize memory system
         self.embedder = create_provider(config)
         self.memory_store = create_memory_store(config, self.embedder)
-        
+
         # Initialize SQLiteStore for context loading
         self.sqlite_store = SQLiteStore(config.data_dir / "alfred.db")
         self.context_loader = ContextLoader(config, store=self.sqlite_store)
@@ -77,6 +80,19 @@ class Alfred:
         SessionManager.initialize(data_dir=data_dir)
         self.session_manager = SessionManager.get_instance()
 
+        # Create summarizer via factory
+        self.summarizer_factory = SummarizerFactory(
+            store=self.sqlite_store,
+            llm_client=self.llm,
+            embedder=self.embedder,
+        )
+        self.summarizer = self.summarizer_factory.create()
+
+        # Register services in ServiceLocator for cron jobs
+        ServiceLocator.register(SessionSummarizer, self.summarizer)
+        ServiceLocator.register(SessionManager, self.session_manager)
+        ServiceLocator.register(SQLiteStore, self.sqlite_store)
+
         # Register built-in tools (inject memory store, scheduler, and config)
         register_builtin_tools(
             memory_store=self.memory_store,
@@ -84,6 +100,8 @@ class Alfred:
             config=self.config,
             session_manager=self.session_manager,
             embedder=self.embedder,
+            llm_client=self.llm,
+            summarizer=self.summarizer,
         )
         self.tools = get_registry()
 
@@ -370,10 +388,10 @@ class Alfred:
 
         session.messages.append(assistant_msg_obj)
         session.meta.last_active = datetime.now(UTC)
-        session.meta.current_count += 1
+        session.meta.message_count = len(session.messages)
 
         # Persist to storage
-        self.session_manager._spawn_persist_task(session.meta.session_id, assistant_msg_obj)
+        self.session_manager._spawn_persist_task(session.meta.session_id, session.messages)
 
         assistant_msg_idx = assistant_msg_obj.idx
         msg_count = len(session.messages)

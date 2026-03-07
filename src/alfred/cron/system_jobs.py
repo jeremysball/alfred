@@ -34,6 +34,57 @@ async def run():
     print("Session TTL check completed")
 ''',
     ),
+    "session_summarizer": (
+        "*/5 * * * *",
+        '''"""Summarize idle sessions with 30min idle or 20+ new messages."""
+
+from datetime import datetime, UTC
+
+from alfred.container import ServiceLocator
+from alfred.session import SessionManager
+from alfred.tools.search_sessions import SessionSummarizer
+
+IDLE_THRESHOLD_MINUTES = 30
+MESSAGE_THRESHOLD = 20
+
+async def run():
+    """Find and summarize eligible sessions."""
+    print("Running session summarization job")
+
+    try:
+        # Get services from locator
+        summarizer = ServiceLocator.resolve(SessionSummarizer)
+        session_manager = ServiceLocator.resolve(SessionManager)
+
+        sessions = session_manager.list_sessions()
+
+        summarized = 0
+        for meta in sessions:
+            # Skip if not enough new messages and not idle enough
+            messages_since_summary = meta.message_count - meta.last_summarized_count
+            minutes_idle = (datetime.now(UTC) - meta.last_active).total_seconds() / 60
+
+            should_summarize = (
+                minutes_idle > IDLE_THRESHOLD_MINUTES or
+                messages_since_summary >= MESSAGE_THRESHOLD
+            )
+
+            if should_summarize:
+                print(f"Summarizing session {meta.session_id}")
+                # Load session and generate summary
+                session = session_manager.load_session(meta.session_id)
+                if session and session.messages:
+                    # Generate and save summary
+                    summary = await summarizer.generate_summary(session)
+                    await summarizer.save_summary(summary)
+                    print(f"Saved summary for session {meta.session_id}")
+                    summarized += 1
+
+        print(f"Session summarization complete: {summarized} sessions summarized")
+    except Exception as e:
+        print(f"Error in session summarization: {e}")
+''',
+    ),
 }
 
 

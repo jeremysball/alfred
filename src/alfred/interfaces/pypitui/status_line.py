@@ -93,13 +93,17 @@ class StatusLine(Component):
         if not streaming:
             self._throbber.reset()
 
-    def tick_throbber(self) -> None:
+    def tick_throbber(self) -> bool:
         """Advance throbber animation by one frame.
 
         Only animates when _is_streaming is True.
+
+        Returns:
+            True if throbber frame changed, False otherwise.
         """
         if self._is_streaming:
-            self._throbber.tick()
+            return self._throbber.tick()
+        return False
 
     def render(self, width: int) -> list[str]:
         """Render status line.

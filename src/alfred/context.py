@@ -211,11 +211,11 @@ class ContextBuilder:
         # Search and deduplicate (async, but called from sync context)
         try:
             loop = asyncio.get_event_loop()
-            relevant, similarities, scores = loop.run_until_complete(
-                self.search_memories(query_embedding, top_k=10)
-            )
+            # Only create coroutine when we have an event loop
+            coro = self.search_memories(query_embedding, top_k=10)
+            relevant, similarities, scores = loop.run_until_complete(coro)
         except RuntimeError:
-            # No event loop
+            # No event loop - coroutine was never created, no warning
             relevant, similarities, scores = [], {}, {}
 
         # Build memory section

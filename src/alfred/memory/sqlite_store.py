@@ -99,7 +99,7 @@ class SQLiteMemoryStore(MemoryStore):
             results = filtered
 
         # Convert to MemoryEntry objects
-        from alfred.memory.jsonl_store import MemoryEntry
+        from alfred.memory.base import MemoryEntry
 
         entries = []
         similarities = {}
@@ -130,7 +130,7 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Memory entry or None
         """
-        from alfred.memory.jsonl_store import MemoryEntry
+        from alfred.memory.base import MemoryEntry
 
         data = await self._store.get_memory(entry_id)
         if data is None:
@@ -151,7 +151,7 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             List of all entries
         """
-        from alfred.memory.jsonl_store import MemoryEntry
+        from alfred.memory.base import MemoryEntry
 
         results = await self._store.get_all_memories()
 

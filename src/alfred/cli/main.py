@@ -370,6 +370,9 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
 
     logging.basicConfig(level=level, handlers=handlers)
 
+    # Capture Python warnings (e.g., RuntimeWarning) and route through logging
+    logging.captureWarnings(True)
+
     for logger_name in ["markdown_it", "httpcore", "httpx", "urllib3", "asyncio"]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 

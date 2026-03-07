@@ -256,7 +256,6 @@ class AlfredTUI:
             {"consume": True} to block input from reaching input field,
             None to allow input to pass through.
         """
-        from pypitui import Key
 
         # ESC clears the queue
         if matches_key(data, Key.escape):
@@ -468,7 +467,7 @@ class AlfredTUI:
             if meta:
                 # Format: "Mar 3 21:45 · 12 msgs"
                 date_str = meta.last_active.strftime("%b %-d %H:%M")
-                msg_count = meta.current_count + meta.archive_count
+                msg_count = meta.message_count
                 desc = f"{date_str} · {msg_count} msgs"
                 sessions_with_meta.append((sid, desc, meta.last_active))
             else:
@@ -493,7 +492,7 @@ class AlfredTUI:
         if hasattr(self.tui, "reset_scrollback_state"):
             getattr(self.tui, "reset_scrollback_state")()  # noqa: B009
 
-    def _load_session_messages(self) -> None:
+    async def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
 
         Called on startup (if resuming) and after /resume command.
@@ -505,7 +504,7 @@ class AlfredTUI:
         if not self.alfred.session_manager.has_active_session():
             return
 
-        session = self.alfred.session_manager.get_current_cli_session()
+        session = await self.alfred.session_manager.get_current_cli_session_async()
         if not session or not session.messages:
             return
 
@@ -681,28 +680,33 @@ class AlfredTUI:
             asyncio.create_task(self._send_message(next_to_process))
 
     async def run(self) -> None:
-        """Main event loop - delegates to pypitui's run_frame()."""
+        """Main event loop - process input and render every frame."""
         self.tui.start()
-        self._load_session_messages()
+        await self._load_session_messages()
         self._update_status()
 
         try:
             while self.running:
-                # Check for Ctrl+C first (custom handling)
+                # Check for input
                 data = self.terminal.read_sequence(timeout=0.0)
+
+                # Check for Ctrl+C
                 if data == "\x03":  # Ctrl+C
                     self._handle_ctrl_c()
                     if not self.running:
                         break
                     continue
 
-                # Delegate everything else to pypitui
-                if not self.tui.run_frame():
-                    break
+                # Handle other input
+                if data:
+                    self.tui.handle_input(data)
 
-                # Throbber animation
+                # Throbber animation (marks render needed on change)
                 if self.status_line.tick_throbber():
                     self.tui.request_render()
+
+                # Render every frame - diff renderer only outputs changes
+                self.tui.render_frame()
 
                 await asyncio.sleep(0.016)
         finally:

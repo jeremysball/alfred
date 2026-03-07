@@ -7,7 +7,12 @@ import tomli
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from alfred.data_manager import get_config_toml_path, get_data_dir, get_memory_dir, get_workspace_dir
+from alfred.data_manager import (
+    get_config_toml_path,
+    get_data_dir,
+    get_memory_dir,
+    get_workspace_dir,
+)
 
 
 class Config(BaseSettings):

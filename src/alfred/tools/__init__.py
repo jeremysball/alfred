@@ -90,6 +90,7 @@ def register_builtin_tools(
     session_manager: Any = None,
     embedder: Any = None,
     llm_client: Any = None,
+    summarizer: Any = None,
 ) -> None:
     """Register all built-in tools.
 
@@ -100,6 +101,7 @@ def register_builtin_tools(
         session_manager: Optional SessionManager for session-related tools
         embedder: Optional EmbeddingClient for semantic search tools
         llm_client: Optional LLM client for summary generation
+        summarizer: Optional SessionSummarizer for session summarization
     """
     from alfred.tools.approve_job import ApproveJobTool
     from alfred.tools.bash import BashTool
@@ -150,6 +152,7 @@ def register_builtin_tools(
             session_manager=session_manager,
             embedder=embedder,
             llm_client=llm_client,
+            summarizer=summarizer,
         )
         register_tool(search_sessions_tool)
         logger.debug("Registered search_sessions tool")

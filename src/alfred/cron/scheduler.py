@@ -314,10 +314,13 @@ class CronScheduler:
             """Placeholder notify function - replaced at runtime."""
             pass
 
-        # Full builtins access for jobs
+        from alfred.container import ServiceLocator
+
+        # Full builtins access for jobs + ServiceLocator for dependency injection
         namespace: dict[str, Any] = {
             "__builtins__": __builtins__,
             "notify": _placeholder_notify,
+            "ServiceLocator": ServiceLocator,
         }
 
         # Execute code in namespace
