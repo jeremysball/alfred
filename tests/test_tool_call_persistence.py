@@ -157,6 +157,7 @@ class TestSessionStorageToolCalls:
             content="Running command",
             timestamp=datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC),
             tool_calls=[tool_call],
+            session_id="test_session",
         )
 
         # Append message
@@ -188,6 +189,7 @@ class TestSessionStorageToolCalls:
         temp_storage.create_session("test_session2")
 
         raw_message = {
+            "session_id": "test_session2",
             "idx": 1,
             "role": "assistant",
             "content": "Found files",
@@ -235,6 +237,7 @@ class TestSessionStorageToolCalls:
         temp_storage.create_session("legacy_session")
 
         legacy_message = {
+            "session_id": "legacy_session",
             "idx": 0,
             "role": "user",
             "content": "Hello",
@@ -267,6 +270,7 @@ class TestSessionStorageToolCalls:
             role=Role.USER,
             content="What files?",
             timestamp=datetime(2026, 3, 2, 12, 0, 0, tzinfo=UTC),
+            session_id="mixed_session",
         )
 
         # Assistant message with tool calls
@@ -285,6 +289,7 @@ class TestSessionStorageToolCalls:
             content="Checking now",
             timestamp=datetime(2026, 3, 2, 12, 0, 1, tzinfo=UTC),
             tool_calls=[tool_call],
+            session_id="mixed_session",
         )
 
         await temp_storage.append_message("mixed_session", user_msg)
@@ -304,6 +309,7 @@ class TestSessionStorageToolCalls:
         temp_storage.create_session("full_session")
 
         raw_data = {
+            "session_id": "full_session",
             "idx": 0,
             "role": "assistant",
             "content": "Tool result",

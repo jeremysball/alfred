@@ -413,6 +413,7 @@ class SessionManager:
             role=role_enum,
             content=content,
             timestamp=datetime.now(UTC),
+            session_id=session.meta.session_id,
         )
         session.messages.append(message)
         session.meta.last_active = datetime.now(UTC)

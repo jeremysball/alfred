@@ -380,10 +380,10 @@ Create automatic session summarization:
 
 #### End-to-End Integration
 
-- [ ] **Test:** `test_message_written_gets_session_id()` — verify full flow: message → session_id → storage
+- [x] **Test:** `test_message_written_gets_session_id()` — verify full flow: message → session_id → storage
   - **Commit:** `test(integration): verify message flow assigns session_id and stores`
 
-- [ ] **Implement:** Wire session_id assignment into message storage pipeline
+- [x] **Implement:** Wire session_id assignment into message storage pipeline
   - **Commit:** `feat(integration): wire session_id into message storage pipeline`
 
 - [ ] **Test:** `test_cron_finds_and_summarizes_idle_session()` — verify full cron flow end-to-end
@@ -402,10 +402,10 @@ Create automatic session summarization:
 - [ ] **Refactor:** Review and consolidate duplicate code between memory and session storage
   - **Commit:** `refactor(storage): consolidate shared storage utilities`
 
-- [ ] **Test:** Run full test suite `uv run pytest` — all tests pass
+- [x] **Test:** Run full test suite `uv run pytest` — all tests pass
   - **Commit:** `chore(tests): verify full test suite passes`
 
-- [ ] **Lint:** Run `uv run ruff check src/` — no issues
+- [x] **Lint:** Run `uv run ruff check src/` — no issues
   - **Commit:** `style: fix linting issues`
 
 - [ ] **Type Check:** Run `uv run basedpyright src/` — no type errors

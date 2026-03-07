@@ -278,6 +278,11 @@ class SessionStorage:
                     continue
                 data = json.loads(line)
                 idx = data["idx"]
+                session_id_value = data.get("session_id")
+                if not isinstance(session_id_value, str) or not session_id_value:
+                    raise ValueError("Session message missing session_id")
+                if session_id_value != session_id:
+                    raise ValueError("Session message session_id mismatch")
 
                 # Get token deltas for this message (if any)
                 deltas = token_deltas.get(idx, {})
@@ -292,6 +297,7 @@ class SessionStorage:
                         content=data["content"],
                         timestamp=datetime.fromisoformat(data["timestamp"]),
                         embedding=data.get("embedding"),
+                        session_id=session_id_value,
                         input_tokens=deltas.get("input_tokens", data.get("input_tokens", 0)),
                         output_tokens=deltas.get("output_tokens", data.get("output_tokens", 0)),
                         cached_tokens=deltas.get("cached_tokens", data.get("cached_tokens", 0)),
@@ -328,8 +334,14 @@ class SessionStorage:
         """Append message to current.jsonl."""
         messages_path = self.sessions_dir / session_id / "current.jsonl"
 
+        if not isinstance(message.session_id, str) or not message.session_id:
+            raise ValueError("Message session_id is required")
+        if message.session_id != session_id:
+            raise ValueError("Message session_id does not match session folder")
+
         # Build message data
         data: dict = {
+            "session_id": message.session_id,
             "idx": message.idx,
             "role": message.role.value,
             "content": message.content,
@@ -373,6 +385,7 @@ class SessionStorage:
             for msg in messages:
                 # Build message data
                 data: dict = {
+                    "session_id": msg.session_id,
                     "idx": msg.idx,
                     "role": msg.role.value,
                     "content": msg.content,

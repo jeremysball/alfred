@@ -174,12 +174,14 @@ class TestMessages:
             role=Role.USER,
             content="Hello",
             timestamp=datetime.now(),
+            session_id="test123",
         )
         msg2 = Message(
             idx=1,
             role=Role.ASSISTANT,
             content="Hi there",
             timestamp=datetime.now(),
+            session_id="test123",
         )
 
         import asyncio
@@ -203,6 +205,7 @@ class TestMessages:
             content="Hello",
             timestamp=datetime.now(),
             embedding=None,
+            session_id="test123",
         )
 
         import asyncio
@@ -230,6 +233,7 @@ class TestFullSessionLoad:
             role=Role.USER,
             content="Hello",
             timestamp=datetime.now(),
+            session_id="test123",
         )
 
         import asyncio
