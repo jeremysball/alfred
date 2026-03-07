@@ -43,17 +43,22 @@ Create automatic session summarization:
 
 ---
 
-## File Structure
+## Storage Architecture
+
+Uses **SQLite** (not JSON files) for unified storage via `SQLiteStore`:
 
 ```
 data/
-├── memory/
-│   └── memories.jsonl           # Curated facts (can link to sessions via session_id)
+├── alfred.db                    # SQLite database with all tables
+│   ├── sessions                 # Session metadata + messages JSON
+│   ├── session_summaries        # LLM-generated summaries with embeddings
+│   ├── memories                 # Curated facts with embeddings
+│   └── cron_jobs/history        # Scheduled jobs
 └── sessions/
-    └── {session_id}/
-        ├── messages.jsonl       # All session messages with embeddings
-        └── summary.json         # Session summary + embedding
+    └── current.json             # CLI current session pointer only
 ```
+
+**Note:** PRD originally specified per-session `summary.json` files. Implementation uses dedicated `session_summaries` table with proper foreign key relationships.
 
 ---
 
@@ -102,37 +107,57 @@ def assign_session_id(
 
 ## Session Summary Storage
 
-Summaries live alongside their session's messages in `data/sessions/{session_id}/summary.json`.
+Dedicated `session_summaries` table with foreign key to sessions.
 
 ```python
 @dataclass
 class SessionSummary:
-    id: str                    # Unique summary ID
-    session_id: str            # Links to session folder
-    timestamp: datetime        # When summary created
-    message_range: tuple[int, int]  # (first_msg_idx, last_msg_idx) in session
-    message_count: int         # How many messages summarized
+    summary_id: str            # Unique summary ID (UUID)
+    session_id: str            # Foreign key to sessions.session_id
+    created_at: datetime       # When summary created
+    message_count: int         # Messages summarized
+    first_message_idx: int     # First message index in session
+    last_message_idx: int      # Last message index in session
     summary_text: str          # LLM-generated summary
     embedding: list[float]     # For semantic search
     version: int               # Increment on regeneration
-    
-    # For re-summarization decisions
-    last_summarized_count: int  # Messages at last summary
 ```
 
-**Storage format (data/sessions/{session_id}/summary.json):**
-```json
-{
-  "id": "sum_abc123",
-  "session_id": "sess_xyz789",
-  "timestamp": "2026-02-19T16:30:00Z",
-  "message_range": [0, 25],
-  "message_count": 25,
-  "summary_text": "User and Alfred discussed database architecture...",
-  "embedding": [0.023, -0.156, ...],
-  "version": 1,
-  "last_summarized_count": 25
-}
+**SQLite schema:**
+```sql
+CREATE TABLE session_summaries (
+    summary_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    message_count INTEGER NOT NULL,
+    first_message_idx INTEGER NOT NULL,
+    last_message_idx INTEGER NOT NULL,
+    summary_text TEXT NOT NULL,
+    embedding JSON,              -- Stored as JSON array
+    version INTEGER DEFAULT 1,
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_session_summaries_session 
+ON session_summaries(session_id);
+
+CREATE INDEX idx_session_summaries_created 
+ON session_summaries(created_at);
+```
+
+**Query patterns:**
+```sql
+-- Get latest summary for session
+SELECT * FROM session_summaries 
+WHERE session_id = ? 
+ORDER BY version DESC 
+LIMIT 1;
+
+-- Find summaries needing regeneration
+SELECT s.session_id, s.message_count, sm.version, sm.last_message_idx
+FROM sessions s
+LEFT JOIN session_summaries sm ON s.session_id = sm.session_id
+WHERE s.message_count - COALESCE(sm.message_count, 0) >= 20;
 ```
 
 ---
@@ -171,8 +196,8 @@ async def generate_session_summary(session: Session) -> SessionSummary:
     # Get all messages in session
     messages = await get_session_messages(session.id)
     
-    # Check for existing summary
-    existing = await get_session_summary(session.id)
+    # Check for existing summary (query SQLite)
+    existing = await get_latest_session_summary(session.id)
     
     # Generate summary via LLM
     summary_text = await llm.summarize_conversation(messages)
@@ -180,20 +205,20 @@ async def generate_session_summary(session: Session) -> SessionSummary:
     # Create embedding
     embedding = await embedder.create_embedding(summary_text)
     
-    # Build summary (replace if exists)
+    # Build summary with new version
     summary = SessionSummary(
-        id=existing.id if existing else generate_id(),
+        summary_id=generate_id(),
         session_id=session.id,
-        timestamp=now(),
-        message_range=(0, len(messages)),
+        created_at=now(),
         message_count=len(messages),
+        first_message_idx=0,
+        last_message_idx=len(messages) - 1,
         summary_text=summary_text,
         embedding=embedding,
         version=(existing.version + 1) if existing else 1,
-        last_summarized_count=len(messages),
     )
     
-    # Write to session folder (data/sessions/{session_id}/summary.json)
+    # Insert into session_summaries table
     await store_summary(summary)
     
     return summary
@@ -304,7 +329,7 @@ summarize_message_threshold = 20 # Trigger after N new messages
 cron_interval_minutes = 5        # How often to check
 
 [storage]
-sessions_dir = "data/sessions"   # Each session is a folder
+database_path = "data/alfred.db" # SQLite database path
 ```
 
 ---
@@ -318,6 +343,7 @@ sessions_dir = "data/sessions"   # Each session is a folder
 | 2026-02-19 | Replace summaries (versioned) | Avoid accumulation, always have current view |
 | 2026-02-19 | Separate search tools | Clear UX: specific vs. broad intent |
 | 2026-02-19 | session_id on messages | Clean linkage, enables session queries |
+| 2026-03-07 | SQLite with dedicated `session_summaries` table | Unified storage architecture (PRD #109); proper relational schema with foreign keys; easier querying and indexing than JSON metadata |
 
 ---
 
@@ -334,9 +360,9 @@ sessions_dir = "data/sessions"   # Each session is a folder
 
 This PRD implements dual search (curated memories + session summaries). PRD #77 adds **per-session message embeddings** for contextual retrieval:
 
-1. **Curated Memory** (data/memory/memories.jsonl) — Facts Alfred explicitly remembers
-2. **Session Summaries** (data/sessions/{id}/summary.json) — Narrative arcs with embeddings ← THIS PRD
-3. **Session Messages** (data/sessions/{id}/messages.jsonl) — Individual messages with embeddings
+1. **Curated Memory** (SQLite `memories` table) — Facts Alfred explicitly remembers
+2. **Session Summaries** (SQLite `session_summaries` table) — Narrative arcs with embeddings ← THIS PRD
+3. **Session Messages** (SQLite `sessions.messages` JSON column) — Individual messages with embeddings
 
 **The Hyperweb Retrieval Pattern:**
 ```
@@ -351,21 +377,26 @@ Instead of searching all messages globally, narrow to 2-3 relevant sessions, the
 
 ## Vector Database Discussion
 
-**Current approach (JSONL files):**
-- Pros: Simple, no external dependencies, human-readable, easy to backup/inspect
-- Cons: O(n) search (slow at scale), no filtering/complex queries, file locking issues
+**Current approach (SQLite + sqlite-vec):**
+- Pros: Single database file, ACID transactions, fast indexed queries, sqlite-vec for vector similarity
+- Cons: sqlite-vec is an extension (requires loadable extension support)
 
-**When to consider a vector DB:**
-- >100K memories (search becomes noticeably slow)
-- Need metadata filtering ("find memories from last week about databases")
+**Fallback (SQLite without sqlite-vec):**
+- Embeddings stored as JSON in `embedding` column
+- Brute-force cosine similarity in Python for small datasets (<10K entries)
+- Acceptable for single-user local deployment
+
+**When to consider a dedicated vector DB:**
+- >100K memories (brute-force search becomes slow)
+- Need complex metadata filtering across multiple tables
 - Multiple Alfred instances (shared state)
-- Need hybrid search (vector + keyword)
+- Need hybrid search (vector + full-text + metadata)
 
 **Recommended if you switch:**
 - **Chroma** — Embedded, zero-config, good for single-user local
-- **SQLite + sqlite-vec** — Keep SQL, add vector index
+- **pgvector** — If already using PostgreSQL
 
 **Not recommended:**
 - Pinecone/Weaviate for local single-user (overkill)
 
-**Verdict:** Stay with JSONL until you hit performance issues. The simplicity is worth it. Add SQLite + sqlite-vec when search latency becomes noticeable (>100ms for typical queries).
+**Verdict:** SQLite + sqlite-vec is sufficient for current scale. Revisit if search latency >100ms for typical queries.
