@@ -1,8 +1,8 @@
 """Main AlfredTUI class for the CLI interface."""
 
 import asyncio
+import logging
 import signal
-import time
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Literal
 from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
+
+logger = logging.getLogger(__name__)
 
 # Import commands
 from src.interfaces.pypitui.commands import (
@@ -34,33 +36,6 @@ from src.session import ToolCallRecord
 
 if TYPE_CHECKING:
     from pypitui import OverlayHandle, ProcessTerminal
-
-
-class _DebugLogger:
-    """Simple file logger that keeps file open."""
-
-    def __init__(self, path: str) -> None:
-        self._path = path
-        self._file = open(path, "a")  # noqa: SIM115
-
-    def log(self, msg: str) -> None:
-        """Write message to log file."""
-        with suppress(Exception):
-            self._file.write(f"{time.time():.3f}: {msg}\n")
-            self._file.flush()
-
-    def close(self) -> None:
-        """Close log file."""
-        with suppress(Exception):
-            self._file.close()
-
-
-_debug_logger = _DebugLogger("/tmp/alfred-debug.log")
-
-
-def _debug_log(msg: str) -> None:
-    """Write debug message to log file."""
-    _debug_logger.log(msg)
 
 
 class AlfredTUI:
@@ -777,7 +752,7 @@ class AlfredTUI:
     async def run(self) -> None:
         """Main event loop - reads input, handles events, renders frames."""
         self.tui.start()
-        _debug_log("TUI started")
+        logger.debug("TUI started")
 
         # Load existing session messages on startup
         self._load_session_messages()
@@ -785,22 +760,18 @@ class AlfredTUI:
         # Update status line with current session state
         self._update_status()
 
-        frame_count = 0
         try:
             while self.running:
-                frame_count += 1
-                loop_start = time.time()
-
                 # Handle pending resize from SIGWINCH
                 if self._resize_pending:
-                    _debug_log("Handling resize")
+                    logger.debug("Handling resize")
                     self._handle_resize()
 
                 # Read terminal input with timeout
                 try:
                     data = self.terminal.read_sequence(timeout=0.01)
                     if data:
-                        _debug_log(f"Input received: {repr(data)}")
+                        logger.debug(f"Input received: {repr(data)}")
                         # Check for Ctrl+C
                         if matches_key(data, Key.ctrl("c")):
                             self._handle_ctrl_c()
@@ -812,7 +783,7 @@ class AlfredTUI:
                                 self._reset_ctrl_c_state()
                             self.tui.handle_input(data)
                 except Exception as e:
-                    _debug_log(f"Input error: {e}")
+                    logger.debug(f"Input error: {e}")
 
                 # Update toast overlay visibility
                 self._update_toast_overlay()
@@ -824,23 +795,16 @@ class AlfredTUI:
                 self.tui.request_render()
                 try:
                     self.tui.render_frame()
-                    if frame_count % 60 == 0:  # Log every ~1 second
-                        _debug_log(f"Frame {frame_count} rendered OK")
-                except Exception as e:
-                    _debug_log(f"Render error: {e}")
+                except Exception:
+                    logger.exception("Render error")
 
                 # Yield to event loop (~60fps)
-                elapsed = time.time() - loop_start
-                sleep_time = max(0, 0.016 - elapsed)
-                if sleep_time > 0:
-                    await asyncio.sleep(sleep_time)
-                else:
-                    _debug_log(f"Frame overrun: {elapsed:.3f}s")
-        except Exception as e:
-            _debug_log(f"Main loop error: {e}")
+                await asyncio.sleep(0.016)
+        except Exception:
+            logger.exception("Main loop error")
             raise
         finally:
-            _debug_log(f"TUI stopping, total frames: {frame_count}")
+            logger.debug("TUI stopping")
             # Clear screen and reset cursor before exit
             self.terminal.write("\x1b[2J\x1b[H\x1b[?25h")
             self.tui.stop()
