@@ -397,6 +397,8 @@ class SessionManager:
             RuntimeError: If no active session exists
         """
         session: Session | None
+        message_time = datetime.now(UTC)
+
         if session_id:
             # Telegram mode - get specific session
             session = self.get_or_create_session(session_id)
@@ -406,17 +408,33 @@ class SessionManager:
             if session is None:
                 raise RuntimeError("No active session")
 
+            last_message_time = (
+                session.messages[-1].timestamp if session.messages else session.meta.last_active
+            )
+            if last_message_time and last_message_time.tzinfo is None:
+                last_message_time = last_message_time.replace(tzinfo=UTC)
+
+            next_session_id = assign_session_id(
+                message_time,
+                last_message_time,
+                session.meta.session_id,
+            )
+
+            if next_session_id != session.meta.session_id:
+                session = self.get_or_create_session(next_session_id)
+                self.set_current_cli_session(next_session_id)
+
         role_enum = Role(role)
         idx = session.meta.current_count
         message = Message(
             idx=idx,
             role=role_enum,
             content=content,
-            timestamp=datetime.now(UTC),
+            timestamp=message_time,
             session_id=session.meta.session_id,
         )
         session.messages.append(message)
-        session.meta.last_active = datetime.now(UTC)
+        session.meta.last_active = message_time
         session.meta.current_count += 1
 
         # Persist to storage (spawn background task if event loop running)
