@@ -205,6 +205,26 @@
 - [ ] **Implement:** Call generate_session_summary for eligible sessions
   - **Commit:** `feat(cron): wire summary generation into cron job`
 
+### System Job Registry (Programmatic + Persisted)
+
+- [ ] **Test:** `test_system_job_registry_returns_handler()` - verify handler lookup returns callable
+  - **Commit:** `test(cron): verify system job registry returns handler`
+
+- [ ] **Implement:** Add `SystemJobDefinition` registry with handler callables
+  - **Commit:** `feat(cron): add system job registry with handlers`
+
+- [ ] **Test:** `test_register_system_jobs_persists_handler_id()` - verify handler_id stored in cron.jsonl
+  - **Commit:** `test(cron): verify system job handler_id persisted`
+
+- [ ] **Implement:** Add `handler_id` field to Job and persistence
+  - **Commit:** `feat(cron): add handler_id to Job model`
+
+- [ ] **Test:** `test_load_jobs_uses_system_handler()` - verify scheduler uses registry for system jobs
+  - **Commit:** `test(cron): verify scheduler loads system handlers`
+
+- [ ] **Implement:** Update scheduler load/register to use system handlers
+  - **Commit:** `feat(cron): load system job handlers from registry`
+
 ### Cron Registration
 
 - [ ] **Test:** `test_cron_job_registered_with_interval()` - verify cron system knows about job
@@ -286,6 +306,12 @@
 
 - [ ] **Implement:** Set default config values (30 min idle, 20 msg, 5 min cron)
   - **Commit:** `feat(config): set session config default values`
+
+- [ ] **Test:** `test_config_template_includes_session_section()` - verify templates/config.toml has [session]
+  - **Commit:** `test(config): verify config template includes session section`
+
+- [ ] **Implement:** Add [session] section to templates/config.toml
+  - **Commit:** `feat(config): add session defaults to config template`
 
 ### End-to-End Integration
 

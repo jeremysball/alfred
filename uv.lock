@@ -1340,7 +1340,7 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "../pypitui" }
 dependencies = [
     { name = "wcwidth" },
@@ -1348,7 +1348,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
@@ -1361,6 +1360,7 @@ provides-extras = ["rich", "dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "basedpyright", specifier = ">=1.38.2" },
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },

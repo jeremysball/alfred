@@ -52,7 +52,7 @@ def get_scheduler() -> CronScheduler:
 
     config = load_config()
     store = CronStore(config.data_dir)
-    return CronScheduler(store=store, data_dir=config.data_dir)
+    return CronScheduler(store=store, data_dir=config.data_dir, config=config)
 
 
 @app.command("list")

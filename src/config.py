@@ -61,6 +61,11 @@ class Config(BaseSettings):
     tool_calls_include_output: bool = True
     tool_calls_include_arguments: bool = True
 
+    # Session summarization settings (PRD #76)
+    session_summarize_idle_minutes: int = 30
+    session_summarize_message_threshold: int = 20
+    session_cron_interval_minutes: int = 5
+
     # UI/TUI settings
     use_markdown_rendering: bool = True
     input_cursor_color: str = "reverse"  # "reverse", "green", "red", "blue"
@@ -111,6 +116,22 @@ def _load_toml_config(toml_path: Path) -> dict:
             flat_config["faiss_ivf_threshold"] = memory["faiss_ivf_threshold"]
         if "faiss_backup_jsonl" in memory:
             flat_config["faiss_backup_jsonl"] = memory["faiss_backup_jsonl"]
+
+    # Session configuration
+    if "session" in toml_data:
+        session = toml_data["session"]
+        if "summarize_idle_minutes" in session:
+            flat_config["session_summarize_idle_minutes"] = session[
+                "summarize_idle_minutes"
+            ]
+        if "summarize_message_threshold" in session:
+            flat_config["session_summarize_message_threshold"] = session[
+                "summarize_message_threshold"
+            ]
+        if "cron_interval_minutes" in session:
+            flat_config["session_cron_interval_minutes"] = session[
+                "cron_interval_minutes"
+            ]
 
     # UI/TUI configuration
     if "ui" in toml_data:

@@ -15,7 +15,7 @@
 
 ## Pre-Flight Check
 
-Do this before every response:
+Do this at the beginning if every session.
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
 2. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
@@ -27,8 +27,6 @@ This applies to all messages and commands—including simple questions.
 ---
 
 ## Ask Design Questions First
-
-This rule overrides all others.
 
 Before writing code:
 
@@ -106,24 +104,6 @@ uv run pytest tests/test_mymodule.py -v
 
 ---
 
-## Secrets and Authentication
-
-Any command needing secrets must use `uv run dotenv`:
-
-```bash
-uv run dotenv gh pr create --title "..." --body "..."
-uv run dotenv python script_using_api.py
-```
-
-**Wrong:**
-```bash
-gh pr create --title "..."                    # No ALFRED_REPO_PAT
-source .env && gh pr create                   # Pollutes shell
-export $(cat .env | grep ALFRED_REPO_PAT) && ...  # Pollutes shell
-```
-
----
-
 ## Running the Project
 
 ```bash
@@ -143,8 +123,6 @@ uv run alfred cron add "daily standup" "every day at 9am"
 uv run alfred cron remove <job_id>
 ```
 
-**Entry point:** `src/cli/main.py`
-
 ---
 
 ## Rule Index
@@ -154,6 +132,7 @@ uv run alfred cron remove <job_id>
 Use tmux whenever something requires interactive control, especially for manual testing.
 
 **Debugging TUI output:**
+
 ```bash
 tmux new-session -d -s alfred "uv run alfred --debug debug 2>&1 | tee /tmp/alfred.log"
 tail /tmp/alfred.log
@@ -178,6 +157,7 @@ cat -v /tmp/ansi_out.log | grep -o '/new.*' | head -1
 This shows escape sequences like `^[[90m` (gray) or `^[[7m` (reverse video) as visible characters. The `^[` represents the ESC character (\x1b).
 
 **Quick check for specific sequences:**
+
 ```bash
 # Check if gray color code is present
 cat -v /tmp/ansi_out.log | grep '\[90m'
@@ -197,6 +177,7 @@ cat /workspace/alfred-prd/.pi/skills/commit/SKILL.md
 Make small, atomic commits. Never batch multiple features into one commit.
 
 **Atomic commit rules:**
+
 1. One logical change per commit—if you cannot describe it in one line, it is too big
 2. Every commit passes tests—never commit broken code
 3. Use `git add -p`—stage individual hunks, not entire files
@@ -205,6 +186,7 @@ Make small, atomic commits. Never batch multiple features into one commit.
 **Commit cadence:** Write change → Run tests → `git add -p` → Commit → Repeat
 
 **Conventional commit format:**
+
 ```
 <type>(<scope>): <description>
 
@@ -233,6 +215,7 @@ Always test edge cases, not just happy paths. Do not mock unless you have no oth
 | Async edge cases | race conditions, concurrent access, timeouts |
 
 **Mock only when:**
+
 - External services you cannot control
 - Non-deterministic behavior (time, randomness)
 - Extremely slow operations
@@ -248,12 +231,14 @@ Always write defensive code:
 - **Follow PEP 8**—adhere to [Python style conventions](https://peps.python.org/pep-0008/)
 
 **Wrong:**
+
 ```python
 def process(data):
     return data["items"][0]["name"]  # Multiple silent failure points
 ```
 
 **Right:**
+
 ```python
 def process(data: dict) -> str:
     if not data:
@@ -268,6 +253,7 @@ def process(data: dict) -> str:
 ### 5. Notify on Long-Running Tasks
 
 Always send an ntfy notification when:
+
 - Long-running tasks complete
 - User input required
 - Workflow milestones (PR created/merged)
@@ -319,6 +305,7 @@ All commit messages must follow [Conventional Commits](https://www.conventionalc
 ```
 
 **Types:**
+
 - `feat`—New feature
 - `fix`—Bug fix
 - `docs`—Documentation changes
@@ -329,6 +316,7 @@ All commit messages must follow [Conventional Commits](https://www.conventionalc
 - `chore`—Build process or auxiliary tool changes
 
 **Rules:**
+
 - Use lowercase for type and description
 - Keep the first line under 72 characters
 - Use body for "what" and "why", not "how"
@@ -337,12 +325,14 @@ All commit messages must follow [Conventional Commits](https://www.conventionalc
 ### 9. Never Use Hardcoded Absolute Paths
 
 **Wrong:**
+
 ```python
 config_path = "/path/to/project/config.json"        # Breaks on other machines
 test_data_dir = "/home/user/project/tests/data"     # Breaks in CI/CD
 ```
 
 **Right:**
+
 ```python
 from pathlib import Path
 
@@ -352,6 +342,7 @@ config_path = project_root / "config.json"
 ```
 
 For tests, always derive paths from `__file__`:
+
 ```python
 def test_something():
     project_root = Path(__file__).parent.parent
@@ -369,12 +360,14 @@ Use the tmux-tape skill for E2E testing of interactive or visual CLI application
 Not needed for: simple scripts, unit tests, `--help` output.
 
 **Workflow:**
+
 ```bash
 mkdir -p /tmp/pi-tmux && cp .pi/skills/tmux-tape/tmux_tool.py /tmp/pi-tmux/
 cd /tmp/pi-tmux && uv run python script.py
 ```
 
 **Example:**
+
 ```python
 from tmux_tool import TerminalSession
 
@@ -393,6 +386,7 @@ See `.pi/skills/tmux-tape/SKILL.md` for full API.
 When implementing a feature or PRD phase, create an extremely granular checklist first.
 
 **Principles:**
+
 - Each item = single atomic action
 - Each item = independently verifiable
 - Items ordered by dependency
@@ -408,6 +402,7 @@ When implementing a feature or PRD phase, create an extremely granular checklist
 | "Test it works" | "Test throbber animation" | "Test: `test_throbber_tick_advances()`" |
 
 **Template:**
+
 ```
 - [ ] Create/modify <file>
 - [ ] Add <specific code change>
@@ -416,3 +411,132 @@ When implementing a feature or PRD phase, create an extremely granular checklist
 ```
 
 **Store in:** `prds/execution-plan-<feature>.md`
+
+### 12. Always Use uv, Never pip
+
+This project uses `uv` for all Python package management. Never use `pip`.
+
+**Wrong:**
+
+```bash
+pip install requests
+pip install -r requirements.txt
+python -m pip install pytest
+```
+
+**Right:**
+
+```bash
+uv add requests
+uv sync
+uv add --dev pytest
+```
+
+**For running commands:**
+
+```bash
+# Wrong
+python src/script.py
+pytest tests/
+
+# Right
+uv run python src/script.py
+uv run pytest tests/
+```
+
+### 13. Use MagicMock Over monkeypatch
+
+When mocking in tests, prefer `unittest.mock.MagicMock` over pytest's `monkeypatch`.
+
+**Why:**
+
+- MagicMock provides better introspection and assertion methods
+- More explicit about what is being mocked
+- Easier to verify call counts, arguments, and return values
+- Consistent with Python standard library patterns
+
+**Wrong:**
+
+```python
+def test_something(monkeypatch):
+    monkeypatch.setattr("module.function", lambda: "mocked")
+    result = do_something()
+    assert result == "mocked"
+```
+
+**Right:**
+
+```python
+from unittest.mock import MagicMock, patch
+
+def test_something():
+    mock_func = MagicMock(return_value="mocked")
+    with patch("module.function", mock_func):
+        result = do_something()
+        assert result == "mocked"
+        mock_func.assert_called_once()
+```
+
+**For async code:**
+
+```python
+from unittest.mock import AsyncMock, patch
+
+def test_async_function():
+    mock_async = AsyncMock(return_value={"data": "test"})
+    with patch("module.async_func", mock_async):
+        result = await do_async_thing()
+        mock_async.assert_awaited_once_with(expected_arg)
+```
+
+### 14. Always Use fd and rg for File Operations
+
+You MUST use `fd` (fd-find) and `rg` (ripgrep) for all file searching and content searching. Never use `find` or `grep`.
+
+**Why:**
+
+- `fd` is faster, respects `.gitignore`, and has cleaner syntax
+- `rg` is faster, respects `.gitignore`, and has better Unicode/encoding support
+- Both have more intuitive defaults and consistent behavior
+
+**Wrong:**
+
+```bash
+find . -name "*.py"                           # Slow, verbose
+find . -type f -name "*.py" | xargs grep ...  # Complex, error-prone
+grep -r "pattern" .                           # Searches node_modules, .git
+grep -rn "pattern" --include="*.py" .         # Verbose syntax
+```
+
+**Right:**
+
+```bash
+fd "\.py$"                                    # Find all Python files
+fd "\.py$" | xargs rg "pattern"               # Find files, then search
+rg "pattern"                                  # Recursive search (respects .gitignore)
+rg "pattern" -t py                            # Search only Python files
+rg "pattern" --type-add 'web:*.{html,css,js}' -t web  # Custom file types
+```
+
+**File finding:**
+
+```bash
+fd "test_.*\.py$"                             # Find test files
+fd -e py -e pyi                               # Multiple extensions
+fd --changed-within 2days                     # Recently modified
+```
+
+**Content searching:**
+
+```bash
+rg "class Alfred"                             # Find class definitions
+rg "TODO|FIXME"                               # Multiple patterns
+rg -A 5 -B 5 "pattern"                        # Context lines
+rg -l "pattern" | head -5                     # List only, limit results
+```
+
+**No exceptions.** Even for simple searches, use `fd` and `rg`.
+
+### 15. Do The Right Thing, Always
+
+NEVER take shortcuts. ALWAYS do the right thing. Do not ever say "the easier thing" or "the simpler thing." Do not worry about complexity or time in development (but do so in your algorithms!). The human will worry about that. Just do what is right. The hard things. The graft. Do not be lazy.

@@ -72,6 +72,7 @@ class Alfred:
         self.cron_scheduler = CronScheduler(
             store=CronStore(data_dir),
             data_dir=data_dir,
+            config=self.config,
         )
 
         # Register built-in tools (inject memory store, scheduler, and config)

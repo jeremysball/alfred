@@ -50,7 +50,11 @@ def assign_session_id(
     """
     from uuid import uuid4
 
-    logger.debug(f"assign_session_id called: current_session_id={current_session_id}, threshold={threshold_minutes}min")
+    logger.debug(
+        "assign_session_id called: current_session_id=%s, threshold=%smin",
+        current_session_id,
+        threshold_minutes,
+    )
 
     # No current session -> new session
     if current_session_id is None:
@@ -66,18 +70,31 @@ def assign_session_id(
 
     # Calculate gap
     gap = (new_message_time - last_message_time).total_seconds() / 60
-    logger.debug(f"Time gap since last message: {gap:.2f} minutes (threshold: {threshold_minutes}min)")
+    logger.debug(
+        "Time gap since last message: %.2f minutes (threshold: %smin)",
+        gap,
+        threshold_minutes,
+    )
 
     # Clock skew (negative gap) -> new session
     if gap < 0:
         new_session_id = f"sess_{uuid4().hex[:12]}"
-        logger.debug(f"Clock skew detected (negative gap: {gap:.2f}min), creating new session: {new_session_id}")
+        logger.debug(
+            "Clock skew detected (negative gap: %.2fmin), creating new session: %s",
+            gap,
+            new_session_id,
+        )
         return new_session_id
 
     # Gap exceeds threshold -> new session
     if gap > threshold_minutes:
         new_session_id = f"sess_{uuid4().hex[:12]}"
-        logger.debug(f"Gap exceeds threshold ({gap:.2f}min > {threshold_minutes}min), creating new session: {new_session_id}")
+        logger.debug(
+            "Gap exceeds threshold (%.2fmin > %smin), creating new session: %s",
+            gap,
+            threshold_minutes,
+            new_session_id,
+        )
         return new_session_id
 
     # Continue current session
@@ -184,7 +201,7 @@ class SessionSummary:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "SessionSummary":
+    def from_dict(cls, data: dict) -> SessionSummary:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],

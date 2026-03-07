@@ -24,6 +24,7 @@ from src.cron.store import CronStore
 from src.data_manager import get_data_dir
 
 if TYPE_CHECKING:
+    from src.config import Config
     from src.cron.socket_client import SocketClient
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ class CronScheduler:
         check_interval: float = 60.0,
         data_dir: Path | None = None,
         socket_client: "SocketClient | None" = None,
+        config: "Config | None" = None,
     ) -> None:
         """Initialize scheduler.
 
@@ -87,6 +89,7 @@ class CronScheduler:
             check_interval: Seconds between schedule checks
             data_dir: Directory for log files (default: XDG data dir)
             socket_client: Socket client for TUI communication (optional)
+            config: Optional application config for system job settings
         """
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
@@ -95,6 +98,7 @@ class CronScheduler:
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
         self._socket_client = socket_client
+        self._config = config
 
         # Initialize logger
         log_file = (data_dir or get_data_dir()) / "cron_logs.jsonl"
@@ -160,6 +164,34 @@ class CronScheduler:
         # Persist to store
         await self._store.save_job(job)
         logger.debug(f"Registered job: {job.name} ({job.job_id})")
+
+    async def _register_system_job(
+        self,
+        job: Job,
+        handler: Callable[[], Awaitable[None]],
+    ) -> None:
+        """Register a system job with a provided handler."""
+        runnable = RunnableJob.from_job(job, handler)
+        self._jobs[job.job_id] = runnable
+        self._job_code[job.job_id] = job.code
+
+        await self._store.save_job(job)
+        logger.debug(f"Registered system job: {job.name} ({job.job_id})")
+
+    def _get_session_summarizer_expression(self, default_expression: str) -> str:
+        """Build cron expression for session summarizer job."""
+        if self._config is None:
+            return default_expression
+
+        interval = getattr(self._config, "session_cron_interval_minutes", None)
+        if not isinstance(interval, int) or interval <= 0:
+            logger.warning(
+                "Invalid session_cron_interval_minutes=%s, using default",
+                interval,
+            )
+            return default_expression
+
+        return f"*/{interval} * * * *"
 
     async def submit_user_job(
         self,
@@ -228,34 +260,25 @@ class CronScheduler:
         """Register built-in system jobs.
 
         System jobs are pre-approved and run without human review.
-        Currently includes session_ttl check every 5 minutes.
         """
-        from src.cron.system_jobs import get_system_job_code
+        from src.cron.system_jobs import get_system_job, list_system_jobs
 
-        system_jobs = ["session_ttl"]
-
-        for job_id in system_jobs:
-            job_info = get_system_job_code(job_id)
-            if job_info is None:
+        for job_id in list_system_jobs():
+            job_def = get_system_job(job_id)
+            if job_def is None:
                 logger.warning(f"System job {job_id} not found")
                 continue
-
-            expression, code = job_info
 
             # Check if already registered
             if job_id in self._jobs:
                 logger.debug(f"System job {job_id} already registered")
                 continue
 
-            job = Job(
-                job_id=job_id,
-                name=job_id.replace("_", " ").title(),
-                expression=expression,
-                code=code,
-                status="active",
-            )
+            job = job_def.to_job()
+            if job_id == "session_summarizer":
+                job.expression = self._get_session_summarizer_expression(job.expression)
 
-            await self.register_job(job)
+            await self._register_system_job(job, job_def.handler)
             logger.info(f"Registered system job: {job_id}")
 
     async def _load_jobs(self) -> None:
@@ -264,8 +287,22 @@ class CronScheduler:
         for job in jobs:
             if job.status == "active":
                 try:
-                    handler = self._compile_handler(job.code)
-                    runnable = RunnableJob.from_job(job, handler)
+                    if job.handler_id:
+                        from src.cron.system_jobs import get_system_job_handler
+
+                        handler = get_system_job_handler(job.handler_id)
+                        if handler is None:
+                            logger.warning(
+                                "System handler not found for job %s (%s)",
+                                job.job_id,
+                                job.handler_id,
+                            )
+                            continue
+                        runnable = RunnableJob.from_job(job, handler)
+                    else:
+                        handler = self._compile_handler(job.code)
+                        runnable = RunnableJob.from_job(job, handler)
+
                     self._jobs[job.job_id] = runnable
                     self._job_code[job.job_id] = job.code
                     logger.debug(f"Loaded job: {job.name} ({job.job_id})")

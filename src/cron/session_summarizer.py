@@ -7,9 +7,13 @@ of summary generation.
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 from src.session import SessionMeta
-from src.session_storage import SessionStorage
+from src.session_storage import SessionStorage, generate_session_summary
+
+if TYPE_CHECKING:
+    from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -127,3 +131,70 @@ def should_summarize(
     should = idle_met or message_met
     logger.debug("Session %s should_summarize=%s", session_info.session_id, should)
     return should
+
+
+async def summarize_sessions_job(
+    config: "Config",
+    storage: SessionStorage,
+    embedder: Any,
+) -> int:
+    """Cron job: summarize sessions that meet threshold criteria.
+
+    Args:
+        config: Application configuration with session thresholds
+        storage: SessionStorage instance for session access
+        embedder: Embedding provider for summary embeddings
+
+    Returns:
+        Number of session summaries generated
+    """
+    logger.debug("summarize_sessions_job started")
+
+    idle_minutes = getattr(config, "session_summarize_idle_minutes", 30)
+    message_threshold = getattr(config, "session_summarize_message_threshold", 20)
+
+    if not isinstance(idle_minutes, int) or idle_minutes <= 0:
+        logger.warning("Invalid session_summarize_idle_minutes=%s, using default", idle_minutes)
+        idle_minutes = 30
+
+    if not isinstance(message_threshold, int) or message_threshold <= 0:
+        logger.warning(
+            "Invalid session_summarize_message_threshold=%s, using default",
+            message_threshold,
+        )
+        message_threshold = 20
+
+    active_sessions = await get_active_sessions(storage)
+    summaries_created = 0
+
+    for session_info in active_sessions:
+        meta = storage.get_meta(session_info.session_id)
+        if meta is None:
+            logger.warning("No metadata found for session %s, skipping", session_info.session_id)
+            continue
+
+        if not should_summarize(
+            session_info,
+            meta,
+            idle_threshold_minutes=idle_minutes,
+            message_threshold=message_threshold,
+        ):
+            continue
+
+        try:
+            summary = await generate_session_summary(
+                session_info.session_id,
+                storage,
+                embedder,
+            )
+        except Exception as exc:
+            logger.warning("Failed to summarize session %s: %s", session_info.session_id, exc)
+            continue
+
+        meta.last_summarized_count = summary.message_count
+        meta.summary_version = summary.version
+        storage.save_meta(meta)
+        summaries_created += 1
+
+    logger.debug("summarize_sessions_job completed: %s summaries", summaries_created)
+    return summaries_created

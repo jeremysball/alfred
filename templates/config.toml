@@ -13,6 +13,12 @@ model = "text-embedding-3-small"
 # This is how many tokens of memories to include in the prompt
 budget = 32000
 
+[session]
+# Session summarization thresholds
+summarize_idle_minutes = 30
+summarize_message_threshold = 20
+cron_interval_minutes = 5
+
 [search]
 min_similarity = 0.3
 recency_half_life_days = 30

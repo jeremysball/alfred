@@ -79,6 +79,7 @@ async def run_scheduler(
         store=store,
         socket_client=socket_client,
         data_dir=data_dir,
+        config=config,
     )
 
     # Set up signal handlers

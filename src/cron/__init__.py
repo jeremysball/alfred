@@ -2,12 +2,12 @@
 
 from src.cron.observability import StructuredLogger
 from src.cron.scheduler import CronScheduler
-from src.cron.system_jobs import JobContext, get_system_job_code, list_system_jobs
+from src.cron.system_jobs import get_system_job, get_system_job_handler, list_system_jobs
 
 __all__ = [
     "CronScheduler",
-    "JobContext",
     "StructuredLogger",
-    "get_system_job_code",
+    "get_system_job",
+    "get_system_job_handler",
     "list_system_jobs",
 ]

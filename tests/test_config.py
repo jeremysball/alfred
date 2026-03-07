@@ -162,3 +162,52 @@ budget = 32000
         config = load_config(config_path=config_path)
 
         assert config.memory_warning_threshold == 1000
+
+
+def test_config_loads_session_section():
+    """Verify [session] section loads into config fields."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.toml"
+        config_path.write_text("""
+[provider]
+default = "kimi"
+chat_model = "kimi-k2-5"
+
+[embeddings]
+model = "text-embedding-3-small"
+
+[memory]
+budget = 32000
+
+[session]
+summarize_idle_minutes = 45
+summarize_message_threshold = 12
+cron_interval_minutes = 9
+""")
+        config = load_config(config_path=config_path)
+
+        assert config.session_summarize_idle_minutes == 45
+        assert config.session_summarize_message_threshold == 12
+        assert config.session_cron_interval_minutes == 9
+
+
+def test_config_session_defaults():
+    """Verify default session config values."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.toml"
+        config_path.write_text("""
+[provider]
+default = "kimi"
+chat_model = "kimi-k2-5"
+
+[embeddings]
+model = "text-embedding-3-small"
+
+[memory]
+budget = 32000
+""")
+        config = load_config(config_path=config_path)
+
+        assert config.session_summarize_idle_minutes == 30
+        assert config.session_summarize_message_threshold == 20
+        assert config.session_cron_interval_minutes == 5

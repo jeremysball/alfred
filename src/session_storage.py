@@ -13,18 +13,23 @@ Token counts are stored as deltas in tokens.jsonl to avoid rewriting
 the entire message file on every token update.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+from uuid import uuid4
 
 import aiofiles
 
 from src.data_manager import get_data_dir
 from src.embeddings.openai_provider import OpenAIProvider
-from src.session import Message, Role, Session, SessionMeta, ToolCallRecord
+from src.llm import summarize_conversation
+from src.session import Message, Role, Session, SessionMeta, SessionSummary, ToolCallRecord
 
 logger = logging.getLogger(__name__)
 
@@ -128,11 +133,21 @@ class SessionStorage:
                 status=data["status"],
                 current_count=data.get("current_count", 0),
                 archive_count=data.get("archive_count", 0),
-                first_message_time=datetime.fromisoformat(data["first_message_time"]) if data.get("first_message_time") else None,
+                first_message_time=(
+                    datetime.fromisoformat(data["first_message_time"])
+                    if data.get("first_message_time")
+                    else None
+                ),
                 last_summarized_count=data.get("last_summarized_count", 0),
                 summary_version=data.get("summary_version", 0),
             )
-            logger.debug(f"Metadata loaded for session {session_id}: status={meta.status}, msgs={meta.message_count}, last_summary_v={meta.summary_version}")
+            logger.debug(
+                "Metadata loaded for session %s: status=%s, msgs=%s, last_summary_v=%s",
+                session_id,
+                meta.status,
+                meta.message_count,
+                meta.summary_version,
+            )
             return meta
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to parse meta.json for session {session_id}: {e}")
@@ -140,7 +155,12 @@ class SessionStorage:
 
     def save_meta(self, meta: SessionMeta) -> None:
         """Save session metadata to meta.json."""
-        logger.debug(f"save_meta called for session {meta.session_id}: status={meta.status}, msgs={meta.message_count}")
+        logger.debug(
+            "save_meta called for session %s: status=%s, msgs=%s",
+            meta.session_id,
+            meta.status,
+            meta.message_count,
+        )
 
         session_dir = self.sessions_dir / meta.session_id
         session_dir.mkdir(parents=True, exist_ok=True)
@@ -154,7 +174,11 @@ class SessionStorage:
                     "status": meta.status,
                     "current_count": meta.current_count,
                     "archive_count": meta.archive_count,
-                    "first_message_time": meta.first_message_time.isoformat() if meta.first_message_time else None,
+                    "first_message_time": (
+                        meta.first_message_time.isoformat()
+                        if meta.first_message_time
+                        else None
+                    ),
                     "last_summarized_count": meta.last_summarized_count,
                     "summary_version": meta.summary_version,
                 },
@@ -186,8 +210,6 @@ class SessionStorage:
 
     def _generate_session_id(self) -> str:
         """Generate a new session ID (UUID without dashes, prefixed)."""
-        from uuid import uuid4
-
         return f"sess_{uuid4().hex[:12]}"
 
     # === Messages ===
@@ -416,7 +438,7 @@ class SessionStorage:
 
     # === Summary Storage (PRD #76) ===
 
-    async def store_summary(self, summary: "SessionSummary") -> None:
+    async def store_summary(self, summary: SessionSummary) -> None:
         """Store summary to {session_id}/summary.json.
 
         Overwrites existing summary and auto-increments version if
@@ -425,19 +447,25 @@ class SessionStorage:
         Args:
             summary: SessionSummary to persist (version will be updated)
         """
-        from src.session import SessionSummary
-
-        logger.debug(f"store_summary called for session {summary.session_id}: id={summary.id}, msg_count={summary.message_count}")
+        logger.debug(
+            "store_summary called for session %s: id=%s, msg_count=%s",
+            summary.session_id,
+            summary.id,
+            summary.message_count,
+        )
 
         # Check for existing summary to increment version
         try:
             existing = await self.get_summary(summary.session_id)
             if existing is not None:
-                old_version = summary.version
                 summary.version = existing.version + 1
-                logger.debug(f"Found existing summary v{existing.version}, incrementing to v{summary.version}")
+                logger.debug(
+                    "Found existing summary v%s, incrementing to v%s",
+                    existing.version,
+                    summary.version,
+                )
             else:
-                logger.debug(f"No existing summary found, using version {summary.version}")
+                logger.debug("No existing summary found, using version %s", summary.version)
         except ValueError as e:
             logger.warning(f"Error reading existing summary for version check: {e}")
             # Corrupt file - start fresh with caller's version
@@ -456,9 +484,13 @@ class SessionStorage:
         async with aiofiles.open(temp_path, "w") as f:
             await f.write(content)
         temp_path.rename(summary_path)
-        logger.debug(f"Summary stored successfully: v{summary.version}, {len(content)} bytes")
+        logger.debug(
+            "Summary stored successfully: v%s, %s bytes",
+            summary.version,
+            len(content),
+        )
 
-    async def get_summary(self, session_id: str) -> "SessionSummary | None":
+    async def get_summary(self, session_id: str) -> SessionSummary | None:
         """Load summary from {session_id}/summary.json.
 
         Args:
@@ -470,10 +502,12 @@ class SessionStorage:
         Raises:
             ValueError: If summary.json is corrupted
         """
-        from src.session import SessionSummary
-
         summary_path = self.sessions_dir / session_id / "summary.json"
-        logger.debug(f"get_summary called for session {session_id}: checking {summary_path}")
+        logger.debug(
+            "get_summary called for session %s: checking %s",
+            session_id,
+            summary_path,
+        )
 
         if not summary_path.exists():
             logger.debug(f"No summary found for session {session_id}")
@@ -484,7 +518,12 @@ class SessionStorage:
                 content = await f.read()
             data = json.loads(content)
             summary = SessionSummary.from_dict(data)
-            logger.debug(f"Summary loaded successfully: id={summary.id}, v{summary.version}, msg_count={summary.message_count}")
+            logger.debug(
+                "Summary loaded successfully: id=%s, v%s, msg_count=%s",
+                summary.id,
+                summary.version,
+                summary.message_count,
+            )
             return summary
         except (json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to parse summary.json for session {session_id}: {e}")
@@ -511,7 +550,7 @@ async def generate_session_summary(
     session_id: str,
     storage: SessionStorage,
     embedder: Any,
-) -> "SessionSummary":
+) -> SessionSummary:
     """Generate and store summary for a session.
 
     Orchestrates the full pipeline: fetch messages → summarize → embed → store.
@@ -527,10 +566,6 @@ async def generate_session_summary(
     Raises:
         Exception: If any step fails (messages fail to load, LLM fails, etc.)
     """
-    from src.llm import summarize_conversation
-    from src.session import SessionSummary
-    from uuid import uuid4
-
     logger.debug(f"generate_session_summary called for session {session_id}")
 
     # 1. Load messages
