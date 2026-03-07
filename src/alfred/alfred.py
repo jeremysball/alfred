@@ -84,6 +84,7 @@ class Alfred:
             config=self.config,
             session_manager=self.session_manager,
             embedder=self.embedder,
+            store=self.sqlite_store,
         )
         self.tools = get_registry()
 

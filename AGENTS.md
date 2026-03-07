@@ -245,6 +245,11 @@ Always write defensive code:
 - **Validate inputs at boundaries**—check args at function/class entry points
 - **Fail fast with explicit errors**—raise specific exceptions early
 - **Type safety**—use type hints + runtime validation (Pydantic, asserts)
+- **Proper type annotations**—never use `Any` as a lazy escape:
+  - Import the actual types you need
+  - Use `|` unions instead of `Optional` or `Any`
+  - If you must use `Any`, document why with a comment
+  - Prefer concrete types over generic containers
 - **Assertions for invariants**—assert conditions that must always hold
 - **Follow PEP 8**—adhere to [Python style conventions](https://peps.python.org/pep-0008/)
 
