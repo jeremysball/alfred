@@ -69,7 +69,8 @@ class AlfredTUI:
         self.completion_menu = CompletionMenuComponent(max_height=10)
 
         # Input field for user messages (with wrapped text navigation and completion)
-        self.input_field = WrappedInput(placeholder="Message Alfred...")
+        cursor_color = getattr(alfred.config, "input_cursor_color", "reverse")
+        self.input_field = WrappedInput(placeholder="Message Alfred...", cursor_color=cursor_color)
         self.input_field.on_submit = self._on_submit
 
         # Wire up completion with multiple triggers (longest match wins)

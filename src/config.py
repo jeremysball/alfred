@@ -63,6 +63,7 @@ class Config(BaseSettings):
 
     # UI/TUI settings
     use_markdown_rendering: bool = True
+    input_cursor_color: str = "reverse"  # "reverse", "green", "red", "blue"
 
 
 def _load_toml_config(toml_path: Path) -> dict:
@@ -110,6 +111,14 @@ def _load_toml_config(toml_path: Path) -> dict:
             flat_config["faiss_ivf_threshold"] = memory["faiss_ivf_threshold"]
         if "faiss_backup_jsonl" in memory:
             flat_config["faiss_backup_jsonl"] = memory["faiss_backup_jsonl"]
+
+    # UI/TUI configuration
+    if "ui" in toml_data:
+        ui = toml_data["ui"]
+        if "use_markdown_rendering" in ui:
+            flat_config["use_markdown_rendering"] = ui["use_markdown_rendering"]
+        if "input_cursor_color" in ui:
+            flat_config["input_cursor_color"] = ui["input_cursor_color"]
 
     # Tool calls configuration
     if "context" in toml_data:

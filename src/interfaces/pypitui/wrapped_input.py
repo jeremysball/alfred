@@ -15,7 +15,14 @@ from typing import TYPE_CHECKING
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
 
-from src.interfaces.ansi import RESET, REVERSE
+from src.interfaces.ansi import (
+    BRIGHT_WHITE,
+    ON_BLUE,
+    ON_GREEN,
+    ON_RED,
+    RESET,
+    REVERSE,
+)
 
 if TYPE_CHECKING:
     from .completion_addon import CompletionManager
@@ -48,17 +55,19 @@ class WrappedInput(Component, Focusable):
         """Input field is fixed at the bottom and should not scroll."""
         return True
 
-    def __init__(self, placeholder: str = "") -> None:
+    def __init__(self, placeholder: str = "", cursor_color: str = "reverse") -> None:
         """Initialize WrappedInput.
 
         Args:
             placeholder: Placeholder text when empty and unfocused.
+            cursor_color: Cursor color style ("reverse", "green", "red", "blue").
         """
         super().__init__()
         self._input = Input(placeholder=placeholder)
         self._input.on_submit = self._on_submit
         self._display_column = 0  # Desired column for vertical movement
         self._last_width = 80  # Last render width
+        self._cursor_color = cursor_color
 
         # Callbacks
         self.on_submit: Callable | None = None
@@ -258,8 +267,17 @@ class WrappedInput(Component, Focusable):
         at = line[cursor_col : cursor_col + 1] or " "
         after = line[cursor_col + 1 :]
 
-        # Use reverse video for cursor and emit CURSOR_MARKER for hardware cursor positioning
-        return f"{before}{CURSOR_MARKER}{REVERSE}{at}{RESET}{after}"
+        # Get cursor color style
+        color_map = {
+            "reverse": REVERSE,
+            "green": f"{ON_GREEN}{BRIGHT_WHITE}",
+            "red": f"{ON_RED}{BRIGHT_WHITE}",
+            "blue": f"{ON_BLUE}{BRIGHT_WHITE}",
+        }
+        cursor_style = color_map.get(self._cursor_color, REVERSE)
+
+        # CURSOR_MARKER for hardware cursor positioning
+        return f"{before}{CURSOR_MARKER}{cursor_style}{at}{RESET}{after}"
 
     def _get_cursor_display_pos(self, width: int) -> tuple[int, int]:
         """Get cursor position in display coordinates.
