@@ -142,6 +142,18 @@ class TestThrobberReset:
         throbber.reset()
         assert throbber.render() == BRAILLE_FRAMES[0]
 
+    def test_throbber_reset_updates_last_tick(self) -> None:
+        """Reset should update _last_tick to current time."""
+        throbber = Throbber()
+        base_time = 1000.0
+        throbber.tick(base_time)
+        # Manually set _last_tick to a known value
+        throbber._last_tick = 500.0
+        # Reset should update _last_tick
+        throbber.reset()
+        # _last_tick should be greater than the old value (updated to now)
+        assert throbber._last_tick > 500.0
+
 
 class TestThrobberBrailleVsAscii:
     """Test differences between braille and ASCII modes."""
