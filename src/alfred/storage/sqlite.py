@@ -290,8 +290,6 @@ class SQLiteStore:
         
         Only indexes messages with embeddings. Skips if already indexed.
         """
-        import aiosqlite
-        import uuid
 
         # Check if we have sqlite-vec
         try:
@@ -1122,18 +1120,17 @@ class SQLiteStore:
 
         import aiosqlite
 
-        async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
-                """
+        async with aiosqlite.connect(self.db_path) as db, db.execute(
+            """
                 SELECT s.session_id
                 FROM sessions s
                 LEFT JOIN session_summaries sm ON s.session_id = sm.session_id
                 WHERE s.message_count - COALESCE(sm.message_count, 0) >= ?
                 """,
-                (threshold,)
-            ) as cursor:
-                rows = await cursor.fetchall()
-                return [row[0] for row in rows]
+            (threshold,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
 
     # Two-stage search methods (PRD #76 Phase 4)
     async def search_summaries(

@@ -8,6 +8,7 @@ from telegram import Bot
 
 from alfred.agent import Agent, ToolEnd, ToolEvent, ToolOutput, ToolStart
 from alfred.config import Config
+from alfred.container import ServiceLocator
 from alfred.context import ContextLoader
 from alfred.cron.scheduler import CronScheduler
 from alfred.cron.store import CronStore
@@ -16,11 +17,10 @@ from alfred.llm import ChatMessage, LLMFactory
 from alfred.memory import create_memory_store
 from alfred.session import Session, SessionManager, ToolCallRecord
 from alfred.storage.sqlite import SQLiteStore
-from alfred.tools.search_sessions import SessionSummarizer
 from alfred.token_tracker import TokenTracker
-from alfred.container import ServiceLocator
 from alfred.tools import get_registry, register_builtin_tools
 from alfred.tools.factories import SummarizerFactory
+from alfred.tools.search_sessions import SessionSummarizer
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
@@ -391,7 +391,7 @@ class Alfred:
         session.meta.message_count = len(session.messages)
 
         # Persist to storage
-        self.session_manager._spawn_persist_task(session.meta.session_id, assistant_msg_obj)
+        self.session_manager._spawn_persist_task(session.meta.session_id, session.messages)
 
         assistant_msg_idx = assistant_msg_obj.idx
         msg_count = len(session.messages)

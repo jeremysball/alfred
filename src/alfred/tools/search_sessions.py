@@ -1,10 +1,8 @@
 """Tool for searching sessions with two-stage contextual retrieval."""
 
-import json
 import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
-from pathlib import Path
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
