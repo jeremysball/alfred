@@ -178,44 +178,7 @@ class SessionManager:
         # Try to load from store
         try:
             data = run_async(self.store.load_session(session_id))
-
-            if data:
-                # Parse messages
-                messages = []
-                for msg_data in data.get("messages", []):
-                    msg = Message(
-                        idx=msg_data.get("idx", 0),
-                        role=Role(msg_data["role"]),
-                        content=msg_data["content"],
-                        timestamp=datetime.fromisoformat(msg_data["timestamp"]),
-                        embedding=msg_data.get("embedding"),
-                        input_tokens=msg_data.get("input_tokens", 0),
-                        output_tokens=msg_data.get("output_tokens", 0),
-                        tool_calls=msg_data.get("tool_calls"),
-                    )
-                    messages.append(msg)
-
-                meta = SessionMeta(
-                    session_id=session_id,
-                    created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
-                    last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
-                    status="active",
-                    message_count=len(messages),
-                )
-                session = Session(meta=meta, messages=messages)
-            else:
-                # Create new session
-                meta = SessionMeta(
-                    session_id=session_id,
-                    created_at=datetime.now(UTC),
-                    last_active=datetime.now(UTC),
-                    status="active",
-                )
-                session = Session(meta=meta, messages=[])
-
-            self._sessions[session_id] = session
-            return session
-
+            return self._create_session_from_data(session_id, data)
         except Exception as e:
             logger.error(f"Error loading session {session_id}: {e}")
             # Create new session on error
@@ -227,11 +190,80 @@ class SessionManager:
             )
             return Session(meta=meta, messages=[])
 
+    async def get_or_create_session_async(self, session_id: str | None = None) -> Session:
+        """Get existing session or create new one (async version)."""
+        if session_id is None:
+            session_id = self._generate_session_id()
+
+        # Check cache
+        if session_id in self._sessions:
+            return self._sessions[session_id]
+
+        # Try to load from store
+        try:
+            data = await self.store.load_session(session_id)
+            return self._create_session_from_data(session_id, data)
+        except Exception as e:
+            logger.error(f"Error loading session {session_id}: {e}")
+            # Create new session on error
+            meta = SessionMeta(
+                session_id=session_id,
+                created_at=datetime.now(UTC),
+                last_active=datetime.now(UTC),
+                status="active",
+            )
+            return Session(meta=meta, messages=[])
+
+    def _create_session_from_data(self, session_id: str, data: dict | None) -> Session:
+        """Create Session object from stored data."""
+        if data:
+            # Parse messages
+            messages = []
+            for msg_data in data.get("messages", []):
+                msg = Message(
+                    idx=msg_data.get("idx", 0),
+                    role=Role(msg_data["role"]),
+                    content=msg_data["content"],
+                    timestamp=datetime.fromisoformat(msg_data["timestamp"]),
+                    embedding=msg_data.get("embedding"),
+                    input_tokens=msg_data.get("input_tokens", 0),
+                    output_tokens=msg_data.get("output_tokens", 0),
+                    tool_calls=msg_data.get("tool_calls"),
+                )
+                messages.append(msg)
+
+            meta = SessionMeta(
+                session_id=session_id,
+                created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
+                last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
+                status="active",
+                message_count=len(messages),
+            )
+            session = Session(meta=meta, messages=messages)
+        else:
+            # Create new session
+            meta = SessionMeta(
+                session_id=session_id,
+                created_at=datetime.now(UTC),
+                last_active=datetime.now(UTC),
+                status="active",
+            )
+            session = Session(meta=meta, messages=[])
+
+        self._sessions[session_id] = session
+        return session
+
     def get_current_cli_session(self) -> Session | None:
         """Get current CLI session."""
         if SessionManager._cli_session_id is None:
             return None
         return self.get_or_create_session(SessionManager._cli_session_id)
+
+    async def get_current_cli_session_async(self) -> Session | None:
+        """Get current CLI session (async version)."""
+        if SessionManager._cli_session_id is None:
+            return None
+        return await self.get_or_create_session_async(SessionManager._cli_session_id)
 
     def set_current_cli_session(self, session_id: str) -> None:
         """Set current CLI session."""

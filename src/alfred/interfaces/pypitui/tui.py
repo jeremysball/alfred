@@ -492,7 +492,7 @@ class AlfredTUI:
         if hasattr(self.tui, "reset_scrollback_state"):
             getattr(self.tui, "reset_scrollback_state")()  # noqa: B009
 
-    def _load_session_messages(self) -> None:
+    async def _load_session_messages(self) -> None:
         """Load existing session messages into conversation panel.
 
         Called on startup (if resuming) and after /resume command.
@@ -504,7 +504,7 @@ class AlfredTUI:
         if not self.alfred.session_manager.has_active_session():
             return
 
-        session = self.alfred.session_manager.get_current_cli_session()
+        session = await self.alfred.session_manager.get_current_cli_session_async()
         if not session or not session.messages:
             return
 
@@ -682,7 +682,7 @@ class AlfredTUI:
     async def run(self) -> None:
         """Main event loop - delegates to pypitui's run_frame()."""
         self.tui.start()
-        self._load_session_messages()
+        await self._load_session_messages()
         self._update_status()
         self.tui.request_render()  # Initial render after setup
 
