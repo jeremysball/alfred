@@ -187,6 +187,51 @@ class SearchSessionsTool(Tool):
         self.min_similarity = min_similarity
         self.summarizer = summarizer
 
+    async def _find_relevant_sessions(self, query: str, top_k: int = 3) -> list[dict]:
+        """Stage 1: Find relevant sessions via summary search.
+
+        Args:
+            query: Search query
+            top_k: Maximum sessions to return
+
+        Returns:
+            List of {summary_id, session_id, summary_text, similarity}
+        """
+        if not self.embedder:
+            raise RuntimeError("Embedder not configured")
+
+        if not self.summarizer or not self.summarizer.store:
+            raise RuntimeError("SQLiteStore not configured for search")
+
+        # Embed query
+        query_embedding = await self.embedder.embed(query)
+
+        # Search summaries
+        return await self.summarizer.store.search_summaries(query_embedding, top_k)
+
+    async def _search_session_messages(
+        self,
+        session_id: str,
+        query_embedding: list[float],
+        top_k: int = 3
+    ) -> list[dict]:
+        """Stage 2: Search messages within a session.
+
+        Args:
+            session_id: Session to search
+            query_embedding: Query embedding
+            top_k: Maximum messages to return
+
+        Returns:
+            List of {message_idx, role, content_snippet, similarity}
+        """
+        if not self.summarizer or not self.summarizer.store:
+            return []
+
+        return await self.summarizer.store.search_session_messages(
+            session_id, query_embedding, top_k
+        )
+
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute two-stage session search."""
         query = kwargs.get("query", "")
@@ -197,28 +242,53 @@ class SearchSessionsTool(Tool):
             yield "Error: Please provide a search query"
             return
 
-        if not self.session_manager:
-            yield "Error: Session manager not initialized"
+        if not self.embedder:
+            yield "Error: Embedder not configured"
             return
 
-        # Get list of sessions from manager
+        if not self.summarizer or not self.summarizer.store:
+            yield "Error: Session search not configured"
+            return
+
         try:
-            sessions = self.session_manager.list_sessions()
+            # Stage 1: Find relevant sessions via summary search
+            query_embedding = await self.embedder.embed(query)
+            relevant_summaries = await self.summarizer.store.search_summaries(
+                query_embedding, top_k
+            )
+
+            if not relevant_summaries:
+                yield "No relevant sessions found."
+                return
+
+            # Stage 2: For each relevant session, search messages
+            for summary in relevant_summaries:
+                session_id = summary["session_id"]
+                similarity = summary.get("similarity", 0)
+
+                # Only include if meets similarity threshold
+                if similarity < self.min_similarity:
+                    continue
+
+                # Format session header
+                yield f"\n## Session: {session_id}\n"
+                yield f"Summary: {summary['summary_text']}\n"
+                yield f"Relevance: {similarity:.2f}\n"
+
+                # Search messages within session
+                messages = await self.summarizer.store.search_session_messages(
+                    session_id, query_embedding, messages_per_session
+                )
+
+                if messages:
+                    yield "Relevant messages:\n"
+                    for msg in messages:
+                        role = msg["role"]
+                        content = msg["content_snippet"]
+                        msg_sim = msg.get("similarity", 0)
+                        yield f"  [{role}]: {content} ({msg_sim:.2f})\n"
+                else:
+                    yield "No specific messages found.\n"
+
         except Exception as e:
-            yield f"Error listing sessions: {e}"
-            return
-
-        if not sessions:
-            yield "No sessions found."
-            return
-
-        # Format results
-        results_found = False
-        for meta in sessions[:top_k]:
-            results_found = True
-            date_str = meta.last_active.strftime("%Y-%m-%d") if hasattr(meta, 'last_active') else "Unknown"
-            msg_count = f" ({meta.message_count} messages)" if hasattr(meta, 'message_count') else ""
-            yield f"\nSession: {meta.session_id} ({date_str}){msg_count}\n"
-
-        if not results_found:
-            yield "No sessions found."
+            yield f"Error searching sessions: {e}"

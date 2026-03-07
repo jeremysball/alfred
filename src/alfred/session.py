@@ -220,6 +220,23 @@ class SessionManager:
             # Parse messages
             messages = []
             for msg_data in data.get("messages", []):
+                # Convert dict tool_calls to ToolCallRecord objects
+                tool_calls_data = msg_data.get("tool_calls")
+                tool_calls = None
+                if tool_calls_data:
+                    tool_calls = [
+                        ToolCallRecord(
+                            tool_call_id=tc["tool_call_id"],
+                            tool_name=tc["tool_name"],
+                            arguments=tc.get("arguments", {}),
+                            output=tc.get("output", ""),
+                            status=tc.get("status", "success"),
+                            insert_position=tc.get("insert_position", 0),
+                            sequence=tc.get("sequence", 0),
+                        )
+                        for tc in tool_calls_data
+                    ]
+
                 msg = Message(
                     idx=msg_data.get("idx", 0),
                     role=Role(msg_data["role"]),
@@ -228,7 +245,7 @@ class SessionManager:
                     embedding=msg_data.get("embedding"),
                     input_tokens=msg_data.get("input_tokens", 0),
                     output_tokens=msg_data.get("output_tokens", 0),
-                    tool_calls=msg_data.get("tool_calls"),
+                    tool_calls=tool_calls,
                 )
                 messages.append(msg)
 
@@ -404,6 +421,7 @@ class SessionManager:
                 if msg.embedding:
                     msg_dict["embedding"] = msg.embedding
                 if msg.tool_calls:
+                    # tool_calls are always ToolCallRecord objects (converted at load edge)
                     msg_dict["tool_calls"] = [
                         {
                             "tool_call_id": tc.tool_call_id,
@@ -411,6 +429,8 @@ class SessionManager:
                             "arguments": tc.arguments,
                             "output": tc.output,
                             "status": tc.status,
+                            "insert_position": tc.insert_position,
+                            "sequence": tc.sequence,
                         }
                         for tc in msg.tool_calls
                     ]

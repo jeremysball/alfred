@@ -50,6 +50,7 @@ class SQLiteStore:
             # Create tables
             await self._create_sessions_table(db)
             await self._create_session_summaries_table(db)
+            await self._create_message_embeddings_table(db)
             await self._create_cron_tables(db)
             await self._create_memories_table(db)
 
@@ -103,6 +104,42 @@ class SQLiteStore:
             CREATE INDEX IF NOT EXISTS idx_session_summaries_created
             ON session_summaries(created_at)
         """)
+
+    async def _create_message_embeddings_table(self, db: Any) -> None:
+        """Create message_embeddings table with FK to sessions."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS message_embeddings (
+                message_embedding_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                message_idx INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content_snippet TEXT,
+                embedding JSON NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+
+        # Index for session-based lookups
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_message_embeddings_session
+            ON message_embeddings(session_id)
+        """)
+
+        # Create sqlite-vec virtual table if available
+        try:
+            await db.execute("SELECT vec_version()")
+            has_vec = True
+        except Exception:
+            has_vec = False
+            logger.warning("sqlite-vec not available, message vector search disabled")
+
+        if has_vec:
+            await db.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings_vec USING vec0(
+                    message_embedding_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+            """)
 
     async def _create_cron_tables(self, db: Any) -> None:
         """Create cron jobs and history tables."""
@@ -239,6 +276,72 @@ class SQLiteStore:
                 (session_id, json.dumps(messages), json.dumps(metadata or {}))
             )
             await db.commit()
+
+            # Index message embeddings for vector search (new sessions only)
+            await self._index_message_embeddings(db, session_id, messages)
+
+    async def _index_message_embeddings(
+        self,
+        db: Any,
+        session_id: str,
+        messages: list[dict]
+    ) -> None:
+        """Index message embeddings for vector search.
+        
+        Only indexes messages with embeddings. Skips if already indexed.
+        """
+        import aiosqlite
+        import uuid
+
+        # Check if we have sqlite-vec
+        try:
+            await db.execute("SELECT vec_version()")
+            has_vec = True
+        except Exception:
+            has_vec = False
+
+        for msg in messages:
+            embedding = msg.get("embedding")
+            if not embedding:
+                continue  # Skip messages without embeddings
+
+            message_idx = msg.get("idx", 0)
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")[:100]  # Snippet
+
+            # Generate unique ID
+            me_id = f"{session_id}_{message_idx}"
+
+            try:
+                # Insert into message_embeddings
+                await db.execute(
+                    """
+                    INSERT INTO message_embeddings 
+                    (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(message_embedding_id) DO NOTHING
+                    """,
+                    (me_id, session_id, message_idx, role, content, json.dumps(embedding))
+                )
+
+                # Insert into sqlite-vec if available
+                if has_vec:
+                    try:
+                        await db.execute(
+                            """
+                            INSERT INTO message_embeddings_vec (message_embedding_id, embedding)
+                            VALUES (?, ?)
+                            ON CONFLICT(message_embedding_id) DO NOTHING
+                            """,
+                            (me_id, json.dumps(embedding))
+                        )
+                    except Exception:
+                        pass  # sqlite-vec might not be available
+
+            except Exception as e:
+                logger.warning(f"Failed to index message {message_idx} for session {session_id}: {e}")
+
+        await db.commit()
 
     async def load_session(self, session_id: str) -> dict | None:
         """Load a session by ID.
@@ -1031,3 +1134,129 @@ class SQLiteStore:
             ) as cursor:
                 rows = await cursor.fetchall()
                 return [row[0] for row in rows]
+
+    # Two-stage search methods (PRD #76 Phase 4)
+    async def search_summaries(
+        self,
+        query_embedding: list[float],
+        top_k: int = 3,
+    ) -> list[dict]:
+        """Search session summaries by vector similarity.
+
+        Uses sqlite-vec for efficient vector similarity search.
+
+        Args:
+            query_embedding: Query vector
+            top_k: Maximum results to return
+
+        Returns:
+            List of {summary_id, session_id, summary_text, similarity}
+
+        Raises:
+            RuntimeError: If sqlite-vec not available
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # Check if sqlite-vec is available
+            try:
+                await db.execute("SELECT vec_version()")
+            except Exception as e:
+                raise RuntimeError("sqlite-vec required for summary search") from e
+
+            # Use sqlite-vec for vector similarity search
+            results = []
+            try:
+                async with db.execute(
+                    """
+                    SELECT 
+                        s.summary_id,
+                        s.session_id,
+                        s.summary_text,
+                        v.distance as similarity
+                    FROM session_summaries_vec v
+                    JOIN session_summaries s ON v.summary_id = s.summary_id
+                    WHERE v.embedding MATCH ?
+                    ORDER BY v.distance
+                    LIMIT ?
+                    """,
+                    (json.dumps(query_embedding), top_k)
+                ) as cursor:
+                    async for row in cursor:
+                        results.append({
+                            "summary_id": row[0],
+                            "session_id": row[1],
+                            "summary_text": row[2],
+                            "similarity": row[3],
+                        })
+            except Exception as e:
+                logger.error(f"Error searching summaries: {e}")
+                raise RuntimeError("Failed to search summaries") from e
+
+            return results
+
+    async def search_session_messages(
+        self,
+        session_id: str,
+        query_embedding: list[float],
+        top_k: int = 3,
+    ) -> list[dict]:
+        """Search messages within a session by vector similarity.
+
+        Uses sqlite-vec for efficient vector similarity search.
+
+        Args:
+            session_id: Session to search within
+            query_embedding: Query vector
+            top_k: Maximum results to return
+
+        Returns:
+            List of {message_idx, role, content_snippet, similarity}
+
+        Raises:
+            RuntimeError: If sqlite-vec not available
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # Check if sqlite-vec is available
+            try:
+                await db.execute("SELECT vec_version()")
+            except Exception as e:
+                raise RuntimeError("sqlite-vec required for message search") from e
+
+            # Use sqlite-vec for vector similarity search
+            results = []
+            try:
+                async with db.execute(
+                    """
+                    SELECT 
+                        m.message_idx,
+                        m.role,
+                        m.content_snippet,
+                        v.distance as similarity
+                    FROM message_embeddings_vec v
+                    JOIN message_embeddings m ON v.message_embedding_id = m.message_embedding_id
+                    WHERE v.embedding MATCH ?
+                        AND m.session_id = ?
+                    ORDER BY v.distance
+                    LIMIT ?
+                    """,
+                    (json.dumps(query_embedding), session_id, top_k)
+                ) as cursor:
+                    async for row in cursor:
+                        results.append({
+                            "message_idx": row[0],
+                            "role": row[1],
+                            "content_snippet": row[2],
+                            "similarity": row[3],
+                        })
+            except Exception as e:
+                logger.error(f"Error searching messages for session {session_id}: {e}")
+                raise RuntimeError("Failed to search messages") from e
+
+            return results
