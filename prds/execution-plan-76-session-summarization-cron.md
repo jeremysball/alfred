@@ -155,16 +155,16 @@
 
 ### Active Session Detection
 
-- [ ] **Test:** `test_get_active_sessions_returns_sessions_with_messages()` - verify filters to active only
+- [x] ~~**Test:** `test_get_active_sessions_returns_sessions_with_messages()` - verify filters to active only~~ ✅
   - **Commit:** `test(cron): verify get_active_sessions returns only active sessions`
 
-- [ ] **Implement:** Create `get_active_sessions()` function to scan sessions directory
+- [x] ~~**Implement:** Create `get_active_sessions()` function to scan sessions directory~~ ✅
   - **Commit:** `feat(cron): implement get_active_sessions scanning`
 
-- [ ] **Test:** `test_get_active_sessions_includes_message_counts()` - verify metadata loaded
+- [x] ~~**Test:** `test_get_active_sessions_includes_message_counts()` - verify metadata loaded~~ ✅
   - **Commit:** `test(cron): verify get_active_sessions includes message counts`
 
-- [ ] **Implement:** Load session metadata (total_messages, last_message_time) in get_active_sessions
+- [x] ~~**Implement:** Load session metadata (total_messages, last_message_time) in get_active_sessions~~ ✅
   - **Commit:** `feat(cron): load session metadata in get_active_sessions`
 
 ### Summarization Trigger Logic
