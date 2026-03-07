@@ -256,7 +256,6 @@ class AlfredTUI:
             {"consume": True} to block input from reaching input field,
             None to allow input to pass through.
         """
-        from pypitui import Key
 
         # ESC clears the queue
         if matches_key(data, Key.escape):
@@ -685,6 +684,7 @@ class AlfredTUI:
         self.tui.start()
         self._load_session_messages()
         self._update_status()
+        self.tui.request_render()  # Initial render after setup
 
         try:
             while self.running:
