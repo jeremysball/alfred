@@ -66,6 +66,7 @@ class SQLiteStore:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 messages JSON NOT NULL DEFAULT '[]',
+                message_count INTEGER DEFAULT 0,
                 metadata JSON DEFAULT '{}'
             )
         """)
@@ -927,3 +928,106 @@ class SQLiteStore:
 
             await db.commit()
             return True
+
+    # Session Summary methods (PRD #76)
+    async def save_summary(self, summary: dict) -> None:
+        """Save or update a session summary.
+
+        Args:
+            summary: Summary dict with summary_id, session_id, message_count,
+                     first_message_idx, last_message_idx, summary_text,
+                     embedding (optional), version (optional)
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            # Serialize embedding to JSON if present
+            embedding = summary.get("embedding")
+            embedding_json = json.dumps(embedding) if embedding is not None else None
+
+            await db.execute(
+                """
+                INSERT INTO session_summaries (
+                    summary_id, session_id, message_count,
+                    first_message_idx, last_message_idx, summary_text,
+                    embedding, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    summary["summary_id"],
+                    summary["session_id"],
+                    summary["message_count"],
+                    summary["first_message_idx"],
+                    summary["last_message_idx"],
+                    summary["summary_text"],
+                    embedding_json,
+                    summary.get("version", 1),
+                )
+            )
+            await db.commit()
+
+    async def get_latest_summary(self, session_id: str) -> dict | None:
+        """Get the latest summary for a session.
+
+        Args:
+            session_id: Session ID to query
+
+        Returns:
+            Summary dict or None if not found
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                """
+                SELECT * FROM session_summaries
+                WHERE session_id = ?
+                ORDER BY version DESC
+                LIMIT 1
+                """,
+                (session_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+
+                if row is None:
+                    return None
+
+                result = dict(row)
+
+                # Deserialize embedding from JSON
+                if result.get("embedding"):
+                    result["embedding"] = json.loads(result["embedding"])
+
+                return result
+
+    async def find_sessions_needing_summary(self, threshold: int = 20) -> list[str]:
+        """Find sessions with threshold+ new messages since last summary.
+
+        Args:
+            threshold: Minimum number of new messages to trigger summary
+
+        Returns:
+            List of session_ids needing summary
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                """
+                SELECT s.session_id
+                FROM sessions s
+                LEFT JOIN session_summaries sm ON s.session_id = sm.session_id
+                WHERE s.message_count - COALESCE(sm.message_count, 0) >= ?
+                """,
+                (threshold,)
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [row[0] for row in rows]
