@@ -470,7 +470,7 @@ class AlfredTUI:
             if meta:
                 # Format: "Mar 3 21:45 · 12 msgs"
                 date_str = meta.last_active.strftime("%b %-d %H:%M")
-                msg_count = meta.current_count + meta.archive_count
+                msg_count = meta.message_count
                 desc = f"{date_str} · {msg_count} msgs"
                 sessions_with_meta.append((sid, desc, meta.last_active))
             else:

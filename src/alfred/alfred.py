@@ -370,7 +370,7 @@ class Alfred:
 
         session.messages.append(assistant_msg_obj)
         session.meta.last_active = datetime.now(UTC)
-        session.meta.current_count += 1
+        session.meta.message_count = len(session.messages)
 
         # Persist to storage
         self.session_manager._spawn_persist_task(session.meta.session_id, assistant_msg_obj)
