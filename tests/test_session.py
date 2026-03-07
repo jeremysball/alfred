@@ -271,10 +271,10 @@ class TestSessionManager:
 
         assert session.meta.current_count == 1
 
-    def test_add_message_starts_new_session_after_gap(
+    def test_add_message_does_not_start_new_session_after_gap(
         self, initialized_manager: SessionManager, mock_storage: MockStorage
     ):
-        """add_message starts a new session after the idle gap."""
+        """add_message keeps the current session after the idle gap."""
         session = initialized_manager.start_session()
         session.meta.last_active = datetime.now(UTC) - timedelta(
             minutes=SESSION_GAP_MINUTES + 1
@@ -282,10 +282,10 @@ class TestSessionManager:
 
         initialized_manager.add_message("user", "Hello after gap")
 
-        new_session = initialized_manager.get_current_cli_session()
-        assert new_session is not None
-        assert new_session.meta.session_id != session.meta.session_id
-        assert new_session.messages[0].content == "Hello after gap"
+        current_session = initialized_manager.get_current_cli_session()
+        assert current_session is not None
+        assert current_session.meta.session_id == session.meta.session_id
+        assert current_session.messages[0].content == "Hello after gap"
 
     def test_add_message_without_session_raises(self, initialized_manager: SessionManager):
         """add_message raises if no session exists."""

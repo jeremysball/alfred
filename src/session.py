@@ -408,22 +408,6 @@ class SessionManager:
             if session is None:
                 raise RuntimeError("No active session")
 
-            last_message_time = (
-                session.messages[-1].timestamp if session.messages else session.meta.last_active
-            )
-            if last_message_time and last_message_time.tzinfo is None:
-                last_message_time = last_message_time.replace(tzinfo=UTC)
-
-            next_session_id = assign_session_id(
-                message_time,
-                last_message_time,
-                session.meta.session_id,
-            )
-
-            if next_session_id != session.meta.session_id:
-                session = self.get_or_create_session(next_session_id)
-                self.set_current_cli_session(next_session_id)
-
         role_enum = Role(role)
         idx = session.meta.current_count
         message = Message(
