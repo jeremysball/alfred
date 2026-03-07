@@ -83,9 +83,15 @@ async def run_scheduler(
     )
 
     # Set up signal handlers
+    def _shutdown() -> None:
+        asyncio.create_task(scheduler.stop())
+
+    def _reload() -> None:
+        asyncio.create_task(scheduler.reload_jobs())
+
     daemon_manager.setup_signals(
-        on_shutdown=lambda: asyncio.create_task(scheduler.stop()),
-        on_reload=lambda: scheduler.reload_jobs(),
+        on_shutdown=_shutdown,
+        on_reload=_reload,
     )
 
     # Write PID file
@@ -104,7 +110,7 @@ async def run_scheduler(
         while not daemon_manager.shutdown_requested:
             # Check for reload requests
             if daemon_manager.reload_requested:
-                scheduler.reload_jobs()
+                await scheduler.reload_jobs()
 
             await asyncio.sleep(1.0)
 

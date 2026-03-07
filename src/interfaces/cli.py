@@ -4,10 +4,10 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.completion import CompleteEvent, Completer, Completion
+from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout as original_patch_stdout
 from prompt_toolkit.styles import Style
@@ -26,6 +26,7 @@ from src.cron.notifier import CLINotifier
 from src.interfaces.notification_buffer import NotificationBuffer
 from src.interfaces.status import StatusData
 from src.session import Session
+from src.type_defs import ContextDisplay
 
 
 class SessionCommandCompleter(Completer):
@@ -40,7 +41,11 @@ class SessionCommandCompleter(Completer):
         self._get_session_ids = get_session_ids
         self._commands = ["/new", "/resume", "/sessions", "/session", "/context"]
 
-    def get_completions(self, document: Any, complete_event: Any) -> Any:
+    def get_completions(
+        self,
+        document: Document,
+        complete_event: CompleteEvent,
+    ) -> Iterator[Completion]:
         """Yield completions for session commands."""
         text = document.text_before_cursor
 
@@ -421,7 +426,7 @@ class CLIInterface:
 
         try:
             # Get context data
-            context_data = asyncio.run(get_context_display(self.alfred))
+            context_data: ContextDisplay = asyncio.run(get_context_display(self.alfred))
 
             # Build display sections
             lines: list[str] = []

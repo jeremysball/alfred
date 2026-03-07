@@ -8,7 +8,9 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+
+from src.cron.models import ExecutionRecord
+from src.type_defs import JsonObject
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class StructuredLogger:
         self.log_file = log_file
         self._lock = asyncio.Lock()
 
-    async def _write_log(self, entry: dict[str, Any]) -> None:
+    async def _write_log(self, entry: JsonObject) -> None:
         """Write a log entry to file."""
         async with self._lock:
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -43,7 +45,7 @@ class StructuredLogger:
         code_snapshot: str | None = None,
     ) -> None:
         """Log job execution start."""
-        entry = {
+        entry: JsonObject = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": "INFO",
             "event": "job_start",
@@ -58,29 +60,25 @@ class StructuredLogger:
         self,
         job_id: str,
         job_name: str,
-        execution_record: Any,
+        execution_record: ExecutionRecord,
         code_snapshot: str | None = None,
     ) -> None:
         """Log job execution end."""
-        status = getattr(execution_record, "status", None)
-        if status is not None and hasattr(status, "value"):
-            status_value = status.value
-        else:
-            status_value = str(status) if status else "unknown"
+        status_value = execution_record.status.value
         is_success = _get_status_success(status_value)
         level = "INFO" if is_success else "ERROR"
-        entry = {
+        entry: JsonObject = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": level,
             "event": "job_end",
             "job_id": job_id,
             "job_name": job_name,
-            "execution_id": getattr(execution_record, "execution_id", None),
+            "execution_id": execution_record.execution_id,
             "status": status_value,
-            "duration_ms": getattr(execution_record, "duration_ms", 0),
-            "error_message": getattr(execution_record, "error_message", None),
-            "stdout": getattr(execution_record, "stdout", None),
-            "stderr": getattr(execution_record, "stderr", None),
+            "duration_ms": execution_record.duration_ms,
+            "error_message": execution_record.error_message,
+            "stdout": execution_record.stdout,
+            "stderr": execution_record.stderr,
             "code_snapshot": code_snapshot,
         }
         await self._write_log(entry)
@@ -97,7 +95,7 @@ class StructuredLogger:
 
     async def log_scheduler_event(self, event: str, message: str) -> None:
         """Log scheduler-level events (start, stop, etc.)."""
-        entry = {
+        entry: JsonObject = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": "INFO",
             "event": event,
@@ -108,7 +106,7 @@ class StructuredLogger:
 
     async def log_warning(self, job_id: str | None, message: str) -> None:
         """Log a warning event."""
-        entry = {
+        entry: JsonObject = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": "WARNING",
             "event": "warning",

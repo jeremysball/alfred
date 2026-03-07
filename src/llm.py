@@ -5,24 +5,26 @@ import json
 import logging
 import random
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Sequence
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING
 
 import tiktoken
 
 from src.config import Config
-
-T = TypeVar("T")
+from src.type_defs import ChatRole, ToolCall, ToolSchema, UsageData
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from src.session import Message
 
 
 @dataclass
 class ChatMessage:
-    role: str  # "system", "user", "assistant", "tool"
+    role: ChatRole  # "system", "user", "assistant", "tool"
     content: str
-    tool_calls: list[dict[str, Any]] | None = None  # For assistant messages with tool calls
+    tool_calls: list[ToolCall] | None = None  # For assistant messages with tool calls
     tool_call_id: str | None = None  # For tool role messages
     reasoning_content: str | None = None  # For Kimi thinking mode
 
@@ -31,8 +33,8 @@ class ChatMessage:
 class ChatResponse:
     content: str
     model: str
-    usage: dict[str, Any] | None = None
-    tool_calls: list[dict[str, Any]] | None = None
+    usage: UsageData | None = None
+    tool_calls: list[ToolCall] | None = None
     reasoning_content: str | None = None  # For provider thinking/reasoning modes
 
 
@@ -61,15 +63,15 @@ class TimeoutError(LLMError):
     pass
 
 
-async def _retry_async(
-    operation: Callable[[], Any],
+async def _retry_async[T](
+    operation: Callable[[], Awaitable[T]],
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
     operation_name: str = "operation",
-) -> Any:
+) -> T:
     """Retry an async operation with exponential backoff.
 
     Used both as a standalone function and as the core logic
@@ -112,20 +114,25 @@ async def _retry_async(
     raise RuntimeError(f"All retries exhausted for {operation_name}")
 
 
-def retry_with_backoff(
+def retry_with_backoff[**P, T](
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+) -> Callable[
+    [Callable[P, Coroutine[object, object, T]]],
+    Callable[P, Coroutine[object, object, T]],
+]:
     """Decorator for retrying async functions with exponential backoff.
 
     Uses _retry_async internally for consistent retry logic.
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def decorator(
+        func: Callable[P, Coroutine[object, object, T]],
+    ) -> Callable[P, Coroutine[object, object, T]]:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             return await _retry_async(
                 operation=lambda: func(*args, **kwargs),
                 max_retries=max_retries,
@@ -136,7 +143,7 @@ def retry_with_backoff(
                 operation_name=func.__name__,
             )
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 
@@ -158,7 +165,7 @@ class LLMProvider(ABC):
     async def chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: list[dict[str, Any]] | None = None,
+        tools: list[ToolSchema] | None = None,
     ) -> ChatResponse:
         """Send chat with tool definitions."""
         pass
@@ -166,7 +173,7 @@ class LLMProvider(ABC):
     def stream_chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: list[dict[str, Any]] | None = None,
+        tools: list[ToolSchema] | None = None,
     ) -> AsyncIterator[str]:
         """Stream chat with tool support.
 
@@ -226,22 +233,24 @@ class KimiProvider(LLMProvider):
         content = response.choices[0].message.content or ""
         logger.debug(f"Received response from Kimi: {len(content)} chars")
 
+        usage: UsageData | None = None
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+            }
+
         return ChatResponse(
             content=content,
             model=response.model,
-            usage={
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-            }
-            if response.usage
-            else None,
+            usage=usage,
         )
 
     @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: list[dict[str, Any]] | None = None,
+        tools: list[ToolSchema] | None = None,
     ) -> ChatResponse:
         """Send chat with tool definitions."""
 
@@ -255,7 +264,7 @@ class KimiProvider(LLMProvider):
 
             message = response.choices[0].message
             content = message.content or ""
-            tool_calls = None
+            tool_calls: list[ToolCall] | None = None
             reasoning_content = None
 
             # Check for tool calls
@@ -276,15 +285,17 @@ class KimiProvider(LLMProvider):
             if hasattr(message, "reasoning_content") and message.reasoning_content:
                 reasoning_content = message.reasoning_content
 
+            usage: UsageData | None = None
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                }
+
             return ChatResponse(
                 content=content,
                 model=response.model,
-                usage={
-                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                }
-                if response.usage
-                else None,
+                usage=usage,
                 tool_calls=tool_calls,
                 reasoning_content=reasoning_content,
             )
@@ -299,9 +310,9 @@ class KimiProvider(LLMProvider):
 
         logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
 
-        from openai.types.chat import ChatCompletionMessageParam
+        from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
-        async def _create_stream() -> Any:
+        async def _create_stream() -> AsyncIterator[ChatCompletionChunk]:
             api_messages: list[ChatCompletionMessageParam] = [
                 {"role": m.role, "content": m.content}  # type: ignore[misc]
                 for m in messages
@@ -345,7 +356,7 @@ class KimiProvider(LLMProvider):
     async def stream_chat_with_tools(
         self,
         messages: list[ChatMessage],
-        tools: list[dict[str, Any]] | None = None,
+        tools: list[ToolSchema] | None = None,
     ) -> AsyncIterator[str]:
         """Stream chat with tool support.
 
@@ -353,12 +364,13 @@ class KimiProvider(LLMProvider):
         followed by JSON array of tool calls.
         """
         import openai
+        from openai.types.chat import ChatCompletionChunk
 
         # Convert messages to API format, including tool_call_id for tool messages
         # and reasoning_content for assistant messages
-        api_messages: list[dict[str, Any]] = []
+        api_messages: list[dict[str, object]] = []
         for m in messages:
-            msg: dict[str, Any] = {"role": m.role, "content": m.content}
+            msg: dict[str, object] = {"role": m.role, "content": m.content}
             if m.role == "tool" and m.tool_call_id:
                 msg["tool_call_id"] = m.tool_call_id
             if m.tool_calls:
@@ -367,8 +379,8 @@ class KimiProvider(LLMProvider):
                 msg["reasoning_content"] = m.reasoning_content
             api_messages.append(msg)
 
-        async def _create_stream() -> Any:
-            return await self.client.chat.completions.create(  # type: ignore[call-overload]
+        async def _create_stream() -> AsyncIterator[ChatCompletionChunk]:
+            stream: AsyncIterator[ChatCompletionChunk] = await self.client.chat.completions.create(  # type: ignore[call-overload]
                 model=self.model,
                 messages=api_messages,
                 tools=tools,
@@ -376,6 +388,7 @@ class KimiProvider(LLMProvider):
                 stream_options={"include_usage": True},
                 reasoning_effort="high",
             )
+            return stream
 
         try:
             stream = await _retry_async(
@@ -398,8 +411,8 @@ class KimiProvider(LLMProvider):
             raise LLMError(f"Unexpected error: {e}") from e
 
         # Collect streaming data
-        tool_calls_data = []
-        current_tool_call = None
+        tool_calls_data: list[ToolCall] = []
+        current_tool_call: ToolCall | None = None
         full_content = ""
         full_reasoning = ""  # Accumulate reasoning content for token counting
         encoder = tiktoken.get_encoding("cl100k_base")  # Tokenizer for counting
@@ -409,7 +422,7 @@ class KimiProvider(LLMProvider):
                 # Handle usage chunk (comes when choices is empty)
                 if not chunk.choices:
                     if hasattr(chunk, "usage") and chunk.usage:
-                        usage_data = {
+                        usage_data: UsageData = {
                             "prompt_tokens": chunk.usage.prompt_tokens,
                             "completion_tokens": chunk.usage.completion_tokens,
                         }
@@ -493,7 +506,7 @@ class LLMFactory:
         raise ValueError(f"Unknown provider: {config.default_llm_provider}")
 
 
-async def summarize_conversation(messages: list[Any]) -> str:
+async def summarize_conversation(messages: Sequence["Message"]) -> str:
     """Generate summary text from conversation messages.
 
     Args:
@@ -505,17 +518,14 @@ async def summarize_conversation(messages: list[Any]) -> str:
     Raises:
         Exception: If LLM call fails
     """
-    from src.session import Message
-
     logger.debug(f"summarize_conversation called with {len(messages)} messages")
 
     # Build conversation transcript
     lines = []
     for msg in messages:
-        if isinstance(msg, Message):
-            role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            content = msg.content
-            lines.append(f"{role}: {content}")
+        role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+        content = msg.content
+        lines.append(f"{role}: {content}")
 
     transcript = "\n".join(lines)
     logger.debug(f"Built transcript: {len(transcript)} chars, {len(lines)} messages")
@@ -545,7 +555,9 @@ Provide a single paragraph summary suitable for semantic search retrieval.
 
     # Get LLM and generate summary
     logger.debug("Creating LLM and sending summarization request")
-    config = Config()
+    from src.config import load_config
+
+    config = load_config()
     llm = LLMFactory.create(config)
     response = await llm.chat(prompt_messages)
 

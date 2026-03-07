@@ -20,7 +20,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
+
+from src.type_defs import JsonObject, JsonValue, ToolArguments
 
 if TYPE_CHECKING:
     from src.session_storage import SessionStorage
@@ -126,7 +128,7 @@ class ToolCallRecord:
 
     tool_call_id: str
     tool_name: str
-    arguments: dict[str, Any]
+    arguments: ToolArguments
     output: str
     status: Literal["success", "error"]
     insert_position: int = 0
@@ -187,8 +189,12 @@ class SessionSummary:
     embedding: list[float] | None = None  # For semantic search
     version: int = 1  # Incremented on regeneration
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Serialize to dictionary for JSON storage."""
+        embedding_values: list[JsonValue] | None = None
+        if self.embedding is not None:
+            embedding_values = [float(value) for value in self.embedding]
+
         return {
             "id": self.id,
             "session_id": self.session_id,
@@ -196,22 +202,66 @@ class SessionSummary:
             "message_range": list(self.message_range),  # Tuple -> list for JSON
             "message_count": self.message_count,
             "summary_text": self.summary_text,
-            "embedding": self.embedding,
+            "embedding": embedding_values,
             "version": self.version,
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> SessionSummary:
+    def from_dict(cls, data: JsonObject) -> SessionSummary:
         """Deserialize from dictionary."""
+        summary_id = data.get("id")
+        if not isinstance(summary_id, str):
+            raise ValueError("SessionSummary id must be a string")
+
+        session_id = data.get("session_id")
+        if not isinstance(session_id, str):
+            raise ValueError("SessionSummary session_id must be a string")
+
+        timestamp_value = data.get("timestamp")
+        if not isinstance(timestamp_value, str):
+            raise ValueError("SessionSummary timestamp must be a string")
+
+        message_range_value = data.get("message_range")
+        if not isinstance(message_range_value, list) or len(message_range_value) < 2:
+            raise ValueError("SessionSummary message_range must be a list")
+        first = message_range_value[0]
+        second = message_range_value[1]
+        if not isinstance(first, (int, float)) or not isinstance(second, (int, float)):
+            raise ValueError("SessionSummary message_range must contain numbers")
+        message_range = (int(first), int(second))
+
+        message_count_value = data.get("message_count")
+        if not isinstance(message_count_value, int):
+            raise ValueError("SessionSummary message_count must be an int")
+
+        summary_text_value = data.get("summary_text")
+        if not isinstance(summary_text_value, str):
+            raise ValueError("SessionSummary summary_text must be a string")
+
+        embedding_value = data.get("embedding")
+        embedding: list[float] | None = None
+        if embedding_value is not None:
+            if not isinstance(embedding_value, list):
+                raise ValueError("SessionSummary embedding must be a list of numbers")
+            embedding_values: list[float] = []
+            for item in embedding_value:
+                if not isinstance(item, (int, float)):
+                    raise ValueError("SessionSummary embedding must be a list of numbers")
+                embedding_values.append(float(item))
+            embedding = embedding_values
+
+        version_value = data.get("version", 1)
+        version = int(version_value) if isinstance(version_value, (int, float)) else 1
+
         return cls(
-            id=data["id"],
-            session_id=data["session_id"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            message_range=(data["message_range"][0], data["message_range"][1]),  # List -> tuple
-            message_count=data["message_count"],
-            summary_text=data["summary_text"],
-            embedding=data.get("embedding"),
-            version=data.get("version", 1),
+            id=summary_id,
+            session_id=session_id,
+            timestamp=datetime.fromisoformat(timestamp_value),
+            message_range=message_range,
+            message_count=message_count_value,
+            summary_text=summary_text_value,
+            embedding=embedding,
+            version=version,
         )
 
 

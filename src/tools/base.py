@@ -3,10 +3,18 @@
 import json
 from abc import ABC
 from collections.abc import AsyncIterator
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, Field, create_model
 from pydantic.fields import FieldInfo
+
+from src.type_defs import (
+    JsonValue,
+    ToolArguments,
+    ToolOutput,
+    ToolSchema,
+    ensure_json_object,
+)
 
 
 class ToolParameter(BaseModel):
@@ -53,7 +61,7 @@ class Tool(ABC):
         sig = inspect.signature(self.execute)
 
         # Build field definitions for create_model
-        fields: dict[str, Any] = {}
+        fields: dict[str, object] = {}
 
         for param_name, param in sig.parameters.items():
             if param_name == "self":
@@ -76,11 +84,13 @@ class Tool(ABC):
             fields[param_name] = (annotation, default)
 
         # Create the Pydantic model
-        self._param_model = create_model(
-            f"{self.__class__.__name__}Params", __base__=ToolParameter, **fields
+        self._param_model = create_model(  # type: ignore[call-overload]
+            f"{self.__class__.__name__}Params",
+            __base__=ToolParameter,
+            **fields,
         )
 
-    def execute(self, **kwargs: Any) -> str | dict[str, Any]:
+    def execute(self, **kwargs: JsonValue) -> ToolOutput:
         """Execute the tool with the given parameters (non-streaming).
 
         Default implementation returns an error message. Override this method
@@ -97,7 +107,7 @@ class Tool(ABC):
             f"Error: {self.__class__.__name__} must be called via execute_stream in async context"
         )
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Execute the tool with streaming output.
 
         Yields output chunks as they become available. Default implementation
@@ -120,21 +130,22 @@ class Tool(ABC):
         else:
             yield json.dumps(result, indent=2)
 
-    def get_schema(self) -> dict[str, Any]:
+    def get_schema(self) -> ToolSchema:
         """Get JSON Schema for this tool (OpenAI format)."""
         if self._param_model is None:
             raise RuntimeError("Parameter model not initialized")
 
+        schema = ensure_json_object(self._param_model.model_json_schema())
         return {
             "type": "function",
             "function": {
                 "name": self.name,
                 "description": self.description,
-                "parameters": self._param_model.model_json_schema(),
+                "parameters": schema,
             },
         }
 
-    def validate_and_run(self, arguments: dict[str, Any]) -> str | dict[str, Any]:
+    def validate_and_run(self, arguments: ToolArguments) -> ToolOutput:
         """Validate arguments and execute the tool (non-streaming).
 
         Args:
@@ -150,9 +161,10 @@ class Tool(ABC):
         validated = self._param_model(**arguments)
 
         # Execute with validated params
-        return self.execute(**validated.model_dump())
+        validated_data = ensure_json_object(validated.model_dump())
+        return self.execute(**validated_data)
 
-    async def validate_and_run_stream(self, arguments: dict[str, Any]) -> AsyncIterator[str]:
+    async def validate_and_run_stream(self, arguments: ToolArguments) -> AsyncIterator[str]:
         """Validate arguments and execute the tool with streaming.
 
         Args:
@@ -168,7 +180,8 @@ class Tool(ABC):
         validated = self._param_model(**arguments)
 
         # Execute with streaming
-        async for chunk in self.execute_stream(**validated.model_dump()):
+        validated_data = ensure_json_object(validated.model_dump())
+        async for chunk in self.execute_stream(**validated_data):
             yield chunk
 
 

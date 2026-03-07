@@ -4,6 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING
 
 from src.interfaces.pypitui.commands.base import Command
+from src.type_defs import ContextDisplay
 
 if TYPE_CHECKING:
     from src.interfaces.pypitui.tui import AlfredTUI
@@ -20,14 +21,14 @@ class ShowContextCommand(Command):
         from src.context_display import get_context_display
 
         if not tui.alfred.session_manager.has_active_session():
-            tui._add_system_message("No active session.")  # type: ignore[misc]
+            tui._add_system_message("No active session.")
             return True
 
         async def _fetch_and_display() -> None:
             """Async helper to fetch and display context."""
             try:
                 # Get context data
-                context_data = await get_context_display(tui.alfred)
+                context_data: ContextDisplay = await get_context_display(tui.alfred)
 
                 # Build display text
                 lines: list[str] = []
@@ -90,10 +91,10 @@ class ShowContextCommand(Command):
                 lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
 
                 # Add as system message (no markdown to preserve formatting)
-                tui._add_system_message("\n".join(lines))  # type: ignore[misc]
+                tui._add_system_message("\n".join(lines))
 
             except Exception as e:
-                tui._add_system_message(f"Error displaying context: {e}")  # type: ignore[misc]
+                tui._add_system_message(f"Error displaying context: {e}")
 
         # Schedule async work on event loop (we're already in async context)
         try:
@@ -101,6 +102,6 @@ class ShowContextCommand(Command):
             asyncio.create_task(_fetch_and_display())
         except RuntimeError:
             # No event loop running - this shouldn't happen in TUI
-            tui._add_user_message("Error: No event loop available")  # type: ignore[misc]
+            tui._add_user_message("Error: No event loop available")
 
         return True

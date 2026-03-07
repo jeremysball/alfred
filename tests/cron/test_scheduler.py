@@ -410,3 +410,21 @@ async def run():
         notify_messages = [m for m in socket_client._buffer if isinstance(m, NotifyMessage)]
         assert len(notify_messages) > 0
         assert notify_messages[0].message == "Hello from test job!"
+
+
+class TestCronSchedulerSystemJobCode:
+    """Tests for system job placeholder code handling."""
+
+    def test_compile_system_job_code_raises_error(self):
+        """System job placeholder code should raise clear error."""
+        scheduler = CronScheduler()
+
+        with pytest.raises(ValueError, match="System job code cannot be compiled"):
+            scheduler._compile_handler("# system job: session_summarizer")
+
+    def test_compile_system_job_code_with_whitespace(self):
+        """System job placeholder with whitespace should be detected."""
+        scheduler = CronScheduler()
+
+        with pytest.raises(ValueError, match="System job code cannot be compiled"):
+            scheduler._compile_handler("   # system job: test_job")

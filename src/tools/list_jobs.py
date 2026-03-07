@@ -4,12 +4,12 @@ Tool for Alfred to list jobs by status (pending, active, all).
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from src.cron.scheduler import CronScheduler
 from src.tools.base import Tool, ToolResult
+from src.type_defs import JsonValue
 
 
 class ListJobsParams(BaseModel):
@@ -53,7 +53,7 @@ class ListJobsTool(Tool):
         super().__init__()
         self.scheduler = scheduler
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Execute the list_jobs tool (async).
 
         Args:
@@ -63,7 +63,7 @@ class ListJobsTool(Tool):
             Formatted list of jobs
         """
         try:
-            params = ListJobsParams(**kwargs)
+            params = ListJobsParams.model_validate(kwargs)
         except ValueError as e:
             yield f"Error: Invalid parameters - {e}"
             return

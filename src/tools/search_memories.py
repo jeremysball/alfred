@@ -1,9 +1,11 @@
 """Tool for searching memories in the unified memory store."""
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 from pydantic import BaseModel, Field
+
+from src.memory.base import MemoryStore
+from src.type_defs import JsonValue
 
 from .base import Tool
 
@@ -26,15 +28,15 @@ class SearchMemoriesTool(Tool):
     description = "Search through your memory store for relevant information"
     param_model = SearchMemoriesToolParams
 
-    def __init__(self, memory_store: Any = None) -> None:
+    def __init__(self, memory_store: MemoryStore | None = None) -> None:
         super().__init__()
         self._memory_store = memory_store
 
-    def set_memory_store(self, memory_store: Any) -> None:
+    def set_memory_store(self, memory_store: MemoryStore) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Search memories and return formatted results.
 
         Args:
@@ -46,9 +48,20 @@ class SearchMemoriesTool(Tool):
         Yields:
             Formatted search results
         """
-        query = kwargs.get("query", "")
-        entry_id = kwargs.get("entry_id", "")
-        top_k = kwargs.get("top_k", 5)
+        query_value = kwargs.get("query", "")
+        entry_id_value = kwargs.get("entry_id", "")
+        top_k_value = kwargs.get("top_k", 5)
+
+        if not isinstance(query_value, str) or not isinstance(entry_id_value, str):
+            yield "Error: query and entry_id must be strings"
+            return
+        if not isinstance(top_k_value, int):
+            yield "Error: top_k must be an integer"
+            return
+
+        query = query_value
+        entry_id = entry_id_value
+        top_k = top_k_value
         if not self._memory_store:
             yield "Error: Memory store not initialized"
             return
@@ -84,8 +97,9 @@ class SearchMemoriesTool(Tool):
             lines = []
             for entry in results:
                 date_str = entry.timestamp.strftime("%Y-%m-%d")
-                sim_pct = int(similarities.get(entry.entry_id, 0) * 100)
-                scr_pct = int(scores.get(entry.entry_id, 0) * 100)
+                entry_id = entry.entry_id or ""
+                sim_pct = int(similarities.get(entry_id, 0) * 100)
+                scr_pct = int(scores.get(entry_id, 0) * 100)
                 lines.append(
                     f"- [{date_str}] {entry.content} "
                     f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry.entry_id})"

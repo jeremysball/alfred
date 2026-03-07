@@ -10,15 +10,16 @@ import contextlib
 import io
 import logging
 import tracemalloc
-from collections.abc import Callable
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import psutil
 
 from src.cron.models import ExecutionStatus, Job, ResourceLimits
+from src.memory.base import MemoryStore
+from src.type_defs import AsyncHandler
 
 if TYPE_CHECKING:
     from src.cron.socket_client import SocketClient
@@ -36,7 +37,7 @@ class ExecutionContext:
 
     job_id: str
     job_name: str
-    memory_store: Any | None = None
+    memory_store: MemoryStore | None = None
     socket_client: "SocketClient | None" = None
 
     async def notify(self, message: str) -> None:
@@ -75,7 +76,7 @@ class JobExecutor:
     def __init__(
         self,
         job: Job,
-        handler: Callable[[], Any],
+        handler: AsyncHandler,
         limits: ResourceLimits,
         context: ExecutionContext,
     ):
@@ -111,11 +112,11 @@ class JobExecutor:
         # Start memory tracking
         tracemalloc.start()
 
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
         try:
             # Capture output
-            stdout_capture = io.StringIO()
-            stderr_capture = io.StringIO()
-
             with (
                 redirect_stdout(stdout_capture),
                 redirect_stderr(stderr_capture),

@@ -6,18 +6,39 @@ Implements singleton pattern for model loading.
 
 import asyncio
 import logging
-from typing import Any
+from typing import Protocol, TypedDict, runtime_checkable
+
+import numpy as np
+from numpy.typing import NDArray
 
 from src.embeddings.provider import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
+type EmbeddingArray = NDArray[np.float32]
+
+
+class ModelConfig(TypedDict):
+    model_id: str
+    dimension: int
+
+
+@runtime_checkable
+class SentenceTransformerProtocol(Protocol):
+    def encode(
+        self,
+        texts: str | list[str],
+        normalize_embeddings: bool = ...,
+    ) -> EmbeddingArray:
+        ...
+
+
 # Singleton model instance
-_model_instance: Any = None
+_model_instance: SentenceTransformerProtocol | None = None
 _model_name: str | None = None
 
 # Model configurations
-MODEL_CONFIGS = {
+MODEL_CONFIGS: dict[str, ModelConfig] = {
     "bge-small": {
         "model_id": "BAAI/bge-small-en-v1.5",
         "dimension": 384,
@@ -33,7 +54,7 @@ MODEL_CONFIGS = {
 }
 
 
-def get_model(model_name: str = "bge-base") -> Any:
+def get_model(model_name: str = "bge-base") -> SentenceTransformerProtocol:
     """Get or create singleton SentenceTransformer model.
 
     Args:
@@ -53,13 +74,18 @@ def get_model(model_name: str = "bge-base") -> Any:
             ) from e
 
         config = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["bge-base"])
-        model_id = config["model_id"]
+        model_id = str(config["model_id"])
 
         logger.info(f"Loading embedding model: {model_id}")
-        _model_instance = SentenceTransformer(model_id)
+        model = SentenceTransformer(model_id)
+        if not isinstance(model, SentenceTransformerProtocol):
+            raise TypeError("SentenceTransformer does not implement encode()")
+        _model_instance = model
         _model_name = model_name
         logger.info(f"Model loaded successfully: {model_id}")
 
+    if _model_instance is None:
+        raise RuntimeError("Embedding model failed to load")
     return _model_instance
 
 
@@ -80,13 +106,16 @@ class BGEProvider(EmbeddingProvider):
             model_name: Model variant (bge-small, bge-base, bge-large)
         """
         self._model_name = model_name
-        self._config = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["bge-base"])
+        self._config: ModelConfig = MODEL_CONFIGS.get(
+            model_name,
+            MODEL_CONFIGS["bge-base"],
+        )
         self._model = get_model(model_name)
 
     @property
     def dimension(self) -> int:
         """Return embedding dimension based on model."""
-        return self._config["dimension"]
+        return int(self._config["dimension"])
 
     async def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text.
@@ -131,9 +160,9 @@ class BGEProvider(EmbeddingProvider):
         """Synchronous embedding (called from thread pool)."""
 
         embedding = self._model.encode(text, normalize_embeddings=True)
-        return embedding.tolist()
+        return [float(value) for value in embedding]
 
     def _embed_batch_sync(self, texts: list[str]) -> list[list[float]]:
         """Synchronous batch embedding (called from thread pool)."""
         embeddings = self._model.encode(texts, normalize_embeddings=True)
-        return embeddings.tolist()
+        return [[float(value) for value in row] for row in embeddings]

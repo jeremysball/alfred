@@ -2,11 +2,12 @@
 
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from src.memory import MemoryEntry
+from src.memory.base import MemoryStore
+from src.type_defs import JsonValue
 
 from .base import Tool
 
@@ -34,15 +35,15 @@ class RememberTool(Tool):
     description = "Save a memory to the unified memory store for future retrieval"
     param_model = RememberToolParams
 
-    def __init__(self, memory_store: Any = None) -> None:
+    def __init__(self, memory_store: MemoryStore | None = None) -> None:
         super().__init__()
         self._memory_store = memory_store
 
-    def set_memory_store(self, memory_store: Any) -> None:
+    def set_memory_store(self, memory_store: MemoryStore) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Save a memory to the unified store (async).
 
         Args:
@@ -54,9 +55,23 @@ class RememberTool(Tool):
         Yields:
             Confirmation that the memory was saved
         """
-        content = kwargs.get("content", "")
-        tags = kwargs.get("tags", "")
-        permanent = kwargs.get("permanent", False)
+        content_value = kwargs.get("content")
+        tags_value = kwargs.get("tags", "")
+        permanent_value = kwargs.get("permanent", False)
+
+        if not isinstance(content_value, str):
+            yield "Error: content must be a string"
+            return
+        if not isinstance(tags_value, str):
+            yield "Error: tags must be a string"
+            return
+        if not isinstance(permanent_value, bool):
+            yield "Error: permanent must be a boolean"
+            return
+
+        content = content_value
+        tags = tags_value
+        permanent = permanent_value
 
         if not self._memory_store:
             yield "Error: Memory store not initialized"
@@ -76,7 +91,7 @@ class RememberTool(Tool):
         )
 
         try:
-            await self._memory_store.add_entries([entry])
+            await self._memory_store.add(entry)
             tag_str = f" (tags: {', '.join(tag_list)})" if tag_list else ""
             perm_str = " [permanent]" if permanent else ""
             truncated = content[:100]

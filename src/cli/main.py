@@ -8,7 +8,7 @@ import asyncio
 import logging
 import os
 from collections.abc import Callable, Coroutine
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import typer
 from rich.console import Console
@@ -30,6 +30,7 @@ app = typer.Typer(
     add_completion=False,
 )
 console = Console()
+logger = logging.getLogger(__name__)
 
 # Global state for callback
 _run_telegram = False
@@ -106,7 +107,7 @@ def cron_list(
     """List all cron jobs."""
     from src.cli.cron import list_jobs
 
-    asyncio.run(list_jobs(status))
+    list_jobs(status)
 
 
 @cron_app.command(name="submit")
@@ -118,7 +119,7 @@ def cron_submit(
     """Submit a new cron job for approval."""
     from src.cli.cron import submit_job
 
-    asyncio.run(submit_job(name, cron, code))
+    submit_job(name, cron, code)
 
 
 @cron_app.command(name="review")
@@ -128,7 +129,7 @@ def cron_review(
     """Review a pending job's details."""
     from src.cli.cron import review_job
 
-    asyncio.run(review_job(job_id))
+    review_job(job_id)
 
 
 @cron_app.command(name="approve")
@@ -138,7 +139,7 @@ def cron_approve(
     """Approve a pending job."""
     from src.cli.cron import approve_job
 
-    asyncio.run(approve_job(job_id))
+    approve_job(job_id)
 
 
 @cron_app.command(name="reject")
@@ -148,7 +149,7 @@ def cron_reject(
     """Reject and delete a pending job."""
     from src.cli.cron import reject_job
 
-    asyncio.run(reject_job(job_id))
+    reject_job(job_id)
 
 
 @cron_app.command(name="history")
@@ -159,7 +160,7 @@ def cron_history(
     """Show job execution history."""
     from src.cli.cron import show_history
 
-    asyncio.run(show_history(job_id, limit))
+    show_history(job_id, limit)
 
 
 @cron_app.command(name="start")
@@ -277,8 +278,29 @@ async def _run_interactive() -> None:
 
 async def _run_chat(alfred: "Alfred", toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
+    import subprocess
+
+    from src.cron.daemon import DaemonManager
     from src.cron.socket_server import SocketServer
     from src.interfaces.pypitui_cli import AlfredTUI
+
+    # Start daemon if not running
+    daemon_manager = DaemonManager()
+    if not daemon_manager.is_running():
+        logger.info("Starting cron daemon...")
+        try:
+            subprocess.Popen(
+                ["alfred-cron-runner", "--daemon"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            # Wait a moment for daemon to start
+            import asyncio
+
+            await asyncio.sleep(0.5)
+        except Exception as e:
+            logger.warning(f"Failed to start cron daemon: {e}")
 
     socket_server = SocketServer(
         on_notify=lambda msg: _handle_notify(toast_manager, msg),
@@ -291,7 +313,8 @@ async def _run_chat(alfred: "Alfred", toast_manager: "ToastManager | None") -> N
 
     try:
         interface = AlfredTUI(alfred, toast_manager=toast_manager)
-        await alfred.start()
+        # Don't start scheduler in-process; daemon handles it
+        await alfred.start(start_scheduler=False)
         await interface.run()
     finally:
         await socket_server.stop()
@@ -360,7 +383,7 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
-def run_async(coro_factory: Callable[[], Coroutine[Any, Any, None]]) -> None:
+def run_async(coro_factory: Callable[[], Coroutine[object, object, None]]) -> None:
     asyncio.run(coro_factory())
 
 

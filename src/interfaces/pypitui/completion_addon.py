@@ -115,7 +115,7 @@ class CompletionManager:
                 self._menu.close()
             self._active_trigger = None
 
-    def handle_input(self, data: str) -> dict | None:
+    def handle_input(self, data: str) -> dict[str, bool] | None:
         """Handle input when menu is open.
 
         Returns {"consume": True} if key was handled, None otherwise.
@@ -161,7 +161,7 @@ class CompletionManager:
         suffix = selected_value[len(current_text) :]
         return suffix if suffix else None
 
-    def _accept_ghost_char(self) -> dict | None:
+    def _accept_ghost_char(self) -> dict[str, bool] | None:
         """Accept the first character of ghost text (right arrow behavior).
 
         Returns {"consume": True} if a ghost character was accepted.
@@ -180,7 +180,7 @@ class CompletionManager:
 
         return {"consume": True}
 
-    def _reject_ghost_char(self) -> dict | None:
+    def _reject_ghost_char(self) -> dict[str, bool] | None:
         """Reject (back out) the last accepted ghost character (left arrow).
 
         Returns {"consume": True} if a character was removed.

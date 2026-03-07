@@ -4,14 +4,26 @@ import hashlib
 import json
 from collections.abc import AsyncIterator
 from datetime import date, datetime, timedelta
-from typing import Any, Literal
+from typing import Literal
 
 import aiofiles
 from pydantic import BaseModel, Field
 
 from src.config import Config
-from src.embeddings import EmbeddingClient, cosine_similarity
+from src.embeddings import cosine_similarity
+from src.embeddings.provider import EmbeddingProvider
 from src.memory.base import MemoryStore
+from src.type_defs import JsonValue, MemoryEntryLike, MemoryRole, ensure_json_object
+
+
+def _parse_role(value: object) -> MemoryRole:
+    if value == "user":
+        return "user"
+    if value == "assistant":
+        return "assistant"
+    if value == "system":
+        return "system"
+    raise ValueError(f"Invalid memory role: {value}")
 
 
 class MemoryEntry(BaseModel):
@@ -30,7 +42,7 @@ class MemoryEntry(BaseModel):
         content = f"{self.timestamp.isoformat()}:{self.content}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def model_post_init(self, __context: Any) -> None:
+    def model_post_init(self, __context: object) -> None:
         """Auto-generate ID if not set."""
         if self.entry_id is None:
             self.entry_id = self.generate_id()
@@ -50,25 +62,34 @@ class JSONLMemoryStore(MemoryStore):
     Date is metadata (timestamp), not structural (file names).
     """
 
-    def __init__(self, config: Config, embedder: EmbeddingClient) -> None:
+    def __init__(self, config: Config, embedder: EmbeddingProvider) -> None:
         self.config = config
         self.embedder = embedder
         self.memory_dir = config.memory_dir
         self.memory_dir.mkdir(parents=True, exist_ok=True)
         self.memories_path = self.memory_dir / "memories.jsonl"
 
+    def _require_entry(self, entry: MemoryEntryLike) -> MemoryEntry:
+        if isinstance(entry, MemoryEntry):
+            return entry
+        raise TypeError("JSONLMemoryStore expects MemoryEntry instances")
+
+    def _require_entries(self, entries: list[MemoryEntryLike]) -> list[MemoryEntry]:
+        return [self._require_entry(entry) for entry in entries]
+
     def _entry_to_jsonl(self, entry: MemoryEntry) -> str:
         """Serialize MemoryEntry to JSONL line."""
         # Ensure ID is generated
         if entry.entry_id is None:
             entry.entry_id = entry.generate_id()
+        tags: list[JsonValue] = list(entry.tags)
         return json.dumps(
             {
                 "timestamp": entry.timestamp.isoformat(),
                 "role": entry.role,
                 "content": entry.content,
                 "embedding": entry.embedding,
-                "tags": entry.tags,
+                "tags": tags,
                 "entry_id": entry.entry_id,
                 "permanent": entry.permanent,
             }
@@ -79,15 +100,57 @@ class JSONLMemoryStore(MemoryStore):
 
         Backward compatible: ignores importance field if present in old data.
         """
-        data = json.loads(line)
+        data = ensure_json_object(json.loads(line))
+        timestamp_value = data.get("timestamp")
+        if not isinstance(timestamp_value, str):
+            raise ValueError("Memory entry missing timestamp")
+
+        role_value = data.get("role")
+        role = _parse_role(role_value)
+
+        content_value = data.get("content")
+        if not isinstance(content_value, str):
+            raise ValueError("Memory entry missing content")
+
+        embedding_value = data.get("embedding")
+        embedding: list[float] | None = None
+        if embedding_value is not None:
+            if not isinstance(embedding_value, list):
+                raise ValueError("Memory entry embedding must be a list of numbers")
+            embedding_numbers: list[float] = []
+            for item in embedding_value:
+                if not isinstance(item, (int, float)):
+                    raise ValueError("Memory entry embedding must be a list of numbers")
+                embedding_numbers.append(float(item))
+            embedding = embedding_numbers
+
+        tags_value = data.get("tags", [])
+        if tags_value is None:
+            tags_value = []
+        if not isinstance(tags_value, list):
+            raise ValueError("Memory entry tags must be a list of strings")
+        tags: list[str] = []
+        for tag in tags_value:
+            if not isinstance(tag, str):
+                raise ValueError("Memory entry tags must be a list of strings")
+            tags.append(tag)
+
+        entry_id_value = data.get("entry_id")
+        if entry_id_value is not None and not isinstance(entry_id_value, str):
+            raise ValueError("Memory entry id must be a string")
+
+        permanent_value = data.get("permanent", False)
+        if not isinstance(permanent_value, bool):
+            raise ValueError("Memory entry permanent flag must be boolean")
+
         return MemoryEntry(
-            timestamp=datetime.fromisoformat(data["timestamp"]),
-            role=data["role"],
-            content=data["content"],
-            embedding=data.get("embedding"),
-            tags=data.get("tags", []),
-            entry_id=data.get("entry_id"),  # Auto-generated if None
-            permanent=data.get("permanent", False),  # Default False for old data
+            timestamp=datetime.fromisoformat(timestamp_value),
+            role=role,
+            content=content_value,
+            embedding=embedding,
+            tags=tags,
+            entry_id=entry_id_value,  # Auto-generated if None
+            permanent=permanent_value,  # Default False for old data
         )
 
     async def add_entries(self, entries: list[MemoryEntry]) -> None:
@@ -126,14 +189,15 @@ class JSONLMemoryStore(MemoryStore):
             for entry in entries:
                 await f.write(self._entry_to_jsonl(entry) + "\n")
 
-    async def add(self, entry: Any) -> None:
+    async def add(self, entry: MemoryEntryLike) -> None:
         """Implement MemoryStore abstract method."""
-        # Allow passing either MemoryEntry or a dict that needs wrapping
+        if not isinstance(entry, MemoryEntry):
+            raise TypeError("JSONLMemoryStore expects MemoryEntry instances")
         await self.add_entries([entry])
 
-    async def get_all_entries(self) -> list[MemoryEntry]:
+    async def get_all_entries(self) -> list[MemoryEntryLike]:
         """Load all memory entries."""
-        entries: list[MemoryEntry] = []
+        entries: list[MemoryEntryLike] = []
         if not self.memories_path.exists():
             return entries
 
@@ -192,7 +256,7 @@ class JSONLMemoryStore(MemoryStore):
         Returns:
             Number of memories that would be/were pruned
         """
-        entries = await self.get_all_entries()
+        entries = self._require_entries(await self.get_all_entries())
         cutoff_date = date.today() - timedelta(days=ttl_days)
 
         entries_to_keep: list[MemoryEntry] = []
@@ -236,7 +300,8 @@ class JSONLMemoryStore(MemoryStore):
         top_k: int = 10,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> tuple[list[MemoryEntry], dict[str, float], dict[str, float]]:
+        **kwargs: object,
+    ) -> tuple[list[MemoryEntryLike], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
 
         Args:
@@ -254,7 +319,7 @@ class JSONLMemoryStore(MemoryStore):
         query_embedding = await self.embedder.embed(query)
 
         # Score all entries (with optional date filtering)
-        scored: list[tuple[float, MemoryEntry, float]] = []  # (score, entry, similarity)
+        scored: list[tuple[float, MemoryEntryLike, float]] = []  # (score, entry, similarity)
 
         async for entry in self.iter_entries():
             # Date filtering
@@ -280,7 +345,7 @@ class JSONLMemoryStore(MemoryStore):
         if self.memories_path.exists():
             self.memories_path.unlink()
 
-    async def get_by_id(self, entry_id: str) -> MemoryEntry | None:
+    async def get_by_id(self, entry_id: str) -> MemoryEntryLike | None:
         """Get a memory entry by its ID.
 
         Args:
@@ -317,7 +382,7 @@ class JSONLMemoryStore(MemoryStore):
             return False, "No changes specified"
 
         # Load all entries
-        entries = await self.get_all_entries()
+        entries = self._require_entries(await self.get_all_entries())
         if not entries:
             return False, "No memories to update"
 
@@ -364,7 +429,7 @@ class JSONLMemoryStore(MemoryStore):
             Tuple of (count_deleted: int, message: str)
         """
         # Load all entries
-        entries = await self.get_all_entries()
+        entries = self._require_entries(await self.get_all_entries())
         if not entries:
             return 0, "No memories to delete"
 
@@ -399,7 +464,7 @@ class JSONLMemoryStore(MemoryStore):
         Returns:
             Tuple of (success: bool, message: str)
         """
-        entries = await self.get_all_entries()
+        entries = self._require_entries(await self.get_all_entries())
         if not entries:
             return False, "No memories to delete"
 

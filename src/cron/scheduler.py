@@ -9,12 +9,11 @@ import contextlib
 import inspect
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, TypedDict, TypeGuard
 
 from src.cron import parser
 from src.cron.executor import ExecutionContext, JobExecutor
@@ -22,12 +21,22 @@ from src.cron.models import ExecutionRecord, ExecutionStatus, Job, JobStatus, Re
 from src.cron.observability import StructuredLogger
 from src.cron.store import CronStore
 from src.data_manager import get_data_dir
+from src.type_defs import AsyncHandler
 
 if TYPE_CHECKING:
     from src.config import Config
     from src.cron.socket_client import SocketClient
 
 logger = logging.getLogger(__name__)
+
+
+def is_async_handler(value: object) -> TypeGuard[AsyncHandler]:
+    return callable(value) and inspect.iscoroutinefunction(value)
+
+
+class JobApprovalResult(TypedDict):
+    success: bool
+    message: str
 
 
 @dataclass
@@ -37,13 +46,13 @@ class RunnableJob:
     job_id: str
     name: str
     expression: str
-    handler: Callable[[], Awaitable[None]]
+    handler: AsyncHandler
     status: JobStatus = JobStatus.ACTIVE
     last_run: datetime | None = None
     _running: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     @classmethod
-    def from_job(cls, job: Job, handler: Callable[[], Awaitable[None]]) -> "RunnableJob":
+    def from_job(cls, job: Job, handler: AsyncHandler) -> "RunnableJob":
         """Create RunnableJob from Job model and handler."""
         return cls(
             job_id=job.job_id,
@@ -94,7 +103,7 @@ class CronScheduler:
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
         self._job_code: dict[str, str] = {}  # Store code for each job
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
         self._socket_client = socket_client
@@ -168,7 +177,7 @@ class CronScheduler:
     async def _register_system_job(
         self,
         job: Job,
-        handler: Callable[[], Awaitable[None]],
+        handler: AsyncHandler,
     ) -> None:
         """Register a system job with a provided handler."""
         runnable = RunnableJob.from_job(job, handler)
@@ -226,7 +235,7 @@ class CronScheduler:
         logger.info(f"Submitted user job for approval: {name} ({job.job_id})")
         return job.job_id
 
-    async def approve_job(self, job_id: str, approved_by: str) -> dict[str, Any]:
+    async def approve_job(self, job_id: str, approved_by: str) -> JobApprovalResult:
         """Approve a pending user job.
 
         Args:
@@ -326,7 +335,7 @@ class CronScheduler:
             raise ValueError(f"Failed to compile job code: {e}") from e
 
         # Check for run function by examining bytecode
-        namespace: dict[str, Any] = {"__builtins__": {}}
+        namespace: dict[str, object] = {"__builtins__": {}}
         exec(compiled, namespace)  # noqa: S102
 
         if "run" not in namespace:
@@ -334,7 +343,7 @@ class CronScheduler:
         if not inspect.iscoroutinefunction(namespace["run"]):
             raise ValueError("Job run() function must be async (defined with 'async def')")
 
-    def _compile_handler(self, code: str) -> Callable[[], Awaitable[None]]:
+    def _compile_handler(self, code: str) -> AsyncHandler:
         """Compile job code into executable handler.
 
         Args:
@@ -346,13 +355,19 @@ class CronScheduler:
         Raises:
             ValueError: If code doesn't compile or lacks run() function
         """
+        # Check for system job placeholder code
+        if code.strip().startswith("# system job:"):
+            raise ValueError(
+                "System job code cannot be compiled directly - "
+                "use handler_id to load system job handler"
+            )
 
         async def _placeholder_notify(message: str) -> None:
             """Placeholder notify function - replaced at runtime."""
             pass
 
         # Full builtins access for jobs
-        namespace: dict[str, Any] = {
+        namespace: dict[str, object] = {
             "__builtins__": __builtins__,
             "notify": _placeholder_notify,
         }
@@ -364,11 +379,11 @@ class CronScheduler:
         if "run" not in namespace:
             raise ValueError("Job code must define an async run() function")
 
-        handler = cast(Callable[[], Awaitable[None]], namespace["run"])
-        if not inspect.iscoroutinefunction(handler):
+        handler_value = namespace.get("run")
+        if not is_async_handler(handler_value):
             raise ValueError("Job run() function must be async")
 
-        return handler
+        return handler_value
 
     async def _monitor_loop(self) -> None:
         """Background loop that checks job schedules."""

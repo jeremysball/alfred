@@ -299,7 +299,7 @@ class NaturalLanguageCronParser:
     def _calculate_confidence(
         self,
         text: str,
-        time: tuple | None,
+        time: tuple[int, int] | None,
         frequency: str | None,
         day: int | str | None,
     ) -> float:

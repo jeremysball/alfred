@@ -4,14 +4,18 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from src.config import Config
-from src.memory import MemoryEntry
 from src.placeholders import resolve_all
 from src.search import ContextBuilder, MemorySearcher
 from src.templates import TemplateManager
+from src.type_defs import MemoryEntryLike
+
+if TYPE_CHECKING:
+    from src.session import Message
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ class AssembledContext(BaseModel):
     agents: str
     soul: str
     user: str
-    memories: list[MemoryEntry]
+    memories: list[MemoryEntryLike]
     system_prompt: str  # Combined
 
     model_config = {"arbitrary_types_allowed": True}
@@ -92,6 +96,14 @@ class ContextLoader:
         self._cache = ContextCache(ttl_seconds=cache_ttl)
         self._template_manager = TemplateManager(config.workspace_dir)
         self._searcher = searcher
+        if config.context_files is None:
+            config.context_files = {
+                "system": config.workspace_dir / "SYSTEM.md",
+                "agents": config.workspace_dir / "AGENTS.md",
+                "soul": config.workspace_dir / "SOUL.md",
+                "user": config.workspace_dir / "USER.md",
+            }
+        self._context_files: dict[str, Path] = config.context_files
         self._context_builder: ContextBuilder | None = None
         if searcher:
             self._context_builder = ContextBuilder(
@@ -143,11 +155,14 @@ class ContextLoader:
 
     async def load_all(self) -> dict[str, ContextFile]:
         """Load all required context files concurrently."""
-        tasks = [self.load_file(name, path) for name, path in self.config.context_files.items()]
+        tasks = [self.load_file(name, path) for name, path in self._context_files.items()]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
 
-    async def assemble(self, memories: list[MemoryEntry] | None = None) -> AssembledContext:
+    async def assemble(
+        self,
+        memories: list[MemoryEntryLike] | None = None,
+    ) -> AssembledContext:
         """Assemble complete context for LLM prompt."""
         files = await self.load_all()
 
@@ -162,9 +177,9 @@ class ContextLoader:
     def assemble_with_search(
         self,
         query_embedding: list[float],
-        memories: list[MemoryEntry],
+        memories: list[MemoryEntryLike],
         session_messages: list[tuple[str, str]] | None = None,
-        session_messages_with_tools: list | None = None,
+        session_messages_with_tools: list["Message"] | None = None,
     ) -> tuple[str, int]:
         """Assemble context with semantic memory search.
 
@@ -212,7 +227,7 @@ class ContextLoader:
         """
         # Try to use cached files
         files: dict[str, ContextFile] = {}
-        for name, path in self.config.context_files.items():
+        for name, path in self._context_files.items():
             cached = self._cache.get(name)
             if cached:
                 files[name] = cached
@@ -238,12 +253,12 @@ class ContextLoader:
 
     def add_context_file(self, name: str, path: Path) -> None:
         """Dynamically add a custom context file."""
-        self.config.context_files[name] = path
+        self._context_files[name] = path
         self._cache.invalidate(name)
 
     def remove_context_file(self, name: str) -> None:
         """Remove a context file from loading."""
-        self.config.context_files.pop(name, None)
+        self._context_files.pop(name, None)
         self._cache.invalidate(name)
 
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:

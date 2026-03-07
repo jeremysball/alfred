@@ -18,7 +18,7 @@ class ListSessionsCommand(Command):
         """List all sessions."""
         sessions = tui.alfred.session_manager.list_sessions()
         if not sessions:
-            tui._add_user_message("No sessions found.")  # type: ignore[misc]
+            tui._add_user_message("No sessions found.")
             return True
 
         # Build output using non-breaking spaces to prevent word wrapping
@@ -45,5 +45,5 @@ class ListSessionsCommand(Command):
         if len(sessions) > 20:
             lines.append(f"... and {len(sessions) - 20} more")
 
-        tui._add_user_message("\n".join(lines))  # type: ignore[misc]
+        tui._add_user_message("\n".join(lines))
         return True

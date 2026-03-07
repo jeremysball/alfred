@@ -4,11 +4,11 @@ import asyncio
 import os
 import subprocess
 from collections.abc import AsyncIterator
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+from src.type_defs import JsonObject, JsonValue
 
 
 class BashToolParams(BaseModel):
@@ -32,13 +32,25 @@ class BashTool(Tool):
     )
     param_model = BashToolParams
 
-    def execute(self, **kwargs: Any) -> dict[str, Any]:
+    def execute(self, **kwargs: JsonValue) -> JsonObject:
         """Execute a bash command with output truncation."""
-        command = kwargs.get("command", "")
-        timeout = kwargs.get("timeout", 60)
+        command_value = kwargs.get("command")
+        timeout_value = kwargs.get("timeout", 60)
+
+        if not isinstance(command_value, str):
+            return {
+                "success": False,
+                "error": "Invalid command",
+                "stdout": "",
+                "stderr": "",
+                "exit_code": -1,
+            }
+
+        timeout = timeout_value if isinstance(timeout_value, int) else 60
 
         # Clamp timeout
         timeout = min(timeout or 60, 300)
+        command = command_value
 
         try:
             # Run command
@@ -100,15 +112,22 @@ class BashTool(Tool):
                 "exit_code": -1,
             }
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Execute a bash command with streaming output.
 
         Yields output chunks as they are produced by the command.
         """
-        command = kwargs.get("command", "")
-        timeout = kwargs.get("timeout")
+        command_value = kwargs.get("command")
+        timeout_value = kwargs.get("timeout")
+
+        if not isinstance(command_value, str):
+            yield "[Error: invalid command]\n"
+            return
+
+        timeout = timeout_value if isinstance(timeout_value, int) else 60
         timeout = min(timeout or 60, 300)
 
+        command = command_value
         yield f"[Running: {command}]\n"
 
         try:

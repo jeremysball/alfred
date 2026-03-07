@@ -64,7 +64,7 @@ alfred-cron-runner = "src.cli.cron_runner:main"
 [project.optional-dependencies]
 dev = [
 
-  "basedpyright>=1.38.2",
+  "mypy>=1.10",
   "pytest>=8.0",
   "pytest-asyncio>=0.23",
   "pytest-cov>=4.0",

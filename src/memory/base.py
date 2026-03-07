@@ -2,8 +2,10 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Literal
+from datetime import date, datetime
+from typing import Literal
+
+from src.type_defs import MemoryEntryLike
 
 
 @dataclass
@@ -30,7 +32,7 @@ class MemoryStore(ABC):
     """
 
     @abstractmethod
-    async def add(self, entry: Any) -> None:
+    async def add(self, entry: MemoryEntryLike) -> None:
         """Add a memory entry.
 
         Args:
@@ -40,8 +42,13 @@ class MemoryStore(ABC):
 
     @abstractmethod
     async def search(
-        self, query: str, top_k: int = 10, **kwargs
-    ) -> tuple[list[Any], dict[str, float], dict[str, float]]:
+        self,
+        query: str,
+        top_k: int = 10,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        **kwargs: object,
+    ) -> tuple[list[MemoryEntryLike], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
 
         Args:
@@ -54,7 +61,7 @@ class MemoryStore(ABC):
         ...
 
     @abstractmethod
-    async def get_by_id(self, entry_id: str) -> Any | None:
+    async def get_by_id(self, entry_id: str) -> MemoryEntryLike | None:
         """Get memory by ID.
 
         Args:
@@ -66,13 +73,24 @@ class MemoryStore(ABC):
         ...
 
     @abstractmethod
-    async def get_all_entries(self) -> list[Any]:
+    async def get_all_entries(self) -> list[MemoryEntryLike]:
         """Get all memory entries.
 
         Returns:
             List of all entries
         """
         ...
+
+    async def update_entry(
+        self,
+        search_query: str,
+        new_content: str | None = None,
+    ) -> tuple[bool, str]:
+        """Update an existing memory entry.
+
+        Override in stores that support updating entries.
+        """
+        raise NotImplementedError("update_entry is not supported by this store")
 
     @abstractmethod
     async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:

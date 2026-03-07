@@ -1,9 +1,11 @@
 """Tool for updating existing memories in the unified memory store."""
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 from pydantic import BaseModel, Field
+
+from src.memory.base import MemoryStore
+from src.type_defs import JsonValue
 
 from .base import Tool
 
@@ -27,15 +29,15 @@ class UpdateMemoryTool(Tool):
     description = "Update an existing memory's content. Requires confirmation."
     param_model = UpdateMemoryToolParams
 
-    def __init__(self, memory_store: Any = None) -> None:
+    def __init__(self, memory_store: MemoryStore | None = None) -> None:
         super().__init__()
         self._memory_store = memory_store
 
-    def set_memory_store(self, memory_store: Any) -> None:
+    def set_memory_store(self, memory_store: MemoryStore) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Update a memory or show preview.
 
         Args:
@@ -48,10 +50,25 @@ class UpdateMemoryTool(Tool):
         Yields:
             Preview of memory to update, or update confirmation
         """
-        search_query = kwargs.get("search_query", "")
-        entry_id = kwargs.get("entry_id", "")
-        new_content = kwargs.get("new_content", "")
-        confirm = kwargs.get("confirm", False)
+        search_query_value = kwargs.get("search_query", "")
+        entry_id_value = kwargs.get("entry_id", "")
+        new_content_value = kwargs.get("new_content", "")
+        confirm_value = kwargs.get("confirm", False)
+
+        if not isinstance(search_query_value, str) or not isinstance(entry_id_value, str):
+            yield "Error: search_query and entry_id must be strings"
+            return
+        if not isinstance(new_content_value, str):
+            yield "Error: new_content must be a string"
+            return
+        if not isinstance(confirm_value, bool):
+            yield "Error: confirm must be a boolean"
+            return
+
+        search_query = search_query_value
+        entry_id = entry_id_value
+        new_content = new_content_value
+        confirm = confirm_value
 
         if not self._memory_store:
             yield "Error: Memory store not initialized"

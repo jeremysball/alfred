@@ -4,12 +4,60 @@ import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from typing import Any
 
 from src.llm import ChatMessage, LLMProvider
 from src.tools import ToolRegistry
+from src.type_defs import JsonObject, ToolArguments, UsageData, ensure_json_object
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_usage_data(raw: JsonObject) -> UsageData:
+    usage: UsageData = {}
+
+    prompt_tokens = raw.get("prompt_tokens")
+    if isinstance(prompt_tokens, int):
+        usage["prompt_tokens"] = prompt_tokens
+
+    completion_tokens = raw.get("completion_tokens")
+    if isinstance(completion_tokens, int):
+        usage["completion_tokens"] = completion_tokens
+
+    prompt_details = raw.get("prompt_tokens_details")
+    if isinstance(prompt_details, dict):
+        cached_tokens = prompt_details.get("cached_tokens")
+        if isinstance(cached_tokens, int):
+            usage["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+
+    completion_details = raw.get("completion_tokens_details")
+    if isinstance(completion_details, dict):
+        reasoning_tokens = completion_details.get("reasoning_tokens")
+        if isinstance(reasoning_tokens, int):
+            usage["completion_tokens_details"] = {"reasoning_tokens": reasoning_tokens}
+
+    return usage
+
+
+def _parse_tool_call(data: JsonObject, index: int) -> "ToolCall":
+    call_id_value = data.get("id")
+    call_id = call_id_value if isinstance(call_id_value, str) else f"call_{index}"
+
+    function_value = data.get("function")
+    if not isinstance(function_value, dict):
+        raise ValueError("Tool call missing function")
+    function_data = ensure_json_object(function_value)
+
+    name_value = function_data.get("name")
+    if not isinstance(name_value, str):
+        raise ValueError("Tool call missing function name")
+
+    arguments_value = function_data.get("arguments")
+    if not isinstance(arguments_value, str):
+        raise ValueError("Tool call arguments must be a JSON string")
+
+    arguments = ensure_json_object(json.loads(arguments_value))
+
+    return ToolCall(id=call_id, name=name_value, arguments=arguments)
 
 
 @dataclass
@@ -18,7 +66,7 @@ class ToolCall:
 
     id: str
     name: str
-    arguments: dict[str, Any]
+    arguments: ToolArguments
 
 
 # Tool event types for callback-based rendering
@@ -36,7 +84,7 @@ class ToolEvent:
 class ToolStart(ToolEvent):
     """Tool started executing."""
 
-    arguments: dict[str, Any] = field(default_factory=dict)
+    arguments: ToolArguments = field(default_factory=dict)
 
 
 @dataclass
@@ -71,7 +119,7 @@ class Agent:
         self,
         messages: list[ChatMessage],
         system_prompt: str | None = None,
-        usage_callback: Callable[[dict[str, Any]], None] | None = None,
+        usage_callback: Callable[[UsageData], None] | None = None,
         tool_callback: Callable[[ToolEvent], None] | None = None,
     ) -> AsyncIterator[str]:
         """Run agent loop with full streaming.
@@ -99,7 +147,7 @@ class Agent:
 
             # Stream LLM response
             full_content = ""
-            tool_calls_data = []
+            tool_calls_data: list[JsonObject] = []
             in_tool_call = False
             reasoning_content = None
 
@@ -110,10 +158,11 @@ class Agent:
                 # Check for usage marker
                 if chunk.startswith("[USAGE]"):
                     try:
-                        usage_data = json.loads(chunk[7:])
+                        usage_raw = ensure_json_object(json.loads(chunk[7:]))
+                        usage_data = _parse_usage_data(usage_raw)
                         if usage_callback:
                             usage_callback(usage_data)
-                    except json.JSONDecodeError:
+                    except (json.JSONDecodeError, TypeError):
                         logger.warning(f"Failed to parse usage data: {chunk}")
                     continue
 
@@ -122,9 +171,14 @@ class Agent:
                     # Parse tool calls from marker
                     try:
                         tc_data = json.loads(chunk[12:])  # Remove prefix
-                        tool_calls_data = tc_data
-                        in_tool_call = True
-                    except json.JSONDecodeError:
+                        if isinstance(tc_data, list):
+                            tool_calls_data = [
+                                ensure_json_object(item)
+                                for item in tc_data
+                                if isinstance(item, dict)
+                            ]
+                            in_tool_call = True
+                    except (json.JSONDecodeError, TypeError):
                         pass
                     continue
 
@@ -145,14 +199,15 @@ class Agent:
                 return
 
             # Parse tool calls
-            tool_calls = [
-                ToolCall(
-                    id=tc.get("id", f"call_{i}"),
-                    name=tc["function"]["name"],
-                    arguments=json.loads(tc["function"]["arguments"]),
-                )
-                for i, tc in enumerate(tool_calls_data)
-            ]
+            tool_calls: list[ToolCall] = []
+            for i, tc in enumerate(tool_calls_data):
+                try:
+                    tool_calls.append(_parse_tool_call(tc, i))
+                except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                    logger.warning("Failed to parse tool call: %s", exc)
+
+            if not tool_calls:
+                return
 
             # Add assistant message with tool calls and reasoning
             assistant_msg = ChatMessage(

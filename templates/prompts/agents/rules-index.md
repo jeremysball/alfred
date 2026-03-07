@@ -152,7 +152,7 @@ Use for: documentation, library versions, best practices, recent news.
 After any code change, run:
 
 ```bash
-uv run ruff check src/ && uv run basedpyright src/ && uv run pytest
+uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
 
 Show results. Fix issues. Then it is done.

@@ -4,7 +4,7 @@ import asyncio
 import functools
 import json
 from collections.abc import Callable, Coroutine
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING
 
 import aiofiles
 import typer
@@ -24,14 +24,11 @@ if TYPE_CHECKING:
 app = typer.Typer(help="Manage cron jobs")
 console = Console()
 
-T = TypeVar("T")
-
-
-def async_command[T](func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., T]:
+def async_command[**P, T](func: Callable[P, Coroutine[object, object, T]]) -> Callable[P, T]:
     """Decorator to run async Typer commands."""
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> T:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper

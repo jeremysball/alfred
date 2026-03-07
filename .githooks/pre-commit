@@ -7,8 +7,8 @@ set -e
 echo "Running ruff check..."
 uv run ruff check src/
 
-echo "Running basedpyright..."
-uv run basedpyright src/
+echo "Running mypy..."
+uv run mypy src/
 
 echo "Running completions sync check..."
 uv run python scripts/generate-static-completions.py --check

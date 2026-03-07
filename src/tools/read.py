@@ -1,11 +1,11 @@
 """Read file contents tool."""
 
 import os
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+from src.type_defs import JsonValue
 
 
 class ReadToolParams(BaseModel):
@@ -29,11 +29,22 @@ class ReadTool(Tool):
     )
     param_model = ReadToolParams
 
-    def execute(self, **kwargs: Any) -> str:
+    def execute(self, **kwargs: JsonValue) -> str:
         """Read file contents with optional pagination."""
-        path = kwargs.get("path", "")
-        offset = kwargs.get("offset")
-        limit = kwargs.get("limit")
+        path_value = kwargs.get("path")
+        offset_value = kwargs.get("offset")
+        limit_value = kwargs.get("limit")
+
+        if not isinstance(path_value, str):
+            return "Error: path must be a string"
+        if offset_value is not None and not isinstance(offset_value, int):
+            return "Error: offset must be an integer"
+        if limit_value is not None and not isinstance(limit_value, int):
+            return "Error: limit must be an integer"
+
+        path = path_value
+        offset = offset_value
+        limit = limit_value
 
         # Validate path exists
         if not os.path.exists(path):

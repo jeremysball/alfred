@@ -1,11 +1,11 @@
 """Write file tool."""
 
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+from src.type_defs import JsonObject, JsonValue
 
 
 class WriteToolParams(BaseModel):
@@ -25,10 +25,20 @@ class WriteTool(Tool):
     description = "Create or overwrite a file. Automatically creates parent directories if needed."
     param_model = WriteToolParams
 
-    def execute(self, **kwargs: Any) -> dict[str, Any]:
+    def execute(self, **kwargs: JsonValue) -> JsonObject:
         """Write content to file, creating parent directories if needed."""
-        path = kwargs.get("path", "")
-        content = kwargs.get("content", "")
+        path_value = kwargs.get("path")
+        content_value = kwargs.get("content")
+
+        if not isinstance(path_value, str) or not isinstance(content_value, str):
+            return {
+                "success": False,
+                "error": "Invalid parameters for write",
+                "path": path_value if isinstance(path_value, str) else "",
+            }
+
+        path = path_value
+        content = content_value
 
         try:
             # Create parent directories if needed

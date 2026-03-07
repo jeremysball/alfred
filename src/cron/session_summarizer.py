@@ -7,8 +7,9 @@ of summary generation.
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from src.embeddings.provider import EmbeddingProvider
 from src.session import SessionMeta
 from src.session_storage import SessionStorage, generate_session_summary
 
@@ -136,7 +137,7 @@ def should_summarize(
 async def summarize_sessions_job(
     config: "Config",
     storage: SessionStorage,
-    embedder: Any,
+    embedder: EmbeddingProvider,
 ) -> int:
     """Cron job: summarize sessions that meet threshold criteria.
 

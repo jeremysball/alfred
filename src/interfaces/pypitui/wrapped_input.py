@@ -64,15 +64,15 @@ class WrappedInput(Component, Focusable):
             cursor_color: Cursor color style ("reverse", "green", "red", "blue").
         """
         super().__init__()
-        self._input = Input(placeholder=placeholder)
+        self._input: Input = Input(placeholder=placeholder)
         self._input.on_submit = self._on_submit
         self._display_column = 0  # Desired column for vertical movement
         self._last_width = 80  # Last render width
         self._cursor_color = cursor_color
 
         # Callbacks
-        self.on_submit: Callable | None = None
-        self.on_cancel: Callable | None = None
+        self.on_submit: Callable[[str], None] | None = None
+        self.on_cancel: Callable[[], None] | None = None
 
         # Hook filters for composable behaviors
         self._input_hooks: list[Callable[[str], bool]] = []
@@ -197,12 +197,13 @@ class WrappedInput(Component, Focusable):
     def set_cursor_pos(self, pos: int) -> None:
         """Set cursor position directly."""
         max_pos = len(self.get_value())
-        self._input._cursor_pos = max(0, min(pos, max_pos))  # type: ignore[attr-defined]
+        self._cursor_pos = max(0, min(pos, max_pos))
 
     @property
     def _cursor_pos(self) -> int:
         """Get current cursor position."""
-        return int(self._input._cursor_pos)  # type: ignore[attr-defined]
+        value = getattr(self._input, "_cursor_pos", 0)
+        return value if isinstance(value, int) else 0
 
     @_cursor_pos.setter
     def _cursor_pos(self, value: int) -> None:
@@ -390,8 +391,8 @@ class WrappedInput(Component, Focusable):
             data: Raw input data from terminal.
         """
         # Run input filters first
-        for hook_fn in self._input_hooks:
-            if hook_fn(data):
+        for input_hook in self._input_hooks:
+            if input_hook(data):
                 return  # Key was consumed by filter
 
         # Check for up/down arrows first
@@ -418,8 +419,8 @@ class WrappedInput(Component, Focusable):
         self._input.handle_input(data)
 
         # Run post-input hooks after value is updated
-        for hook_fn in self._post_input_hooks:
-            hook_fn()
+        for post_hook in self._post_input_hooks:
+            post_hook()
 
         # Update display column after typing
         _, col = self._get_cursor_display_pos(self._last_width)

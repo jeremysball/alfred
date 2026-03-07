@@ -1,8 +1,8 @@
 """Status line rendering for CLI interface."""
 
-from dataclasses import dataclass
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from itertools import cycle
-from typing import Any
 
 from prompt_toolkit.formatted_text import FormattedText
 from rich.console import Group, RenderableType
@@ -23,13 +23,13 @@ class StatusData:
     context_tokens: int
     memories_count: int = 0
     session_messages: int = 0
-    prompt_sections: list[str] = None  # type: ignore[assignment]
+    prompt_sections: list[str] = field(default_factory=list)
     is_streaming: bool = False
+    _spinner_cycle: Iterator[str] = field(init=False, repr=False)
+    _current_frame: str = field(init=False, repr=False, default=">")
 
     def __post_init__(self) -> None:
         """Initialize defaults and spinner cycle."""
-        if self.prompt_sections is None:
-            self.prompt_sections = []
         self._spinner_cycle = cycle(SPINNER_FRAMES)
         self._current_frame = ">"
 
@@ -57,7 +57,7 @@ class StatusRenderer:
         """Render the status display as a Group of lines."""
         return Group(self._render_token_line(), self._render_context_line())
 
-    def to_prompt_toolkit(self) -> Any:
+    def to_prompt_toolkit(self) -> FormattedText:
         """Render status for prompt_toolkit bottom toolbar.
 
         Returns FormattedText tuple list for bottom_toolbar.

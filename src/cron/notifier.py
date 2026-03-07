@@ -28,7 +28,7 @@ class ToastManagerProtocol(Protocol):
         """Add a toast notification."""
         ...
 
-    def get_all(self) -> list:
+    def get_all(self) -> list[object]:
         """Get all active toasts."""
         ...
 

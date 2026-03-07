@@ -3,9 +3,11 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
 
 from pydantic import BaseModel, Field
+
+from src.memory.base import MemoryStore
+from src.type_defs import JsonValue
 
 from .base import Tool
 
@@ -69,16 +71,21 @@ class ForgetTool(Tool):
     )
     param_model = ForgetToolParams
 
-    def __init__(self, memory_store: Any = None) -> None:
+    def __init__(self, memory_store: MemoryStore | None = None) -> None:
         super().__init__()
         self._memory_store = memory_store
         self._pending_deletions: dict[str, PendingDeletion] = {}
 
-    def set_memory_store(self, memory_store: Any) -> None:
+    def set_memory_store(self, memory_store: MemoryStore) -> None:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    def _require_memory_store(self) -> MemoryStore:
+        if self._memory_store is None:
+            raise RuntimeError("Memory store not initialized")
+        return self._memory_store
+
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Delete memories or show candidates.
 
         Args:
@@ -97,8 +104,18 @@ class ForgetTool(Tool):
             yield "Error: Memory store not initialized"
             return
 
-        memory_id: str | None = kwargs.get("memory_id")
-        query: str | None = kwargs.get("query")
+        memory_id_value = kwargs.get("memory_id")
+        query_value = kwargs.get("query")
+
+        memory_id = memory_id_value if isinstance(memory_id_value, str) else None
+        query = query_value if isinstance(query_value, str) else None
+
+        if memory_id_value is not None and memory_id is None:
+            yield "Error: memory_id must be a string"
+            return
+        if query_value is not None and query is None:
+            yield "Error: query must be a string"
+            return
 
         # Must provide one of memory_id or query
         if not memory_id and not query:
@@ -120,7 +137,8 @@ class ForgetTool(Tool):
     async def _handle_query_mode(self, query: str) -> AsyncIterator[str]:
         """Handle query mode - search and return candidates."""
         try:
-            results, similarities, _ = await self._memory_store.search(query, top_k=10)
+            memory_store = self._require_memory_store()
+            results, similarities, _ = await memory_store.search(query, top_k=10)
 
             if not results:
                 yield f"No memories found matching '{query}'."
@@ -133,7 +151,8 @@ class ForgetTool(Tool):
                 preview = entry.content[:60]
                 if len(entry.content) > 60:
                     preview += "..."
-                similarity = similarities.get(entry.entry_id, 0.0)
+                entry_id = entry.entry_id or ""
+                similarity = similarities.get(entry_id, 0.0)
                 match_pct = int(similarity * 100)
                 lines.append(f"  - [{date_str}] {preview}")
                 lines.append(f"    ID: {entry.entry_id} ({match_pct}% match)")
@@ -177,7 +196,8 @@ class ForgetTool(Tool):
     async def _request_confirmation(self, memory_id: str) -> str:
         """Create pending deletion and return confirmation message."""
         try:
-            entry = await self._memory_store.get_by_id(memory_id)
+            memory_store = self._require_memory_store()
+            entry = await memory_store.get_by_id(memory_id)
 
             if not entry:
                 return f"Error: Memory not found with ID: {memory_id}"
@@ -211,7 +231,8 @@ class ForgetTool(Tool):
     async def _execute_deletion(self, memory_id: str) -> AsyncIterator[str]:
         """Execute the actual deletion."""
         try:
-            success, message = await self._memory_store.delete_by_id(memory_id)
+            memory_store = self._require_memory_store()
+            success, message = await memory_store.delete_by_id(memory_id)
 
             # Remove from pending regardless of success
             if memory_id in self._pending_deletions:

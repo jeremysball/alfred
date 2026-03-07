@@ -1,7 +1,8 @@
 """Token usage tracking for Alfred conversations."""
 
 from dataclasses import dataclass
-from typing import Any
+
+from src.type_defs import UsageData
 
 
 @dataclass
@@ -44,7 +45,7 @@ class TokenTracker:
         """Get current context window size."""
         return self._context_tokens
 
-    def add(self, usage: dict[str, Any]) -> None:
+    def add(self, usage: UsageData) -> None:
         """Add usage from an LLM response.
 
         Args:
@@ -54,23 +55,27 @@ class TokenTracker:
                 - prompt_tokens_details.cached_tokens: Cache read tokens (optional)
                 - completion_tokens_details.reasoning_tokens: Reasoning tokens (optional)
         """
-        # Core tokens (always present)
-        self._usage.input_tokens += usage.get("prompt_tokens", 0)
-        self._usage.output_tokens += usage.get("completion_tokens", 0)
+        prompt_tokens = usage.get("prompt_tokens")
+        if isinstance(prompt_tokens, int):
+            self._usage.input_tokens += prompt_tokens
+
+        completion_tokens = usage.get("completion_tokens")
+        if isinstance(completion_tokens, int):
+            self._usage.output_tokens += completion_tokens
 
         # Cached tokens (optional - from prompt_tokens_details)
-        prompt_details = usage.get("prompt_tokens_details") or {}
-        cached = prompt_details.get("cached_tokens", 0) if isinstance(prompt_details, dict) else 0
-        self._usage.cache_read_tokens += cached
+        prompt_details = usage.get("prompt_tokens_details")
+        if isinstance(prompt_details, dict):
+            cached_tokens = prompt_details.get("cached_tokens")
+            if isinstance(cached_tokens, int):
+                self._usage.cache_read_tokens += cached_tokens
 
         # Reasoning tokens (optional - from completion_tokens_details)
-        completion_details = usage.get("completion_tokens_details") or {}
-        reasoning = (
-            completion_details.get("reasoning_tokens", 0)
-            if isinstance(completion_details, dict)
-            else 0
-        )
-        self._usage.reasoning_tokens += reasoning
+        completion_details = usage.get("completion_tokens_details")
+        if isinstance(completion_details, dict):
+            reasoning_tokens = completion_details.get("reasoning_tokens")
+            if isinstance(reasoning_tokens, int):
+                self._usage.reasoning_tokens += reasoning_tokens
 
     def set_context_tokens(self, count: int) -> None:
         """Update current context window size.

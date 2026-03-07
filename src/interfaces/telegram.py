@@ -72,13 +72,14 @@ class TelegramInterface:
 
     def setup(self) -> Application:
         """Initialize telegram application."""
-        self.application = Application.builder().token(self.config.telegram_bot_token).build()
+        application = Application.builder().token(self.config.telegram_bot_token).build()
 
-        self.application.add_handler(CommandHandler("start", self.start))
-        self.application.add_handler(CommandHandler("compact", self.compact))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message))
+        application.add_handler(CommandHandler("start", self.start))
+        application.add_handler(CommandHandler("compact", self.compact))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message))
 
-        return self.application
+        self.application = application
+        return application
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""

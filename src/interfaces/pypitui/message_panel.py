@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
-from pypitui import BorderedBox, Text  # type: ignore
+from pypitui import BorderedBox, Text
 
 from src.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from src.interfaces.pypitui.models import ToolCallInfo
 
 
-class MessagePanel(BorderedBox):  # type: ignore[misc]
+class MessagePanel(BorderedBox):
     """A bordered panel for displaying conversation messages.
 
     Uses different border colors based on role:
@@ -322,8 +323,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         stripped = output.strip()
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
-                import json
-
                 parsed = json.loads(stripped)
                 # Pretty print JSON
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
@@ -337,8 +336,6 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         # Try to detect and format JSON arrays
         if stripped.startswith("[") and stripped.endswith("]"):
             try:
-                import json
-
                 parsed = json.loads(stripped)
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
                 if renderer:

@@ -97,9 +97,9 @@ class ResolutionContext:
 class PlaceholderResolver(Protocol):
     """Protocol for placeholder resolvers."""
 
-    pattern: re.Pattern
+    pattern: re.Pattern[str]
 
-    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve a placeholder match to its replacement text.
 
         Args:
@@ -115,9 +115,9 @@ class PlaceholderResolver(Protocol):
 class FileIncludeResolver:
     """Resolves {{path}} file include placeholders."""
 
-    pattern = re.compile(r"\{\{([^}]+)\}\}")
+    pattern: re.Pattern[str] = re.compile(r"\{\{([^}]+)\}\}")
 
-    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve file include placeholder.
 
         Args:
@@ -160,10 +160,10 @@ class FileIncludeResolver:
 class ColorResolver:
     """Resolves {color} ANSI placeholder syntax."""
 
-    pattern = re.compile(r"\{([a-z_]+)\}")
+    pattern: re.Pattern[str] = re.compile(r"\{([a-z_]+)\}")
 
     # ANSI escape codes
-    CODES = {
+    CODES: dict[str, str] = {
         # Reset
         "reset": "\033[0m",
         # Styles
@@ -212,7 +212,7 @@ class ColorResolver:
         "on_bright_white": "\033[107m",
     }
 
-    def resolve(self, match: re.Match, context: ResolutionContext) -> str:
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve color placeholder.
 
         Args:
@@ -227,7 +227,7 @@ class ColorResolver:
 
 
 # Default resolvers
-DEFAULT_RESOLVERS = [
+DEFAULT_RESOLVERS: list[PlaceholderResolver] = [
     FileIncludeResolver(),
     ColorResolver(),
 ]
@@ -255,10 +255,10 @@ def resolve_placeholders(
     """
     from functools import partial
 
-    resolvers = resolvers or DEFAULT_RESOLVERS
+    active_resolvers: list[PlaceholderResolver] = resolvers or DEFAULT_RESOLVERS
     result = text
 
-    for resolver in resolvers:
+    for resolver in active_resolvers:
         # Use partial to bind resolver immediately
         result = resolver.pattern.sub(
             partial(_resolve_match, resolver=resolver, context=context), result

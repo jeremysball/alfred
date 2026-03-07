@@ -21,14 +21,13 @@ import logging
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
 
 import aiofiles
 
+from src import llm
 from src.data_manager import get_data_dir
-from src.embeddings.openai_provider import OpenAIProvider
-from src.llm import summarize_conversation
+from src.embeddings.provider import EmbeddingProvider
 from src.session import Message, Role, Session, SessionMeta, SessionSummary, ToolCallRecord
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ class SessionStorage:
 
     def __init__(
         self,
-        embedder: OpenAIProvider,
+        embedder: EmbeddingProvider,
         data_dir: Path | None = None,
     ) -> None:
         self.embedder = embedder
@@ -549,7 +548,7 @@ class SessionStorage:
 async def generate_session_summary(
     session_id: str,
     storage: SessionStorage,
-    embedder: Any,
+    embedder: EmbeddingProvider,
 ) -> SessionSummary:
     """Generate and store summary for a session.
 
@@ -582,7 +581,7 @@ async def generate_session_summary(
         logger.debug(f"No existing summary, creating new ID: {summary_id}")
 
     # 3. Generate summary text via LLM
-    summary_text = await summarize_conversation(messages)
+    summary_text = await llm.summarize_conversation(messages)
     logger.debug(f"Generated summary text: {len(summary_text)} chars")
 
     # 4. Create embedding

@@ -15,14 +15,12 @@
 
 ## Pre-Flight Check
 
-Do this at the beginning if every session.
+Do this ONCE and ONLY ONCE at the beginning of every session.
 
 1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
 2. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
 3. Read `/workspace/alfred-prd/docs/ROADMAP.md`
 4. Confirm: "✅ Skills and parent PRD loaded"
-
-This applies to all messages and commands—including simple questions.
 
 ---
 
@@ -45,7 +43,7 @@ Before writing code:
 
 ## Test-Driven Development
 
-This rule is absolute. No exceptions.
+Use TDD for behavior changes. Exceptions are listed below.
 
 Before writing implementation code:
 
@@ -101,6 +99,22 @@ uv run pytest tests/test_mymodule.py -v
 | Edge cases | Empty, null, boundary values, off-by-one |
 | Error cases | Invalid input, missing files, network errors |
 | Type safety | Wrong types, None values |
+
+### When to Use TDD
+
+Use TDD for:
+- New features or new behavior
+- Bug fixes (add regression tests)
+- Refactors that change behavior or interfaces
+- Logic-heavy code paths that need edge-case coverage
+
+### When Not to Use TDD
+
+Skip TDD for:
+- Code removal or dead-code deletion (run existing tests instead)
+- Documentation or comment-only changes
+- Formatting or lint-only changes
+- One-off scripts or manual data fixes
 
 ---
 
@@ -287,7 +301,7 @@ Use for: documentation, library versions, best practices, recent news.
 After any code change, run:
 
 ```bash
-uv run ruff check src/ && uv run basedpyright src/ && uv run pytest
+uv run ruff check src/ && uv run mypy src/ && uv run pytest
 ```
 
 Show results. Fix issues. Then it is done.

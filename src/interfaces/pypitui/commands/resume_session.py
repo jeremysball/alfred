@@ -17,19 +17,19 @@ class ResumeSessionCommand(Command):
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """Resume an existing session."""
         if not arg:
-            tui._add_user_message(  # type: ignore[misc]
+            tui._add_user_message(
                 "Usage: /resume <session_id>\nUse /sessions to see available sessions."
             )
             return True
 
         try:
-            tui._clear_conversation()  # type: ignore[misc]
+            tui._clear_conversation()
             tui.alfred.session_manager.resume_session(arg.strip())
 
             # Load all session messages into conversation
-            tui._load_session_messages()  # type: ignore[misc]
+            tui._load_session_messages()
 
-            tui._update_status()  # type: ignore[misc]
+            tui._update_status()
         except ValueError as e:
-            tui._add_user_message(f"Error: {e}")  # type: ignore[misc]
+            tui._add_user_message(f"Error: {e}")
         return True

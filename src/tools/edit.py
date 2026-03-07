@@ -1,10 +1,9 @@
 """Edit file tool."""
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from src.tools.base import Tool
+from src.type_defs import JsonObject, JsonValue
 
 
 class EditToolParams(BaseModel):
@@ -28,11 +27,20 @@ class EditTool(Tool):
     )
     param_model = EditToolParams
 
-    def execute(self, **kwargs: Any) -> dict[str, Any]:
+    def execute(self, **kwargs: JsonValue) -> JsonObject:
         """Replace old_text with new_text in file."""
-        path = kwargs.get("path", "")
-        old_text = kwargs.get("old_text", "")
-        new_text = kwargs.get("new_text", "")
+        path_value = kwargs.get("path")
+        old_text_value = kwargs.get("old_text")
+        new_text_value = kwargs.get("new_text")
+
+        if not isinstance(path_value, str):
+            return {"success": False, "error": "Invalid path", "path": ""}
+        if not isinstance(old_text_value, str) or not isinstance(new_text_value, str):
+            return {"success": False, "error": "Invalid edit text", "path": path_value}
+
+        path = path_value
+        old_text = old_text_value
+        new_text = new_text_value
 
         try:
             # Read file

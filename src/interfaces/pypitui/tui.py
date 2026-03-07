@@ -11,8 +11,6 @@ from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 from src.alfred import Alfred
 
-logger = logging.getLogger(__name__)
-
 # Import commands
 from src.interfaces.pypitui.commands import (
     Command,
@@ -33,9 +31,20 @@ from src.interfaces.pypitui.toast import ToastManager
 from src.interfaces.pypitui.toast_overlay import ToastOverlay
 from src.interfaces.pypitui.wrapped_input import WrappedInput
 from src.session import ToolCallRecord
+from src.type_defs import ToolArguments
 
 if TYPE_CHECKING:
     from pypitui import OverlayHandle, ProcessTerminal
+
+
+logger = logging.getLogger(__name__)
+
+
+def _arguments_to_object(arguments: ToolArguments) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in arguments.items():
+        result[key] = value
+    return result
 
 
 class AlfredTUI:
@@ -59,7 +68,7 @@ class AlfredTUI:
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
         self.tui = TUI(self.terminal)
-        self.tui.on_resize = self._on_resize
+        self.tui.on_resize = self._on_resize  # type: ignore[attr-defined]
         self._toast_manager = toast_manager
 
         # Main conversation container
@@ -103,6 +112,7 @@ class AlfredTUI:
 
         # SIGWINCH state - flag set when window resize signal received
         self._resize_pending = False
+        self._scrollback_position: int = 0
 
         # Current assistant message for inline tool calls
         self._current_assistant_msg: MessagePanel | None = None
@@ -248,8 +258,9 @@ class AlfredTUI:
 
         # Update all message panels with new width
         for child in self.conversation.children:
-            if hasattr(child, "set_terminal_width"):
-                child.set_terminal_width(term_width)
+            setter = getattr(child, "set_terminal_width", None)
+            if callable(setter):
+                setter(term_width)
 
         # Re-populate scrollback if there's overflow content
         self._populate_scrollback_by_scrolling()
@@ -281,7 +292,7 @@ class AlfredTUI:
 
         return static_height
 
-    def _input_listener(self, data: str) -> dict | None:
+    def _input_listener(self, data: str) -> dict[str, bool] | None:
         """Intercept input for queue navigation and cancellation.
 
         Returns:
@@ -379,7 +390,11 @@ class AlfredTUI:
 
         if isinstance(event, ToolStart):
             # Add tool call to current message at current position
-            assistant_msg.add_tool_call(event.tool_name, event.tool_call_id, event.arguments)
+            assistant_msg.add_tool_call(
+                event.tool_name,
+                event.tool_call_id,
+                _arguments_to_object(event.arguments),
+            )
 
         elif isinstance(event, ToolOutput):
             # Append output to existing tool call
@@ -502,7 +517,7 @@ class AlfredTUI:
                 sessions_with_meta.append((sid, desc, meta.last_active))
             else:
                 # No metadata, use placeholder
-                sessions_with_meta.append((sid, None, datetime.min.replace(tzinfo=UTC)))
+                sessions_with_meta.append((sid, "Unknown", datetime.min.replace(tzinfo=UTC)))
 
         # Sort by last_active descending (most recent first)
         sessions_with_meta.sort(key=lambda x: x[2], reverse=True)
@@ -536,7 +551,7 @@ class AlfredTUI:
             tool_call_id=record.tool_call_id,
             insert_position=record.insert_position,
             sequence=record.sequence,
-            arguments=record.arguments,
+            arguments=_arguments_to_object(record.arguments),
             output=record.output,
             # ToolCallRecord uses "success"/"error", ToolCallInfo accepts these
             status=record.status,

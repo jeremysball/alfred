@@ -5,7 +5,6 @@ All functions are stateless utilities.
 """
 
 from datetime import UTC, datetime
-from typing import cast
 from zoneinfo import ZoneInfo
 
 from croniter import CroniterBadCronError, croniter  # type: ignore[import-untyped]
@@ -71,7 +70,9 @@ def get_next_run(
 
     # Calculate next run in local time
     itr = croniter(expression, from_time_local)
-    next_run_local = cast(datetime, itr.get_next(datetime))
+    next_run_local = itr.get_next(datetime)
+    if not isinstance(next_run_local, datetime):
+        raise TypeError("Croniter returned non-datetime next run")
 
     # Return in target timezone
     return next_run_local.replace(tzinfo=target_tz)
@@ -113,7 +114,9 @@ def should_run(
 
     # Get the next scheduled time strictly after last_run
     # We add 1 minute to last_run to ensure we don't get the same time back
-    next_scheduled = cast(datetime, itr.get_next(datetime))
+    next_scheduled = itr.get_next(datetime)
+    if not isinstance(next_scheduled, datetime):
+        raise TypeError("Croniter returned non-datetime next schedule")
 
     # Check if there's a scheduled time between last_run and current_time
     # We use minute precision: if next_scheduled <= current_time (at minute boundary)

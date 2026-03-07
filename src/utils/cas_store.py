@@ -23,9 +23,10 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import aiofiles
+
+from src.type_defs import JsonObject, ensure_json_object
 
 
 class CASConflictError(Exception):
@@ -89,6 +90,9 @@ class Version:
         )
 
 
+type Record = JsonObject
+
+
 class CASStore:
     """Lock-free append-only and rewrite store using CAS.
 
@@ -119,7 +123,7 @@ class CASStore:
 
     async def read_all(
         self, expected_version: Version | None = None
-    ) -> tuple[list[dict[str, Any]], Version]:
+    ) -> tuple[list[Record], Version]:
         """Read all records with optional version check.
 
         Args:
@@ -147,7 +151,7 @@ class CASStore:
 
     async def append(
         self,
-        record: dict[str, Any],
+        record: Record,
         expected_version: Version | None = None,
     ) -> Version:
         """Append a single record atomically using CAS.
@@ -172,8 +176,8 @@ class CASStore:
             return await self._append_bytes(line_bytes, expected_version)
 
         # Automatic retry mode: use compare_and_swap for atomic read-modify-write
-        def transform(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-            new_record = json.loads(line_bytes.decode("utf-8").strip())
+        def transform(records: list[Record]) -> list[Record]:
+            new_record = ensure_json_object(json.loads(line_bytes.decode("utf-8").strip()))
             records.append(new_record)
             return records
 
@@ -182,7 +186,7 @@ class CASStore:
 
     async def append_batch(
         self,
-        records: list[dict[str, Any]],
+        records: list[Record],
         expected_version: Version | None = None,
     ) -> Version:
         """Append multiple records atomically using CAS.
@@ -198,7 +202,7 @@ class CASStore:
             return await self._append_bytes(content, expected_version)
 
         # Automatic retry mode: use compare_and_swap for atomic read-modify-write
-        def transform(existing: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        def transform(existing: list[Record]) -> list[Record]:
             return existing + records
 
         final_records, new_version = await self.compare_and_swap(transform)
@@ -206,7 +210,7 @@ class CASStore:
 
     async def rewrite(
         self,
-        records: list[dict[str, Any]],
+        records: list[Record],
         expected_version: Version | None = None,
     ) -> Version:
         """Replace entire contents atomically using CAS.
@@ -242,9 +246,9 @@ class CASStore:
 
     async def compare_and_swap(
         self,
-        transform: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+        transform: Callable[[list[Record]], list[Record]],
         max_retries: int = 1000,
-    ) -> tuple[list[dict[str, Any]], Version]:
+    ) -> tuple[list[Record], Version]:
         """Read, transform, and write atomically with automatic retry.
 
         This is the core CAS primitive. It implements the read-modify-write
@@ -304,9 +308,9 @@ class CASStore:
         # Should never reach here
         raise CASConflictError("unknown", "unknown")
 
-    def _parse_content(self, content: bytes) -> list[dict[str, Any]]:
+    def _parse_content(self, content: bytes) -> list[Record]:
         """Parse JSONL content into records."""
-        records = []
+        records: list[Record] = []
         if not content:
             return records
 
@@ -314,12 +318,12 @@ class CASStore:
             line = line.strip()
             if line:
                 try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError:
+                    records.append(ensure_json_object(json.loads(line)))
+                except (json.JSONDecodeError, TypeError):
                     continue
         return records
 
-    async def iter_records(self) -> AsyncIterator[dict[str, Any]]:
+    async def iter_records(self) -> AsyncIterator[Record]:
         """Iterate over records (memory-efficient, no version check)."""
         if not self.path.exists():
             return
@@ -329,8 +333,8 @@ class CASStore:
                 line = line.strip()
                 if line:
                     try:
-                        yield json.loads(line)
-                    except json.JSONDecodeError:
+                        yield ensure_json_object(json.loads(line))
+                    except (json.JSONDecodeError, TypeError):
                         # Skip corrupt lines
                         continue
 
@@ -344,7 +348,7 @@ class CASStore:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, Version.from_path, path)
 
-    async def _read_records(self) -> list[dict[str, Any]]:
+    async def _read_records(self) -> list[Record]:
         """Read all records from file."""
         records = []
         async for record in self.iter_records():

@@ -17,19 +17,19 @@ class ShowSessionCommand(Command):
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """Show current session details."""
         if not tui.alfred.session_manager.has_active_session():
-            tui._add_user_message("No active session.")  # type: ignore[misc]
+            tui._add_user_message("No active session.")
             return True
 
         session = tui.alfred.session_manager.get_current_cli_session()
         if not session:
-            tui._add_user_message("No active session.")  # type: ignore[misc]
+            tui._add_user_message("No active session.")
             return True
 
         meta = session.meta
         created = meta.created_at.strftime("%Y-%m-%d %H:%M")
         last_active = meta.last_active.strftime("%Y-%m-%d %H:%M")
 
-        tui._add_user_message(  # type: ignore[misc]
+        tui._add_user_message(
             f"Current Session\n"
             f"ID: {meta.session_id}\n"
             f"Status: {meta.status}\n"

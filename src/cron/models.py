@@ -6,7 +6,8 @@ Job and ExecutionRecord dataclasses for persistence.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+
+from src.type_defs import JsonObject, ensure_json_object
 
 
 class JobStatus(Enum):
@@ -25,6 +26,47 @@ class ExecutionStatus(Enum):
     TIMEOUT = "timeout"
 
 
+def _require_str(data: JsonObject, key: str) -> str:
+    value = data.get(key)
+    if isinstance(value, str):
+        return value
+    raise ValueError(f"Missing or invalid {key}")
+
+
+def _get_int(data: JsonObject, key: str, default: int) -> int:
+    value = data.get(key, default)
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return default
+
+
+def _get_bool(data: JsonObject, key: str, default: bool) -> bool:
+    value = data.get(key, default)
+    if isinstance(value, bool):
+        return value
+    return default
+
+
+def _get_optional_str(data: JsonObject, key: str) -> str | None:
+    value = data.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _get_optional_int(data: JsonObject, key: str) -> int | None:
+    value = data.get(key)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return None
+
+
 @dataclass
 class ResourceLimits:
     """Resource limits for job execution.
@@ -38,7 +80,7 @@ class ResourceLimits:
     allow_network: bool = False
     max_output_lines: int = 1000
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         """Convert limits to dictionary for JSON serialization."""
         return {
             "timeout_seconds": self.timeout_seconds,
@@ -48,13 +90,13 @@ class ResourceLimits:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ResourceLimits":
+    def from_dict(cls, data: JsonObject) -> "ResourceLimits":
         """Create ResourceLimits from dictionary."""
         return cls(
-            timeout_seconds=data.get("timeout_seconds", 30),
-            max_memory_mb=data.get("max_memory_mb", 100),
-            allow_network=data.get("allow_network", False),
-            max_output_lines=data.get("max_output_lines", 1000),
+            timeout_seconds=_get_int(data, "timeout_seconds", 30),
+            max_memory_mb=_get_int(data, "max_memory_mb", 100),
+            allow_network=_get_bool(data, "allow_network", False),
+            max_output_lines=_get_int(data, "max_output_lines", 1000),
         )
 
 
@@ -79,7 +121,7 @@ class Job:
     chat_id: int | None = None  # Telegram chat_id for job notifications
     handler_id: str | None = None  # System job handler identifier
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         """Convert job to dictionary for JSON serialization."""
         return {
             "job_id": self.job_id,
@@ -103,23 +145,34 @@ class Job:
         return datetime.now().astimezone()
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Job":
+    def from_dict(cls, data: JsonObject) -> "Job":
         """Create Job from dictionary (JSON deserialization)."""
-        limits_data = data.get("resource_limits", {})
+        limits_value = data.get("resource_limits", {})
+        limits_data = ensure_json_object(limits_value) if isinstance(limits_value, dict) else {}
         resource_limits = ResourceLimits.from_dict(limits_data) if limits_data else ResourceLimits()
 
+        last_run_value = data.get("last_run")
+        last_run = (
+            datetime.fromisoformat(last_run_value)
+            if isinstance(last_run_value, str)
+            else None
+        )
+
+        created_at = cls._parse_datetime(_get_optional_str(data, "created_at"))
+        updated_at = cls._parse_datetime(_get_optional_str(data, "updated_at"))
+
         return cls(
-            job_id=data["job_id"],
-            name=data["name"],
-            expression=data["expression"],
-            code=data["code"],
-            status=data.get("status", "active"),
-            last_run=datetime.fromisoformat(data["last_run"]) if data.get("last_run") else None,
-            created_at=cls._parse_datetime(data.get("created_at")),
-            updated_at=cls._parse_datetime(data.get("updated_at")),
+            job_id=_require_str(data, "job_id"),
+            name=_require_str(data, "name"),
+            expression=_require_str(data, "expression"),
+            code=_require_str(data, "code"),
+            status=_get_optional_str(data, "status") or "active",
+            last_run=last_run,
+            created_at=created_at,
+            updated_at=updated_at,
             resource_limits=resource_limits,
-            chat_id=data.get("chat_id"),
-            handler_id=data.get("handler_id"),
+            chat_id=_get_optional_int(data, "chat_id"),
+            handler_id=_get_optional_str(data, "handler_id"),
         )
 
 
@@ -142,7 +195,7 @@ class ExecutionRecord:
     memory_peak_mb: int | None = None
     stdout_truncated: bool = False
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         """Convert execution record to dictionary for JSON serialization."""
         return {
             "execution_id": self.execution_id,
@@ -159,18 +212,22 @@ class ExecutionRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ExecutionRecord":
+    def from_dict(cls, data: JsonObject) -> "ExecutionRecord":
         """Create ExecutionRecord from dictionary (JSON deserialization)."""
+        started_at = datetime.fromisoformat(_require_str(data, "started_at"))
+        ended_at = datetime.fromisoformat(_require_str(data, "ended_at"))
+        status_value = _require_str(data, "status")
+
         return cls(
-            execution_id=data["execution_id"],
-            job_id=data["job_id"],
-            started_at=datetime.fromisoformat(data["started_at"]),
-            ended_at=datetime.fromisoformat(data["ended_at"]),
-            status=ExecutionStatus(data["status"]),
-            duration_ms=data["duration_ms"],
-            error_message=data.get("error_message"),
-            stdout=data.get("stdout"),
-            stderr=data.get("stderr"),
-            memory_peak_mb=data.get("memory_peak_mb"),
-            stdout_truncated=data.get("stdout_truncated", False),
+            execution_id=_require_str(data, "execution_id"),
+            job_id=_require_str(data, "job_id"),
+            started_at=started_at,
+            ended_at=ended_at,
+            status=ExecutionStatus(status_value),
+            duration_ms=_get_int(data, "duration_ms", 0),
+            error_message=_get_optional_str(data, "error_message"),
+            stdout=_get_optional_str(data, "stdout"),
+            stderr=_get_optional_str(data, "stderr"),
+            memory_peak_mb=_get_optional_int(data, "memory_peak_mb"),
+            stdout_truncated=_get_bool(data, "stdout_truncated", False),
         )

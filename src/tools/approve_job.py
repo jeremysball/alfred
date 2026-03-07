@@ -4,12 +4,13 @@ Tool for Alfred to approve jobs awaiting approval.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.cron.models import Job
 from src.cron.scheduler import CronScheduler
 from src.tools.base import Tool, ToolResult
+from src.type_defs import JsonValue
 
 
 class ApproveJobParams(BaseModel):
@@ -62,7 +63,7 @@ class ApproveJobTool(Tool):
         super().__init__()
         self.scheduler = scheduler
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Execute the approve_job tool (async).
 
         Args:
@@ -72,7 +73,7 @@ class ApproveJobTool(Tool):
             Result message
         """
         try:
-            params = ApproveJobParams(**kwargs)
+            params = ApproveJobParams.model_validate(kwargs)
         except ValueError as e:
             yield f"Error: Invalid parameters - {e}"
             return
@@ -124,7 +125,7 @@ class ApproveJobTool(Tool):
         except Exception as e:
             yield f"Error: Failed to approve job - {e}"
 
-    def _find_job(self, jobs: list, identifier: str) -> Any | None:
+    def _find_job(self, jobs: list[Job], identifier: str) -> Job | None:
         """Find job by ID or fuzzy name match.
 
         Args:

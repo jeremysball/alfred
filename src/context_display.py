@@ -4,7 +4,15 @@ Provides functionality to gather and format system context information
 for user inspection via the /context command.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from src.type_defs import (
+    ContextDisplay,
+    ContextMemoryItem,
+    ContextMessageItem,
+    ContextSection,
+    ContextToolCallItem,
+)
 
 if TYPE_CHECKING:
     from src.alfred import Alfred
@@ -15,7 +23,10 @@ def _estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-async def get_context_display(alfred: "Alfred", session_id: str | None = None) -> dict[str, Any]:
+async def get_context_display(
+    alfred: "Alfred",
+    session_id: str | None = None,
+) -> ContextDisplay:
     """Get current context information for /context command.
 
     Args:
@@ -34,7 +45,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     context_files = await alfred.context_loader.load_all()
 
     # Build system prompt sections with token counts
-    system_sections = []
+    system_sections: list[ContextSection] = []
     total_system_tokens = 0
     for name in ["agents", "soul", "user", "tools"]:
         if name in context_files:
@@ -60,12 +71,12 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     )
 
     # Get recent tool calls from session
-    recent_tool_calls: list[dict[str, Any]] = []
+    recent_tool_calls: list[ContextToolCallItem] = []
     tool_call_tokens = 0
     for msg in full_messages:
         if msg.tool_calls:
             for tc in msg.tool_calls:
-                tc_data = {
+                tc_data: ContextToolCallItem = {
                     "tool_name": tc.tool_name,
                     "arguments": tc.arguments,
                     "output": tc.output[:200] + "..." if len(tc.output) > 200 else tc.output,
@@ -78,15 +89,19 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     recent_tool_calls = recent_tool_calls[-3:]
 
     # Format session messages for display
-    display_messages = [
-        {"role": role, "content": content[:200] + "..." if len(content) > 200 else content}
-        for role, content in session_messages[-5:]  # Last 5 messages
-    ]
+    display_messages: list[ContextMessageItem] = []
+    for role, content in session_messages[-5:]:  # Last 5 messages
+        display_messages.append(
+            {
+                "role": role,
+                "content": content[:200] + "..." if len(content) > 200 else content,
+            }
+        )
 
     session_tokens = sum(_estimate_tokens(m["content"]) for m in display_messages)
 
     # Format memories - show first 5 with counts
-    memory_display = []
+    memory_display: list[ContextMemoryItem] = []
     for mem in all_memories[:5]:
         memory_display.append(
             {
@@ -100,7 +115,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
 
     total_tokens = total_system_tokens + memory_tokens + session_tokens + tool_call_tokens
 
-    return {
+    context_display: ContextDisplay = {
         "system_prompt": {
             "sections": system_sections,
             "total_tokens": total_system_tokens,
@@ -123,3 +138,5 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         },
         "total_tokens": total_tokens,
     }
+
+    return context_display

@@ -4,13 +4,14 @@ Tool for Alfred to schedule tasks via natural language.
 """
 
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
 from src.cron import parser
 from src.cron.scheduler import CronScheduler
 from src.tools.base import Tool, ToolResult
+from src.type_defs import JsonValue
 
 if TYPE_CHECKING:
     from src.config import Config
@@ -103,7 +104,7 @@ class ScheduleJobTool(Tool):
         self.scheduler = scheduler
         self._config = config
 
-    async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
+    async def execute_stream(self, **kwargs: JsonValue) -> AsyncIterator[str]:
         """Execute the schedule_job tool (async).
 
         Args:
@@ -113,7 +114,7 @@ class ScheduleJobTool(Tool):
             Result message with job details or error
         """
         try:
-            params = ScheduleJobParams(**kwargs)
+            params = ScheduleJobParams.model_validate(kwargs)
         except ValueError as e:
             yield f"Error: Invalid parameters - {e}"
             return

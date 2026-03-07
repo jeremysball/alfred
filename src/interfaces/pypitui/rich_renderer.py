@@ -1,9 +1,8 @@
 """Rich markdown rendering for PyPiTUI integration."""
 
 from io import StringIO
-from typing import Literal
 
-from rich.console import Console
+from rich.console import Console, JustifyMethod
 from rich.markdown import Markdown
 
 
@@ -16,7 +15,7 @@ class RichRenderer:
         self,
         width: int = 80,
         code_theme: str = "monokai",
-        justify: Literal["left", "center", "right", "full"] = "left",
+        justify: JustifyMethod = "left",
     ) -> None:
         """Initialize renderer.
 

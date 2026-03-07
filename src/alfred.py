@@ -2,13 +2,14 @@
 
 import logging
 from collections.abc import AsyncIterator, Callable
-from typing import Any
+from typing import TypedDict
 
 from telegram import Bot
 
 from src.agent import Agent, ToolEnd, ToolEvent, ToolOutput, ToolStart
 from src.config import Config
 from src.context import ContextLoader
+from src.cron.notifier import Notifier
 from src.cron.scheduler import CronScheduler
 from src.cron.store import CronStore
 from src.embeddings import create_provider
@@ -19,6 +20,7 @@ from src.session import Session, SessionManager, ToolCallRecord
 from src.session_storage import SessionStorage
 from src.token_tracker import TokenTracker
 from src.tools import get_registry, register_builtin_tools
+from src.type_defs import ToolArguments, UsageData
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
@@ -36,6 +38,16 @@ class ContextSummary:
         """Update context summary values."""
         self.memories_count = memories_count
         self.session_messages = session_messages
+
+
+class ToolCallAccumulator(TypedDict):
+    tool_call_id: str
+    tool_name: str
+    arguments: ToolArguments
+    output_chunks: list[str]
+    insert_position: int
+    sequence: int
+    is_error: bool
 
 
 logger = logging.getLogger(__name__)
@@ -86,6 +98,9 @@ class Alfred:
         # Create agent
         self.agent = Agent(self.llm, self.tools, max_iterations=-1)
 
+        # Optional notifier for CLI/Telegram integrations
+        self.notifier: Notifier | None = None
+
         # Initialize session storage and manager
         session_storage = SessionStorage(self.embedder, data_dir=data_dir)
         SessionManager.initialize(session_storage)
@@ -93,7 +108,7 @@ class Alfred:
 
         # Token tracking for usage display
         self.token_tracker = TokenTracker()
-        self._last_usage: dict[str, Any] | None = None
+        self._last_usage: UsageData | None = None
 
         # Context summary for status display
         self.context_summary = ContextSummary()
@@ -103,7 +118,7 @@ class Alfred:
         """Get full model display name (provider/model)."""
         return f"{self.config.default_llm_provider}/{self.config.chat_model}"
 
-    def _on_usage(self, usage: dict[str, Any]) -> None:
+    def _on_usage(self, usage: UsageData) -> None:
         """Callback for LLM usage updates."""
         self.token_tracker.add(usage)
         # Store the last usage for message token tracking
@@ -150,14 +165,13 @@ class Alfred:
 
         # Reset and set total tokens for the session
         self.token_tracker.reset()
-        self.token_tracker.add(
-            {
-                "prompt_tokens": input_tokens,
-                "completion_tokens": output_tokens,
-                "prompt_tokens_details": {"cached_tokens": cached_tokens},
-                "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
-            }
-        )
+        usage: UsageData = {
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+            "prompt_tokens_details": {"cached_tokens": cached_tokens},
+            "completion_tokens_details": {"reasoning_tokens": reasoning_tokens},
+        }
+        self.token_tracker.add(usage)
 
     def _update_context_tokens(self, system_prompt: str, messages: list[ChatMessage]) -> None:
         """Update context token estimate.
@@ -266,7 +280,7 @@ class Alfred:
         logger.debug("Starting agent loop...")
 
         # Accumulator for tool calls during this turn
-        tool_calls_accumulator: list[dict[str, Any]] = []
+        tool_calls_accumulator: list[ToolCallAccumulator] = []
         full_response: list[str] = []
 
         def _tool_callback_wrapper(event: ToolEvent) -> None:
@@ -459,17 +473,22 @@ You can then continue the conversation with the tool results.
         # TODO: Implement in M9
         return "Compaction not yet implemented"
 
-    async def start(self) -> None:
+    async def start(self, start_scheduler: bool = True) -> None:
         """Start Alfred and all subsystems.
 
         Initializes the cron scheduler and starts background tasks.
         Failures are logged but don't prevent Alfred from starting.
+
+        Args:
+            start_scheduler: If True, start the in-process scheduler.
+                Set to False when using the external daemon (TUI mode).
         """
-        try:
-            await self.cron_scheduler.start()
-            logger.info("Cron scheduler started successfully")
-        except Exception as e:
-            logger.error(f"Failed to start cron scheduler: {e}")
+        if start_scheduler:
+            try:
+                await self.cron_scheduler.start()
+                logger.info("Cron scheduler started successfully")
+            except Exception as e:
+                logger.error(f"Failed to start cron scheduler: {e}")
 
     async def stop(self) -> None:
         """Graceful shutdown.
