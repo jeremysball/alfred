@@ -3,10 +3,14 @@
 import logging
 import math
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from src.embeddings import cosine_similarity
-from src.memory import MemoryEntry
 from src.session_storage import SessionStorage
+from src.type_defs import MemoryEntryLike
+
+if TYPE_CHECKING:
+    from src.session import Message
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +34,8 @@ class MemorySearcher:
     def search(
         self,
         query_embedding: list[float],
-        memories: list[MemoryEntry],
-    ) -> tuple[list[MemoryEntry], dict[str, float], dict[str, float]]:
+        memories: list[MemoryEntryLike],
+    ) -> tuple[list[MemoryEntryLike], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity with hybrid scoring.
 
         Args:
@@ -48,7 +52,7 @@ class MemorySearcher:
             f"Searching {len(memories)} memories with min_similarity={self.min_similarity}"
         )
 
-        scored: list[tuple[float, MemoryEntry, float]] = []  # (score, memory, similarity)
+        scored: list[tuple[float, MemoryEntryLike, float]] = []  # (score, memory, similarity)
 
         for memory in memories:
             if not memory.embedding:
@@ -74,7 +78,7 @@ class MemorySearcher:
 
     def _hybrid_score(
         self,
-        memory: MemoryEntry,
+        memory: MemoryEntryLike,
         similarity: float,
     ) -> float:
         """Combine similarity and recency into a single score.
@@ -91,9 +95,9 @@ class MemorySearcher:
 
     def deduplicate(
         self,
-        memories: list[MemoryEntry],
+        memories: list[MemoryEntryLike],
         threshold: float = 0.95,
-    ) -> list[MemoryEntry]:
+    ) -> list[MemoryEntryLike]:
         """Remove near-duplicate memories by embedding similarity.
 
         Args:
@@ -108,7 +112,7 @@ class MemorySearcher:
 
         logger.debug(f"Deduplicating {len(memories)} memories with threshold={threshold}")
 
-        unique: list[MemoryEntry] = []
+        unique: list[MemoryEntryLike] = []
 
         for memory in memories:
             if not memory.embedding:
@@ -150,10 +154,10 @@ class ContextBuilder:
     def build_context(
         self,
         query_embedding: list[float],
-        memories: list[MemoryEntry],
+        memories: list[MemoryEntryLike],
         system_prompt: str,
         session_messages: list[tuple[str, str]] | None = None,
-        session_messages_with_tools: list | None = None,
+        session_messages_with_tools: list["Message"] | None = None,
         tool_calls_enabled: bool = True,
         tool_calls_max_calls: int = 5,
         tool_calls_max_tokens: int = 2000,
@@ -278,7 +282,7 @@ class ContextBuilder:
 
     def _format_tool_calls(
         self,
-        messages: list,
+        messages: list["Message"],
         max_calls: int = 5,
         max_tokens: int = 2000,
         include_output: bool = True,
@@ -365,7 +369,7 @@ class ContextBuilder:
 
     def _format_memories(
         self,
-        memories: list[MemoryEntry],
+        memories: list[MemoryEntryLike],
         similarities: dict[str, float],
         scores: dict[str, float] | None = None,
     ) -> str:
@@ -399,7 +403,7 @@ class ContextBuilder:
     def _truncate_to_budget(
         self,
         system_prompt: str,
-        memories: list[MemoryEntry],
+        memories: list[MemoryEntryLike],
         session_messages: list[tuple[str, str]],
         budget: int,
         similarities: dict[str, float] | None = None,

@@ -207,11 +207,12 @@ class TestToolRegistryIntegration:
         assert "bash" in registry
         assert "remember" in registry
         assert "search_memories" in registry
+        assert "search_sessions" in registry
         assert "update_memory" in registry
         assert "forget" in registry
 
-        # Check we have exactly 8 tools
-        assert len(registry) == 8
+        # Check we have exactly 9 tools
+        assert len(registry) == 9
 
     def test_get_tool_schemas(self):
         """Test getting schemas for all tools."""
@@ -219,7 +220,7 @@ class TestToolRegistryIntegration:
         registry = get_registry()
 
         schemas = registry.get_schemas()
-        assert len(schemas) == 8
+        assert len(schemas) == 9
 
         # Each schema should be OpenAI format
         for schema in schemas:

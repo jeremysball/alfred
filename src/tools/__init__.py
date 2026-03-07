@@ -1,9 +1,18 @@
 """Tool registry and discovery."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING
 
 from src.tools.base import Tool
+from src.type_defs import ToolSchema
+
+if TYPE_CHECKING:
+    from src.config import Config
+    from src.cron.scheduler import CronScheduler
+    from src.embeddings.provider import EmbeddingProvider
+    from src.llm import LLMProvider
+    from src.memory.base import MemoryStore
+    from src.session_storage import SessionStorage
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +39,7 @@ class ToolRegistry:
         """List all registered tools."""
         return list(self._tools.values())
 
-    def get_schemas(self) -> list[dict[str, Any]]:
+    def get_schemas(self) -> list[ToolSchema]:
         """Get JSON schemas for all tools."""
         return [tool.get_schema() for tool in self._tools.values()]
 
@@ -77,19 +86,19 @@ def clear_registry() -> None:
 
 
 # Convenience function to get all tool schemas
-def get_tool_schemas() -> list[dict[str, Any]]:
+def get_tool_schemas() -> list[ToolSchema]:
     """Get schemas for all registered tools."""
     return get_registry().get_schemas()
 
 
 # Auto-discover and register built-in tools
 def register_builtin_tools(
-    memory_store: Any = None,
-    scheduler: Any = None,
-    config: Any = None,
-    session_storage: Any = None,
-    embedder: Any = None,
-    llm_client: Any = None,
+    memory_store: "MemoryStore | None" = None,
+    scheduler: "CronScheduler | None" = None,
+    config: "Config | None" = None,
+    session_storage: "SessionStorage | None" = None,
+    embedder: "EmbeddingProvider | None" = None,
+    llm_client: "LLMProvider | None" = None,
 ) -> None:
     """Register all built-in tools.
 
@@ -145,14 +154,12 @@ def register_builtin_tools(
     register_tool(forget_tool)
 
     # Register search_sessions tool with dependencies injected
-    if session_storage and embedder:
-        search_sessions_tool = SearchSessionsTool(
-            storage=session_storage,
-            embedder=embedder,
-            llm_client=llm_client,
-        )
-        register_tool(search_sessions_tool)
-        logger.debug("Registered search_sessions tool")
+    search_sessions_tool = SearchSessionsTool(
+        storage=session_storage,
+        embedder=embedder,
+    )
+    register_tool(search_sessions_tool)
+    logger.debug("Registered search_sessions tool")
 
     # Register cron tools with scheduler injected
     if scheduler:
