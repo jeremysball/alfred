@@ -9,6 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from alfred.embeddings.provider import EmbeddingProvider
+from alfred.llm import LLMProvider
 from alfred.session import Session, SessionManager
 from alfred.storage.sqlite import SQLiteStore
 
@@ -45,7 +47,7 @@ class SearchSessionsToolParams(BaseModel):
 class SessionSummarizer:
     """Generates and manages LLM-based session summaries."""
 
-    def __init__(self, llm_client: Any, embedder: Any, store: SQLiteStore | None = None) -> None:
+    def __init__(self, llm_client: LLMProvider, embedder: EmbeddingProvider, store: SQLiteStore | None = None) -> None:
         self.llm_client = llm_client
         self.embedder = embedder
         self.store = store
