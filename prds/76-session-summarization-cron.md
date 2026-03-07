@@ -508,26 +508,15 @@ class MemoryEntry:
 **Session boundary detection:**
 - New session starts when:
   - No session exists yet
-  - Previous message was >30 minutes ago
-  - User explicitly starts new session (optional future)
+  - User explicitly starts a new session (e.g. `/new`)
+- Idle gaps do **not** create new sessions; idle time only triggers summarization.
 
 ```python
-def assign_session_id(
-    new_message_time: datetime,
-    last_message_time: datetime | None,
-    current_session_id: str | None,
-) -> str:
-    """Assign session ID based on time gap."""
-    SESSION_GAP_MINUTES = 30
-    
+def assign_session_id(current_session_id: str | None) -> str:
+    """Assign session ID for a new message."""
     if current_session_id is None:
         return generate_session_id()
-    
-    gap = (new_message_time - last_message_time).total_seconds() / 60
-    if gap > SESSION_GAP_MINUTES:
-        return generate_session_id()  # New session
-    
-    return current_session_id  # Continue current session
+    return current_session_id
 ```
 
 ---
@@ -760,6 +749,7 @@ sessions_dir = "data/sessions"   # Each session is a folder
 | 2026-03-06 | Keep JSONL for messages, JSON for summary | Aligns with existing storage patterns (current.jsonl, meta.json) |
 | 2026-03-06 | Extend `SessionMeta` instead of new `SessionMetadata` | Single metadata file per session, persists across resumes |
 | 2026-03-06 | 30-min threshold only triggers summarization, not session end | Session stays active indefinitely; threshold is for cron only |
+| 2026-03-07 | Idle gaps do not create new sessions | New sessions only via explicit `/new`; summarization handles idle detection |
 
 ---
 
