@@ -1,6 +1,7 @@
 """Main AlfredTUI class for the CLI interface."""
 
 import asyncio
+import signal
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
@@ -96,6 +97,9 @@ class AlfredTUI:
         # Ctrl-C state
         self._ctrl_c_pending = False
 
+        # SIGWINCH state - flag set when window resize signal received
+        self._resize_pending = False
+
         # Current assistant message for inline tool calls
         self._current_assistant_msg: MessagePanel | None = None
 
@@ -125,6 +129,31 @@ class AlfredTUI:
 
         # Initialize status line with current values
         self._update_status()
+
+        # Set up SIGWINCH handler for terminal resize
+        self._setup_sigwinch_handler()
+
+    def _setup_sigwinch_handler(self) -> None:
+        """Set up SIGWINCH handler to detect terminal resize immediately."""
+        def handle_sigwinch(signum: int, frame: object) -> None:
+            """Signal handler - just set flag, actual handling happens in main loop."""
+            self._resize_pending = True
+
+        with suppress(AttributeError, ValueError):
+            signal.signal(signal.SIGWINCH, handle_sigwinch)
+
+    def _handle_resize(self) -> None:
+        """Handle pending resize by updating PyPiTUI cache and Alfred components."""
+        self._resize_pending = False
+        # Update PyPiTUI's cached size (so render_frame doesn't call get_size)
+        self.tui.request_resize_check()
+        # Get new size for Alfred components
+        term_width, term_height = self.terminal.get_size()
+        self._terminal_width = term_width
+        # Update message panels with new width
+        self._on_resize(term_width, term_height)
+        # Force full redraw
+        self.tui.request_render(force=True)
 
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
@@ -728,6 +757,10 @@ class AlfredTUI:
 
         try:
             while self.running:
+                # Handle pending resize from SIGWINCH
+                if self._resize_pending:
+                    self._handle_resize()
+
                 # Read terminal input with timeout
                 data = self.terminal.read_sequence(timeout=0.01)
                 if data:
