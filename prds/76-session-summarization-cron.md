@@ -46,9 +46,9 @@ Create automatic session summarization:
 
 ## Implementation Status
 
-**Current Phase:** Phase 3 Complete (100%) - Moving to Phase 4 (Summary Generation)  
+**Current Phase:** Phase 6 Complete - Moving to Phase 7 (Search Sessions Tool)  
 **Branch:** `feature/prd-76-session-summarization-cron`  
-**Completed Tasks:** 21 / 79 atomic commits (~27%)  
+**Completed Tasks:** 35 / 79 atomic commits (~44%)  
 **Approach:** Test-first TDD with conventional commits  
 **Last Updated:** 2026-03-06
 
@@ -56,8 +56,12 @@ Create automatic session summarization:
 - ✅ **Phase 1:** Session ID Tagging Infrastructure (10/10 tasks)
 - ⏳ **Phase 2:** Session Storage Infrastructure (0/8 tasks - already exists from PRD #53)
 - ✅ **Phase 3:** Session Summary Storage (10/10 tasks) ✅ COMPLETE
-- ⏳ **Phase 4:** Summary Generation (0/10 tasks)
-- ⏳ **Phase 5-9:** Cron Job, Search Tool, Integration (0/51 tasks)
+- ✅ **Phase 4:** Summary Generation (10/10 tasks) ✅ COMPLETE
+- ✅ **Phase 5:** Cron Job - Session Detection (8/8 tasks) ✅ COMPLETE
+- ✅ **Phase 6:** Cron Job - Main Loop (16/16 tasks) ✅ COMPLETE
+- ⏳ **Phase 7:** Search Sessions Tool (0/12 tasks)
+- ⏳ **Phase 8:** Integration & Configuration (6/10 tasks - config complete, integration pending)
+- ⏳ **Phase 9:** Documentation & Cleanup (0/5 tasks)
 
 ---
 
@@ -246,39 +250,53 @@ Create automatic session summarization:
 
 ### Phase 6: Cron Job - Main Loop (10 tasks)
 
+#### System Job Registry (Programmatic + Persisted)
+
+- [x] ~~**Test:** `test_system_job_registry_returns_handler()` — verify handler lookup returns callable~~
+  - **Commit:** `test(cron): verify system job registry returns handler` ✅
+
+- [x] ~~**Implement:** Add `SystemJobDefinition` registry with handler callables~~
+  - **Commit:** `feat(cron): add system job registry with handlers` ✅
+
+- [x] ~~**Test:** `test_register_system_jobs_persists_handler_id()` — verify handler_id stored in cron.jsonl~~
+  - **Commit:** `test(cron): verify system job handler_id persisted` ✅
+
+- [x] ~~**Implement:** Add `handler_id` field to Job and persistence~~
+  - **Commit:** `feat(cron): add handler_id to Job model` ✅
+
+- [x] ~~**Test:** `test_load_jobs_uses_system_handler()` — verify scheduler uses registry for system jobs~~
+  - **Commit:** `test(cron): verify scheduler loads system handlers` ✅
+
+- [x] ~~**Implement:** Update scheduler load/register to use system handlers~~
+  - **Commit:** `feat(cron): load system job handlers from registry` ✅
+
 #### Cron Job Implementation
 
-- [ ] **Test:** `test_summarize_sessions_job_calls_get_active_sessions()` — verify session scanning
-  - **Commit:** `test(cron): verify summarize_sessions_job scans active sessions`
+- [x] ~~**Test:** `test_summarize_sessions_job_calls_get_active_sessions()` — verify session scanning~~
+  - **Commit:** `test(cron): verify summarize_sessions_job scans active sessions` ✅
 
-- [ ] **Implement:** Create `summarize_sessions_job(config)` async function skeleton
-  - **Commit:** `feat(cron): create summarize_sessions_job skeleton`
+- [x] ~~**Implement:** Create `summarize_sessions_job(config)` async function~~
+  - **Commit:** `feat(cron): create summarize_sessions_job` ✅
 
-- [ ] **Test:** `test_summarize_sessions_job_filters_by_should_summarize()` — verify filtering logic
-  - **Commit:** `test(cron): verify summarize_sessions_job filters by should_summarize`
+- [x] ~~**Test:** `test_summarize_sessions_job_generates_summary_for_eligible()` — verify generation and meta update~~
+  - **Commit:** `test(cron): verify summarize_sessions_job generates summaries` ✅
 
-- [ ] **Implement:** Add filtering loop in summarize_sessions_job using should_summarize
-  - **Commit:** `feat(cron): add should_summarize filtering to job`
-
-- [ ] **Test:** `test_summarize_sessions_job_generates_summary_for_eligible()` — verify generation called
-  - **Commit:** `test(cron): verify summarize_sessions_job generates summaries`
-
-- [ ] **Implement:** Call generate_session_summary for eligible sessions
-  - **Commit:** `feat(cron): wire summary generation into cron job`
+- [x] ~~**Implement:** Call generate_session_summary and update SessionMeta~~
+  - **Commit:** `feat(cron): wire summary generation into cron job` ✅
 
 #### Cron Registration
 
-- [ ] **Test:** `test_cron_job_registered_with_interval()` — verify cron system knows about job
-  - **Commit:** `test(cron): verify cron job registered with 5 minute interval`
+- [x] ~~**Test:** `test_cron_job_registered_with_interval()` — verify cron system knows about job~~
+  - **Commit:** `test(cron): verify cron job registered with 5 minute interval` ✅
 
-- [ ] **Implement:** Register `summarize_sessions_job` in cron system with 5-minute interval
-  - **Commit:** `feat(cron): register summarize_sessions_job with 5min interval`
+- [x] ~~**Implement:** Register `summarize_sessions_job` in cron system with 5-minute interval~~
+  - **Commit:** `feat(cron): register summarize_sessions_job with 5min interval` ✅
 
-- [ ] **Test:** `test_cron_interval_configurable()` — verify interval reads from config
-  - **Commit:** `test(config): verify cron interval configurable via config`
+- [x] ~~**Test:** `test_cron_interval_configurable()` — verify interval reads from config~~
+  - **Commit:** `test(config): verify cron interval configurable via config` ✅
 
-- [ ] **Implement:** Add `[session]` config section with `cron_interval_minutes` setting
-  - **Commit:** `feat(config): add session.cron_interval_minutes configuration`
+- [x] ~~**Implement:** Add `[session]` config section with `cron_interval_minutes` setting~~
+  - **Commit:** `feat(config): add session.cron_interval_minutes configuration` ✅
 
 ---
 
@@ -336,17 +354,23 @@ Create automatic session summarization:
 
 #### Configuration
 
-- [ ] **Test:** `test_config_has_session_section()` — verify [session] config section loads
-  - **Commit:** `test(config): verify session config section loads`
+- [x] ~~**Test:** `test_config_has_session_section()` — verify [session] config section loads~~
+  - **Commit:** `test(config): verify session config section loads` ✅
 
-- [ ] **Implement:** Add `[session]` config section with all settings (summarize_idle_minutes, summarize_message_threshold, cron_interval_minutes)
-  - **Commit:** `feat(config): add session configuration section`
+- [x] ~~**Implement:** Add `[session]` config section with all settings (summarize_idle_minutes, summarize_message_threshold, cron_interval_minutes)~~
+  - **Commit:** `feat(config): add session configuration section` ✅
 
-- [ ] **Test:** `test_config_default_values_correct()` — verify default values match PRD (30, 20, 5)
-  - **Commit:** `test(config): verify session config default values`
+- [x] ~~**Test:** `test_config_default_values_correct()` — verify default values match PRD (30, 20, 5)~~
+  - **Commit:** `test(config): verify session config default values` ✅
 
-- [ ] **Implement:** Set default config values (30 min idle, 20 msg, 5 min cron)
-  - **Commit:** `feat(config): set session config default values`
+- [x] ~~**Implement:** Set default config values (30 min idle, 20 msg, 5 min cron)~~
+  - **Commit:** `feat(config): set session config default values` ✅
+
+- [x] ~~**Test:** `test_config_template_includes_session_section()` — verify templates/config.toml has [session]~~
+  - **Commit:** `test(config): verify config template includes session section` ✅
+
+- [x] ~~**Implement:** Add [session] section to templates/config.toml~~
+  - **Commit:** `feat(config): add session defaults to config template` ✅
 
 #### End-to-End Integration
 
@@ -385,18 +409,18 @@ Create automatic session summarization:
 
 ### Execution Summary
 
-| Phase | Tasks | Commits | Focus |
-|-------|-------|---------|-------|
-| Phase 1 | 8 | 8 | Session ID infrastructure |
-| Phase 2 | 8 | 8 | Storage infrastructure |
-| Phase 3 | 10 | 10 | Summary data model & storage |
-| Phase 4 | 10 | 10 | LLM summarization pipeline |
-| Phase 5 | 8 | 8 | Session detection logic |
-| Phase 6 | 10 | 10 | Cron job implementation |
-| Phase 7 | 12 | 12 | SearchSessions tool |
-| Phase 8 | 8 | 8 | Config & integration |
-| Phase 9 | 5 | 5 | Cleanup & verification |
-| **Total** | **79** | **79** | **Complete implementation** |
+| Phase | Tasks | Status | Focus |
+|-------|-------|--------|-------|
+| Phase 1 | 10 | ✅ Complete | Session ID infrastructure |
+| Phase 2 | 8 | ⏳ Skipped | Storage infrastructure (exists from PRD #53) |
+| Phase 3 | 10 | ✅ Complete | Summary data model & storage |
+| Phase 4 | 10 | ✅ Complete | LLM summarization pipeline |
+| Phase 5 | 8 | ✅ Complete | Session detection logic |
+| Phase 6 | 16 | ✅ Complete | Cron job implementation & system job registry |
+| Phase 7 | 12 | ⏳ Pending | SearchSessions tool |
+| Phase 8 | 10 | 🔄 Partial | Config ✅ complete, integration ⏳ pending |
+| Phase 9 | 5 | ⏳ Pending | Cleanup & verification |
+| **Total** | **79** | **~44%** | **In progress** |
 
 ### Commit Message Pattern
 
