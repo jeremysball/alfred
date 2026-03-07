@@ -6,6 +6,7 @@ from datetime import datetime
 
 from src.embeddings import cosine_similarity
 from src.memory import MemoryEntry
+from src.session_storage import SessionStorage
 
 logger = logging.getLogger(__name__)
 
@@ -492,3 +493,86 @@ class ContextBuilder:
             ),
             included_count,
         )
+
+
+async def search_session_summaries(
+    query_embedding: list[float],
+    storage: SessionStorage,
+    top_k: int = 5,
+    min_similarity: float = 0.3,
+) -> list[dict]:
+    """Search session summaries by embedding similarity.
+
+    Args:
+        query_embedding: Pre-computed embedding for the query
+        storage: SessionStorage instance for accessing summaries
+        top_k: Maximum number of results to return
+        min_similarity: Minimum similarity threshold (0-1)
+
+    Returns:
+        List of dicts with keys:
+        - session_id: str
+        - summary: SessionSummary
+        - similarity: float
+        Sorted by similarity descending.
+    """
+    logger.debug(
+        "Searching session summaries with top_k=%s, min_similarity=%s",
+        top_k,
+        min_similarity,
+    )
+
+    session_ids = storage.list_sessions()
+    logger.debug("Found %d sessions to search", len(session_ids))
+
+    scored: list[tuple[float, str, object]] = []  # (similarity, session_id, summary)
+
+    for session_id in session_ids:
+        try:
+            summary = await storage.get_summary(session_id)
+            if summary is None:
+                logger.debug("Session %s has no summary, skipping", session_id)
+                continue
+
+            if not summary.embedding:
+                logger.debug("Session %s summary has no embedding, skipping", session_id)
+                continue
+
+            similarity = cosine_similarity(query_embedding, summary.embedding)
+            if similarity < min_similarity:
+                logger.debug(
+                    "Session %s similarity %.3f below threshold %.3f, skipping",
+                    session_id,
+                    similarity,
+                    min_similarity,
+                )
+                continue
+
+            scored.append((similarity, session_id, summary))
+
+        except Exception as e:
+            logger.warning("Error loading summary for session %s: %s", session_id, e)
+            continue
+
+    # Sort by similarity descending
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # Take top_k
+    top_results = scored[:top_k]
+
+    results = [
+        {
+            "session_id": session_id,
+            "summary": summary,
+            "similarity": similarity,
+        }
+        for similarity, session_id, summary in top_results
+    ]
+
+    logger.info(
+        "Session summary search: %d total sessions, %d matched, %d returned",
+        len(session_ids),
+        len(scored),
+        len(results),
+    )
+    return results
