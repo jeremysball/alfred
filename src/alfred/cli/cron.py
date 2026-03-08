@@ -113,15 +113,18 @@ async def list_jobs(
 @async_command
 async def submit_job(
     name: str = typer.Argument(..., help="Job name"),
-    cron: str = typer.Argument(..., help="Cron expression (e.g., '0 9 * * *' for 9am daily)"),
+    schedule: str = typer.Argument(
+        ..., help="Schedule expression (e.g., '0 9 * * *' for 9am daily)"
+    ),
     code: str | None = typer.Option(None, "--code", "-c", help="Python code for the job"),
 ) -> None:
     """Submit a new cron job for approval."""
     from alfred.cron import parser
 
+    cron = schedule
     if not parser.is_valid(cron):
-        console.print(f"[red]Error: Invalid cron expression '{cron}'[/red]")
-        console.print("\nUse cron format:")
+        console.print(f"[red]Error: Invalid schedule expression '{cron}'[/red]")
+        console.print("\nUse schedule format:")
         console.print("  '0 9 * * *' for 9am daily")
         console.print("  '*/15 * * * *' for every 15 minutes")
         console.print("  '0 19 * * 0' for Sundays at 7pm")
@@ -155,10 +158,10 @@ async def run():
     console.print(
         Panel(
             f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
-            f"[dim]Cron:[/dim] {cron_expression}\n"
+            f"[dim]Schedule:[/dim] {cron_expression}\n"
             f"[dim]Job ID:[/dim] {job_id}\n\n"
             f"[yellow]This job requires approval before it will run.[/yellow]\n"
-            f"Run: [bold]alfred cron approve {job_id[:8]}[/bold]",
+            f"Run: [bold]alfred jobs approve {job_id[:8]}[/bold]",
             title="Job Submitted",
             border_style="green",
         )
