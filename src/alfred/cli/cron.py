@@ -437,6 +437,13 @@ def reload_daemon() -> None:
         raise typer.Exit(1)
 
 
+@app.command("daemon")
+def run_daemon() -> None:
+    """Run AlfredDaemon in foreground (blocks until Ctrl+C)."""
+    from alfred.cron.daemon_runner import main
+    main()
+
+
 def _find_job(jobs: list[Job], identifier: str) -> Job | None:
     """Find job by ID or fuzzy name match."""
     identifier_lower = identifier.lower()

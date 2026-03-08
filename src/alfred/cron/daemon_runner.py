@@ -84,14 +84,17 @@ class AlfredDaemon:
 
 def main() -> None:
     """Entry point for CLI: `alfred cron daemon`."""
-    # Setup logging
+    # Load config first to get log level
+    config = load_config()
+
+    # Setup logging with config level (default INFO)
+    level = getattr(logging, config.log_level.upper(), logging.INFO)
     logging.basicConfig(
-        level=logging.INFO,
+        level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Load config and start daemon
-    config = load_config()
+    # Start daemon
     daemon = AlfredDaemon(config)
     asyncio.run(daemon.run())
 
