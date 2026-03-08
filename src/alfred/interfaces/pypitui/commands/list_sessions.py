@@ -1,5 +1,6 @@
 """/sessions command - List all sessions."""
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.pypitui.commands.base import Command
@@ -16,10 +17,15 @@ class ListSessionsCommand(Command):
 
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """List all sessions."""
-        sessions = tui.alfred.core.session_manager.list_sessions()
+        asyncio.create_task(self._execute_async(tui))
+        return True
+
+    async def _execute_async(self, tui: "AlfredTUI") -> None:
+        """Async implementation of list sessions."""
+        sessions = await tui.alfred.core.session_manager.list_sessions_async()
         if not sessions:
             tui._add_user_message("No sessions found.")  # type: ignore[misc]
-            return True
+            return
 
         # Build output using non-breaking spaces to prevent word wrapping
         lines: list[str] = []
@@ -46,4 +52,3 @@ class ListSessionsCommand(Command):
             lines.append(f"... and {len(sessions) - 20} more")
 
         tui._add_user_message("\n".join(lines))  # type: ignore[misc]
-        return True
