@@ -405,36 +405,7 @@ with TerminalSession("alfred", port=7681) as s:
 
 See `.pi/skills/tmux-tape/SKILL.md` for full API.
 
-### 11. Create Granular Execution Plans
-
-When implementing a feature or PRD phase, create an extremely granular checklist first.
-
-**Principles:**
-- Each item = single atomic action
-- Each item = independently verifiable
-- Items ordered by dependency
-- Include test items after implementation items
-- Include manual verification items
-
-**Granularity:**
-
-| Too Coarse | Good | Excellent |
-|------------|------|-----------|
-| "Add throbber" | "Create Throbber class" | "Create file `src/interfaces/pypitui/throbber.py`" |
-| "Wire into TUI" | "Add throbber to status line" | "Add `self._throbber = Throbber()` in `__init__`" |
-| "Test it works" | "Test throbber animation" | "Test: `test_throbber_tick_advances()`" |
-
-**Template:**
-```
-- [ ] Create/modify <file>
-- [ ] Add <specific code change>
-- [ ] Test: `test_<what>()`—verify <behavior>
-- [ ] Run: `uv run pytest <file>`—fix failures
-```
-
-**Store in:** `prds/execution-plan-<feature>.md`
-
-### 12. Always Use uv, Never pip
+### 11. Always Use uv, Never pip
 
 This project uses `uv` for all Python package management. Never use `pip`.
 
@@ -463,7 +434,7 @@ uv run python src/script.py
 uv run pytest tests/
 ```
 
-### 13. Use MagicMock Over monkeypatch
+### 12. Use MagicMock Over monkeypatch
 
 When mocking in tests, prefer `unittest.mock.MagicMock` over pytest's `monkeypatch`.
 
@@ -504,6 +475,6 @@ def test_async_function():
         mock_async.assert_awaited_once_with(expected_arg)
 ```
 
-### 14. Do The Right Thing, Always
+### 13. Do The Right Thing, Always
 
 NEVER take shortcuts. ALWAYS do the right thing. Do not ever say "the easier thing" or "the simpler thing." Do not worry about complexity or time in development (but do so in your algorithms!). The human will worry about that. Just do what is right. The hard things. The graft. Do not be lazy.

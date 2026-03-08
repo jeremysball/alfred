@@ -20,13 +20,16 @@ def discover_commands():
 
     from alfred.cli.main import app
 
-    completions = {"": []}  # "" = top-level commands/options
+    completions = {"": []}  # "" = top-level commands
 
     # Get the underlying Click group
     group = get_group(app)
 
-    # Get top-level commands and groups
+    # Get top-level commands and groups (filter out options/flags)
     for name, cmd in group.commands.items():
+        # Skip flags/options that were incorrectly added as commands
+        if name.startswith("-"):
+            continue
         completions[""].append(name)
         if isinstance(cmd, click.Group):
             # This is a subcommand group (like cron, memory)
@@ -91,34 +94,93 @@ complete -F _alfred_completion alfred
 
 
 def generate_fish(completions: dict) -> str:
+    """Generate fish completions with descriptions and grouped output."""
+    # Descriptions for top-level commands
+    command_descriptions = {
+        "cron": "Manage scheduled cron jobs",
+        "daemon": "Manage the background daemon process",
+        "jobs": "Manage pending jobs",
+        "memory": "Memory system management",
+    }
+
+    # Descriptions for subcommands
+    subcommand_descriptions = {
+        "cron": {
+            "list": "List all scheduled jobs",
+            "submit": "Submit a new job for review",
+            "review": "Review pending jobs",
+            "approve": "Approve a pending job",
+            "reject": "Reject a pending job",
+            "history": "Show job execution history",
+            "start": "Start a job immediately",
+            "stop": "Stop a running job",
+            "status": "Show job status",
+            "reload": "Reload cron configuration",
+        },
+        "daemon": {
+            "stop": "Stop the background daemon",
+            "status": "Check daemon status",
+            "reload": "Reload daemon configuration",
+            "logs": "Open log file in $PAGER or $EDITOR",
+        },
+        "jobs": {
+            "list": "List pending jobs",
+            "submit": "Submit a new job",
+            "review": "Review job details",
+            "approve": "Approve job execution",
+            "reject": "Reject job",
+            "history": "Show job history",
+        },
+        "memory": {
+            "migrate": "Migrate memory storage",
+            "prune": "Prune expired memories",
+            "status": "Show memory status",
+        },
+    }
+
     script = """# Alfred shell completions for fish
 # Generated automatically - do not edit manually
 
 # Disable file completions by default
 complete -c alfred -f
 
-# Top-level options
-complete -c alfred -s t -l telegram -d "Run as Telegram bot"
-complete -c alfred -s l -l log -d "Set log level" -a "info debug"
-complete -c alfred -l install-completions -d "Install shell completions"
+# Global flags (available at top-level only, not in subcommands)
+complete -c alfred -n "__fish_use_subcommand" -s t -l telegram -d "Run as Telegram bot"
+complete -c alfred -n "__fish_use_subcommand" -s l -l log -d "Set log level" -a "info debug"
+complete -c alfred -n "__fish_use_subcommand" -l install-completions -d "Install shell completions"
 complete -c alfred -l help -d "Show help"
+
+# Top-level commands with descriptions
 """
 
-    # Top-level commands (subcommands)
     top_level = completions.get("", [])
-    for cmd in top_level:
-        script += f'complete -c alfred -n "__fish_use_subcommand" -a "{cmd}"\n'
 
-    # Subcommand options
+    # Main commands
+    for cmd in top_level:
+        desc = command_descriptions.get(cmd, cmd)
+        script += f'complete -c alfred -n "__fish_use_subcommand" -a "{cmd}" -d "{desc}"\n'
+
+    # Subcommand completions
+    script += "\n# Subcommand completions\n"
     for path, opts in sorted(completions.items()):
         if not path or not opts:
             continue
-        # Fish expects __fish_seen_subcommand_from logic
+
         parts = path.split()
         if len(parts) == 1:
+            desc_map = subcommand_descriptions.get(parts[0], {})
             for sub in opts:
+                desc = desc_map.get(sub, sub)
                 fish_cond = f'"__fish_seen_subcommand_from {parts[0]}"'
-                script += f'complete -c alfred -n {fish_cond} -a "{sub}"\n'
+                script += f'complete -c alfred -n {fish_cond} -a "{sub}" -d "{desc}"\n'
+
+    # Command-specific options (only after the command is typed)
+    script += "\n# Command-specific options\n"
+    script += (
+        'complete -c alfred -n "__fish_seen_subcommand_from daemon; '
+        'and not __fish_seen_subcommand_from stop status reload logs" '
+        '-l bg -d "Run in background (daemonize)"\n'
+    )
 
     return script
 

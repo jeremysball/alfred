@@ -14,10 +14,6 @@ _alfred() {
         cmds)
             _values "alfred commands" \
                 "daemon" \
-                "daemon-stop" \
-                "daemon-status" \
-                "daemon-reload" \
-                "jobs" \
                 "cron" \
                 "memory" \
                 "--telegram" \
@@ -29,14 +25,12 @@ _alfred() {
             ;;
         args)
             case $line[1] in
-                jobs)
-                    _values "jobs subcommands" \
-                        "list" \
-                        "submit" \
-                        "review" \
-                        "approve" \
-                        "reject" \
-                        "history" \
+                daemon)
+                    _values "daemon subcommands" \
+                        "stop" \
+                        "status" \
+                        "reload" \
+                        "logs" \
                     ;;
                 cron)
                     _values "cron subcommands" \
