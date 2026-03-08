@@ -13,6 +13,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 COMPLETIONS_DIR = PROJECT_ROOT / "completions"
 
+
 def get_completions(args: list[str]) -> list[str]:
     """Get completions by running alfred with completion env vars."""
     env = {
@@ -33,8 +34,9 @@ def get_completions(args: list[str]) -> list[str]:
     choices = [line.split("\t")[0] for line in lines if line.strip()]
     return sorted(list(set(choices)))
 
+
 def generate_bash(completions: dict[str, list[str]]) -> str:
-    script = '''#!/bin/bash
+    script = """#!/bin/bash
 # Static bash completion for alfred
 # Generated automatically - do not edit manually
 
@@ -54,19 +56,24 @@ _alfred_completion() {
     cmd_path="${cmd_path% }"
 
     case "$cmd_path" in
-'''
+"""
     for path, opts in sorted(completions.items()):
-        if not opts and path != "": continue
-        
+        if not opts and path != "":
+            continue
+
         # Add flags to top-level
         if path == "":
-            opts.extend(["--telegram", "-t", "--log", "-l", "--install-completions", "--help"])
-        
+            opts.extend(
+                ["--telegram", "-t", "--log", "-l", "--install-completions", "--help"]
+            )
+
         opts_str = " ".join(sorted(list(set(opts))))
         case_path = path if path else '""'
-        script += f'        {case_path})\n            opts="{opts_str}"\n            ;;\n'
+        script += (
+            f'        {case_path})\n            opts="{opts_str}"\n            ;;\n'
+        )
 
-    script += '''        *)
+    script += """        *)
             opts=""
             ;;
     esac
@@ -79,11 +86,12 @@ _alfred_completion() {
 }
 
 complete -F _alfred_completion alfred
-'''
+"""
     return script
 
+
 def generate_fish(completions: dict[str, list[str]]) -> str:
-    script = '''# Alfred shell completions for fish
+    script = """# Alfred shell completions for fish
 # Generated automatically - do not edit manually
 
 # Disable file completions by default
@@ -93,7 +101,7 @@ complete -c alfred -f
 complete -c alfred -s t -l telegram -d "Run as Telegram bot"
 complete -c alfred -s l -l log -d "Set log level" -a "info debug"
 complete -c alfred -l install-completions -d "Install shell completions"
-'''
+"""
     # Handle top-level
     top_level = completions.get("", [])
     for cmd in top_level:
@@ -101,19 +109,21 @@ complete -c alfred -l install-completions -d "Install shell completions"
 
     # Handle subcommands
     for path, opts in sorted(completions.items()):
-        if not path or not opts: continue
+        if not path or not opts:
+            continue
         # Fish expects __fish_seen_subcommand_from logic
         parts = path.split()
         if len(parts) == 1:
             for sub in opts:
                 script += f'complete -c alfred -n "__fish_seen_subcommand_from {parts[0]}" -a "{sub}"\n'
         # Nested subcommands could be added here if needed, but Alfred currently only has 2 levels
-    
+
     return script
+
 
 def generate_zsh(completions: dict[str, list[str]]) -> str:
     # Minimal Zsh completion wrapper
-    script = '''#compdef alfred
+    script = """#compdef alfred
 # Generated automatically - do not edit manually
 
 _alfred() {
@@ -128,36 +138,41 @@ _alfred() {
     case $state in
         cmds)
             _values "alfred commands" \\
-'''
+"""
     top_level = completions.get("", [])
     for cmd in top_level:
         script += f'                "{cmd}" \\\n'
-    
-    script += '''            ;;
+
+    script += """            ;;
         args)
             case $line[1] in
-'''
+"""
     for cmd in top_level:
         subcmds = completions.get(cmd, [])
         if subcmds:
             script += f'                {cmd})\n                    _values "{cmd} subcommands" \\\n'
             for sub in subcmds:
                 script += f'                        "{sub}" \\\n'
-            script += '                    ;;\n'
+            script += "                    ;;\n"
 
-    script += '''            esac
+    script += """            esac
             ;;
     esac
 }
 
 _alfred "$@"
-'''
+"""
     return script
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="Check if completions are up to date")
-    parser.add_argument("--shell", choices=["bash", "fish", "zsh", "all"], default="all")
+    parser.add_argument(
+        "--check", action="store_true", help="Check if completions are up to date"
+    )
+    parser.add_argument(
+        "--shell", choices=["bash", "fish", "zsh", "all"], default="all"
+    )
     args = parser.parse_args()
 
     # Discover completions
@@ -176,21 +191,23 @@ def main():
 
     if args.check:
         mismatch = False
-        for shell, (gen_func, filename) in shell_map.items():
+        for _, (gen_func, filename) in shell_map.items():
             path = COMPLETIONS_DIR / filename
             if not path.exists():
                 print(f"Error: {path} is missing")
                 mismatch = True
                 continue
-            
+
             current = path.read_text()
             generated = gen_func(completions)
             if current != generated:
                 print(f"Error: {path} is out of date")
                 mismatch = True
-        
+
         if mismatch:
-            print("\nRun 'python scripts/generate-static-completions.py' to regenerate.")
+            print(
+                "\nRun 'python scripts/generate-static-completions.py' to regenerate."
+            )
             sys.exit(1)
         else:
             print("Completions are up to date.")
@@ -199,12 +216,13 @@ def main():
     # Generate mode
     COMPLETIONS_DIR.mkdir(exist_ok=True)
     shells_to_gen = shell_map.keys() if args.shell == "all" else [args.shell]
-    
+
     for shell in shells_to_gen:
         gen_func, filename = shell_map[shell]
         content = gen_func(completions)
         (COMPLETIONS_DIR / filename).write_text(content)
         print(f"Generated {COMPLETIONS_DIR / filename}")
+
 
 if __name__ == "__main__":
     main()

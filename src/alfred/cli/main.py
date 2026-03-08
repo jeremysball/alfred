@@ -54,7 +54,13 @@ def main(
     install_completions: bool = typer.Option(
         False,
         "--install-completions",
-        help="Install fast static shell completions",
+        help="Install shell completions for current shell (auto-detect from $SHELL)",
+        is_flag=True,
+    ),
+    shell: str | None = typer.Option(
+        None,
+        "--shell",
+        help="Shell to install completions for (bash, fish, zsh). Use with --install-completions",
     ),
 ) -> None:
     """Alfred - Persistent memory-augmented LLM assistant.
@@ -69,7 +75,7 @@ def main(
     if install_completions:
         from alfred.cli.install_completions import install
 
-        install()
+        install(shell=shell)
         raise typer.Exit()
 
     global _run_telegram, _log_level
