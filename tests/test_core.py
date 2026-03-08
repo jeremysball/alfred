@@ -1,6 +1,5 @@
 """Tests for AlfredCore - shared services container."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -183,7 +182,8 @@ class TestAlfredCoreErrorHandling:
         config.data_dir = tmp_path / "data"
         config.kimi_api_key = None
         config.openai_api_key = None
+        config.embedding_model = "text-embedding-3-small"
 
         # Should raise an informative error about configuration
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, AttributeError)):
             AlfredCore(config)
