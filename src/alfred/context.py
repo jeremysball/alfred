@@ -90,7 +90,7 @@ class ContextCache:
 
 class ContextBuilder:
     """Build prompt context with relevant memories injected.
-    
+
     Consolidated from src/search.py - now uses SQLiteStore directly.
     """
 
@@ -248,8 +248,12 @@ class ContextBuilder:
         if token_count > self.memory_budget:
             logger.warning(f"Context exceeds budget: {token_count} > {self.memory_budget}")
             truncated, truncated_count = self._truncate_to_budget(
-                system_prompt, relevant, session_messages or [], self.memory_budget,
-                similarities, scores,
+                system_prompt,
+                relevant,
+                session_messages or [],
+                self.memory_budget,
+                similarities,
+                scores,
             )
             return truncated, truncated_count
 
@@ -282,7 +286,9 @@ class ContextBuilder:
         if not all_tool_calls:
             return ""
 
-        tool_calls = all_tool_calls[-max_calls:] if len(all_tool_calls) > max_calls else all_tool_calls
+        tool_calls = (
+            all_tool_calls[-max_calls:] if len(all_tool_calls) > max_calls else all_tool_calls
+        )
 
         lines = ["## RECENT TOOL CALLS\n"]
         for i, tc in enumerate(tool_calls, 1):
@@ -389,7 +395,9 @@ class ContextBuilder:
             memory_lines.append("_No memories fit in context window._")
 
         included_count = len(memory_lines) - 1
-        return "\n\n".join([system_prompt, "\n".join(memory_lines), session_section, "## CURRENT CONVERSATION\n"]), included_count
+        return "\n\n".join(
+            [system_prompt, "\n".join(memory_lines), session_section, "## CURRENT CONVERSATION\n"]
+        ), included_count
 
 
 class ContextLoader:
@@ -445,8 +453,7 @@ class ContextLoader:
     async def load_all(self) -> dict[str, ContextFile]:
         """Load all required context files concurrently."""
         tasks = [
-            self.load_file(name, path)
-            for name, path in (self.config.context_files or {}).items()
+            self.load_file(name, path) for name, path in (self.config.context_files or {}).items()
         ]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}

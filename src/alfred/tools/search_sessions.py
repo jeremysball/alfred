@@ -45,7 +45,9 @@ class SearchSessionsToolParams(BaseModel):
 class SessionSummarizer:
     """Generates and manages LLM-based session summaries."""
 
-    def __init__(self, llm_client: LLMProvider, embedder: EmbeddingProvider, store: SQLiteStore | None = None) -> None:
+    def __init__(
+        self, llm_client: LLMProvider, embedder: EmbeddingProvider, store: SQLiteStore | None = None
+    ) -> None:
         self.llm_client = llm_client
         self.embedder = embedder
         self.store = store
@@ -208,10 +210,7 @@ class SearchSessionsTool(Tool):
         return await self.summarizer.store.search_summaries(query_embedding, top_k)
 
     async def _search_session_messages(
-        self,
-        session_id: str,
-        query_embedding: list[float],
-        top_k: int = 3
+        self, session_id: str, query_embedding: list[float], top_k: int = 3
     ) -> list[dict]:
         """Stage 2: Search messages within a session.
 
