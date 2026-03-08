@@ -113,10 +113,10 @@ class TestAlfredUsesAlfredCore:
 
     def test_alfred_registers_services_in_locator(self, test_config):
         """Alfred should have services registered in ServiceLocator via core."""
-        from alfred.storage.sqlite import SQLiteStore
         from alfred.embeddings.provider import EmbeddingProvider
         from alfred.llm import LLMProvider
         from alfred.session import SessionManager
+        from alfred.storage.sqlite import SQLiteStore
         from alfred.tools.search_sessions import SessionSummarizer
 
         with (

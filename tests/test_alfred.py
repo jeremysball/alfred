@@ -65,8 +65,8 @@ async def test_chat_returns_response(mock_config, mock_context):
         patch("alfred.alfred.ContextLoader") as mock_loader_class,
         patch("alfred.core.create_provider") as mock_embedder_class,
         patch("alfred.core.create_memory_store") as mock_memory_class,
-        patch("alfred.core.CronStore") as mock_cron_store_class,
-        patch("alfred.core.CronScheduler") as mock_cron_scheduler_class,
+        patch("alfred.core.CronStore"),
+        patch("alfred.core.CronScheduler"),
         patch("alfred.alfred.register_builtin_tools"),
         patch("alfred.alfred.get_registry") as mock_registry,
         patch("alfred.alfred.Agent") as mock_agent_class,
@@ -111,8 +111,8 @@ async def test_chat_builds_correct_messages(mock_config, mock_context):
         patch("alfred.alfred.ContextLoader") as mock_loader_class,
         patch("alfred.core.create_provider") as mock_embedder_class,
         patch("alfred.core.create_memory_store") as mock_memory_class,
-        patch("alfred.core.CronStore") as mock_cron_store_class,
-        patch("alfred.core.CronScheduler") as mock_cron_scheduler_class,
+        patch("alfred.core.CronStore"),
+        patch("alfred.core.CronScheduler"),
         patch("alfred.alfred.register_builtin_tools"),
         patch("alfred.alfred.get_registry") as mock_registry,
         patch("alfred.alfred.Agent") as mock_agent_class,
@@ -201,7 +201,10 @@ def test_sync_token_tracker_from_session(mock_config):
             Message(
                 idx=1,
                 role=Role.ASSISTANT,
-                content="Hello! I am the assistant responding to your test message with more content.",
+                content=(
+                    "Hello! I am the assistant responding to your test message "
+                    "with more content."
+                ),
                 timestamp=datetime.now(UTC),
                 input_tokens=0,
                 output_tokens=250,  # Has stored count

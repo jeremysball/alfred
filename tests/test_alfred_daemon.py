@@ -43,7 +43,7 @@ class TestAlfredDaemonInitialization:
             mock_config.kimi_api_key = "test-key"
             mock_config.openai_api_key = "test-key"
             mock_load_config.return_value = mock_config
-            
+
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
@@ -66,7 +66,7 @@ class TestAlfredDaemonInitialization:
             mock_config.kimi_api_key = "test-key"
             mock_config.openai_api_key = "test-key"
             mock_load_config.return_value = mock_config
-            
+
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
@@ -96,7 +96,7 @@ class TestAlfredDaemonRun:
             mock_config.kimi_api_key = "test-key"
             mock_config.openai_api_key = "test-key"
             mock_load_config.return_value = mock_config
-            
+
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
@@ -112,10 +112,10 @@ class TestAlfredDaemonServices:
 
     def test_registers_services_in_locator(self):
         """Daemon should register services in ServiceLocator via core."""
-        from alfred.storage.sqlite import SQLiteStore
         from alfred.embeddings.provider import EmbeddingProvider
         from alfred.llm import LLMProvider
         from alfred.session import SessionManager
+        from alfred.storage.sqlite import SQLiteStore
         from alfred.tools.search_sessions import SessionSummarizer
 
         with (
@@ -130,7 +130,7 @@ class TestAlfredDaemonServices:
             mock_config.kimi_api_key = "test-key"
             mock_config.openai_api_key = "test-key"
             mock_load_config.return_value = mock_config
-            
+
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
