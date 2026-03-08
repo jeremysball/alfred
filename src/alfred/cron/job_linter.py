@@ -4,8 +4,6 @@ Detects common foot guns in user-submitted job code before execution.
 """
 
 import ast
-import inspect
-from typing import List
 
 
 class JobLinterError(Exception):
@@ -44,7 +42,7 @@ class BlockingCallVisitor(ast.NodeVisitor):
     }
 
     def __init__(self) -> None:
-        self.errors: List[JobLinterError] = []
+        self.errors: list[JobLinterError] = []
         self.in_async_function = False
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
@@ -108,7 +106,7 @@ class NotifyUsageVisitor(ast.NodeVisitor):
     """Check that jobs use the injected notify() function correctly."""
 
     def __init__(self) -> None:
-        self.errors: List[JobLinterError] = []
+        self.errors: list[JobLinterError] = []
         self.found_notify_call = False
         self.found_subprocess_notify = False
         self.in_async_function = False
@@ -136,9 +134,7 @@ class NotifyUsageVisitor(ast.NodeVisitor):
                 # Check if first arg is 'notify'
                 if node.args:
                     first_arg = node.args[0]
-                    if isinstance(first_arg, ast.Constant) and "notify" in str(
-                        first_arg.value
-                    ):
+                    if isinstance(first_arg, ast.Constant) and "notify" in str(first_arg.value):
                         self.found_subprocess_notify = True
                         self.errors.append(
                             JobLinterError(
@@ -161,7 +157,7 @@ class NotifyUsageVisitor(ast.NodeVisitor):
         return None
 
 
-def lint_job_code(code: str) -> List[JobLinterError]:
+def lint_job_code(code: str) -> list[JobLinterError]:
     """Lint job code for common foot guns.
 
     Args:
@@ -170,7 +166,7 @@ def lint_job_code(code: str) -> List[JobLinterError]:
     Returns:
         List of lint errors (empty if code passes)
     """
-    errors: List[JobLinterError] = []
+    errors: list[JobLinterError] = []
 
     # Parse AST
     try:
@@ -206,7 +202,7 @@ def lint_job_code(code: str) -> List[JobLinterError]:
     return errors
 
 
-def format_lint_errors(errors: List[JobLinterError]) -> str:
+def format_lint_errors(errors: list[JobLinterError]) -> str:
     """Format lint errors for display.
 
     Args:

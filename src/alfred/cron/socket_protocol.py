@@ -38,7 +38,7 @@ class MessageType(StrEnum):
     # Query/Request-Response for live data
     QUERY_JOBS = "query_jobs"
     QUERY_JOBS_RESPONSE = "query_jobs_response"
-    
+
     # Job management commands (request-response)
     SUBMIT_JOB = "submit_job"
     SUBMIT_JOB_RESPONSE = "submit_job_response"
