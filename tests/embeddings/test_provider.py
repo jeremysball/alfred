@@ -107,12 +107,19 @@ class TestBGEProviderSingleton:
 
         assert model1 is model2
 
-    def test_provider_uses_singleton(self) -> None:
-        """Provider should use singleton model."""
+    @pytest.mark.asyncio
+    async def test_provider_uses_singleton(self) -> None:
+        """Provider should use singleton model after initialization."""
         from alfred.embeddings.bge_provider import BGEProvider, get_model
 
         provider = BGEProvider()
-        # Access internal model reference
+        # Model not loaded yet (lazy loading)
+        assert provider._model is None
+
+        # Initialize the provider (loads model)
+        await provider.initialize()
+
+        # Access internal model reference via global singleton
         model = get_model()
 
         # Provider should be using the same model
