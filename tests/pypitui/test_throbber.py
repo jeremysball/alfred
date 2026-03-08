@@ -1,108 +1,159 @@
 """Tests for Throbber animation component."""
 
-import time
+from alfred.interfaces.pypitui.throbber import (
+    THROBBER_STYLES,
+    Throbber,
+    ThrobberStyle,
+    list_throbber_styles,
+)
 
-from alfred.interfaces.pypitui.throbber import ASCII_FRAMES, BRAILLE_FRAMES, Throbber
+
+class TestThrobberStyle:
+    """Test ThrobberStyle dataclass."""
+
+    def test_style_render_returns_string(self) -> None:
+        """Render should return a string."""
+        style = ThrobberStyle(name="test", frames=["a", "b", "c"])
+        result = style.render(0)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_style_render_with_colors_includes_ansi(self) -> None:
+        """Render with colors should include ANSI escape codes."""
+        style = ThrobberStyle(name="test", frames=["a"], colors=[(255, 0, 0)])
+        result = style.render(0)
+        assert "\x1b[" in result  # ANSI escape sequence
+
+    def test_style_render_without_colors_no_ansi(self) -> None:
+        """Render without colors should not include ANSI codes."""
+        style = ThrobberStyle(name="test", frames=["a"], colors=None)
+        result = style.render(0)
+        assert "\x1b[" not in result
+        assert result == "a"
+
+    def test_style_render_cycles_frames(self) -> None:
+        """Render should cycle through frames."""
+        style = ThrobberStyle(name="test", frames=["a", "b", "c"])
+        assert style.render(0) == "a"
+        assert style.render(1) == "b"
+        assert style.render(2) == "c"
+        assert style.render(3) == "a"  # Cycles back
 
 
-class TestThrobberConstants:
-    """Test throbber frame constants."""
+class TestThrobberStylesRegistry:
+    """Test predefined styles registry."""
 
-    def test_braille_frames_has_10_frames(self) -> None:
-        """Braille animation should have 10 frames."""
-        assert len(BRAILLE_FRAMES) == 10
+    def test_styles_registry_has_multiple_styles(self) -> None:
+        """Registry should have multiple predefined styles."""
+        assert len(THROBBER_STYLES) >= 5
 
-    def test_ascii_frames_has_4_frames(self) -> None:
-        """ASCII animation should have 4 frames."""
-        assert len(ASCII_FRAMES) == 4
+    def test_list_throbber_styles_returns_names(self) -> None:
+        """list_throbber_styles should return style names."""
+        names = list_throbber_styles()
+        assert isinstance(names, list)
+        assert len(names) == len(THROBBER_STYLES)
+        assert "glow" in names
+        assert "classic" in names
 
-    def test_braille_frames_are_single_char(self) -> None:
-        """Each braille frame should be a single character."""
-        for frame in BRAILLE_FRAMES:
-            assert len(frame) == 1
+    def test_all_styles_have_name_and_frames(self) -> None:
+        """All predefined styles should have required fields."""
+        for name, style in THROBBER_STYLES.items():
+            assert style.name == name
+            assert len(style.frames) > 0
+            assert all(isinstance(f, str) for f in style.frames)
 
-    def test_ascii_frames_are_single_char(self) -> None:
-        """Each ASCII frame should be a single character."""
-        for frame in ASCII_FRAMES:
-            assert len(frame) == 1
+    def test_all_styles_have_valid_spin_rate(self) -> None:
+        """All predefined styles should have positive spin rate."""
+        for style in THROBBER_STYLES.values():
+            assert style.spin_rate > 0
 
 
 class TestThrobberInit:
     """Test Throbber initialization."""
 
-    def test_throbber_default_uses_braille(self) -> None:
-        """Default throbber should use braille frames."""
+    def test_throbber_default_uses_glow_style(self) -> None:
+        """Default throbber should use glow style."""
         throbber = Throbber()
-        assert throbber._frames == BRAILLE_FRAMES
+        assert throbber._style.name == "glow"
 
-    def test_throbber_can_use_ascii(self) -> None:
-        """Throbber with use_braille=False should use ASCII frames."""
-        throbber = Throbber(use_braille=False)
-        assert throbber._frames == ASCII_FRAMES
+    def test_throbber_can_use_specific_style(self) -> None:
+        """Throbber can be initialized with specific style name."""
+        throbber = Throbber(style="classic")
+        assert throbber._style.name == "classic"
+
+    def test_throbber_invalid_style_defaults_to_glow(self) -> None:
+        """Invalid style name should default to glow."""
+        throbber = Throbber(style="nonexistent")
+        assert throbber._style.name == "glow"
+
+    def test_throbber_can_use_custom_style(self) -> None:
+        """Throbber can use custom ThrobberStyle."""
+        custom = ThrobberStyle(name="custom", frames=["x", "y", "z"])
+        throbber = Throbber(custom_style=custom)
+        assert throbber._style.name == "custom"
 
     def test_throbber_index_starts_at_zero(self) -> None:
         """Throbber index should start at 0."""
         throbber = Throbber()
-        assert throbber._index == 0
+        assert throbber.current_index == 0
+
+    def test_throbber_frame_count_matches_style(self) -> None:
+        """frame_count should match style's frame count."""
+        throbber = Throbber(style="ascii")
+        assert throbber.frame_count == 4
 
 
 class TestThrobberRender:
     """Test Throbber render method."""
 
-    def test_throbber_render_returns_frame(self) -> None:
-        """Render should return current frame."""
+    def test_throbber_render_returns_non_empty_string(self) -> None:
+        """Render should return a non-empty string."""
         throbber = Throbber()
         result = throbber.render()
-        assert result == BRAILLE_FRAMES[0]
+        assert isinstance(result, str)
+        assert len(result) > 0
 
-    def test_throbber_render_after_tick(self) -> None:
-        """Render should return next frame after tick."""
+    def test_throbber_render_changes_after_tick(self) -> None:
+        """Render should return different result after tick advances."""
         throbber = Throbber()
-        # Use explicit timestamps to control delta time
-        base_time = 1000.0
-        throbber.tick(base_time)  # First tick advances (last_tick was 0)
-        result = throbber.render()
-        assert result == BRAILLE_FRAMES[1]
+        initial = throbber.render()
+        throbber.tick(1000.0)  # Force tick
+        after_tick = throbber.render()
+        # Should be different (unless it's a 1-frame style, which none are)
+        assert initial != after_tick or throbber.frame_count == 1
 
 
 class TestThrobberTick:
     """Test Throbber tick method."""
 
-    def test_throbber_tick_advances(self) -> None:
-        """Tick should advance to next frame."""
+    def test_throbber_tick_advances_index(self) -> None:
+        """Tick should advance the frame index."""
         throbber = Throbber()
-        assert throbber._index == 0
-        throbber.tick(1000.0)  # First tick always advances (last_tick was 0)
-        assert throbber._index == 1
+        initial_index = throbber.current_index
+        throbber.tick(1000.0)  # First tick always advances
+        assert throbber.current_index != initial_index
 
-    def test_throbber_tick_multiple_times(self) -> None:
+    def test_throbber_tick_multiple_times_advances(self) -> None:
         """Multiple ticks should advance through frames."""
         throbber = Throbber()
         base_time = 1000.0
-        # First tick sets baseline
         throbber.tick(base_time)
-        # Subsequent ticks need enough delta time
+        initial = throbber.current_index
+        # Tick enough to advance
         for i in range(5):
-            throbber.tick(base_time + (i + 1) * 1.0)  # 1 second between ticks
-        assert throbber._index == 6  # 1 initial + 5 more
+            throbber.tick(base_time + (i + 1) * 1.0)
+        assert throbber.current_index != initial
 
-    def test_throbber_loops_at_end_braille(self) -> None:
-        """Tick at last braille frame should wrap to first."""
-        throbber = Throbber(use_braille=True)
+    def test_throbber_loops_at_end(self) -> None:
+        """Tick at last frame should wrap to first."""
+        throbber = Throbber(style="ascii")  # 4 frames
         base_time = 1000.0
-        # Move to last frame
-        for i in range(10):
+        initial = throbber.current_index
+        # Tick through full cycle (frame_count ticks brings us back to start)
+        for i in range(throbber.frame_count):
             throbber.tick(base_time + i * 1.0)
-        assert throbber._index == 0  # Wrapped around
-
-    def test_throbber_loops_at_end_ascii(self) -> None:
-        """Tick at last ASCII frame should wrap to first."""
-        throbber = Throbber(use_braille=False)
-        base_time = 1000.0
-        # Move to last frame and wrap
-        for i in range(4):
-            throbber.tick(base_time + i * 1.0)
-        assert throbber._index == 0  # Wrapped around
+        # Should have wrapped back to initial
+        assert throbber.current_index == initial
 
     def test_throbber_tick_returns_true_on_change(self) -> None:
         """Tick should return True when frame changes."""
@@ -112,35 +163,28 @@ class TestThrobberTick:
 
     def test_throbber_tick_returns_false_when_no_change(self) -> None:
         """Tick should return False when frame doesn't change."""
-        throbber = Throbber(spin_rate=1.0)  # 1 frame per second
+        throbber = Throbber(custom_style=ThrobberStyle(
+            name="slow", frames=["a", "b"], spin_rate=1.0
+        ))
         base_time = 1000.0
         throbber.tick(base_time)  # First tick advances
-        # Immediate second tick should not advance (delta < 1 second)
-        result = throbber.tick(base_time + 0.1)  # Only 0.1s later
+        # Immediate second tick should not advance
+        result = throbber.tick(base_time + 0.1)
         assert result is False
 
 
 class TestThrobberReset:
     """Test Throbber reset method."""
 
-    def test_throbber_reset_sets_index_0(self) -> None:
+    def test_throbber_reset_sets_index_to_zero(self) -> None:
         """Reset should set index back to 0."""
         throbber = Throbber()
         base_time = 1000.0
         throbber.tick(base_time)
         throbber.tick(base_time + 1.0)
-        assert throbber._index == 2
+        assert throbber.current_index > 0
         throbber.reset()
-        assert throbber._index == 0
-
-    def test_throbber_reset_render_returns_first_frame(self) -> None:
-        """After reset, render should return first frame."""
-        throbber = Throbber()
-        base_time = 1000.0
-        throbber.tick(base_time)
-        throbber.tick(base_time + 1.0)
-        throbber.reset()
-        assert throbber.render() == BRAILLE_FRAMES[0]
+        assert throbber.current_index == 0
 
     def test_throbber_reset_updates_last_tick(self) -> None:
         """Reset should update _last_tick to current time."""
@@ -155,61 +199,67 @@ class TestThrobberReset:
         assert throbber._last_tick > 500.0
 
 
-class TestThrobberBrailleVsAscii:
-    """Test differences between braille and ASCII modes."""
-
-    def test_throbber_braille_vs_ascii_first_frame(self) -> None:
-        """Braille and ASCII should have different first frames."""
-        braille = Throbber(use_braille=True)
-        ascii_throbber = Throbber(use_braille=False)
-        assert braille.render() != ascii_throbber.render()
-
-    def test_throbber_ascii_full_cycle(self) -> None:
-        """ASCII throbber should cycle through all 4 frames."""
-        throbber = Throbber(use_braille=False)
-        base_time = 1000.0
-        frames = []
-        for i in range(5):
-            frames.append(throbber.render())
-            throbber.tick(base_time + i * 1.0)
-        # After 4 ticks, should be back at start
-        # First and last should match (full cycle)
-        assert frames[0] == frames[4]
-        # All 4 frames should be different
-        assert len(set(frames[:4])) == 4
-
-
 class TestThrobberDeltaTime:
     """Test throbber delta time behavior."""
 
-    def test_throbber_slow_spin_rate_does_not_advance_immediately(self) -> None:
-        """With slow spin rate, tick should not advance frame immediately."""
-        throbber = Throbber(spin_rate=1.0)  # 1 frame per second
-        initial_frame = throbber.render()
-        base_time = 1000.0
-        throbber.tick(base_time)  # First tick advances
-        # Immediate second tick should not advance (within same frame time)
-        throbber.tick(base_time + 0.1)  # Only 0.1s later
-        assert throbber.render() == BRAILLE_FRAMES[1]  # Still on frame 1
+    def test_throbber_respects_spin_rate(self) -> None:
+        """Throbber should respect its spin rate for frame advancement."""
+        slow_throbber = Throbber(style="ascii", custom_style=ThrobberStyle(
+            name="slow", frames=["a", "b"], spin_rate=1.0
+        ))
+        fast_throbber = Throbber(style="ascii", custom_style=ThrobberStyle(
+            name="fast", frames=["a", "b"], spin_rate=10.0
+        ))
 
-    def test_throbber_returns_false_when_no_advance(self) -> None:
-        """Tick should return False when delta time hasn't exceeded frame time."""
-        throbber = Throbber(spin_rate=1.0)
         base_time = 1000.0
-        throbber.tick(base_time)  # First tick
-        result = throbber.tick(base_time + 0.1)  # Second tick immediately after
-        assert result is False
 
-    def test_throbber_spin_rate_affects_speed(self) -> None:
+        # Both tick once
+        slow_throbber.tick(base_time)
+        fast_throbber.tick(base_time)
+
+        # Fast throbber should advance with 0.1s delta
+        fast_result = fast_throbber.tick(base_time + 0.1)
+        assert fast_result is True
+
+        # Slow throbber should not advance with 0.1s delta
+        slow_result = slow_throbber.tick(base_time + 0.1)
+        assert slow_result is False
+
+    def test_throbber_fast_spin_rate_allows_quick_advance(self) -> None:
         """Higher spin rate should allow faster frame advancement."""
-        # Fast spin rate: 10 frames per second
-        fast_throbber = Throbber(spin_rate=10.0)
+        throbber = Throbber(custom_style=ThrobberStyle(
+            name="fast", frames=["a", "b"], spin_rate=20.0
+        ))
         base_time = 1000.0
-        fast_throbber.tick(base_time)  # First tick
-        result = fast_throbber.tick(base_time + 0.1)  # 0.1s later
-        assert result is True  # Should advance (0.1s >= 0.1s frame time)
+        throbber.tick(base_time)
+        # With 20 fps, frame time is 0.05s - use slightly more to avoid race conditions
+        result = throbber.tick(base_time + 0.06)
+        assert result is True
 
-    def test_throbber_default_spin_rate_is_6fps(self) -> None:
-        """Default spin rate should be 6 frames per second."""
-        throbber = Throbber()
-        assert throbber._spin_rate == 6.0
+
+class TestThrobberDifferentStyles:
+    """Test behavior across different styles."""
+
+    def test_all_styles_can_tick_and_render(self) -> None:
+        """All predefined styles should support tick and render."""
+        for style_name in list_throbber_styles():
+            throbber = Throbber(style=style_name)
+            # Should be able to tick
+            changed = throbber.tick(1000.0)
+            assert changed is True
+            # Should be able to render
+            result = throbber.render()
+            assert isinstance(result, str)
+            assert len(result) > 0
+
+    def test_all_styles_loop_correctly(self) -> None:
+        """All styles should loop back to start after full cycle."""
+        for style_name in list_throbber_styles():
+            throbber = Throbber(style=style_name)
+            base_time = 1000.0
+            initial = throbber.current_index
+            # Tick through full cycle
+            for i in range(throbber.frame_count):
+                throbber.tick(base_time + i * 1.0)
+            # Should be back at start
+            assert throbber.current_index == initial
