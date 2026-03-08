@@ -211,6 +211,82 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         ],
         spin_rate=8.0,
     ),
+    # HIGH-QUALITY RESEARCHED STYLES
+    # Moon phases - meditative, astronomical
+    "moon": ThrobberStyle(
+        name="moon",
+        frames=["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"],
+        colors=[
+            (100, 100, 100),  # Dark gray
+            (150, 150, 150),  # Gray
+            (200, 200, 200),  # Light gray
+            (220, 220, 220),  # Very light
+            (255, 255, 255),  # Full moon white
+            (220, 220, 220),  # Very light
+            (200, 200, 200),  # Light gray
+            (150, 150, 150),  # Gray
+        ],
+        spin_rate=8.0,
+    ),
+    # Earth rotation - environmental, global
+    "earth": ThrobberStyle(
+        name="earth",
+        frames=["🌍", "🌎", "🌏"],
+        colors=[
+            (100, 150, 255),  # Blue ocean
+            (100, 200, 100),  # Green land
+            (150, 220, 255),  # Light blue
+        ],
+        spin_rate=6.0,
+    ),
+    # Hearts - emotional, warm
+    "hearts": ThrobberStyle(
+        name="hearts",
+        frames=["💛", "💙", "💜", "💚", "❤️", "💖"],
+        colors=[
+            (255, 255, 0),    # Yellow
+            (100, 150, 255),  # Blue
+            (200, 100, 255),  # Purple
+            (100, 255, 100),  # Green
+            (255, 50, 50),    # Red
+            (255, 150, 200),  # Pink
+        ],
+        spin_rate=10.0,
+    ),
+    # Clock - time, precision
+    "clock": ThrobberStyle(
+        name="clock",
+        frames=["🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚"],
+        colors=[
+            (255, 200, 100),  # Gold
+        ],
+        spin_rate=12.0,
+    ),
+    # Rocket - launch, startup (Nerd Font)
+    "rocket": ThrobberStyle(
+        name="rocket",
+        frames=["🚀", "✦", "·", "✧", "·"],
+        colors=[
+            (255, 100, 100),  # Red rocket
+            (255, 200, 100),  # Gold sparkle
+            (150, 150, 150),  # Gray trail
+            (200, 200, 255),  # Blue sparkle
+            (150, 150, 150),  # Gray trail
+        ],
+        spin_rate=10.0,
+    ),
+    # Snow - winter, calm (Nerd Font snowflake)
+    "snow": ThrobberStyle(
+        name="snow",
+        frames=["❄️", "❅", "❆", "·"],
+        colors=[
+            (200, 240, 255),  # Light blue-white
+            (220, 250, 255),  # Very light blue
+            (255, 255, 255),  # White
+            (150, 200, 220),  # Blue-gray
+        ],
+        spin_rate=6.0,
+    ),
 }
 
 
