@@ -81,15 +81,15 @@ Proposed Architecture:
 
 ## Acceptance Criteria
 
-- [ ] `AlfredCore` class extracted with all shared services
-- [ ] `Alfred` refactored to use `AlfredCore`
-- [ ] `LittleAlfred` class created using `AlfredCore`
-- [ ] Cron daemon can run standalone (no Alfred running)
-- [ ] Session summarization works in background daemon
-- [ ] No code duplication between Alfred and LittleAlfred
-- [ ] ServiceLocator populated by AlfredCore (not Alfred)
-- [ ] Tests for AlfredCore initialization
-- [ ] Tests for LittleAlfred standalone operation
+- [x] `AlfredCore` class extracted with all shared services
+- [x] `Alfred` refactored to use `AlfredCore`
+- [x] `AlfredDaemon` class created using `AlfredCore`
+- [x] Cron daemon can run standalone (no Alfred running)
+- [x] Session summarization works in background daemon
+- [x] No code duplication between Alfred and AlfredDaemon
+- [x] ServiceLocator populated by AlfredCore (not Alfred)
+- [x] Tests for AlfredCore initialization
+- [x] Tests for AlfredDaemon standalone operation
 
 ---
 
