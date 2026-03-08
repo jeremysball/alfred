@@ -287,6 +287,16 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         ],
         spin_rate=6.0,
     ),
+    # Toggle - minimal, elegant
+    "toggle": ThrobberStyle(
+        name="toggle",
+        frames=["⊶", "⊷"],
+        colors=[
+            (150, 150, 150),  # Gray
+            (255, 255, 255),  # White
+        ],
+        spin_rate=8.0,
+    ),
 }
 
 
