@@ -81,10 +81,7 @@ async def _load_model_async(model_name: str = "bge-base") -> Any:
 
         # Run synchronous model loading in thread pool
         loop = asyncio.get_event_loop()
-        _model_instance = await loop.run_in_executor(
-            None,
-            lambda: SentenceTransformer(model_id)
-        )
+        _model_instance = await loop.run_in_executor(None, lambda: SentenceTransformer(model_id))
         _model_name = model_name
 
         logger.info(f"Model loaded successfully: {model_id}")
