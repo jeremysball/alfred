@@ -215,36 +215,35 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | M14 | PyPiTUI CLI - Native scrollback, differential rendering, streaming responses, status line, input queue, command completion with fuzzy filtering (PRDs #94, #95, #97) |
 | M15 | Config & Storage - XDG directories, TOML config, lock-free CAS JSONL store, context budget clarification (PRD #100) |
 | M16 | Unified Memory System - Files + Memories (90-day TTL) + Session archive, placeholder system, TOOLS.md phase-out (PRD #102) |
+| M17 | Session Summarization - Cron-based auto-summarization with two-stage search (PRD #76) |
+| M18 | Tool Call Persistence - Persist tool calls in session, include in context, `/context` command (PRDs #101, #103) |
+| M19 | Great Consolidation - Systematic cleanup: remove dead code, unify storage to SQLite, consolidate search logic (PRD #109) |
+| M20 | Unified SQLite Storage - All storage (sessions, memories, cron) in single SQLite database with ACID transactions (PRD #117) |
 
 ### In Progress / Next Up 🔨
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 101 | Tool Call Persistence | Persist tool calls in session, include in context, `/context` command (PRD #101) |
-| 103 | Tool Calls in Resumed Sessions | Display tool calls when loading historical sessions via `/resume` or startup (PRD #103) |
-| 12 | Session Summarization | Cron-based auto-summarization (30 min idle or 20 messages) |
-| 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness |
-| 15 | README Landing Page | Transform README into compelling OSS landing page |
-| 16 | Pluggable Embeddings | FAISS + local models + OpenAI fallback, 5400x faster search (PRD #93) |
+| 119 | AlfredCore + Standalone Cron | Extract shared services into AlfredCore class, enable standalone cron daemon for reliable background summarization (PRD #119) |
+| 120 | Cron Job Linter + Socket API | AST-based linting to detect blocking calls, decouple Alfred from cron via socket API (PRD #120) |
+| 88 | Programmatic Tool Calling | LLM writes Python code to orchestrate multiple tool calls in sandbox, reducing token consumption 30-50% |
+| 90 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector |
 
 ### Short-term 📋
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| ~~109~~ | ~~Great Consolidation~~ | ~~Systematic cleanup: remove dead code (cli.py, MagicMock/), unify storage drivers, complete FAISS implementation, consolidate search logic, simplify session management (PRD #109)~~ ✅ **COMPLETE** |
-| 117 | Unified SQLite Storage | Consolidate all storage (sessions, memories, cron) into single SQLite database with ACID transactions and sqlite-vec for vector search (PRD #117) |
-| 119 | AlfredCore + Standalone Cron | Extract shared services into AlfredCore class, enable standalone cron daemon for reliable background summarization (PRD #119) |
-| 120 | Cron Job Linter + Socket API | AST-based linting to detect blocking calls, decouple Alfred from cron via socket API (PRD #120) |
-| 17 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
-| 18 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
-| 19 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
-| 20 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector (PRD #90) |
+| 83 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
+| 89 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
+| 91 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
+| 105 | Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
+| 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness (PRD #75) |
+| 15 | README Landing Page | Transform README into compelling OSS landing page |
 | 21 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
 | 22 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
 | 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 25 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
-| 26 | Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
 
 ### Medium-term 📅
 
@@ -262,7 +261,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 30 | Vector Database Evaluation | SQLite-vec or Chroma if JSONL performance degrades |
 | 31 | Multi-user Support | Proper user isolation and authentication |
 | 32 | Plugin System | Extensible tool and skill architecture |
-| 33 | Programmatic Tool Calling | LLM writes Python code to orchestrate multiple tool calls in sandbox, reducing token consumption 30-50% (PRD #88) |
+| 33 | Advanced Tool Orchestration | Multi-step tool workflows with conditional logic and error recovery |
 
 ---
 
