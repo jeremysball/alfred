@@ -25,27 +25,27 @@ logger = logging.getLogger(__name__)
 class AlfredCore:
     """Core Alfred services shared between CLI, Telegram, and daemon.
 
-    AlfredCore initializes and manages all shared services:
-    - SQLiteStore for unified storage
-    - EmbeddingProvider for vector operations
-    - LLMProvider for language model access
-    - MemoryStore for semantic memory
-    - SessionManager for conversation management
-    - SessionSummarizer for session summaries
+        AlfredCore initializes and manages all shared services:
+        - SQLiteStore for unified storage
+        - EmbeddingProvider for vector operations
+        - LLMProvider for language model access
+        - MemoryStore for semantic memory
+        - SessionManager for conversation management
+        - SessionSummarizer for session summaries
 
-    Services are registered in ServiceLocator for global access by
-cron jobs and other components that cannot use constructor injection.
+        Services are registered in ServiceLocator for global access by
+    cron jobs and other components that cannot use constructor injection.
 
-    Example:
-        config = load_config()
-        core = AlfredCore(config)
+        Example:
+            config = load_config()
+            core = AlfredCore(config)
 
-        # Access services directly
-        llm = core.llm
-        store = core.sqlite_store
+            # Access services directly
+            llm = core.llm
+            store = core.sqlite_store
 
-        # Or via ServiceLocator from anywhere
-        summarizer = ServiceLocator.resolve(SessionSummarizer)
+            # Or via ServiceLocator from anywhere
+            summarizer = ServiceLocator.resolve(SessionSummarizer)
     """
 
     def __init__(self, config: Config) -> None:

@@ -196,124 +196,99 @@ def cron_reload() -> None:
     reload_daemon()
 
 
-@app.command("daemon")
-def run_daemon(
+# ============================================================================
+# Daemon subcommands - daemon management
+# ============================================================================
+
+daemon_app = typer.Typer(name="daemon", help="Manage daemon process", no_args_is_help=True)
+
+
+@daemon_app.callback(invoke_without_command=True)
+def daemon_callback(
+    ctx: typer.Context,
     bg: bool = typer.Option(
         False,
         "--bg",
         help="Run in background (daemonize)",
     ),
 ) -> None:
-    """Run AlfredDaemon (foreground by default, use --bg for background)."""
-    if bg:
-        # Run old background daemon manager
-        from alfred.cli.cron import start_daemon
-        start_daemon()
-    else:
-        # Run new foreground daemon
-        from alfred.cron.daemon_runner import main
-        main()
+    """Manage daemon process."""
+    # If no subcommand, run the daemon (foreground or background)
+    if ctx.invoked_subcommand is None:
+        if bg:
+            # Run old background daemon manager
+            from alfred.cli.cron import start_daemon
+
+            start_daemon()
+        else:
+            # Run new foreground daemon
+            from alfred.cron.daemon_runner import main
+
+            main()
 
 
-# ============================================================================
-# Jobs subcommands - job management
-# ============================================================================
-
-jobs_app = typer.Typer(name="jobs", help="Manage background jobs", no_args_is_help=True)
-
-
-@jobs_app.callback()
-def jobs_callback() -> None:
-    """Background job management."""
-    pass
-
-
-@jobs_app.command(name="list")
-def jobs_list(
-    status: str = typer.Option(
-        "all",
-        "--status",
-        "-s",
-        help="Filter by status: all, pending, active, paused",
-    ),
-) -> None:
-    """List all jobs."""
-    from alfred.cli.cron import list_jobs
-    list_jobs(status)
-
-
-@jobs_app.command(name="submit")
-def jobs_submit(
-    name: str = typer.Argument(..., help="Job name"),
-    schedule: str = typer.Argument(
-        ..., help="Schedule expression (e.g., '0 9 * * *')"
-    ),
-    code: str | None = typer.Option(None, "--code", "-c", help="Python code for the job"),
-) -> None:
-    """Submit a new job for approval."""
-    from alfred.cli.cron import submit_job
-    submit_job(name, schedule, code)
-
-
-@jobs_app.command(name="review")
-def jobs_review(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Review a pending job's details."""
-    from alfred.cli.cron import review_job
-    review_job(job_id)
-
-
-@jobs_app.command(name="approve")
-def jobs_approve(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Approve a pending job."""
-    from alfred.cli.cron import approve_job
-    approve_job(job_id)
-
-
-@jobs_app.command(name="reject")
-def jobs_reject(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Reject and delete a pending job."""
-    from alfred.cli.cron import reject_job
-    reject_job(job_id)
-
-
-@jobs_app.command(name="history")
-def jobs_history(
-    job_id: str | None = typer.Option(None, "--job-id", "-j", help="Filter by job ID"),
-    limit: int = typer.Option(20, "--limit", "-l", help="Maximum records to show"),
-) -> None:
-    """Show job execution history."""
-    from alfred.cli.cron import show_history
-    show_history(job_id, limit)
-
-
-@app.command("daemon-stop")
+@daemon_app.command(name="stop")
 def daemon_stop() -> None:
     """Stop the background daemon."""
     from alfred.cli.cron import stop_daemon
+
     stop_daemon()
 
 
-@app.command("daemon-status")
+@daemon_app.command(name="status")
 def daemon_status_cmd() -> None:
     """Check background daemon status."""
     from alfred.cli.cron import daemon_status
+
     daemon_status()
 
 
-@app.command("daemon-reload")
+@daemon_app.command(name="reload")
 def daemon_reload_cmd() -> None:
     """Reload background daemon jobs (send SIGHUP)."""
     from alfred.cli.cron import reload_daemon
+
     reload_daemon()
 
 
-app.add_typer(jobs_app)
+@daemon_app.command(name="logs")
+def daemon_logs() -> None:
+    """Open daemon log file in $PAGER or $EDITOR."""
+    import subprocess
+
+    from alfred.data_manager import get_log_file
+
+    log_file = get_log_file()
+    if not log_file.exists():
+        console.print(f"[yellow]Log file not found: {log_file}[/yellow]")
+        raise typer.Exit(1)
+
+    # Try $PAGER first, then $EDITOR, then fallbacks
+    pager = os.environ.get("PAGER")
+    editor = os.environ.get("EDITOR")
+
+    if pager:
+        cmd = [pager, str(log_file)]
+    elif editor:
+        cmd = [editor, str(log_file)]
+    else:
+        # Try common fallbacks
+        for fallback in ["less", "more", "nano", "vim", "cat"]:
+            if subprocess.run(["which", fallback], capture_output=True).returncode == 0:
+                cmd = [fallback, str(log_file)]
+                break
+        else:
+            console.print("[red]No pager or editor found. Set $PAGER or $EDITOR.[/red]")
+            raise typer.Exit(1) from None
+
+    try:
+        subprocess.run(cmd)
+    except Exception as e:
+        console.print(f"[red]Failed to open log: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+app.add_typer(daemon_app)
 app.add_typer(cron_app)
 
 

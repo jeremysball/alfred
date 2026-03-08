@@ -442,22 +442,17 @@ You can then continue the conversation with the tool results.
     async def start(self) -> None:
         """Start Alfred and all subsystems.
 
-        Initializes the cron scheduler and starts background tasks.
-        Failures are logged but don't prevent Alfred from starting.
+        Note: Cron scheduler runs in standalone daemon only.
+        CLI/Telegram instances do not run cron.
         """
-        try:
-            await self.core.cron_scheduler.start()
-            logger.info("Cron scheduler started successfully")
-        except Exception as e:
-            logger.error(f"Failed to start cron scheduler: {e}")
+        # Cron scheduler runs in standalone daemon only
+        # Alfred CLI/Telegram communicates with daemon via socket
+        pass
 
     async def stop(self) -> None:
         """Graceful shutdown.
 
         Stops all subsystems cleanly.
         """
-        try:
-            await self.core.cron_scheduler.stop()
-            logger.info("Cron scheduler stopped successfully")
-        except Exception as e:
-            logger.error(f"Error stopping cron scheduler: {e}")
+        # Cron scheduler runs in standalone daemon only
+        pass
