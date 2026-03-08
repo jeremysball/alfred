@@ -273,6 +273,88 @@ errors = lint_job_code(code)
 - Easier refactoring with IDE support
 - Catches errors at load time, not use time
 
+### Decision: Socket Protocol Type Safety (Updated)
+
+**Choice**: Use `pydantic.dataclasses` with manual `match/case` routing.
+
+**Rejected**:
+- Hand-rolled JSON dicts - No type safety, runtime errors
+- `TypedDict` - No validation, awkward with unions  
+- `NamedTuple` - Immutable (problematic), no JSON support
+- `BaseModel` + discriminated unions - Too much magic, complex
+
+**Selected**: `pydantic.dataclasses` with explicit routing:
+
+```python
+from pydantic.dataclasses import dataclass
+
+@dataclass
+class JobStarted:
+    job_id: str
+    job_name: str
+    timestamp: datetime
+    msg_type: Literal["job_started"] = "job_started"
+
+# Explicit routing - clear and extensible
+def parse_message(data: str) -> SocketMessage:
+    parsed = json.loads(data)
+    match parsed["msg_type"]:
+        case "job_started":
+            return JobStarted(**parsed)
+        case "jobs_response":
+            return _parse_jobs_response(parsed)
+```
+
+Benefits:
+- IDE autocomplete
+- Validation at instantiation
+- No magic - explicit routing
+- Easy to extend
+
+### Decision: Type Reuse with Existing Models
+
+**Problem**: `alfred.cron.models` already has `Job` and `ExecutionRecord` dataclasses.
+
+**Choice**: Create converter methods rather than duplicating fields.
+
+```python
+@dataclass
+class JobInfo:
+    job_id: str
+    name: str
+    # ... fields match Job dataclass
+
+    @classmethod
+    def from_job(cls, job: Job) -> JobInfo:
+        """Convert existing dataclass to Pydantic model."""
+        return cls(job_id=job.job_id, name=job.name, ...)
+```
+
+**Why not use dataclasses directly?**
+- Pydantic provides JSON validation automatically
+- Dataclasses don't support discriminated unions
+- Converters are explicit and testable
+
+### Decision: Event Notification Types
+
+**Choice**: Separate lightweight event types for notifications.
+
+**Rationale**: Full `JobInfo` is overkill for notifications:
+
+```python
+# Event - minimal data for notification
+class JobStarted:
+    job_id: str
+    job_name: str
+    timestamp: datetime
+
+# Response - full data for display  
+class JobsResponse:
+    jobs: list[JobInfo]  # Full details
+```
+
+This keeps socket traffic minimal while maintaining type safety.
+
 ---
 
 ## Related Issues
@@ -623,90 +705,6 @@ async def on_job_completed(job_result):
 
 ---
 
-## Decisions
-
-### Decision: Socket Protocol Type Safety
-
-**Choice**: Use Pydantic BaseModel with discriminated unions for all socket messages.
-
-**Rejected**:
-- Hand-rolled JSON dicts - No type safety, runtime errors
-- `TypedDict` - No validation, awkward with unions
-- `NamedTuple` - Immutable (problematic), no JSON support
-
-**Selected**: `SocketMessage` base class with `msg_type` discriminator:
-
-```python
-class JobStarted(SocketMessage):
-    msg_type: Literal["job_started"] = "job_started"
-    job_id: str
-    job_name: str
-
-# Automatic type selection via discriminator
-AnyMessage = Annotated[
-    Union[JobStarted, JobCompleted, ...],
-    Field(discriminator="msg_type")
-]
-
-# Parses into correct type automatically!
-parsed = TypeAdapter(AnyMessage).validate_json(json_str)
-```
-
-### Decision: Type Reuse with Existing Models
-
-**Problem**: `alfred.cron.models` already has `Job` and `ExecutionRecord` dataclasses.
-
-**Choice**: Create converter methods rather than duplicating fields.
-
-```python
-# protocol.py - Pydantic model for socket
-class JobInfo(BaseModel):
-    job_id: str
-    name: str
-    # ... fields match Job dataclass
-
-    @classmethod
-    def from_job(cls, job: Job) -> JobInfo:
-        """Convert existing dataclass to Pydantic model."""
-        return cls(
-            job_id=job.job_id,
-            name=job.name,
-            # ...
-        )
-
-# Daemon side (has Job dataclass)
-job: Job = scheduler.get_job("abc")
-response = JobsResponse(jobs=[JobInfo.from_job(job)])
-
-# Client side (receives Pydantic model)
-parsed: JobsResponse = parse_message(json_str)
-job_info: JobInfo = parsed.jobs[0]  # Fully typed!
-```
-
-**Why not use dataclasses directly?**
-- Pydantic provides JSON validation automatically
-- Dataclasses don't support discriminated unions
-- Converters are explicit and testable
-
-### Decision: Event Notification Types
-
-**Choice**: Separate lightweight event types for notifications.
-
-**Rationale**: Full `JobInfo` is overkill for notifications:
-
-```python
-# Event - minimal data for notification
-class JobStarted(SocketMessage):
-    job_id: str
-    job_name: str
-    timestamp: datetime
-
-# Response - full data for display
-class JobsResponse(SocketMessage):
-    jobs: list[JobInfo]  # Full details
-```
-
-This keeps socket traffic minimal while maintaining type safety.
 
 ---
 
