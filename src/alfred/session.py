@@ -1,6 +1,7 @@
 """Unified session manager using SQLiteStore (PRD #109 M2/M5).
 
 Replaces SessionStorage with SQLiteStore for persistence.
+Uses dependency injection - not a singleton.
 """
 
 from __future__ import annotations
@@ -82,77 +83,54 @@ class Session:
 
 
 class SessionManager:
-    """Singleton session manager using SQLiteStore for persistence.
+    """Session manager using SQLiteStore for persistence.
 
-    Replaces the old SessionStorage-based implementation.
+    Uses dependency injection - create with explicit dependencies:
+        manager = SessionManager(store=sqlite_store, data_dir=data_dir)
+
+    For global access, register in ServiceLocator:
+        from alfred.container import ServiceLocator
+        ServiceLocator.register(SessionManager, manager)
+        # Later: ServiceLocator.resolve(SessionManager)
     """
 
-    _instance: SessionManager | None = None
-    _store: SQLiteStore | None = None
-    _data_dir: Path | None = None
-    _sessions: dict[str, Session] = {}
-    _cli_session_id: str | None = None
+    def __init__(self, store: SQLiteStore, data_dir: Path) -> None:
+        """Initialize session manager with explicit dependencies.
 
-    def __new__(cls) -> SessionManager:
-        """Prevent direct instantiation."""
-        raise RuntimeError("Use SessionManager.initialize() or get_instance()")
-
-    @classmethod
-    def initialize(cls, data_dir: Path | None = None) -> SessionManager:
-        """Initialize with SQLiteStore."""
-        if cls._instance is not None:
-            return cls._instance
-
-        from alfred.data_manager import get_data_dir
-
-        cls._data_dir = data_dir or get_data_dir()
-        db_path = cls._data_dir / "alfred.db"
-        cls._store = SQLiteStore(db_path)
-
-        # Create instance
-        cls._instance = object.__new__(cls)
-        cls._instance._sessions = {}
+        Args:
+            store: SQLiteStore instance for persistence
+            data_dir: Data directory for current.json file
+        """
+        self._store = store
+        self._data_dir = data_dir
+        self._sessions: dict[str, Session] = {}
+        self._cli_session_id: str | None = None
 
         # Load CLI current session
-        cls._load_cli_current()
+        self._load_cli_current()
 
-        return cls._instance
-
-    @classmethod
-    def get_instance(cls) -> SessionManager:
-        """Get singleton instance."""
-        if cls._instance is None:
-            raise RuntimeError("SessionManager not initialized. Call initialize() first.")
-        return cls._instance
-
-    @classmethod
-    def _load_cli_current(cls) -> None:
-        """Load CLI current session from file (for backwards compatibility)."""
-        if cls._data_dir is None:
-            return
-        current_file = cls._data_dir / "sessions" / "current.json"
+    def _load_cli_current(self) -> None:
+        """Load CLI current session from file."""
+        current_file = self._data_dir / "sessions" / "current.json"
         if current_file.exists():
             try:
                 data = json.loads(current_file.read_text())
-                cls._cli_session_id = data.get("session_id")
+                self._cli_session_id = data.get("session_id")
             except Exception:
                 pass
 
-    @classmethod
-    def _save_cli_current(cls) -> None:
+    def _save_cli_current(self) -> None:
         """Save CLI current session to file."""
-        if cls._data_dir is None or cls._cli_session_id is None:
+        if self._cli_session_id is None:
             return
-        current_file = cls._data_dir / "sessions" / "current.json"
+        current_file = self._data_dir / "sessions" / "current.json"
         current_file.parent.mkdir(parents=True, exist_ok=True)
-        current_file.write_text(json.dumps({"session_id": cls._cli_session_id}))
+        current_file.write_text(json.dumps({"session_id": self._cli_session_id}))
 
     @property
     def store(self) -> SQLiteStore:
         """Get SQLiteStore instance."""
-        if SessionManager._store is None:
-            raise RuntimeError("SessionManager not initialized")
-        return SessionManager._store
+        return self._store
 
     def _generate_session_id(self) -> str:
         """Generate unique session ID."""
@@ -284,19 +262,19 @@ class SessionManager:
 
     def get_current_cli_session(self) -> Session | None:
         """Get current CLI session."""
-        if SessionManager._cli_session_id is None:
+        if self._cli_session_id is None:
             return None
-        return self.get_or_create_session(SessionManager._cli_session_id)
+        return self.get_or_create_session(self._cli_session_id)
 
     async def get_current_cli_session_async(self) -> Session | None:
         """Get current CLI session (async version)."""
-        if SessionManager._cli_session_id is None:
+        if self._cli_session_id is None:
             return None
-        return await self.get_or_create_session_async(SessionManager._cli_session_id)
+        return await self.get_or_create_session_async(self._cli_session_id)
 
     def set_current_cli_session(self, session_id: str) -> None:
         """Set current CLI session."""
-        SessionManager._cli_session_id = session_id
+        self._cli_session_id = session_id
         self._save_cli_current()
 
     def new_session(self) -> Session:
@@ -529,9 +507,9 @@ class SessionManager:
 
     def clear_session(self) -> None:
         """Clear current CLI session reference."""
-        SessionManager._cli_session_id = None
+        self._cli_session_id = None
         self._sessions.clear()
 
     def has_active_session(self) -> bool:
         """Check if there's an active CLI session."""
-        return SessionManager._cli_session_id is not None
+        return self._cli_session_id is not None
