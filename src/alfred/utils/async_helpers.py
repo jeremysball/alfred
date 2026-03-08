@@ -12,12 +12,13 @@ T = TypeVar("T")
 def run_async(coro: Any) -> Any:
     """Run async coroutine from sync code safely.
 
-    WARNING: Do not call this from an async context (e.g., inside async def).
-    Use `await` directly when in an async context to avoid deadlocks.
-
-    Handles both cases:
+    Handles all cases:
     - No event loop running: uses asyncio.run()
-    - Event loop running: uses run_coroutine_threadsafe() in a thread pool
+    - Event loop running: runs in a separate thread to avoid blocking
+
+    WARNING: This blocks the calling thread until completion. If called from
+    an async context (e.g., TUI command handler), the event loop is paused.
+    For UI responsiveness, consider using asyncio.create_task() instead.
 
     Args:
         coro: The coroutine to run
@@ -31,14 +32,23 @@ def run_async(coro: Any) -> Any:
     """
     try:
         loop = asyncio.get_running_loop()
-        if loop is None:
-            # No running loop - safe to use asyncio.run
-            return asyncio.run(coro)
-        # We're in an async context - use thread pool to avoid blocking the loop
-        # Note: This can deadlock if called from the loop's thread!
-        with concurrent.futures.ThreadPoolExecutor() as _pool:
-            future = asyncio.run_coroutine_threadsafe(coro, loop)
-            return future.result(timeout=30)
     except RuntimeError:
         # No event loop running - safe to use asyncio.run
         return asyncio.run(coro)
+
+    # There's a running event loop in this thread
+    # We need to run the coroutine in a separate thread to avoid blocking
+    def run_in_new_loop(coroutine):
+        """Run coroutine in a new event loop in the current thread."""
+        new_loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(new_loop)
+            return new_loop.run_until_complete(coroutine)
+        finally:
+            new_loop.close()
+            asyncio.set_event_loop(loop)  # Restore original loop
+
+    # Run in a thread pool to avoid blocking the current loop
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(run_in_new_loop, coro)
+        return future.result(timeout=30)
