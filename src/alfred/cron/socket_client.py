@@ -310,9 +310,7 @@ class SocketClient:
             import uuid
 
             request_id = str(uuid.uuid4())
-            request = ApproveJobRequest(
-                request_id=request_id, job_identifier=job_identifier
-            )
+            request = ApproveJobRequest(request_id=request_id, job_identifier=job_identifier)
 
             # Send request
             self._writer.write(request.to_json().encode("utf-8"))
@@ -353,9 +351,7 @@ class SocketClient:
             import uuid
 
             request_id = str(uuid.uuid4())
-            request = RejectJobRequest(
-                request_id=request_id, job_identifier=job_identifier
-            )
+            request = RejectJobRequest(request_id=request_id, job_identifier=job_identifier)
 
             # Send request
             self._writer.write(request.to_json().encode("utf-8"))

@@ -8,7 +8,7 @@ from typing import Literal
 @dataclass
 class MemoryEntry:
     """A single memory entry with content and metadata.
-    
+
     This replaces the old MemoryEntry from jsonl_store.
     """
 

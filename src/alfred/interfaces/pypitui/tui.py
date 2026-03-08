@@ -16,6 +16,7 @@ from alfred.interfaces.pypitui.commands import (
     ResumeSessionCommand,
     ShowContextCommand,
     ShowSessionCommand,
+    ThrobbersCommand,
 )
 from alfred.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 
@@ -116,6 +117,7 @@ class AlfredTUI:
             "/sessions": ListSessionsCommand(),
             "/session": ShowSessionCommand(),
             "/context": ShowContextCommand(),
+            "/throbbers": ThrobbersCommand(),
         }
 
         # Toast manager is passed directly, no need to configure through notifier
@@ -433,6 +435,7 @@ class AlfredTUI:
             ("/sessions", "List all sessions"),
             ("/session", "Show current session info"),
             ("/context", "Show system context"),
+            ("/throbbers", "Show throbber animations"),
         ]
 
         # Filter by fuzzy match
@@ -454,7 +457,7 @@ class AlfredTUI:
         partial = text[8:]  # After '/resume '
 
         # Get available session IDs (list of strings)
-        session_ids = self.alfred.session_manager.storage.list_sessions()
+        session_ids = self.alfred.core.session_manager.storage.list_sessions()
         sessions_with_meta = []
 
         for sid in session_ids:
@@ -463,7 +466,7 @@ class AlfredTUI:
                 continue
 
             # Get metadata for date and message count
-            meta = self.alfred.session_manager.storage.get_meta(sid)
+            meta = self.alfred.core.session_manager.storage.get_meta(sid)
             if meta:
                 # Format: "Mar 3 21:45 · 12 msgs"
                 date_str = meta.last_active.strftime("%b %-d %H:%M")
@@ -501,10 +504,10 @@ class AlfredTUI:
         Sets scrollback position so older messages flow into terminal
         scrollback history instead of all being rendered on screen.
         """
-        if not self.alfred.session_manager.has_active_session():
+        if not self.alfred.core.session_manager.has_active_session():
             return
 
-        session = await self.alfred.session_manager.get_current_cli_session_async()
+        session = await self.alfred.core.session_manager.get_current_cli_session_async()
         if not session or not session.messages:
             return
 

@@ -4,11 +4,11 @@
 
 **Issue**: #119
 **Parent**: #76 (Session Summarization)
-**Status**: Planning
+**Status**: Complete
 **Priority**: High
 **Created**: 2026-03-07
 
-Extract common service initialization into `AlfredCore` class shared between Alfred CLI and standalone cron daemon. Enables reliable background session summarization without requiring running Alfred instance.
+Extract common service initialization into `AlfredCore` class shared between Alfred CLI and LittleAlfred (standalone cron daemon). Enables reliable background session summarization without requiring running Alfred instance.
 
 ---
 
@@ -51,7 +51,7 @@ Proposed Architecture:
          ▲                           ▲
          │                           │
 ┌────────┴────────┐        ┌────────┴────────┐
-│     Alfred      │        │   CronDaemon    │
+│     Alfred      │        │   LittleAlfred  │
 │  (CLI/Telegram) │        │  (Background)   │
 └─────────────────┘        └─────────────────┘
 ```
@@ -70,7 +70,7 @@ Proposed Architecture:
 - Handle user input/output
 - Register UI-specific tools
 
-### CronDaemon Responsibilities (New)
+### LittleAlfred Responsibilities (New)
 
 - Create AlfredCore instance
 - Initialize CronScheduler
@@ -81,15 +81,15 @@ Proposed Architecture:
 
 ## Acceptance Criteria
 
-- [ ] `AlfredCore` class extracted with all shared services
-- [ ] `Alfred` refactored to use `AlfredCore`
-- [ ] `CronDaemon` class created using `AlfredCore`
-- [ ] Cron daemon can run standalone (no Alfred running)
-- [ ] Session summarization works in background daemon
-- [ ] No code duplication between Alfred and CronDaemon
-- [ ] ServiceLocator populated by AlfredCore (not Alfred)
-- [ ] Tests for AlfredCore initialization
-- [ ] Tests for CronDaemon standalone operation
+- [x] `AlfredCore` class extracted with all shared services
+- [x] `Alfred` refactored to use `AlfredCore`
+- [x] `AlfredDaemon` class created using `AlfredCore`
+- [x] Cron daemon can run standalone (no Alfred running)
+- [x] Session summarization works in background daemon
+- [x] No code duplication between Alfred and AlfredDaemon
+- [x] ServiceLocator populated by AlfredCore (not Alfred)
+- [x] Tests for AlfredCore initialization
+- [x] Tests for AlfredDaemon standalone operation
 
 ---
 
@@ -161,11 +161,11 @@ class Alfred:
         self.agent = Agent(self.core.llm, self.tools)
 ```
 
-### New CronDaemon
+### New LittleAlfred
 
 ```python
 # src/alfred/cron/daemon_runner.py
-class CronDaemon:
+class LittleAlfred:
     """Standalone cron daemon (no UI)."""
     
     def __init__(self, config: Config) -> None:
@@ -189,7 +189,7 @@ class CronDaemon:
 def daemon():
     """Run standalone cron daemon."""
     config = load_config()
-    daemon = CronDaemon(config)
+    daemon = LittleAlfred(config)
     asyncio.run(daemon.run())
 ```
 
@@ -211,10 +211,10 @@ def daemon():
 - Ensure all existing functionality works
 - Tests pass
 
-### Phase 3: Create CronDaemon
+### Phase 3: Create LittleAlfred
 
 - Create `src/alfred/cron/daemon_runner.py`
-- Implement `CronDaemon` class using `AlfredCore`
+- Implement `LittleAlfred` class using `AlfredCore`
 - Add CLI command: `alfred cron daemon`
 - Tests for standalone daemon operation
 
@@ -235,7 +235,7 @@ src/alfred/
 ├── core.py                    # NEW: AlfredCore class
 ├── alfred.py                  # REFACTORED: Uses AlfredCore
 ├── cron/
-│   ├── daemon_runner.py       # NEW: CronDaemon class
+│   ├── daemon_runner.py       # NEW: LittleAlfred class
 │   └── ...
 └── ...
 ```
@@ -261,8 +261,9 @@ run_as_daemon = true          # Run standalone vs in-process
 |------|----------|-----------|
 | 2026-03-07 | Extract AlfredCore | Share services between CLI and daemon without duplication |
 | 2026-03-07 | ServiceLocator in AlfredCore | Single point of registration, works for both modes |
-| 2026-03-07 | Standalone CronDaemon | Enables background processing without running Alfred |
+| 2026-03-07 | Standalone LittleAlfred | Enables background processing without running Alfred |
 | 2026-03-07 | Keep CronScheduler shared | Both modes use same scheduler, just different lifecycles |
+| 2026-03-08 | Fix test import paths | Updated tests to use `alfred.core.*` and `alfred.alfred.*` paths after refactoring |
 
 ---
 
@@ -282,25 +283,10 @@ This refactoring enables future client-server split:
 ┌─────────────┐         ┌──────────────────┐
 │ AlfredClient│◄───────►│   AlfredServer   │
 │  (UI only)  │  HTTP   │  (AlfredCore +   │
-│             │         │   CronDaemon)    │
+│             │         │   LittleAlfred)    │
 └─────────────┘         └──────────────────┘
 ```
 
 AlfredCore becomes the server-side service container.
 
----
 
-## Acceptance Criteria (Detailed)
-
-- [ ] `src/alfred/core.py` exists with `AlfredCore` class
-- [ ] `AlfredCore` initializes: SQLiteStore, embedder, LLM, memory store, SessionManager, summarizer
-- [ ] `AlfredCore` registers all services in ServiceLocator
-- [ ] `Alfred` uses `self.core = AlfredCore(config)`
-- [ ] No service initialization code duplicated in `Alfred`
-- [ ] `src/alfred/cron/daemon_runner.py` exists with `CronDaemon` class
-- [ ] `CronDaemon` uses `self.core = AlfredCore(config)`
-- [ ] CLI command `alfred cron daemon` starts standalone daemon
-- [ ] Daemon runs session summarization without Alfred running
-- [ ] All existing tests pass
-- [ ] New tests for AlfredCore initialization
-- [ ] New tests for CronDaemon standalone operation

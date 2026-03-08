@@ -51,10 +51,10 @@ def main(
         "-l",
         help="Set log level: 'info' or 'debug'. Default: warnings only",
     ),
-    install_completions: bool = typer.Option(
-        False,
+    install_completions: str = typer.Option(
+        "",
         "--install-completions",
-        help="Install fast static shell completions",
+        help="Install shell completions (bash, fish, zsh, or 'auto')",
     ),
 ) -> None:
     """Alfred - Persistent memory-augmented LLM assistant.
@@ -69,7 +69,9 @@ def main(
     if install_completions:
         from alfred.cli.install_completions import install
 
-        install()
+        # 'auto' or empty = detect from $SHELL
+        shell_value = None if install_completions in ("auto", "") else install_completions
+        install(shell=shell_value)
         raise typer.Exit()
 
     global _run_telegram, _log_level
@@ -85,7 +87,7 @@ def main(
 # Cron subcommands - lazy-loaded proxies
 # ============================================================================
 
-cron_app = typer.Typer(name="cron", help="Manage cron jobs")
+cron_app = typer.Typer(name="cron", help="Manage cron jobs", no_args_is_help=True)
 
 
 @cron_app.callback()
@@ -194,6 +196,99 @@ def cron_reload() -> None:
     reload_daemon()
 
 
+# ============================================================================
+# Daemon subcommands - daemon management
+# ============================================================================
+
+daemon_app = typer.Typer(name="daemon", help="Manage daemon process", no_args_is_help=True)
+
+
+@daemon_app.callback(invoke_without_command=True)
+def daemon_callback(
+    ctx: typer.Context,
+    bg: bool = typer.Option(
+        False,
+        "--bg",
+        help="Run in background (daemonize)",
+    ),
+) -> None:
+    """Manage daemon process."""
+    # If no subcommand, run the daemon (foreground or background)
+    if ctx.invoked_subcommand is None:
+        if bg:
+            # Run old background daemon manager
+            from alfred.cli.cron import start_daemon
+
+            start_daemon()
+        else:
+            # Run new foreground daemon
+            from alfred.cron.daemon_runner import main
+
+            main()
+
+
+@daemon_app.command(name="stop")
+def daemon_stop() -> None:
+    """Stop the background daemon."""
+    from alfred.cli.cron import stop_daemon
+
+    stop_daemon()
+
+
+@daemon_app.command(name="status")
+def daemon_status_cmd() -> None:
+    """Check background daemon status."""
+    from alfred.cli.cron import daemon_status
+
+    daemon_status()
+
+
+@daemon_app.command(name="reload")
+def daemon_reload_cmd() -> None:
+    """Reload background daemon jobs (send SIGHUP)."""
+    from alfred.cli.cron import reload_daemon
+
+    reload_daemon()
+
+
+@daemon_app.command(name="logs")
+def daemon_logs() -> None:
+    """Open daemon log file in $PAGER or $EDITOR."""
+    import subprocess
+
+    from alfred.data_manager import get_log_file
+
+    log_file = get_log_file()
+    if not log_file.exists():
+        console.print(f"[yellow]Log file not found: {log_file}[/yellow]")
+        raise typer.Exit(1)
+
+    # Try $PAGER first, then $EDITOR, then fallbacks
+    pager = os.environ.get("PAGER")
+    editor = os.environ.get("EDITOR")
+
+    if pager:
+        cmd = [pager, str(log_file)]
+    elif editor:
+        cmd = [editor, str(log_file)]
+    else:
+        # Try common fallbacks
+        for fallback in ["less", "more", "nano", "vim", "cat"]:
+            if subprocess.run(["which", fallback], capture_output=True).returncode == 0:
+                cmd = [fallback, str(log_file)]
+                break
+        else:
+            console.print("[red]No pager or editor found. Set $PAGER or $EDITOR.[/red]")
+            raise typer.Exit(1) from None
+
+    try:
+        subprocess.run(cmd)
+    except Exception as e:
+        console.print(f"[red]Failed to open log: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+app.add_typer(daemon_app)
 app.add_typer(cron_app)
 
 
@@ -201,7 +296,7 @@ app.add_typer(cron_app)
 # Memory subcommands - lazy-loaded proxies
 # ============================================================================
 
-memory_app = typer.Typer(name="memory", help="Manage memory system")
+memory_app = typer.Typer(name="memory", help="Manage memory system", no_args_is_help=True)
 
 
 @memory_app.callback()

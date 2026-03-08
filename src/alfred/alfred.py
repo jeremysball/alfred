@@ -8,19 +8,12 @@ from telegram import Bot
 
 from alfred.agent import Agent, ToolEnd, ToolEvent, ToolOutput, ToolStart
 from alfred.config import Config
-from alfred.container import ServiceLocator
 from alfred.context import ContextLoader
-from alfred.cron.scheduler import CronScheduler
-from alfred.cron.store import CronStore
-from alfred.embeddings import create_provider
-from alfred.llm import ChatMessage, LLMFactory
-from alfred.memory import create_memory_store
-from alfred.session import Session, SessionManager, ToolCallRecord
-from alfred.storage.sqlite import SQLiteStore
+from alfred.core import AlfredCore
+from alfred.llm import ChatMessage
+from alfred.session import Session, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
-from alfred.tools.factories import SummarizerFactory
-from alfred.tools.search_sessions import SessionSummarizer
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
@@ -48,18 +41,12 @@ class Alfred:
 
     def __init__(self, config: Config, telegram_mode: bool = False) -> None:
         self.config = config
-        self.llm = LLMFactory.create(config)
 
-        # Initialize memory system
-        self.embedder = create_provider(config)
-        self.memory_store = create_memory_store(config, self.embedder)
+        # Initialize core services (shared with LittleAlfred)
+        self.core = AlfredCore(config)
 
-        # Initialize SQLiteStore for context loading
-        self.sqlite_store = SQLiteStore(config.data_dir / "alfred.db")
-        self.context_loader = ContextLoader(config, store=self.sqlite_store)
-
-        # Initialize data directory
-        data_dir = config.data_dir
+        # Initialize UI-specific components
+        self.context_loader = ContextLoader(config, store=self.core.sqlite_store)
 
         # Initialize Telegram bot if in telegram mode
         self._telegram_bot: Bot | None = None
@@ -70,43 +57,20 @@ class Alfred:
             except Exception as e:
                 logger.warning(f"Failed to initialize Telegram bot: {e}")
 
-        # Initialize cron scheduler (uses socket for TUI communication)
-        self.cron_scheduler = CronScheduler(
-            store=CronStore(data_dir),
-            data_dir=data_dir,
-        )
-
-        # Initialize session manager FIRST (before tools that need it)
-        SessionManager.initialize(data_dir=data_dir)
-        self.session_manager = SessionManager.get_instance()
-
-        # Create summarizer via factory
-        self.summarizer_factory = SummarizerFactory(
-            store=self.sqlite_store,
-            llm_client=self.llm,
-            embedder=self.embedder,
-        )
-        self.summarizer = self.summarizer_factory.create()
-
-        # Register services in ServiceLocator for cron jobs
-        ServiceLocator.register(SessionSummarizer, self.summarizer)
-        ServiceLocator.register(SessionManager, self.session_manager)
-        ServiceLocator.register(SQLiteStore, self.sqlite_store)
-
-        # Register built-in tools (inject memory store, scheduler, and config)
+        # Register built-in tools (inject services from core)
         register_builtin_tools(
-            memory_store=self.memory_store,
-            scheduler=self.cron_scheduler,
+            memory_store=self.core.memory_store,
+            scheduler=self.core.cron_scheduler,
             config=self.config,
-            session_manager=self.session_manager,
-            embedder=self.embedder,
-            llm_client=self.llm,
-            summarizer=self.summarizer,
+            session_manager=self.core.session_manager,
+            embedder=self.core.embedder,
+            llm_client=self.core.llm,
+            summarizer=self.core.summarizer,
         )
         self.tools = get_registry()
 
-        # Create agent
-        self.agent = Agent(self.llm, self.tools, max_iterations=-1)
+        # Create agent with LLM from core
+        self.agent = Agent(self.core.llm, self.tools, max_iterations=-1)
 
         # Token tracking for usage display
         self.token_tracker = TokenTracker()
@@ -146,7 +110,7 @@ class Alfred:
         """
         from alfred.session import Role
 
-        messages = self.session_manager.get_session_messages(session_id)
+        messages = self.core.session_manager.get_session_messages(session_id)
         if not messages:
             return
 
@@ -231,34 +195,34 @@ class Alfred:
         # Handle session based on mode
         if session_id:
             # Telegram mode - use provided session_id (chat_id)
-            self.session_manager.get_or_create_session(session_id)
+            self.core.session_manager.get_or_create_session(session_id)
         else:
             # CLI mode - use singleton session
-            if not self.session_manager.has_active_session():
+            if not self.core.session_manager.has_active_session():
                 logger.debug("Starting new session...")
-                self.session_manager.start_session()
+                self.core.session_manager.start_session()
 
         # Add user message to session and get its index
-        self.session_manager.add_message("user", message, session_id=session_id)
-        messages_list = self.session_manager.get_session_messages(session_id)
+        self.core.session_manager.add_message("user", message, session_id=session_id)
+        messages_list = self.core.session_manager.get_session_messages(session_id)
         user_msg_idx = messages_list[-1].idx if messages_list else 0
         msg_count = len(messages_list)
         logger.debug(f"Added user message. Session now has {msg_count} messages")
 
         # Get query embedding for memory search
         logger.debug("Generating query embedding...")
-        query_embedding = await self.embedder.embed(message)
+        query_embedding = await self.core.embedder.embed(message)
 
         # Load all memories
         logger.debug("Loading memories...")
-        all_memories = await self.memory_store.get_all_entries()
+        all_memories = await self.core.memory_store.get_all_entries()
         logger.info(f"Loaded {len(all_memories)} memories from store")
 
         # Build context with memory search and session history
         logger.debug("Assembling context with memory search...")
-        session_messages = self.session_manager.get_messages_for_context(session_id)
+        session_messages = self.core.session_manager.get_messages_for_context(session_id)
         # Get full messages with tool_calls for context
-        session_messages_with_tools = self.session_manager.get_messages_with_tools_for_context(
+        session_messages_with_tools = self.core.session_manager.get_messages_with_tools_for_context(
             session_id
         )
         system_prompt, memories_count = self.context_loader.assemble_with_search(
@@ -365,7 +329,7 @@ class Alfred:
 
         from alfred.session import Message, Role
 
-        messages_list = self.session_manager.get_session_messages(session_id)
+        messages_list = self.core.session_manager.get_session_messages(session_id)
         idx = messages_list[-1].idx + 1 if messages_list else 0
 
         assistant_msg_obj = Message(
@@ -379,9 +343,9 @@ class Alfred:
         # Get session and append message
         session: Session
         if session_id:
-            session = self.session_manager.get_or_create_session(session_id)
+            session = self.core.session_manager.get_or_create_session(session_id)
         else:
-            maybe_session = self.session_manager.get_current_cli_session()
+            maybe_session = self.core.session_manager.get_current_cli_session()
             if maybe_session is None:
                 raise RuntimeError("No active session")
             session = maybe_session
@@ -391,7 +355,7 @@ class Alfred:
         session.meta.message_count = len(session.messages)
 
         # Persist to storage
-        self.session_manager._spawn_persist_task(session.meta.session_id, session.messages)
+        self.core.session_manager._spawn_persist_task(session.meta.session_id, session.messages)
 
         assistant_msg_idx = assistant_msg_obj.idx
         msg_count = len(session.messages)
@@ -415,7 +379,7 @@ class Alfred:
                 reasoning_tokens = completion_details.get("reasoning_tokens", 0)
 
             # Update user message with input tokens (and cached)
-            self.session_manager.update_message_tokens(
+            self.core.session_manager.update_message_tokens(
                 user_msg_idx,
                 input_tokens=prompt_tokens,
                 cached_tokens=cached_tokens,
@@ -423,7 +387,7 @@ class Alfred:
             )
 
             # Update assistant message with output tokens (and reasoning)
-            self.session_manager.update_message_tokens(
+            self.core.session_manager.update_message_tokens(
                 assistant_msg_idx,
                 output_tokens=completion_tokens,
                 reasoning_tokens=reasoning_tokens,
@@ -478,22 +442,17 @@ You can then continue the conversation with the tool results.
     async def start(self) -> None:
         """Start Alfred and all subsystems.
 
-        Initializes the cron scheduler and starts background tasks.
-        Failures are logged but don't prevent Alfred from starting.
+        Note: Cron scheduler runs in standalone daemon only.
+        CLI/Telegram instances do not run cron.
         """
-        try:
-            await self.cron_scheduler.start()
-            logger.info("Cron scheduler started successfully")
-        except Exception as e:
-            logger.error(f"Failed to start cron scheduler: {e}")
+        # Cron scheduler runs in standalone daemon only
+        # Alfred CLI/Telegram communicates with daemon via socket
+        pass
 
     async def stop(self) -> None:
         """Graceful shutdown.
 
         Stops all subsystems cleanly.
         """
-        try:
-            await self.cron_scheduler.stop()
-            logger.info("Cron scheduler stopped successfully")
-        except Exception as e:
-            logger.error(f"Error stopping cron scheduler: {e}")
+        # Cron scheduler runs in standalone daemon only
+        pass

@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 
 class SQLiteMemoryStore(MemoryStore):
     """Memory store backed by SQLite with vector search.
-    
+
     Uses sqlite-vec for efficient vector similarity search when available,
     falling back to brute-force search if not.
     """
 
     def __init__(self, config: Config, embedder: EmbeddingProvider) -> None:
         """Initialize SQLite memory store.
-        
+
         Args:
             config: Application configuration
             embedder: Embedding provider for generating vectors
@@ -40,7 +40,7 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def add(self, entry: Any) -> None:
         """Add a memory entry.
-        
+
         Args:
             entry: MemoryEntry to add
         """
@@ -67,13 +67,13 @@ class SQLiteMemoryStore(MemoryStore):
         **kwargs: Any,
     ) -> tuple[list[Any], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
-        
+
         Args:
             query: Search query text
             top_k: Number of results to return
             start_date: Optional filter for entries on or after this date
             end_date: Optional filter for entries on or before this date
-            
+
         Returns:
             Tuple of (results, similarities, scores)
         """
@@ -90,7 +90,11 @@ class SQLiteMemoryStore(MemoryStore):
         if start_date or end_date:
             filtered = []
             for r in results:
-                entry_date = r["timestamp"].date() if isinstance(r["timestamp"], datetime) else r["timestamp"]
+                entry_date = (
+                    r["timestamp"].date()
+                    if isinstance(r["timestamp"], datetime)
+                    else r["timestamp"]
+                )
                 if start_date and entry_date < start_date:
                     continue
                 if end_date and entry_date > end_date:
@@ -123,10 +127,10 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def get_by_id(self, entry_id: str) -> Any | None:
         """Get memory by ID.
-        
+
         Args:
             entry_id: Unique memory ID
-            
+
         Returns:
             Memory entry or None
         """
@@ -147,7 +151,7 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def get_all_entries(self) -> list[Any]:
         """Get all memory entries.
-        
+
         Returns:
             List of all entries
         """
@@ -169,10 +173,10 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
         """Delete memory by ID.
-        
+
         Args:
             entry_id: Unique memory ID
-            
+
         Returns:
             Tuple of (success, message)
         """
@@ -183,7 +187,7 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def add_entries(self, entries: list[Any]) -> None:
         """Add multiple entries at once.
-        
+
         Args:
             entries: List of MemoryEntry objects
         """
@@ -200,23 +204,25 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def prune_expired_memories(self, ttl_days: int = 90, dry_run: bool = False) -> int:
         """Remove non-permanent memories older than TTL.
-        
+
         Args:
             ttl_days: Number of days after which non-permanent memories expire
             dry_run: If True, return count without deleting
-            
+
         Returns:
             Number of memories pruned
         """
         return await self._store.prune_memories(ttl_days=ttl_days, dry_run=dry_run)
 
-    async def update_entry(self, search_query: str, new_content: str | None = None) -> tuple[bool, str]:
+    async def update_entry(
+        self, search_query: str, new_content: str | None = None
+    ) -> tuple[bool, str]:
         """Update an existing memory entry.
-        
+
         Args:
             search_query: Query to find the memory to update
             new_content: New content (None = don't change)
-            
+
         Returns:
             Tuple of (success, message)
         """
@@ -247,10 +253,10 @@ class SQLiteMemoryStore(MemoryStore):
 
     async def delete_entries(self, query: str) -> tuple[int, str]:
         """Delete memories matching a semantic query.
-        
+
         Args:
             query: Semantic query to find memories to delete
-            
+
         Returns:
             Tuple of (count_deleted, message)
         """
@@ -275,10 +281,10 @@ class SQLiteMemoryStore(MemoryStore):
 
     def check_memory_threshold(self, threshold: int = 1000) -> tuple[bool, int]:
         """Check if memory count exceeds threshold.
-        
+
         Args:
             threshold: Maximum allowed memories before warning
-            
+
         Returns:
             Tuple of (exceeded, count)
         """
@@ -286,9 +292,7 @@ class SQLiteMemoryStore(MemoryStore):
         import asyncio
 
         try:
-            count = asyncio.get_event_loop().run_until_complete(
-                self._get_memory_count()
-            )
+            count = asyncio.get_event_loop().run_until_complete(self._get_memory_count())
         except Exception:
             # Fallback: assume under threshold
             return False, 0

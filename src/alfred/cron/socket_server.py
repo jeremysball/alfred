@@ -12,8 +12,6 @@ from pathlib import Path
 
 from alfred.cron.socket_protocol import (
     SOCKET_NAME,
-    ApproveJobRequest,
-    ApproveJobResponse,
     JobCompletedMessage,
     JobFailedMessage,
     JobStartedMessage,
@@ -22,13 +20,9 @@ from alfred.cron.socket_protocol import (
     PongMessage,
     QueryJobsRequest,
     QueryJobsResponse,
-    RejectJobRequest,
-    RejectJobResponse,
     RunnerStartedMessage,
     RunnerStoppingMessage,
     SocketMessage,
-    SubmitJobRequest,
-    SubmitJobResponse,
 )
 from alfred.data_manager import get_cache_dir
 

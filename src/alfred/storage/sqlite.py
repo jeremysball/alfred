@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 class SQLiteStore:
     """Unified SQLite storage for sessions, cron jobs, and memories.
-    
+
     Uses sqlite-vec for vector similarity search on memories.
     All operations are ACID-compliant via SQLite transactions.
     """
 
     def __init__(self, db_path: Path | str) -> None:
         """Initialize SQLite store.
-        
+
         Args:
             db_path: Path to SQLite database file
         """
@@ -38,9 +38,7 @@ class SQLiteStore:
         try:
             import aiosqlite
         except ImportError:
-            raise ImportError(
-                "aiosqlite required. Install with: uv add aiosqlite"
-            )
+            raise ImportError("aiosqlite required. Install with: uv add aiosqlite")
 
         async with aiosqlite.connect(self.db_path) as db:
             # Enable WAL mode for better concurrency
@@ -247,13 +245,10 @@ class SQLiteStore:
     # === Session Operations ===
 
     async def save_session(
-        self,
-        session_id: str,
-        messages: list[dict],
-        metadata: dict | None = None
+        self, session_id: str, messages: list[dict], metadata: dict | None = None
     ) -> None:
         """Save or update a session.
-        
+
         Args:
             session_id: Unique session identifier
             messages: List of message dicts
@@ -273,7 +268,7 @@ class SQLiteStore:
                     metadata = excluded.metadata,
                     updated_at = CURRENT_TIMESTAMP
                 """,
-                (session_id, json.dumps(messages), json.dumps(metadata or {}))
+                (session_id, json.dumps(messages), json.dumps(metadata or {})),
             )
             await db.commit()
 
@@ -281,13 +276,10 @@ class SQLiteStore:
             await self._index_message_embeddings(db, session_id, messages)
 
     async def _index_message_embeddings(
-        self,
-        db: Any,
-        session_id: str,
-        messages: list[dict]
+        self, db: Any, session_id: str, messages: list[dict]
     ) -> None:
         """Index message embeddings for vector search.
-        
+
         Only indexes messages with embeddings. Skips if already indexed.
         """
 
@@ -319,7 +311,7 @@ class SQLiteStore:
                     VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(message_embedding_id) DO NOTHING
                     """,
-                    (me_id, session_id, message_idx, role, content, json.dumps(embedding))
+                    (me_id, session_id, message_idx, role, content, json.dumps(embedding)),
                 )
 
                 # Insert into sqlite-vec if available
@@ -331,22 +323,24 @@ class SQLiteStore:
                             VALUES (?, ?)
                             ON CONFLICT(message_embedding_id) DO NOTHING
                             """,
-                            (me_id, json.dumps(embedding))
+                            (me_id, json.dumps(embedding)),
                         )
                     except Exception:
                         pass  # sqlite-vec might not be available
 
             except Exception as e:
-                logger.warning(f"Failed to index message {message_idx} for session {session_id}: {e}")
+                logger.warning(
+                    f"Failed to index message {message_idx} for session {session_id}: {e}"
+                )
 
         await db.commit()
 
     async def load_session(self, session_id: str) -> dict | None:
         """Load a session by ID.
-        
+
         Args:
             session_id: Session identifier
-            
+
         Returns:
             Session dict or None if not found
         """
@@ -357,8 +351,7 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM sessions WHERE session_id = ?",
-                (session_id,)
+                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
             ) as cursor:
                 row = await cursor.fetchone()
 
@@ -375,10 +368,10 @@ class SQLiteStore:
 
     async def list_sessions(self, limit: int = 100) -> list[dict]:
         """List recent sessions.
-        
+
         Args:
             limit: Maximum number of sessions to return
-            
+
         Returns:
             List of session dicts
         """
@@ -389,8 +382,7 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?",
-                (limit,)
+                "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)
             ) as cursor:
                 rows = await cursor.fetchall()
                 return [
@@ -406,10 +398,10 @@ class SQLiteStore:
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session.
-        
+
         Args:
             session_id: Session to delete
-            
+
         Returns:
             True if deleted, False if not found
         """
@@ -418,10 +410,7 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute(
-                "DELETE FROM sessions WHERE session_id = ?",
-                (session_id,)
-            )
+            cursor = await db.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
             await db.commit()
             return cursor.rowcount > 0
 
@@ -429,7 +418,7 @@ class SQLiteStore:
 
     async def save_job(self, job: dict) -> None:
         """Save or update a cron job.
-        
+
         Args:
             job: Job dict with job_id, name, schedule, command, etc.
         """
@@ -464,13 +453,13 @@ class SQLiteStore:
                     job.get("last_run_at"),
                     job.get("next_run_at"),
                     json.dumps(job.get("metadata", {})),
-                )
+                ),
             )
             await db.commit()
 
     async def load_jobs(self) -> list[dict]:
         """Load all cron jobs.
-        
+
         Returns:
             List of job dicts
         """
@@ -500,10 +489,10 @@ class SQLiteStore:
 
     async def delete_job(self, job_id: str) -> bool:
         """Delete a cron job.
-        
+
         Args:
             job_id: Job to delete
-            
+
         Returns:
             True if deleted, False if not found
         """
@@ -512,16 +501,13 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
-            cursor = await db.execute(
-                "DELETE FROM cron_jobs WHERE job_id = ?",
-                (job_id,)
-            )
+            cursor = await db.execute("DELETE FROM cron_jobs WHERE job_id = ?", (job_id,))
             await db.commit()
             return cursor.rowcount > 0
 
     async def record_execution(self, record: dict) -> None:
         """Record a job execution.
-        
+
         Args:
             record: Execution record dict
         """
@@ -546,21 +532,17 @@ class SQLiteStore:
                     record["status"],
                     record.get("output"),
                     record.get("error"),
-                )
+                ),
             )
             await db.commit()
 
-    async def get_job_history(
-        self,
-        job_id: str,
-        limit: int | None = None
-    ) -> list[dict]:
+    async def get_job_history(self, job_id: str, limit: int | None = None) -> list[dict]:
         """Get execution history for a job.
-        
+
         Args:
             job_id: Job ID to query
             limit: Maximum records to return
-            
+
         Returns:
             List of execution records
         """
@@ -579,7 +561,7 @@ class SQLiteStore:
                     ORDER BY started_at DESC 
                     LIMIT ?
                     """,
-                    (job_id, limit)
+                    (job_id, limit),
                 ) as cursor:
                     rows = await cursor.fetchall()
             else:
@@ -589,7 +571,7 @@ class SQLiteStore:
                     WHERE job_id = ? 
                     ORDER BY started_at DESC
                     """,
-                    (job_id,)
+                    (job_id,),
                 ) as cursor:
                     rows = await cursor.fetchall()
 
@@ -619,7 +601,7 @@ class SQLiteStore:
         timestamp: datetime | None = None,
     ) -> None:
         """Add a memory entry.
-        
+
         Args:
             entry_id: Unique memory ID
             role: "user", "assistant", or "system"
@@ -647,7 +629,7 @@ class SQLiteStore:
                     tags = excluded.tags,
                     permanent = excluded.permanent
                 """,
-                (entry_id, ts, role, content, json.dumps(tags or []), permanent)
+                (entry_id, ts, role, content, json.dumps(tags or []), permanent),
             )
 
             # Insert embedding if provided and sqlite-vec available
@@ -660,7 +642,7 @@ class SQLiteStore:
                         ON CONFLICT(entry_id) DO UPDATE SET
                             embedding = excluded.embedding
                         """,
-                        (entry_id, json.dumps(embedding))
+                        (entry_id, json.dumps(embedding)),
                     )
                 except Exception:
                     # sqlite-vec not available, store in main table
@@ -668,7 +650,7 @@ class SQLiteStore:
                         """
                         UPDATE memories SET embedding = ? WHERE entry_id = ?
                         """,
-                        (json.dumps(embedding), entry_id)
+                        (json.dumps(embedding), entry_id),
                     )
 
             await db.commit()
@@ -681,13 +663,13 @@ class SQLiteStore:
         tags: list[str] | None = None,
     ) -> list[dict]:
         """Search memories by vector similarity.
-        
+
         Args:
             query_embedding: Query vector
             top_k: Number of results
             role: Optional role filter
             tags: Optional tags filter
-            
+
         Returns:
             List of memory dicts with similarity scores
         """
@@ -740,6 +722,7 @@ class SQLiteStore:
 
                 # Compute cosine similarity
                 import numpy as np
+
                 query_vec = np.array(query_embedding)
                 scored = []
 
@@ -775,10 +758,10 @@ class SQLiteStore:
 
     async def get_memory(self, entry_id: str) -> dict | None:
         """Get a memory by ID.
-        
+
         Args:
             entry_id: Memory ID
-            
+
         Returns:
             Memory dict or None
         """
@@ -789,8 +772,7 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM memories WHERE entry_id = ?",
-                (entry_id,)
+                "SELECT * FROM memories WHERE entry_id = ?", (entry_id,)
             ) as cursor:
                 row = await cursor.fetchone()
 
@@ -813,12 +795,12 @@ class SQLiteStore:
         permanent_only: bool = False,
     ) -> list[dict]:
         """Get all memories with optional filtering.
-        
+
         Args:
             role: Optional role filter
             tags: Optional tags filter
             permanent_only: If True, only return permanent memories
-            
+
         Returns:
             List of memory dicts
         """
@@ -861,10 +843,10 @@ class SQLiteStore:
 
     async def delete_memory(self, entry_id: str) -> bool:
         """Delete a memory by ID.
-        
+
         Args:
             entry_id: Memory to delete
-            
+
         Returns:
             True if deleted, False if not found
         """
@@ -875,18 +857,12 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             # Delete from embeddings first (if exists)
             try:
-                await db.execute(
-                    "DELETE FROM memory_embeddings WHERE entry_id = ?",
-                    (entry_id,)
-                )
+                await db.execute("DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,))
             except Exception:
                 pass  # Table might not exist
 
             # Delete from memories
-            cursor = await db.execute(
-                "DELETE FROM memories WHERE entry_id = ?",
-                (entry_id,)
-            )
+            cursor = await db.execute("DELETE FROM memories WHERE entry_id = ?", (entry_id,))
             await db.commit()
             return cursor.rowcount > 0
 
@@ -896,11 +872,11 @@ class SQLiteStore:
         dry_run: bool = False,
     ) -> int:
         """Remove non-permanent memories older than TTL.
-        
+
         Args:
             ttl_days: Age threshold in days
             dry_run: If True, return count without deleting
-            
+
         Returns:
             Number of memories pruned (or would be pruned)
         """
@@ -919,7 +895,7 @@ class SQLiteStore:
                 SELECT COUNT(*) FROM memories
                 WHERE permanent = 0 AND timestamp < ?
                 """,
-                (cutoff,)
+                (cutoff,),
             ) as cursor:
                 row = await cursor.fetchone()
                 count = row[0] if row else 0
@@ -931,7 +907,7 @@ class SQLiteStore:
                     SELECT entry_id FROM memories
                     WHERE permanent = 0 AND timestamp < ?
                     """,
-                    (cutoff,)
+                    (cutoff,),
                 ) as cursor:
                     ids = [r[0] for r in await cursor.fetchall()]
 
@@ -939,8 +915,7 @@ class SQLiteStore:
                 for entry_id in ids:
                     try:
                         await db.execute(
-                            "DELETE FROM memory_embeddings WHERE entry_id = ?",
-                            (entry_id,)
+                            "DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,)
                         )
                     except Exception:
                         pass
@@ -951,7 +926,7 @@ class SQLiteStore:
                     DELETE FROM memories
                     WHERE permanent = 0 AND timestamp < ?
                     """,
-                    (cutoff,)
+                    (cutoff,),
                 )
                 await db.commit()
 
@@ -965,13 +940,13 @@ class SQLiteStore:
         tags: list[str] | None = None,
     ) -> bool:
         """Update a memory entry.
-        
+
         Args:
             entry_id: Memory to update
             content: New content (None = no change)
             embedding: New embedding (None = no change)
             tags: New tags (None = no change)
-            
+
         Returns:
             True if updated, False if not found
         """
@@ -982,8 +957,7 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             # Check if exists
             async with db.execute(
-                "SELECT 1 FROM memories WHERE entry_id = ?",
-                (entry_id,)
+                "SELECT 1 FROM memories WHERE entry_id = ?", (entry_id,)
             ) as cursor:
                 if await cursor.fetchone() is None:
                     return False
@@ -1004,8 +978,7 @@ class SQLiteStore:
                 params.append(entry_id)
 
                 await db.execute(
-                    f"UPDATE memories SET {', '.join(updates)} WHERE entry_id = ?",
-                    params
+                    f"UPDATE memories SET {', '.join(updates)} WHERE entry_id = ?", params
                 )
 
             # Update embedding
@@ -1018,13 +991,13 @@ class SQLiteStore:
                         ON CONFLICT(entry_id) DO UPDATE SET
                             embedding = excluded.embedding
                         """,
-                        (entry_id, json.dumps(embedding))
+                        (entry_id, json.dumps(embedding)),
                     )
                 except Exception:
                     # sqlite-vec not available
                     await db.execute(
                         "UPDATE memories SET embedding = ? WHERE entry_id = ?",
-                        (json.dumps(embedding), entry_id)
+                        (json.dumps(embedding), entry_id),
                     )
 
             await db.commit()
@@ -1065,7 +1038,7 @@ class SQLiteStore:
                     summary["summary_text"],
                     embedding_json,
                     summary.get("version", 1),
-                )
+                ),
             )
             await db.commit()
 
@@ -1092,7 +1065,7 @@ class SQLiteStore:
                 ORDER BY version DESC
                 LIMIT 1
                 """,
-                (session_id,)
+                (session_id,),
             ) as cursor:
                 row = await cursor.fetchone()
 
@@ -1120,15 +1093,18 @@ class SQLiteStore:
 
         import aiosqlite
 
-        async with aiosqlite.connect(self.db_path) as db, db.execute(
-            """
+        async with (
+            aiosqlite.connect(self.db_path) as db,
+            db.execute(
+                """
                 SELECT s.session_id
                 FROM sessions s
                 LEFT JOIN session_summaries sm ON s.session_id = sm.session_id
                 WHERE s.message_count - COALESCE(sm.message_count, 0) >= ?
                 """,
-            (threshold,)
-        ) as cursor:
+                (threshold,),
+            ) as cursor,
+        ):
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
@@ -1179,15 +1155,17 @@ class SQLiteStore:
                     ORDER BY v.distance
                     LIMIT ?
                     """,
-                    (json.dumps(query_embedding), top_k)
+                    (json.dumps(query_embedding), top_k),
                 ) as cursor:
                     async for row in cursor:
-                        results.append({
-                            "summary_id": row[0],
-                            "session_id": row[1],
-                            "summary_text": row[2],
-                            "similarity": row[3],
-                        })
+                        results.append(
+                            {
+                                "summary_id": row[0],
+                                "session_id": row[1],
+                                "summary_text": row[2],
+                                "similarity": row[3],
+                            }
+                        )
             except Exception as e:
                 logger.error(f"Error searching summaries: {e}")
                 raise RuntimeError("Failed to search summaries") from e
@@ -1243,15 +1221,17 @@ class SQLiteStore:
                     ORDER BY v.distance
                     LIMIT ?
                     """,
-                    (json.dumps(query_embedding), session_id, top_k)
+                    (json.dumps(query_embedding), session_id, top_k),
                 ) as cursor:
                     async for row in cursor:
-                        results.append({
-                            "message_idx": row[0],
-                            "role": row[1],
-                            "content_snippet": row[2],
-                            "similarity": row[3],
-                        })
+                        results.append(
+                            {
+                                "message_idx": row[0],
+                                "role": row[1],
+                                "content_snippet": row[2],
+                                "similarity": row[3],
+                            }
+                        )
             except Exception as e:
                 logger.error(f"Error searching messages for session {session_id}: {e}")
                 raise RuntimeError("Failed to search messages") from e

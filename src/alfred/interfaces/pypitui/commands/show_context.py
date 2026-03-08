@@ -19,7 +19,7 @@ class ShowContextCommand(Command):
         """Show current system context."""
         from alfred.context_display import get_context_display
 
-        if not tui.alfred.session_manager.has_active_session():
+        if not tui.alfred.core.session_manager.has_active_session():
             tui._add_system_message("No active session.")  # type: ignore[misc]
             return True
 

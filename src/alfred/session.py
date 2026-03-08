@@ -166,6 +166,14 @@ class SessionManager:
         except Exception:
             return False
 
+    async def session_exists_async(self, session_id: str) -> bool:
+        """Check if session exists (async version)."""
+        try:
+            result = await self.store.load_session(session_id)
+            return result is not None
+        except Exception:
+            return False
+
     def get_or_create_session(self, session_id: str | None = None) -> Session:
         """Get existing session or create new one."""
         if session_id is None:
@@ -251,8 +259,12 @@ class SessionManager:
 
             meta = SessionMeta(
                 session_id=session_id,
-                created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
-                last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
+                created_at=datetime.fromisoformat(
+                    data.get("created_at", datetime.now(UTC).isoformat())
+                ),
+                last_active=datetime.fromisoformat(
+                    data.get("updated_at", datetime.now(UTC).isoformat())
+                ),
                 status="active",
                 message_count=len(messages),
             )
@@ -293,11 +305,25 @@ class SessionManager:
         self.set_current_cli_session(session.meta.session_id)
         return session
 
+    async def new_session_async(self) -> Session:
+        """Create new CLI session (async version)."""
+        session = await self.get_or_create_session_async()
+        self.set_current_cli_session(session.meta.session_id)
+        return session
+
     def resume_session(self, session_id: str) -> Session:
         """Resume existing session."""
         if not self.session_exists(session_id):
             raise ValueError(f"Session {session_id} not found")
         session = self.get_or_create_session(session_id)
+        self.set_current_cli_session(session_id)
+        return session
+
+    async def resume_session_async(self, session_id: str) -> Session:
+        """Resume existing session (async version)."""
+        if not await self.session_exists_async(session_id):
+            raise ValueError(f"Session {session_id} not found")
+        session = await self.get_or_create_session_async(session_id)
         self.set_current_cli_session(session_id)
         return session
 
@@ -310,8 +336,40 @@ class SessionManager:
             for data in sessions_data:
                 meta = SessionMeta(
                     session_id=data["session_id"],
-                    created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
-                    last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
+                    created_at=datetime.fromisoformat(
+                        data.get("created_at", datetime.now(UTC).isoformat())
+                    ),
+                    last_active=datetime.fromisoformat(
+                        data.get("updated_at", datetime.now(UTC).isoformat())
+                    ),
+                    status="active",
+                    message_count=len(data.get("messages", [])),
+                )
+                metas.append(meta)
+
+            # Sort by last_active descending
+            metas.sort(key=lambda m: m.last_active, reverse=True)
+            return metas
+
+        except Exception as e:
+            logger.error(f"Error listing sessions: {e}")
+            return []
+
+    async def list_sessions_async(self) -> list[SessionMeta]:
+        """List all sessions (async version)."""
+        try:
+            sessions_data = await self.store.list_sessions(limit=1000)
+
+            metas = []
+            for data in sessions_data:
+                meta = SessionMeta(
+                    session_id=data["session_id"],
+                    created_at=datetime.fromisoformat(
+                        data.get("created_at", datetime.now(UTC).isoformat())
+                    ),
+                    last_active=datetime.fromisoformat(
+                        data.get("updated_at", datetime.now(UTC).isoformat())
+                    ),
                     status="active",
                     message_count=len(data.get("messages", [])),
                 )

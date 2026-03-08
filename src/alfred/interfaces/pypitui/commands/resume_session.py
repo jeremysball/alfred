@@ -1,5 +1,6 @@
 """/resume command - Resume an existing session."""
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.pypitui.commands.base import Command
@@ -22,14 +23,18 @@ class ResumeSessionCommand(Command):
             )
             return True
 
+        asyncio.create_task(self._execute_async(tui, arg.strip()))
+        return True
+
+    async def _execute_async(self, tui: "AlfredTUI", session_id: str) -> None:
+        """Async implementation of resume session."""
         try:
             tui._clear_conversation()  # type: ignore[misc]
-            tui.alfred.session_manager.resume_session(arg.strip())
+            await tui.alfred.core.session_manager.resume_session_async(session_id)
 
             # Load all session messages into conversation
-            tui._load_session_messages()  # type: ignore[misc]
+            await tui._load_session_messages()  # type: ignore[misc]
 
             tui._update_status()  # type: ignore[misc]
         except ValueError as e:
             tui._add_user_message(f"Error: {e}")  # type: ignore[misc]
-        return True

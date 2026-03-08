@@ -19,9 +19,7 @@ class SearchMemoriesToolParams(BaseModel):
     top_k: int = Field(5, description="Maximum number of results to return")
 
 
-class SearchMemoriesTool(
-    Tool, MemoryStoreMixin, SearchResultMixin, ErrorHandlingMixin
-):
+class SearchMemoriesTool(Tool, MemoryStoreMixin, SearchResultMixin, ErrorHandlingMixin):
     """Search through saved memories for relevant information."""
 
     name = "search_memories"
@@ -59,9 +57,7 @@ class SearchMemoriesTool(
             return
 
         try:
-            results, similarities, scores = await self._memory_store.search(
-                query, top_k=top_k
-            )
+            results, similarities, scores = await self._memory_store.search(query, top_k=top_k)
             yield self._format_results(results, similarities, scores)
         except Exception as e:
             yield f"Error searching memories: {e}"

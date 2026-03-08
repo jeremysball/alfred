@@ -6,6 +6,7 @@ from alfred.interfaces.pypitui.commands.new_session import NewSessionCommand
 from alfred.interfaces.pypitui.commands.resume_session import ResumeSessionCommand
 from alfred.interfaces.pypitui.commands.show_context import ShowContextCommand
 from alfred.interfaces.pypitui.commands.show_session import ShowSessionCommand
+from alfred.interfaces.pypitui.commands.throbbers import ThrobbersCommand
 
 __all__ = [
     "Command",
@@ -14,4 +15,5 @@ __all__ = [
     "ListSessionsCommand",
     "ShowSessionCommand",
     "ShowContextCommand",
+    "ThrobbersCommand",
 ]

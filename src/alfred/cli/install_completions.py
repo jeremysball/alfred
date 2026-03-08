@@ -8,18 +8,33 @@ from pathlib import Path
 
 from alfred.interfaces.ansi import apply_ansi
 
+SUPPORTED_SHELLS = ["bash", "fish", "zsh"]
 
-def install() -> None:
-    """Install fast static completions for the current shell."""
-    shell = _detect_shell()
+
+def install(shell: str | None = None) -> None:
+    """Install fast static completions for the specified shell.
+
+    Args:
+        shell: Shell to install completions for (bash, fish, zsh).
+               If None, attempts to auto-detect from $SHELL.
+    """
+    if shell is None:
+        shell = _detect_shell()
+
     if not shell:
         print(
             apply_ansi("{red}Could not detect shell. Currently supporting: bash, fish, zsh{reset}")
         )
+        print(apply_ansi("{dim}Use: --install-completions bash|fish|zsh{reset}"))
+        return
+
+    shell = shell.lower().strip()
+    if shell not in SUPPORTED_SHELLS:
+        print(apply_ansi(f"{{red}}Unknown shell: {shell}. Use: bash, fish, or zsh{{reset}}"))
         return
 
     # 1. Regenerate completions to ensure they are up-to-date
-    project_root = Path(__file__).parent.parent.parent
+    project_root = Path(__file__).parent.parent.parent.parent
     gen_script = project_root / "scripts" / "generate-static-completions.py"
 
     print(apply_ansi("{cyan}Regenerating static completions...{reset}"))
