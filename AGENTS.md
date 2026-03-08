@@ -312,6 +312,17 @@ uv run ruff check src/ && uv run basedpyright src/ && uv run pytest
 
 Show results. Fix issues. Then it is done.
 
+**For TUI/CLI changes:** You MUST actually run the application and verify it launches correctly before claiming it's done. Automated tests are not enough for UI features.
+
+```bash
+# Example: Verify TUI launches
+uv run alfred
+# Or for daemon:
+uv run alfred daemon
+```
+
+Do NOT say "it is done" if you haven't verified the actual application runs.
+
 ### 8. Always Use Conventional Commits
 
 All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
