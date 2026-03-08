@@ -51,16 +51,10 @@ def main(
         "-l",
         help="Set log level: 'info' or 'debug'. Default: warnings only",
     ),
-    install_completions: bool = typer.Option(
-        False,
+    install_completions: str = typer.Option(
+        "",
         "--install-completions",
-        help="Install shell completions for current shell (auto-detect from $SHELL)",
-        is_flag=True,
-    ),
-    shell: str | None = typer.Option(
-        None,
-        "--shell",
-        help="Shell to install completions for (bash, fish, zsh). Use with --install-completions",
+        help="Install shell completions (bash, fish, zsh, or 'auto')",
     ),
 ) -> None:
     """Alfred - Persistent memory-augmented LLM assistant.
@@ -75,7 +69,9 @@ def main(
     if install_completions:
         from alfred.cli.install_completions import install
 
-        install(shell=shell)
+        # 'auto' or empty = detect from $SHELL
+        shell_value = None if install_completions in ("auto", "") else install_completions
+        install(shell=shell_value)
         raise typer.Exit()
 
     global _run_telegram, _log_level
@@ -91,7 +87,7 @@ def main(
 # Cron subcommands - lazy-loaded proxies
 # ============================================================================
 
-cron_app = typer.Typer(name="cron", help="Manage cron jobs")
+cron_app = typer.Typer(name="cron", help="Manage cron jobs", no_args_is_help=True)
 
 
 @cron_app.callback()
@@ -214,7 +210,7 @@ app.add_typer(cron_app)
 # Memory subcommands - lazy-loaded proxies
 # ============================================================================
 
-memory_app = typer.Typer(name="memory", help="Manage memory system")
+memory_app = typer.Typer(name="memory", help="Manage memory system", no_args_is_help=True)
 
 
 @memory_app.callback()

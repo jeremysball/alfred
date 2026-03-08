@@ -25,7 +25,7 @@ def install(shell: str | None = None) -> None:
         print(
             apply_ansi("{red}Could not detect shell. Currently supporting: bash, fish, zsh{reset}")
         )
-        print(apply_ansi("{dim}Use: --install-completions --shell bash|fish|zsh{reset}"))
+        print(apply_ansi("{dim}Use: --install-completions bash|fish|zsh{reset}"))
         return
 
     shell = shell.lower().strip()
