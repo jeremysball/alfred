@@ -175,27 +175,91 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         use_bold=False,
     ),
     # NERD FONT STYLES (require Nerd Font installed)
-    "radar": ThrobberStyle(
-        name="radar",
-        frames=["\uf51c", "\uf51d", "\uf51e", "\uf51f"],  # fa-satellite-dish variants
+    # Verified working via Playwright screenshot testing
+    "spinner": ThrobberStyle(
+        name="spinner",
+        frames=["\uf110"],  # fa-spinner
         colors=[
-            (0, 255, 0),      # Green
-            (100, 255, 0),    # Lime
-            (200, 255, 0),    # Yellow-green
-            (255, 255, 0),    # Yellow
+            (0, 255, 255),    # Cyan
+            (50, 255, 200),   # Teal
+            (100, 255, 150),  # Green-cyan
+            (150, 255, 100),  # Lime
         ],
         spin_rate=8.0,
     ),
-    "radioactive": ThrobberStyle(
-        name="radioactive",
-        frames=["\uef7f", "☢", "\uef7f", "☢"],  # radiation alternating
+    "circle-notch": ThrobberStyle(
+        name="circle-notch",
+        frames=["\uf1ce"],  # fa-circle-notch
         colors=[
-            (0, 255, 0),      # Toxic green
-            (50, 255, 50),    # Bright green
-            (100, 255, 100),  # Light green
-            (150, 255, 150),  # Pale green
+            (255, 0, 128),    # Hot pink
+            (255, 50, 150),   # Pink
+            (255, 100, 180),  # Light pink
+            (255, 150, 200),  # Pale pink
+        ],
+        spin_rate=8.0,
+    ),
+    "bolt": ThrobberStyle(
+        name="bolt",
+        frames=["\uf0e7"],  # fa-bolt
+        colors=[
+            (255, 255, 0),    # Yellow
+            (255, 200, 0),    # Gold
+            (255, 150, 0),    # Orange
+            (255, 100, 0),    # Dark orange
+        ],
+        spin_rate=10.0,
+    ),
+    "cog": ThrobberStyle(
+        name="cog",
+        frames=["\uf013"],  # fa-cog
+        colors=[
+            (150, 150, 150),  # Silver
+            (180, 180, 180),  # Light gray
+            (210, 210, 210),  # Very light
+            (180, 180, 180),  # Light gray
         ],
         spin_rate=6.0,
+    ),
+    "chip": ThrobberStyle(
+        name="chip",
+        frames=["\uf2db"],  # fa-microchip
+        colors=[
+            (100, 200, 255),  # Blue
+            (100, 255, 100),  # Green
+            (255, 255, 100),  # Yellow
+            (255, 200, 100),  # Orange
+        ],
+        spin_rate=8.0,
+    ),
+    "wifi": ThrobberStyle(
+        name="wifi",
+        frames=["\uf1eb"],  # fa-wifi
+        colors=[
+            (0, 255, 0),      # Green
+            (100, 255, 100),  # Light green
+            (200, 255, 200),  # Pale green
+        ],
+        spin_rate=6.0,
+    ),
+    "database": ThrobberStyle(
+        name="database",
+        frames=["\uf1c0"],  # fa-database
+        colors=[
+            (100, 150, 255),  # Blue
+            (150, 100, 255),  # Purple
+            (255, 100, 200),  # Pink
+        ],
+        spin_rate=6.0,
+    ),
+    "sync": ThrobberStyle(
+        name="sync",
+        frames=["\uf021"],  # fa-sync
+        colors=[
+            (255, 200, 100),  # Gold
+            (255, 255, 100),  # Yellow
+            (200, 255, 100),  # Lime
+        ],
+        spin_rate=8.0,
     ),
     # EMOJI STYLE
     "cat": ThrobberStyle(
