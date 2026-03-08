@@ -1,25 +1,24 @@
+"""Cron CLI commands - communicate with daemon via socket.
+
+These commands act as a client to the standalone daemon.
+They do NOT access the database directly.
+"""
+
 from __future__ import annotations
 
 import asyncio
 import functools
-import json
 from collections.abc import Callable, Coroutine
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
-import aiofiles
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.table import Table
 
-from alfred.config import load_config
 from alfred.cron.daemon import DaemonManager
-
-if TYPE_CHECKING:
-    from alfred.cron.models import Job
-    from alfred.cron.scheduler import CronScheduler
-    from alfred.cron.store import CronStore
+from alfred.cron.socket_client import SocketClient
 
 app = typer.Typer(help="Manage cron jobs")
 console = Console()
@@ -37,22 +36,9 @@ def async_command[T](func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..
     return wrapper
 
 
-def get_store() -> CronStore:
-    """Get CronStore instance."""
-    from alfred.cron.store import CronStore
-
-    config = load_config()
-    return CronStore(config.data_dir)
-
-
-def get_scheduler() -> CronScheduler:
-    """Get CronScheduler instance."""
-    from alfred.cron.scheduler import CronScheduler
-    from alfred.cron.store import CronStore
-
-    config = load_config()
-    store = CronStore(config.data_dir)
-    return CronScheduler(store=store, data_dir=config.data_dir)
+def get_socket_client() -> SocketClient:
+    """Get a socket client connected to the daemon."""
+    return SocketClient()
 
 
 @app.command("list")
@@ -66,47 +52,64 @@ async def list_jobs(
     ),
 ) -> None:
     """List all cron jobs."""
-    store = get_store()
-    jobs = await store.load_jobs()
+    client = get_socket_client()
+    await client.start()
 
-    status_filter = status.lower().strip()
-    valid_filters = ["all", "pending", "active", "paused"]
+    try:
+        response = await client.query_jobs(timeout=5.0)
 
-    if status_filter not in valid_filters:
-        valid_list = ", ".join(valid_filters)
-        console.print(f"[red]Error: Invalid status '{status}'. Use: {valid_list}[/red]")
-        raise typer.Exit(1)
+        if response is None:
+            console.print(
+                "[red]Error: Could not connect to daemon. "
+                "Is it running? (alfred daemon status)[/red]"
+            )
+            raise typer.Exit(1)
 
-    if status_filter != "all":
-        jobs = [j for j in jobs if j.status == status_filter]
+        jobs = response.jobs
 
-    if not jobs:
-        msg = "No jobs found." if status_filter == "all" else f"No {status_filter} jobs found."
-        console.print(f"[yellow]{msg}[/yellow]")
-        return
+        status_filter = status.lower().strip()
+        valid_filters = ["all", "pending", "active", "paused"]
 
-    table = Table(title=f"Cron Jobs ({status_filter})" if status_filter != "all" else "Cron Jobs")
-    table.add_column("ID", style="dim", width=8)
-    table.add_column("Name", style="bold")
-    table.add_column("Status", width=10)
-    table.add_column("Schedule")
-    table.add_column("Last Run")
+        if status_filter not in valid_filters:
+            valid_list = ", ".join(valid_filters)
+            console.print(f"[red]Error: Invalid status '{status}'. Use: {valid_list}[/red]")
+            raise typer.Exit(1)
 
-    status_colors = {"pending": "yellow", "active": "green", "paused": "dim"}
+        if status_filter != "all":
+            jobs = [j for j in jobs if j.get("status") == status_filter]
 
-    for job in jobs:
-        status_color = status_colors.get(job.status, "white")
-        last_run = job.last_run.strftime("%Y-%m-%d %H:%M") if job.last_run else "—"
-        table.add_row(
-            job.job_id[:8],
-            job.name,
-            f"[{status_color}]{job.status}[/{status_color}]",
-            job.expression,
-            last_run,
+        if not jobs:
+            msg = "No jobs found." if status_filter == "all" else f"No {status_filter} jobs found."
+            console.print(f"[yellow]{msg}[/yellow]")
+            return
+
+        table = Table(
+            title=f"Cron Jobs ({status_filter})" if status_filter != "all" else "Cron Jobs"
         )
+        table.add_column("ID", style="dim", width=8)
+        table.add_column("Name", style="bold")
+        table.add_column("Status", width=10)
+        table.add_column("Schedule")
+        table.add_column("Last Run")
 
-    console.print(table)
-    console.print(f"\n[dim]Total: {len(jobs)} job(s)[/dim]")
+        status_colors = {"pending": "yellow", "active": "green", "paused": "dim"}
+
+        for job in jobs:
+            status_color = status_colors.get(job.get("status", ""), "white")
+            last_run = job.get("last_run", "—") if job.get("last_run") else "—"
+            table.add_row(
+                job.get("job_id", "")[:8],
+                job.get("name", ""),
+                f"[{status_color}]{job.get('status', '')}[/{status_color}]",
+                job.get("expression", ""),
+                last_run,
+            )
+
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(jobs)} job(s)[/dim]")
+
+    finally:
+        await client.stop()
 
 
 @app.command("submit")
@@ -148,120 +151,208 @@ async def run():
         console.print(f"[red]Error: Invalid Python code - {e}[/red]")
         raise typer.Exit(1) from None
 
-    scheduler = get_scheduler()
-    job_id = await scheduler.submit_user_job(
-        name=name,
-        expression=cron_expression,
-        code=code,
-    )
+    client = get_socket_client()
+    await client.start()
 
-    console.print(
-        Panel(
-            f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
-            f"[dim]Schedule:[/dim] {cron_expression}\n"
-            f"[dim]Job ID:[/dim] {job_id}\n\n"
-            f"[yellow]This job requires approval before it will run.[/yellow]\n"
-            f"Run: [bold]alfred jobs approve {job_id[:8]}[/bold]",
-            title="Job Submitted",
-            border_style="green",
+    try:
+        response = await client.submit_job(
+            name=name, expression=cron_expression, code=code, timeout=10.0
         )
-    )
+
+        if response is None:
+            console.print(
+                "[red]Error: Could not connect to daemon. "
+                "Is it running? (alfred daemon status)[/red]"
+            )
+            raise typer.Exit(1)
+
+        if response.success:
+            console.print(
+                Panel(
+                    f"[green]✓[/green] Job '[bold]{name}[/bold]' submitted for approval\n\n"
+                    f"[dim]Schedule:[/dim] {cron_expression}\n"
+                    f"[dim]Job ID:[/dim] {response.job_id}\n\n"
+                    f"[yellow]This job requires approval before it will run.[/yellow]\n"
+                    f"Run: [bold]alfred jobs approve {response.job_id[:8]}[/bold]",
+                    title="Job Submitted",
+                    border_style="green",
+                )
+            )
+        else:
+            console.print(f"[red]Error: {response.message}[/red]")
+            raise typer.Exit(1)
+
+    finally:
+        await client.stop()
 
 
 @app.command("review")
 @async_command
 async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
     """Review a pending job's details."""
-    store = get_store()
-    jobs = await store.load_jobs()
-    job = _find_job(jobs, job_id)
+    client = get_socket_client()
+    await client.start()
 
-    if job is None:
-        console.print(f"[red]Error: Job '{job_id}' not found[/red]")
-        raise typer.Exit(1)
+    try:
+        response = await client.query_jobs(timeout=5.0)
 
-    console.print(
-        Panel(
-            f"[bold]{job.name}[/bold]\n"
-            f"[dim]ID:[/dim] {job.job_id}\n"
-            f"[dim]Status:[/dim] {job.status}\n"
-            f"[dim]Schedule:[/dim] {job.expression}\n"
-            f"[dim]Created:[/dim] {job.created_at.strftime('%Y-%m-%d %H:%M')}",
-            title="Job Details",
-            border_style="blue",
+        if response is None:
+            console.print(
+                "[red]Error: Could not connect to daemon. "
+                "Is it running? (alfred daemon status)[/red]"
+            )
+            raise typer.Exit(1)
+
+        jobs = response.jobs
+        job = _find_job_dict(jobs, job_id)
+
+        if job is None:
+            console.print(f"[red]Error: Job '{job_id}' not found[/red]")
+            raise typer.Exit(1)
+
+        console.print(
+            Panel(
+                f"[bold]{job.get('name', '')}[/bold]\n"
+                f"[dim]ID:[/dim] {job.get('job_id', '')}\n"
+                f"[dim]Status:[/dim] {job.get('status', '')}\n"
+                f"[dim]Schedule:[/dim] {job.get('expression', '')}\n"
+                f"[dim]Created:[/dim] {job.get('created_at', '')}",
+                title="Job Details",
+                border_style="blue",
+            )
         )
-    )
 
-    console.print("\n[bold]Code:[/bold]")
-    syntax = Syntax(job.code, "python", theme="monokai", line_numbers=True)
-    console.print(syntax)
+        console.print("\n[bold]Code:[/bold]")
+        syntax = Syntax(job.get("code", ""), "python", theme="monokai", line_numbers=True)
+        console.print(syntax)
 
-    console.print("\n[bold]Resource Limits:[/bold]")
-    console.print(f"  Timeout: {job.resource_limits.timeout_seconds}s")
-    console.print(f"  Max Memory: {job.resource_limits.max_memory_mb}MB")
-    console.print(f"  Network: {'Allowed' if job.resource_limits.allow_network else 'Blocked'}")
+        limits = job.get("resource_limits", {})
+        console.print("\n[bold]Resource Limits:[/bold]")
+        console.print(f"  Timeout: {limits.get('timeout_seconds', 'N/A')}s")
+        console.print(f"  Max Memory: {limits.get('max_memory_mb', 'N/A')}MB")
+        network_allowed = limits.get("allow_network", False)
+        console.print(f"  Network: {'Allowed' if network_allowed else 'Blocked'}")
 
-    if job.status == "pending":
-        console.print("\n[yellow]This job is pending approval.[/yellow]")
-        console.print(f"To approve: [bold]alfred cron approve {job.job_id[:8]}[/bold]")
-        console.print(f"To reject: [bold]alfred cron reject {job.job_id[:8]}[/bold]")
+        if job.get("status") == "pending":
+            console.print("\n[yellow]This job is pending approval.[/yellow]")
+            console.print(
+                f"To approve: [bold]alfred cron approve {job.get('job_id', '')[:8]}[/bold]"
+            )
+            console.print(f"To reject: [bold]alfred cron reject {job.get('job_id', '')[:8]}[/bold]")
+
+    finally:
+        await client.stop()
 
 
 @app.command("approve")
 @async_command
 async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
     """Approve a pending job."""
-    store = get_store()
-    scheduler = get_scheduler()
-    jobs = await store.load_jobs()
-    job = _find_job(jobs, job_id)
+    client = get_socket_client()
+    await client.start()
 
-    if job is None:
-        console.print(f"[red]Error: Job '{job_id}' not found[/red]")
-        raise typer.Exit(1)
+    try:
+        # First get the job details to verify it exists
+        response = await client.query_jobs(timeout=5.0)
 
-    if job.status == "active":
-        console.print(f"[yellow]Job '{job.name}' is already active.[/yellow]")
-        return
+        if response is None:
+            console.print(
+                "[red]Error: Could not connect to daemon. "
+                "Is it running? (alfred daemon status)[/red]"
+            )
+            raise typer.Exit(1)
 
-    if job.status != "pending":
-        console.print(f"[red]Error: Cannot approve job with status '{job.status}'[/red]")
-        raise typer.Exit(1)
+        jobs = response.jobs
+        job = _find_job_dict(jobs, job_id)
 
-    await scheduler.approve_job(job.job_id, "cli")
+        if job is None:
+            console.print(f"[red]Error: Job '{job_id}' not found[/red]")
+            raise typer.Exit(1)
 
-    console.print(
-        Panel(
-            f"[green]✓[/green] Approved '[bold]{job.name}[/bold]'\n"
-            f"The job is now active and will run on schedule.",
-            title="Job Approved",
-            border_style="green",
+        if job.get("status") == "active":
+            console.print(f"[yellow]Job '{job.get('name')}' is already active.[/yellow]")
+            return
+
+        if job.get("status") != "pending":
+            console.print(f"[red]Error: Cannot approve job with status '{job.get('status')}'[/red]")
+            raise typer.Exit(1)
+
+        # Approve via socket
+        approve_response = await client.approve_job(
+            job_identifier=job.get("job_id", ""), timeout=10.0
         )
-    )
+
+        if approve_response is None:
+            console.print("[red]Error: Failed to send approval to daemon.[/red]")
+            raise typer.Exit(1)
+
+        if approve_response.success:
+            console.print(
+                Panel(
+                    f"[green]✓[/green] Approved '[bold]{approve_response.job_name}[/bold]'\n"
+                    f"The job is now active and will run on schedule.",
+                    title="Job Approved",
+                    border_style="green",
+                )
+            )
+        else:
+            console.print(f"[red]Error: {approve_response.message}[/red]")
+            raise typer.Exit(1)
+
+    finally:
+        await client.stop()
 
 
 @app.command("reject")
 @async_command
 async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
     """Reject and delete a pending job."""
-    store = get_store()
-    jobs = await store.load_jobs()
-    job = _find_job(jobs, job_id)
+    client = get_socket_client()
+    await client.start()
 
-    if job is None:
-        console.print(f"[red]Error: Job '{job_id}' not found[/red]")
-        raise typer.Exit(1)
+    try:
+        # First get the job details
+        response = await client.query_jobs(timeout=5.0)
 
-    job_name = job.name
-    await store.delete_job(job.job_id)
+        if response is None:
+            console.print(
+                "[red]Error: Could not connect to daemon. "
+                "Is it running? (alfred daemon status)[/red]"
+            )
+            raise typer.Exit(1)
 
-    console.print(
-        Panel(
-            f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\nThe job has been removed.",
-            title="Job Rejected",
-            border_style="yellow",
-        )
-    )
+        jobs = response.jobs
+        job = _find_job_dict(jobs, job_id)
+
+        if job is None:
+            console.print(f"[red]Error: Job '{job_id}' not found[/red]")
+            raise typer.Exit(1)
+
+        job_name = job.get("name", "")
+        actual_job_id = job.get("job_id", "")
+
+        # Reject via socket
+        reject_response = await client.reject_job(job_identifier=actual_job_id, timeout=10.0)
+
+        if reject_response is None:
+            console.print("[red]Error: Failed to send reject to daemon.[/red]")
+            raise typer.Exit(1)
+
+        if reject_response.success:
+            console.print(
+                Panel(
+                    f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\n"
+                    f"The job has been removed.",
+                    title="Job Rejected",
+                    border_style="yellow",
+                )
+            )
+        else:
+            console.print(f"[red]Error: {reject_response.message}[/red]")
+            raise typer.Exit(1)
+
+    finally:
+        await client.stop()
 
 
 @app.command("history")
@@ -271,72 +362,78 @@ async def show_history(
     limit: int = typer.Option(20, "--limit", "-l", help="Maximum records to show"),
 ) -> None:
     """Show job execution history."""
-    from alfred.cron.models import ExecutionRecord
+    client = get_socket_client()
+    await client.start()
 
-    store = get_store()
-    history_path = store.history_path
+    try:
+        response = await client.query_jobs(timeout=5.0)
 
-    if not history_path.exists():
-        console.print("[yellow]No execution history found.[/yellow]")
-        return
+        if response is None:
+            console.print(
+                "[red]Error: Could not connect to daemon. "
+                "Is it running? (alfred daemon status)[/red]"
+            )
+            raise typer.Exit(1)
 
-    async with aiofiles.open(history_path) as f:
-        content = await f.read()
+        recent_failures = response.recent_failures
 
-    records = []
-    for line in content.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            records.append(ExecutionRecord.from_dict(json.loads(line)))
-        except (json.JSONDecodeError, KeyError):
-            continue
+        if job_id:
+            recent_failures = [
+                r
+                for r in recent_failures
+                if r.get("job_id", "").startswith(job_id) or job_id in r.get("job_id", "")
+            ]
 
-    if job_id:
-        records = [r for r in records if r.job_id.startswith(job_id) or job_id in r.job_id]
+        # Sort by started_at (most recent first)
+        recent_failures.sort(key=lambda r: r.get("started_at", ""), reverse=True)
+        recent_failures = recent_failures[:limit]
 
-    records.sort(key=lambda r: r.started_at, reverse=True)
-    records = records[:limit]
+        if not recent_failures:
+            console.print(
+                f"[yellow]No history found{' for job ' + job_id if job_id else ''}.[/yellow]"
+            )
+            return
 
-    if not records:
-        console.print(f"[yellow]No history found{' for job ' + job_id if job_id else ''}.[/yellow]")
-        return
+        table = Table(title="Execution History")
+        table.add_column("Time", width=16)
+        table.add_column("Job ID", width=8)
+        table.add_column("Status", width=10)
+        table.add_column("Duration", width=10)
+        table.add_column("Memory", width=10)
 
-    table = Table(title="Execution History")
-    table.add_column("Time", width=16)
-    table.add_column("Job ID", width=8)
-    table.add_column("Status", width=10)
-    table.add_column("Duration", width=10)
-    table.add_column("Memory", width=10)
+        status_colors = {"success": "green", "failed": "red", "timeout": "yellow"}
 
-    status_colors = {"success": "green", "failed": "red", "timeout": "yellow"}
+        for record in recent_failures:
+            status = record.get("status", "")
+            status_color = status_colors.get(status, "white")
+            duration_ms = record.get("duration_ms", 0)
+            if duration_ms < 1000:
+                duration = f"{duration_ms}ms"
+            else:
+                duration = f"{duration_ms // 1000}s"
+            memory = f"{record.get('memory_peak_mb')}MB" if record.get("memory_peak_mb") else "—"
+            table.add_row(
+                record.get("started_at", "")[:16],  # YYYY-MM-DD HH:MM
+                record.get("job_id", "")[:8],
+                f"[{status_color}]{status}[/{status_color}]",
+                duration,
+                memory,
+            )
 
-    for record in records:
-        status_color = status_colors.get(record.status.value, "white")
-        if record.duration_ms < 1000:
-            duration = f"{record.duration_ms}ms"
-        else:
-            duration = f"{record.duration_ms // 1000}s"
-        memory = f"{record.memory_peak_mb}MB" if record.memory_peak_mb else "—"
-        table.add_row(
-            record.started_at.strftime("%Y-%m-%d %H:%M"),
-            record.job_id[:8],
-            f"[{status_color}]{record.status.value}[/{status_color}]",
-            duration,
-            memory,
-        )
+        console.print(table)
+        console.print(f"\n[dim]Showing {len(recent_failures)} record(s)[/dim]")
 
-    console.print(table)
-    console.print(f"\n[dim]Showing {len(records)} record(s)[/dim]")
+        failed = [r for r in recent_failures if r.get("status") in ("failed", "timeout")]
+        if failed:
+            console.print("\n[bold red]Failed Executions:[/bold red]")
+            for record in failed[:3]:
+                console.print(f"\n[dim]{record.get('started_at', '')[:16]}[/dim]")
+                error_msg = record.get("error_message", "")
+                if error_msg:
+                    console.print(f"[red]{error_msg}[/red]")
 
-    failed = [r for r in records if r.status.value in ("failed", "timeout")]
-    if failed:
-        console.print("\n[bold red]Failed Executions:[/bold red]")
-        for record in failed[:3]:
-            console.print(f"\n[dim]{record.started_at.strftime('%Y-%m-%d %H:%M')}[/dim]")
-            if record.error_message:
-                console.print(f"[red]{record.error_message}[/red]")
+    finally:
+        await client.stop()
 
 
 @app.command("start")
@@ -362,7 +459,7 @@ def start_daemon() -> None:
 
     # Use Popen instead of run so we don't wait for the intermediate parent
     process = subprocess.Popen(
-        [sys.executable, "-m", "src.cli.cron_runner", "--daemon"],
+        [sys.executable, "-m", "alfred.cli.cron_runner", "--daemon"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -440,25 +537,25 @@ def reload_daemon() -> None:
         raise typer.Exit(1)
 
 
-def _find_job(jobs: list[Job], identifier: str) -> Job | None:
+def _find_job_dict(jobs: list[dict], identifier: str) -> dict | None:
     """Find job by ID or fuzzy name match."""
     identifier_lower = identifier.lower()
 
     # Try exact ID match
     for job in jobs:
-        if job.job_id == identifier:
+        if job.get("job_id") == identifier:
             return job
 
     # Try partial ID match
     for job in jobs:
-        if job.job_id.startswith(identifier):
+        if job.get("job_id", "").startswith(identifier):
             return job
 
     # Try exact name match
     for job in jobs:
-        if job.name.lower() == identifier_lower:
+        if job.get("name", "").lower() == identifier_lower:
             return job
 
     # Try substring name match (must be unique)
-    matches = [j for j in jobs if identifier_lower in j.name.lower()]
+    matches = [j for j in jobs if identifier_lower in j.get("name", "").lower()]
     return matches[0] if len(matches) == 1 else None
