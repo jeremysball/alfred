@@ -16,6 +16,7 @@ from alfred.interfaces.pypitui.commands import (
     ResumeSessionCommand,
     ShowContextCommand,
     ShowSessionCommand,
+    ThrobbersCommand,
 )
 from alfred.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 
@@ -116,6 +117,7 @@ class AlfredTUI:
             "/sessions": ListSessionsCommand(),
             "/session": ShowSessionCommand(),
             "/context": ShowContextCommand(),
+            "/throbbers": ThrobbersCommand(),
         }
 
         # Toast manager is passed directly, no need to configure through notifier
@@ -433,6 +435,7 @@ class AlfredTUI:
             ("/sessions", "List all sessions"),
             ("/session", "Show current session info"),
             ("/context", "Show system context"),
+            ("/throbbers", "Show throbber animations"),
         ]
 
         # Filter by fuzzy match

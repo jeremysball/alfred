@@ -174,6 +174,43 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         spin_rate=6.0,
         use_bold=False,
     ),
+    # NERD FONT STYLES (require Nerd Font installed)
+    "radar": ThrobberStyle(
+        name="radar",
+        frames=["\uf51c", "\uf51d", "\uf51e", "\uf51f"],  # fa-satellite-dish variants
+        colors=[
+            (0, 255, 0),      # Green
+            (100, 255, 0),    # Lime
+            (200, 255, 0),    # Yellow-green
+            (255, 255, 0),    # Yellow
+        ],
+        spin_rate=8.0,
+    ),
+    "radioactive": ThrobberStyle(
+        name="radioactive",
+        frames=["\uef7f", "☢", "\uef7f", "☢"],  # radiation alternating
+        colors=[
+            (0, 255, 0),      # Toxic green
+            (50, 255, 50),    # Bright green
+            (100, 255, 100),  # Light green
+            (150, 255, 150),  # Pale green
+        ],
+        spin_rate=6.0,
+    ),
+    # EMOJI STYLE
+    "cat": ThrobberStyle(
+        name="cat",
+        frames=["🐱", "😺", "😸", "😹", "😻", "🙀"],
+        colors=[
+            (255, 200, 100),  # Orange
+            (255, 180, 80),   # Light orange
+            (255, 160, 60),   # Peach
+            (255, 140, 40),   # Dark orange
+            (255, 120, 20),   # Red-orange
+            (255, 100, 0),    # Red
+        ],
+        spin_rate=8.0,
+    ),
 }
 
 
