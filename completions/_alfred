@@ -13,6 +13,9 @@ _alfred() {
     case $state in
         cmds)
             _values "alfred commands" \
+                "daemon" \
+                "cron" \
+                "memory" \
                 "--telegram" \
                 "-t" \
                 "--log" \
@@ -22,6 +25,25 @@ _alfred() {
             ;;
         args)
             case $line[1] in
+                cron)
+                    _values "cron subcommands" \
+                        "list" \
+                        "submit" \
+                        "review" \
+                        "approve" \
+                        "reject" \
+                        "history" \
+                        "start" \
+                        "stop" \
+                        "status" \
+                        "reload" \
+                    ;;
+                memory)
+                    _values "memory subcommands" \
+                        "migrate" \
+                        "status" \
+                        "prune" \
+                    ;;
             esac
             ;;
     esac

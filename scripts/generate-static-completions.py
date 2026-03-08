@@ -5,8 +5,6 @@ Supports Bash, Fish, and Zsh.
 """
 
 import argparse
-import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -14,28 +12,30 @@ PROJECT_ROOT = Path(__file__).parent.parent
 COMPLETIONS_DIR = PROJECT_ROOT / "completions"
 
 
-def get_completions(args: list[str]) -> list[str]:
-    """Get completions by running alfred with completion env vars."""
-    env = {
-        "_ALFRED_COMPLETE": "complete_bash",
-        "COMP_WORDS": " ".join(["alfred"] + args + [""]),
-        "COMP_CWORD": str(len(args)),
-    }
-    result = subprocess.run(
-        [sys.executable, "-m", "src.cli.main"],
-        capture_output=True,
-        text=True,
-        env={**os.environ, **env},
-        cwd=str(PROJECT_ROOT),
-    )
-    # Typer outputs completion choices separated by newline
-    # Each line might contain choice and optional description separated by \t
-    lines = result.stdout.strip().split("\n")
-    choices = [line.split("\t")[0] for line in lines if line.strip()]
-    return sorted(list(set(choices)))
+def discover_commands():
+    """Discover commands from the Typer app using Click introspection."""
+    # Import here to avoid issues during module load
+    import click
+    from typer.main import get_group
+
+    from alfred.cli.main import app
+
+    completions = {"": []}  # "" = top-level commands/options
+
+    # Get the underlying Click group
+    group = get_group(app)
+
+    # Get top-level commands and groups
+    for name, cmd in group.commands.items():
+        completions[""].append(name)
+        if isinstance(cmd, click.Group):
+            # This is a subcommand group (like cron, memory)
+            completions[name] = list(cmd.commands.keys())
+
+    return completions
 
 
-def generate_bash(completions: dict[str, list[str]]) -> str:
+def generate_bash(completions: dict) -> str:
     script = """#!/bin/bash
 # Static bash completion for alfred
 # Generated automatically - do not edit manually
@@ -67,7 +67,7 @@ _alfred_completion() {
                 ["--telegram", "-t", "--log", "-l", "--install-completions", "--help"]
             )
 
-        opts_str = " ".join(sorted(list(set(opts))))
+        opts_str = " ".join(sorted(set(opts)))
         case_path = path if path else '""'
         script += (
             f'        {case_path})\n            opts="{opts_str}"\n            ;;\n'
@@ -90,24 +90,26 @@ complete -F _alfred_completion alfred
     return script
 
 
-def generate_fish(completions: dict[str, list[str]]) -> str:
+def generate_fish(completions: dict) -> str:
     script = """# Alfred shell completions for fish
 # Generated automatically - do not edit manually
 
 # Disable file completions by default
 complete -c alfred -f
 
-# Options
+# Top-level options
 complete -c alfred -s t -l telegram -d "Run as Telegram bot"
 complete -c alfred -s l -l log -d "Set log level" -a "info debug"
 complete -c alfred -l install-completions -d "Install shell completions"
+complete -c alfred -l help -d "Show help"
 """
-    # Handle top-level
+
+    # Top-level commands (subcommands)
     top_level = completions.get("", [])
     for cmd in top_level:
         script += f'complete -c alfred -n "__fish_use_subcommand" -a "{cmd}"\n'
 
-    # Handle subcommands
+    # Subcommand options
     for path, opts in sorted(completions.items()):
         if not path or not opts:
             continue
@@ -115,13 +117,13 @@ complete -c alfred -l install-completions -d "Install shell completions"
         parts = path.split()
         if len(parts) == 1:
             for sub in opts:
-                script += f'complete -c alfred -n "__fish_seen_subcommand_from {parts[0]}" -a "{sub}"\n'
-        # Nested subcommands could be added here if needed, but Alfred currently only has 2 levels
+                fish_cond = f'"__fish_seen_subcommand_from {parts[0]}"'
+                script += f'complete -c alfred -n {fish_cond} -a "{sub}"\n'
 
     return script
 
 
-def generate_zsh(completions: dict[str, list[str]]) -> str:
+def generate_zsh(completions: dict) -> str:
     # Minimal Zsh completion wrapper
     script = """#compdef alfred
 # Generated automatically - do not edit manually
@@ -150,7 +152,8 @@ _alfred() {
     for cmd in top_level:
         subcmds = completions.get(cmd, [])
         if subcmds:
-            script += f'                {cmd})\n                    _values "{cmd} subcommands" \\\n'
+            script += f'                {cmd})\n'
+            script += f'                    _values "{cmd} subcommands" \\\n'
             for sub in subcmds:
                 script += f'                        "{sub}" \\\n'
             script += "                    ;;\n"
@@ -175,12 +178,18 @@ def main():
     )
     args = parser.parse_args()
 
-    # Discover completions
-    top_level = get_completions([])
-    completions = {"": top_level}
-    for cmd in top_level:
-        subcmds = get_completions([cmd])
-        completions[cmd] = subcmds
+    # Discover completions from Typer app
+    completions = discover_commands()
+
+    # Validate we found commands
+    if not completions.get(""):
+        print("Error: No commands discovered from Typer app", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Discovered commands: {completions.get('', [])}", file=sys.stderr)
+    for cmd, subcmds in completions.items():
+        if cmd:
+            print(f"  {cmd} subcommands: {subcmds}", file=sys.stderr)
 
     # Map shells to functions and filenames
     shell_map = {
