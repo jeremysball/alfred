@@ -1,80 +1,67 @@
-"""Configuration for AlfredDaemon - separate from main Alfred config."""
+"""Configuration for AlfredDaemon - inherits from main Alfred config.
+
+Daemon config merges with main Config, with daemon.toml taking priority.
+"""
 
 import logging
 from pathlib import Path
 from typing import Any
 
 import tomli
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from alfred.data_manager import get_data_dir
-
-
-class DaemonConfig(BaseSettings):
-    """Configuration for AlfredDaemon (daemon.toml)."""
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-    # Required API keys (from environment)
-    kimi_api_key: str = Field(..., validation_alias="KIMI_API_KEY")
-    openai_api_key: str = Field(..., validation_alias="OPENAI_API_KEY")
-
-    # Daemon-specific settings
-    log_level: str = "INFO"
-    data_dir: Path = Field(default_factory=get_data_dir)
-
-    # Scheduler settings
-    check_interval: float = 60.0  # Seconds between schedule checks
-
-
-class DaemonTomlConfig(BaseSettings):
-    """Settings loaded from daemon.toml file."""
-
-    model_config = SettingsConfigDict(extra="ignore")
-
-    log_level: str = "INFO"
-    check_interval: float = 60.0
+from alfred.config import Config
+from alfred.config import load_config as load_alfred_config
+from alfred.data_manager import get_config_dir
 
 
 def _get_daemon_toml_path() -> Path:
     """Get path to daemon.toml config file."""
-    from alfred.data_manager import get_config_dir
-
     return get_config_dir() / "daemon.toml"
 
 
-def load_daemon_config(toml_path: Path | None = None) -> DaemonConfig:
-    """Load daemon configuration from daemon.toml.
+def load_daemon_config(toml_path: Path | None = None) -> Config:
+    """Load daemon configuration.
 
+    Merges main Alfred config with daemon.toml overrides.
     Precedence (highest to lowest):
-    1. Environment variables
-    2. .env file
-    3. daemon.toml file
-    4. Defaults
+    1. daemon.toml file (overrides)
+    2. Environment variables
+    3. .env file
+    4. config.toml file
 
     Args:
         toml_path: Path to daemon.toml. Defaults to XDG config directory.
     """
-    toml_path = toml_path or _get_daemon_toml_path()
+    # Start with base Alfred config (loads env, .env, config.toml)
+    base_config = load_alfred_config()
 
-    toml_config: dict[str, Any] = {}
+    # Load daemon.toml overrides
+    toml_path = toml_path or _get_daemon_toml_path()
+    daemon_overrides: dict[str, Any] = {}
+
     if toml_path.exists():
         with open(toml_path, "rb") as f:
             toml_data = tomli.load(f)
             # Flatten [daemon] section if present
-            toml_config = toml_data.get("daemon", toml_data)
+            daemon_overrides = toml_data.get("daemon", toml_data)
 
-    return DaemonConfig(**toml_config)
+    # If no daemon.toml, just return base config
+    if not daemon_overrides:
+        return base_config
+
+    # Merge: daemon.toml overrides base config
+    # Get base config as dict, then update with overrides
+    base_dict = base_config.model_dump()
+    base_dict.update(daemon_overrides)
+
+    return Config(**base_dict)
 
 
-def setup_logging(config: DaemonConfig) -> None:
+def setup_logging(config: Config) -> None:
     """Setup logging with daemon configuration."""
-    level = getattr(logging, config.log_level.upper(), logging.INFO)
+    # Use log_level from config if available, default to INFO
+    log_level = getattr(config, "log_level", "INFO")
+    level = getattr(logging, log_level.upper(), logging.INFO)
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
