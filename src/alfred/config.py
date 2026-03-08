@@ -70,9 +70,6 @@ class Config(BaseSettings):
     # UI/TUI settings
     use_markdown_rendering: bool = True
 
-    # Logging settings
-    log_level: str = "INFO"
-
 
 def _load_toml_config(toml_path: Path) -> dict[str, Any]:
     """Load and flatten TOML config to flat dict.

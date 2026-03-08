@@ -90,7 +90,7 @@ class TelegramInterface:
         chat_id = str(update.effective_chat.id)
 
         # Initialize session for this chat
-        session = self.alfred.session_manager.get_or_create_session(chat_id)
+        session = self.alfred.core.session_manager.get_or_create_session(chat_id)
         msg_count = len(session.messages) if session else 0
 
         if msg_count > 0:

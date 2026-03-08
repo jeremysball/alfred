@@ -24,7 +24,7 @@ class ResumeSessionCommand(Command):
 
         try:
             tui._clear_conversation()  # type: ignore[misc]
-            tui.alfred.session_manager.resume_session(arg.strip())
+            tui.alfred.core.session_manager.resume_session(arg.strip())
 
             # Load all session messages into conversation
             tui._load_session_messages()  # type: ignore[misc]

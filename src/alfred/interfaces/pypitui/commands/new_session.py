@@ -18,7 +18,7 @@ class NewSessionCommand(Command):
         """Create a new session."""
         tui._clear_conversation()  # type: ignore[misc]
         tui.alfred.token_tracker.reset()
-        session = tui.alfred.session_manager.new_session()
+        session = tui.alfred.core.session_manager.new_session()
         tui._add_user_message(f"New session created: {session.meta.session_id}")  # type: ignore[misc]
         tui._update_status()  # type: ignore[misc]
         return True

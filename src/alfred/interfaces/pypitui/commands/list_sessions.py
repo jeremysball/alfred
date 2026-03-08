@@ -16,7 +16,7 @@ class ListSessionsCommand(Command):
 
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """List all sessions."""
-        sessions = tui.alfred.session_manager.list_sessions()
+        sessions = tui.alfred.core.session_manager.list_sessions()
         if not sessions:
             tui._add_user_message("No sessions found.")  # type: ignore[misc]
             return True
@@ -26,8 +26,8 @@ class ListSessionsCommand(Command):
 
         current_id = None
         current_session = None
-        if tui.alfred.session_manager.has_active_session():
-            current_session = tui.alfred.session_manager.get_current_cli_session()
+        if tui.alfred.core.session_manager.has_active_session():
+            current_session = tui.alfred.core.session_manager.get_current_cli_session()
             if current_session:
                 current_id = current_session.meta.session_id
 

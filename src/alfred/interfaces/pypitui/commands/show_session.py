@@ -16,11 +16,11 @@ class ShowSessionCommand(Command):
 
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """Show current session details."""
-        if not tui.alfred.session_manager.has_active_session():
+        if not tui.alfred.core.session_manager.has_active_session():
             tui._add_user_message("No active session.")  # type: ignore[misc]
             return True
 
-        session = tui.alfred.session_manager.get_current_cli_session()
+        session = tui.alfred.core.session_manager.get_current_cli_session()
         if not session:
             tui._add_user_message("No active session.")  # type: ignore[misc]
             return True
