@@ -478,3 +478,26 @@ def test_async_function():
 ### 13. Do The Right Thing, Always
 
 NEVER take shortcuts. ALWAYS do the right thing. Do not ever say "the easier thing" or "the simpler thing." Do not worry about complexity or time in development (but do so in your algorithms!). The human will worry about that. Just do what is right. The hard things. The graft. Do not be lazy.
+
+---
+
+### 14. Use ast-grep for Code Transformations
+
+Use `ast-grep` for all structured code search and replacement. Never use `sed`, `grep`, or regex for code modifications.
+
+**Right:**
+```bash
+# Find async functions (AST-aware, precise)
+ast-grep -p 'async function $NAME($$$ARGS) { $$$BODY }' -l ts
+
+# Replace API safely
+ast-grep -p 'oldApi($$$ARGS)' -r 'newApi($$$ARGS)' -l ts --rewrite
+```
+
+**Wrong:**
+```bash
+# Breaks on nested functions, comments, strings
+sed -i 's/function /async function /g' src/**/*.ts
+```
+
+Use `grep`/`sed` only for logs, config files, or non-code text. See `/home/node/.pi/skills/ast-grep/SKILL.md` for full documentation.

@@ -61,15 +61,15 @@ class MockStream:
 async def test_chat_returns_response(mock_config, mock_context):
     """Test that chat returns a response string from streaming."""
     with (
-        patch("src.alfred.LLMFactory") as mock_factory,
-        patch("src.alfred.ContextLoader") as mock_loader_class,
-        patch("src.alfred.create_provider") as mock_embedder_class,
-        patch("src.alfred.create_memory_store") as mock_memory_class,
-        patch("src.alfred.CronStore") as mock_cron_store_class,
-        patch("src.alfred.CronScheduler") as mock_cron_scheduler_class,
-        patch("src.alfred.register_builtin_tools"),
-        patch("src.alfred.get_registry") as mock_registry,
-        patch("src.alfred.Agent") as mock_agent_class,
+        patch("alfred.core.LLMFactory") as mock_factory,
+        patch("alfred.alfred.ContextLoader") as mock_loader_class,
+        patch("alfred.core.create_provider") as mock_embedder_class,
+        patch("alfred.core.create_memory_store") as mock_memory_class,
+        patch("alfred.core.CronStore") as mock_cron_store_class,
+        patch("alfred.core.CronScheduler") as mock_cron_scheduler_class,
+        patch("alfred.alfred.register_builtin_tools"),
+        patch("alfred.alfred.get_registry") as mock_registry,
+        patch("alfred.alfred.Agent") as mock_agent_class,
     ):
         # Create a mock stream that yields chunks
         mock_stream = MockStream(["Hello! ", "How ", "can ", "I ", "help ", "you?"])
@@ -107,15 +107,15 @@ async def test_chat_returns_response(mock_config, mock_context):
 async def test_chat_builds_correct_messages(mock_config, mock_context):
     """Test that chat builds messages with system prompt and user input."""
     with (
-        patch("src.alfred.LLMFactory") as mock_factory,
-        patch("src.alfred.ContextLoader") as mock_loader_class,
-        patch("src.alfred.create_provider") as mock_embedder_class,
-        patch("src.alfred.create_memory_store") as mock_memory_class,
-        patch("src.alfred.CronStore") as mock_cron_store_class,
-        patch("src.alfred.CronScheduler") as mock_cron_scheduler_class,
-        patch("src.alfred.register_builtin_tools"),
-        patch("src.alfred.get_registry") as mock_registry,
-        patch("src.alfred.Agent") as mock_agent_class,
+        patch("alfred.core.LLMFactory") as mock_factory,
+        patch("alfred.alfred.ContextLoader") as mock_loader_class,
+        patch("alfred.core.create_provider") as mock_embedder_class,
+        patch("alfred.core.create_memory_store") as mock_memory_class,
+        patch("alfred.core.CronStore") as mock_cron_store_class,
+        patch("alfred.core.CronScheduler") as mock_cron_scheduler_class,
+        patch("alfred.alfred.register_builtin_tools"),
+        patch("alfred.alfred.get_registry") as mock_registry,
+        patch("alfred.alfred.Agent") as mock_agent_class,
     ):
         mock_llm = MagicMock()
         mock_factory.create.return_value = mock_llm
@@ -149,15 +149,15 @@ async def test_chat_builds_correct_messages(mock_config, mock_context):
 async def test_compact_returns_placeholder(mock_config):
     """Test that compact returns placeholder message."""
     with (
-        patch("src.alfred.LLMFactory"),
-        patch("src.alfred.ContextLoader"),
-        patch("src.alfred.create_provider"),
-        patch("src.alfred.create_memory_store"),
-        patch("src.alfred.CronStore"),
-        patch("src.alfred.CronScheduler"),
-        patch("src.alfred.register_builtin_tools"),
-        patch("src.alfred.get_registry"),
-        patch("src.alfred.Agent"),
+        patch("alfred.core.LLMFactory"),
+        patch("alfred.alfred.ContextLoader"),
+        patch("alfred.core.create_provider"),
+        patch("alfred.core.create_memory_store"),
+        patch("alfred.core.CronStore"),
+        patch("alfred.core.CronScheduler"),
+        patch("alfred.alfred.register_builtin_tools"),
+        patch("alfred.alfred.get_registry"),
+        patch("alfred.alfred.Agent"),
     ):
         alfred = Alfred(mock_config)
         result = await alfred.compact()
@@ -176,15 +176,15 @@ def test_sync_token_tracker_from_session(mock_config):
     from alfred.session import Message, Role
 
     with (
-        patch("src.alfred.LLMFactory"),
-        patch("src.alfred.ContextLoader"),
-        patch("src.alfred.create_provider"),
-        patch("src.alfred.create_memory_store"),
-        patch("src.alfred.CronStore"),
-        patch("src.alfred.CronScheduler"),
-        patch("src.alfred.register_builtin_tools"),
-        patch("src.alfred.get_registry"),
-        patch("src.alfred.Agent"),
+        patch("alfred.core.LLMFactory"),
+        patch("alfred.alfred.ContextLoader"),
+        patch("alfred.core.create_provider"),
+        patch("alfred.core.create_memory_store"),
+        patch("alfred.core.CronStore"),
+        patch("alfred.core.CronScheduler"),
+        patch("alfred.alfred.register_builtin_tools"),
+        patch("alfred.alfred.get_registry"),
+        patch("alfred.alfred.Agent"),
     ):
         alfred = Alfred(mock_config)
 
@@ -217,7 +217,7 @@ def test_sync_token_tracker_from_session(mock_config):
         ]
 
         # Mock the session manager's get_session_messages
-        alfred.session_manager.get_session_messages = MagicMock(return_value=mock_messages)
+        alfred.core.session_manager.get_session_messages = MagicMock(return_value=mock_messages)
 
         # Verify tracker starts at 0
         assert alfred.token_tracker.usage.input_tokens == 0
@@ -234,20 +234,20 @@ def test_sync_token_tracker_from_session(mock_config):
 def test_sync_token_tracker_empty_session(mock_config):
     """Test that sync handles empty sessions gracefully."""
     with (
-        patch("src.alfred.LLMFactory"),
-        patch("src.alfred.ContextLoader"),
-        patch("src.alfred.create_provider"),
-        patch("src.alfred.create_memory_store"),
-        patch("src.alfred.CronStore"),
-        patch("src.alfred.CronScheduler"),
-        patch("src.alfred.register_builtin_tools"),
-        patch("src.alfred.get_registry"),
-        patch("src.alfred.Agent"),
+        patch("alfred.core.LLMFactory"),
+        patch("alfred.alfred.ContextLoader"),
+        patch("alfred.core.create_provider"),
+        patch("alfred.core.create_memory_store"),
+        patch("alfred.core.CronStore"),
+        patch("alfred.core.CronScheduler"),
+        patch("alfred.alfred.register_builtin_tools"),
+        patch("alfred.alfred.get_registry"),
+        patch("alfred.alfred.Agent"),
     ):
         alfred = Alfred(mock_config)
 
         # Mock empty session
-        alfred.session_manager.get_session_messages = MagicMock(return_value=[])
+        alfred.core.session_manager.get_session_messages = MagicMock(return_value=[])
 
         # Should not raise
         alfred.sync_token_tracker_from_session()

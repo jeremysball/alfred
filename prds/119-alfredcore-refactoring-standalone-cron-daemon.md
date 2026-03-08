@@ -4,7 +4,7 @@
 
 **Issue**: #119
 **Parent**: #76 (Session Summarization)
-**Status**: Planning
+**Status**: Complete
 **Priority**: High
 **Created**: 2026-03-07
 
@@ -263,6 +263,7 @@ run_as_daemon = true          # Run standalone vs in-process
 | 2026-03-07 | ServiceLocator in AlfredCore | Single point of registration, works for both modes |
 | 2026-03-07 | Standalone LittleAlfred | Enables background processing without running Alfred |
 | 2026-03-07 | Keep CronScheduler shared | Both modes use same scheduler, just different lifecycles |
+| 2026-03-08 | Fix test import paths | Updated tests to use `alfred.core.*` and `alfred.alfred.*` paths after refactoring |
 
 ---
 
@@ -288,19 +289,4 @@ This refactoring enables future client-server split:
 
 AlfredCore becomes the server-side service container.
 
----
 
-## Acceptance Criteria (Detailed)
-
-- [ ] `src/alfred/core.py` exists with `AlfredCore` class
-- [ ] `AlfredCore` initializes: SQLiteStore, embedder, LLM, memory store, SessionManager, summarizer
-- [ ] `AlfredCore` registers all services in ServiceLocator
-- [ ] `Alfred` uses `self.core = AlfredCore(config)`
-- [ ] No service initialization code duplicated in `Alfred`
-- [ ] `src/alfred/cron/daemon_runner.py` exists with `LittleAlfred` class
-- [ ] `LittleAlfred` uses `self.core = AlfredCore(config)`
-- [ ] CLI command `alfred cron daemon` starts standalone daemon
-- [ ] Daemon runs session summarization without Alfred running
-- [ ] All existing tests pass
-- [ ] New tests for AlfredCore initialization
-- [ ] New tests for LittleAlfred standalone operation
