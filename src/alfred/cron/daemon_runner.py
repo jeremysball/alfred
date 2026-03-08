@@ -1,15 +1,15 @@
 """AlfredDaemon - Standalone cron daemon for background job processing.
 
-Runs independently of Alfred CLI/Telegram, creating its own AlfredCore
-with all necessary services (LLM, embedder, memory store, etc.).
+Creates its own AlfredCore with all services (LLM, embedder, memory, etc.).
+Configuration is in daemon.toml (separate from main Alfred config).
 """
 
 import asyncio
 import logging
 import signal
 
-from alfred.config import Config, load_config
 from alfred.core import AlfredCore
+from alfred.cron.daemon_config import load_daemon_config, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,29 +17,30 @@ logger = logging.getLogger(__name__)
 class AlfredDaemon:
     """Standalone cron daemon (no UI).
 
-    AlfredDaemon runs background jobs using shared services from AlfredCore.
+    AlfredDaemon runs background jobs using its own AlfredCore.
     It has no user interface - just logs and job execution.
 
+    Configuration is loaded from daemon.toml (not main config).
+
     Example:
-        config = load_config()
-        daemon = AlfredDaemon(config)
+        daemon = AlfredDaemon()
         asyncio.run(daemon.run())
     """
 
-    def __init__(self, config: Config) -> None:
-        """Initialize daemon with AlfredCore services.
+    def __init__(self) -> None:
+        """Initialize daemon with AlfredCore services."""
+        # Load daemon-specific config
+        self.config = load_daemon_config()
 
-        Args:
-            config: Application configuration
-        """
-        self.config = config
+        # Setup logging
+        setup_logging(self.config)
 
         # Ensure data directory exists
         self.config.data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create AlfredCore with all services (LLM, embedder, memory, etc.)
+        # Create AlfredCore with daemon config (API keys for LLM/embedder)
         logger.info("Initializing AlfredCore...")
-        self.core = AlfredCore(config)
+        self.core = AlfredCore(self.config)
         logger.info("AlfredCore initialized")
 
         # Shutdown event (created in run when event loop exists)
@@ -84,18 +85,7 @@ class AlfredDaemon:
 
 def main() -> None:
     """Entry point for CLI: `alfred cron daemon`."""
-    # Load config first to get log level
-    config = load_config()
-
-    # Setup logging with config level (default INFO)
-    level = getattr(logging, config.log_level.upper(), logging.INFO)
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    # Start daemon
-    daemon = AlfredDaemon(config)
+    daemon = AlfredDaemon()
     asyncio.run(daemon.run())
 
 

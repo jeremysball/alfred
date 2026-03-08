@@ -6,22 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from alfred.config import Config
 from alfred.container import ServiceLocator
 from alfred.cron.daemon_runner import AlfredDaemon
-
-
-@pytest.fixture
-def test_config(tmp_path):
-    """Create test configuration."""
-    config = Config(
-        kimi_api_key="test-key",
-        openai_api_key="test-key",
-        telegram_bot_token="test-token",
-    )
-    config.data_dir = tmp_path / "alfred_data"
-    config.data_dir.mkdir(parents=True, exist_ok=True)
-    return config
 
 
 @pytest.fixture(autouse=True)
@@ -44,68 +30,100 @@ def reset_session_manager():
 class TestAsyncJobExecution:
     """Tests that jobs are executed asynchronously."""
 
-    def test_scheduler_has_async_check_jobs(self, test_config):
+    def test_scheduler_has_async_check_jobs(self):
         """Verify scheduler has async _check_jobs method."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
             # _check_jobs should be async
             assert asyncio.iscoroutinefunction(
                 daemon.core.cron_scheduler._check_jobs
             ), "_check_jobs must be async"
 
-    def test_scheduler_has_async_execute_job(self, test_config):
+    def test_scheduler_has_async_execute_job(self):
         """Verify scheduler has async _execute_job method."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
             # _execute_job should be async
             assert asyncio.iscoroutinefunction(
                 daemon.core.cron_scheduler._execute_job
             ), "_execute_job must be async"
 
-    def test_scheduler_runs_monitor_loop_async(self, test_config):
+    def test_scheduler_runs_monitor_loop_async(self):
         """Verify scheduler runs monitor loop as async task."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
             # _monitor_loop should be async
             assert asyncio.iscoroutinefunction(
                 daemon.core.cron_scheduler._monitor_loop
             ), "_monitor_loop must be async"
 
-    def test_job_handler_must_be_async(self, test_config):
+    def test_job_handler_must_be_async(self):
         """Verify job handlers must be async functions."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
             # Test that non-async handlers are rejected
             with pytest.raises(ValueError, match="must be async"):
@@ -122,17 +140,25 @@ async def run():
             assert handler is not None
             assert inspect.iscoroutinefunction(handler)
 
-    def test_daemon_has_async_run_method(self, test_config):
+    def test_daemon_has_async_run_method(self):
         """Verify AlfredDaemon.run() is async."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
             # run() should be async
             assert asyncio.iscoroutinefunction(daemon.run), "run() must be async"

@@ -5,27 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from alfred.config import Config
 from alfred.container import ServiceLocator
 from alfred.cron.daemon_runner import AlfredDaemon
-from alfred.embeddings.provider import EmbeddingProvider
-from alfred.llm import LLMProvider
-from alfred.session import SessionManager
-from alfred.storage.sqlite import SQLiteStore
-from alfred.tools.search_sessions import SessionSummarizer
-
-
-@pytest.fixture
-def test_config(tmp_path):
-    """Create a test configuration with isolated data directory."""
-    config = Config(
-        kimi_api_key="test-key",
-        openai_api_key="test-key",
-        telegram_bot_token="test-token",
-    )
-    config.data_dir = tmp_path / "alfred_data"
-    config.data_dir.mkdir(parents=True, exist_ok=True)
-    return config
 
 
 @pytest.fixture(autouse=True)
@@ -48,32 +29,48 @@ def reset_session_manager():
 class TestAlfredDaemonInitialization:
     """Tests for AlfredDaemon initialization."""
 
-    def test_creates_alfredcore_instance(self, test_config):
+    def test_creates_alfredcore_instance(self):
         """Daemon should create an AlfredCore instance."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
         assert hasattr(daemon, "core")
         assert daemon.core is not None
 
-    def test_has_all_services_via_core(self, test_config):
+    def test_has_all_services_via_core(self):
         """Daemon should have all services accessible via core."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
         # Services accessible via core
         assert daemon.core.llm is not None
@@ -85,17 +82,25 @@ class TestAlfredDaemonInitialization:
 class TestAlfredDaemonRun:
     """Tests for AlfredDaemon run behavior."""
 
-    def test_run_method_exists(self, test_config):
+    def test_run_method_exists(self):
         """Daemon should have a run method."""
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            daemon = AlfredDaemon(test_config)
+            daemon = AlfredDaemon()
 
             # Should have run method
             assert hasattr(daemon, 'run')
@@ -105,17 +110,31 @@ class TestAlfredDaemonRun:
 class TestAlfredDaemonServices:
     """Tests for AlfredDaemon service registration."""
 
-    def test_registers_services_in_locator(self, test_config):
+    def test_registers_services_in_locator(self):
         """Daemon should register services in ServiceLocator via core."""
+        from alfred.storage.sqlite import SQLiteStore
+        from alfred.embeddings.provider import EmbeddingProvider
+        from alfred.llm import LLMProvider
+        from alfred.session import SessionManager
+        from alfred.tools.search_sessions import SessionSummarizer
+
         with (
+            patch("alfred.cron.daemon_runner.load_daemon_config") as mock_load_config,
+            patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
             patch("alfred.core.create_memory_store"),
         ):
+            mock_config = MagicMock()
+            mock_config.data_dir = MagicMock()
+            mock_config.kimi_api_key = "test-key"
+            mock_config.openai_api_key = "test-key"
+            mock_load_config.return_value = mock_config
+            
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
 
-            AlfredDaemon(test_config)
+            AlfredDaemon()
 
         # All services should be registered
         assert ServiceLocator.has(SQLiteStore)

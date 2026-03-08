@@ -194,6 +194,13 @@ def cron_reload() -> None:
     reload_daemon()
 
 
+@app.command("daemon")
+def run_daemon():
+    """Run AlfredDaemon in foreground (blocks until Ctrl+C)."""
+    from alfred.cron.daemon_runner import main
+    main()
+
+
 app.add_typer(cron_app)
 
 
