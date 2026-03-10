@@ -1,15 +1,18 @@
 """RejectJobTool - Reject or delete pending cron jobs.
 
 Tool for Alfred to reject and remove jobs awaiting approval.
+Uses SocketClient to reject jobs via the daemon socket API.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from alfred.cron.scheduler import CronScheduler
 from alfred.tools.base import Tool, ToolResult
+
+if TYPE_CHECKING:
+    from alfred.cron.socket_client import SocketClient
 
 
 class RejectJobParams(BaseModel):
@@ -54,10 +57,10 @@ class RejectJobTool(Tool):
     )
     param_model = RejectJobParams
 
-    def __init__(self, scheduler: CronScheduler) -> None:
-        """Initialize with CronScheduler instance."""
+    def __init__(self, socket_client: "SocketClient") -> None:
+        """Initialize with SocketClient instance."""
         super().__init__()
-        self.scheduler = scheduler
+        self.socket_client = socket_client
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the reject_job tool (async)."""
@@ -70,50 +73,27 @@ class RejectJobTool(Tool):
         identifier = params.job_identifier
 
         try:
-            # Load all jobs
-            jobs = await self.scheduler._store.load_jobs()
+            # Reject job via socket API
+            response = await self.socket_client.reject_job(identifier)
 
-            # Find job by ID or name
-            job = self._find_job(jobs, identifier)
-
-            if job is None:
+            if response is None:
                 yield (
-                    f"Couldn't find a job matching '{identifier}'.\n\n"
-                    f"Use 'list_jobs' to see available jobs."
+                    f"Error: Failed to reject job '{identifier}'.\n\n"
+                    f"The cron daemon may not be running. "
+                    f"Use 'alfred daemon status' to check."
                 )
                 return
 
-            # Confirm deletion
-            await self.scheduler._store.delete_job(job.job_id)
-
-            result = RejectJobResult(
-                success=True,
-                message=f"✓ Deleted '{job.name}'. The job has been removed.",
-                job_id=job.job_id,
-                job_name=job.name,
-            )
-            yield result.message
+            if response.success:
+                result = RejectJobResult(
+                    success=True,
+                    message=f"✓ Deleted '{response.job_name}'. The job has been removed.",
+                    job_id=response.job_id,
+                    job_name=response.job_name,
+                )
+                yield result.message
+            else:
+                yield f"Error: {response.message}"
 
         except Exception as e:
             yield f"Error: Failed to reject job - {e}"
-
-    def _find_job(self, jobs: list[Any], identifier: str) -> Any | None:
-        """Find job by ID or fuzzy name match."""
-        identifier_lower = identifier.lower()
-
-        # Try exact ID match first
-        for job in jobs:
-            if job.job_id == identifier:
-                return job
-
-        # Try exact name match
-        for job in jobs:
-            if job.name.lower() == identifier_lower:
-                return job
-
-        # Try substring name match (must be unique)
-        matches = [j for j in jobs if identifier_lower in j.name.lower()]
-        if len(matches) == 1:
-            return matches[0]
-
-        return None

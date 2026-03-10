@@ -85,7 +85,7 @@ def get_tool_schemas() -> list[dict[str, Any]]:
 # Auto-discover and register built-in tools
 def register_builtin_tools(
     memory_store: Any = None,
-    scheduler: Any = None,
+    socket_client: Any = None,
     config: Any = None,
     session_manager: Any = None,
     embedder: Any = None,
@@ -96,7 +96,7 @@ def register_builtin_tools(
 
     Args:
         memory_store: Optional MemoryStore to inject into tools that need it
-        scheduler: Optional CronScheduler to inject into tools that need it
+        socket_client: Optional SocketClient for cron job tools
         config: Optional Config for tool configuration
         session_manager: Optional SessionManager for session-related tools
         embedder: Optional EmbeddingClient for semantic search tools
@@ -157,11 +157,11 @@ def register_builtin_tools(
         register_tool(search_sessions_tool)
         logger.debug("Registered search_sessions tool")
 
-    # Register cron tools with scheduler injected
-    if scheduler:
-        register_tool(ScheduleJobTool(scheduler=scheduler, config=config))
-        register_tool(ListJobsTool(scheduler=scheduler))
-        register_tool(ApproveJobTool(scheduler=scheduler))
-        register_tool(RejectJobTool(scheduler=scheduler))
+    # Register cron tools with socket client injected
+    if socket_client:
+        register_tool(ScheduleJobTool(socket_client=socket_client, config=config))
+        register_tool(ListJobsTool(socket_client=socket_client))
+        register_tool(ApproveJobTool(socket_client=socket_client))
+        register_tool(RejectJobTool(socket_client=socket_client))
 
     logger.info(f"Registered {len(get_registry())} built-in tools")
