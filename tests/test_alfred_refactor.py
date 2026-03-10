@@ -48,7 +48,7 @@ class TestAlfredUsesAlfredCore:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
             patch("alfred.alfred.ContextLoader"),
             patch("alfred.alfred.register_builtin_tools"),
             patch("alfred.alfred.get_registry"),
@@ -67,7 +67,7 @@ class TestAlfredUsesAlfredCore:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
             patch("alfred.alfred.ContextLoader"),
             patch("alfred.alfred.register_builtin_tools"),
             patch("alfred.alfred.get_registry"),
@@ -92,7 +92,7 @@ class TestAlfredUsesAlfredCore:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store") as mock_memory,
+            patch("alfred.core.SQLiteMemoryStore") as mock_memory,
             patch("alfred.alfred.ContextLoader"),
             patch("alfred.alfred.register_builtin_tools"),
             patch("alfred.alfred.get_registry"),
@@ -122,7 +122,7 @@ class TestAlfredUsesAlfredCore:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
             patch("alfred.alfred.ContextLoader"),
             patch("alfred.alfred.register_builtin_tools"),
             patch("alfred.alfred.get_registry"),

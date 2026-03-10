@@ -36,7 +36,7 @@ class TestAlfredDaemonInitialization:
             patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_config = MagicMock()
             mock_config.data_dir = MagicMock()
@@ -59,7 +59,7 @@ class TestAlfredDaemonInitialization:
             patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_config = MagicMock()
             mock_config.data_dir = MagicMock()
@@ -89,7 +89,7 @@ class TestAlfredDaemonRun:
             patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_config = MagicMock()
             mock_config.data_dir = MagicMock()
@@ -123,7 +123,7 @@ class TestAlfredDaemonServices:
             patch("alfred.cron.daemon_runner.setup_logging"),
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_config = MagicMock()
             mock_config.data_dir = MagicMock()

@@ -50,6 +50,7 @@ class TestUpdateMemoryTool:
             content="Old content here",
             embedding=[0.1, 0.2],
             tags=[],
+            entry_id="mem_123",
         )
         mock_memory_store.search.return_value = ([memory], {}, {})
 
@@ -81,6 +82,7 @@ class TestUpdateMemoryTool:
             content="User name is John",
             embedding=[0.1, 0.2],
             tags=[],
+            entry_id="mem_123",
         )
         mock_memory_store.search.return_value = ([memory], {}, {})
 

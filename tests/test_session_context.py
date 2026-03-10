@@ -1,6 +1,7 @@
 """Tests for session context integration (PRD #54 Milestone 3)."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -79,23 +80,21 @@ class MockStorage:
 
 @pytest.fixture
 def initialized_manager(tmp_path: Path):
-    """Create initialized SessionManager."""
-    # Reset singleton state
-    SessionManager._instance = None
-    SessionManager._storage = None
-    SessionManager._sessions = {}
-    SessionManager._cli_session_id = None
+    """Create initialized SessionManager via constructor."""
+    mock_sqlite_store = MagicMock()
+    # Create proper async mocks
+    async def async_none(*args, **kwargs):
+        return None
 
-    mock_storage = MockStorage(tmp_path)
-    SessionManager.initialize(mock_storage)
-    manager = SessionManager.get_instance()
+    async def async_empty_list(*args, **kwargs):
+        return []
+
+    mock_sqlite_store.load_session = async_none
+    mock_sqlite_store.list_sessions = async_empty_list
+    mock_sqlite_store.save_session = async_none
+
+    manager = SessionManager(store=mock_sqlite_store, data_dir=tmp_path)
     yield manager
-
-    # Cleanup
-    SessionManager._instance = None
-    SessionManager._storage = None
-    SessionManager._sessions = {}
-    SessionManager._cli_session_id = None
 
 
 class TestSessionContextBuilder:

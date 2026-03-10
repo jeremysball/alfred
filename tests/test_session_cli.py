@@ -1,11 +1,16 @@
 """Tests for CLI session integration (PRD #54 Milestone 4)."""
 
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from alfred.session import Message, Session, SessionManager, SessionMeta
+from alfred.session import (
+    Message,
+    Session,
+    SessionManager,
+    SessionMeta,
+)
 
 
 class MockStorage:
@@ -79,29 +84,28 @@ class MockStorage:
 
 @pytest.fixture
 def initialized_manager(tmp_path: Path):
-    """Create initialized SessionManager."""
-    # Reset singleton state
-    SessionManager._instance = None
-    SessionManager._storage = None
-    SessionManager._sessions = {}
-    SessionManager._cli_session_id = None
+    """Create initialized SessionManager via constructor."""
+    async def async_none(*args, **kwargs):
+        return None
 
-    mock_storage = MockStorage(tmp_path)
-    SessionManager.initialize(mock_storage)
-    manager = SessionManager.get_instance()
+    async def async_empty_list(*args, **kwargs):
+        return []
+
+    mock_sqlite_store = MagicMock()
+    mock_sqlite_store.load_session = async_none
+    mock_sqlite_store.list_sessions = async_empty_list
+    mock_sqlite_store.save_session = async_none
+
+    manager = SessionManager(store=mock_sqlite_store, data_dir=tmp_path)
     yield manager
-
-    # Cleanup
-    SessionManager._instance = None
-    SessionManager._storage = None
-    SessionManager._sessions = {}
-    SessionManager._cli_session_id = None
 
 
 class TestCLISessionIntegration:
     """Tests for CLI integration with session management."""
 
-    def test_session_auto_starts_on_first_message(self, initialized_manager: SessionManager):
+    def test_session_auto_starts_on_first_message(
+        self, initialized_manager: SessionManager
+    ):
         """Session starts automatically when first message processed."""
         assert not initialized_manager.has_active_session()
 
@@ -197,7 +201,9 @@ class TestAlfredSessionIntegration:
         pass
 
     @pytest.mark.asyncio
-    async def test_context_includes_session_history(self, initialized_manager: SessionManager):
+    async def test_context_includes_session_history(
+        self, initialized_manager: SessionManager
+    ):
         """Context sent to LLM includes session history."""
         initialized_manager.start_session()
         initialized_manager.add_message("user", "Previous question")

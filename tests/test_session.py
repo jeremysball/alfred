@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -83,23 +84,16 @@ def mock_storage(tmp_path: Path) -> MockStorage:
 
 
 @pytest.fixture
-def initialized_manager(mock_storage: MockStorage):
-    """Create initialized SessionManager."""
-    # Reset singleton state
-    SessionManager._instance = None
-    SessionManager._storage = None
-    SessionManager._sessions = {}
-    SessionManager._cli_session_id = None
+def initialized_manager(mock_storage: MockStorage, tmp_path: Path):
+    """Create initialized SessionManager via constructor."""
+    # Create a mock SQLiteStore with async methods
+    mock_sqlite_store = MagicMock()
+    mock_sqlite_store.load_session = AsyncMock(return_value=None)
+    mock_sqlite_store.list_sessions = AsyncMock(return_value=[])
+    mock_sqlite_store.save_session = AsyncMock(return_value=None)
 
-    SessionManager.initialize(mock_storage)
-    manager = SessionManager.get_instance()
+    manager = SessionManager(store=mock_sqlite_store, data_dir=tmp_path)
     yield manager
-
-    # Cleanup
-    SessionManager._instance = None
-    SessionManager._storage = None
-    SessionManager._sessions = {}
-    SessionManager._cli_session_id = None
 
 
 class TestMessage:
@@ -149,19 +143,17 @@ class TestSessionMeta:
         assert meta.created_at == now
         assert meta.last_active == now
         assert meta.status == "active"
-        assert meta.current_count == 0
-        assert meta.archive_count == 0
+        assert meta.message_count == 0
 
     def test_message_count_property(self):
-        """message_count returns sum of current and archive."""
+        """message_count reflects actual message count."""
         now = datetime.now()
         meta = SessionMeta(
             session_id="test123",
             created_at=now,
             last_active=now,
             status="active",
-            current_count=10,
-            archive_count=5,
+            message_count=15,
         )
 
         assert meta.message_count == 15
@@ -206,16 +198,17 @@ class TestSession:
 
 
 class TestSessionManager:
-    """Tests for SessionManager singleton."""
+    """Tests for SessionManager via direct construction."""
 
-    def test_singleton_pattern(self, initialized_manager: SessionManager):
-        """SessionManager is a singleton."""
-        manager2 = SessionManager.get_instance()
-        assert initialized_manager is manager2
+    def test_direct_construction(self, tmp_path: Path):
+        """SessionManager can be constructed directly."""
+        mock_sqlite_store = MagicMock()
+        manager = SessionManager(store=mock_sqlite_store, data_dir=tmp_path)
 
-    def test_start_session_creates_new_session(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+        assert isinstance(manager, SessionManager)
+        assert manager.store is mock_sqlite_store
+
+    def test_start_session_creates_new_session(self, initialized_manager: SessionManager):
         """start_session creates a new session."""
         session = initialized_manager.start_session()
 
@@ -223,9 +216,7 @@ class TestSessionManager:
         assert session.meta.status == "active"
         assert initialized_manager.has_active_session()
 
-    def test_start_session_clears_existing(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+    def test_start_session_clears_existing(self, initialized_manager: SessionManager):
         """start_session clears any existing session."""
         session1 = initialized_manager.start_session()
 
@@ -234,9 +225,7 @@ class TestSessionManager:
         assert session1.meta.session_id != session2.meta.session_id
         assert len(session2.messages) == 0
 
-    def test_add_message_appends_to_session(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+    def test_add_message_appends_to_session(self, initialized_manager: SessionManager):
         """add_message appends message to current session."""
         initialized_manager.start_session()
 
@@ -252,26 +241,22 @@ class TestSessionManager:
         assert messages[1].content == "Hi"
         assert messages[1].idx == 1
 
-    def test_add_message_updates_meta(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+    def test_add_message_updates_meta(self, initialized_manager: SessionManager):
         """add_message updates session metadata."""
         session = initialized_manager.start_session()
 
-        assert session.meta.current_count == 0
+        assert session.meta.message_count == 0
 
         initialized_manager.add_message("user", "Hello")
 
-        assert session.meta.current_count == 1
+        assert session.meta.message_count == 1
 
     def test_add_message_without_session_raises(self, initialized_manager: SessionManager):
         """add_message raises if no session exists."""
         with pytest.raises(RuntimeError, match="No active session"):
             initialized_manager.add_message("user", "Hello")
 
-    def test_get_messages_returns_all_in_order(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+    def test_get_messages_returns_all_in_order(self, initialized_manager: SessionManager):
         """get_messages returns all messages chronologically."""
         initialized_manager.start_session()
 
@@ -285,18 +270,14 @@ class TestSessionManager:
         assert messages[1].content == "Second"
         assert messages[2].content == "Third"
 
-    def test_get_messages_empty_session(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+    def test_get_messages_empty_session(self, initialized_manager: SessionManager):
         """get_messages returns empty list for new session."""
         initialized_manager.start_session()
 
         messages = initialized_manager.get_messages()
         assert messages == []
 
-    def test_clear_session_removes_session(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
+    def test_clear_session_removes_session(self, initialized_manager: SessionManager):
         """clear_session removes current session."""
         initialized_manager.start_session()
         initialized_manager.add_message("user", "Hello")
@@ -321,15 +302,22 @@ class TestSessionManager:
 class TestSessionManagerIsolation:
     """Tests for session isolation between instances."""
 
-    def test_singleton_shares_state(
-        self, initialized_manager: SessionManager, mock_storage: MockStorage
-    ):
-        """All instances share the same session state."""
-        initialized_manager.start_session()
-        initialized_manager.add_message("user", "Shared message")
+    def test_instances_are_independent(self, tmp_path: Path):
+        """Each SessionManager instance has its own state."""
+        mock_sqlite_store1 = MagicMock()
+        mock_sqlite_store2 = MagicMock()
 
-        manager2 = SessionManager.get_instance()
-        messages = manager2.get_messages()
+        manager1 = SessionManager(store=mock_sqlite_store1, data_dir=tmp_path / "dir1")
+        manager2 = SessionManager(store=mock_sqlite_store2, data_dir=tmp_path / "dir2")
 
-        assert len(messages) == 1
-        assert messages[0].content == "Shared message"
+        # Create session in manager1
+        manager1.start_session()
+        manager1.add_message("user", "Message in manager1")
+
+        # Manager2 should not see manager1's session
+        assert not manager2.has_active_session()
+
+        # Manager2 should be able to create its own session
+        manager2.start_session()
+        assert manager2.has_active_session()
+        assert manager1._cli_session_id != manager2._cli_session_id

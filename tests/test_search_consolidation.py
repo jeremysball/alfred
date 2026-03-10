@@ -143,23 +143,17 @@ class TestSearchMemoriesToolConsolidation:
     @pytest.mark.asyncio
     async def test_search_tool_uses_store(self, tmp_path):
         """SearchMemoriesTool should use SQLiteStore."""
-        db_path = tmp_path / "test.db"
-        store = SQLiteStore(db_path)
-        await store._init()
-        
-        # Add test memory
-        await store.add_memory(
-            entry_id="searchable-mem",
-            role="user",
-            content="Searchable content",
-            embedding=[0.7] * 384,
-            tags=["test"]
-        )
-        
-        # Tool should be able to search via store
         from alfred.tools.search_memories import SearchMemoriesTool
         
         tool = SearchMemoriesTool()
-        # The tool should have access to a store for search
-        # Implementation may vary - test the interface exists
-        assert hasattr(tool, 'search')
+        
+        # The tool should have execute_stream method
+        assert hasattr(tool, 'execute_stream')
+        
+        # When no store is set, should return error
+        results = []
+        async for chunk in tool.execute_stream(query="test"):
+            results.append(chunk)
+        
+        result = "".join(results)
+        assert "Error: Memory store not initialized" in result or "No relevant memories" in result

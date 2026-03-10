@@ -32,7 +32,7 @@ model = "text-embedding-3-small"
 [memory]
 budget = 32000
 """)
-        with patch("src.config.get_config_toml_path", return_value=config_path):
+        with patch("alfred.config.get_config_toml_path", return_value=config_path):
             config = load_config()
 
             assert config.default_llm_provider == "kimi"
@@ -56,7 +56,7 @@ model = "text-embedding-3-small"
 [memory]
 budget = 64000
 """)
-        with patch("src.config.get_config_toml_path", return_value=config_path):
+        with patch("alfred.config.get_config_toml_path", return_value=config_path):
             config = load_config()
 
             assert hasattr(config, "memory_budget")
@@ -78,7 +78,7 @@ model = "text-embedding-3-small"
 [memory]
 budget = 64000
 """)
-        with patch("src.config.get_config_toml_path", return_value=config_path):
+        with patch("alfred.config.get_config_toml_path", return_value=config_path):
             config = load_config()
 
             assert config.memory_budget == 64000
@@ -99,7 +99,7 @@ model = "text-embedding-3-small"
 [memory]
 budget = 32000
 """)
-        with patch("src.config.get_config_toml_path", return_value=config_path):
+        with patch("alfred.config.get_config_toml_path", return_value=config_path):
             config = load_config()
 
             assert config.default_llm_provider == "anthropic"

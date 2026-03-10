@@ -51,6 +51,7 @@ class TestSearchMemoriesTool:
                 content="User prefers Python over JavaScript",
                 embedding=[0.1, 0.2],
                 tags=[],
+            entry_id="mem_123",
             ),
             MemoryEntry(
                 timestamp=datetime(2026, 2, 16, 10, 0),
@@ -58,6 +59,7 @@ class TestSearchMemoriesTool:
                 content="User works remotely from Portland",
                 embedding=[0.3, 0.4],
                 tags=[],
+            entry_id="mem_123",
             ),
         ]
         similarities = {memories[0].entry_id: 0.85, memories[1].entry_id: 0.65}
