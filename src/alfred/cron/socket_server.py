@@ -5,6 +5,7 @@ The TUI runs this server to receive messages from the isolated cron runner proce
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import os
 from collections.abc import Callable
@@ -12,6 +13,8 @@ from pathlib import Path
 
 from alfred.cron.socket_protocol import (
     SOCKET_NAME,
+    ApproveJobRequest,
+    ApproveJobResponse,
     JobCompletedMessage,
     JobFailedMessage,
     JobStartedMessage,
@@ -20,9 +23,13 @@ from alfred.cron.socket_protocol import (
     PongMessage,
     QueryJobsRequest,
     QueryJobsResponse,
+    RejectJobRequest,
+    RejectJobResponse,
     RunnerStartedMessage,
     RunnerStoppingMessage,
     SocketMessage,
+    SubmitJobRequest,
+    SubmitJobResponse,
 )
 from alfred.data_manager import get_cache_dir
 
@@ -44,6 +51,9 @@ class SocketServer:
         on_runner_started: Callable[[RunnerStartedMessage], None] | None = None,
         on_runner_stopping: Callable[[RunnerStoppingMessage], None] | None = None,
         on_query_jobs: Callable[[QueryJobsRequest], QueryJobsResponse] | None = None,
+        on_submit_job: Callable[[SubmitJobRequest], SubmitJobResponse] | None = None,
+        on_approve_job: Callable[[ApproveJobRequest], ApproveJobResponse] | None = None,
+        on_reject_job: Callable[[RejectJobRequest], RejectJobResponse] | None = None,
     ):
         """Initialize the socket server.
 
@@ -54,6 +64,10 @@ class SocketServer:
             on_job_failed: Callback for job failure events
             on_runner_started: Callback for runner startup events
             on_runner_stopping: Callback for runner shutdown events
+            on_query_jobs: Callback for job status queries
+            on_submit_job: Callback for job submission requests
+            on_approve_job: Callback for job approval requests
+            on_reject_job: Callback for job rejection requests
         """
         self.socket_path = get_cache_dir() / SOCKET_NAME
         self._server: asyncio.Server | None = None
@@ -67,6 +81,9 @@ class SocketServer:
         self._on_runner_started = on_runner_started
         self._on_runner_stopping = on_runner_stopping
         self._on_query_jobs = on_query_jobs
+        self._on_submit_job = on_submit_job
+        self._on_approve_job = on_approve_job
+        self._on_reject_job = on_reject_job
 
     @property
     def path(self) -> Path:
@@ -196,8 +213,41 @@ class SocketServer:
                 # Handle job status query
                 if self._on_query_jobs:
                     response = self._on_query_jobs(message)
+                    if inspect.iscoroutine(response):
+                        response = await response
                     writer.write(response.to_json().encode("utf-8"))
                     await writer.drain()
+
+            elif isinstance(message, SubmitJobRequest):
+                # Handle job submission request
+                if self._on_submit_job:
+                    response = self._on_submit_job(message)
+                    if inspect.iscoroutine(response):
+                        response = await response
+                    writer.write(response.to_json().encode("utf-8"))
+                    await writer.drain()
+
+            elif isinstance(message, ApproveJobRequest):
+                # Handle job approval request
+                if self._on_approve_job:
+                    response = self._on_approve_job(message)
+                    if inspect.iscoroutine(response):
+                        response = await response
+                    writer.write(response.to_json().encode("utf-8"))
+                    await writer.drain()
+
+            elif isinstance(message, RejectJobRequest):
+                # Handle job rejection request
+                if self._on_reject_job:
+                    response = self._on_reject_job(message)
+                    if inspect.iscoroutine(response):
+                        response = await response
+                    writer.write(response.to_json().encode("utf-8"))
+                    await writer.drain()
+
+            elif isinstance(message, RunnerStoppingMessage):
+                if self._on_runner_stopping:
+                    self._on_runner_stopping(message)
 
         except Exception as e:
             logger.error(f"Error dispatching message {message.type}: {e}")

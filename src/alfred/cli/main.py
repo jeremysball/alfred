@@ -15,11 +15,20 @@ from rich.console import Console
 
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
+    from alfred.cron.scheduler import CronScheduler
     from alfred.cron.socket_protocol import (
+        ApproveJobRequest,
+        ApproveJobResponse,
         JobCompletedMessage,
         JobFailedMessage,
         JobStartedMessage,
         NotifyMessage,
+        QueryJobsRequest,
+        QueryJobsResponse,
+        RejectJobRequest,
+        RejectJobResponse,
+        SubmitJobRequest,
+        SubmitJobResponse,
     )
     from alfred.interfaces.pypitui.toast import ToastManager
 
@@ -386,14 +395,26 @@ async def _run_interactive() -> None:
 
 async def _run_chat(alfred: "Alfred", toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
+    from alfred.cron.scheduler import CronScheduler
     from alfred.cron.socket_server import SocketServer
+    from alfred.cron.store import CronStore
     from alfred.interfaces.pypitui_cli import AlfredTUI
+
+    # Create scheduler for socket handlers
+    scheduler = CronScheduler(
+        store=CronStore(alfred.config.data_dir),
+        data_dir=alfred.config.data_dir,
+    )
 
     socket_server = SocketServer(
         on_notify=lambda msg: _handle_notify(toast_manager, msg),
         on_job_started=lambda msg: _handle_job_started(toast_manager, msg),
         on_job_completed=lambda msg: _handle_job_completed(toast_manager, msg),
         on_job_failed=lambda msg: _handle_job_failed(toast_manager, msg),
+        on_query_jobs=lambda msg: _handle_query_jobs(scheduler, msg),
+        on_submit_job=lambda msg: _handle_submit_job(scheduler, msg),
+        on_approve_job=lambda msg: _handle_approve_job(scheduler, msg),
+        on_reject_job=lambda msg: _handle_reject_job(scheduler, msg),
     )
 
     await socket_server.start()
@@ -424,6 +445,219 @@ def _handle_job_completed(toast_manager: "ToastManager | None", msg: "JobComplet
 def _handle_job_failed(toast_manager: "ToastManager | None", msg: "JobFailedMessage") -> None:
     if toast_manager:
         toast_manager.add(f"Cron job failed: {msg.job_name} - {msg.error}", "error")
+
+
+async def _handle_submit_job(
+    scheduler: "CronScheduler", msg: "SubmitJobRequest"
+) -> "SubmitJobResponse":
+    """Handle job submission request from tools.
+
+    Args:
+        scheduler: The cron scheduler to submit job to
+        msg: Submit job request message
+
+    Returns:
+        SubmitJobResponse with result
+    """
+    from alfred.cron.socket_protocol import SubmitJobResponse
+
+    try:
+        job_id = await scheduler.submit_user_job(
+            name=msg.name,
+            expression=msg.expression,
+            code=msg.code,
+        )
+        return SubmitJobResponse(
+            request_id=msg.request_id,
+            success=True,
+            job_id=job_id,
+            message=f"Job '{msg.name}' submitted successfully",
+        )
+    except Exception as e:
+        return SubmitJobResponse(
+            request_id=msg.request_id,
+            success=False,
+            job_id="",
+            message=f"Failed to submit job: {e}",
+        )
+
+
+async def _handle_approve_job(
+    scheduler: "CronScheduler", msg: "ApproveJobRequest"
+) -> "ApproveJobResponse":
+    """Handle job approval request from tools.
+
+    Args:
+        scheduler: The cron scheduler to approve job through
+        msg: Approve job request message
+
+    Returns:
+        ApproveJobResponse with result
+    """
+    from alfred.cron.socket_protocol import ApproveJobResponse
+
+    try:
+        # Find job by ID or name
+        job_id = await _find_job_id(scheduler, msg.job_identifier)
+        if not job_id:
+            return ApproveJobResponse(
+                request_id=msg.request_id,
+                success=False,
+                job_id="",
+                job_name="",
+                message=f"Job not found: {msg.job_identifier}",
+            )
+
+        result = await scheduler.approve_job(job_id, approved_by="user")
+        if result["success"]:
+            return ApproveJobResponse(
+                request_id=msg.request_id,
+                success=True,
+                job_id=job_id,
+                job_name=result.get("job_name", ""),
+                message=result["message"],
+            )
+        else:
+            return ApproveJobResponse(
+                request_id=msg.request_id,
+                success=False,
+                job_id=job_id,
+                job_name=result.get("job_name", ""),
+                message=result["message"],
+            )
+    except Exception as e:
+        return ApproveJobResponse(
+            request_id=msg.request_id,
+            success=False,
+            job_id="",
+            job_name="",
+            message=f"Failed to approve job: {e}",
+        )
+
+
+async def _handle_reject_job(
+    scheduler: "CronScheduler", msg: "RejectJobRequest"
+) -> "RejectJobResponse":
+    """Handle job rejection request from tools.
+
+    Args:
+        scheduler: The cron scheduler to reject job through
+        msg: Reject job request message
+
+    Returns:
+        RejectJobResponse with result
+    """
+    from alfred.cron.socket_protocol import RejectJobResponse
+
+    try:
+        # Find job by ID or name
+        job_id = await _find_job_id(scheduler, msg.job_identifier)
+        if not job_id:
+            return RejectJobResponse(
+                request_id=msg.request_id,
+                success=False,
+                job_id="",
+                job_name="",
+                message=f"Job not found: {msg.job_identifier}",
+            )
+
+        # Get job name before deleting
+        jobs = await scheduler._store.load_jobs()
+        job_name = ""
+        for job in jobs:
+            if job.job_id == job_id:
+                job_name = job.name
+                break
+
+        # Delete the job
+        await scheduler._store.delete_job(job_id)
+
+        return RejectJobResponse(
+            request_id=msg.request_id,
+            success=True,
+            job_id=job_id,
+            job_name=job_name,
+            message=f"Job '{job_name}' deleted",
+        )
+    except Exception as e:
+        return RejectJobResponse(
+            request_id=msg.request_id,
+            success=False,
+            job_id="",
+            job_name="",
+            message=f"Failed to reject job: {e}",
+        )
+
+
+async def _handle_query_jobs(
+    scheduler: "CronScheduler", msg: "QueryJobsRequest"
+) -> "QueryJobsResponse":
+    """Handle job query request from tools.
+
+    Args:
+        scheduler: The cron scheduler to query
+        msg: Query jobs request message
+
+    Returns:
+        QueryJobsResponse with job list
+    """
+    from alfred.cron.socket_protocol import QueryJobsResponse
+
+    try:
+        jobs = await scheduler._store.load_jobs()
+        # Convert jobs to dict format
+        job_dicts = []
+        for job in jobs:
+            job_dicts.append({
+                "job_id": job.job_id,
+                "name": job.name,
+                "expression": job.expression,
+                "status": job.status,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+            })
+
+        return QueryJobsResponse(
+            request_id=msg.request_id,
+            jobs=job_dicts,
+            recent_failures=[],
+        )
+    except Exception:
+        return QueryJobsResponse(
+            request_id=msg.request_id,
+            jobs=[],
+            recent_failures=[],
+        )
+
+
+async def _find_job_id(scheduler: "CronScheduler", identifier: str) -> str | None:
+    """Find job ID by identifier (ID or name).
+
+    Args:
+        scheduler: The cron scheduler
+        identifier: Job ID or name to find
+
+    Returns:
+        Job ID if found, None otherwise
+    """
+    jobs = await scheduler._store.load_jobs()
+    identifier_lower = identifier.lower()
+
+    # Try exact ID match first
+    for job in jobs:
+        if job.job_id == identifier:
+            return job.job_id
+
+    # Try exact name match
+    for job in jobs:
+        if job.name.lower() == identifier_lower:
+            return job.job_id
+
+    # Try substring name match (must be unique)
+    matches = [j for j in jobs if identifier_lower in j.name.lower()]
+    if len(matches) == 1:
+        return matches[0].job_id
+
+    return None
 
 
 async def _run_telegram_bot(alfred: "Alfred") -> None:
