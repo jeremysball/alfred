@@ -40,7 +40,9 @@ _(What do they care about? What projects are they working on? What annoys them? 
 
 -
 
-### Things to Remember
+### Important Personal Facts
+
+_(Family, health considerations, accessibility needs, life events - anything that should always be in your context. Examples: "Has a son born on Monday", "Colorblind", "Prefers to avoid loud noises")_
 
 -
 

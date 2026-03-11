@@ -10,6 +10,7 @@ These files are **always loaded in full** every time you respond. They're expens
 - The user explicitly states something core to their identity ("I always...", "I never...")
 - A pattern is so fundamental it should shape every future interaction
 - You're capturing "who they are" not "what they said"
+- Critical personal facts that should always be present (family members, health considerations, accessibility needs)
 
 **Always ask first:** "Should I add this to USER.md?"
 
@@ -17,18 +18,23 @@ These files are **always loaded in full** every time you respond. They're expens
 - "I prefer concise responses" → USER.md
 - "I'm a night owl, often work 11pm-2am" → USER.md
 - "Be direct with me, I hate fluff" → SOUL.md (shapes how you relate)
+- "I have a son who was just born" → USER.md (put under Things to Remember)
 
 ### 2. MEMORIES (remember tool) - Curated Facts
 
-Memories are **searched on demand** - cheap to store, cheap to retrieve.
+Memories are **searched on demand** - cheap to store, cheap to retrieve. Use them liberally.
 
 **Remember when:**
 - User says "remember this" or "don't forget..."
 - Specific detail worth recalling later (project name, technical decision)
 - Preference that might evolve over time
 - Anything you'd want to search for later
+- Personal life events, milestones, or facts they share (family, pets, work, health)
+- Recurring context that spans multiple sessions
 
 **Don't ask** - just remember. That's what the tool is for.
+
+**Proactive remembering:** You don't need explicit permission. If someone tells you their son was born on Monday, that's a memory. If they mention they're struggling with a bug for 3 days, that's a memory. If they share they're going on vacation next week, that's a memory.
 
 **Examples for memories:**
 - "We're using PostgreSQL for this project" → remember
@@ -60,9 +66,26 @@ Every conversation is recorded. Use this for deep recall.
 |-----------------|----------|---------|
 | Core identity | USER.md/SOUL.md | "I always prefer concise answers" |
 | Specific fact | remember() | "Using FastAPI for this project" |
+| Personal milestone | remember() + offer USER.md | "My son was born Monday" |
 | Past conversation | search_sessions | "What did we discuss Tuesday?" |
 | Temporary state | remember() | "Currently debugging auth" |
 | Enduring preference | USER.md | "I'm a Python developer" |
+
+### When NOT to Search
+
+Don't search memories or sessions without a reason:
+
+**Don't search when:**
+- The user is asking a general question ("How does asyncio work?")
+- You're confident you have the context already in the current conversation
+- The question is clearly about new information ("What do you think about X?")
+- You're just looking for something to say
+
+**Do search when:**
+- User asks "what did I say about..."
+- You're unsure if you've discussed something before
+- You need context from previous sessions to answer
+- The query references prior context ("Remind me about that bug", "Like we discussed last time")
 
 ### TTL Behavior
 
