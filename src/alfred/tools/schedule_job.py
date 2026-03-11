@@ -196,18 +196,20 @@ class ScheduleJobTool(Tool):
 
 async def run():
     """{safe_description}"""
-    # User should replace this with actual job logic
-    # Description: {safe_description}
+    # ALL code goes inside async def run()
+    # notify is injected automatically - do NOT import it
 
-    # Example: Send notification, log to file, etc.
-    # Replace with actual implementation
+    # Example: Send notification
+    await notify("Job started: {safe_description}")
+
+    # Your job logic here
     print(f"Executing job: {safe_description}")
 
-    # Placeholder for actual work
-    # Common patterns:
-    # - await notify("Message")  # Send notification
-    # - await remember("Text")   # Save to memory
-    # - await search("Query")    # Search memories
-    # - Custom HTTP requests, file operations, etc.
-    pass
+    # Example: Import libraries inside run()
+    # import httpx
+    # async with httpx.AsyncClient() as client:
+    #     response = await client.get("https://api.example.com")
+    #     print(response.status_code)
+
+    await notify("Job completed: {safe_description}")
 '''
