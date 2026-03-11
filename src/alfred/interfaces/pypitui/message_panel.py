@@ -181,6 +181,62 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 return tc
         return None
 
+    def restore_tool_calls(self, tool_calls: list[ToolCallInfo] | None) -> None:
+        """Restore tool calls from stored ToolCallInfo objects.
+
+        Used when loading session messages to restore tool call display.
+
+        Args:
+            tool_calls: List of ToolCallInfo objects to restore
+        """
+        if not tool_calls:
+            return
+
+        self._tool_calls = list(tool_calls)
+        self._rebuild_content()
+
+    def restore_tool_calls_from_records(
+        self, tool_calls: list[object] | None
+    ) -> None:
+        """Restore tool calls from session ToolCallRecord objects.
+
+        Converts ToolCallRecord dataclasses to ToolCallInfo for display.
+
+        Args:
+            tool_calls: List of ToolCallRecord objects from session storage
+        """
+        if not tool_calls:
+            return
+
+        tool_infos: list[ToolCallInfo] = []
+        for tc in tool_calls:
+            # Handle both ToolCallRecord dataclass and dict formats
+            if hasattr(tc, "tool_call_id"):
+                # ToolCallRecord dataclass
+                tool_info = ToolCallInfo(
+                    tool_name=tc.tool_name,
+                    tool_call_id=tc.tool_call_id,
+                    output=tc.output,
+                    status=tc.status,
+                    insert_position=tc.insert_position,
+                    sequence=tc.sequence,
+                    arguments=tc.arguments if tc.arguments else {},
+                )
+            else:
+                # Dict format (fallback)
+                tool_info = ToolCallInfo(
+                    tool_name=tc.get("tool_name", "unknown"),
+                    tool_call_id=tc.get("tool_call_id", ""),
+                    output=tc.get("output", ""),
+                    status=tc.get("status", "success"),
+                    insert_position=tc.get("insert_position", 0),
+                    sequence=tc.get("sequence", 0),
+                    arguments=tc.get("arguments") or {},
+                )
+            tool_infos.append(tool_info)
+
+        self.restore_tool_calls(tool_infos)
+
     def set_terminal_width(self, width: int) -> None:
         """Update terminal width and rebuild if changed.
 

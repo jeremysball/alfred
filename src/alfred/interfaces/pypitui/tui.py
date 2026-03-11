@@ -519,6 +519,9 @@ class AlfredTUI:
                 terminal_width=self._terminal_width,
                 use_markdown=self.alfred.config.use_markdown_rendering,
             )
+            # Restore tool calls for assistant messages
+            if msg.role.value == "assistant" and msg.tool_calls:
+                panel.restore_tool_calls_from_records(msg.tool_calls)
             self.conversation.add_child(panel)
 
         # Sync token tracker with loaded session messages
