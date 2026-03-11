@@ -111,6 +111,7 @@ def register_builtin_tools(
     from alfred.tools.read import ReadTool
     from alfred.tools.reject_job import RejectJobTool
     from alfred.tools.remember import RememberTool
+    from alfred.tools.review_job import ReviewJobTool
     from alfred.tools.schedule_job import ScheduleJobTool
     from alfred.tools.search_memories import SearchMemoriesTool
     from alfred.tools.search_sessions import SearchSessionsTool
@@ -161,6 +162,7 @@ def register_builtin_tools(
     if socket_client:
         register_tool(ScheduleJobTool(socket_client=socket_client, config=config))
         register_tool(ListJobsTool(socket_client=socket_client))
+        register_tool(ReviewJobTool(socket_client=socket_client))
         register_tool(ApproveJobTool(socket_client=socket_client))
         register_tool(RejectJobTool(socket_client=socket_client))
 
