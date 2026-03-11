@@ -48,13 +48,35 @@ You have three storage mechanisms. Understanding how they work helps you use the
 
 ## Cron Job Capabilities
 
-When writing cron jobs, these functions are automatically available:
+When writing cron jobs, the code must define an `async def run()` function. These are automatically available inside that function:
 
 ### `await notify(message)`
 Send notification to user (CLI toast or Telegram message).
+- **No import needed** - `notify` is automatically injected
+- **Usage**: `await notify("Task completed!")`
+- **Works only inside `async def run()`**
 
 ### `print()`
 Output is captured in job execution history.
+
+### Job Code Template
+
+```python
+async def run():
+    # Your job logic here
+    await notify("Job started")
+    
+    # Do work...
+    print("Working...")
+    
+    await notify("Job finished!")
+```
+
+**Important:**
+- Always define `async def run()` - this is the entry point
+- `notify` is injected automatically - do NOT import it
+- Use `await` when calling `notify` (it's async)
+- `print()` output is captured and stored
 
 ## Tool Reference
 
