@@ -10,6 +10,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# sqlite-vec is required for vector search
+try:
+    import sqlite_vec  # noqa: F401
+except ImportError as e:
+    raise ImportError(
+        "sqlite-vec is required. Install with: uv add sqlite-vec"
+    ) from e
+
 logger = logging.getLogger(__name__)
 
 
@@ -123,21 +131,13 @@ class SQLiteStore:
             ON message_embeddings(session_id)
         """)
 
-        # Create sqlite-vec virtual table if available
-        try:
-            await db.execute("SELECT vec_version()")
-            has_vec = True
-        except Exception:
-            has_vec = False
-            logger.warning("sqlite-vec not available, message vector search disabled")
-
-        if has_vec:
-            await db.execute("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings_vec USING vec0(
-                    message_embedding_id TEXT PRIMARY KEY,
-                    embedding FLOAT[768]
-                )
-            """)
+        # Create sqlite-vec virtual table for message embeddings
+        await db.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings_vec USING vec0(
+                message_embedding_id TEXT PRIMARY KEY,
+                embedding FLOAT[768]
+            )
+        """)
 
     async def _create_cron_tables(self, db: Any) -> None:
         """Create cron jobs and history tables."""
@@ -183,64 +183,37 @@ class SQLiteStore:
 
     async def _create_memories_table(self, db: Any) -> None:
         """Create memories table with vector support via sqlite-vec."""
-        # Check if sqlite-vec is available
-        try:
-            await db.execute("SELECT vec_version()")
-            has_vec = True
-        except Exception:
-            has_vec = False
-            logger.warning("sqlite-vec not available, falling back to JSON storage")
+        # Use sqlite-vec virtual table for embeddings
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS memories (
+                entry_id TEXT PRIMARY KEY,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                tags JSON DEFAULT '[]',
+                permanent BOOLEAN DEFAULT 0
+            )
+        """)
 
-        if has_vec:
-            # Use sqlite-vec virtual table for embeddings
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS memories (
-                    entry_id TEXT PRIMARY KEY,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    tags JSON DEFAULT '[]',
-                    permanent BOOLEAN DEFAULT 0
-                )
-            """)
+        # Virtual table for vector search
+        await db.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS memory_embeddings USING vec0(
+                entry_id TEXT PRIMARY KEY,
+                embedding FLOAT[768]  -- Adjustable dimension
+            )
+        """)
 
-            # Virtual table for vector search
-            await db.execute("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS memory_embeddings USING vec0(
-                    entry_id TEXT PRIMARY KEY,
-                    embedding FLOAT[768]  -- Adjustable dimension
-                )
-            """)
+        # Index for timestamp queries
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_memories_timestamp
+            ON memories(timestamp)
+        """)
 
-            # Index for timestamp queries
-            await db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_memories_timestamp 
-                ON memories(timestamp)
-            """)
-
-            # Index for permanent flag
-            await db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_memories_permanent 
-                ON memories(permanent) WHERE permanent = 0
-            """)
-        else:
-            # Fallback: store embeddings as JSON
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS memories (
-                    entry_id TEXT PRIMARY KEY,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    tags JSON DEFAULT '[]',
-                    permanent BOOLEAN DEFAULT 0,
-                    embedding JSON
-                )
-            """)
-
-            await db.execute("""
-                CREATE INDEX IF NOT EXISTS idx_memories_timestamp 
-                ON memories(timestamp)
-            """)
+        # Index for permanent flag
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_memories_permanent
+            ON memories(permanent) WHERE permanent = 0
+        """)
 
     # === Session Operations ===
 
@@ -278,18 +251,10 @@ class SQLiteStore:
     async def _index_message_embeddings(
         self, db: Any, session_id: str, messages: list[dict]
     ) -> None:
-        """Index message embeddings for vector search.
+        """Index message embeddings for vector search using sqlite-vec.
 
         Only indexes messages with embeddings. Skips if already indexed.
         """
-
-        # Check if we have sqlite-vec
-        try:
-            await db.execute("SELECT vec_version()")
-            has_vec = True
-        except Exception:
-            has_vec = False
-
         for msg in messages:
             embedding = msg.get("embedding")
             if not embedding:
@@ -306,7 +271,7 @@ class SQLiteStore:
                 # Insert into message_embeddings
                 await db.execute(
                     """
-                    INSERT INTO message_embeddings 
+                    INSERT INTO message_embeddings
                     (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
                     VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(message_embedding_id) DO NOTHING
@@ -314,19 +279,15 @@ class SQLiteStore:
                     (me_id, session_id, message_idx, role, content, json.dumps(embedding)),
                 )
 
-                # Insert into sqlite-vec if available
-                if has_vec:
-                    try:
-                        await db.execute(
-                            """
-                            INSERT INTO message_embeddings_vec (message_embedding_id, embedding)
-                            VALUES (?, ?)
-                            ON CONFLICT(message_embedding_id) DO NOTHING
-                            """,
-                            (me_id, json.dumps(embedding)),
-                        )
-                    except Exception:
-                        pass  # sqlite-vec might not be available
+                # Insert into sqlite-vec virtual table
+                await db.execute(
+                    """
+                    INSERT INTO message_embeddings_vec (message_embedding_id, embedding)
+                    VALUES (?, ?)
+                    ON CONFLICT(message_embedding_id) DO NOTHING
+                    """,
+                    (me_id, json.dumps(embedding)),
+                )
 
             except Exception as e:
                 logger.warning(
@@ -662,7 +623,7 @@ class SQLiteStore:
         role: str | None = None,
         tags: list[str] | None = None,
     ) -> list[dict]:
-        """Search memories by vector similarity.
+        """Search memories by vector similarity using sqlite-vec.
 
         Args:
             query_embedding: Query vector
@@ -680,62 +641,30 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
 
-            # Check if sqlite-vec is available
-            try:
-                await db.execute("SELECT vec_version()")
-                has_vec = True
-            except Exception:
-                has_vec = False
+            # Use sqlite-vec for vector search
+            query = """
+                SELECT m.*, e.distance
+                FROM memory_embeddings e
+                JOIN memories m ON e.entry_id = m.entry_id
+                WHERE e.embedding MATCH ?
+            """
+            params: list[Any] = [json.dumps(query_embedding)]
 
-            if has_vec:
-                # Use sqlite-vec for vector search
-                query = """
-                    SELECT m.*, e.distance
-                    FROM memory_embeddings e
-                    JOIN memories m ON e.entry_id = m.entry_id
-                    WHERE e.embedding MATCH ?
-                """
-                params: list[Any] = [json.dumps(query_embedding)]
+            if role:
+                query += " AND m.role = ?"
+                params.append(role)
 
-                if role:
-                    query += " AND m.role = ?"
-                    params.append(role)
+            if tags:
+                # Simple tag filtering - check if any tag matches
+                for tag in tags:
+                    query += " AND json_extract(m.tags, '$') LIKE ?"
+                    params.append(f'%"{tag}"%')
 
-                if tags:
-                    # Simple tag filtering - check if any tag matches
-                    for tag in tags:
-                        query += " AND json_extract(m.tags, '$') LIKE ?"
-                        params.append(f'%"{tag}"%')
+            query += " ORDER BY e.distance LIMIT ?"
+            params.append(top_k)
 
-                query += " ORDER BY e.distance LIMIT ?"
-                params.append(top_k)
-
-                async with db.execute(query, params) as cursor:
-                    rows = await cursor.fetchall()
-            else:
-                # Fallback: fetch all and compute similarity in Python
-                # This is slow but works without sqlite-vec
-                async with db.execute(
-                    "SELECT * FROM memories WHERE embedding IS NOT NULL"
-                ) as cursor:
-                    rows = await cursor.fetchall()
-
-                # Compute cosine similarity
-                import numpy as np
-
-                query_vec = np.array(query_embedding)
-                scored = []
-
-                for row in rows:
-                    emb = json.loads(row["embedding"])
-                    vec = np.array(emb)
-                    similarity = np.dot(query_vec, vec) / (
-                        np.linalg.norm(query_vec) * np.linalg.norm(vec)
-                    )
-                    scored.append((similarity, row))
-
-                scored.sort(key=lambda x: x[0], reverse=True)
-                rows = [row for _, row in scored[:top_k]]
+            async with db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
 
             result = []
             for row in rows:
@@ -746,13 +675,8 @@ class SQLiteStore:
                     "content": row["content"],
                     "tags": json.loads(row["tags"]),
                     "permanent": bool(row["permanent"]),
-                    "similarity": 0.0,
+                    "similarity": row["distance"],
                 }
-                # sqlite3.Row doesn't support .get()
-                try:
-                    entry["similarity"] = row["distance"]
-                except IndexError:
-                    pass
                 result.append(entry)
             return result
 
