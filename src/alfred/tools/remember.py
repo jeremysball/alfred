@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -52,6 +53,7 @@ class RememberTool(Tool, MemoryStoreMixin, TagParsingMixin, ContentTruncationMix
         tag_list = self._parse_tags(tags)
 
         entry = MemoryEntry(
+            entry_id=str(uuid4()),
             timestamp=datetime.now(),
             role="system",
             content=content,
