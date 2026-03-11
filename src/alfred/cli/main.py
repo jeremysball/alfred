@@ -13,6 +13,9 @@ from typing import TYPE_CHECKING, Any
 import typer
 from rich.console import Console
 
+# Import cron app directly (lightweight, no heavy deps at import time)
+from alfred.cli.cron import app as cron_app
+
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
     from alfred.cron.socket_protocol import (
@@ -84,153 +87,42 @@ def main(
 
 
 # ============================================================================
-# Cron subcommands - lazy-loaded proxies
-# ============================================================================
-
-cron_app = typer.Typer(name="cron", help="Manage cron jobs", no_args_is_help=True)
-
-
-@cron_app.callback()
-def cron_callback() -> None:
-    """Cron job management."""
-    pass
-
-
-@cron_app.command(name="list")
-def cron_list(
-    status: str = typer.Option(
-        "all",
-        "--status",
-        "-s",
-        help="Filter by status: all, pending, active, paused",
-    ),
-) -> None:
-    """List all cron jobs."""
-    from alfred.cli.cron import list_jobs
-
-    list_jobs(status)
-
-
-@cron_app.command(name="submit")
-def cron_submit(
-    name: str = typer.Argument(..., help="Job name"),
-    cron: str = typer.Argument(..., help="Cron expression (e.g., '0 9 * * *' for 9am daily)"),
-    code: str | None = typer.Option(None, "--code", "-c", help="Python code for the job"),
-) -> None:
-    """Submit a new cron job for approval."""
-    from alfred.cli.cron import submit_job
-
-    submit_job(name, cron, code)
-
-
-@cron_app.command(name="review")
-def cron_review(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Review a pending job's details."""
-    from alfred.cli.cron import review_job
-
-    review_job(job_id)
-
-
-@cron_app.command(name="approve")
-def cron_approve(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Approve a pending job."""
-    from alfred.cli.cron import approve_job
-
-    approve_job(job_id)
-
-
-@cron_app.command(name="reject")
-def cron_reject(
-    job_id: str = typer.Argument(..., help="Job ID or name"),
-) -> None:
-    """Reject and delete a pending job."""
-    from alfred.cli.cron import reject_job
-
-    reject_job(job_id)
-
-
-@cron_app.command(name="history")
-def cron_history(
-    job_id: str | None = typer.Option(None, "--job-id", "-j", help="Filter by job ID"),
-    limit: int = typer.Option(20, "--limit", "-l", help="Maximum records to show"),
-) -> None:
-    """Show job execution history."""
-    from alfred.cli.cron import show_history
-
-    show_history(job_id, limit)
-
-
-@cron_app.command(name="start")
-def cron_start() -> None:
-    """Start the cron daemon."""
-    from alfred.cli.cron import start_daemon
-
-    start_daemon()
-
-
-@cron_app.command(name="stop")
-def cron_stop() -> None:
-    """Stop the cron daemon."""
-    from alfred.cli.cron import stop_daemon
-
-    stop_daemon()
-
-
-@cron_app.command(name="status")
-def cron_status() -> None:
-    """Check daemon status."""
-    from alfred.cli.cron import daemon_status
-
-    daemon_status()
-
-
-@cron_app.command(name="reload")
-def cron_reload() -> None:
-    """Reload daemon jobs (send SIGHUP)."""
-    from alfred.cli.cron import reload_daemon
-
-    reload_daemon()
-
-
-# ============================================================================
 # Daemon subcommands - daemon management
 # ============================================================================
 
 daemon_app = typer.Typer(name="daemon", help="Manage daemon process", no_args_is_help=True)
 
 
-@daemon_app.callback(invoke_without_command=True)
-def daemon_callback(
-    ctx: typer.Context,
+@daemon_app.command(name="start")
+def daemon_start(
+    fg: bool = typer.Option(
+        False,
+        "--fg",
+        help="Run in foreground (don't daemonize)",
+    ),
     bg: bool = typer.Option(
         False,
         "--bg",
-        help="Run in background (daemonize)",
+        help="Run in background (daemonize) [deprecated: this is now the default]",
     ),
 ) -> None:
-    """Manage daemon process."""
-    # If no subcommand, run the daemon (foreground or background)
-    if ctx.invoked_subcommand is None:
-        if bg:
-            # Run old background daemon manager
-            from alfred.cli.cron import start_daemon
+    """Start the daemon."""
+    if fg:
+        # Run foreground daemon
+        from alfred.cron.daemon_runner import main
 
-            start_daemon()
-        else:
-            # Run new foreground daemon
-            from alfred.cron.daemon_runner import main
+        main()
+    else:
+        # Run background daemon (default)
+        from alfred.cli.daemon_cli import start_daemon
 
-            main()
+        start_daemon()
 
 
 @daemon_app.command(name="stop")
 def daemon_stop() -> None:
     """Stop the background daemon."""
-    from alfred.cli.cron import stop_daemon
+    from alfred.cli.daemon_cli import stop_daemon
 
     stop_daemon()
 
@@ -238,7 +130,7 @@ def daemon_stop() -> None:
 @daemon_app.command(name="status")
 def daemon_status_cmd() -> None:
     """Check background daemon status."""
-    from alfred.cli.cron import daemon_status
+    from alfred.cli.daemon_cli import daemon_status
 
     daemon_status()
 
@@ -246,7 +138,7 @@ def daemon_status_cmd() -> None:
 @daemon_app.command(name="reload")
 def daemon_reload_cmd() -> None:
     """Reload background daemon jobs (send SIGHUP)."""
-    from alfred.cli.cron import reload_daemon
+    from alfred.cli.daemon_cli import reload_daemon
 
     reload_daemon()
 

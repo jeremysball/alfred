@@ -30,10 +30,18 @@ def discover_commands():
         # Skip flags/options that were incorrectly added as commands
         if name.startswith("-"):
             continue
+        # Skip internal Click/Typer commands
+        if name in ("completion", "completions"):
+            continue
         completions[""].append(name)
         if isinstance(cmd, click.Group):
             # This is a subcommand group (like cron, memory)
-            completions[name] = list(cmd.commands.keys())
+            # Filter out flags from subcommands too
+            subcmds = [
+                sub for sub in cmd.commands.keys()
+                if not sub.startswith("-")
+            ]
+            completions[name] = subcmds
 
     return completions
 

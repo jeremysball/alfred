@@ -27,6 +27,7 @@ _alfred() {
             case $line[1] in
                 daemon)
                     _values "daemon subcommands" \
+                        "start" \
                         "stop" \
                         "status" \
                         "reload" \
@@ -40,10 +41,6 @@ _alfred() {
                         "approve" \
                         "reject" \
                         "history" \
-                        "start" \
-                        "stop" \
-                        "status" \
-                        "reload" \
                     ;;
                 memory)
                     _values "memory subcommands" \
