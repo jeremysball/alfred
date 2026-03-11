@@ -30,8 +30,8 @@ jobs:
       - name: Run ruff check
         run: uv run ruff check src/
 
-      - name: Run basedpyright
-        run: uv run basedpyright src/
+      - name: Run mypy (strict)
+        run: uv run mypy src/ --strict
 
       - name: Check completions sync
         run: uv run python scripts/generate-static-completions.py --check
