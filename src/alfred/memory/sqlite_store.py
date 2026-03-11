@@ -9,10 +9,20 @@ from typing import Any
 
 from alfred.config import Config
 from alfred.embeddings.provider import EmbeddingProvider
-from alfred.memory.base import MemoryStore
+from alfred.memory.base import MemoryEntry, MemoryStore
 from alfred.storage.sqlite import SQLiteStore
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_timestamp(ts: str | datetime) -> datetime:
+    """Parse timestamp from string or return datetime object.
+
+    SQLite returns timestamps as strings, so we need to parse them.
+    """
+    if isinstance(ts, str):
+        return datetime.fromisoformat(ts)
+    return ts
 
 
 class SQLiteMemoryStore(MemoryStore):
@@ -90,11 +100,11 @@ class SQLiteMemoryStore(MemoryStore):
         if start_date or end_date:
             filtered = []
             for r in results:
-                entry_date = (
-                    r["timestamp"].date()
-                    if isinstance(r["timestamp"], datetime)
-                    else r["timestamp"]
-                )
+                # Parse timestamp from string if needed
+                ts = r["timestamp"]
+                if isinstance(ts, str):
+                    ts = datetime.fromisoformat(ts)
+                entry_date = ts.date() if isinstance(ts, datetime) else ts
                 if start_date and entry_date < start_date:
                     continue
                 if end_date and entry_date > end_date:
@@ -103,8 +113,6 @@ class SQLiteMemoryStore(MemoryStore):
             results = filtered
 
         # Convert to MemoryEntry objects
-        from alfred.memory.base import MemoryEntry
-
         entries = []
         similarities = {}
         scores = {}
@@ -112,7 +120,7 @@ class SQLiteMemoryStore(MemoryStore):
         for r in results:
             entry = MemoryEntry(
                 entry_id=r["entry_id"],
-                timestamp=r["timestamp"],
+                timestamp=_parse_timestamp(r["timestamp"]),
                 role=r["role"],
                 content=r["content"],
                 tags=r["tags"],
@@ -134,15 +142,13 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Memory entry or None
         """
-        from alfred.memory.base import MemoryEntry
-
         data = await self._store.get_memory(entry_id)
         if data is None:
             return None
 
         return MemoryEntry(
             entry_id=data["entry_id"],
-            timestamp=data["timestamp"],
+            timestamp=_parse_timestamp(data["timestamp"]),
             role=data["role"],
             content=data["content"],
             tags=data["tags"],
@@ -154,15 +160,13 @@ class SQLiteMemoryStore(MemoryStore):
 
         Returns:
             List of all entries
-        """
-        from alfred.memory.base import MemoryEntry
-
+"""
         results = await self._store.get_all_memories()
 
         return [
             MemoryEntry(
                 entry_id=r["entry_id"],
-                timestamp=r["timestamp"],
+                timestamp=_parse_timestamp(r["timestamp"]),
                 role=r["role"],
                 content=r["content"],
                 tags=r["tags"],
