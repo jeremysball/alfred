@@ -11,6 +11,7 @@ Related issues fixed:
 import asyncio
 import time
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -33,15 +34,9 @@ class TestNewSessionPerformance:
         # Pre-initialize the DB
         await store._init()
 
-        # Reset SessionManager singleton state
-        SessionManager._instance = None
-        SessionManager._store = None
-
-        # Initialize with our test store
-        SessionManager._store = store
-        manager = object.__new__(SessionManager)
-        manager._sessions = {}
-        SessionManager._instance = manager
+        # Create SessionManager via constructor with mock data_dir
+        data_dir = temp_db_path.parent
+        manager = SessionManager(store=store, data_dir=data_dir)
 
         # Create a new session using async method
         start = time.perf_counter()
@@ -60,15 +55,9 @@ class TestNewSessionPerformance:
         # Pre-initialize the DB
         await store._init()
 
-        # Reset SessionManager singleton state
-        SessionManager._instance = None
-        SessionManager._store = None
-
-        # Initialize with our test store
-        SessionManager._store = store
-        manager = object.__new__(SessionManager)
-        manager._sessions = {}
-        SessionManager._instance = manager
+        # Create SessionManager via constructor
+        data_dir = temp_db_path.parent
+        manager = SessionManager(store=store, data_dir=data_dir)
 
         # Create a session first (add a message so it's persisted)
         original = await manager.new_session_async()
@@ -94,15 +83,9 @@ class TestNewSessionPerformance:
         """Test that sync methods still work for non-async contexts."""
         store = SQLiteStore(temp_db_path)
 
-        # Reset SessionManager singleton state
-        SessionManager._instance = None
-        SessionManager._store = None
-
-        # Initialize with our test store
-        SessionManager._store = store
-        manager = object.__new__(SessionManager)
-        manager._sessions = {}
-        SessionManager._instance = manager
+        # Create SessionManager via constructor
+        data_dir = temp_db_path.parent
+        manager = SessionManager(store=store, data_dir=data_dir)
 
         # Create a new session using sync method (from sync context)
         start = time.perf_counter()

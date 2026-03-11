@@ -60,7 +60,7 @@ class TestAlfredCoreInitialization:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
@@ -74,7 +74,7 @@ class TestAlfredCoreInitialization:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
@@ -94,7 +94,7 @@ class TestAlfredCoreInitialization:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
             patch("alfred.core.CronScheduler") as mock_scheduler_class,
         ):
             mock_llm.create.return_value = MagicMock()
@@ -116,7 +116,7 @@ class TestAlfredCoreServiceLocator:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
@@ -135,7 +135,7 @@ class TestAlfredCoreServiceLocator:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()
@@ -158,7 +158,7 @@ class TestAlfredCoreReuse:
         with (
             patch("alfred.core.LLMFactory") as mock_llm,
             patch("alfred.core.create_provider") as mock_embedder,
-            patch("alfred.core.create_memory_store"),
+            patch("alfred.core.SQLiteMemoryStore"),
         ):
             mock_llm.create.return_value = MagicMock()
             mock_embedder.return_value = MagicMock()

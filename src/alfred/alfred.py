@@ -57,10 +57,14 @@ class Alfred:
             except Exception as e:
                 logger.warning(f"Failed to initialize Telegram bot: {e}")
 
+        # Create socket client for cron job tools
+        from alfred.cron.socket_client import SocketClient
+        self._socket_client = SocketClient()
+
         # Register built-in tools (inject services from core)
         register_builtin_tools(
             memory_store=self.core.memory_store,
-            scheduler=self.core.cron_scheduler,
+            socket_client=self._socket_client,
             config=self.config,
             session_manager=self.core.session_manager,
             embedder=self.core.embedder,
@@ -443,16 +447,24 @@ You can then continue the conversation with the tool results.
         """Start Alfred and all subsystems.
 
         Note: Cron scheduler runs in standalone daemon only.
-        CLI/Telegram instances do not run cron.
+        CLI/Telegram instances do not run cron, but they do connect
+        to the daemon's socket for job management.
         """
-        # Cron scheduler runs in standalone daemon only
-        # Alfred CLI/Telegram communicates with daemon via socket
-        pass
+        # Start socket client for cron job tools
+        try:
+            await self._socket_client.start()
+            logger.debug("Socket client started for cron job tools")
+        except Exception as e:
+            logger.warning(f"Failed to start socket client: {e}")
 
     async def stop(self) -> None:
         """Graceful shutdown.
 
         Stops all subsystems cleanly.
         """
-        # Cron scheduler runs in standalone daemon only
-        pass
+        # Stop socket client
+        try:
+            await self._socket_client.stop()
+            logger.debug("Socket client stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping socket client: {e}")

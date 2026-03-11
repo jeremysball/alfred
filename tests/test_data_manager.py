@@ -47,13 +47,13 @@ class TestXDGDirectoryPaths:
 
     def test_get_workspace_dir_in_data_dir(self):
         """get_workspace_dir returns workspace in data dir."""
-        with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
+        with patch("alfred.data_manager.get_data_dir", return_value=Path("/test/data")):
             result = get_workspace_dir()
             assert result == Path("/test/data/workspace")
 
     def test_get_memory_dir_in_data_dir(self):
         """get_memory_dir returns memory in data dir."""
-        with patch("src.data_manager.get_data_dir", return_value=Path("/test/data")):
+        with patch("alfred.data_manager.get_data_dir", return_value=Path("/test/data")):
             result = get_memory_dir()
             assert result == Path("/test/data/memory")
 
@@ -83,8 +83,8 @@ class TestXDGDirectoryInit:
         data_dir = tmp_path / "data" / APP_NAME
 
         with (
-            patch("src.data_manager.get_config_dir", return_value=config_dir),
-            patch("src.data_manager.get_data_dir", return_value=data_dir),
+            patch("alfred.data_manager.get_config_dir", return_value=config_dir),
+            patch("alfred.data_manager.get_data_dir", return_value=data_dir),
         ):
             yield config_dir, data_dir
 
@@ -97,7 +97,7 @@ class TestXDGDirectoryInit:
         (bundled_templates / "USER.md").write_text("# User Template")
         (bundled_templates / "config.toml").write_text("[provider]\\ndefault = \"kimi\"\\n\\n[memory]\\nbudget = 32000\\n")
 
-        with patch("src.data_manager.BUNDLED_TEMPLATES", bundled_templates):
+        with patch("alfred.data_manager.BUNDLED_TEMPLATES", bundled_templates):
             yield bundled_templates
 
     def test_creates_config_directory(self, xdg_dirs, bundled_files):
@@ -202,7 +202,7 @@ class TestXDGDirectoryInit:
 
     def test_handles_missing_bundled_templates(self, xdg_dirs):
         """Handles missing bundled templates gracefully."""
-        with patch("src.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")):
+        with patch("alfred.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")):
             init_xdg_directories()  # Should not raise
 
             _, data_dir = xdg_dirs
@@ -219,9 +219,9 @@ class TestIntegration:
         data_dir = tmp_path / ".local" / "share" / APP_NAME
 
         with (
-            patch("src.data_manager.get_config_dir", return_value=config_dir),
-            patch("src.data_manager.get_data_dir", return_value=data_dir),
-            patch("src.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")),
+            patch("alfred.data_manager.get_config_dir", return_value=config_dir),
+            patch("alfred.data_manager.get_data_dir", return_value=data_dir),
+            patch("alfred.data_manager.BUNDLED_TEMPLATES", Path("/nonexistent")),
         ):
             # Before init
             assert not config_dir.exists()

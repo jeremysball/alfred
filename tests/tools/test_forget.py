@@ -35,6 +35,8 @@ def forget_tool(mock_memory_store):
 def sample_memory():
     """Create a sample memory entry."""
     return MemoryEntry(
+        entry_id="mem_1",
+            
         timestamp=datetime(2026, 2, 17, 14, 30),
         role="system",
         content="User lives in San Francisco",
@@ -146,7 +148,6 @@ class TestTwoCallConfirmation:
     @pytest.mark.asyncio
     async def test_first_call_creates_pending(self, forget_tool, mock_memory_store, sample_memory):
         """First call with memory_id creates pending deletion."""
-        sample_memory.entry_id = "abc123"
         mock_memory_store.get_by_id.return_value = sample_memory
 
         result = ""
@@ -164,7 +165,6 @@ class TestTwoCallConfirmation:
         self, forget_tool, mock_memory_store, sample_memory
     ):
         """Second call with same memory_id executes deletion."""
-        sample_memory.entry_id = "abc123"
         mock_memory_store.get_by_id.return_value = sample_memory
         mock_memory_store.delete_by_id.return_value = (True, "Deleted successfully")
 
@@ -186,15 +186,14 @@ class TestTwoCallConfirmation:
         self, forget_tool, mock_memory_store, sample_memory
     ):
         """Different memory_id on second call starts new pending."""
-        sample_memory.entry_id = "abc123"
         other = MemoryEntry(
+            entry_id="xyz789",
             timestamp=datetime(2026, 2, 16),
             role="system",
             content="Different memory",
             embedding=[0.3, 0.4],
             tags=[],
         )
-        other.entry_id = "xyz789"
 
         mock_memory_store.get_by_id.side_effect = [sample_memory, other]
 
@@ -215,7 +214,6 @@ class TestTwoCallConfirmation:
     @pytest.mark.asyncio
     async def test_request_count_increments(self, forget_tool, mock_memory_store, sample_memory):
         """Request count increments on each call."""
-        sample_memory.entry_id = "abc123"
         mock_memory_store.get_by_id.return_value = sample_memory
         mock_memory_store.delete_by_id.return_value = (True, "Deleted")
 
@@ -248,7 +246,6 @@ class TestExpiration:
         self, forget_tool, mock_memory_store, sample_memory
     ):
         """Pending deletion expires after 5 minutes."""
-        sample_memory.entry_id = "abc123"
         mock_memory_store.get_by_id.return_value = sample_memory
 
         # First call
@@ -272,7 +269,6 @@ class TestExpiration:
         self, forget_tool, mock_memory_store, sample_memory
     ):
         """Non-expired pending executes deletion on second call."""
-        sample_memory.entry_id = "abc123"
         mock_memory_store.get_by_id.return_value = sample_memory
         mock_memory_store.delete_by_id.return_value = (True, "Deleted")
 
@@ -306,6 +302,7 @@ class TestQueryMode:
         """Query mode returns list of candidates with IDs."""
         memories = [
             MemoryEntry(
+                entry_id="abc123",
                 timestamp=datetime(2026, 2, 17, 14, 30),
                 role="system",
                 content="User lives in San Francisco",
@@ -313,6 +310,7 @@ class TestQueryMode:
                 tags=[],
             ),
             MemoryEntry(
+                entry_id="xyz789",
                 timestamp=datetime(2026, 2, 16, 10, 0),
                 role="system",
                 content="User visited SF last year",
@@ -320,8 +318,6 @@ class TestQueryMode:
                 tags=[],
             ),
         ]
-        memories[0].entry_id = "abc123"
-        memories[1].entry_id = "xyz789"
 
         mock_memory_store.search.return_value = (memories, {"abc123": 0.95, "xyz789": 0.82}, {})
 
@@ -351,6 +347,7 @@ class TestQueryMode:
         """Query mode truncates long content."""
         memories = [
             MemoryEntry(
+                entry_id="long123",
                 timestamp=datetime(2026, 2, 17),
                 role="system",
                 content="A" * 100,
@@ -358,7 +355,6 @@ class TestQueryMode:
                 tags=[],
             ),
         ]
-        memories[0].entry_id = "long123"
         mock_memory_store.search.return_value = (memories, {"long123": 0.95}, {})
 
         result = ""
@@ -435,7 +431,6 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_delete_error_handling(self, forget_tool, mock_memory_store, sample_memory):
         """Handles errors during delete gracefully."""
-        sample_memory.entry_id = "abc123"
         mock_memory_store.get_by_id.return_value = sample_memory
         mock_memory_store.delete_by_id.side_effect = Exception("Delete failed")
 
@@ -464,6 +459,7 @@ class TestIntegrationScenarios:
         """Full workflow: query finds candidates, then delete by ID."""
         memories = [
             MemoryEntry(
+                entry_id="sf-memory-id",
                 timestamp=datetime(2026, 2, 17),
                 role="system",
                 content="User lives in San Francisco",
@@ -471,7 +467,6 @@ class TestIntegrationScenarios:
                 tags=[],
             ),
         ]
-        memories[0].entry_id = "sf-memory-id"
         mock_memory_store.search.return_value = (memories, {"sf-memory-id": 0.95}, {})
         mock_memory_store.get_by_id.return_value = memories[0]
         mock_memory_store.delete_by_id.return_value = (True, "Memory deleted")
@@ -500,15 +495,14 @@ class TestIntegrationScenarios:
         self, forget_tool, mock_memory_store, sample_memory
     ):
         """User can change mind - different ID on second call starts new request."""
-        sample_memory.entry_id = "abc123"
         other_memory = MemoryEntry(
+            entry_id="xyz789",
             timestamp=datetime(2026, 2, 16),
             role="system",
             content="Different memory",
             embedding=[0.3, 0.4],
             tags=[],
         )
-        other_memory.entry_id = "xyz789"
 
         mock_memory_store.get_by_id.side_effect = [sample_memory, other_memory]
 

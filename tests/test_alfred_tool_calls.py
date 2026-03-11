@@ -15,14 +15,12 @@ class TestAlfredToolCallCapturing:
     @pytest.fixture
     def mock_alfred(self):
         """Create an Alfred instance with mocked dependencies."""
-        with patch("src.alfred.LLMFactory"), \
-             patch("src.alfred.create_provider") as mock_embedder_class, \
-             patch("src.alfred.create_memory_store") as mock_memory_class, \
-             patch("src.alfred.MemorySearcher"), \
-             patch("src.alfred.ContextLoader") as mock_context_loader, \
-             patch("src.alfred.CronScheduler"), \
-             patch("src.alfred.SessionStorage"), \
-             patch("src.alfred.SessionManager") as mock_session_manager_class:
+        with patch("alfred.core.LLMFactory"), \
+             patch("alfred.core.create_provider") as mock_embedder_class, \
+             patch("alfred.core.SQLiteMemoryStore") as mock_memory_class, \
+             patch("alfred.alfred.ContextLoader") as mock_context_loader, \
+             patch("alfred.cron.socket_client.SocketClient") as mock_socket_class, \
+             patch("alfred.core.SessionManager") as mock_session_manager_class:
 
             # Mock context loader
             mock_loader = MagicMock()
@@ -46,8 +44,13 @@ class TestAlfredToolCallCapturing:
             mock_session_manager.has_active_session.return_value = True
             mock_session_manager.get_session_messages.return_value = []
             mock_session_manager.add_message = MagicMock()
-            mock_session_manager_class.get_instance.return_value = mock_session_manager
-            mock_session_manager_class.initialize = MagicMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
+            # Mock socket client
+            mock_socket = MagicMock()
+            mock_socket.start = AsyncMock()
+            mock_socket.stop = AsyncMock()
+            mock_socket_class.return_value = mock_socket
 
             # Mock config
             mock_config = MagicMock()
@@ -59,9 +62,9 @@ class TestAlfredToolCallCapturing:
             alfred = Alfred(mock_config)
 
             # Set up the mocked session manager on the instance
-            alfred.session_manager = mock_session_manager
-            alfred.memory_store = mock_memory
-            alfred.embedder = mock_embedder
+            alfred.core.session_manager = mock_session_manager
+            alfred.core.memory_store = mock_memory
+            alfred.core.embedder = mock_embedder
 
             # Mock the agent's run_stream
             alfred.agent = MagicMock()
@@ -76,8 +79,8 @@ class TestAlfredToolCallCapturing:
         mock_session.meta.session_id = "test_session"
         mock_session.meta.last_active = datetime.now(UTC)
         mock_session.meta.current_count = 0
-        mock_alfred.session_manager.get_current_cli_session.return_value = mock_session
-        mock_alfred.session_manager._spawn_persist_task = MagicMock()
+        mock_alfred.core.session_manager.get_current_cli_session.return_value = mock_session
+        mock_alfred.core.session_manager._spawn_persist_task = MagicMock()
         return mock_session
 
     @pytest.mark.asyncio

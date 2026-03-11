@@ -34,7 +34,7 @@ def mock_alfred() -> MagicMock:
     alfred.chat_stream.side_effect = mock_chat_stream
     alfred.compact = AsyncMock(return_value="Compacted successfully")
 
-    # Mock session_manager
+    # Mock core.session_manager (new structure)
     mock_session_manager = MagicMock()
     meta = SessionMeta(
         session_id="test_chat_12345",
@@ -44,7 +44,9 @@ def mock_alfred() -> MagicMock:
     )
     session = Session(meta=meta, messages=[])
     mock_session_manager.get_or_create_session.return_value = session
-    alfred.session_manager = mock_session_manager
+    mock_core = MagicMock()
+    mock_core.session_manager = mock_session_manager
+    alfred.core = mock_core
 
     return alfred
 
@@ -193,7 +195,7 @@ async def test_setup_creates_handlers(mock_config: MagicMock, mock_alfred: Magic
     mock_builder.token.return_value.build.return_value = mock_app
 
     with pytest.MonkeyPatch.context() as m:
-        m.setattr("src.interfaces.telegram.Application.builder", lambda: mock_builder)
+        m.setattr("alfred.interfaces.telegram.Application.builder", lambda: mock_builder)
 
         result = interface.setup()
 

@@ -1,15 +1,18 @@
 """ApproveJobTool - Approve pending cron jobs.
 
 Tool for Alfred to approve jobs awaiting approval.
+Uses SocketClient to approve jobs via the daemon socket API.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from alfred.cron.scheduler import CronScheduler
 from alfred.tools.base import Tool, ToolResult
+
+if TYPE_CHECKING:
+    from alfred.cron.socket_client import SocketClient
 
 
 class ApproveJobParams(BaseModel):
@@ -53,14 +56,14 @@ class ApproveJobTool(Tool):
     )
     param_model = ApproveJobParams
 
-    def __init__(self, scheduler: CronScheduler) -> None:
-        """Initialize with CronScheduler instance.
+    def __init__(self, socket_client: "SocketClient") -> None:
+        """Initialize with SocketClient instance.
 
         Args:
-            scheduler: The cron scheduler to approve jobs through
+            socket_client: The socket client to approve jobs through
         """
         super().__init__()
-        self.scheduler = scheduler
+        self.socket_client = socket_client
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the approve_job tool (async).
@@ -80,80 +83,24 @@ class ApproveJobTool(Tool):
         identifier = params.job_identifier
 
         try:
-            # Load all jobs
-            jobs = await self.scheduler._store.load_jobs()
+            # Approve job via socket API
+            response = await self.socket_client.approve_job(identifier)
 
-            # Find job by ID or name
-            job = self._find_job(jobs, identifier)
-
-            if job is None:
+            if response is None:
                 yield (
-                    f"Couldn't find a job matching '{identifier}'.\n\n"
-                    f"Use 'list_jobs' to see available jobs."
+                    f"Error: Failed to approve job '{identifier}'.\n\n"
+                    f"The cron daemon may not be running. "
+                    f"Use 'alfred daemon status' to check."
                 )
                 return
 
-            # Check if already active
-            if job.status == "active":
-                yield f"✓ Job '{job.name}' is already active and running."
-                return
-
-            # Check if not pending
-            if job.status != "pending":
+            if response.success:
                 yield (
-                    f"Cannot approve job '{job.name}' - it's currently {job.status} (not pending)."
+                    f"✓ {response.message}.\n\n"
+                    f"Job '{response.job_name}' is now active and will run on schedule."
                 )
-                return
-
-            # Approve the job
-            result = await self.scheduler.approve_job(job.job_id, "user")
-
-            if result["success"]:
-                base_msg = result["message"]
-                full_message = f"✓ {base_msg}. The job is now active and will run on schedule."
-                approve_result = ApproveJobResult(
-                    success=True,
-                    message=full_message,
-                    job_id=job.job_id,
-                    job_name=job.name,
-                )
-                yield approve_result.message
             else:
-                yield f"Error: {result['message']}"
+                yield f"Error: {response.message}"
 
         except Exception as e:
             yield f"Error: Failed to approve job - {e}"
-
-    def _find_job(self, jobs: list[Any], identifier: str) -> Any | None:
-        """Find job by ID or fuzzy name match.
-
-        Args:
-            jobs: List of jobs to search
-            identifier: Job ID or name to match
-
-        Returns:
-            Matching job or None
-        """
-        identifier_lower = identifier.lower()
-
-        # Try exact ID match first
-        for job in jobs:
-            if job.job_id == identifier:
-                return job
-
-        # Try exact name match
-        for job in jobs:
-            if job.name.lower() == identifier_lower:
-                return job
-
-        # Try substring name match (must be unique)
-        matches = [j for j in jobs if identifier_lower in j.name.lower()]
-        if len(matches) == 1:
-            return matches[0]
-
-        # Try partial word match
-        if len(matches) > 1:
-            # Too many matches - return None to indicate ambiguity
-            return None
-
-        return None

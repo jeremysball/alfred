@@ -8,7 +8,7 @@ def test_session_id_provider_returns_matching_sessions():
     """Test that _session_id_provider returns session IDs matching partial input."""
     from alfred.interfaces.pypitui.tui import AlfredTUI
 
-    # Mock Alfred and session manager
+    # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
     mock_storage = MagicMock()
     mock_storage.list_sessions.return_value = [
@@ -16,7 +16,7 @@ def test_session_id_provider_returns_matching_sessions():
         "sess_def456",
         "sess_abc789",
     ]
-    mock_alfred.session_manager.storage = mock_storage
+    mock_alfred.core.session_manager.storage = mock_storage
 
     # Mock get_meta to return proper metadata objects
     mock_meta = MagicMock()
@@ -46,7 +46,7 @@ def test_session_id_provider_returns_all_if_empty_partial():
     """Test that empty partial returns all sessions (limited to 5)."""
     from alfred.interfaces.pypitui.tui import AlfredTUI
 
-    # Mock Alfred and session manager
+    # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
     mock_storage = MagicMock()
     mock_storage.list_sessions.return_value = [
@@ -54,7 +54,7 @@ def test_session_id_provider_returns_all_if_empty_partial():
         "sess_002",
         "sess_003",
     ]
-    mock_alfred.session_manager.storage = mock_storage
+    mock_alfred.core.session_manager.storage = mock_storage
 
     # Mock get_meta to return proper metadata objects
     mock_meta = MagicMock()
@@ -81,12 +81,12 @@ def test_session_id_provider_limits_to_5_results():
     """Test that provider limits results to 5."""
     from alfred.interfaces.pypitui.tui import AlfredTUI
 
-    # Mock Alfred and session manager
+    # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
     mock_storage = MagicMock()
     # Create 10 sessions
     mock_storage.list_sessions.return_value = [f"sess_{i:03d}" for i in range(10)]
-    mock_alfred.session_manager.storage = mock_storage
+    mock_alfred.core.session_manager.storage = mock_storage
 
     # Mock get_meta to return proper metadata objects
     mock_meta = MagicMock()
@@ -124,11 +124,11 @@ def test_session_id_provider_uses_fuzzy_matching():
     """Test that provider uses fuzzy matching for session IDs."""
     from alfred.interfaces.pypitui.tui import AlfredTUI
 
-    # Mock Alfred and session manager
+    # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
     mock_storage = MagicMock()
     mock_storage.list_sessions.return_value = ["sess_abc123xyz"]
-    mock_alfred.session_manager.storage = mock_storage
+    mock_alfred.core.session_manager.storage = mock_storage
 
     # Mock get_meta to return proper metadata
     mock_meta = MagicMock()
@@ -152,11 +152,11 @@ def test_session_id_provider_is_case_insensitive():
     """Test that matching is case-insensitive."""
     from alfred.interfaces.pypitui.tui import AlfredTUI
 
-    # Mock Alfred and session manager
+    # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
     mock_storage = MagicMock()
     mock_storage.list_sessions.return_value = ["sess_ABC123"]
-    mock_alfred.session_manager.storage = mock_storage
+    mock_alfred.core.session_manager.storage = mock_storage
 
     # Mock get_meta to return proper metadata
     mock_meta = MagicMock()

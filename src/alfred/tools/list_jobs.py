@@ -1,15 +1,18 @@
 """ListJobsTool - List cron jobs with filtering.
 
 Tool for Alfred to list jobs by status (pending, active, all).
+Uses SocketClient to query jobs via the daemon socket API.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
-from alfred.cron.scheduler import CronScheduler
 from alfred.tools.base import Tool, ToolResult
+
+if TYPE_CHECKING:
+    from alfred.cron.socket_client import SocketClient
 
 
 class ListJobsParams(BaseModel):
@@ -44,14 +47,14 @@ class ListJobsTool(Tool):
     )
     param_model = ListJobsParams
 
-    def __init__(self, scheduler: CronScheduler) -> None:
-        """Initialize with CronScheduler instance.
+    def __init__(self, socket_client: "SocketClient") -> None:
+        """Initialize with SocketClient instance.
 
         Args:
-            scheduler: The cron scheduler to query for jobs
+            socket_client: The socket client to query jobs through
         """
         super().__init__()
-        self.scheduler = scheduler
+        self.socket_client = socket_client
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the list_jobs tool (async).
@@ -80,12 +83,17 @@ class ListJobsTool(Tool):
             return
 
         try:
-            # Load jobs from store
-            jobs = await self.scheduler._store.load_jobs()
+            # Query jobs via socket API
+            response = await self.socket_client.query_jobs()
+
+            if response is None:
+                yield "Error: Failed to query jobs - daemon may not be running"
+                return
 
             # Filter by status
+            jobs = response.jobs
             if status_filter != "all":
-                jobs = [j for j in jobs if j.status == status_filter]
+                jobs = [j for j in jobs if j.get("status") == status_filter]
 
             if not jobs:
                 if status_filter == "all":
@@ -102,18 +110,27 @@ class ListJobsTool(Tool):
                 lines.append(f"Found {len(jobs)} {status_filter} job(s):\n")
 
             for i, job in enumerate(jobs, 1):
+                status = job.get("status", "unknown")
                 status_emoji = {
                     "pending": "⏳",
                     "active": "✅",
                     "paused": "⏸️",
-                }.get(job.status, "❓")
+                }.get(status, "❓")
 
-                lines.append(f"{i}. {status_emoji} {job.name}")
-                lines.append(f"   Status: {job.status}")
-                lines.append(f"   Schedule: {job.expression}")
-                if job.last_run:
-                    lines.append(f"   Last run: {job.last_run.strftime('%Y-%m-%d %H:%M')}")
-                lines.append(f"   ID: {job.job_id[:8]}...")
+                lines.append(f"{i}. {status_emoji} {job.get('name', 'Unnamed')}")
+                lines.append(f"   Status: {status}")
+                lines.append(f"   Schedule: {job.get('expression', 'N/A')}")
+
+                # Handle last_run formatting
+                last_run = job.get("last_run")
+                if last_run:
+                    if isinstance(last_run, str):
+                        lines.append(f"   Last run: {last_run}")
+                    else:
+                        lines.append(f"   Last run: {last_run.strftime('%Y-%m-%d %H:%M')}")
+
+                job_id = job.get("job_id", "")
+                lines.append(f"   ID: {job_id[:8]}..." if job_id else "   ID: N/A")
                 lines.append("")
 
             yield "\n".join(lines)

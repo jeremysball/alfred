@@ -1,53 +1,123 @@
-"""Tests for session context integration using dependency injection."""
+"""Tests for session context integration (PRD #54 Milestone 3)."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
-from alfred.session import SessionManager
+from alfred.session import Message, Session, SessionManager, SessionMeta
 from alfred.session_context import SessionContextBuilder
-from alfred.storage.sqlite import SQLiteStore
+
+
+class MockStorage:
+    """Mock storage for testing SessionManager without file I/O."""
+
+    def __init__(self, tmp_path: Path):
+        self.sessions_dir = tmp_path / "sessions"
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
+        self.current_path = self.sessions_dir / "current.json"
+        self._sessions: dict[str, SessionMeta] = {}
+        self._messages: dict[str, list[Message]] = {}
+        self._cli_current: str | None = None
+
+    def session_exists(self, session_id: str) -> bool:
+        return session_id in self._sessions
+
+    def list_sessions(self) -> list[str]:
+        return list(self._sessions.keys())
+
+    def get_cli_current(self) -> str | None:
+        return self._cli_current
+
+    def set_cli_current(self, session_id: str) -> None:
+        self._cli_current = session_id
+
+    def get_meta(self, session_id: str) -> SessionMeta | None:
+        return self._sessions.get(session_id)
+
+    def save_meta(self, meta: SessionMeta) -> None:
+        self._sessions[meta.session_id] = meta
+
+    def create_session(self, session_id: str | None = None) -> SessionMeta:
+        from datetime import datetime
+        from uuid import uuid4
+
+        sid = session_id or f"sess_{uuid4().hex[:12]}"
+        now = datetime.now()
+        meta = SessionMeta(
+            session_id=sid,
+            created_at=now,
+            last_active=now,
+            status="active",
+        )
+        self._sessions[sid] = meta
+        self._messages[sid] = []
+        return meta
+
+    def _generate_session_id(self) -> str:
+        from uuid import uuid4
+
+        return f"sess_{uuid4().hex[:12]}"
+
+    def load_messages(self, session_id: str) -> list[Message]:
+        return self._messages.get(session_id, [])
+
+    async def append_message(self, session_id: str, message: Message) -> None:
+        if session_id not in self._messages:
+            self._messages[session_id] = []
+        self._messages[session_id].append(message)
+
+    def load_session(self, session_id: str) -> Session | None:
+        meta = self.get_meta(session_id)
+        if meta is None:
+            return None
+        messages = self.load_messages(session_id)
+        return Session(meta=meta, messages=messages)
+
+    def spawn_embed_task(self, session_id: str, idx: int, content: str) -> None:
+        pass
 
 
 @pytest.fixture
-def temp_data_dir(tmp_path: Path) -> Path:
-    """Create temporary data directory."""
-    return tmp_path
+def initialized_manager(tmp_path: Path):
+    """Create initialized SessionManager via constructor."""
+    mock_sqlite_store = MagicMock()
+    # Create proper async mocks
+    async def async_none(*args, **kwargs):
+        return None
 
+    async def async_empty_list(*args, **kwargs):
+        return []
 
-@pytest.fixture
-def sqlite_store(temp_data_dir: Path) -> SQLiteStore:
-    """Create SQLiteStore for testing."""
-    return SQLiteStore(temp_data_dir / "test.db")
+    mock_sqlite_store.load_session = async_none
+    mock_sqlite_store.list_sessions = async_empty_list
+    mock_sqlite_store.save_session = async_none
 
-
-@pytest.fixture
-def session_manager(sqlite_store: SQLiteStore, temp_data_dir: Path) -> SessionManager:
-    """Create SessionManager with injected dependencies."""
-    return SessionManager(store=sqlite_store, data_dir=temp_data_dir)
+    manager = SessionManager(store=mock_sqlite_store, data_dir=tmp_path)
+    yield manager
 
 
 class TestSessionContextBuilder:
     """Tests for building context with session history."""
 
-    def test_build_context_empty_session(self, session_manager: SessionManager):
+    def test_build_context_empty_session(self, initialized_manager: SessionManager):
         """Context includes system prompt even with empty session."""
-        session_manager.start_session()
+        initialized_manager.start_session()
 
-        builder = SessionContextBuilder(session_manager)
+        builder = SessionContextBuilder(initialized_manager)
         context = builder.build_context("What time is it?")
 
         assert "## CONVERSATION HISTORY" in context
         assert "## CURRENT MESSAGE" in context
         assert "What time is it?" in context
 
-    def test_build_context_with_history(self, session_manager: SessionManager):
+    def test_build_context_with_history(self, initialized_manager: SessionManager):
         """Context includes session messages in order."""
-        session_manager.start_session()
-        session_manager.add_message("user", "Hello")
-        session_manager.add_message("assistant", "Hi there")
+        initialized_manager.start_session()
+        initialized_manager.add_message("user", "Hello")
+        initialized_manager.add_message("assistant", "Hi there")
 
-        builder = SessionContextBuilder(session_manager)
+        builder = SessionContextBuilder(initialized_manager)
         context = builder.build_context("How are you?")
 
         assert "User: Hello" in context
@@ -55,13 +125,13 @@ class TestSessionContextBuilder:
         assert "## CURRENT MESSAGE" in context
         assert "How are you?" in context
 
-    def test_build_context_message_format(self, session_manager: SessionManager):
+    def test_build_context_message_format(self, initialized_manager: SessionManager):
         """Messages formatted as simple prefix."""
-        session_manager.start_session()
-        session_manager.add_message("user", "My question")
-        session_manager.add_message("assistant", "My answer")
+        initialized_manager.start_session()
+        initialized_manager.add_message("user", "My question")
+        initialized_manager.add_message("assistant", "My answer")
 
-        builder = SessionContextBuilder(session_manager)
+        builder = SessionContextBuilder(initialized_manager)
         context = builder.build_context("Follow up")
 
         # Verify simple prefix format (Option A from decisions)
@@ -82,36 +152,36 @@ class TestSessionContextBuilder:
         assert user_line == "User: My question"
         assert assistant_line == "Assistant: My answer"
 
-    def test_build_context_without_session_raises(self, session_manager: SessionManager):
+    def test_build_context_without_session_raises(self, initialized_manager: SessionManager):
         """Raises if no active session."""
         # Don't start a session
-        builder = SessionContextBuilder(session_manager)
+        builder = SessionContextBuilder(initialized_manager)
 
         with pytest.raises(RuntimeError, match="No active session"):
             builder.build_context("Hello")
 
-    def test_system_messages_included(self, session_manager: SessionManager):
+    def test_system_messages_included(self, initialized_manager: SessionManager):
         """System messages included in context (for tool results)."""
-        session_manager.start_session()
-        session_manager.add_message("user", "Do something")
-        session_manager.add_message("system", "Tool result: file created")
-        session_manager.add_message("assistant", "Done")
+        initialized_manager.start_session()
+        initialized_manager.add_message("user", "Do something")
+        initialized_manager.add_message("system", "Tool result: file created")
+        initialized_manager.add_message("assistant", "Done")
 
-        builder = SessionContextBuilder(session_manager)
+        builder = SessionContextBuilder(initialized_manager)
         context = builder.build_context("Next")
 
         assert "System: Tool result: file created" in context
 
-    def test_build_context_with_many_messages(self, session_manager: SessionManager):
+    def test_build_context_with_many_messages(self, initialized_manager: SessionManager):
         """Context includes all messages (no limit in PRD #54)."""
-        session_manager.start_session()
+        initialized_manager.start_session()
 
         # Add 50 messages
         for i in range(25):
-            session_manager.add_message("user", f"Message {i}")
-            session_manager.add_message("assistant", f"Response {i}")
+            initialized_manager.add_message("user", f"Message {i}")
+            initialized_manager.add_message("assistant", f"Response {i}")
 
-        builder = SessionContextBuilder(session_manager)
+        builder = SessionContextBuilder(initialized_manager)
         context = builder.build_context("Final")
 
         # All messages should be present
@@ -123,14 +193,14 @@ class TestSessionContextBuilder:
 class TestSessionContextAutoStart:
     """Tests for session auto-start on first message."""
 
-    def test_auto_start_on_first_message(self, session_manager: SessionManager):
+    def test_auto_start_on_first_message(self, initialized_manager: SessionManager):
         """Session auto-starts when first message is added."""
-        assert not session_manager.has_active_session()
+        assert not initialized_manager.has_active_session()
 
         # Simulate what CLI does - add message triggers start
-        if not session_manager.has_active_session():
-            session_manager.start_session()
-        session_manager.add_message("user", "First message")
+        if not initialized_manager.has_active_session():
+            initialized_manager.start_session()
+        initialized_manager.add_message("user", "First message")
 
-        assert session_manager.has_active_session()
-        assert len(session_manager.get_messages()) == 1
+        assert initialized_manager.has_active_session()
+        assert len(initialized_manager.get_messages()) == 1

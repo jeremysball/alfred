@@ -1,6 +1,7 @@
 """ScheduleJobTool - Create recurring cron jobs.
 
 Tool for Alfred to schedule tasks via natural language.
+Uses SocketClient to submit jobs via the daemon socket API.
 """
 
 from collections.abc import AsyncIterator
@@ -9,11 +10,11 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field, field_validator
 
 from alfred.cron import parser
-from alfred.cron.scheduler import CronScheduler
 from alfred.tools.base import Tool, ToolResult
 
 if TYPE_CHECKING:
     from alfred.config import Config
+    from alfred.cron.socket_client import SocketClient
 
 
 class ScheduleJobParams(BaseModel):
@@ -92,15 +93,15 @@ class ScheduleJobTool(Tool):
     )
     param_model = ScheduleJobParams
 
-    def __init__(self, scheduler: CronScheduler, config: "Config | None" = None) -> None:
-        """Initialize with CronScheduler instance.
+    def __init__(self, socket_client: "SocketClient", config: "Config | None" = None) -> None:
+        """Initialize with SocketClient instance.
 
         Args:
-            scheduler: The cron scheduler to submit jobs to
-
+            socket_client: The socket client to submit jobs through
+            config: Optional configuration
         """
         super().__init__()
-        self.scheduler = scheduler
+        self.socket_client = socket_client
         self._config = config
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
@@ -143,24 +144,35 @@ class ScheduleJobTool(Tool):
             return
 
         try:
-            # Submit job for approval
-            job_id = await self.scheduler.submit_user_job(
+            # Submit job via socket API
+            response = await self.socket_client.submit_job(
                 name=params.name,
                 expression=cron_expression,
                 code=job_code,
             )
 
-            result = ScheduleJobResult(
-                success=True,
-                message=(
-                    f"✓ Job '{params.name}' submitted for approval.\n\n"
-                    f"Cron: {cron_expression}\n"
-                    f"Job ID: {job_id}\n\n"
-                    f"This job requires approval before it will run."
-                ),
-                job_id=job_id,
-            )
-            yield result.message
+            if response is None:
+                yield (
+                    f"Error: Failed to submit job '{params.name}'.\n\n"
+                    f"The cron daemon may not be running. "
+                    f"Use 'alfred daemon status' to check."
+                )
+                return
+
+            if response.success:
+                result = ScheduleJobResult(
+                    success=True,
+                    message=(
+                        f"✓ Job '{params.name}' submitted for approval.\n\n"
+                        f"Cron: {cron_expression}\n"
+                        f"Job ID: {response.job_id}\n\n"
+                        f"This job requires approval before it will run."
+                    ),
+                    job_id=response.job_id,
+                )
+                yield result.message
+            else:
+                yield f"Error: {response.message}"
 
         except Exception as e:
             yield f"Error: Failed to create job - {e}"
