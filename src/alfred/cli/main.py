@@ -252,6 +252,129 @@ app.add_typer(memory_app)
 
 
 # ============================================================================
+# Config subcommands - update config files from templates
+# ============================================================================
+
+config_app = typer.Typer(name="config", help="Manage configuration files", no_args_is_help=True)
+
+
+@config_app.callback()
+def config_callback() -> None:
+    """Configuration file management."""
+    pass
+
+
+@config_app.command(name="update")
+def config_update(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be updated without making changes",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Also overwrite USER.md and SOUL.md (use with caution)",
+    ),
+) -> None:
+    """Update config files from templates.
+
+    Updates SYSTEM.md, AGENTS.md, TOOLS.md, and prompts/ from templates.
+    Preserves USER.md, SOUL.md, and CUSTOM.md by default.
+    Use --force to override preservation.
+    """
+    from alfred.data_manager import get_workspace_dir
+    from alfred.templates import TemplateManager
+
+    workspace_dir = get_workspace_dir()
+    manager = TemplateManager(workspace_dir)
+
+    # Determine which files to preserve
+    preserve = set()
+    if not force:
+        preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
+
+    try:
+        results = manager.update_templates(preserve=preserve, dry_run=dry_run)
+    except FileNotFoundError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1) from e
+
+    # Display results
+    if dry_run:
+        console.print("[bold]Dry run - no changes made:[/bold]\n")
+    else:
+        console.print("[bold]Config update results:[/bold]\n")
+
+    # Group by status
+    updated = []
+    preserved = []
+    skipped = []
+    errors = []
+    prompts_status = None
+
+    for name, info in results.items():
+        if name == "prompts/":
+            prompts_status = info
+            continue
+
+        status = info.get("status", "unknown")
+        message = info.get("message", "")
+
+        if status == "updated" or status == "dry_run":
+            updated.append((name, message))
+        elif status == "preserved":
+            preserved.append((name, message))
+        elif status == "skipped":
+            skipped.append((name, message))
+        elif status == "error":
+            errors.append((name, message))
+
+    if updated:
+        console.print("[green]Updated:[/green]")
+        for name, msg in updated:
+            console.print(f"  ✓ {name} - {msg}")
+        console.print()
+
+    if preserved:
+        console.print("[yellow]Preserved (not overwritten):[/yellow]")
+        for name, msg in preserved:
+            console.print(f"  ○ {name} - {msg}")
+        console.print()
+
+    if skipped:
+        console.print("[dim]Skipped (up to date):[/dim]")
+        for name, msg in skipped:
+            console.print(f"  - {name} - {msg}")
+        console.print()
+
+    if errors:
+        console.print("[red]Errors:[/red]")
+        for name, msg in errors:
+            console.print(f"  ✗ {name} - {msg}")
+        console.print()
+
+    if prompts_status:
+        status = prompts_status.get("status", "unknown")
+        message = prompts_status.get("message", "")
+        if status == "updated":
+            console.print(f"[green]Prompts:[/green] {message}")
+        elif status == "skipped":
+            console.print(f"[dim]Prompts:[/dim] {message}")
+        else:
+            console.print(f"Prompts: {message}")
+
+    console.print(f"\n[dim]Config files location: {workspace_dir}[/dim]")
+
+    if not force and preserved:
+        console.print("\n[dim]Tip: Use --force to also update USER.md and SOUL.md[/dim]")
+
+
+app.add_typer(config_app)
+
+
+# ============================================================================
 # Interactive mode
 # ============================================================================
 

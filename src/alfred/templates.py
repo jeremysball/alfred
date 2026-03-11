@@ -30,18 +30,36 @@ class TemplateManager:
         Priority:
         1. Workspace templates (for tests/local override)
         2. /app/templates/ (Docker bundled)
-        3. Bundled templates with package
+        3. Development: git repo root /templates
+        4. Bundled templates with package (pip installed)
         """
-        candidates = [
-            self.workspace_dir / "templates",  # Workspace/local (highest priority)
-            Path("/app/templates"),  # Docker bundled
-            Path(__file__).parent.parent / "templates",  # Development
-        ]
+        # Check workspace first (user override)
+        workspace_templates = self.workspace_dir / "templates"
+        if workspace_templates.exists() and workspace_templates.is_dir():
+            logger.debug(f"Using template directory: {workspace_templates}")
+            return workspace_templates
 
-        for candidate in candidates:
-            if candidate.exists() and candidate.is_dir():
-                logger.debug(f"Using template directory: {candidate}")
-                return candidate
+        # Docker bundled
+        docker_templates = Path("/app/templates")
+        if docker_templates.exists() and docker_templates.is_dir():
+            logger.debug(f"Using template directory: {docker_templates}")
+            return docker_templates
+
+        # Development: check if we're in a git repo with templates at root
+        # Walk up from package location looking for .git/templates
+        pkg_dir = Path(__file__).parent.parent  # src/alfred -> src/
+        for parent in [pkg_dir, pkg_dir.parent]:  # src/, repo root
+            git_dir = parent / ".git"
+            templates_dir = parent / "templates"
+            if git_dir.exists() and templates_dir.exists():
+                logger.debug(f"Using template directory: {templates_dir}")
+                return templates_dir
+
+        # Pip installed: templates next to package
+        pkg_templates = pkg_dir / "templates"
+        if pkg_templates.exists() and pkg_templates.is_dir():
+            logger.debug(f"Using template directory: {pkg_templates}")
+            return pkg_templates
 
         logger.warning("No template directory found")
         return None
@@ -317,3 +335,170 @@ class TemplateManager:
             return None
 
         return target_prompts
+
+    def update_templates(
+        self,
+        preserve: set[str] | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, dict[str, str]]:
+        """Update config files from templates, preserving specified files.
+
+        Args:
+            preserve: Set of filenames to preserve (not overwrite).
+                     Defaults to {"USER.md", "SOUL.md", "CUSTOM.md"}
+            dry_run: If True, show what would be updated without making changes
+
+        Returns:
+            Dict mapping template names to their update status:
+            {
+                "filename": {
+                    "status": "updated" | "preserved" | "skipped" | "error",
+                    "message": "..."
+                }
+            }
+        """
+        if preserve is None:
+            preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
+
+        results: dict[str, dict[str, str]] = {}
+        templates = self.list_templates()
+
+        for name in templates:
+            target_path = self.get_target_path(name)
+            template_path = self.get_template_path(name)
+
+            # Skip directories (like prompts/)
+            if template_path.is_dir():
+                continue
+
+            # Check if file should be preserved
+            if name in preserve and target_path.exists():
+                results[name] = {
+                    "status": "preserved",
+                    "message": "Preserved (in preserve list)",
+                }
+                continue
+
+            # Check if template exists
+            if not self.template_exists(name):
+                results[name] = {
+                    "status": "error",
+                    "message": "Template not found",
+                }
+                continue
+
+            # Check if file needs updating
+            if target_path.exists():
+                try:
+                    template_mtime = template_path.stat().st_mtime
+                    target_mtime = target_path.stat().st_mtime
+                    if template_mtime <= target_mtime:
+                        results[name] = {
+                            "status": "skipped",
+                            "message": "Already up to date",
+                        }
+                        continue
+                except Exception as e:
+                    logger.warning(f"Could not compare mtimes for {name}: {e}")
+
+            # Update the file
+            if dry_run:
+                results[name] = {
+                    "status": "dry_run",
+                    "message": f"Would update {name}",
+                }
+            else:
+                try:
+                    content = self.load_template(name)
+                    if content is not None:
+                        content = self.substitute_variables(content)
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        target_path.write_text(content, encoding="utf-8")
+                        results[name] = {
+                            "status": "updated",
+                            "message": "Updated from template",
+                        }
+                        logger.info(f"Updated template: {name}")
+                    else:
+                        results[name] = {
+                            "status": "error",
+                            "message": "Failed to load template",
+                        }
+                except Exception as e:
+                    results[name] = {
+                        "status": "error",
+                        "message": f"Error: {e}",
+                    }
+                    logger.error(f"Failed to update {name}: {e}")
+
+        # Also update prompts directory
+        prompts_result = self._update_prompts(dry_run=dry_run)
+        if prompts_result:
+            results["prompts/"] = prompts_result
+
+        return results
+
+    def _update_prompts(self, dry_run: bool = False) -> dict[str, str] | None:
+        """Update prompts directory from templates.
+
+        Args:
+            dry_run: If True, don't actually make changes
+
+        Returns:
+            Status dict or None if no prompts to update
+        """
+        if self._template_dir is None:
+            return None
+
+        source_prompts = self._template_dir / "prompts"
+        if not source_prompts.exists():
+            return None
+
+        target_prompts = self.workspace_dir / "prompts"
+
+        updated = 0
+        preserved = 0
+        errors = 0
+
+        for source_file in source_prompts.rglob("*"):
+            if source_file.is_dir():
+                continue
+
+            rel_path = source_file.relative_to(source_prompts)
+            target_file = target_prompts / rel_path
+
+            if target_file.exists():
+                # Compare mtimes
+                try:
+                    if source_file.stat().st_mtime <= target_file.stat().st_mtime:
+                        preserved += 1
+                        continue
+                except Exception:
+                    pass
+
+            if dry_run:
+                updated += 1
+            else:
+                try:
+                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_file, target_file)
+                    updated += 1
+                except Exception as e:
+                    logger.error(f"Failed to copy {rel_path}: {e}")
+                    errors += 1
+
+        if updated == 0 and preserved == 0 and errors == 0:
+            return {"status": "skipped", "message": "No prompts to update"}
+
+        status_parts = []
+        if updated > 0:
+            status_parts.append(f"{updated} updated")
+        if preserved > 0:
+            status_parts.append(f"{preserved} preserved")
+        if errors > 0:
+            status_parts.append(f"{errors} errors")
+
+        return {
+            "status": "updated" if updated > 0 else "skipped",
+            "message": ", ".join(status_parts) if status_parts else "No changes",
+        }
