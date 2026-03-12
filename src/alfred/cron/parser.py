@@ -6,7 +6,6 @@ All functions are stateless utilities.
 
 from datetime import UTC, datetime
 from typing import cast
-from zoneinfo import ZoneInfo
 
 from croniter import CroniterBadCronError, croniter  # type: ignore[import-untyped]
 
