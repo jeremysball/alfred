@@ -3,10 +3,9 @@
 ## Overview
 
 **Issue**: #73  
-**Status**: Complete  
+**Status**: Open  
 **Priority**: High  
 **Created**: 2026-02-19
-**Completed**: 2026-02-19
 
 Implement the `notify()` function so jobs can send messages to users via Telegram or CLI. Currently the function exists in `ExecutionContext` but is not wired up to any notifier implementation.
 

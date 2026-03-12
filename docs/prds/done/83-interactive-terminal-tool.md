@@ -1,6 +1,6 @@
 # PRD #83: Interactive Terminal Tool for AI Agent E2E Testing
 
-**Status**: Complete
+**Status**: Planning
 **Priority**: High
 **Issue**: https://github.com/jeremysball/alfred/issues/83
 **Created**: 2026-02-21
@@ -69,17 +69,15 @@ Single tool with actions (following established patterns):
 ```python
 terminal(
     action: "start" | "send" | "capture" | "exit",
-    command: str = None,       # for "start"
-    keys: list[str] = None,    # for "send" - keystrokes
-    text: str = None,          # for "send" - text input
-    sleep_ms: int = None,      # for "send" - sleep duration in milliseconds
-    wait_pattern: str = None,  # for "capture" - regex to wait for
+    command: str = None,      # for "start"
+    keys: list[str] = None,   # for "send" - keystrokes
+    text: str = None,         # for "send" - text input
 )
 ```
 
 **Actions:**
 - `start` — Spawn a terminal session with the given command
-- `send` — Send keystrokes, text, and/or sleep to the running session
+- `send` — Send keystrokes or text to the running session
 - `capture` — Take a screenshot (PNG) and extract text; returns both
 - `exit` — Terminate the session
 
@@ -128,13 +126,13 @@ The agent can then:
 
 ## Milestones
 
-- [x] **M1: Research & Prototype** — Evaluate VHS integration, test keystroke sending and capture capabilities
-- [x] **M2: Core Tool Implementation** — Build `terminal` tool with start/send/capture/exit actions
-- [x] **M3: Screenshot Capture** — Implement PNG capture with proper terminal emulation
-- [x] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
-- [x] **M5: Integration with pi** — Add tool to the agent's available tools
-- [x] **M6: Documentation** — Document tool usage with examples
-- [x] **M7: Test with Alfred** — Verify the tool works with Alfred CLI for real workflows
+- [ ] **M1: Research & Prototype** — Evaluate VHS integration, test keystroke sending and capture capabilities
+- [ ] **M2: Core Tool Implementation** — Build `terminal` tool with start/send/capture/exit actions
+- [ ] **M3: Screenshot Capture** — Implement PNG capture with proper terminal emulation
+- [ ] **M4: Text Extraction** — Strip ANSI codes and extract plain text content
+- [ ] **M5: Integration with pi** — Add tool to the agent's available tools
+- [ ] **M6: Documentation** — Document tool usage with examples
+- [ ] **M7: Test with Alfred** — Verify the tool works with Alfred CLI for real workflows
 
 ---
 
@@ -170,30 +168,10 @@ The agent can then:
 
 ## Open Questions
 
-1. ~~Should the tool support multiple concurrent sessions, or is single-session sufficient?~~ → **Resolved**: Single-session sufficient for MVP
+1. Should the tool support multiple concurrent sessions, or is single-session sufficient?
 2. What's the optimal screenshot resolution for vision models?
-3. ~~Should there be a "wait" action for slow-rendering TUIs?~~ → **Resolved**: Use VHS `Wait /pattern/` command
+3. Should there be a "wait" action for slow-rendering TUIs?
 4. Do we need to support mouse interactions (rare for CLIs but possible)?
-
----
-
-## Decision Log
-
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-02-21 | Use `VHS_NO_SANDBOX=true` | Required in containerized/restricted environments where Chrome sandbox fails |
-| 2026-02-21 | Single-session for MVP | Tape file approach generates one session at a time; simpler implementation |
-| 2026-02-21 | Use `Wait /pattern/` for timing | VHS supports regex-based waiting; better than fixed delays for slow TUIs |
-| 2026-02-21 | Add `wait_pattern` parameter to capture | Allows optional regex-based waiting before screenshot; falls back to 500ms sleep |
-| 2026-02-21 | Add `sleep_ms` parameter to send | Allows timing control for slow operations (e.g., LLM responses need 10+ seconds) |
-| 2026-02-21 | Document arrow key limitation | VHS sends escape codes that prompt_toolkit doesn't interpret; use text input only |
-
-## Known Limitations
-
-| Limitation | Impact | Workaround |
-|------------|--------|------------|
-| Arrow key navigation | Escape codes not interpreted by prompt_toolkit in VHS terminal | Use text input only; avoid line editing |
-| LLM response timing | Requires explicit sleep for responses | Use `sleep_ms=10000+` for LLM calls |
 
 ---
 

@@ -233,11 +233,11 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 83 | Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
+| 83 | ✅ Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 89 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 91 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
-| 105 | Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
-| 14 | Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness (PRD #75) |
+| 105 | ✅ Local Embeddings + FAISS | BGE-base local embeddings and FAISS vector store for 5,400x faster search (PRD #105) |
+| 14 | ✅ Cron Error Handling & UX | Friendly errors, local timezone, CLI responsiveness (PRD #75) |
 | 15 | README Landing Page | Transform README into compelling OSS landing page |
 | 21 | Testing & Quality | Comprehensive test coverage, fix deprecation warnings |
 | 22 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
