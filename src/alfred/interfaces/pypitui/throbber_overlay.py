@@ -3,9 +3,8 @@
 import time
 from typing import TYPE_CHECKING
 
+from alfred.interfaces.pypitui.throbber import THROBBER_STYLES, Throbber, ThrobberStyle
 from pypitui import Component
-
-from alfred.interfaces.pypitui.throbber import THROBBER_STYLES, Throbber
 
 if TYPE_CHECKING:
     pass
@@ -27,7 +26,7 @@ class ThrobberOverlay(Component):
         self._init_throbbers()
 
     def _init_throbbers(self) -> None:
-        """Initialize throbbers for current page."""
+        """Initialize throbbers for current page with consistent animation rate."""
         # Get all style names and split into pages
         all_styles = list(THROBBER_STYLES.keys())
         styles_per_page = 9
@@ -37,9 +36,17 @@ class ThrobberOverlay(Component):
 
         self._throbbers = []
         for style_name in page_styles:
-            style = THROBBER_STYLES[style_name]
-            throbber = Throbber(style=style_name)
-            self._throbbers.append((style.name, throbber))
+            original_style = THROBBER_STYLES[style_name]
+            # Create custom style with consistent 12fps for fair comparison
+            showcase_style = ThrobberStyle(
+                name=original_style.name,
+                frames=original_style.frames,
+                colors=original_style.colors,
+                spin_rate=12.0,  # Consistent rate for showcase
+                use_bold=original_style.use_bold,
+            )
+            throbber = Throbber(custom_style=showcase_style)
+            self._throbbers.append((original_style.name, throbber))
 
     def tick(self) -> bool:
         """Advance all throbbers by one frame.
@@ -67,31 +74,54 @@ class ThrobberOverlay(Component):
             return ["No throbbers to display"]
 
         lines = []
-        # Header
-        page_info = f"Page {self._page + 1}/{(len(THROBBER_STYLES) + 8) // 9}"
-        lines.append(f"╭─ Throbber Showcase ({page_info}) {'─' * (width - 28)}╮"[:width])
+        total_pages = (len(THROBBER_STYLES) + 8) // 9
+        page_info = f"Page {self._page + 1}/{total_pages}"
+        header_text = f" Throbber Showcase ({page_info}) "
+        header_pad = max(0, width - 2 - len(header_text))
+        left_pad = header_pad // 2
+        right_pad = header_pad - left_pad
+        lines.append(f"╭{'─' * left_pad}{header_text}{'─' * right_pad}╮")
+
+        # Fixed layout: each cell is exactly 18 chars wide
+        # " X name          " = 1 space + 1 throbber + 1 space + 12 char name + 3 spaces padding
+        # With borders: │ cell │ cell │ cell │
+        # Total: 1 + 18 + 1 + 18 + 1 + 18 + 1 = 58 chars
+        cell_width = 18
 
         # Render in rows of 3
         for i in range(0, len(self._throbbers), 3):
             row = self._throbbers[i:i+3]
 
-            # Get rendered throbbers for this row
+            # Build cells
             cells = []
             for name, throbber in row:
-                display = f" {throbber.render()} {name:12} "
-                cells.append(display)
+                throbber_str = throbber.render()
+                # Strip ANSI for length calculation but preserve it for display
+                visible_name = name[:12]
+                # Format: " {throbber} {name:12} "
+                cell = f" {throbber_str} {visible_name:12} "
+                cells.append(cell)
 
-            # Join cells with borders
-            row_str = "│".join(cells)
-            lines.append(f"│{row_str:<{width-2}}│"[:width])
+            # Pad to 3 cells
+            while len(cells) < 3:
+                cells.append(" " * cell_width)
 
-            # Separator line between rows
+            # Join with vertical borders
+            row_content = "│".join(cells)
+            lines.append(f"│{row_content}│")
+
+            # Separator between rows (but not after last row)
             if i + 3 < len(self._throbbers):
-                lines.append(f"├{'─' * (width-2)}┤"[:width])
+                # Separator: ├──────┼──────┼──────┤
+                sep = "├" + "─" * cell_width + "┼" + "─" * cell_width + "┼" + "─" * cell_width + "┤"
+                lines.append(sep[:width])
 
         # Footer with instructions
-        footer = " n:next p:prev q:quit "
-        lines.append(f"╰{footer:─^{width-2}}╯"[:width])
+        footer_text = " n:next  p:prev  q:quit "
+        footer_pad = max(0, width - 2 - len(footer_text))
+        left_fpad = footer_pad // 2
+        right_fpad = footer_pad - left_fpad
+        lines.append(f"╰{'─' * left_fpad}{footer_text}{'─' * right_fpad}╯")
 
         return lines
 

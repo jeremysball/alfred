@@ -1,7 +1,5 @@
 """Tests for SocketServer job management handlers."""
 
-import json
-from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest

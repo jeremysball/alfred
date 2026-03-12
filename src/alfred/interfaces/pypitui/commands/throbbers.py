@@ -1,31 +1,33 @@
 """/throbbers command - Show throbber showcase overlay."""
 
 import asyncio
-from typing import TYPE_CHECKING
-
-from pypitui import Key, OverlayOptions, matches_key
+from typing import TYPE_CHECKING, override
 
 from alfred.interfaces.pypitui.commands.base import Command
 from alfred.interfaces.pypitui.throbber_overlay import ThrobberOverlay
+from pypitui import Key, OverlayOptions, matches_key
 
 if TYPE_CHECKING:
-    from pypitui import OverlayHandle
+    from collections.abc import Callable
 
     from alfred.interfaces.pypitui.tui import AlfredTUI
+    from pypitui import OverlayHandle
 
 
 class ThrobbersCommand(Command):
     """Show throbber showcase overlay."""
 
-    name = "throbbers"
-    description = "Show throbber animations"
+    name: str = "throbbers"
+    description: str = "Show throbber animations"
 
     def __init__(self) -> None:
         self._overlay: ThrobberOverlay | None = None
         self._handle: OverlayHandle | None = None
-        self._running = False
-        self._task: asyncio.Task | None = None
+        self._running: bool = False
+        self._task: asyncio.Task[None] | None = None
+        self._remove_listener: Callable[[], None] | None = None
 
+    @override
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """Show throbber showcase overlay."""
         if self._running:
@@ -39,15 +41,17 @@ class ThrobbersCommand(Command):
         options = OverlayOptions(
             anchor="center",
             width=60,
-            height=12,
+            max_height=14,
         )
         self._handle = tui.tui.show_overlay(self._overlay, options)
 
         # Start animation loop
         self._task = asyncio.create_task(self._animate(tui))
 
-        # Add input handler for navigation
-        tui.tui.add_input_listener(lambda data: self._on_input(tui, data))
+        # Add input handler for navigation - store the removal function
+        self._remove_listener = tui.tui.add_input_listener(
+            lambda data: self._on_input(tui, data)
+        )
 
         return True
 
@@ -97,6 +101,11 @@ class ThrobbersCommand(Command):
         if self._handle:
             self._handle.hide()
             self._handle = None
+
+        # Remove input listener to prevent memory leaks
+        if self._remove_listener:
+            self._remove_listener()
+            self._remove_listener = None
 
         self._overlay = None
         tui.tui.request_render()

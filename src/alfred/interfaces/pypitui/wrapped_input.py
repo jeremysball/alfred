@@ -12,10 +12,9 @@ Shows ALL display lines at once, with cursor on the appropriate line.
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from alfred.interfaces.ansi import RESET, REVERSE
 from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
 from pypitui.utils import truncate_to_width
-
-from alfred.interfaces.ansi import RESET, REVERSE
 
 if TYPE_CHECKING:
     from .completion_addon import CompletionManager

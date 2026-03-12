@@ -4,8 +4,6 @@ import asyncio
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
-from pypitui import TUI, Container, Key, OverlayOptions, matches_key
-
 from alfred.alfred import Alfred
 
 # Import commands
@@ -27,6 +25,7 @@ from alfred.interfaces.pypitui.status_line import StatusLine
 from alfred.interfaces.pypitui.toast import ToastManager
 from alfred.interfaces.pypitui.toast_overlay import ToastOverlay
 from alfred.interfaces.pypitui.wrapped_input import WrappedInput
+from pypitui import TUI, Container, Key, OverlayOptions, matches_key
 
 if TYPE_CHECKING:
     from pypitui import OverlayHandle, ProcessTerminal
@@ -154,6 +153,8 @@ class AlfredTUI:
                     "Press Ctrl-C again to exit",
                     level="info",
                 )
+            # Request render to show cleared input and toast
+            self.tui.request_render()
 
     def _reset_ctrl_c_state(self) -> None:
         """Reset Ctrl-C pending state and dismiss toasts (called on any other key)."""
@@ -710,6 +711,9 @@ class AlfredTUI:
                 # Throbber animation (marks render needed on change)
                 if self.status_line.tick_throbber():
                     self.tui.request_render()
+
+                # Update toast overlay visibility
+                self._update_toast_overlay()
 
                 # Render every frame - diff renderer only outputs changes
                 self.tui.render_frame()

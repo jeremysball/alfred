@@ -5,9 +5,7 @@ Tests for:
 2. Debounced completion updates in CompletionManager
 """
 
-import time
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 

@@ -307,10 +307,16 @@ Use for: documentation, library versions, best practices, recent news.
 After any code change, run:
 
 ```bash
-uv run ruff check src/ && uv run basedpyright src/ && uv run pytest
+uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest
 ```
 
-Show results. Fix issues. Then it is done.
+**If ruff reports issues, auto-fix them first:**
+
+```bash
+uv run ruff check src/ tests/ --fix
+```
+
+Then re-run the full check. Show results. Fix remaining issues. Then it is done.
 
 **For TUI/CLI changes:** You MUST actually run the application and verify it launches correctly before claiming it's done. Automated tests are not enough for UI features.
 

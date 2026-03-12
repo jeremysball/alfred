@@ -243,7 +243,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 22 | Edit Tool Safety | Exact text matching validation, pre-edit verification |
 | 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
-| 25 | Code Quality | Auto-fix Ruff violations, manual lint fixes |
+| 25 | ✅ Code Quality | Auto-fix Ruff violations, manual lint fixes (PRD #125) |
 
 ### Medium-term 📅
 

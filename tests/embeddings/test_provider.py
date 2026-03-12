@@ -4,7 +4,6 @@ import pytest
 
 from alfred.config import Config
 
-
 # Check if sentence-transformers is available
 try:
     import sentence_transformers  # noqa: F401
@@ -189,7 +188,6 @@ class TestProviderFactory:
 @pytest.fixture
 def mock_config() -> Config:
     """Create mock config for testing."""
-    from pathlib import Path
 
     class MockConfig:
         openai_api_key = "test-key"

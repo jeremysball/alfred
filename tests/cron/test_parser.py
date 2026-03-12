@@ -3,10 +3,7 @@
 TDD approach: write tests first, then implement to make them pass.
 """
 
-from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
-
-import pytest
+from datetime import UTC, datetime
 
 from alfred.cron.parser import is_valid, should_run
 

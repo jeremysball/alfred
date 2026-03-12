@@ -1,9 +1,10 @@
 """Tests for session summary storage methods in SQLiteStore."""
 
-from datetime import datetime, UTC
 import json
-import pytest
+from datetime import UTC, datetime
+
 import aiosqlite
+import pytest
 
 from alfred.storage.sqlite import SQLiteStore
 

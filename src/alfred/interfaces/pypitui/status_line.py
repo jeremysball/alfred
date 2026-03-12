@@ -1,10 +1,9 @@
 """StatusLine component for displaying model and token info."""
 
-from pypitui import Component
-
 from alfred.interfaces.ansi import BRIGHT_BLACK, RESET
 from alfred.interfaces.pypitui.throbber import Throbber
 from alfred.interfaces.pypitui.utils import format_tokens
+from pypitui import Component
 
 # Width thresholds for responsive layout
 STATUS_WIDTH_FULL = 80  # Show everything

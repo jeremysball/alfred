@@ -3,9 +3,8 @@
 import re
 from typing import TYPE_CHECKING
 
-from pypitui import Component
-
 from alfred.interfaces.ansi import RESET, REVERSE
+from pypitui import Component
 
 if TYPE_CHECKING:
     pass

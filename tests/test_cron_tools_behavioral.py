@@ -5,7 +5,6 @@ User Input -> Tool -> SocketClient -> SocketServer -> Scheduler -> Store
 """
 
 import asyncio
-from pathlib import Path
 
 import pytest
 

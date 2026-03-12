@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pypitui import BorderedBox, Text  # type: ignore
-
 from alfred.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from alfred.interfaces.pypitui.models import ToolCallInfo
+from pypitui import BorderedBox, Text  # type: ignore
 
 
 class MessagePanel(BorderedBox):  # type: ignore[misc]

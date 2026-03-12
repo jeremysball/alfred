@@ -1,8 +1,9 @@
 """Tests for message_embeddings table with sqlite-vec."""
 
 import json
-import pytest
+
 import aiosqlite
+import pytest
 
 from alfred.storage.sqlite import SQLiteStore
 
@@ -31,14 +32,14 @@ class TestMessageEmbeddingsTable:
     async def test_message_embeddings_table_exists(self, sqlite_store, db_conn):
         """Verify message_embeddings table exists."""
         db = db_conn
-        
+
         # Insert parent session first
         await db.execute(
             "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
             ("sess_test", "[]", 2)
         )
         await db.commit()
-        
+
         # Insert message embedding
         await db.execute(
             """
@@ -49,7 +50,7 @@ class TestMessageEmbeddingsTable:
             ("me_test", "sess_test", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3]))
         )
         await db.commit()
-        
+
         # Verify
         async with db.execute(
             "SELECT COUNT(*) FROM message_embeddings WHERE message_embedding_id = ?",
@@ -62,7 +63,7 @@ class TestMessageEmbeddingsTable:
     async def test_message_embeddings_foreign_key(self, sqlite_store, db_conn):
         """Verify FK constraint prevents orphaned embeddings."""
         db = db_conn
-        
+
         # Try to insert without parent session - should fail
         with pytest.raises(Exception):
             await db.execute(
@@ -79,7 +80,7 @@ class TestMessageEmbeddingsTable:
     async def test_cascade_delete(self, sqlite_store, db_conn):
         """Verify deleting session cascades to message_embeddings."""
         db = db_conn
-        
+
         # Insert session and message
         await db.execute(
             "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
@@ -94,11 +95,11 @@ class TestMessageEmbeddingsTable:
             ("me_cascade", "sess_cascade", 0, "user", "Hi", json.dumps([0.1]))
         )
         await db.commit()
-        
+
         # Delete session
         await db.execute("DELETE FROM sessions WHERE session_id = ?", ("sess_cascade",))
         await db.commit()
-        
+
         # Verify message embedding deleted
         async with db.execute(
             "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
@@ -130,18 +131,17 @@ class TestMessageEmbeddingsIndexing:
                 "timestamp": "2026-03-07T10:01:00Z",
             },
         ]
-        
+
         await sqlite_store.save_session("sess_index", messages)
-        
+
         # Verify message_embeddings created
         import aiosqlite
-        async with aiosqlite.connect(sqlite_store.db_path) as db:
-            async with db.execute(
-                "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
-                ("sess_index",)
-            ) as cursor:
-                row = await cursor.fetchone()
-                assert row[0] == 2
+        async with aiosqlite.connect(sqlite_store.db_path) as db, db.execute(
+            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
+            ("sess_index",)
+        ) as cursor:
+            row = await cursor.fetchone()
+            assert row[0] == 2
 
     @pytest.mark.asyncio
     async def test_save_session_skips_messages_without_embeddings(self, sqlite_store):
@@ -160,15 +160,14 @@ class TestMessageEmbeddingsIndexing:
                 "embedding": [0.1, 0.2, 0.3],
             },
         ]
-        
+
         await sqlite_store.save_session("sess_partial", messages)
-        
+
         # Only 1 message should be indexed
         import aiosqlite
-        async with aiosqlite.connect(sqlite_store.db_path) as db:
-            async with db.execute(
-                "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
-                ("sess_partial",)
-            ) as cursor:
-                row = await cursor.fetchone()
-                assert row[0] == 1
+        async with aiosqlite.connect(sqlite_store.db_path) as db, db.execute(
+            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
+            ("sess_partial",)
+        ) as cursor:
+            row = await cursor.fetchone()
+            assert row[0] == 1

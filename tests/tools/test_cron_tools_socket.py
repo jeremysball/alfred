@@ -4,7 +4,7 @@ Tests that the cron tools properly use SocketClient instead of CronScheduler.
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

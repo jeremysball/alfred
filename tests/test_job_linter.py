@@ -1,7 +1,6 @@
 """Tests for the job code linter."""
 
-import pytest
-from alfred.cron.job_linter import JobLinterError, lint_job_code
+from alfred.cron.job_linter import lint_job_code
 
 
 class TestBlockingCalls:

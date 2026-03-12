@@ -2,10 +2,9 @@
 
 from typing import TYPE_CHECKING
 
-from pypitui import Component
-
 from alfred.interfaces.ansi import RED, RESET, YELLOW
 from alfred.interfaces.pypitui.box_utils import build_bordered_box
+from pypitui import Component
 
 if TYPE_CHECKING:
     from alfred.interfaces.pypitui.toast import ToastManager
