@@ -79,7 +79,7 @@ This creates:
 | `src/alfred/cron/socket_server.py` | Active PRD #120 code |
 | `src/alfred/cron/notifier.py` - `Notifier` ABC | Used by PRD #120 socket protocol |
 | `src/alfred/cli/` TUI components | Active development |
-| `src/alfred/memory/migrate.py` | May be needed by users for data migration |
+| ~~`src/alfred/memory/migrate.py`~~ | ~~May be needed by users for data migration~~ |
 | Any active tool implementations | Only remove unused validators, not tools themselves |
 
 ### Boundary Conditions
@@ -276,6 +276,27 @@ Post-creation audit identified additional dead code not in original analysis:
 | Test coverage drops | Low | Medium | Coverage check before/after |
 | Breaking change to API | Low | High | No public API changes |
 | Lost documentation value | Low | Low | Git history preserved |
+
+---
+
+## Progress
+
+### Critical Fixes (Complete ✅)
+- [x] **Fix broken memory CLI commands** - Commit `4e9da50`
+  - Removed `memory_migrate`, `memory_status`, `memory_prune` from `main.py`
+  - Deleted `src/alfred/cli/memory.py` (176 lines)
+  - Deleted `src/alfred/memory/migrate.py` (239 lines)
+  - Total: 457 lines removed
+  - Import check passes, 465 tests pass
+
+### Phase 1: Test Infrastructure Cleanup (Pending)
+- [ ] 1.1 Remove storage-related obsolete tests
+- [ ] 1.2 Remove singleton-pattern tests
+- [ ] 1.3 Remove empty test files
+- [ ] 1.4 Remove skipped tests
+
+### Phase 2-4 (Pending)
+All remaining phases not yet started.
 
 ---
 
