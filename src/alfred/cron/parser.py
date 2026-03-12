@@ -6,7 +6,6 @@ All functions are stateless utilities.
 
 from datetime import UTC, datetime
 from typing import cast
-from zoneinfo import ZoneInfo
 
 from croniter import CroniterBadCronError, croniter  # type: ignore[import-untyped]
 
@@ -33,48 +32,6 @@ def is_valid(expression: str) -> bool:
         return True
     except (CroniterBadCronError, ValueError):
         return False
-
-
-def get_next_run(
-    expression: str,
-    from_time: datetime | None = None,
-    timezone: str = "UTC",
-) -> datetime:
-    """Get the next execution time for a cron expression.
-
-    Args:
-        expression: Cron expression like "*/5 * * * *"
-        from_time: Calculate next run from this time (default: now)
-        timezone: Timezone name like "America/New_York" or "UTC"
-
-    Returns:
-        Timezone-aware datetime of next execution
-
-    Raises:
-        ValueError: If expression is invalid
-    """
-    if not is_valid(expression):
-        raise ValueError(f"Invalid cron expression: {expression}")
-
-    # Use provided time or current time
-    if from_time is None:
-        from_time = datetime.now(UTC)
-
-    # Ensure from_time is timezone-aware
-    if from_time.tzinfo is None:
-        from_time = from_time.replace(tzinfo=UTC)
-
-    # Convert from_time to target timezone for calculation
-    # This ensures cron schedules are interpreted in local time
-    target_tz = ZoneInfo(timezone)
-    from_time_local = from_time.astimezone(target_tz)
-
-    # Calculate next run in local time
-    itr = croniter(expression, from_time_local)
-    next_run_local = cast(datetime, itr.get_next(datetime))
-
-    # Return in target timezone
-    return next_run_local.replace(tzinfo=target_tz)
 
 
 def should_run(

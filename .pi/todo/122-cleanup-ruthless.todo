@@ -1,0 +1,202 @@
+# PRD #122: Ruthless Cleanup - Todo List
+
+## CRITICAL: Fix Broken Commands (Bugs)
+
+### Fix broken memory CLI
+- [ ] Test: Run `alfred memory migrate` - verify it crashes with ImportError
+- [ ] Implement: Remove broken memory_migrate command from main.py lines 318-330
+- [ ] Implement: Remove broken memory_status command from main.py lines 332-340
+- [ ] Implement: Remove broken memory_prune command from main.py lines 340-354
+- [ ] Implement: Remove memory_app from main.py entirely
+- [ ] Verify: `alfred --help` works without errors
+- [ ] Commit: "fix(cli): remove broken memory commands"
+
+## Phase 1: Delete Complete Dead Files (1,900 lines)
+
+### 1.1 Remove completely unused source files
+- [ ] Test: Verify no imports of NaturalLanguageCronParser
+- [ ] Test: Verify no imports of NotificationBuffer
+- [ ] Test: Verify no imports of SessionContextBuilder
+- [ ] Test: Verify no imports of StatusRenderer
+- [ ] Test: Verify no imports from type_defs
+- [ ] Implement: Delete src/alfred/cron/nlp_parser.py (453 lines)
+- [ ] Implement: Delete src/alfred/interfaces/notification_buffer.py (70 lines)
+- [ ] Implement: Delete src/alfred/session_context.py (50 lines)
+- [ ] Implement: Delete src/alfred/interfaces/status.py (50 lines)
+- [ ] Implement: Delete src/alfred/type_defs.py (20 lines)
+- [ ] Verify: No import errors in codebase
+- [ ] Verify: pytest passes
+- [ ] Commit: "chore: remove completely unused source files (643 lines)"
+
+### 1.2 Remove tests for dead code
+- [ ] Test: Verify tests/cron/test_nlp_parser.py only tests nlp_parser
+- [ ] Implement: Delete tests/cron/test_nlp_parser.py (484 lines)
+- [ ] Verify: pytest still passes (other tests intact)
+- [ ] Commit: "test: remove tests for deleted nlp_parser"
+
+### 1.3 Remove tests for removed storage systems
+- [ ] Test: Verify CAS store was removed in PRD #109
+- [ ] Test: Verify JSONL memory was removed
+- [ ] Test: Verify FAISS was removed
+- [ ] Implement: Delete tests/test_cas_store.py (~150 lines)
+- [ ] Implement: Delete tests/test_memory.py (~200 lines)
+- [ ] Implement: Delete tests/test_memory_crud.py (~100 lines)
+- [ ] Implement: Delete tests/test_remember_tool.py (~150 lines)
+- [ ] Implement: Delete tests/test_unified_memory_system.py (~180 lines)
+- [ ] Implement: Delete tests/tools/test_memory_integration.py (~120 lines)
+- [ ] Verify: pytest passes
+- [ ] Commit: "test: remove tests for deleted storage systems (900 lines)"
+
+### 1.4 Remove low-quality test files
+- [ ] Test: Verify test_session_cli.py uses old singleton pattern
+- [ ] Test: Verify test_schedule_job.py has empty pass statements
+- [ ] Test: Verify test_forget.py has structural tests only
+- [ ] Test: Verify test_schedule_job_integration.py is obsolete
+- [ ] Implement: Delete tests/test_session_cli.py (~200 lines)
+- [ ] Implement: Delete tests/tools/test_schedule_job.py (~180 lines)
+- [ ] Implement: Delete tests/tools/test_forget.py (~520 lines) - NOTE: verify behavioral tests aren't lost
+- [ ] Implement: Delete tests/tools/test_schedule_job_integration.py (~200 lines)
+- [ ] Verify: pytest passes
+- [ ] Commit: "test: remove low-quality and obsolete test files (1100 lines)"
+
+### 1.5 Remove empty __init__ files
+- [ ] Test: Verify imports work before removal
+- [ ] Implement: Delete tests/__init__.py
+- [ ] Implement: Delete src/alfred/cli/__init__.py
+- [ ] Implement: Delete tests/pypitui/__init__.py
+- [ ] Implement: Delete tests/embeddings/__init__.py
+- [ ] Implement: Delete src/alfred/interfaces/__init__.py
+- [ ] Implement: Delete src/alfred/utils/__init__.py
+- [ ] Implement: Delete src/alfred/storage/__init__.py
+- [ ] Implement: Delete tests/e2e/__init__.py
+- [ ] Verify: pytest passes
+- [ ] Verify: import check passes
+- [ ] Commit: "chore: remove empty __init__.py files"
+
+## Phase 2: Remove Structural Tests (200 lines)
+
+### 2.1 Remove tests that test literals/structure
+- [ ] Test: Identify all `test_tool_name`, `test_has_parameter`, `test_description` tests
+- [ ] Implement: Remove structural tests from test_forget.py
+- [ ] Implement: Remove structural tests from test_update_memory.py
+- [ ] Implement: Remove structural tests from test_search_memories.py
+- [ ] Implement: Remove `test_creation`, `test_defaults` tests that just verify dataclasses
+- [ ] Verify: Remaining tests are behavioral
+- [ ] Commit: "test: remove structural tests that verify literals"
+
+## Phase 3: Partial File Cleanup (800 lines)
+
+### 3.1 Config cleanup
+- [ ] Test: Verify config loads with FAISS fields present
+- [ ] Implement: Remove memory_store field from config.py
+- [ ] Implement: Remove faiss_index_type from config.py
+- [ ] Implement: Remove faiss_ivf_threshold from config.py
+- [ ] Implement: Remove faiss_backup_jsonl from config.py
+- [ ] Implement: Remove FAISS loading logic (lines 112-118)
+- [ ] Verify: config loads without FAISS fields
+- [ ] Commit: "chore(config): remove FAISS/JSONL remnants"
+
+### 3.2 Cron/Notifier cleanup
+- [ ] Test: Verify cron tests pass before changes
+- [ ] Implement: Remove CLINotifier class from notifier.py
+- [ ] Implement: Remove TelegramNotifier class from notifier.py
+- [ ] Implement: Remove NotifierError class from notifier.py
+- [ ] Implement: Remove set_buffer method
+- [ ] Implement: Remove set_toast_manager method
+- [ ] Implement: Remove flush_buffer method
+- [ ] Implement: Remove log_warning from observability.py
+- [ ] Implement: Remove get_next_run from parser.py
+- [ ] Implement: Remove get_job_history from store.py
+- [ ] Verify: cron tests pass
+- [ ] Commit: "chore(cron): remove unused notifier classes"
+
+### 3.3 Memory/Storage cleanup
+- [ ] Test: Verify memory tests pass before changes
+- [ ] Implement: Remove prune_expired_memories from sqlite_store.py
+- [ ] Implement: Remove delete_entries from sqlite_store.py
+- [ ] Implement: Remove check_memory_threshold from sqlite_store.py
+- [ ] Implement: Remove delete_session from sqlite.py
+- [ ] Implement: Remove find_sessions_needing_summary from sqlite.py
+- [ ] Verify: memory tests pass
+- [ ] Commit: "chore(storage): remove unused store methods"
+
+### 3.4 Tools cleanup
+- [ ] Test: Verify tool tests pass before changes
+- [ ] Implement: Remove clear_registry from tools/__init__.py
+- [ ] Implement: Remove get_tool_schemas from tools/__init__.py
+- [ ] Implement: Remove validate_identifier from approve_job.py
+- [ ] Implement: Remove validate_identifier from reject_job.py
+- [ ] Implement: Remove validate_name from schedule_job.py
+- [ ] Implement: Remove validate_description from schedule_job.py
+- [ ] Verify: tool tests pass
+- [ ] Commit: "chore(tools): remove unused validation methods"
+
+### 3.5 Placeholders cleanup
+- [ ] Test: Verify placeholder tests pass
+- [ ] Implement: Remove CircularReferenceError from placeholders.py
+- [ ] Implement: Remove resolve_file_includes from placeholders.py
+- [ ] Implement: Remove resolve_colors from placeholders.py
+- [ ] Verify: context tests pass
+- [ ] Commit: "chore(placeholders): remove unused utilities"
+
+### 3.6 LLM and Context cleanup
+- [ ] Test: Verify tests pass before changes
+- [ ] Implement: Remove retry_with_backoff decorator from llm.py
+- [ ] Implement: Remove unused max_tokens from context.py
+- [ ] Verify: tests pass
+- [ ] Commit: "chore: remove unused llm/context code"
+
+### 3.7 Fix unused declarations
+- [ ] Test: Verify pyflakes shows unused declarations
+- [ ] Implement: Remove unused nonlocal from alfred.py line 259
+- [ ] Implement: Remove redundant global declarations from bge_provider.py
+- [ ] Verify: pyflakes clean
+- [ ] Commit: "chore: fix unused variable declarations"
+
+## Phase 4: Fix Bare Except Clauses (91 issues)
+
+### 4.1 Fix silent failures in storage
+- [ ] Test: Identify bare except clauses in sqlite.py
+- [ ] Implement: Replace bare excepts with specific exceptions
+- [ ] Implement: Add logging to all exception handlers
+- [ ] Verify: No bare excepts remain in storage
+- [ ] Commit: "fix(storage): replace bare except clauses"
+
+### 4.2 Fix silent failures in session
+- [ ] Test: Identify bare except clauses in session.py
+- [ ] Implement: Replace bare excepts with specific exceptions
+- [ ] Verify: No bare excepts remain in session
+- [ ] Commit: "fix(session): replace bare except clauses"
+
+## Phase 5: Final Verification
+
+### 5.1 Comprehensive verification
+- [ ] Test: Run full test suite - all tests pass
+- [ ] Test: Run ruff check - no issues
+- [ ] Test: Run pyflakes - no unused imports/variables
+- [ ] Test: Import check - `from alfred.alfred import Alfred` works
+- [ ] Test: CLI launch check - `alfred --help` works
+- [ ] Test: Test coverage >= baseline
+- [ ] Test: No skipped tests remain
+- [ ] Test: No broken commands remain
+- [ ] Verify: Total line count reduced by ~4,000 lines
+- [ ] Commit: "docs: mark PRD #122 cleanup complete"
+
+## Summary
+
+| Phase | Lines Removed | Focus |
+|-------|---------------|-------|
+| Phase 1 | 2,400 | Complete file deletions |
+| Phase 2 | 200 | Structural test removal |
+| Phase 3 | 800 | Partial file cleanup |
+| Phase 4 | 0 | Bug fixes (quality) |
+| Phase 5 | 0 | Verification |
+| **Total** | **~3,400** | **~14% of codebase** |
+
+## Key Principles
+
+1. **Delete first, ask questions later** - Dead code is worse than no code
+2. **Test behavior, not structure** - Remove tests that verify literals
+3. **Fix broken things immediately** - Broken commands are bugs
+4. **No silent failures** - All exceptions must be specific and logged
+5. **Verify after every change** - Don't break what works

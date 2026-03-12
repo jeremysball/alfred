@@ -106,14 +106,4 @@ class StructuredLogger:
         await self._write_log(entry)
         logger.info(f"Scheduler event '{event}': {message}")
 
-    async def log_warning(self, job_id: str | None, message: str) -> None:
-        """Log a warning event."""
-        entry = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "level": "WARNING",
-            "event": "warning",
-            "job_id": job_id,
-            "message": message,
-        }
-        await self._write_log(entry)
-        logger.warning(message)
+
