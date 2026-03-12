@@ -206,48 +206,6 @@ def memory_callback() -> None:
     pass
 
 
-@memory_app.command(name="migrate")
-def memory_migrate(
-    dry_run: bool = typer.Option(
-        True,
-        "--dry-run/--no-dry-run",
-        help="Show what would be migrated without making changes",
-    ),
-) -> None:
-    """Migrate memories from JSONL to FAISS."""
-    from alfred.cli.memory import migrate_command
-
-    migrate_command()
-
-
-@memory_app.command(name="status")
-def memory_status() -> None:
-    """Show memory system status."""
-    from alfred.cli.memory import status_command
-
-    status_command()
-
-
-@memory_app.command(name="prune")
-def memory_prune(
-    days: int = typer.Option(
-        90,
-        "--days",
-        "-d",
-        help="Remove memories older than this many days",
-    ),
-    dry_run: bool = typer.Option(
-        True,
-        "--dry-run/--no-dry-run",
-        help="Show what would be deleted without deleting",
-    ),
-) -> None:
-    """Prune expired memories."""
-    from alfred.cli.memory import prune_command
-
-    prune_command(ttl_days=days, dry_run=dry_run)
-
-
 app.add_typer(memory_app)
 
 
