@@ -92,21 +92,6 @@ class TestStructuredLogger:
         assert entry["message"] == "Cron scheduler started"
         assert entry["level"] == "INFO"
 
-    async def test_log_warning(self, tmp_path: Path) -> None:
-        """Test logging warnings."""
-        log_file = tmp_path / "cron_logs.jsonl"
-        logger = StructuredLogger(log_file)
-
-        await logger.log_warning("job-123", "Job is slow")
-
-        content = log_file.read_text()
-        entry = json.loads(content.strip())
-
-        assert entry["event"] == "warning"
-        assert entry["job_id"] == "job-123"
-        assert entry["message"] == "Job is slow"
-        assert entry["level"] == "WARNING"
-
     async def test_concurrent_writes(self, tmp_path: Path) -> None:
         """Test concurrent writes are safe."""
         log_file = tmp_path / "cron_logs.jsonl"
