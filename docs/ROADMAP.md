@@ -224,8 +224,8 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 119 | AlfredCore + Standalone Cron | Extract shared services into AlfredCore class, enable standalone cron daemon for reliable background summarization (PRD #119) |
-| 120 | Cron Job Linter + Socket API | AST-based linting to detect blocking calls, decouple Alfred from cron via socket API (PRD #120) |
+| 119 | ✅ AlfredCore + Standalone Cron | Extract shared services into AlfredCore class, enable standalone cron daemon for reliable background summarization (PRD #119) |
+| 120 | ✅ Cron Job Linter + Socket API | AST-based linting to detect blocking calls, decouple Alfred from cron via socket API (PRD #120) |
 | 88 | Programmatic Tool Calling | LLM writes Python code to orchestrate multiple tool calls in sandbox, reducing token consumption 30-50% |
 | 90 | Multi-Provider LLM Support | z.ai, OpenRouter, Ollama with modal model selector |
 
