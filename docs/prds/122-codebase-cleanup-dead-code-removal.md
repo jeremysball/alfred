@@ -287,16 +287,47 @@ Post-creation audit identified additional dead code not in original analysis:
   - Deleted `src/alfred/cli/memory.py` (176 lines)
   - Deleted `src/alfred/memory/migrate.py` (239 lines)
   - Total: 457 lines removed
-  - Import check passes, 465 tests pass
 
-### Phase 1: Test Infrastructure Cleanup (Pending)
-- [ ] 1.1 Remove storage-related obsolete tests
-- [ ] 1.2 Remove singleton-pattern tests
-- [ ] 1.3 Remove empty test files
-- [ ] 1.4 Remove skipped tests
+### Phase 2: Complete File Removals (Complete ✅)
+- [x] **Delete unused source files** - Commit `64a4c4d`
+  - Deleted `src/alfred/cron/nlp_parser.py` (453 lines)
+  - Deleted `src/alfred/session_context.py` (62 lines)
+  - Deleted `src/alfred/interfaces/status.py` (178 lines)
+  - Deleted corresponding test files
+  - Total: 693+ lines removed
 
-### Phase 2-4 (Pending)
-All remaining phases not yet started.
+- [x] **Delete dead notifier and record_store** - Commit `551bd40`
+  - Deleted `src/alfred/cron/notifier.py` (238 lines)
+  - Deleted `src/alfred/interfaces/notification_buffer.py` (90 lines)
+  - Deleted `src/alfred/storage/record_store.py` (~100 lines)
+  - Deleted `src/alfred/type_defs.py` (26 lines)
+  - Deleted related test files
+  - Total: ~650 lines removed
+
+- [x] **Remove empty `__init__.py` files** - Commit `04689c1`
+  - Deleted 5 empty `__init__.py` files
+  - Total: ~15 lines removed
+
+### Phase 3: Partial File Cleanup (In Progress 🔄)
+- [x] **Remove dead code from active files** - Commit `35a4571`
+  - Removed `get_next_run()` from `parser.py`
+  - Removed `log_warning()` from `observability.py`
+  - Removed `get_tool_schemas()` from `tools/__init__.py`
+  - Removed FAISS config fields from `config.py`
+  - Total: ~60+ lines removed
+
+### Additional Fixes
+- [x] **Fix sqlite-vec extension loading** - Commit `f0cae85`
+  - Added `_load_extensions()` helper to load sqlite-vec on all connections
+  - Fixed 5 test errors in `test_message_embeddings.py`
+
+### Running Total
+**~1,875+ lines removed across 18+ files**
+
+### Remaining Work
+- Phase 1: Test cleanup (skipped tests, empty tests)
+- Phase 3: Additional partial cleanups (if any remaining)
+- Phase 4: Final verification
 
 ---
 
