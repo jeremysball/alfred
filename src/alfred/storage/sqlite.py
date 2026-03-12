@@ -38,6 +38,15 @@ class SQLiteStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialized = False
 
+    async def _load_extensions(self, db) -> None:
+        """Load sqlite-vec extension for vector search.
+
+        Must be called on every new connection before using vec0 virtual tables.
+        """
+        await db.enable_load_extension(True)
+        import sqlite_vec
+        await db.load_extension(sqlite_vec.loadable_path())
+
     async def _init(self) -> None:
         """Lazy initialization of database connection and tables."""
         if self._initialized:
@@ -49,6 +58,9 @@ class SQLiteStore:
             raise ImportError("aiosqlite required. Install with: uv add aiosqlite")
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension
+            await self._load_extensions(db)
+
             # Enable WAL mode for better concurrency
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute("PRAGMA foreign_keys=ON")
@@ -232,6 +244,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             await db.execute(
                 """
                 INSERT INTO sessions (session_id, messages, metadata, updated_at)
@@ -310,6 +324,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
             async with db.execute(
                 "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
@@ -341,6 +357,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
             async with db.execute(
                 "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)
@@ -371,6 +389,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             cursor = await db.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
             await db.commit()
             return cursor.rowcount > 0
@@ -388,6 +408,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             await db.execute(
                 """
                 INSERT INTO cron_jobs (
@@ -429,6 +451,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT * FROM cron_jobs") as cursor:
                 rows = await cursor.fetchall()
@@ -462,6 +486,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             cursor = await db.execute("DELETE FROM cron_jobs WHERE job_id = ?", (job_id,))
             await db.commit()
             return cursor.rowcount > 0
@@ -477,6 +503,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             await db.execute(
                 """
                 INSERT INTO cron_history (
@@ -512,6 +540,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
 
             if limit:
@@ -579,6 +609,8 @@ class SQLiteStore:
         ts = timestamp or datetime.now()
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Insert memory record
             await db.execute(
                 """
@@ -639,6 +671,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
 
             # Use sqlite-vec for vector search
@@ -694,6 +728,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
             async with db.execute(
                 "SELECT * FROM memories WHERE entry_id = ?", (entry_id,)
@@ -750,6 +786,8 @@ class SQLiteStore:
         query += " ORDER BY timestamp DESC"
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
             async with db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
@@ -779,6 +817,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Delete from embeddings first (if exists)
             try:
                 await db.execute("DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,))
@@ -813,6 +853,8 @@ class SQLiteStore:
         cutoff = datetime.now() - timedelta(days=ttl_days)
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Count matching records
             async with db.execute(
                 """
@@ -879,6 +921,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Check if exists
             async with db.execute(
                 "SELECT 1 FROM memories WHERE entry_id = ?", (entry_id,)
@@ -941,6 +985,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Serialize embedding to JSON if present
             embedding = summary.get("embedding")
             embedding_json = json.dumps(embedding) if embedding is not None else None
@@ -980,6 +1026,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
 
             async with db.execute(
@@ -1057,6 +1105,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Check if sqlite-vec is available
             try:
                 await db.execute("SELECT vec_version()")
@@ -1122,6 +1172,8 @@ class SQLiteStore:
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
+            # Load sqlite-vec extension for vector search
+            await self._load_extensions(db)
             # Check if sqlite-vec is available
             try:
                 await db.execute("SELECT vec_version()")
