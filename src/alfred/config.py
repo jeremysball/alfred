@@ -54,11 +54,8 @@ class Config(BaseSettings):
     embedding_provider: str = "openai"  # "openai" or "local"
     local_embedding_model: str = "bge-base"  # "bge-small", "bge-base", "bge-large"
 
-    # Memory store settings (PRD #105)
-    memory_store: str = "jsonl"  # "jsonl" or "faiss"
-    faiss_index_type: str = "auto"  # "flat", "ivf", or "auto"
-    faiss_ivf_threshold: int = 10000  # Switch to IVF at N entries
-    faiss_backup_jsonl: bool = True  # Keep JSONL backup when using FAISS
+    # Memory store settings
+    memory_store: str = "sqlite"  # Only SQLite is supported now
 
     # Tool calls in context configuration
     tool_calls_enabled: bool = True
@@ -109,13 +106,6 @@ def _load_toml_config(toml_path: Path) -> dict[str, Any]:
             flat_config["memory_ttl_days"] = memory["ttl_days"]
         if "warning_threshold" in memory:
             flat_config["memory_warning_threshold"] = memory["warning_threshold"]
-        # FAISS-specific settings
-        if "faiss_index_type" in memory:
-            flat_config["faiss_index_type"] = memory["faiss_index_type"]
-        if "faiss_ivf_threshold" in memory:
-            flat_config["faiss_ivf_threshold"] = memory["faiss_ivf_threshold"]
-        if "faiss_backup_jsonl" in memory:
-            flat_config["faiss_backup_jsonl"] = memory["faiss_backup_jsonl"]
 
     # Tool calls configuration
     if "context" in toml_data:

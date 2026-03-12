@@ -76,12 +76,6 @@ def clear_registry() -> None:
     _registry = None
 
 
-# Convenience function to get all tool schemas
-def get_tool_schemas() -> list[dict[str, Any]]:
-    """Get schemas for all registered tools."""
-    return get_registry().get_schemas()
-
-
 # Auto-discover and register built-in tools
 def register_builtin_tools(
     memory_store: Any = None,
