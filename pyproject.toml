@@ -51,6 +51,7 @@ dependencies = [
   "torch>=2.0.0",
   "sentence-transformers>=2.5.0",
   "aiosqlite>=0.21.0",
+  "sqlite-vec>=0.1.6",
 ]
 
 [project.urls]
