@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+from alfred.session import SessionMeta
+
 
 def test_session_id_provider_returns_matching_sessions():
     """Test that _session_id_provider returns session IDs matching partial input."""
@@ -10,20 +12,32 @@ def test_session_id_provider_returns_matching_sessions():
 
     # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
-    mock_storage = MagicMock()
-    mock_storage.list_sessions.return_value = [
-        "sess_abc123",
-        "sess_def456",
-        "sess_abc789",
-    ]
-    mock_alfred.core.session_manager.storage = mock_storage
 
-    # Mock get_meta to return proper metadata objects
-    mock_meta = MagicMock()
-    mock_meta.last_active = datetime.now(UTC)
-    mock_meta.current_count = 5
-    mock_meta.archive_count = 2
-    mock_storage.get_meta.return_value = mock_meta
+    # Create SessionMeta objects for mocking
+    sessions = [
+        SessionMeta(
+            session_id="sess_abc123",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=5,
+        ),
+        SessionMeta(
+            session_id="sess_def456",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=3,
+        ),
+        SessionMeta(
+            session_id="sess_abc789",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=7,
+        ),
+    ]
+    mock_alfred.core.session_manager.list_sessions.return_value = sessions
 
     # Mock terminal
     mock_terminal = MagicMock()
@@ -48,20 +62,32 @@ def test_session_id_provider_returns_all_if_empty_partial():
 
     # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
-    mock_storage = MagicMock()
-    mock_storage.list_sessions.return_value = [
-        "sess_001",
-        "sess_002",
-        "sess_003",
-    ]
-    mock_alfred.core.session_manager.storage = mock_storage
 
-    # Mock get_meta to return proper metadata objects
-    mock_meta = MagicMock()
-    mock_meta.last_active = datetime.now(UTC)
-    mock_meta.current_count = 5
-    mock_meta.archive_count = 2
-    mock_storage.get_meta.return_value = mock_meta
+    # Create SessionMeta objects for mocking
+    sessions = [
+        SessionMeta(
+            session_id="sess_001",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=5,
+        ),
+        SessionMeta(
+            session_id="sess_002",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=3,
+        ),
+        SessionMeta(
+            session_id="sess_003",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=7,
+        ),
+    ]
+    mock_alfred.core.session_manager.list_sessions.return_value = sessions
 
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -83,17 +109,19 @@ def test_session_id_provider_limits_to_5_results():
 
     # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
-    mock_storage = MagicMock()
-    # Create 10 sessions
-    mock_storage.list_sessions.return_value = [f"sess_{i:03d}" for i in range(10)]
-    mock_alfred.core.session_manager.storage = mock_storage
 
-    # Mock get_meta to return proper metadata objects
-    mock_meta = MagicMock()
-    mock_meta.last_active = datetime.now(UTC)
-    mock_meta.current_count = 5
-    mock_meta.archive_count = 2
-    mock_storage.get_meta.return_value = mock_meta
+    # Create 10 SessionMeta objects
+    sessions = [
+        SessionMeta(
+            session_id=f"sess_{i:03d}",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=i,
+        )
+        for i in range(10)
+    ]
+    mock_alfred.core.session_manager.list_sessions.return_value = sessions
 
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -126,16 +154,17 @@ def test_session_id_provider_uses_fuzzy_matching():
 
     # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
-    mock_storage = MagicMock()
-    mock_storage.list_sessions.return_value = ["sess_abc123xyz"]
-    mock_alfred.core.session_manager.storage = mock_storage
 
-    # Mock get_meta to return proper metadata
-    mock_meta = MagicMock()
-    mock_meta.last_active = datetime.now(UTC)
-    mock_meta.current_count = 5
-    mock_meta.archive_count = 2
-    mock_storage.get_meta.return_value = mock_meta
+    sessions = [
+        SessionMeta(
+            session_id="sess_abc123xyz",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=5,
+        ),
+    ]
+    mock_alfred.core.session_manager.list_sessions.return_value = sessions
 
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -154,16 +183,17 @@ def test_session_id_provider_is_case_insensitive():
 
     # Mock Alfred with proper core structure
     mock_alfred = MagicMock()
-    mock_storage = MagicMock()
-    mock_storage.list_sessions.return_value = ["sess_ABC123"]
-    mock_alfred.core.session_manager.storage = mock_storage
 
-    # Mock get_meta to return proper metadata
-    mock_meta = MagicMock()
-    mock_meta.last_active = datetime.now(UTC)
-    mock_meta.current_count = 5
-    mock_meta.archive_count = 2
-    mock_storage.get_meta.return_value = mock_meta
+    sessions = [
+        SessionMeta(
+            session_id="sess_ABC123",
+            created_at=datetime.now(UTC),
+            last_active=datetime.now(UTC),
+            status="active",
+            message_count=5,
+        ),
+    ]
+    mock_alfred.core.session_manager.list_sessions.return_value = sessions
 
     mock_terminal = MagicMock()
     tui = AlfredTUI(mock_alfred, terminal=mock_terminal)

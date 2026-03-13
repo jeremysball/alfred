@@ -1,7 +1,7 @@
 """Main AlfredTUI class for the CLI interface."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -522,26 +522,21 @@ class AlfredTUI:
         # Get the partial ID being typed
         partial = text[8:]  # After '/resume '
 
-        # Get available session IDs (list of strings)
-        session_ids = self.alfred.core.session_manager.storage.list_sessions()
-        sessions_with_meta = []
+        # Get available sessions with metadata (uses sync list_sessions)
+        sessions = self.alfred.core.session_manager.list_sessions()
+        sessions_with_meta: list[tuple[str, str | None, datetime]] = []
 
-        for sid in session_ids:
+        for session in sessions:
+            sid = session.session_id
             # Fuzzy match against partial ID
             if not fuzzy_match(partial.lower(), sid.lower()):
                 continue
 
-            # Get metadata for date and message count
-            meta = self.alfred.core.session_manager.storage.get_meta(sid)
-            if meta:
-                # Format: "Mar 3 21:45 · 12 msgs"
-                date_str = meta.last_active.strftime("%b %-d %H:%M")
-                msg_count = meta.message_count
-                desc = f"{date_str} · {msg_count} msgs"
-                sessions_with_meta.append((sid, desc, meta.last_active))
-            else:
-                # No metadata, use placeholder
-                sessions_with_meta.append((sid, None, datetime.min.replace(tzinfo=UTC)))
+            # Format: "Mar 3 21:45 · 12 msgs"
+            date_str = session.last_active.strftime("%b %-d %H:%M")
+            msg_count = session.message_count
+            desc = f"{date_str} · {msg_count} msgs"
+            sessions_with_meta.append((sid, desc, session.last_active))
 
         # Sort by last_active descending (most recent first)
         sessions_with_meta.sort(key=lambda x: x[2], reverse=True)
