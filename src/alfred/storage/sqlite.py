@@ -4,6 +4,7 @@ Replaces CASStore, JSONLMemoryStore, FAISSMemoryStore, SessionStorage, and CronS
 with a single ACID-compliant SQLite solution.
 """
 
+import contextlib
 import json
 import logging
 from datetime import datetime
@@ -54,8 +55,8 @@ class SQLiteStore:
 
         try:
             import aiosqlite
-        except ImportError:
-            raise ImportError("aiosqlite required. Install with: uv add aiosqlite")
+        except ImportError as e:
+            raise ImportError("aiosqlite required. Install with: uv add aiosqlite") from e
 
         async with aiosqlite.connect(self.db_path) as db:
             # Load sqlite-vec extension
@@ -185,11 +186,11 @@ class SQLiteStore:
 
         # Indexes
         await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_run 
+            CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_run
             ON cron_jobs(next_run_at) WHERE enabled = 1
         """)
         await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_cron_history_job 
+            CREATE INDEX IF NOT EXISTS idx_cron_history_job
             ON cron_history(job_id, started_at DESC)
         """)
 
@@ -285,8 +286,10 @@ class SQLiteStore:
                 # Insert into message_embeddings
                 await db.execute(
                     """
-                    INSERT INTO message_embeddings
-                    (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
+                    INSERT INTO message_embeddings (
+                        message_embedding_id, session_id, message_idx,
+                        role, content_snippet, embedding
+                    )
                     VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(message_embedding_id) DO NOTHING
                     """,
@@ -547,9 +550,9 @@ class SQLiteStore:
             if limit:
                 async with db.execute(
                     """
-                    SELECT * FROM cron_history 
-                    WHERE job_id = ? 
-                    ORDER BY started_at DESC 
+                    SELECT * FROM cron_history
+                    WHERE job_id = ?
+                    ORDER BY started_at DESC
                     LIMIT ?
                     """,
                     (job_id, limit),
@@ -558,8 +561,8 @@ class SQLiteStore:
             else:
                 async with db.execute(
                     """
-                    SELECT * FROM cron_history 
-                    WHERE job_id = ? 
+                    SELECT * FROM cron_history
+                    WHERE job_id = ?
                     ORDER BY started_at DESC
                     """,
                     (job_id,),
@@ -820,10 +823,8 @@ class SQLiteStore:
             # Load sqlite-vec extension for vector search
             await self._load_extensions(db)
             # Delete from embeddings first (if exists)
-            try:
+            with contextlib.suppress(Exception):
                 await db.execute("DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,))
-            except Exception:
-                pass  # Table might not exist
 
             # Delete from memories
             cursor = await db.execute("DELETE FROM memories WHERE entry_id = ?", (entry_id,))
@@ -879,12 +880,10 @@ class SQLiteStore:
 
                 # Delete from embeddings
                 for entry_id in ids:
-                    try:
+                    with contextlib.suppress(Exception):
                         await db.execute(
                             "DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,)
                         )
-                    except Exception:
-                        pass
 
                 # Delete from memories
                 await db.execute(
@@ -1118,7 +1117,7 @@ class SQLiteStore:
             try:
                 async with db.execute(
                     """
-                    SELECT 
+                    SELECT
                         s.summary_id,
                         s.session_id,
                         s.summary_text,
@@ -1185,7 +1184,7 @@ class SQLiteStore:
             try:
                 async with db.execute(
                     """
-                    SELECT 
+                    SELECT
                         m.message_idx,
                         m.role,
                         m.content_snippet,

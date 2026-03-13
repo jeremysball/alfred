@@ -199,7 +199,7 @@ class SQLiteMemoryStore(MemoryStore):
         entries_to_embed = [e for e in entries if e.embedding is None]
         if entries_to_embed:
             embeddings = await self.embedder.embed_batch([e.content for e in entries_to_embed])
-            for entry, embedding in zip(entries_to_embed, embeddings):
+            for entry, embedding in zip(entries_to_embed, embeddings, strict=True):
                 entry.embedding = embedding
 
         # Add all entries

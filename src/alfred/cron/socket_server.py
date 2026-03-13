@@ -245,9 +245,8 @@ class SocketServer:
                     writer.write(response.to_json().encode("utf-8"))
                     await writer.drain()
 
-            elif isinstance(message, RunnerStoppingMessage):
-                if self._on_runner_stopping:
-                    self._on_runner_stopping(message)
+            elif isinstance(message, RunnerStoppingMessage) and self._on_runner_stopping:
+                self._on_runner_stopping(message)
 
         except Exception as e:
             logger.error(f"Error dispatching message {message.type}: {e}")

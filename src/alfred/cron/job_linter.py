@@ -27,9 +27,17 @@ class BlockingCallVisitor(ast.NodeVisitor):
     """AST visitor to detect blocking calls in async functions."""
 
     BLOCKING_PATTERNS = {
-        "subprocess.run": "Use asyncio subprocess: 'asyncio.create_subprocess_exec' or 'asyncio.create_subprocess_shell'",
-        "subprocess.call": "Use asyncio subprocess: 'asyncio.create_subprocess_exec' or 'asyncio.create_subprocess_shell'",
-        "subprocess.check_output": "Use asyncio subprocess: 'asyncio.create_subprocess_exec' with asyncio streams",
+        "subprocess.run": (
+            "Use asyncio subprocess: 'asyncio.create_subprocess_exec' or "
+            "'asyncio.create_subprocess_shell'"
+        ),
+        "subprocess.call": (
+            "Use asyncio subprocess: 'asyncio.create_subprocess_exec' or "
+            "'asyncio.create_subprocess_shell'"
+        ),
+        "subprocess.check_output": (
+            "Use asyncio subprocess: 'asyncio.create_subprocess_exec' with asyncio streams"
+        ),
         "subprocess.check_call": "Use asyncio subprocess: 'asyncio.create_subprocess_exec'",
         "os.system": "Use asyncio subprocess: 'asyncio.create_subprocess_shell'",
         "os.popen": "Use asyncio subprocess: 'asyncio.create_subprocess_exec'",
@@ -130,19 +138,21 @@ class NotifyUsageVisitor(ast.NodeVisitor):
                 self.found_notify_call = True
 
             # Check for subprocess notify (wrong way)
-            if func_name in ("subprocess.run", "subprocess.call", "os.system"):
-                # Check if first arg is 'notify'
-                if node.args:
-                    first_arg = node.args[0]
-                    if isinstance(first_arg, ast.Constant) and "notify" in str(first_arg.value):
-                        self.found_subprocess_notify = True
-                        self.errors.append(
-                            JobLinterError(
-                                "Using subprocess to call 'notify' - use the injected notify() function instead",
-                                line=node.lineno,
-                                suggestion="Use: await notify('your message')",
-                            )
+            if (
+                func_name in ("subprocess.run", "subprocess.call", "os.system")
+                and node.args
+            ):
+                first_arg = node.args[0]
+                if isinstance(first_arg, ast.Constant) and "notify" in str(first_arg.value):
+                    self.found_subprocess_notify = True
+                    self.errors.append(
+                        JobLinterError(
+                            "Using subprocess to call 'notify' - use the injected "
+                            "notify() function instead",
+                            line=node.lineno,
+                            suggestion="Use: await notify('your message')",
                         )
+                    )
 
         self.generic_visit(node)
 

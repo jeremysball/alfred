@@ -32,7 +32,7 @@ class TestSocketAPIRoundTrip:
     @pytest.fixture
     async def socket_system(self, tmp_path):
         """Create a complete socket-connected system.
-        
+
         Returns:
             Dict with scheduler, server, client, and cleanup function
         """
@@ -249,7 +249,7 @@ class TestSocketAPIRoundTrip:
         scheduler = socket_system["scheduler"]
 
         # Create pending job
-        job_id = await scheduler.submit_user_job(
+        _ = await scheduler.submit_user_job(
             name="Job To Approve",
             expression="0 9 * * *",
             code="async def run(): pass",
@@ -302,7 +302,7 @@ class TestSocketAPIRoundTrip:
     async def test_full_lifecycle_via_socket_api(self, socket_system):
         """Behavior: Complete job lifecycle works via socket API."""
         client = socket_system["client"]
-        scheduler = socket_system["scheduler"]
+        _ = socket_system["scheduler"]
 
         # 1. Submit job
         submit_response = await client.submit_job(
@@ -345,7 +345,7 @@ class TestSocketAPIErrorHandling:
         data_dir.mkdir()
 
         store = CronStore(data_dir=data_dir)
-        scheduler = CronScheduler(store=store, data_dir=data_dir)
+        _ = CronScheduler(store=store, data_dir=data_dir)
 
         async def handle_submit_error(request: SubmitJobRequest) -> SubmitJobResponse:
             """Simulate submission error."""

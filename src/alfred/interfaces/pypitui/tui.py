@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from alfred.alfred import Alfred
@@ -20,6 +21,8 @@ from alfred.interfaces.pypitui.completion_menu_component import CompletionMenuCo
 
 # Settings now accessed via self.alfred.config
 from alfred.interfaces.pypitui.fuzzy import fuzzy_match
+from alfred.interfaces.pypitui.history_cache import HistoryManager
+from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler, HistoryKeyHandler
 from alfred.interfaces.pypitui.message_panel import MessagePanel
 from alfred.interfaces.pypitui.status_line import StatusLine
 from alfred.interfaces.pypitui.toast import ToastManager
@@ -39,6 +42,7 @@ class AlfredTUI:
         alfred: Alfred,
         terminal: "ProcessTerminal | None" = None,
         toast_manager: ToastManager | None = None,
+        history_manager: HistoryManager | None = None,
     ) -> None:
         """Initialize the Alfred TUI.
 
@@ -46,6 +50,8 @@ class AlfredTUI:
             alfred: The Alfred instance to interact with
             terminal: Optional terminal to use (for testing)
             toast_manager: Optional ToastManager for notifications
+            history_manager: Optional HistoryManager for testing
+                (uses ~/.cache/alfred if not provided)
         """
         from pypitui import ProcessTerminal
 
@@ -96,6 +102,18 @@ class AlfredTUI:
 
         # Ctrl-C state
         self._ctrl_c_pending = False
+
+        # History manager for per-directory message history
+        if history_manager is not None:
+            self._history_manager = history_manager
+        else:
+            cache_dir = Path.home() / ".cache" / "alfred"
+            work_dir = Path.cwd()
+            self._history_manager = HistoryManager(work_dir, cache_dir)
+
+        # Key handlers for history and shortcuts
+        self._history_handler = HistoryKeyHandler(self._history_manager, self.input_field)
+        self._basic_handler = BasicKeyHandler(self.input_field)
 
         # Current assistant message for inline tool calls
         self._current_assistant_msg: MessagePanel | None = None
@@ -253,12 +271,28 @@ class AlfredTUI:
         return static_height
 
     def _input_listener(self, data: str) -> dict[str, Any] | None:
-        """Intercept input for queue navigation and cancellation.
+        """Intercept input for history navigation, shortcuts, and queue management.
 
         Returns:
             {"consume": True} to block input from reaching input field,
             None to allow input to pass through.
         """
+        # Ctrl+U: Clear from cursor to start of line
+        if data == "\x15" and self._basic_handler.on_clear_line():  # Ctrl+U
+            return {"consume": True}
+
+        # Ctrl+A: Move to start of line
+        if data == "\x01" and self._basic_handler.on_start_of_line():  # Ctrl+A
+            return {"consume": True}
+
+        # Ctrl+E: Move to end of line
+        if data == "\x05" and self._basic_handler.on_end_of_line():  # Ctrl+E
+            return {"consume": True}
+
+        # Ctrl+L: Clear screen
+        if data == "\x0c":  # Ctrl+L
+            self.terminal.write("\x1b[2J\x1b[H")
+            return {"consume": True}
 
         # ESC clears the queue
         if matches_key(data, Key.escape):
@@ -271,26 +305,33 @@ class AlfredTUI:
                 return {"consume": True}
             return None
 
-        # UP arrow on first line -> enter queue history or navigate up
+        # UP arrow: message queue navigation first, then history
         if matches_key(data, Key.up):
             cursor_line = self._get_input_cursor_line()
-            if cursor_line == 0 and self._message_queue:
-                if self._queue_nav_index == -1:
-                    # Save current draft and enter queue at end
-                    self._queue_draft = self.input_field.get_value()
-                    self._queue_nav_index = len(self._message_queue) - 1
-                elif self._queue_nav_index > 0:
-                    # Navigate up in queue
-                    self._queue_nav_index -= 1
-                else:
-                    return {"consume": True}  # Already at top
+            if cursor_line == 0:
+                # First try message queue navigation
+                if self._message_queue:
+                    if self._queue_nav_index == -1:
+                        # Save current draft and enter queue at end
+                        self._queue_draft = self.input_field.get_value()
+                        self._queue_nav_index = len(self._message_queue) - 1
+                    elif self._queue_nav_index > 0:
+                        # Navigate up in queue
+                        self._queue_nav_index -= 1
+                    else:
+                        return {"consume": True}  # Already at top
 
-                self.input_field.set_value(self._message_queue[self._queue_nav_index])
-                return {"consume": True}
+                    self.input_field.set_value(self._message_queue[self._queue_nav_index])
+                    return {"consume": True}
+
+                # Fall back to history navigation
+                if self._history_handler.on_history_up():
+                    return {"consume": True}
             return None
 
-        # DOWN arrow -> navigate down in queue or exit to draft
+        # DOWN arrow: message queue navigation first, then history
         if matches_key(data, Key.down):
+            # First try message queue navigation
             if self._queue_nav_index != -1:
                 if self._queue_nav_index < len(self._message_queue) - 1:
                     # Navigate down in queue
@@ -301,6 +342,11 @@ class AlfredTUI:
                     self._queue_nav_index = -1
                     self.input_field.set_value(self._queue_draft)
                 return {"consume": True}
+
+            # Fall back to history navigation
+            if self._history_handler.on_history_down():
+                return {"consume": True}
+
             return None
 
         # Any other key resets queue navigation
@@ -395,6 +441,9 @@ class AlfredTUI:
             use_markdown=self.alfred.config.use_markdown_rendering,
         )
         self.conversation.add_child(user_msg)
+
+        # Add to history for future recall
+        self._history_manager.add(text)
 
         # Start sending state immediately for throbber feedback
         self._is_sending = True

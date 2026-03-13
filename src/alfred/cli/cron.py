@@ -562,10 +562,7 @@ async def show_history(
             status = record.get("status", "")
             status_color = status_colors.get(status, "white")
             duration_ms = record.get("duration_ms", 0)
-            if duration_ms < 1000:
-                duration = f"{duration_ms}ms"
-            else:
-                duration = f"{duration_ms // 1000}s"
+            duration = f"{duration_ms}ms" if duration_ms < 1000 else f"{duration_ms // 1000}s"
             memory = f"{record.get('memory_peak_mb')}MB" if record.get("memory_peak_mb") else "—"
             table.add_row(
                 record.get("started_at", "")[:16],  # YYYY-MM-DD HH:MM
