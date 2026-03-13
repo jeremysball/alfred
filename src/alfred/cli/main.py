@@ -374,15 +374,13 @@ async def _run_chat(alfred: "Alfred", toast_manager: "ToastManager | None") -> N
     from alfred.cron.store import CronStore
     from alfred.interfaces.pypitui_cli import AlfredTUI
 
-    # Start daemon if not running (but don't restart if already running)
+    # Start daemon in background if not running (non-blocking, fire-and-forget)
     client = get_socket_client()
     await client.start()
     if not client.is_connected:
-        # Daemon not running, try to start it
+        # Daemon not running, start it without blocking TUI
         from alfred.cli.cron import start_daemon_if_needed
-        if start_daemon_if_needed():
-            console.print("[dim]Starting background daemon...[/dim]")
-            await asyncio.sleep(0.5)  # Give daemon time to start
+        start_daemon_if_needed()
     await client.stop()
 
     # Create scheduler for socket handlers
