@@ -176,8 +176,13 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "basedpyright" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
     { name = "types-aiofiles" },
     { name = "types-croniter" },
     { name = "types-psutil" },
@@ -221,8 +226,13 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "basedpyright", specifier = ">=1.38.2" },
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "pre-commit", specifier = ">=4.5.1" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-asyncio", specifier = ">=1.3.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.15.1" },
     { name = "types-aiofiles", specifier = ">=25.1.0.20251011" },
     { name = "types-croniter", specifier = ">=6.0.0.20250809" },
     { name = "types-psutil", specifier = ">=7.2.2.20260130" },
@@ -1507,7 +1517,7 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.4.2"
+version = "0.4.3"
 source = { editable = "../pypitui" }
 dependencies = [
     { name = "wcwidth" },
