@@ -304,8 +304,9 @@ class CronScheduler:
         except Exception as e:
             raise ValueError(f"Failed to compile job code: {e}") from e
 
-        # Check for run function by examining bytecode
-        namespace: dict[str, Any] = {"__builtins__": {}}
+        # Check for run function by executing code
+        # Use fresh namespace with full builtins to allow imports
+        namespace: dict[str, Any] = {}
         exec(compiled, namespace)  # noqa: S102
 
         if "run" not in namespace:

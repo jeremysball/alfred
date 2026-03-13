@@ -84,7 +84,27 @@ class BlockingCallVisitor(ast.NodeVisitor):
         if func_name:
             # Check for blocking patterns
             for pattern, suggestion in self.BLOCKING_PATTERNS.items():
-                if pattern in func_name or func_name.endswith(pattern.split(".")[-1]):
+                # Match pattern against function name:
+                # - Exact match: "time.sleep" matches "time.sleep"
+                # - Prefix match: "urllib.request" matches "urllib.request.urlopen"
+                # - Suffix match: "sleep" matches "time.sleep"
+                # But NOT substring: "time.sleep" should NOT match "asyncio.sleep"
+                func_parts = func_name.split(".")
+
+                is_match = False
+                if "." in pattern:
+                    # Multi-part pattern: match as prefix or exact
+                    # e.g., "time.sleep" matches "time.sleep" or starts with "time.sleep."
+                    # e.g., "urllib.request" matches "urllib.request" or "urllib.request.urlopen"
+                    if func_name == pattern or func_name.startswith(pattern + "."):
+                        is_match = True
+                else:
+                    # Single-part pattern: match last component only
+                    # e.g., "open" matches "open" or "os.open" but NOT "opener"
+                    if func_parts[-1] == pattern:
+                        is_match = True
+
+                if is_match:
                     self.errors.append(
                         JobLinterError(
                             f"Blocking call detected: {func_name}()",
