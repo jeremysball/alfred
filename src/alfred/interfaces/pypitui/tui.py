@@ -771,9 +771,6 @@ class AlfredTUI:
 
                 # Handle other input
                 if data:
-                    # Any other key resets Ctrl-C state
-                    if self._ctrl_c_pending:
-                        self._reset_ctrl_c_state()
                     self.tui.handle_input(data)
 
                 # Throbber animation (marks render needed on change)
