@@ -179,7 +179,8 @@ class CronScheduler:
             Job ID (pending approval)
 
         Raises:
-            ValueError: If code fails validation (compile error, missing run function, or lint errors)
+            ValueError: If code fails validation (compile error, missing run function,
+                or lint errors)
         """
         # Validate code compiles and has run() function before saving
         self._validate_job_code(code)

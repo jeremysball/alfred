@@ -90,8 +90,8 @@ class TestSessionSummarizerSQLite:
             )
             await db.execute(
                 """
-                INSERT INTO session_summaries 
-                (summary_id, session_id, message_count, first_message_idx, last_message_idx, 
+                INSERT INTO session_summaries
+                (summary_id, session_id, message_count, first_message_idx, last_message_idx,
                  summary_text, embedding, version)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,

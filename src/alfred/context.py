@@ -333,9 +333,12 @@ class ContextBuilder:
             sim_pct = int(sim * 100)
             scr = scores.get(memory.entry_id, 0.0)
             scr_pct = int(scr * 100)
-            lines.append(
-                f"- [{date}] {prefix}: {content} (sim: {sim_pct}%, score: {scr_pct}%, id: {memory.entry_id})"
+            entry_id = memory.entry_id
+            line = (
+                f"- [{date}] {prefix}: {content} "
+                f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
             )
+            lines.append(line)
 
         return "\n".join(lines)
 
@@ -382,7 +385,11 @@ class ContextBuilder:
             sim_pct = int(sim * 100)
             scr = scores.get(memory.entry_id, 0.0)
             scr_pct = int(scr * 100)
-            line = f"- [{date}] {prefix}: {content} (sim: {sim_pct}%, score: {scr_pct}%, id: {memory.entry_id})"
+            entry_id = memory.entry_id
+            line = (
+                f"- [{date}] {prefix}: {content} "
+                f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
+            )
             line_tokens = approximate_tokens(line)
 
             if current_tokens + line_tokens > available_for_memories:

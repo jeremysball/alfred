@@ -43,7 +43,7 @@ class TestMessageEmbeddingsTable:
         # Insert message embedding
         await db.execute(
             """
-            INSERT INTO message_embeddings 
+            INSERT INTO message_embeddings
             (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
@@ -68,7 +68,7 @@ class TestMessageEmbeddingsTable:
         with pytest.raises(Exception):
             await db.execute(
                 """
-                INSERT INTO message_embeddings 
+                INSERT INTO message_embeddings
                 (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
@@ -88,7 +88,7 @@ class TestMessageEmbeddingsTable:
         )
         await db.execute(
             """
-            INSERT INTO message_embeddings 
+            INSERT INTO message_embeddings
             (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
             VALUES (?, ?, ?, ?, ?, ?)
             """,

@@ -24,7 +24,7 @@ class TestCronToolsEndToEnd:
     @pytest.fixture
     async def tools_system(self, tmp_path):
         """Create a complete system with tools connected via socket.
-        
+
         Returns:
             Dict with tools, scheduler, and cleanup function
         """
