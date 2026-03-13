@@ -294,6 +294,22 @@ class AlfredTUI:
             self.terminal.write("\x1b[2J\x1b[H")
             return {"consume": True}
 
+        # Ctrl+6 or Ctrl+^: Vim-style start of line
+        if data == "\x1e" and self._basic_handler.on_vim_start_of_line():  # Ctrl+6/^
+            return {"consume": True}
+
+        # Ctrl+4 or Ctrl+$: Vim-style end of line
+        if data == "\x1c" and self._basic_handler.on_vim_end_of_line():  # Ctrl+4/$
+            return {"consume": True}
+
+        # Ctrl+Left: Move word left
+        if data == "\x1b[1;5D" and self._basic_handler.on_word_left():
+            return {"consume": True}
+
+        # Ctrl+Right: Move word right
+        if data == "\x1b[1;5C" and self._basic_handler.on_word_right():
+            return {"consume": True}
+
         # ESC clears the queue
         if matches_key(data, Key.escape):
             if self._message_queue:

@@ -150,6 +150,103 @@ class TestBasicShortcuts:
         mock_input.set_cursor_pos.assert_called_once_with(9)
 
 
+class TestWordNavigation:
+    """Test word-by-word navigation."""
+
+    def test_word_left_moves_to_previous_word(self) -> None:
+        """Test Ctrl+Left moves to start of previous word."""
+        from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler
+
+        mock_input = MagicMock()
+        mock_input.get_value.return_value = "hello world test"
+        mock_input._cursor_pos = 16  # Cursor at end (after "test")
+        mock_input.set_cursor_pos = MagicMock()
+
+        handler = BasicKeyHandler(mock_input)
+        result = handler.on_word_left()
+
+        assert result is True
+        mock_input.set_cursor_pos.assert_called_once_with(12)  # Start of "test"
+
+    def test_word_left_at_start_returns_false(self) -> None:
+        """Test Ctrl+Left at start of line returns False."""
+        from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler
+
+        mock_input = MagicMock()
+        mock_input.get_value.return_value = "hello world"
+        mock_input._cursor_pos = 0
+        mock_input.set_cursor_pos = MagicMock()
+
+        handler = BasicKeyHandler(mock_input)
+        result = handler.on_word_left()
+
+        assert result is False
+        mock_input.set_cursor_pos.assert_not_called()
+
+    def test_word_right_moves_to_next_word(self) -> None:
+        """Test Ctrl+Right moves to end of current/next word."""
+        from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler
+
+        mock_input = MagicMock()
+        mock_input.get_value.return_value = "hello world test"
+        mock_input._cursor_pos = 0  # Cursor at start
+        mock_input.set_cursor_pos = MagicMock()
+
+        handler = BasicKeyHandler(mock_input)
+        result = handler.on_word_right()
+
+        assert result is True
+        mock_input.set_cursor_pos.assert_called_once_with(5)  # After "hello"
+
+    def test_word_right_at_end_returns_false(self) -> None:
+        """Test Ctrl+Right at end of line returns False."""
+        from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler
+
+        mock_input = MagicMock()
+        mock_input.get_value.return_value = "hello world"
+        mock_input._cursor_pos = 11  # Cursor at end
+        mock_input.set_cursor_pos = MagicMock()
+
+        handler = BasicKeyHandler(mock_input)
+        result = handler.on_word_right()
+
+        assert result is False
+        mock_input.set_cursor_pos.assert_not_called()
+
+
+class TestVimShortcuts:
+    """Test vim-style keyboard shortcuts."""
+
+    def test_vim_start_of_line(self) -> None:
+        """Test Ctrl+6/^ moves cursor to start of line."""
+        from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler
+
+        mock_input = MagicMock()
+        mock_input._cursor_pos = 10
+        mock_input.set_cursor_pos = MagicMock()
+
+        handler = BasicKeyHandler(mock_input)
+        result = handler.on_vim_start_of_line()
+
+        assert result is True
+        mock_input.set_cursor_pos.assert_called_once_with(0)
+
+    def test_vim_end_of_line(self) -> None:
+        """Test Ctrl+4/$ moves cursor to end of line."""
+        from alfred.interfaces.pypitui.key_bindings import BasicKeyHandler
+
+        mock_input = MagicMock()
+        mock_input.get_value.return_value = "test text"
+        mock_input._cursor_pos = 2
+        mock_input.set_cursor_pos = MagicMock()
+
+        handler = BasicKeyHandler(mock_input)
+        result = handler.on_vim_end_of_line()
+
+        assert result is True
+        mock_input.set_cursor_pos.assert_called_once_with(9)
+
+
 class TestShortcutHelp:
     """Test shortcut help display."""
 
@@ -164,3 +261,4 @@ class TestShortcutHelp:
         assert "Ctrl+L" in help_text
         assert "Ctrl+U" in help_text
         assert "Ctrl+A" in help_text or "Ctrl+A/E" in help_text
+        assert "Ctrl+←/→" in help_text or "word" in help_text.lower()
