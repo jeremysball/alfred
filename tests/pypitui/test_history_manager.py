@@ -5,6 +5,7 @@ All tests use shared fixtures from conftest.py.
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -254,5 +255,6 @@ def test_entry_has_timestamp(history_manager: HistoryManager) -> None:
 
     entry = history_manager._history[0]
     assert isinstance(entry.timestamp, datetime)
-    # Should be very recent
-    assert (datetime.now() - entry.timestamp).total_seconds() < 1
+    # Should be very recent (timezone-aware UTC)
+    assert entry.timestamp.tzinfo is not None
+    assert (datetime.now(UTC) - entry.timestamp).total_seconds() < 1
