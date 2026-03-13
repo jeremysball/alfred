@@ -369,9 +369,21 @@ async def _run_interactive() -> None:
 async def _run_chat(alfred: "Alfred", toast_manager: "ToastManager | None") -> None:
     """Run interactive CLI chat."""
     from alfred.cron.scheduler import CronScheduler
+    from alfred.cron.socket_client import get_socket_client
     from alfred.cron.socket_server import SocketServer
     from alfred.cron.store import CronStore
     from alfred.interfaces.pypitui_cli import AlfredTUI
+
+    # Start daemon if not running (but don't restart if already running)
+    client = get_socket_client()
+    await client.start()
+    if not client.is_connected:
+        # Daemon not running, try to start it
+        from alfred.cli.cron import start_daemon_if_needed
+        if start_daemon_if_needed():
+            console.print("[dim]Starting background daemon...[/dim]")
+            await asyncio.sleep(0.5)  # Give daemon time to start
+    await client.stop()
 
     # Create scheduler for socket handlers
     scheduler = CronScheduler(
