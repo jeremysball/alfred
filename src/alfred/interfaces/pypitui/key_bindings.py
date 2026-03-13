@@ -65,7 +65,7 @@ class HistoryKeyHandler:
         """
         # Only handle if we're currently navigating history (index > 0)
         # or if history is not empty (we might return to saved input)
-        if self._history._index == 0 and self._history.is_empty:
+        if not self._history.is_navigating and self._history.is_empty:
             return False
 
         new_text = self._history.navigate_down()

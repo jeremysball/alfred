@@ -248,11 +248,12 @@ def test_entry_has_working_dir(history_manager: HistoryManager, temp_work_dir: P
 
 def test_entry_has_timestamp(history_manager: HistoryManager) -> None:
     """Test that entries store a timestamp."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     history_manager.add("test message")
 
     entry = history_manager._history[0]
     assert isinstance(entry.timestamp, datetime)
-    # Should be very recent
-    assert (datetime.now() - entry.timestamp).total_seconds() < 1
+    # Should be very recent (timezone-aware UTC)
+    assert entry.timestamp.tzinfo is not None
+    assert (datetime.now(UTC) - entry.timestamp).total_seconds() < 1

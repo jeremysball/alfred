@@ -8,11 +8,14 @@ History is scoped to the working directory and persists across sessions.
 from __future__ import annotations
 
 import hashlib
+import logging
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
+
+logger = logging.getLogger(__name__)
 
 # Type aliases for clarity (Python 3.12+ syntax)
 type HistoryIndex = int
@@ -125,9 +128,8 @@ class HistoryManager:
                     ON history(dir_hash)
                 """)
                 conn.commit()
-        except sqlite3.Error:
-            # Database error - will use memory-only mode
-            pass
+        except sqlite3.Error as e:
+            logger.warning(f"History database init error: {e}")
 
     def _load_cache(self) -> None:
         """Load history from SQLite for this working directory."""
@@ -150,8 +152,8 @@ class HistoryManager:
                 self._history = [
                     HistoryEntry.from_row(row) for row in reversed(rows)
                 ]
-        except sqlite3.Error:
-            # Database error, start fresh
+        except sqlite3.Error as e:
+            logger.warning(f"History database load error: {e}")
             self._history = []
 
     def _save_cache(self) -> None:
@@ -176,9 +178,8 @@ class HistoryManager:
                     )
 
                 conn.commit()
-        except sqlite3.Error:
-            # Silently fail if DB unavailable (graceful degradation)
-            pass
+        except sqlite3.Error as e:
+            logger.warning(f"History database save error: {e}")
 
     def add(self, message: MessageText) -> None:
         """Add message to history and persist to cache.
@@ -201,7 +202,7 @@ class HistoryManager:
         self._history.append(
             HistoryEntry(
                 message=stripped,
-                timestamp=datetime.now(),
+                timestamp=datetime.now(UTC),
                 working_dir=str(self._working_dir),
             )
         )
@@ -265,8 +266,8 @@ class HistoryManager:
                     "DELETE FROM history WHERE dir_hash = ?", (dir_hash,)
                 )
                 conn.commit()
-        except sqlite3.Error:
-            pass  # Ignore deletion errors
+        except sqlite3.Error as e:
+            logger.warning(f"History database clear error: {e}")
 
     @property
     def size(self) -> int:
@@ -277,3 +278,23 @@ class HistoryManager:
     def is_empty(self) -> bool:
         """True if no history entries."""
         return len(self._history) == 0
+
+    @property
+    def is_navigating(self) -> bool:
+        """True if currently navigating history (not at position 0)."""
+        return self._index > 0
+
+    def close(self) -> None:
+        """Close any resources held by the manager.
+
+        Currently a no-op since SQLite connections are context-managed,
+        but provided for future-proofing and explicit cleanup.
+        """
+
+    def __enter__(self) -> HistoryManager:
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """Exit context manager and cleanup resources."""
+        self.close()
