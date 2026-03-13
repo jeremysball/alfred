@@ -135,6 +135,78 @@ async def run(
         assert any("syntax" in str(e).lower() for e in errors)
 
 
+class TestAsyncioToThread:
+    """Test that asyncio.to_thread() wrapper allows blocking calls."""
+
+    def test_time_sleep_in_to_thread_allowed(self):
+        """Should allow time.sleep() when wrapped in asyncio.to_thread()."""
+        code = '''
+import asyncio
+import time
+
+async def run():
+    await asyncio.to_thread(time.sleep, 5)
+'''
+        errors = lint_job_code(code)
+        sleep_errors = [e for e in errors if "time.sleep" in str(e)]
+        assert len(sleep_errors) == 0
+
+    def test_subprocess_run_in_to_thread_allowed(self):
+        """Should allow subprocess.run() when wrapped in asyncio.to_thread()."""
+        code = '''
+import asyncio
+import subprocess
+
+async def run():
+    result = await asyncio.to_thread(subprocess.run, ['echo', 'hello'], capture_output=True)
+'''
+        errors = lint_job_code(code)
+        subprocess_errors = [e for e in errors if "subprocess.run" in str(e)]
+        assert len(subprocess_errors) == 0
+
+    def test_file_open_in_to_thread_allowed(self):
+        """Should allow open() when wrapped in asyncio.to_thread()."""
+        code = '''
+import asyncio
+
+async def run():
+    content = await asyncio.to_thread(lambda: open('/tmp/file.txt').read())
+'''
+        errors = lint_job_code(code)
+        open_errors = [e for e in errors if "open" in str(e).lower() and "aiofiles" in str(e)]
+        assert len(open_errors) == 0
+
+    def test_requests_in_to_thread_allowed(self):
+        """Should allow requests.get() when wrapped in asyncio.to_thread()."""
+        code = '''
+import asyncio
+import requests
+
+async def run():
+    response = await asyncio.to_thread(requests.get, 'https://example.com')
+'''
+        errors = lint_job_code(code)
+        request_errors = [e for e in errors if "requests" in str(e)]
+        assert len(request_errors) == 0
+
+    def test_unwrapped_call_still_blocked(self):
+        """Should still flag unwrapped blocking calls."""
+        code = '''
+import asyncio
+import time
+
+async def run():
+    # This one is wrapped (allowed)
+    await asyncio.to_thread(time.sleep, 1)
+    # This one is not (blocked)
+    time.sleep(5)
+'''
+        errors = lint_job_code(code)
+        sleep_errors = [e for e in errors if "time.sleep" in str(e)]
+        # Should have exactly 1 error for the unwrapped call
+        assert len(sleep_errors) == 1
+
+
 class TestEdgeCases:
     """Test edge cases."""
 

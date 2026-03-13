@@ -52,6 +52,7 @@ class BlockingCallVisitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.errors: list[JobLinterError] = []
         self.in_async_function = False
+        self.in_to_thread = False  # Track if we're inside asyncio.to_thread() call
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """Enter async function scope."""
@@ -81,6 +82,20 @@ class BlockingCallVisitor(ast.NodeVisitor):
 
         # Get the full function name
         func_name = self._get_func_name(node.func)
+
+        # Check if this is asyncio.to_thread() - which makes blocking calls safe
+        if func_name in ("asyncio.to_thread", "to_thread"):
+            old_in_to_thread = self.in_to_thread
+            self.in_to_thread = True
+            self.generic_visit(node)
+            self.in_to_thread = old_in_to_thread
+            return
+
+        # Skip flagging if we're inside asyncio.to_thread() - the blocking call is wrapped
+        if self.in_to_thread:
+            self.generic_visit(node)
+            return
+
         if func_name:
             # Check for blocking patterns
             for pattern, suggestion in self.BLOCKING_PATTERNS.items():
