@@ -16,6 +16,7 @@ _alfred() {
                 "daemon" \
                 "cron" \
                 "memory" \
+                "config" \
                 "--telegram" \
                 "-t" \
                 "--log" \
@@ -42,11 +43,9 @@ _alfred() {
                         "reject" \
                         "history" \
                     ;;
-                memory)
-                    _values "memory subcommands" \
-                        "migrate" \
-                        "status" \
-                        "prune" \
+                config)
+                    _values "config subcommands" \
+                        "update" \
                     ;;
             esac
             ;;

@@ -1,17 +1,13 @@
 """Completion menu as a proper pypitui Component."""
 
-import re
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.ansi import RESET, REVERSE
 from pypitui import Component
+from pypitui.utils import visible_width
 
 if TYPE_CHECKING:
     pass
-
-
-# ANSI escape pattern for stripping codes
-ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 
 class CompletionMenuComponent(Component):
@@ -124,21 +120,27 @@ class CompletionMenuComponent(Component):
 
         if description:
             desc_text = f"  {description}"
-            value_space = content_width - len(desc_text)
+            value_space = content_width - visible_width(desc_text)
             if value_space <= 0:
                 value_space = content_width
                 desc_text = ""
-            if value_space < len(value):
+            if value_space < visible_width(value):
+                # Truncate value, preserving ANSI codes
                 value_display = value[: max(0, value_space - 1)] + "…"
             else:
                 value_display = value
-            content = f" {value_display:<{max(1, value_space)}}{desc_text} "
+            # Manual padding since ljust doesn't handle ANSI codes
+            padding = max(0, value_space - visible_width(value_display))
+            content = f" {value_display}{' ' * padding}{desc_text} "
         else:
-            if len(value) > content_width:
+            if visible_width(value) > content_width:
+                # Truncate value, preserving ANSI codes
                 value_display = value[: max(0, content_width - 1)] + "…"
             else:
                 value_display = value
-            content = f" {value_display:<{max(1, content_width)}} "
+            # Manual padding since ljust doesn't handle ANSI codes
+            padding = max(0, content_width - visible_width(value_display))
+            content = f" {value_display}{' ' * padding} "
 
         if is_selected:
             content = f"{REVERSE}{content}{RESET}"

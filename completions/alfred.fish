@@ -14,6 +14,7 @@ complete -c alfred -l help -d "Show help"
 complete -c alfred -n "__fish_use_subcommand" -a "daemon" -d "Manage the background daemon process"
 complete -c alfred -n "__fish_use_subcommand" -a "cron" -d "Manage scheduled cron jobs"
 complete -c alfred -n "__fish_use_subcommand" -a "memory" -d "Memory system management"
+complete -c alfred -n "__fish_use_subcommand" -a "config" -d "config"
 complete -c alfred -n "__fish_use_subcommand" -a "--telegram" -d "--telegram"
 complete -c alfred -n "__fish_use_subcommand" -a "-t" -d "-t"
 complete -c alfred -n "__fish_use_subcommand" -a "--log" -d "--log"
@@ -22,6 +23,7 @@ complete -c alfred -n "__fish_use_subcommand" -a "--install-completions" -d "--i
 complete -c alfred -n "__fish_use_subcommand" -a "--help" -d "--help"
 
 # Subcommand completions
+complete -c alfred -n "__fish_seen_subcommand_from config" -a "update" -d "update"
 complete -c alfred -n "__fish_seen_subcommand_from cron" -a "list" -d "List all scheduled jobs"
 complete -c alfred -n "__fish_seen_subcommand_from cron" -a "submit" -d "Submit a new job for review"
 complete -c alfred -n "__fish_seen_subcommand_from cron" -a "review" -d "Review pending jobs"
@@ -33,9 +35,6 @@ complete -c alfred -n "__fish_seen_subcommand_from daemon" -a "stop" -d "Stop th
 complete -c alfred -n "__fish_seen_subcommand_from daemon" -a "status" -d "Check daemon status"
 complete -c alfred -n "__fish_seen_subcommand_from daemon" -a "reload" -d "Reload daemon configuration"
 complete -c alfred -n "__fish_seen_subcommand_from daemon" -a "logs" -d "Open log file in $PAGER or $EDITOR"
-complete -c alfred -n "__fish_seen_subcommand_from memory" -a "migrate" -d "Migrate memory storage"
-complete -c alfred -n "__fish_seen_subcommand_from memory" -a "status" -d "Show memory status"
-complete -c alfred -n "__fish_seen_subcommand_from memory" -a "prune" -d "Prune expired memories"
 
 # Command-specific options
 complete -c alfred -n "__fish_seen_subcommand_from daemon; and not __fish_seen_subcommand_from stop status reload logs" -l bg -d "Run in background (daemonize)"

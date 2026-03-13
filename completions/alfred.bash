@@ -19,16 +19,16 @@ _alfred_completion() {
 
     case "$cmd_path" in
         "")
-            opts="--help --install-completions --log --telegram -l -t cron daemon memory"
+            opts="--help --install-completions --log --telegram -l -t config cron daemon memory"
+            ;;
+        config)
+            opts="update"
             ;;
         cron)
             opts="approve history list reject review submit"
             ;;
         daemon)
             opts="logs reload start status stop"
-            ;;
-        memory)
-            opts="migrate prune status"
             ;;
         *)
             opts=""
