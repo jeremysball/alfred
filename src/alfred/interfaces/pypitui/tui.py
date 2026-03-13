@@ -78,6 +78,9 @@ class AlfredTUI:
         self.input_field = WrappedInput(placeholder="Message Alfred...")
         self.input_field.on_submit = self._on_submit
 
+        # Add hook to reset Ctrl+C state on any keypress
+        self.input_field.add_post_input_hook(self._reset_ctrl_c_state)
+
         # Wire up completion with multiple triggers (longest match wins)
         completion = self.input_field.setup_completion(self.completion_menu)
         completion.register("/", self._command_provider)
