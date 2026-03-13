@@ -207,6 +207,15 @@ def mock_alfred() -> MagicMock:
     mock.model_name = "test-model"
     mock.config.use_markdown_rendering = True
     mock.config.data_dir = Path("/tmp/test")
+
+    # Mock async chat_stream for _send_message tests
+    async def mock_chat_stream(*args, **kwargs):
+        """Yield a simple response."""
+        yield "Hello"
+        yield " "
+        yield "world!"
+
+    mock.chat_stream = mock_chat_stream
     return mock
 
 
