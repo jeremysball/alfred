@@ -38,7 +38,7 @@ class TestTemplateManagerInit:
     def test_template_dir_not_found(self, tmp_path: Path) -> None:
         """Handle missing template directory gracefully."""
         # Patch to simulate no templates found
-        with patch.object(TemplateManager, '_resolve_template_dir', return_value=None):
+        with patch.object(TemplateManager, "_resolve_template_dir", return_value=None):
             manager = TemplateManager(tmp_path)
             assert manager._template_dir is None
             with pytest.raises(FileNotFoundError, match="No template directory available"):

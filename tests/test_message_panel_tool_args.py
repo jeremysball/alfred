@@ -1,6 +1,5 @@
 """Tests for tool arguments display in message panel (PRD #101 Milestone 3)."""
 
-
 import pytest
 
 from alfred.interfaces.pypitui.message_panel import MessagePanel

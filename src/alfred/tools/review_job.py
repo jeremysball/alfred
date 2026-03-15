@@ -156,10 +156,7 @@ class ReviewJobTool(Tool):
                 return job
 
         # Try substring name match (must be unique)
-        matches = [
-            j for j in jobs
-            if identifier_lower in j.get("name", "").lower()
-        ]
+        matches = [j for j in jobs if identifier_lower in j.get("name", "").lower()]
         if len(matches) == 1:
             return matches[0]
 

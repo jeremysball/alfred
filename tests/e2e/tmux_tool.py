@@ -60,10 +60,20 @@ class TerminalSession:
         subprocess.run(["tmux", "kill-session", "-t", self.name], capture_output=True)
 
         # Create new tmux session
-        subprocess.run([
-            "tmux", "new-session", "-d", "-s", self.name,
-            "-x", str(self.cols), "-y", str(self.rows)
-        ], capture_output=True)
+        subprocess.run(
+            [
+                "tmux",
+                "new-session",
+                "-d",
+                "-s",
+                self.name,
+                "-x",
+                str(self.cols),
+                "-y",
+                str(self.rows),
+            ],
+            capture_output=True,
+        )
 
         # Clear screen for clean start
         subprocess.run(["tmux", "send-keys", "-t", self.name, "C-l"], check=True)
@@ -71,10 +81,9 @@ class TerminalSession:
 
         # Start ttyd attached to tmux session
         self.ttyd_proc = subprocess.Popen(
-            ["ttyd", "--port", str(self.port), "--writable",
-             "tmux", "attach", "-t", self.name],
+            ["ttyd", "--port", str(self.port), "--writable", "tmux", "attach", "-t", self.name],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
 
         # Wait for ttyd to be ready
@@ -128,21 +137,20 @@ class TerminalSession:
             Plain text from terminal
         """
         result = subprocess.run(
-            ["tmux", "capture-pane", "-p", "-t", self.name],
-            capture_output=True, text=True
+            ["tmux", "capture-pane", "-p", "-t", self.name], capture_output=True, text=True
         )
         raw = result.stdout
 
         # Strip ANSI escape sequences
-        pattern = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07')
-        plain = pattern.sub('', raw)
+        pattern = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07")
+        plain = pattern.sub("", raw)
 
         # Clean up trailing whitespace and empty lines
-        lines = [line.rstrip() for line in plain.split('\n')]
+        lines = [line.rstrip() for line in plain.split("\n")]
         while lines and not lines[-1]:
             lines.pop()
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def capture_raw(self) -> str:
         """
@@ -152,8 +160,7 @@ class TerminalSession:
             Raw text with ANSI codes preserved
         """
         result = subprocess.run(
-            ["tmux", "capture-pane", "-e", "-p", "-t", self.name],
-            capture_output=True, text=True
+            ["tmux", "capture-pane", "-e", "-p", "-t", self.name], capture_output=True, text=True
         )
         return result.stdout
 
@@ -177,12 +184,19 @@ class TerminalSession:
 
         # Take screenshot with playwright
         result = subprocess.run(
-            ["npx", "playwright", "screenshot",
-             "--viewport-size", viewport,
-             "--wait-for-timeout", "1500",
-             f"http://localhost:{self.port}",
-             filename],
-            capture_output=True, text=True
+            [
+                "npx",
+                "playwright",
+                "screenshot",
+                "--viewport-size",
+                viewport,
+                "--wait-for-timeout",
+                "1500",
+                f"http://localhost:{self.port}",
+                filename,
+            ],
+            capture_output=True,
+            text=True,
         )
 
         if result.returncode != 0:
@@ -230,15 +244,21 @@ class TerminalSession:
 
         result = subprocess.run(
             [
-                "curl", "-s", "-X", "POST",
+                "curl",
+                "-s",
+                "-X",
+                "POST",
                 f"https://api.imgbb.com/1/upload?key={api_key}",
-                "-F", f"image=@{filepath}"
+                "-F",
+                f"image=@{filepath}",
             ],
-            capture_output=True, text=True
+            capture_output=True,
+            text=True,
         )
 
         # Parse JSON response
         import json
+
         try:
             data = json.loads(result.stdout)
             if data.get("success"):

@@ -38,11 +38,7 @@ class TestEditTool:
 
     def test_edit_simple_replacement(self, edit_tool, temp_file):
         """Test simple text replacement."""
-        result = edit_tool.execute(
-            path=temp_file,
-            old_text="Line 2",
-            new_text="Modified Line 2"
-        )
+        result = edit_tool.execute(path=temp_file, old_text="Line 2", new_text="Modified Line 2")
 
         assert result["success"] is True
         assert result["edited"] is True
@@ -56,9 +52,7 @@ class TestEditTool:
     def test_edit_multiline_replacement(self, edit_tool, temp_file):
         """Test replacing multiple lines."""
         result = edit_tool.execute(
-            path=temp_file,
-            old_text="Line 1\nLine 2",
-            new_text="Replaced\nLines"
+            path=temp_file, old_text="Line 1\nLine 2", new_text="Replaced\nLines"
         )
 
         assert result["success"] is True
@@ -76,11 +70,7 @@ class TestEditTool:
         with open(temp_file, "w") as f:
             f.write("dup\ndup\ndup\n")
 
-        edit_tool.execute(
-            path=temp_file,
-            old_text="dup",
-            new_text="unique"
-        )
+        edit_tool.execute(path=temp_file, old_text="dup", new_text="unique")
 
         with open(temp_file) as f:
             content = f.read()
@@ -91,11 +81,7 @@ class TestEditTool:
 
     def test_edit_nonexistent_file(self, edit_tool):
         """Test editing a file that doesn't exist."""
-        result = edit_tool.execute(
-            path="/nonexistent/file.txt",
-            old_text="old",
-            new_text="new"
-        )
+        result = edit_tool.execute(path="/nonexistent/file.txt", old_text="old", new_text="new")
 
         assert result["success"] is False
         assert "not found" in result.get("error", "").lower()
@@ -103,9 +89,7 @@ class TestEditTool:
     def test_edit_old_text_not_found(self, edit_tool, temp_file):
         """Test when old_text is not in file."""
         result = edit_tool.execute(
-            path=temp_file,
-            old_text="This text does not exist",
-            new_text="New text"
+            path=temp_file, old_text="This text does not exist", new_text="New text"
         )
 
         assert result["success"] is False
@@ -121,7 +105,7 @@ class TestEditTool:
         result = edit_tool.execute(
             path=temp_file,
             old_text="indented line  ",  # trailing spaces
-            new_text="changed"
+            new_text="changed",
         )
 
         assert result["success"] is False  # Should fail - whitespace matters
@@ -131,9 +115,7 @@ class TestEditTool:
         """Test streaming edit."""
         chunks = []
         async for chunk in edit_tool.execute_stream(
-            path=temp_file,
-            old_text="Line 2",
-            new_text="Modified"
+            path=temp_file, old_text="Line 2", new_text="Modified"
         ):
             chunks.append(chunk)
 

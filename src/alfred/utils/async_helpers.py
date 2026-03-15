@@ -38,7 +38,7 @@ def run_async(coro: Any) -> Any:
 
     # There's a running event loop in this thread
     # We need to run the coroutine in a separate thread to avoid blocking
-    def run_in_new_loop(coroutine):
+    def run_in_new_loop(coroutine: Any) -> Any:
         """Run coroutine in a new event loop in the current thread."""
         new_loop = asyncio.new_event_loop()
         try:

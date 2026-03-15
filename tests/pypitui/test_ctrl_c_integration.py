@@ -166,9 +166,9 @@ class TestCtrlCWithMockTerminal:
 
         # Mock the tui.start/stop to track calls
         with (
-            patch.object(tui.tui, 'start') as mock_start,
-            patch.object(tui.tui, 'stop') as mock_stop,
-            patch.object(tui.tui, 'render_frame') as mock_render,
+            patch.object(tui.tui, "start") as mock_start,
+            patch.object(tui.tui, "stop") as mock_stop,
+            patch.object(tui.tui, "render_frame") as mock_render,
         ):
             mock_start.return_value = None
             mock_stop.return_value = None

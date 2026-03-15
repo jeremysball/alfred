@@ -103,9 +103,7 @@ class HistoryManager:
         Returns:
             Truncated SHA256 hash string
         """
-        full_hash: str = hashlib.sha256(
-            str(path.resolve()).encode("utf-8")
-        ).hexdigest()
+        full_hash: str = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()
         return full_hash[: self._HASH_LENGTH]
 
     def _init_db(self) -> None:
@@ -149,9 +147,7 @@ class HistoryManager:
                 )
                 rows = cursor.fetchall()
                 # Reverse to get chronological order
-                self._history = [
-                    HistoryEntry.from_row(row) for row in reversed(rows)
-                ]
+                self._history = [HistoryEntry.from_row(row) for row in reversed(rows)]
         except sqlite3.Error as e:
             logger.warning(f"History database load error: {e}")
             self._history = []
@@ -163,9 +159,7 @@ class HistoryManager:
         try:
             with sqlite3.connect(self._db_path) as conn:
                 # Delete existing entries for this directory
-                _ = conn.execute(
-                    "DELETE FROM history WHERE dir_hash = ?", (dir_hash,)
-                )
+                _ = conn.execute("DELETE FROM history WHERE dir_hash = ?", (dir_hash,))
 
                 # Insert current history
                 for entry in self._history:
@@ -262,9 +256,7 @@ class HistoryManager:
 
         try:
             with sqlite3.connect(self._db_path) as conn:
-                _ = conn.execute(
-                    "DELETE FROM history WHERE dir_hash = ?", (dir_hash,)
-                )
+                _ = conn.execute("DELETE FROM history WHERE dir_hash = ?", (dir_hash,))
                 conn.commit()
         except sqlite3.Error as e:
             logger.warning(f"History database clear error: {e}")

@@ -27,6 +27,7 @@ def reset_registry():
 def temp_workspace():
     """Create a temporary workspace for file operations."""
     import shutil
+
     with tempfile.TemporaryDirectory() as tmpdir:
         original_cwd = os.getcwd()
         # Copy .env file to temp directory
@@ -47,10 +48,7 @@ class TestToolInteractions:
         read_tool = ReadTool()
 
         # Write a file
-        write_result = write_tool.execute(
-            path="test.txt",
-            content="Hello World\nThis is a test\n"
-        )
+        write_result = write_tool.execute(path="test.txt", content="Hello World\nThis is a test\n")
         assert write_result["success"] is True
 
         # Read it back
@@ -65,16 +63,11 @@ class TestToolInteractions:
         read_tool = ReadTool()
 
         # Write initial content
-        write_tool.execute(
-            path="config.txt",
-            content="API_KEY=old_key\nDEBUG=false\n"
-        )
+        write_tool.execute(path="config.txt", content="API_KEY=old_key\nDEBUG=false\n")
 
         # Edit the file
         edit_result = edit_tool.execute(
-            path="config.txt",
-            old_text="API_KEY=old_key",
-            new_text="API_KEY=new_key_123"
+            path="config.txt", old_text="API_KEY=old_key", new_text="API_KEY=new_key_123"
         )
         assert edit_result["success"] is True
 
@@ -90,9 +83,7 @@ class TestToolInteractions:
         read_tool = ReadTool()
 
         # Create file with bash
-        bash_result = bash_tool.execute(
-            command="echo 'Created by bash' > bash_output.txt"
-        )
+        bash_result = bash_tool.execute(command="echo 'Created by bash' > bash_output.txt")
         assert bash_result["success"] is True
 
         # Read the file
@@ -109,40 +100,40 @@ class TestToolInteractions:
         # 1. Create a Python file
         write_tool.execute(
             path="script.py",
-            content='''#!/usr/bin/env python3
+            content="""#!/usr/bin/env python3
 def greet(name):
     print(f"Hello, {name}!")
 
 if __name__ == "__main__":
     greet("World")
-'''
+""",
         )
 
         # 2. Edit to add a new function
         edit_tool.execute(
             path="script.py",
-            old_text='def greet(name):',
+            old_text="def greet(name):",
             new_text='''def greet(name):
     """Greet someone."""
     print(f"Hello, {name}!")
 
 def farewell(name):
     """Say goodbye."""
-    print(f"Goodbye, {name}!")'''
+    print(f"Goodbye, {name}!")''',
         )
 
         # 3. Edit to update main block
         edit_tool.execute(
             path="script.py",
             old_text='    greet("World")',
-            new_text='''    greet("World")
-    farewell("World")'''
+            new_text="""    greet("World")
+    farewell("World")""",
         )
 
         # 4. Verify with read
         content = read_tool.execute(path="script.py")
         assert "farewell" in content
-        assert 'Goodbye' in content
+        assert "Goodbye" in content
 
         # 5. Run with bash
         bash_result = bash_tool.execute(command="python3 script.py")
@@ -290,9 +281,7 @@ class TestStreamingIntegration:
 
         chunks = []
         async for chunk in edit_tool.execute_stream(
-            path="to_edit.txt",
-            old_text="old",
-            new_text="new"
+            path="to_edit.txt", old_text="old", new_text="new"
         ):
             chunks.append(chunk)
 
@@ -301,10 +290,7 @@ class TestStreamingIntegration:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(
-    os.environ.get("SKIP_LLM_TESTS"),
-    reason="Skipping tests that require LLM"
-)
+@pytest.mark.skipif(os.environ.get("SKIP_LLM_TESTS"), reason="Skipping tests that require LLM")
 class TestAgentWithRealLLM:
     """Integration tests requiring real LLM (optional)."""
 
@@ -353,10 +339,9 @@ class TestAgentWithRealLLM:
 
         agent = Agent(llm, registry, max_iterations=3)
 
-        messages = [ChatMessage(
-            role="user",
-            content="Write 'Hello from Agent' to agent_output.txt"
-        )]
+        messages = [
+            ChatMessage(role="user", content="Write 'Hello from Agent' to agent_output.txt")
+        ]
 
         await agent.run(messages)
 

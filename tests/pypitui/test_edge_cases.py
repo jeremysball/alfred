@@ -71,9 +71,7 @@ class TestStreamingErrorHandling:
         assert last._is_error
 
     @pytest.mark.asyncio
-    async def test_streaming_error_clears_streaming_state(
-        self, mock_alfred, mock_terminal
-    ):
+    async def test_streaming_error_clears_streaming_state(self, mock_alfred, mock_terminal):
         """Verify _is_streaming = False even on error."""
         from alfred.interfaces.pypitui.tui import AlfredTUI
 

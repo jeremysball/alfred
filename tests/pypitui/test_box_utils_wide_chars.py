@@ -1,6 +1,5 @@
 """Tests for box_utils with wide characters and emojis."""
 
-
 from pypitui.box_utils import build_bordered_box
 
 
@@ -26,6 +25,7 @@ class TestBoxUtilsWideChars:
         )
         # All lines should be same width
         from pypitui.utils import visible_width
+
         for line in lines:
             assert visible_width(line) == 30, f"Line '{line}' has wrong width"
 
@@ -38,6 +38,7 @@ class TestBoxUtilsWideChars:
         )
         # All lines should have same visible width
         from pypitui.utils import visible_width
+
         for line in lines:
             assert visible_width(line) == 25, "Line has wrong visible width"
 
@@ -51,6 +52,7 @@ class TestBoxUtilsWideChars:
         )
         # Check that content line exists and has correct width
         from pypitui.utils import visible_width
+
         content_line = lines[1]  # Between top and bottom borders
         assert visible_width(content_line) == 20
 
@@ -61,6 +63,7 @@ class TestBoxUtilsWideChars:
             width=30,
         )
         from pypitui.utils import visible_width
+
         for line in lines:
             assert visible_width(line) == 30
 
@@ -72,6 +75,7 @@ class TestBoxUtilsWideChars:
             title="Box 🎉",
         )
         from pypitui.utils import visible_width
+
         # Top border with title should be full width
         assert visible_width(lines[0]) == 25
 
@@ -95,6 +99,7 @@ class TestCompletionMenuWideChars:
 
         # All lines should have consistent visible width
         from pypitui.utils import visible_width
+
         for line in lines:
             assert visible_width(line) == 40, f"Line '{line[:20]}...' has wrong width"
 
@@ -114,6 +119,7 @@ class TestCompletionMenuWideChars:
 
         # Value should be truncated, not overflow
         from pypitui.utils import visible_width
+
         content_line = lines[1]  # First content line
         assert visible_width(content_line) == 30
 
@@ -149,6 +155,7 @@ class TestWrappedInputWideChars:
 
         # With width 8, should have 2 lines (6+3 = 9 chars, but width 6 for emojis)
         from pypitui.utils import visible_width
+
         total_width = sum(visible_width(line) for line in lines)
         # Should cover all content
         assert total_width >= 6  # At least the emojis

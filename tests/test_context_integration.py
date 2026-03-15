@@ -30,15 +30,9 @@ def temp_workspace():
         (templates_dir / "SOUL.md").write_text(
             "---\ntitle: SOUL\n---\n# Soul\nDate: {current_date}\n"
         )
-        (templates_dir / "USER.md").write_text(
-            "---\ntitle: USER\n---\n# User\n"
-        )
-        (templates_dir / "TOOLS.md").write_text(
-            "---\ntitle: TOOLS\n---\n# Tools\n"
-        )
-        (templates_dir / "MEMORY.md").write_text(
-            "---\ntitle: MEMORY\n---\n# Memory\n"
-        )
+        (templates_dir / "USER.md").write_text("---\ntitle: USER\n---\n# User\n")
+        (templates_dir / "TOOLS.md").write_text("---\ntitle: TOOLS\n---\n# Tools\n")
+        (templates_dir / "MEMORY.md").write_text("---\ntitle: MEMORY\n---\n# Memory\n")
 
         yield workspace
 
@@ -207,22 +201,16 @@ class TestContextLoaderPlaceholderResolution:
 
         # Create an included file
         (workspace_dir / "prompts").mkdir(exist_ok=True)
-        (workspace_dir / "prompts" / "voice.md").write_text(
-            "# Voice\n\nBe concise and direct.\n"
-        )
+        (workspace_dir / "prompts" / "voice.md").write_text("# Voice\n\nBe concise and direct.\n")
 
         # Create SOUL.md with an include placeholder
         soul_path = config.context_files["soul"]
-        soul_path.write_text(
-            "# Soul\n\n{{prompts/voice.md}}\n\n## Style\nFriendly.\n"
-        )
+        soul_path.write_text("# Soul\n\n{{prompts/voice.md}}\n\n## Style\nFriendly.\n")
 
         return soul_path, workspace_dir
 
     @pytest.mark.asyncio
-    async def test_context_loader_resolves_placeholders(
-        self, loader, workspace_with_includes
-    ):
+    async def test_context_loader_resolves_placeholders(self, loader, workspace_with_includes):
         """File include placeholders are resolved when loading."""
         soul_path, workspace_dir = workspace_with_includes
 
@@ -238,11 +226,10 @@ class TestContextLoaderPlaceholderResolution:
         assert "Friendly" in context_file.content
 
     @pytest.mark.asyncio
-    async def test_context_loader_handles_missing_include_gracefully(
-        self, loader, config, caplog
-    ):
+    async def test_context_loader_handles_missing_include_gracefully(self, loader, config, caplog):
         """Missing includes log warning and include error comment."""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         # Create SOUL.md referencing non-existent file
@@ -256,9 +243,7 @@ class TestContextLoaderPlaceholderResolution:
         assert "not found" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_context_loader_resolves_color_placeholders(
-        self, loader, config
-    ):
+    async def test_context_loader_resolves_color_placeholders(self, loader, config):
         """Color placeholders {color} are resolved to ANSI codes."""
         soul_path = config.context_files["soul"]
         soul_path.write_text("# Soul\n\n{cyan}Hello{reset} World\n")
@@ -267,13 +252,11 @@ class TestContextLoaderPlaceholderResolution:
 
         # Color codes should be resolved
         assert "\033[36m" in context_file.content  # cyan
-        assert "\033[0m" in context_file.content   # reset
+        assert "\033[0m" in context_file.content  # reset
         assert "{cyan}" not in context_file.content
 
     @pytest.mark.asyncio
-    async def test_cached_file_contains_resolved_content(
-        self, loader, workspace_with_includes
-    ):
+    async def test_cached_file_contains_resolved_content(self, loader, workspace_with_includes):
         """Cached content includes resolved placeholders."""
         soul_path, workspace_dir = workspace_with_includes
 

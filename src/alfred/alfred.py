@@ -59,6 +59,7 @@ class Alfred:
 
         # Create socket client for cron job tools
         from alfred.cron.socket_client import SocketClient
+
         self._socket_client = SocketClient()
 
         # Register built-in tools (inject services from core)

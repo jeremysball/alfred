@@ -1,6 +1,5 @@
 """Tests for StatusLine component."""
 
-
 from alfred.interfaces.pypitui.status_line import (
     STATUS_WIDTH_COMPACT,
     STATUS_WIDTH_FULL,

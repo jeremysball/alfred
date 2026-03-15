@@ -1,6 +1,5 @@
 """Tests for TokenTracker."""
 
-
 from alfred.token_tracker import TokenTracker, TokenUsage
 
 
@@ -47,10 +46,12 @@ class TestTokenTracker:
     def test_add_basic_usage(self) -> None:
         """Test adding basic usage (prompt + completion tokens)."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+            }
+        )
         assert tracker.usage.input_tokens == 100
         assert tracker.usage.output_tokens == 50
         assert tracker.usage.cache_read_tokens == 0
@@ -59,13 +60,15 @@ class TestTokenTracker:
     def test_add_usage_with_cache(self) -> None:
         """Test adding usage with cached tokens."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-            "prompt_tokens_details": {
-                "cached_tokens": 80,
-            },
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {
+                    "cached_tokens": 80,
+                },
+            }
+        )
         assert tracker.usage.input_tokens == 100
         assert tracker.usage.output_tokens == 50
         assert tracker.usage.cache_read_tokens == 80
@@ -73,13 +76,15 @@ class TestTokenTracker:
     def test_add_usage_with_reasoning(self) -> None:
         """Test adding usage with reasoning tokens."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-            "completion_tokens_details": {
-                "reasoning_tokens": 200,
-            },
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "completion_tokens_details": {
+                    "reasoning_tokens": 200,
+                },
+            }
+        )
         assert tracker.usage.input_tokens == 100
         assert tracker.usage.output_tokens == 50
         assert tracker.usage.reasoning_tokens == 200
@@ -87,16 +92,18 @@ class TestTokenTracker:
     def test_add_usage_full(self) -> None:
         """Test adding complete usage data."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 1000,
-            "completion_tokens": 500,
-            "prompt_tokens_details": {
-                "cached_tokens": 800,
-            },
-            "completion_tokens_details": {
-                "reasoning_tokens": 300,
-            },
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 1000,
+                "completion_tokens": 500,
+                "prompt_tokens_details": {
+                    "cached_tokens": 800,
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 300,
+                },
+            }
+        )
         assert tracker.usage.input_tokens == 1000
         assert tracker.usage.output_tokens == 500
         assert tracker.usage.cache_read_tokens == 800
@@ -115,24 +122,28 @@ class TestTokenTracker:
     def test_handles_missing_optional_fields(self) -> None:
         """Test handling when optional detail fields are missing."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-            "prompt_tokens_details": None,
-            "completion_tokens_details": None,
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "prompt_tokens_details": None,
+                "completion_tokens_details": None,
+            }
+        )
         assert tracker.usage.cache_read_tokens == 0
         assert tracker.usage.reasoning_tokens == 0
 
     def test_handles_partial_detail_fields(self) -> None:
         """Test handling when detail dicts are missing specific keys."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-            "prompt_tokens_details": {},  # No cached_tokens key
-            "completion_tokens_details": {},  # No reasoning_tokens key
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {},  # No cached_tokens key
+                "completion_tokens_details": {},  # No reasoning_tokens key
+            }
+        )
         assert tracker.usage.cache_read_tokens == 0
         assert tracker.usage.reasoning_tokens == 0
 
@@ -152,12 +163,14 @@ class TestTokenTracker:
     def test_reset(self) -> None:
         """Test reset clears all values."""
         tracker = TokenTracker()
-        tracker.add({
-            "prompt_tokens": 100,
-            "completion_tokens": 50,
-            "prompt_tokens_details": {"cached_tokens": 80},
-            "completion_tokens_details": {"reasoning_tokens": 30},
-        })
+        tracker.add(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "prompt_tokens_details": {"cached_tokens": 80},
+                "completion_tokens_details": {"reasoning_tokens": 30},
+            }
+        )
         tracker.set_context_tokens(5000)
 
         tracker.reset()

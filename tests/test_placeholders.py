@@ -112,10 +112,7 @@ class TestFileIncludeResolver:
         ctx = ResolutionContext(base_dir=temp_workspace)
 
         content = "# Simple\nNo placeholders"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            content
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), content)
 
         assert result == content
 
@@ -125,10 +122,7 @@ class TestFileIncludeResolver:
         ctx = ResolutionContext(base_dir=temp_workspace)
 
         text = "{{included.md}}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "## Included Content" in result
         assert "<!-- included: included.md -->" in result
@@ -140,10 +134,7 @@ class TestFileIncludeResolver:
         ctx = ResolutionContext(base_dir=temp_workspace)
 
         text = "{{nested_a.md}}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "A" in result
         assert "B" in result
@@ -157,10 +148,7 @@ class TestFileIncludeResolver:
         ctx = ResolutionContext(base_dir=temp_workspace)
 
         text = "{{circular_a.md}}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         # Should return circular comment, not crash
         assert "<!-- circular:" in result or "Circular reference" in caplog.text
@@ -173,10 +161,7 @@ class TestFileIncludeResolver:
         ctx = ResolutionContext(base_dir=temp_workspace)
 
         text = "{{nonexistent.md}}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "<!-- missing: nonexistent.md -->" in result
         assert "not found" in caplog.text
@@ -191,10 +176,7 @@ class TestFileIncludeResolver:
         ctx = ctx.with_incremented_depth()  # depth 1 > max_depth 0
 
         text = "{{included.md}}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         # Should return original placeholder or comment
         assert "{{included.md}}" in result or "depth" in caplog.text.lower()
@@ -210,13 +192,10 @@ class TestColorResolver:
         ctx = ResolutionContext(base_dir=Path("."))
 
         text = "{cyan}hello{reset}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "\033[36m" in result  # cyan
-        assert "\033[0m" in result   # reset
+        assert "\033[0m" in result  # reset
         assert "hello" in result
 
     def test_resolve_bold(self):
@@ -225,10 +204,7 @@ class TestColorResolver:
         ctx = ResolutionContext(base_dir=Path("."))
 
         text = "{bold}important{reset}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "\033[1m" in result  # bold
         assert "important" in result
@@ -239,10 +215,7 @@ class TestColorResolver:
         ctx = ResolutionContext(base_dir=Path("."))
 
         text = "{unknown_color}text{reset}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         # Unknown should be unchanged, reset should resolve
         assert "{unknown_color}" in result
@@ -254,10 +227,7 @@ class TestColorResolver:
         ctx = ResolutionContext(base_dir=Path("."))
 
         text = "{cyan}cyan{reset} {green}green{reset}"
-        result = resolver.pattern.sub(
-            lambda m: resolver.resolve(m, ctx),
-            text
-        )
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "\033[36m" in result  # cyan
         assert "\033[32m" in result  # green
@@ -301,11 +271,7 @@ class TestResolvePlaceholdersAPI:
         ctx = ResolutionContext(base_dir=temp_workspace)
 
         # Only file resolver - colors unchanged
-        result = resolve_placeholders(
-            text,
-            ctx,
-            resolvers=[FileIncludeResolver()]
-        )
+        result = resolve_placeholders(text, ctx, resolvers=[FileIncludeResolver()])
 
         assert "{cyan}" in result
         assert "\033[36m" not in result

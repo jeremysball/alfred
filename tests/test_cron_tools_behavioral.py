@@ -38,16 +38,19 @@ class TestCronToolsEndToEnd:
         # Create socket server with real handlers that use scheduler
         async def handle_query_jobs(request):
             from alfred.cron.socket_protocol import QueryJobsResponse
+
             jobs = await scheduler._store.load_jobs()
             job_dicts = []
             for job in jobs:
-                job_dicts.append({
-                    "job_id": job.job_id,
-                    "name": job.name,
-                    "expression": job.expression,
-                    "status": job.status,
-                    "created_at": job.created_at.isoformat() if job.created_at else None,
-                })
+                job_dicts.append(
+                    {
+                        "job_id": job.job_id,
+                        "name": job.name,
+                        "expression": job.expression,
+                        "status": job.status,
+                        "created_at": job.created_at.isoformat() if job.created_at else None,
+                    }
+                )
             return QueryJobsResponse(
                 request_id=request.request_id,
                 jobs=job_dicts,
@@ -56,6 +59,7 @@ class TestCronToolsEndToEnd:
 
         async def handle_submit_job(request):
             from alfred.cron.socket_protocol import SubmitJobResponse
+
             try:
                 job_id = await scheduler.submit_user_job(
                     name=request.name,
@@ -78,6 +82,7 @@ class TestCronToolsEndToEnd:
 
         async def handle_approve_job(request):
             from alfred.cron.socket_protocol import ApproveJobResponse
+
             jobs = await scheduler._store.load_jobs()
             job_id = None
             job_name = None
@@ -112,6 +117,7 @@ class TestCronToolsEndToEnd:
 
         async def handle_reject_job(request):
             from alfred.cron.socket_protocol import RejectJobResponse
+
             jobs = await scheduler._store.load_jobs()
             job_id = None
             job_name = None

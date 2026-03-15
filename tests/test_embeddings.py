@@ -59,5 +59,6 @@ async def test_embedding_client_with_mock(monkeypatch):
     )
 
     from alfred.embeddings import create_provider
+
     client = create_provider(config)
     assert client is not None

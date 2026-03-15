@@ -61,6 +61,7 @@ class TestXDGDirectoryPaths:
         """get_config_toml_path respects XDG_CONFIG_HOME."""
         with patch.dict(os.environ, {"XDG_CONFIG_HOME": "/test/config"}):
             from alfred.data_manager import get_config_toml_path
+
             result = get_config_toml_path()
             assert result == Path("/test/config") / APP_NAME / "config.toml"
 
@@ -69,6 +70,7 @@ class TestXDGDirectoryPaths:
         with patch.dict(os.environ, {}, clear=True):
             with patch.object(Path, "home", return_value=Path("/home/test")):
                 from alfred.data_manager import get_config_toml_path
+
                 result = get_config_toml_path()
                 assert result == Path("/home/test/.config") / APP_NAME / "config.toml"
 
@@ -95,7 +97,9 @@ class TestXDGDirectoryInit:
         bundled_templates.mkdir()
         (bundled_templates / "SOUL.md").write_text("# Soul Template")
         (bundled_templates / "USER.md").write_text("# User Template")
-        (bundled_templates / "config.toml").write_text("[provider]\\ndefault = \"kimi\"\\n\\n[memory]\\nbudget = 32000\\n")
+        (bundled_templates / "config.toml").write_text(
+            '[provider]\\ndefault = "kimi"\\n\\n[memory]\\nbudget = 32000\\n'
+        )
 
         with patch("alfred.data_manager.BUNDLED_TEMPLATES", bundled_templates):
             yield bundled_templates

@@ -50,13 +50,15 @@ class TestSocketAPIRoundTrip:
             jobs = await scheduler._store.load_jobs()
             job_dicts = []
             for job in jobs:
-                job_dicts.append({
-                    "job_id": job.job_id,
-                    "name": job.name,
-                    "expression": job.expression,
-                    "status": job.status,
-                    "created_at": job.created_at.isoformat() if job.created_at else None,
-                })
+                job_dicts.append(
+                    {
+                        "job_id": job.job_id,
+                        "name": job.name,
+                        "expression": job.expression,
+                        "status": job.status,
+                        "created_at": job.created_at.isoformat() if job.created_at else None,
+                    }
+                )
             return QueryJobsResponse(
                 request_id=request.request_id,
                 jobs=job_dicts,

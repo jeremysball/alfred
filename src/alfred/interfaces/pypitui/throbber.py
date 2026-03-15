@@ -51,8 +51,8 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="glow",
         frames=["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
         colors=[
-            (0, 255, 255),    # Bright cyan
-            (50, 255, 255),   # Cyan
+            (0, 255, 255),  # Bright cyan
+            (50, 255, 255),  # Cyan
             (100, 255, 255),  # Light cyan
             (150, 255, 255),  # Pale cyan
             (200, 255, 255),  # White-cyan
@@ -60,7 +60,7 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
             (200, 255, 255),  # White-cyan
             (150, 255, 255),  # Pale cyan
             (100, 255, 255),  # Light cyan
-            (50, 255, 255),   # Cyan
+            (50, 255, 255),  # Cyan
         ],
         spin_rate=10.0,
     ),
@@ -72,7 +72,7 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
             (200, 220, 255),  # Blue-white
             (150, 180, 255),  # Light blue
             (100, 150, 255),  # Blue
-            (50, 100, 200),   # Dark blue
+            (50, 100, 200),  # Dark blue
         ],
         spin_rate=12.0,
     ),
@@ -80,12 +80,12 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="neon",
         frames=["◉", "◎", "◍", "○", "◍", "◎"],
         colors=[
-            (255, 0, 128),    # Hot pink
-            (255, 50, 150),   # Pink
+            (255, 0, 128),  # Hot pink
+            (255, 50, 150),  # Pink
             (255, 100, 180),  # Light pink
             (200, 200, 200),  # White
             (255, 100, 180),  # Light pink
-            (255, 50, 150),   # Pink
+            (255, 50, 150),  # Pink
         ],
         spin_rate=8.0,
     ),
@@ -93,8 +93,8 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="matrix",
         frames=["ｱ", "ﾊ", "ﾐ", "ﾋ", "ｰ", "ｳ", "ｼ", "ﾅ", "ﾓ", "ﾆ", "ｻ", "ﾜ"],
         colors=[
-            (0, 255, 0),      # Bright green
-            (50, 255, 50),    # Green
+            (0, 255, 0),  # Bright green
+            (50, 255, 50),  # Green
             (100, 255, 100),  # Light green
             (150, 255, 150),  # Pale green
         ],
@@ -105,9 +105,9 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         frames=["◐", "◓", "◑", "◒"],
         colors=[
             (255, 200, 100),  # Gold
-            (255, 180, 80),   # Orange-gold
-            (255, 160, 60),   # Orange
-            (255, 140, 40),   # Dark orange
+            (255, 180, 80),  # Orange-gold
+            (255, 160, 60),  # Orange
+            (255, 140, 40),  # Dark orange
         ],
         spin_rate=6.0,
     ),
@@ -130,12 +130,12 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="glitch",
         frames=["▓", "▒", "░", "█", "▀", "▄", "▌", "▐"],
         colors=[
-            (255, 0, 0),      # Red
-            (0, 255, 0),      # Green
-            (0, 0, 255),      # Blue
-            (255, 255, 0),    # Yellow
-            (255, 0, 255),    # Magenta
-            (0, 255, 255),    # Cyan
+            (255, 0, 0),  # Red
+            (0, 255, 0),  # Green
+            (0, 0, 255),  # Blue
+            (255, 255, 0),  # Yellow
+            (255, 0, 255),  # Magenta
+            (0, 255, 255),  # Cyan
         ],
         spin_rate=15.0,
     ),
@@ -147,8 +147,8 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
             (255, 250, 200),  # Light gold
             (255, 240, 150),  # Gold
             (255, 220, 100),  # Dark gold
-            (255, 200, 50),   # Orange-gold
-            (200, 150, 30),   # Bronze
+            (255, 200, 50),  # Orange-gold
+            (200, 150, 30),  # Bronze
         ],
         spin_rate=12.0,
     ),
@@ -180,8 +180,8 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="spinner",
         frames=["\uf110"],  # fa-spinner
         colors=[
-            (0, 255, 255),    # Cyan
-            (50, 255, 200),   # Teal
+            (0, 255, 255),  # Cyan
+            (50, 255, 200),  # Teal
             (100, 255, 150),  # Green-cyan
             (150, 255, 100),  # Lime
         ],
@@ -191,8 +191,8 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="circle-notch",
         frames=["\uf1ce"],  # fa-circle-notch
         colors=[
-            (255, 0, 128),    # Hot pink
-            (255, 50, 150),   # Pink
+            (255, 0, 128),  # Hot pink
+            (255, 50, 150),  # Pink
             (255, 100, 180),  # Light pink
             (255, 150, 200),  # Pale pink
         ],
@@ -202,10 +202,10 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="bolt",
         frames=["\uf0e7"],  # fa-bolt
         colors=[
-            (255, 255, 0),    # Yellow
-            (255, 200, 0),    # Gold
-            (255, 150, 0),    # Orange
-            (255, 100, 0),    # Dark orange
+            (255, 255, 0),  # Yellow
+            (255, 200, 0),  # Gold
+            (255, 150, 0),  # Orange
+            (255, 100, 0),  # Dark orange
         ],
         spin_rate=10.0,
     ),
@@ -235,7 +235,7 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="wifi",
         frames=["\uf1eb"],  # fa-wifi
         colors=[
-            (0, 255, 0),      # Green
+            (0, 255, 0),  # Green
             (100, 255, 100),  # Light green
             (200, 255, 200),  # Pale green
         ],
@@ -267,11 +267,11 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         frames=["🐱", "😺", "😸", "😹", "😻", "🙀"],
         colors=[
             (255, 200, 100),  # Orange
-            (255, 180, 80),   # Light orange
-            (255, 160, 60),   # Peach
-            (255, 140, 40),   # Dark orange
-            (255, 120, 20),   # Red-orange
-            (255, 100, 0),    # Red
+            (255, 180, 80),  # Light orange
+            (255, 160, 60),  # Peach
+            (255, 140, 40),  # Dark orange
+            (255, 120, 20),  # Red-orange
+            (255, 100, 0),  # Red
         ],
         spin_rate=8.0,
     ),
@@ -308,11 +308,11 @@ THROBBER_STYLES: dict[str, ThrobberStyle] = {
         name="hearts",
         frames=["💛", "💙", "💜", "💚", "❤️", "💖"],
         colors=[
-            (255, 255, 0),    # Yellow
+            (255, 255, 0),  # Yellow
             (100, 150, 255),  # Blue
             (200, 100, 255),  # Purple
             (100, 255, 100),  # Green
-            (255, 50, 50),    # Red
+            (255, 50, 50),  # Red
             (255, 150, 200),  # Pink
         ],
         spin_rate=10.0,

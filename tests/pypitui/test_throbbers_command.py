@@ -18,7 +18,7 @@ class TestThrobbersCommand:
         command = ThrobbersCommand()
 
         # Mock the overlay methods
-        with patch.object(tui.tui, 'show_overlay') as mock_show_overlay:
+        with patch.object(tui.tui, "show_overlay") as mock_show_overlay:
             mock_handle = MagicMock()
             mock_show_overlay.return_value = mock_handle
 
@@ -71,7 +71,7 @@ class TestThrobbersCommand:
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         command = ThrobbersCommand()
 
-        with patch.object(tui.tui, 'show_overlay') as mock_show_overlay:
+        with patch.object(tui.tui, "show_overlay") as mock_show_overlay:
             mock_handle = MagicMock()
             mock_show_overlay.return_value = mock_handle
 
@@ -94,8 +94,10 @@ class TestThrobbersCommand:
         # Create a mock removal function
         mock_remove = MagicMock()
 
-        with patch.object(tui.tui, 'show_overlay') as mock_show_overlay, \
-             patch.object(tui.tui, 'add_input_listener') as mock_add_listener:
+        with (
+            patch.object(tui.tui, "show_overlay") as mock_show_overlay,
+            patch.object(tui.tui, "add_input_listener") as mock_add_listener,
+        ):
             mock_handle = MagicMock()
             mock_show_overlay.return_value = mock_handle
             mock_add_listener.return_value = mock_remove
@@ -108,8 +110,8 @@ class TestThrobbersCommand:
 
             # Simulate escape key by calling the registered listener
             listener = mock_add_listener.call_args[0][0]
-            with patch.object(command, '_close') as mock_close:
-                result = listener('\x1b')  # ESC character
+            with patch.object(command, "_close") as mock_close:
+                result = listener("\x1b")  # ESC character
 
                 # Should consume the input
                 assert result == {"consume": True}
@@ -128,8 +130,10 @@ class TestThrobbersCommand:
 
         mock_remove = MagicMock()
 
-        with patch.object(tui.tui, 'show_overlay') as mock_show_overlay, \
-             patch.object(tui.tui, 'add_input_listener') as mock_add_listener:
+        with (
+            patch.object(tui.tui, "show_overlay") as mock_show_overlay,
+            patch.object(tui.tui, "add_input_listener") as mock_add_listener,
+        ):
             mock_handle = MagicMock()
             mock_show_overlay.return_value = mock_handle
             mock_add_listener.return_value = mock_remove
@@ -141,7 +145,7 @@ class TestThrobbersCommand:
             listener = mock_add_listener.call_args[0][0]
 
             # Simulate 'q' key
-            result = listener('q')
+            result = listener("q")
 
             # Should consume the input (and close)
             assert result == {"consume": True}
@@ -160,8 +164,10 @@ class TestThrobbersCommand:
 
         mock_remove = MagicMock()
 
-        with patch.object(tui.tui, 'show_overlay') as mock_show_overlay, \
-             patch.object(tui.tui, 'add_input_listener') as mock_add_listener:
+        with (
+            patch.object(tui.tui, "show_overlay") as mock_show_overlay,
+            patch.object(tui.tui, "add_input_listener") as mock_add_listener,
+        ):
             mock_handle = MagicMock()
             mock_show_overlay.return_value = mock_handle
             mock_add_listener.return_value = mock_remove

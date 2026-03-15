@@ -239,7 +239,6 @@ class TestGhostTextAccept:
         for hook in input_field._post_input_hooks:
             hook()
 
-
         # Accept ghost char
         input_field.handle_input("\x1b[C")
 
@@ -308,7 +307,6 @@ class TestGhostTextAccept:
         for hook in input_field._post_input_hooks:
             hook()
 
-
         # Left arrow moves cursor left (rejects ghost if any)
         input_field.handle_input("\x1b[D")  # Left
         assert input_field._cursor_pos == 0  # At beginning
@@ -343,10 +341,7 @@ class TestCompletionManagerIntegration:
             if not text.startswith("/"):
                 return []
             query = text.lower()
-            return [
-                (cmd, desc) for cmd, desc in commands
-                if query in cmd.lower()
-            ]
+            return [(cmd, desc) for cmd, desc in commands if query in cmd.lower()]
 
         manager = input_field.setup_completion(menu)
         manager.register("/", provider)

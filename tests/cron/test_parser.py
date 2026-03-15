@@ -14,17 +14,17 @@ class TestIsValid:
     def test_valid_basic_expressions(self):
         """Standard cron expressions should be valid."""
         valid_expressions = [
-            "* * * * *",        # Every minute
-            "*/5 * * * *",      # Every 5 minutes
-            "0 * * * *",        # Every hour
-            "0 0 * * *",        # Daily at midnight
-            "0 19 * * 0",       # Sunday at 7pm
-            "0 9 * * 1-5",      # Weekdays at 9am
-            "0,30 * * * *",     # At :00 and :30
+            "* * * * *",  # Every minute
+            "*/5 * * * *",  # Every 5 minutes
+            "0 * * * *",  # Every hour
+            "0 0 * * *",  # Daily at midnight
+            "0 19 * * 0",  # Sunday at 7pm
+            "0 9 * * 1-5",  # Weekdays at 9am
+            "0,30 * * * *",  # At :00 and :30
             "0 9,12,17 * * *",  # At 9am, 12pm, 5pm
-            "0 0 1 * *",        # First of month
-            "0 0 31 12 *",      # New Year's Eve
-            "59 23 * * *",      # Last minute of day
+            "0 0 1 * *",  # First of month
+            "0 0 31 12 *",  # New Year's Eve
+            "59 23 * * *",  # Last minute of day
         ]
         for expr in valid_expressions:
             assert is_valid(expr), f"'{expr}' should be valid"
@@ -32,18 +32,19 @@ class TestIsValid:
     def test_invalid_expressions(self):
         """Malformed expressions should be invalid."""
         invalid_expressions = [
-            "",                 # Empty string
-            "* * * *",          # Missing field
-            "* * * * * *",      # Extra field
-            "60 * * * *",       # Invalid minute
-            "* 24 * * *",       # Invalid hour
-            "* * 32 * *",       # Invalid day
-            "* * * 13 *",       # Invalid month
-            "* * * * 8",        # Invalid day of week
-            "abc * * * *",      # Non-numeric
+            "",  # Empty string
+            "* * * *",  # Missing field
+            "* * * * * *",  # Extra field
+            "60 * * * *",  # Invalid minute
+            "* 24 * * *",  # Invalid hour
+            "* * 32 * *",  # Invalid day
+            "* * * 13 *",  # Invalid month
+            "* * * * 8",  # Invalid day of week
+            "abc * * * *",  # Non-numeric
         ]
         for expr in invalid_expressions:
             assert not is_valid(expr), f"'{expr}' should be invalid"
+
 
 class TestShouldRun:
     """Tests for should_run() function."""

@@ -90,8 +90,12 @@ class TestSaveJob:
 
     async def test_save_multiple_jobs_rewrites_file(self, store: CronStore):
         """Saving multiple jobs rewrites entire file."""
-        job1 = Job(job_id="job-1", name="Job 1", expression="* * * * *", code="pass", status="active")
-        job2 = Job(job_id="job-2", name="Job 2", expression="*/5 * * * *", code="pass", status="active")
+        job1 = Job(
+            job_id="job-1", name="Job 1", expression="* * * * *", code="pass", status="active"
+        )
+        job2 = Job(
+            job_id="job-2", name="Job 2", expression="*/5 * * * *", code="pass", status="active"
+        )
 
         await store.save_job(job1)
         await store.save_job(job2)
@@ -105,8 +109,12 @@ class TestSaveJob:
 
     async def test_save_updates_existing_job(self, store: CronStore):
         """Saving job with same ID updates existing."""
-        job1 = Job(job_id="test-1", name="Original", expression="* * * * *", code="pass", status="active")
-        job2 = Job(job_id="test-1", name="Updated", expression="*/5 * * * *", code="pass", status="paused")
+        job1 = Job(
+            job_id="test-1", name="Original", expression="* * * * *", code="pass", status="active"
+        )
+        job2 = Job(
+            job_id="test-1", name="Updated", expression="*/5 * * * *", code="pass", status="paused"
+        )
 
         await store.save_job(job1)
         await store.save_job(job2)
@@ -149,8 +157,12 @@ class TestLoadJobs:
 
     async def test_load_jobs_multiple(self, store: CronStore):
         """Load multiple jobs from file."""
-        job1 = Job(job_id="job-1", name="Job 1", expression="* * * * *", code="pass", status="active")
-        job2 = Job(job_id="job-2", name="Job 2", expression="*/5 * * * *", code="pass", status="active")
+        job1 = Job(
+            job_id="job-1", name="Job 1", expression="* * * * *", code="pass", status="active"
+        )
+        job2 = Job(
+            job_id="job-2", name="Job 2", expression="*/5 * * * *", code="pass", status="active"
+        )
         await store.save_job(job1)
         await store.save_job(job2)
 
@@ -164,7 +176,7 @@ class TestLoadJobs:
         store.jobs_path.parent.mkdir(parents=True, exist_ok=True)
         store.jobs_path.write_text(
             '{"job_id": "valid", "name": "Valid", "expression": "* * * * *", "code": "pass", "status": "active"}\n'
-            'invalid json here\n'
+            "invalid json here\n"
             '{"job_id": "also-valid", "name": "Also Valid", "expression": "*/5 * * * *", "code": "pass", "status": "active"}\n'
         )
 
@@ -181,8 +193,12 @@ class TestDeleteJob:
 
     async def test_delete_job_removes_from_file(self, store: CronStore):
         """Delete job removes it from cron.jsonl."""
-        job1 = Job(job_id="job-1", name="Job 1", expression="* * * * *", code="pass", status="active")
-        job2 = Job(job_id="job-2", name="Job 2", expression="*/5 * * * *", code="pass", status="active")
+        job1 = Job(
+            job_id="job-1", name="Job 1", expression="* * * * *", code="pass", status="active"
+        )
+        job2 = Job(
+            job_id="job-2", name="Job 2", expression="*/5 * * * *", code="pass", status="active"
+        )
         await store.save_job(job1)
         await store.save_job(job2)
 
@@ -272,16 +288,20 @@ class TestGetJobHistory:
     async def test_get_history_for_job(self, store: CronStore):
         """Get execution history for specific job."""
         record1 = ExecutionRecord(
-            execution_id="exec-1", job_id="job-1",
+            execution_id="exec-1",
+            job_id="job-1",
             started_at=datetime(2026, 2, 18, 10, 0, 0, tzinfo=UTC),
             ended_at=datetime(2026, 2, 18, 10, 0, 1, tzinfo=UTC),
-            status=ExecutionStatus.SUCCESS, duration_ms=1000,
+            status=ExecutionStatus.SUCCESS,
+            duration_ms=1000,
         )
         record2 = ExecutionRecord(
-            execution_id="exec-2", job_id="job-2",
+            execution_id="exec-2",
+            job_id="job-2",
             started_at=datetime(2026, 2, 18, 10, 1, 0, tzinfo=UTC),
             ended_at=datetime(2026, 2, 18, 10, 1, 1, tzinfo=UTC),
-            status=ExecutionStatus.SUCCESS, duration_ms=1000,
+            status=ExecutionStatus.SUCCESS,
+            duration_ms=1000,
         )
         await store.record_execution(record1)
         await store.record_execution(record2)
@@ -301,10 +321,12 @@ class TestGetJobHistory:
         """Limit number of history records returned."""
         for i in range(10):
             record = ExecutionRecord(
-                execution_id=f"exec-{i}", job_id="job-1",
+                execution_id=f"exec-{i}",
+                job_id="job-1",
                 started_at=datetime(2026, 2, 18, 10, i, 0, tzinfo=UTC),
                 ended_at=datetime(2026, 2, 18, 10, i, 1, tzinfo=UTC),
-                status=ExecutionStatus.SUCCESS, duration_ms=1000,
+                status=ExecutionStatus.SUCCESS,
+                duration_ms=1000,
             )
             await store.record_execution(record)
 
@@ -316,9 +338,13 @@ class TestGetJobHistory:
 class TestAtomicWrites:
     """Tests for atomic write operations."""
 
-    async def test_save_job_creates_temp_file_then_renames(self, store: CronStore, temp_data_dir: Path):
+    async def test_save_job_creates_temp_file_then_renames(
+        self, store: CronStore, temp_data_dir: Path
+    ):
         """Job save uses atomic write (temp file + rename)."""
-        job = Job(job_id="test-1", name="Test", expression="* * * * *", code="pass", status="active")
+        job = Job(
+            job_id="test-1", name="Test", expression="* * * * *", code="pass", status="active"
+        )
 
         await store.save_job(job)
 

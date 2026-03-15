@@ -69,6 +69,7 @@ def history_manager(
         Configured HistoryManager instance
     """
     from alfred.interfaces.pypitui.history_cache import HistoryManager
+
     return HistoryManager(
         working_dir=temp_work_dir,
         cache_dir=temp_cache_dir,
@@ -125,13 +126,16 @@ def aged_cache_entry() -> CacheEntryFactory:
     Returns:
         Factory function: (message: str, days_ago: int) -> HistoryEntry
     """
+
     def _create(message: str, days_ago: int) -> HistoryEntry:
         from alfred.interfaces.pypitui.history_cache import HistoryEntry
+
         return HistoryEntry(
             message=message,
             timestamp=datetime.now() - timedelta(days=days_ago),
             working_dir="/test",
         )
+
     return _create
 
 
@@ -171,14 +175,16 @@ class InvariantAssertions:
     def no_consecutive_duplicates(history: HistoryManager) -> None:
         """No two consecutive entries are identical."""
         for i in range(len(history._history) - 1):
-            assert history._history[i].message != history._history[i + 1].message, \
-                f"Duplicate messages at indices {i} and {i+1}"
+            assert history._history[i].message != history._history[i + 1].message, (
+                f"Duplicate messages at indices {i} and {i + 1}"
+            )
 
     @staticmethod
     def index_valid(history: HistoryManager) -> None:
         """Navigation index always in valid range."""
-        assert 0 <= history._index <= len(history._history), \
+        assert 0 <= history._index <= len(history._history), (
             f"Index {history._index} out of range [0, {len(history._history)}]"
+        )
 
 
 @pytest.fixture

@@ -90,7 +90,7 @@ class ThrobberOverlay(Component):
 
         # Render in rows of 3
         for i in range(0, len(self._throbbers), 3):
-            row = self._throbbers[i:i+3]
+            row = self._throbbers[i : i + 3]
 
             # Build cells
             cells = []

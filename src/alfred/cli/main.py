@@ -375,11 +375,13 @@ async def _run_chat(alfred: "Alfred", toast_manager: "ToastManager | None") -> N
     from alfred.cron.socket_server import SocketServer
     from alfred.cron.store import CronStore
     from alfred.interfaces.pypitui_cli import AlfredTUI
+
     client = SocketClient()
     await client.start()
     if not client.is_connected:
         # Daemon not running, start it without blocking TUI
         from alfred.cli.cron import start_daemon_if_needed
+
         start_daemon_if_needed()
     await client.stop()
 
@@ -591,14 +593,16 @@ async def _handle_query_jobs(
         # Convert jobs to dict format
         job_dicts = []
         for job in jobs:
-            job_dicts.append({
-                "job_id": job.job_id,
-                "name": job.name,
-                "expression": job.expression,
-                "code": job.code,
-                "status": job.status,
-                "created_at": job.created_at.isoformat() if job.created_at else None,
-            })
+            job_dicts.append(
+                {
+                    "job_id": job.job_id,
+                    "name": job.name,
+                    "expression": job.expression,
+                    "code": job.code,
+                    "status": job.status,
+                    "created_at": job.created_at.isoformat() if job.created_at else None,
+                }
+            )
 
         return QueryJobsResponse(
             request_id=msg.request_id,

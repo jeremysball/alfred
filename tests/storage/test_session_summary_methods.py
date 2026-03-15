@@ -51,7 +51,7 @@ class TestSaveSummary:
         # Insert parent session first
         await db_conn.execute(
             "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            (sample_summary["session_id"], "[]")
+            (sample_summary["session_id"], "[]"),
         )
         await db_conn.commit()
 
@@ -61,7 +61,7 @@ class TestSaveSummary:
         # Verify insert worked
         async with db_conn.execute(
             "SELECT summary_id, summary_text FROM session_summaries WHERE summary_id = ?",
-            (sample_summary["summary_id"],)
+            (sample_summary["summary_id"],),
         ) as cursor:
             row = await cursor.fetchone()
             assert row[0] == sample_summary["summary_id"]
@@ -72,7 +72,7 @@ class TestSaveSummary:
         """Verify embedding is stored as JSON."""
         await db_conn.execute(
             "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            (sample_summary["session_id"], "[]")
+            (sample_summary["session_id"], "[]"),
         )
         await db_conn.commit()
 
@@ -81,7 +81,7 @@ class TestSaveSummary:
         # Verify embedding stored as JSON
         async with db_conn.execute(
             "SELECT embedding FROM session_summaries WHERE summary_id = ?",
-            (sample_summary["summary_id"],)
+            (sample_summary["summary_id"],),
         ) as cursor:
             row = await cursor.fetchone()
             stored_embedding = json.loads(row[0])
@@ -98,8 +98,7 @@ class TestGetLatestSummary:
 
         # Insert parent session
         await db_conn.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            (session_id, "[]")
+            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", (session_id, "[]")
         )
 
         # Insert two summaries for same session
@@ -132,9 +131,15 @@ class TestGetLatestSummary:
                     first_message_idx, last_message_idx, summary_text, version
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (s["summary_id"], s["session_id"], s["message_count"],
-                 s["first_message_idx"], s["last_message_idx"],
-                 s["summary_text"], s["version"])
+                (
+                    s["summary_id"],
+                    s["session_id"],
+                    s["message_count"],
+                    s["first_message_idx"],
+                    s["last_message_idx"],
+                    s["summary_text"],
+                    s["version"],
+                ),
             )
         await db_conn.commit()
 
@@ -163,14 +168,14 @@ class TestFindSessionsNeedingSummary:
         # Insert sessions with message counts
         sessions = [
             ("sess_needs_summary", 25, "[]"),  # 25 messages, no summary yet
-            ("sess_up_to_date", 15, "[]"),     # 15 messages, no summary
-            ("sess_recent_summary", 30, "[]"), # 30 messages, has summary
+            ("sess_up_to_date", 15, "[]"),  # 15 messages, no summary
+            ("sess_recent_summary", 30, "[]"),  # 30 messages, has summary
         ]
 
         for session_id, msg_count, messages in sessions:
             await db_conn.execute(
                 "INSERT INTO sessions (session_id, message_count, messages) VALUES (?, ?, ?)",
-                (session_id, msg_count, messages)
+                (session_id, msg_count, messages),
             )
 
         # Add summary for sess_recent_summary (25 messages at time of summary)
@@ -181,7 +186,7 @@ class TestFindSessionsNeedingSummary:
                 first_message_idx, last_message_idx, summary_text, version
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("sum_recent", "sess_recent_summary", 25, 0, 24, "Recent summary", 1)
+            ("sum_recent", "sess_recent_summary", 25, 0, 24, "Recent summary", 1),
         )
         await db_conn.commit()
 

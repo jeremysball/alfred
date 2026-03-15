@@ -1,6 +1,5 @@
 """Tests for ANSI color placeholder system."""
 
-
 from alfred.interfaces.ansi import (
     BLACK,
     BLUE,
@@ -289,9 +288,7 @@ class TestAnsiEndToEnd:
         assert "\033[42m" in rendered  # green background ANSI code
         assert "{on_green}" not in rendered
 
-    def test_user_message_with_background_shows_color(
-        self, mock_alfred, mock_terminal
-    ) -> None:
+    def test_user_message_with_background_shows_color(self, mock_alfred, mock_terminal) -> None:
         """Verify user message with {on_red} renders with ANSI code."""
         from alfred.interfaces.pypitui.message_panel import MessagePanel
 

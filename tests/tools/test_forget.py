@@ -36,7 +36,6 @@ def sample_memory():
     """Create a sample memory entry."""
     return MemoryEntry(
         entry_id="mem_1",
-
         timestamp=datetime(2026, 2, 17, 14, 30),
         role="system",
         content="User lives in San Francisco",

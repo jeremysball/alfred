@@ -161,6 +161,7 @@ async def list_jobs(
     ),
 ) -> None:
     """List all cron jobs."""
+
     async def _via_socket(client: SocketClient) -> list[dict]:
         response = await client.query_jobs(timeout=5.0)
         if response is None:
@@ -204,9 +205,7 @@ async def list_jobs(
         console.print(f"[yellow]{msg}[/yellow]")
         return
 
-    table = Table(
-        title=f"Cron Jobs ({status_filter})" if status_filter != "all" else "Cron Jobs"
-    )
+    table = Table(title=f"Cron Jobs ({status_filter})" if status_filter != "all" else "Cron Jobs")
     table.add_column("ID", style="dim", width=8)
     table.add_column("Name", style="bold")
     table.add_column("Status", width=10)
@@ -282,6 +281,7 @@ async def run():
 
     async def _via_store() -> str:
         import uuid
+
         store = get_store()
         job = Job(
             job_id=str(uuid.uuid4()),
@@ -315,6 +315,7 @@ async def run():
 @async_command
 async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
     """Review a pending job's details."""
+
     async def _via_socket(client: SocketClient) -> dict:
         response = await client.query_jobs(timeout=5.0)
         if response is None:
@@ -384,9 +385,7 @@ async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
 
     if job.get("status") == "pending":
         console.print("\n[yellow]This job is pending approval.[/yellow]")
-        console.print(
-            f"To approve: [bold]alfred cron approve {job.get('job_id', '')[:8]}[/bold]"
-        )
+        console.print(f"To approve: [bold]alfred cron approve {job.get('job_id', '')[:8]}[/bold]")
         console.print(f"To reject: [bold]alfred cron reject {job.get('job_id', '')[:8]}[/bold]")
 
 
@@ -462,6 +461,7 @@ async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) 
 @async_command
 async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
     """Reject and delete a pending job."""
+
     async def _via_socket(client: SocketClient) -> str:
         response = await client.query_jobs(timeout=5.0)
         if response is None:
@@ -491,8 +491,7 @@ async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
         job_name = await try_socket_first(_via_socket, _via_store)
         console.print(
             Panel(
-                f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\n"
-                f"The job has been removed.",
+                f"[green]✓[/green] Deleted '[bold]{job_name}[/bold]'\nThe job has been removed.",
                 title="Job Rejected",
                 border_style="yellow",
             )

@@ -163,9 +163,9 @@ class TestThrobberTick:
 
     def test_throbber_tick_returns_false_when_no_change(self) -> None:
         """Tick should return False when frame doesn't change."""
-        throbber = Throbber(custom_style=ThrobberStyle(
-            name="slow", frames=["a", "b"], spin_rate=1.0
-        ))
+        throbber = Throbber(
+            custom_style=ThrobberStyle(name="slow", frames=["a", "b"], spin_rate=1.0)
+        )
         base_time = 1000.0
         throbber.tick(base_time)  # First tick advances
         # Immediate second tick should not advance
@@ -204,12 +204,13 @@ class TestThrobberDeltaTime:
 
     def test_throbber_respects_spin_rate(self) -> None:
         """Throbber should respect its spin rate for frame advancement."""
-        slow_throbber = Throbber(style="ascii", custom_style=ThrobberStyle(
-            name="slow", frames=["a", "b"], spin_rate=1.0
-        ))
-        fast_throbber = Throbber(style="ascii", custom_style=ThrobberStyle(
-            name="fast", frames=["a", "b"], spin_rate=10.0
-        ))
+        slow_throbber = Throbber(
+            style="ascii", custom_style=ThrobberStyle(name="slow", frames=["a", "b"], spin_rate=1.0)
+        )
+        fast_throbber = Throbber(
+            style="ascii",
+            custom_style=ThrobberStyle(name="fast", frames=["a", "b"], spin_rate=10.0),
+        )
 
         base_time = 1000.0
 
@@ -227,9 +228,9 @@ class TestThrobberDeltaTime:
 
     def test_throbber_fast_spin_rate_allows_quick_advance(self) -> None:
         """Higher spin rate should allow faster frame advancement."""
-        throbber = Throbber(custom_style=ThrobberStyle(
-            name="fast", frames=["a", "b"], spin_rate=20.0
-        ))
+        throbber = Throbber(
+            custom_style=ThrobberStyle(name="fast", frames=["a", "b"], spin_rate=20.0)
+        )
         base_time = 1000.0
         throbber.tick(base_time)
         # With 20 fps, frame time is 0.05s - use slightly more to avoid race conditions

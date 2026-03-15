@@ -54,14 +54,10 @@ class TestAgentsAtomicExtraction:
             content = (prompts_dir / filename).read_text()
 
             # Should have a markdown heading
-            assert content.startswith("## "), (
-                f"{filename} should start with ## heading"
-            )
+            assert content.startswith("## "), f"{filename} should start with ## heading"
 
             # Should have substantial content (not just a heading)
-            assert len(content) > 100, (
-                f"{filename} should have substantial content"
-            )
+            assert len(content) > 100, f"{filename} should have substantial content"
 
             # Should not have unresolved placeholders (except for colors)
             assert "{{prompts/agents/" not in content, (
@@ -174,9 +170,7 @@ class TestAgentsAtomicExtraction:
             content = (prompts_dir / filename).read_text()
 
             # Should have a clear heading
-            assert content.startswith("## "), (
-                f"{filename} should start with ## heading"
-            )
+            assert content.startswith("## "), f"{filename} should start with ## heading"
 
             # Should not reference other atomic files
             assert "{{prompts/agents/" not in content, (
@@ -184,9 +178,7 @@ class TestAgentsAtomicExtraction:
             )
 
             # Should have substantial content (not just a heading)
-            assert len(content) > 100, (
-                f"{filename} should have substantial content"
-            )
+            assert len(content) > 100, f"{filename} should have substantial content"
 
     def test_rules_index_has_numbered_rules(self, tmp_path: Path) -> None:
         """Rules index should contain numbered rules."""

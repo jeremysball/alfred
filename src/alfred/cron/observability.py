@@ -105,5 +105,3 @@ class StructuredLogger:
         }
         await self._write_log(entry)
         logger.info(f"Scheduler event '{event}': {message}")
-
-

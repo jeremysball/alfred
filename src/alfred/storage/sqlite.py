@@ -13,7 +13,7 @@ from typing import Any
 
 # sqlite-vec is required for vector search
 try:
-    import sqlite_vec  # noqa: F401
+    import sqlite_vec  # type: ignore[import-untyped]  # noqa: F401
 except ImportError as e:
     raise ImportError(
         "sqlite-vec is required. Install with: uv add sqlite-vec"
@@ -39,7 +39,7 @@ class SQLiteStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialized = False
 
-    async def _load_extensions(self, db) -> None:
+    async def _load_extensions(self, db: Any) -> None:
         """Load sqlite-vec extension for vector search.
 
         Must be called on every new connection before using vec0 virtual tables.
@@ -231,7 +231,10 @@ class SQLiteStore:
     # === Session Operations ===
 
     async def save_session(
-        self, session_id: str, messages: list[dict], metadata: dict | None = None
+        self,
+        session_id: str,
+        messages: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Save or update a session.
 
@@ -264,7 +267,7 @@ class SQLiteStore:
             await self._index_message_embeddings(db, session_id, messages)
 
     async def _index_message_embeddings(
-        self, db: Any, session_id: str, messages: list[dict]
+        self, db: Any, session_id: str, messages: list[dict[str, Any]]
     ) -> None:
         """Index message embeddings for vector search using sqlite-vec.
 
@@ -313,7 +316,7 @@ class SQLiteStore:
 
         await db.commit()
 
-    async def load_session(self, session_id: str) -> dict | None:
+    async def load_session(self, session_id: str) -> dict[str, Any] | None:
         """Load a session by ID.
 
         Args:
@@ -346,7 +349,7 @@ class SQLiteStore:
                     "metadata": json.loads(row["metadata"]),
                 }
 
-    async def list_sessions(self, limit: int = 100) -> list[dict]:
+    async def list_sessions(self, limit: int = 100) -> list[dict[str, Any]]:
         """List recent sessions.
 
         Args:
@@ -400,7 +403,7 @@ class SQLiteStore:
 
     # === Cron Operations ===
 
-    async def save_job(self, job: dict) -> None:
+    async def save_job(self, job: dict[str, Any]) -> None:
         """Save or update a cron job.
 
         Args:
@@ -443,7 +446,7 @@ class SQLiteStore:
             )
             await db.commit()
 
-    async def load_jobs(self) -> list[dict]:
+    async def load_jobs(self) -> list[dict[str, Any]]:
         """Load all cron jobs.
 
         Returns:
@@ -495,7 +498,7 @@ class SQLiteStore:
             await db.commit()
             return cursor.rowcount > 0
 
-    async def record_execution(self, record: dict) -> None:
+    async def record_execution(self, record: dict[str, Any]) -> None:
         """Record a job execution.
 
         Args:
@@ -528,7 +531,7 @@ class SQLiteStore:
             )
             await db.commit()
 
-    async def get_job_history(self, job_id: str, limit: int | None = None) -> list[dict]:
+    async def get_job_history(self, job_id: str, limit: int | None = None) -> list[dict[str, Any]]:
         """Get execution history for a job.
 
         Args:
@@ -657,7 +660,7 @@ class SQLiteStore:
         top_k: int = 10,
         role: str | None = None,
         tags: list[str] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Search memories by vector similarity using sqlite-vec.
 
         Args:
@@ -717,7 +720,7 @@ class SQLiteStore:
                 result.append(entry)
             return result
 
-    async def get_memory(self, entry_id: str) -> dict | None:
+    async def get_memory(self, entry_id: str) -> dict[str, Any] | None:
         """Get a memory by ID.
 
         Args:
@@ -756,7 +759,7 @@ class SQLiteStore:
         role: str | None = None,
         tags: list[str] | None = None,
         permanent_only: bool = False,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get all memories with optional filtering.
 
         Args:
@@ -971,7 +974,7 @@ class SQLiteStore:
             return True
 
     # Session Summary methods (PRD #76)
-    async def save_summary(self, summary: dict) -> None:
+    async def save_summary(self, summary: dict[str, Any]) -> None:
         """Save or update a session summary.
 
         Args:
@@ -1011,7 +1014,7 @@ class SQLiteStore:
             )
             await db.commit()
 
-    async def get_latest_summary(self, session_id: str) -> dict | None:
+    async def get_latest_summary(self, session_id: str) -> dict[str, Any] | None:
         """Get the latest summary for a session.
 
         Args:
@@ -1084,7 +1087,7 @@ class SQLiteStore:
         self,
         query_embedding: list[float],
         top_k: int = 3,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Search session summaries by vector similarity.
 
         Uses sqlite-vec for efficient vector similarity search.
@@ -1150,7 +1153,7 @@ class SQLiteStore:
         session_id: str,
         query_embedding: list[float],
         top_k: int = 3,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Search messages within a session by vector similarity.
 
         Uses sqlite-vec for efficient vector similarity search.

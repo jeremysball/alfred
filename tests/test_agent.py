@@ -34,7 +34,7 @@ def mock_tool_registry():
     # Add mock read tool
     async def mock_read_stream(arguments):
         # arguments is a dict from validate_and_run_stream
-        path = arguments.get('path', 'unknown')
+        path = arguments.get("path", "unknown")
         yield f"Contents of {path}"
 
     read_tool = MagicMock(spec=Tool)
@@ -44,7 +44,7 @@ def mock_tool_registry():
 
     # Add mock bash tool
     async def mock_bash_stream(arguments):
-        command = arguments.get('command', 'unknown')
+        command = arguments.get("command", "unknown")
         yield f"Output: {command}"
 
     bash_tool = MagicMock(spec=Tool)
@@ -88,14 +88,13 @@ class TestAgent:
 
             if call_count == 1:
                 # First call - return tool call
-                tool_calls = [{
-                    "id": "call_1",
-                    "type": "function",
-                    "function": {
-                        "name": "read",
-                        "arguments": json.dumps({"path": "test.txt"})
+                tool_calls = [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "read", "arguments": json.dumps({"path": "test.txt"})},
                     }
-                }]
+                ]
                 yield f"[TOOL_CALLS]{json.dumps(tool_calls)}"
             else:
                 # Second call - return final response
@@ -128,17 +127,17 @@ class TestAgent:
                         "type": "function",
                         "function": {
                             "name": "read",
-                            "arguments": json.dumps({"path": "file1.txt"})
-                        }
+                            "arguments": json.dumps({"path": "file1.txt"}),
+                        },
                     },
                     {
                         "id": "call_2",
                         "type": "function",
                         "function": {
                             "name": "read",
-                            "arguments": json.dumps({"path": "file2.txt"})
-                        }
-                    }
+                            "arguments": json.dumps({"path": "file2.txt"}),
+                        },
+                    },
                 ]
                 yield f"[TOOL_CALLS]{json.dumps(tool_calls)}"
             else:
@@ -166,14 +165,13 @@ class TestAgent:
 
             if call_count == 1:
                 # Request a non-existent tool
-                tool_calls = [{
-                    "id": "call_1",
-                    "type": "function",
-                    "function": {
-                        "name": "nonexistent_tool",
-                        "arguments": json.dumps({})
+                tool_calls = [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "nonexistent_tool", "arguments": json.dumps({})},
                     }
-                }]
+                ]
                 yield f"[TOOL_CALLS]{json.dumps(tool_calls)}"
             else:
                 yield "Tool not found"
@@ -192,20 +190,20 @@ class TestAgent:
 
         async def mock_stream(*args, **kwargs):
             # Always return tool call - infinite loop if not stopped
-            tool_calls = [{
-                "id": "call_1",
-                "type": "function",
-                "function": {
-                    "name": "read",
-                    "arguments": json.dumps({"path": "test.txt"})
+            tool_calls = [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "read", "arguments": json.dumps({"path": "test.txt"})},
                 }
-            }]
+            ]
             yield f"[TOOL_CALLS]{json.dumps(tool_calls)}"
 
         mock_llm.stream_chat_with_tools = mock_stream
 
         # Track tool events
         tool_events = []
+
         def on_tool_event(event):
             tool_events.append(event)
 
@@ -215,6 +213,7 @@ class TestAgent:
         # Agent stops at max iterations (logs warning)
         # Tool events should have been emitted
         from alfred.agent import ToolEnd, ToolStart
+
         assert any(isinstance(e, ToolStart) for e in tool_events)
         assert any(isinstance(e, ToolEnd) for e in tool_events)
 
@@ -231,14 +230,13 @@ class TestAgent:
 
             if call_count == 1:
                 yield "Let me check that..."
-                tool_calls = [{
-                    "id": "call_1",
-                    "type": "function",
-                    "function": {
-                        "name": "read",
-                        "arguments": json.dumps({"path": "test.txt"})
+                tool_calls = [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "read", "arguments": json.dumps({"path": "test.txt"})},
                     }
-                }]
+                ]
                 yield f"[TOOL_CALLS]{json.dumps(tool_calls)}"
             else:
                 yield "Here is the content"
@@ -247,6 +245,7 @@ class TestAgent:
 
         # Track tool events via callback
         tool_events = []
+
         def on_tool_event(event):
             tool_events.append(event)
 
@@ -262,6 +261,7 @@ class TestAgent:
         # Verify tool events were emitted
         assert len(tool_events) >= 2  # ToolStart and ToolEnd
         from alfred.agent import ToolEnd, ToolStart
+
         assert any(isinstance(e, ToolStart) for e in tool_events)
         assert any(isinstance(e, ToolEnd) for e in tool_events)
 

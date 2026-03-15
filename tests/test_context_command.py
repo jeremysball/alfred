@@ -99,12 +99,14 @@ class TestContextDisplay:
             output = "\n".join(output_lines)
             if len(tc.output.strip().split("\n")) > 5:
                 output += "\n..."
-            formatted.append({
-                "tool_name": tc.tool_name,
-                "arguments": tc.arguments,
-                "output": output,
-                "status": tc.status,
-            })
+            formatted.append(
+                {
+                    "tool_name": tc.tool_name,
+                    "arguments": tc.arguments,
+                    "output": output,
+                    "status": tc.status,
+                }
+            )
 
         # Assert
         assert len(formatted) == 1
@@ -144,4 +146,4 @@ class TestContextCommandIntegration:
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         # Assert the method exists (will fail until we implement)
-        assert hasattr(AlfredTUI, '_handle_session_command')
+        assert hasattr(AlfredTUI, "_handle_session_command")

@@ -108,4 +108,3 @@ class TestSystemJobExecution:
         # Verify the job is active
         job = running_scheduler._jobs["session_ttl"]
         assert job.status.value == "active"
-

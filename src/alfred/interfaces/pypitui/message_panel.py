@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from alfred.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from alfred.interfaces.pypitui.models import ToolCallInfo
-from pypitui import BorderedBox, Text  # type: ignore
+from pypitui import BorderedBox, Text
 
 
-class MessagePanel(BorderedBox):  # type: ignore[misc]
+class MessagePanel(BorderedBox):
     """A bordered panel for displaying conversation messages.
 
     Uses different border colors based on role:
@@ -194,9 +194,7 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
         self._tool_calls = list(tool_calls)
         self._rebuild_content()
 
-    def restore_tool_calls_from_records(
-        self, tool_calls: list[object] | None
-    ) -> None:
+    def restore_tool_calls_from_records(self, tool_calls: list[Any] | None) -> None:
         """Restore tool calls from session ToolCallRecord objects.
 
         Converts ToolCallRecord dataclasses to ToolCallInfo for display.

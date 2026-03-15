@@ -39,6 +39,7 @@ class TestJobExecutorBasic:
 
     async def test_execute_successful_job(self):
         """Should execute job and return success."""
+
         async def handler():
             print("Hello, World!")
 
@@ -61,6 +62,7 @@ class TestJobExecutorBasic:
 
     async def test_execute_with_stderr(self):
         """Should capture stderr output."""
+
         async def handler():
             import sys
 
@@ -78,6 +80,7 @@ class TestJobExecutorBasic:
 
     async def test_execute_failed_job(self):
         """Should handle job exceptions."""
+
         async def handler():
             raise ValueError("Something went wrong")
 
@@ -98,6 +101,7 @@ class TestJobExecutorTimeout:
 
     async def test_job_times_out(self):
         """Should timeout if job exceeds limit."""
+
         async def slow_handler():
             await asyncio.sleep(10)  # Will be interrupted
 
@@ -114,6 +118,7 @@ class TestJobExecutorTimeout:
 
     async def test_job_completes_before_timeout(self):
         """Should succeed if job completes within limit."""
+
         async def fast_handler():
             await asyncio.sleep(0.01)
             print("Done!")
@@ -134,6 +139,7 @@ class TestJobExecutorOutputLimits:
 
     async def test_output_truncation(self):
         """Should truncate output exceeding line limit."""
+
         async def verbose_handler():
             for i in range(100):
                 print(f"Line {i}")
@@ -152,6 +158,7 @@ class TestJobExecutorOutputLimits:
 
     async def test_output_not_truncated(self):
         """Should not truncate output within limit."""
+
         async def concise_handler():
             print("Line 1")
             print("Line 2")

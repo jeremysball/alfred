@@ -5,7 +5,7 @@ Reduces boilerplate by extracting common patterns from tools.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 
@@ -19,14 +19,13 @@ class MemoryStoreMixin:
         """Set the memory store after initialization."""
         self._memory_store = memory_store
 
-    def _require_memory_store(self) -> AsyncIterator[str] | None:
+    def _require_memory_store(self) -> Iterator[str]:
         """Check if memory store is available.
 
-        Yields error message if not available, otherwise returns None.
+        Yields error message if not available.
         """
         if not self._memory_store:
             yield "Error: Memory store not initialized"
-        return None
 
 
 class ErrorHandlingMixin:

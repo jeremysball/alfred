@@ -8,7 +8,7 @@ import logging
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -194,8 +194,8 @@ class QueryJobsResponse(SocketMessage):
 
     type: MessageType = field(default=MessageType.QUERY_JOBS_RESPONSE, init=False)
     request_id: str = ""
-    jobs: list = field(default_factory=list)
-    recent_failures: list = field(default_factory=list)
+    jobs: list[dict[str, Any]] = field(default_factory=list)
+    recent_failures: list[dict[str, Any]] = field(default_factory=list)
 
 
 # Job Management Messages

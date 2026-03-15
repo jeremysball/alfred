@@ -102,9 +102,7 @@ class TestSendMessage:
         await tui._send_message("Hello")
 
         # Find assistant panel
-        assistant_panels = [
-            c for c in tui.conversation.children if isinstance(c, MessagePanel)
-        ]
+        assistant_panels = [c for c in tui.conversation.children if isinstance(c, MessagePanel)]
         assert len(assistant_panels) >= 1
 
     @pytest.mark.asyncio
@@ -164,9 +162,7 @@ class TestToolCallbackIntegration:
         tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="bash"))
 
         # Output
-        tui._tool_callback(
-            ToolOutput(tool_call_id="call-1", tool_name="bash", chunk="Hello")
-        )
+        tui._tool_callback(ToolOutput(tool_call_id="call-1", tool_name="bash", chunk="Hello"))
 
         # Verify output was appended
         assert assistant_msg._tool_calls[0].output == "Hello"
@@ -183,9 +179,7 @@ class TestToolCallbackIntegration:
         assistant_msg = MessagePanel(role="assistant", content="Done")
         tui._current_assistant_msg = assistant_msg
         tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="remember"))
-        tui._tool_callback(
-            ToolEnd(tool_call_id="call-1", tool_name="remember", result="OK")
-        )
+        tui._tool_callback(ToolEnd(tool_call_id="call-1", tool_name="remember", result="OK"))
 
         # Status should be success
         assert assistant_msg._tool_calls[0].status == "success"
@@ -203,9 +197,7 @@ class TestToolCallbackIntegration:
         tui._current_assistant_msg = assistant_msg
         tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="bash"))
         tui._tool_callback(
-            ToolEnd(
-                tool_call_id="call-1", tool_name="bash", result="Failed", is_error=True
-            )
+            ToolEnd(tool_call_id="call-1", tool_name="bash", result="Failed", is_error=True)
         )
 
         # Status should be error
@@ -417,4 +409,3 @@ class TestStreamingState:
         # Throbber should still be visible during streaming
         lines = tui.status_line.render(width=80)
         assert "⠋" in lines[0]  # Throbber still visible
-

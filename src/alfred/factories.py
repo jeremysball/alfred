@@ -167,7 +167,6 @@ class AlfredCoreFactory:
         return AlfredCore(config)
 
 
-
 # Re-export for convenience
 __all__ = [
     "AlfredCoreFactory",

@@ -49,9 +49,7 @@ class ThrobbersCommand(Command):
         self._task = asyncio.create_task(self._animate(tui))
 
         # Add input handler for navigation - store the removal function
-        self._remove_listener = tui.tui.add_input_listener(
-            lambda data: self._on_input(tui, data)
-        )
+        self._remove_listener = tui.tui.add_input_listener(lambda data: self._on_input(tui, data))
 
         return True
 

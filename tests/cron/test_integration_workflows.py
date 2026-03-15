@@ -128,9 +128,7 @@ class TestFullJobLifecycle:
 
         # List pending
         result = []
-        async for chunk in cron_system["list_tool"].execute_stream(
-            status_filter="pending"
-        ):
+        async for chunk in cron_system["list_tool"].execute_stream(status_filter="pending"):
             result.append(chunk)
 
         output = "".join(result)
@@ -150,9 +148,7 @@ class TestFullJobLifecycle:
         )
 
         result = []
-        async for chunk in cron_system["approve_tool"].execute_stream(
-            job_identifier="To Approve"
-        ):
+        async for chunk in cron_system["approve_tool"].execute_stream(job_identifier="To Approve"):
             result.append(chunk)
 
         output = "".join(result)
@@ -203,9 +199,7 @@ class TestRejectionWorkflow:
 
         # Reject it
         result = []
-        async for chunk in cron_system["reject_tool"].execute_stream(
-            job_identifier="To Reject"
-        ):
+        async for chunk in cron_system["reject_tool"].execute_stream(job_identifier="To Reject"):
             result.append(chunk)
 
         output = "".join(result)

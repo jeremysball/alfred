@@ -35,8 +35,7 @@ class TestSessionSummariesTable:
 
         # Insert parent session first (FK constraint)
         await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("sess_abc456", "[]")
+            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_abc456", "[]")
         )
         await db.commit()
 
@@ -48,14 +47,13 @@ class TestSessionSummariesTable:
                 first_message_idx, last_message_idx, summary_text, version
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("sum_test123", "sess_abc456", 5, 0, 4, "Test summary", 1)
+            ("sum_test123", "sess_abc456", 5, 0, 4, "Test summary", 1),
         )
         await db.commit()
 
         # Verify insert worked
         async with db.execute(
-            "SELECT COUNT(*) FROM session_summaries WHERE summary_id = ?",
-            ("sum_test123",)
+            "SELECT COUNT(*) FROM session_summaries WHERE summary_id = ?", ("sum_test123",)
         ) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 1
@@ -67,8 +65,7 @@ class TestSessionSummariesTable:
 
         # Insert a session first
         await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("sess_exists", "[]")
+            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_exists", "[]")
         )
         await db.commit()
 
@@ -80,7 +77,7 @@ class TestSessionSummariesTable:
                 first_message_idx, last_message_idx, summary_text
             ) VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("sum_valid", "sess_exists", 3, 0, 2, "Valid summary")
+            ("sum_valid", "sess_exists", 3, 0, 2, "Valid summary"),
         )
         await db.commit()
 
@@ -91,8 +88,7 @@ class TestSessionSummariesTable:
 
         # Insert session and summary
         await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("sess_cascade", "[]")
+            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_cascade", "[]")
         )
         await db.execute(
             """
@@ -101,21 +97,17 @@ class TestSessionSummariesTable:
                 first_message_idx, last_message_idx, summary_text
             ) VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("sum_cascade", "sess_cascade", 3, 0, 2, "Cascade test")
+            ("sum_cascade", "sess_cascade", 3, 0, 2, "Cascade test"),
         )
         await db.commit()
 
         # Delete session
-        await db.execute(
-            "DELETE FROM sessions WHERE session_id = ?",
-            ("sess_cascade",)
-        )
+        await db.execute("DELETE FROM sessions WHERE session_id = ?", ("sess_cascade",))
         await db.commit()
 
         # Verify summary was also deleted
         async with db.execute(
-            "SELECT COUNT(*) FROM session_summaries WHERE session_id = ?",
-            ("sess_cascade",)
+            "SELECT COUNT(*) FROM session_summaries WHERE session_id = ?", ("sess_cascade",)
         ) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 0

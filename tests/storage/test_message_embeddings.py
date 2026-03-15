@@ -36,7 +36,7 @@ class TestMessageEmbeddingsTable:
         # Insert parent session first
         await db.execute(
             "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-            ("sess_test", "[]", 2)
+            ("sess_test", "[]", 2),
         )
         await db.commit()
 
@@ -47,14 +47,13 @@ class TestMessageEmbeddingsTable:
             (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("me_test", "sess_test", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3]))
+            ("me_test", "sess_test", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3])),
         )
         await db.commit()
 
         # Verify
         async with db.execute(
-            "SELECT COUNT(*) FROM message_embeddings WHERE message_embedding_id = ?",
-            ("me_test",)
+            "SELECT COUNT(*) FROM message_embeddings WHERE message_embedding_id = ?", ("me_test",)
         ) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 1
@@ -72,7 +71,7 @@ class TestMessageEmbeddingsTable:
                 (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                ("me_orphan", "nonexistent", 0, "user", "Test", json.dumps([0.1]))
+                ("me_orphan", "nonexistent", 0, "user", "Test", json.dumps([0.1])),
             )
             await db.commit()
 
@@ -84,7 +83,7 @@ class TestMessageEmbeddingsTable:
         # Insert session and message
         await db.execute(
             "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-            ("sess_cascade", "[]", 1)
+            ("sess_cascade", "[]", 1),
         )
         await db.execute(
             """
@@ -92,7 +91,7 @@ class TestMessageEmbeddingsTable:
             (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            ("me_cascade", "sess_cascade", 0, "user", "Hi", json.dumps([0.1]))
+            ("me_cascade", "sess_cascade", 0, "user", "Hi", json.dumps([0.1])),
         )
         await db.commit()
 
@@ -102,8 +101,7 @@ class TestMessageEmbeddingsTable:
 
         # Verify message embedding deleted
         async with db.execute(
-            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
-            ("sess_cascade",)
+            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_cascade",)
         ) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 0
@@ -136,10 +134,13 @@ class TestMessageEmbeddingsIndexing:
 
         # Verify message_embeddings created
         import aiosqlite
-        async with aiosqlite.connect(sqlite_store.db_path) as db, db.execute(
-            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
-            ("sess_index",)
-        ) as cursor:
+
+        async with (
+            aiosqlite.connect(sqlite_store.db_path) as db,
+            db.execute(
+                "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_index",)
+            ) as cursor,
+        ):
             row = await cursor.fetchone()
             assert row[0] == 2
 
@@ -165,9 +166,12 @@ class TestMessageEmbeddingsIndexing:
 
         # Only 1 message should be indexed
         import aiosqlite
-        async with aiosqlite.connect(sqlite_store.db_path) as db, db.execute(
-            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?",
-            ("sess_partial",)
-        ) as cursor:
+
+        async with (
+            aiosqlite.connect(sqlite_store.db_path) as db,
+            db.execute(
+                "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_partial",)
+            ) as cursor,
+        ):
             row = await cursor.fetchone()
             assert row[0] == 1

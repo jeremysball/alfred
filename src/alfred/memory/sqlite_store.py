@@ -160,7 +160,7 @@ class SQLiteMemoryStore(MemoryStore):
 
         Returns:
             List of all entries
-"""
+        """
         results = await self._store.get_all_memories()
 
         return [

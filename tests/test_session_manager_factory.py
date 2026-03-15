@@ -63,7 +63,7 @@ class TestSessionManagerIntegration:
 
         # Mock config
         config = load_config()
-        monkeypatch.setattr(config, 'data_dir', tmp_path)
+        monkeypatch.setattr(config, "data_dir", tmp_path)
 
         core = AlfredCore(config)
 

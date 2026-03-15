@@ -198,7 +198,9 @@ class TestStatusLineNoWrapping:
             # Content should not exceed width (accounting for ANSI codes)
             text = result[0]
             # Strip ANSI codes for length check
-            text.replace("\x1b[", "").replace("m", "").replace("0", "").replace("3", "").replace("3", "")
+            text.replace("\x1b[", "").replace("m", "").replace("0", "").replace("3", "").replace(
+                "3", ""
+            )
             # Rough check - actual visible chars should be <= width
             visible_len = len(text)
             for i in range(30, 40):  # Remove color codes roughly

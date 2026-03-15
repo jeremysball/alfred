@@ -173,10 +173,7 @@ class NotifyUsageVisitor(ast.NodeVisitor):
                 self.found_notify_call = True
 
             # Check for subprocess notify (wrong way)
-            if (
-                func_name in ("subprocess.run", "subprocess.call", "os.system")
-                and node.args
-            ):
+            if func_name in ("subprocess.run", "subprocess.call", "os.system") and node.args:
                 first_arg = node.args[0]
                 if isinstance(first_arg, ast.Constant) and "notify" in str(first_arg.value):
                     self.found_subprocess_notify = True

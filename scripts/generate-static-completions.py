@@ -37,10 +37,7 @@ def discover_commands():
         if isinstance(cmd, click.Group):
             # This is a subcommand group (like cron, memory)
             # Filter out flags from subcommands too
-            subcmds = [
-                sub for sub in cmd.commands.keys()
-                if not sub.startswith("-")
-            ]
+            subcmds = [sub for sub in cmd.commands.keys() if not sub.startswith("-")]
             completions[name] = subcmds
 
     return completions
@@ -74,15 +71,11 @@ _alfred_completion() {
 
         # Add flags to top-level
         if path == "":
-            opts.extend(
-                ["--telegram", "-t", "--log", "-l", "--install-completions", "--help"]
-            )
+            opts.extend(["--telegram", "-t", "--log", "-l", "--install-completions", "--help"])
 
         opts_str = " ".join(sorted(set(opts)))
         case_path = path if path else '""'
-        script += (
-            f'        {case_path})\n            opts="{opts_str}"\n            ;;\n'
-        )
+        script += f'        {case_path})\n            opts="{opts_str}"\n            ;;\n'
 
     script += """        *)
             opts=""
@@ -222,7 +215,7 @@ _alfred() {
     for cmd in top_level:
         subcmds = completions.get(cmd, [])
         if subcmds:
-            script += f'                {cmd})\n'
+            script += f"                {cmd})\n"
             script += f'                    _values "{cmd} subcommands" \\\n'
             for sub in subcmds:
                 script += f'                        "{sub}" \\\n'
@@ -240,12 +233,8 @@ _alfred "$@"
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--check", action="store_true", help="Check if completions are up to date"
-    )
-    parser.add_argument(
-        "--shell", choices=["bash", "fish", "zsh", "all"], default="all"
-    )
+    parser.add_argument("--check", action="store_true", help="Check if completions are up to date")
+    parser.add_argument("--shell", choices=["bash", "fish", "zsh", "all"], default="all")
     args = parser.parse_args()
 
     # Discover completions from Typer app
@@ -284,9 +273,7 @@ def main():
                 mismatch = True
 
         if mismatch:
-            print(
-                "\nRun 'python scripts/generate-static-completions.py' to regenerate."
-            )
+            print("\nRun 'python scripts/generate-static-completions.py' to regenerate.")
             sys.exit(1)
         else:
             print("Completions are up to date.")
