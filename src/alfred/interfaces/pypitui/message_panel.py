@@ -373,8 +373,9 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
 
         import json
 
-        # Try to detect and format JSON
         stripped = output.strip()
+
+        # Try to detect and format JSON
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
                 parsed = json.loads(stripped)
@@ -397,6 +398,16 @@ class MessagePanel(BorderedBox):  # type: ignore[misc]
                 return pretty_json
             except json.JSONDecodeError:
                 pass
+
+        # Check for markdown code blocks (e.g., from review_job tool)
+        if "```" in output:
+            if renderer:
+                try:
+                    # Use markdown renderer to properly format code blocks
+                    return renderer.render_markdown(output)
+                except Exception:
+                    pass
+            return output
 
         # For plain text, just return as-is (renderer will handle ANSI if enabled)
         if renderer and output:

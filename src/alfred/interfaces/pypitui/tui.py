@@ -784,3 +784,4 @@ class AlfredTUI:
                 await asyncio.sleep(0.016)
         finally:
             self.tui.stop()
+            await self.alfred.stop()

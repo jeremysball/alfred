@@ -44,7 +44,7 @@ dependencies = [
   "typer>=0.12",
   "rich>=13.0",
   "prompt-toolkit>=3.0",
-  "pypitui>=0.4.2",
+  "pypitui>=0.4.3",
   "playwright>=1.58.0",
   "markdownify>=1.2.2",
   "tomli>=2.0.0",
@@ -135,7 +135,6 @@ packages = ["src/alfred"]
 source = "vcs"
 
 [tool.uv.sources]
-pypitui = { path = "../pypitui", editable = true }
 torch = { index = "pytorch-cpu" }
 
 [[tool.uv.index]]
@@ -150,9 +149,11 @@ dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
+    "radon>=6.0.1",
     "ruff>=0.15.1",
     "types-aiofiles>=25.1.0.20251011",
     "types-croniter>=6.0.0.20250809",
     "types-psutil>=7.2.2.20260130",
     "types-torch>=0.1.1",
+    "vulture>=2.15",
 ]

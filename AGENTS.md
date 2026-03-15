@@ -107,21 +107,179 @@ uv run pytest tests/test_mymodule.py -v
 
 ---
 
-## Secrets and Authentication
+## Test Behavior, Not Logic
 
-Any command needing secrets must use `uv run dotenv`:
+**This rule is critical for TUI/CLI code.**
 
-```bash
-uv run dotenv gh pr create --title "..." --body "..."
-uv run dotenv python script_using_api.py
+Unit tests that call methods directly and check internal state miss the real bugs: hangs, cleanup failures, and event loop issues. Always test **behavior** through the public interface using realistic input simulation.
+
+### The Ctrl+C Lesson
+
+**Wrong—Testing logic (missed the hang):**
+```python
+def test_ctrl_c_exits():
+    tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+    tui.input_field.set_value("")  # Set internal state directly
+    tui._handle_ctrl_c()           # Call handler directly
+    assert not tui.running         # Logic passes...
+    # ...but the real TUI still hangs on exit!
 ```
 
-**Wrong:**
-```bash
-gh pr create --title "..."                    # No ALFRED_REPO_PAT
-source .env && gh pr create                   # Pollutes shell
-export $(cat .env | grep ALFRED_REPO_PAT) && ...  # Pollutes shell
+**Right—Testing behavior (catches the hang):**
+```python
+@pytest.mark.asyncio
+async def test_ctrl_c_exits_cleanly(mock_alfred, mock_terminal):
+    tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+    mock_terminal.queue_input("\x03")  # Simulate real keystroke
+    
+    # Run the actual event loop with timeout
+    await asyncio.wait_for(tui.run(), timeout=1.0)
+    
+    assert not tui.running  # Now we know it REALLY exits
 ```
+
+### MockTerminal Is The Default for TUI Tests
+
+**Use MockTerminal for 95% of TUI tests.** It simulates terminal input/output without a real terminal, runs fast, and catches most bugs.
+
+**Only use real terminal/tmux when testing:**
+- ANSI escape sequences
+- Terminal resize behavior  
+- Visual output/screenshots
+- Real terminal edge cases
+
+**Wrong—Using MagicMock (fake terminal):**
+```python
+mock_terminal = MagicMock()
+mock_terminal.get_size.return_value = (80, 24)
+# Not testing real terminal interaction at all
+```
+
+**Wrong—Using tmux for basic behavior (too slow):**
+```python
+# Don't do this for simple input/output tests
+with TerminalSession("alfred", port=7681) as s:
+    s.send("hello")
+    result = s.capture("screen.png")  # Overkill for basic tests
+```
+
+**Right—MockTerminal (correct default):**
+```python
+from pypitui import MockTerminal
+
+mock_terminal = MockTerminal(cols=80, rows=24)
+mock_terminal.queue_input("hello")   # Simulate typing
+mock_terminal.queue_input("\x03")    # Simulate Ctrl+C
+
+# The TUI processes these through its actual input loop
+```
+
+### What Behavior Tests Catch That Logic Tests Don't
+
+| Issue | Logic Test | Behavior Test |
+|-------|-----------|---------------|
+| TUI hangs on exit | ❌ Passes | ✅ Times out and fails |
+| Cleanup not called | ❌ Passes | ✅ Can verify mock_stop.called |
+| Event loop issues | ❌ Passes | ✅ Real async execution |
+| Input timing bugs | ❌ Passes | ✅ Real sequence processing |
+| Terminal state corruption | ❌ Passes | ✅ Real terminal interaction |
+
+### When to Test Behavior vs Logic
+
+| Code Type | Test Approach |
+|-----------|---------------|
+| TUI/CLI components | **Behavior** with MockTerminal |
+| Pure functions | Logic is fine |
+| Database/storage | Behavior with real SQLite (in-memory) |
+| API clients | Behavior with mocked responses |
+| Async event loops | **Behavior** with real async execution |
+
+### Rule of Thumb
+
+If the bug report says "it hangs," "it freezes," or "it doesn't clean up," the test must exercise the **full lifecycle** through the public interface.
+
+---
+
+## TDD Workflow: Unit Tests First, Integration Tests Last
+
+Follow this workflow for every feature:
+
+### Phase 1: Unit Tests (Red-Green-Refactor)
+
+Start with isolated unit tests for each component:
+
+```python
+# Test the logic in isolation
+def test_ctrl_c_clears_input_on_first_press():
+    tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+    tui.input_field.set_value("some text")
+    
+    tui._handle_ctrl_c()
+    
+    assert tui.input_field.get_value() == ""
+    assert tui._ctrl_c_pending is True
+```
+
+**Unit test goals:**
+- Test each function/method in isolation
+- Cover happy paths and edge cases
+- Fast feedback (< 1 second per test)
+- Guide implementation design
+
+### Phase 2: Implementation
+
+Write minimum code to make unit tests pass.
+
+### Phase 3: Integration Tests (PRD Acceptance)
+
+Finish with **behavioral integration tests** that match the PRD's acceptance criteria exactly:
+
+```python
+# From PRD: "First Ctrl-C clears input, second Ctrl-C exits"
+@pytest.mark.asyncio
+async def test_ctrl_c_first_clears_second_exits():
+    """PRD: First Ctrl-C clears input, second Ctrl-C exits cleanly."""
+    tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
+    
+    # Type something
+    mock_terminal.queue_input("hello world")
+    for _ in "hello world":
+        data = mock_terminal.read_sequence(timeout=0.0)
+        if data:
+            tui.tui.handle_input(data)
+    
+    # First Ctrl-C - should clear
+    mock_terminal.queue_input("\x03")
+    data = mock_terminal.read_sequence(timeout=0.0)
+    if data == "\x03":
+        tui._handle_ctrl_c()
+    
+    assert tui.input_field.get_value() == ""
+    assert tui.running is True  # Still running
+    
+    # Second Ctrl-C - should exit
+    mock_terminal.queue_input("\x03")
+    data = mock_terminal.read_sequence(timeout=0.0)
+    if data == "\x03":
+        tui._handle_ctrl_c()
+    
+    assert not tui.running  # Exited
+```
+
+**Integration test goals:**
+- Verify PRD acceptance criteria are met
+- Test through public interfaces
+- Catch hangs, cleanup bugs, timing issues
+- Document expected behavior for future regressions
+
+### Why Both?
+
+| Phase | Purpose | Speed | Catches |
+|-------|---------|-------|---------|
+| Unit | Guide implementation | Fast (ms) | Logic errors |
+| Integration | Verify PRD acceptance | Slower (100ms+) | Hangs, cleanup, real behavior |
+
+**Never skip integration tests.** Unit tests passing does NOT mean the feature works.
 
 ---
 
