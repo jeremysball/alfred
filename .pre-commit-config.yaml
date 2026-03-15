@@ -20,3 +20,19 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
+
+      - id: radon
+        name: radon (complexity check)
+        entry: bash -c 'output=$(uv run radon cc src/ -n C -s); if [ -n "$output" ]; then echo "$output"; exit 1; fi'
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
+      - id: vulture
+        name: vulture (dead code check)
+        entry: uv run vulture src/ --min-confidence 80
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true

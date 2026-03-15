@@ -9,6 +9,8 @@ import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from alfred.interfaces.pypitui.history_cache import HistoryManager
 
@@ -52,9 +54,7 @@ def test_cache_saves_on_add(history_manager: HistoryManager, temp_cache_dir: Pat
     assert new_manager._history[0].message == "test message"
 
 
-def test_cache_isolated_by_directory(
-    temp_cache_dir: Path, temp_work_dir: Path
-) -> None:
+def test_cache_isolated_by_directory(temp_cache_dir: Path, temp_work_dir: Path) -> None:
     """Test that different directories have isolated history."""
     from alfred.interfaces.pypitui.history_cache import HistoryManager
 
@@ -115,9 +115,7 @@ def test_cache_clear_deletes_from_database(
     assert len(new_manager._history) == 0
 
 
-def test_cache_handles_corrupted_database(
-    corrupted_cache_file: Path, temp_work_dir: Path
-) -> None:
+def test_cache_handles_corrupted_database(corrupted_cache_file: Path, temp_work_dir: Path) -> None:
     """Test graceful handling of corrupted database."""
     from alfred.interfaces.pypitui.history_cache import HistoryManager
 
@@ -133,9 +131,7 @@ def test_cache_handles_corrupted_database(
     assert len(manager._history) == 1
 
 
-def test_cache_handles_readonly_directory(
-    readonly_cache_dir: Path, temp_work_dir: Path
-) -> None:
+def test_cache_handles_readonly_directory(readonly_cache_dir: Path, temp_work_dir: Path) -> None:
     """Test graceful handling of read-only cache directory."""
     from alfred.interfaces.pypitui.history_cache import HistoryManager
 
@@ -151,9 +147,7 @@ def test_cache_handles_readonly_directory(
     # but at least it doesn't crash
 
 
-def test_cache_replace_on_write(
-    populated_history: HistoryManager, temp_cache_dir: Path
-) -> None:
+def test_cache_replace_on_write(populated_history: HistoryManager, temp_cache_dir: Path) -> None:
     """Test that save replaces existing entries for directory."""
     # Add more entries after initial population
     populated_history.add("Fourth")
@@ -169,9 +163,8 @@ def test_cache_replace_on_write(
     assert messages == ["First message", "Second message", "Third message", "Fourth"]
 
 
-def test_cache_max_entries_per_directory(
-    temp_cache_dir: Path, temp_work_dir: Path
-) -> None:
+@pytest.mark.slow
+def test_cache_max_entries_per_directory(temp_cache_dir: Path, temp_work_dir: Path) -> None:
     """Test that max_history applies per directory, not globally."""
     from alfred.interfaces.pypitui.history_cache import HistoryManager
 
@@ -211,9 +204,7 @@ def test_cache_includes_working_dir_for_debugging(
         assert row[0] == str(history_manager._working_dir)
 
 
-def test_dir_hash_deterministic(
-    history_manager: HistoryManager, temp_work_dir: Path
-) -> None:
+def test_dir_hash_deterministic(history_manager: HistoryManager, temp_work_dir: Path) -> None:
     """Test that directory hash is deterministic."""
     hash1 = history_manager._dir_hash(temp_work_dir)
     hash2 = history_manager._dir_hash(temp_work_dir)

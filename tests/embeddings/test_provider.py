@@ -7,6 +7,7 @@ from alfred.config import Config
 # Check if sentence-transformers is available
 try:
     import sentence_transformers  # noqa: F401
+
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
@@ -24,9 +25,9 @@ class TestEmbeddingProviderABC:
 
 
 @pytest.mark.skipif(
-    not SENTENCE_TRANSFORMERS_AVAILABLE,
-    reason="sentence-transformers not installed"
+    not SENTENCE_TRANSFORMERS_AVAILABLE, reason="sentence-transformers not installed"
 )
+@pytest.mark.slow
 class TestBGEProvider:
     """Test BGE local embedding provider (requires sentence-transformers)."""
 
@@ -91,8 +92,7 @@ class TestBGEProvider:
 
 
 @pytest.mark.skipif(
-    not SENTENCE_TRANSFORMERS_AVAILABLE,
-    reason="sentence-transformers not installed"
+    not SENTENCE_TRANSFORMERS_AVAILABLE, reason="sentence-transformers not installed"
 )
 class TestBGEProviderSingleton:
     """Test that BGE model is loaded as singleton."""

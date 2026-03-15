@@ -9,6 +9,8 @@ from datetime import UTC
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from alfred.interfaces.pypitui.history_cache import HistoryManager
     from tests.pypitui.conftest import InvariantAssertions
@@ -66,9 +68,7 @@ def test_navigate_up_returns_most_recent(
     assert_invariants.index_valid(populated_history)
 
 
-def test_navigate_up_saves_current_input(
-    populated_history: HistoryManager
-) -> None:
+def test_navigate_up_saves_current_input(populated_history: HistoryManager) -> None:
     """Test that navigate_up saves current input when moving from position 0."""
     current_input = "unsent message"
 
@@ -121,9 +121,7 @@ def test_navigate_down_returns_newer(
     assert_invariants.index_valid(populated_history)
 
 
-def test_navigate_down_returns_saved_input(
-    populated_history: HistoryManager
-) -> None:
+def test_navigate_down_returns_saved_input(populated_history: HistoryManager) -> None:
     """Test that navigate_down returns to saved input at position 0."""
     saved = "my input"
 
@@ -135,9 +133,7 @@ def test_navigate_down_returns_saved_input(
     assert populated_history._index == 0
 
 
-def test_navigate_down_at_zero_returns_saved_input(
-    history_manager: HistoryManager
-) -> None:
+def test_navigate_down_at_zero_returns_saved_input(history_manager: HistoryManager) -> None:
     """Test navigate_down at index 0 returns saved input."""
     history_manager._saved_input = "saved"
 
@@ -159,9 +155,7 @@ def test_deduplication_consecutive_duplicates(
     assert_invariants.no_consecutive_duplicates(history_with_duplicates)
 
 
-def test_no_deduplication_non_consecutive(
-    history_manager: HistoryManager
-) -> None:
+def test_no_deduplication_non_consecutive(history_manager: HistoryManager) -> None:
     """Test that non-consecutive duplicates are preserved."""
     history_manager.add("A")
     history_manager.add("B")
@@ -171,6 +165,7 @@ def test_no_deduplication_non_consecutive(
     assert messages == ["A", "B", "A"]
 
 
+@pytest.mark.slow
 def test_eviction_at_max_capacity(
     history_at_max_capacity: HistoryManager, assert_invariants: InvariantAssertions
 ) -> None:
