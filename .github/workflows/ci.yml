@@ -33,6 +33,18 @@ jobs:
       - name: Run mypy (strict)
         run: uv run mypy src/ --strict
 
+      - name: Run radon (complexity check)
+        run: |
+          output=$(uv run radon cc src/ -n C -s)
+          if [ -n "$output" ]; then
+            echo "$output"
+            echo "::error::Code complexity grade C or higher detected"
+            exit 1
+          fi
+
+      - name: Run vulture (dead code check)
+        run: uv run vulture src/ --min-confidence 80
+
       - name: Check completions sync
         run: uv run python scripts/generate-static-completions.py --check
 
