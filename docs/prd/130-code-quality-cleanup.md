@@ -8,7 +8,7 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 | Tool | Issues | Severity |
 |------|--------|----------|
-| **Radon** | 4 functions with grade D+ complexity | 🔴 High |
+| **Radon** | 3 functions with grade D+ complexity | 🔴 High |
 | **Vulture** | 0 issues | ✅ Complete |
 | **MyPy** | 30 type errors | 🔴 High |
 
@@ -45,13 +45,19 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - [x] Implement: Create `_send_response()` method
 - [x] Verify: Complexity reduced from 30 (grade D) to 7 (grade B)
 
-#### AlfredTUI._input_listener (Complexity 29)
+#### AlfredTUI._input_listener ✅
 
-- [ ] Test: Extract key handler dispatch
-- [ ] Implement: Create `_dispatch_key_handler()` method
-- [ ] Test: Extract command processing
-- [ ] Implement: Create `_process_command()` method
-- [ ] Verify: Complexity reduced to grade C or below
+- [x] Test: Extract control key handling
+- [x] Implement: Create `_handle_control_keys()` method
+- [x] Test: Extract escape key handling
+- [x] Implement: Create `_handle_escape_key()` method
+- [x] Test: Extract UP/DOWN navigation
+- [x] Implement: Create `_handle_up_navigation()` method
+- [x] Test: Extract DOWN navigation
+- [x] Implement: Create `_handle_down_navigation()` method
+- [x] Test: Extract queue reset logic
+- [x] Implement: Create `_reset_queue_navigation()` method
+- [x] Verify: Complexity reduced from 29 (grade D) to 6 (grade B)
 
 #### Agent.run_stream (Complexity 28)
 
@@ -150,10 +156,19 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - **Result:** Complexity reduced from 30 (grade D) to 7 (grade B)
 - **Tests:** All 8 socket server tests pass
 
+**Phase 2 - AlfredTUI Complexity (2 of 5 functions refactored):**
+- Extracted `_handle_control_keys()` - All Ctrl+ shortcuts (Ctrl+U, Ctrl+A, Ctrl+E, etc.)
+- Extracted `_handle_escape_key()` - Escape key for queue clearing
+- Extracted `_handle_up_navigation()` - UP arrow with queue + history fallback
+- Extracted `_handle_down_navigation()` - DOWN arrow with queue + history fallback
+- Extracted `_reset_queue_navigation()` - Reset queue nav state on other keys
+- Simplified `_input_listener()` using early returns and helper delegation
+- **Result:** Complexity reduced from 29 (grade D) to 6 (grade B)
+- **Tests:** 27 new tests added, all 21 existing TUI tests pass
+
 ### Remaining Work
 
-**Phase 2 - High Complexity Functions (4 remaining):**
-- `AlfredTUI._input_listener` (complexity 29)
+**Phase 2 - High Complexity Functions (3 remaining):**
 - `Agent.run_stream` (complexity 28)
 - `config_update` (complexity 24)
 - `KimiProvider.stream_chat_with_tools` (complexity 41)
@@ -167,13 +182,15 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 ## Success Criteria
 
-| Metric | Before | Target |
-|--------|--------|--------|
-| Radon grade D+ | 5 functions | 0 functions |
-| Radon grade F | 1 function | 0 functions |
-| Vulture issues | 4 | 0 |
-| MyPy errors | 30 | **0** (zero tolerance) |
-| Test coverage | 64% | ≥64% (maintain) |
+| Metric | Before | Current | Target |
+|--------|--------|---------|--------|
+| Radon grade D+ | 5 | **3** | 0 |
+| Radon grade F | 1 | 1 | 0 |
+| Vulture issues | 4 | **0** ✅ | 0 |
+| MyPy errors | 30 | 30 | **0** (zero tolerance) |
+| Test coverage | 64% | 64%* | ≥64% (maintain) |
+
+\* Coverage maintained with 27 new tests
 
 ## Implementation Notes
 

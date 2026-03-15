@@ -67,6 +67,70 @@ class Agent:
         self.tools = tools
         self.max_iterations = max_iterations
 
+    async def _execute_tool_with_events(
+        self,
+        call: ToolCall,
+        tool: Any,
+        tool_callback: Callable[[ToolEvent], None] | None,
+    ) -> str:
+        """Execute a single tool with full event lifecycle.
+
+        Args:
+            call: The tool call to execute
+            tool: The tool instance to execute
+            tool_callback: Optional callback for tool execution events
+
+        Returns:
+            Tool output as string
+        """
+        # Emit tool start event
+        if tool_callback:
+            tool_callback(
+                ToolStart(
+                    tool_call_id=call.id,
+                    tool_name=call.name,
+                    arguments=call.arguments,
+                )
+            )
+
+        tool_output = ""
+        try:
+            async for chunk in tool.validate_and_run_stream(call.arguments):
+                tool_output += chunk
+                # Emit output event
+                if tool_callback:
+                    tool_callback(
+                        ToolOutput(
+                            tool_call_id=call.id,
+                            tool_name=call.name,
+                            chunk=chunk,
+                        )
+                    )
+        except Exception as e:
+            error_msg = f"Error executing {call.name}: {e}"
+            tool_output += error_msg
+            if tool_callback:
+                tool_callback(
+                    ToolOutput(
+                        tool_call_id=call.id,
+                        tool_name=call.name,
+                        chunk=error_msg,
+                    )
+                )
+
+        # Emit tool end event
+        if tool_callback:
+            tool_callback(
+                ToolEnd(
+                    tool_call_id=call.id,
+                    tool_name=call.name,
+                    result=tool_output,
+                    is_error=self._is_error(tool_output),
+                )
+            )
+
+        return tool_output
+
     async def run_stream(
         self,
         messages: list[ChatMessage],
@@ -97,16 +161,18 @@ class Agent:
             # Get tool schemas
             tool_schemas = self.tools.get_schemas()
 
-            # Stream LLM response
-            full_content = ""
-            tool_calls_data = []
-            in_tool_call = False
-            reasoning_content = None
-
-            async for chunk in self.llm.stream_chat_with_tools(
+            # Stream LLM response and process
+            stream = self.llm.stream_chat_with_tools(
                 messages,
                 tools=tool_schemas if tool_schemas else None,
-            ):
+            )
+
+            full_content = ""
+            tool_calls_data: list[dict[str, Any]] = []
+            in_tool_call = False
+            reasoning_content: str | None = None
+
+            async for chunk in stream:
                 # Check for usage marker
                 if chunk.startswith("[USAGE]"):
                     try:
@@ -119,9 +185,8 @@ class Agent:
 
                 # Check for tool call markers in stream
                 if chunk.startswith("[TOOL_CALLS]"):
-                    # Parse tool calls from marker
                     try:
-                        tc_data = json.loads(chunk[12:])  # Remove prefix
+                        tc_data = json.loads(chunk[12:])
                         tool_calls_data = tc_data
                         in_tool_call = True
                     except json.JSONDecodeError:
@@ -130,7 +195,7 @@ class Agent:
 
                 # Check for reasoning content marker
                 if chunk.startswith("[REASONING]"):
-                    chunk_reasoning = chunk[11:]  # Remove prefix
+                    chunk_reasoning = chunk[11:]
                     reasoning_content = (reasoning_content or "") + chunk_reasoning
                     continue
 
@@ -205,51 +270,10 @@ class Agent:
                     )
                     continue
 
-                # Emit tool start event
-                if tool_callback:
-                    tool_callback(
-                        ToolStart(
-                            tool_call_id=call.id,
-                            tool_name=call.name,
-                            arguments=call.arguments,
-                        )
-                    )
-
-                tool_output = ""
-                try:
-                    async for chunk in tool.validate_and_run_stream(call.arguments):
-                        tool_output += chunk
-                        # Emit output event
-                        if tool_callback:
-                            tool_callback(
-                                ToolOutput(
-                                    tool_call_id=call.id,
-                                    tool_name=call.name,
-                                    chunk=chunk,
-                                )
-                            )
-                except Exception as e:
-                    error_msg = f"Error executing {call.name}: {e}"
-                    tool_output += error_msg
-                    if tool_callback:
-                        tool_callback(
-                            ToolOutput(
-                                tool_call_id=call.id,
-                                tool_name=call.name,
-                                chunk=error_msg,
-                            )
-                        )
-
-                # Emit tool end event
-                if tool_callback:
-                    tool_callback(
-                        ToolEnd(
-                            tool_call_id=call.id,
-                            tool_name=call.name,
-                            result=tool_output,
-                            is_error=self._is_error(tool_output),
-                        )
-                    )
+                # Execute tool with event lifecycle
+                tool_output = await self._execute_tool_with_events(
+                    call, tool, tool_callback
+                )
 
                 # Add tool result to messages
                 messages.append(
