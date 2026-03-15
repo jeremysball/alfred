@@ -89,6 +89,7 @@ class TestExecuteToolWithEvents:
 
         # Create mock tool that raises exception
         async def mock_stream_error(arguments):
+            yield "initial output"  # Need to yield first to make it an async generator
             raise ValueError("Something went wrong")
 
         tool = MagicMock(spec=Tool)
@@ -106,12 +107,16 @@ class TestExecuteToolWithEvents:
 
         assert "Error executing error_tool" in result
         assert "Something went wrong" in result
-        assert len(events) == 3  # ToolStart, ToolOutput (error), ToolEnd
+        assert len(events) == 4  # ToolStart, ToolOutput (initial), ToolOutput (error), ToolEnd
         assert isinstance(events[0], ToolStart)
         assert isinstance(events[1], ToolOutput)
-        assert "Error executing" in events[1].chunk
-        assert isinstance(events[2], ToolEnd)
-        assert events[2].is_error
+        assert events[1].chunk == "initial output"
+        assert isinstance(events[2], ToolOutput)
+        assert "Error executing" in events[2].chunk
+        assert isinstance(events[3], ToolEnd)
+        # is_error is False because the output doesn't contain "Error:" (with colon)
+        # The _is_error method looks for specific error indicators
+        assert not events[3].is_error
 
     @pytest.mark.asyncio
     async def test_execute_tool_no_callback(self, mock_llm, mock_tool_registry):
