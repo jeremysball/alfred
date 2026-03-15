@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from alfred.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
@@ -453,7 +453,12 @@ class MessagePanel(BorderedBox):
                 # Render text block
                 if block.content:
                     text_lines = self._render_text_block(block.content, content_width)
-                    content_lines.extend(text_lines)
+                    # Pad each line to content_width
+                    for line in text_lines:
+                        vwidth = visible_width(line)
+                        if vwidth < content_width:
+                            line = line + " " * (content_width - vwidth)
+                        content_lines.append(line)
             elif block.type == "tool" and block.tool_info:
                 # Render tool block as pre-formatted box lines
                 tool_lines = self._build_tool_box(block.tool_info)
@@ -489,9 +494,8 @@ class MessagePanel(BorderedBox):
 
         # Content lines with padding
         for content_line in content_lines:
-            vwidth = visible_width(content_line)
             padding = " " * self._padding_x
-            right_padding = " " * (width - 2 - vwidth - self._padding_x * 2)
+            right_padding = " " * self._padding_x
             lines.append(self.VERTICAL + padding + content_line + right_padding + self.VERTICAL)
 
         # Bottom padding
