@@ -9,6 +9,7 @@ import signal
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from types import FrameType
 
 from alfred.data_manager import get_cache_dir
 
@@ -185,7 +186,7 @@ class DaemonManager:
             on_reload: Callback for SIGHUP
         """
 
-        def handle_shutdown(signum: int, frame) -> None:
+        def handle_shutdown(signum: int, frame: FrameType | None) -> None:
             """Handle shutdown signals (SIGTERM, SIGINT)."""
             sig_name = signal.Signals(signum).name
             logger.info(f"Received {sig_name}, initiating shutdown...")
@@ -193,7 +194,7 @@ class DaemonManager:
             if on_shutdown:
                 on_shutdown()
 
-        def handle_reload(signum: int, frame) -> None:
+        def handle_reload(signum: int, frame: FrameType | None) -> None:
             """Handle reload signal (SIGHUP)."""
             logger.info("Received SIGHUP, reloading jobs...")
             self._reload_requested = True

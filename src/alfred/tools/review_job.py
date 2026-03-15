@@ -127,7 +127,7 @@ class ReviewJobTool(Tool):
         except Exception as e:
             yield f"Error: Failed to review job - {e}"
 
-    def _find_job(self, jobs: list[dict], identifier: str) -> dict | None:
+    def _find_job(self, jobs: list[dict[str, Any]], identifier: str) -> dict[str, Any] | None:
         """Find job by ID or fuzzy name match.
 
         Args:

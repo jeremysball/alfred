@@ -83,7 +83,7 @@ async def run_scheduler(
 
     # Set up signal handlers
     def _on_shutdown() -> None:
-        asyncio.create_task(scheduler.stop())  # noqa: RUF006
+        _ = asyncio.create_task(scheduler.stop())  # noqa: RUF006  # type: ignore[unused-coroutine]
 
     def _on_reload() -> None:
         asyncio.ensure_future(scheduler.reload_jobs())

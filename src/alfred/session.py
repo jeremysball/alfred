@@ -200,7 +200,7 @@ class SessionManager:
             )
             return Session(meta=meta, messages=[])
 
-    def _create_session_from_data(self, session_id: str, data: dict | None) -> Session:
+    def _create_session_from_data(self, session_id: str, data: dict[str, Any] | None) -> Session:
         """Create Session object from stored data."""
         if data:
             # Parse messages
@@ -442,9 +442,9 @@ class SessionManager:
     async def _persist_messages(self, session_id: str, messages: list[Message]) -> None:
         """Persist messages to SQLiteStore."""
         try:
-            messages_data = []
+            messages_data: list[dict[str, Any]] = []
             for msg in messages:
-                msg_dict = {
+                msg_dict: dict[str, Any] = {
                     "idx": msg.idx,
                     "role": msg.role.value,
                     "content": msg.content,

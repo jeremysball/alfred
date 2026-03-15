@@ -20,7 +20,7 @@ class ShowContextCommand(Command):
         from alfred.context_display import get_context_display
 
         if not tui.alfred.core.session_manager.has_active_session():
-            tui._add_system_message("No active session.")  # type: ignore[misc]
+            tui._add_system_message("No active session.")
             return True
 
         async def _fetch_and_display() -> None:
@@ -90,10 +90,10 @@ class ShowContextCommand(Command):
                 lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
 
                 # Add as system message (no markdown to preserve formatting)
-                tui._add_system_message("\n".join(lines))  # type: ignore[misc]
+                tui._add_system_message("\n".join(lines))
 
             except Exception as e:
-                tui._add_system_message(f"Error displaying context: {e}")  # type: ignore[misc]
+                tui._add_system_message(f"Error displaying context: {e}")
 
         # Schedule async work on event loop (we're already in async context)
         try:
@@ -101,6 +101,6 @@ class ShowContextCommand(Command):
             asyncio.create_task(_fetch_and_display())
         except RuntimeError:
             # No event loop running - this shouldn't happen in TUI
-            tui._add_user_message("Error: No event loop available")  # type: ignore[misc]
+            tui._add_user_message("Error: No event loop available")
 
         return True

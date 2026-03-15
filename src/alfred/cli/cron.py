@@ -162,13 +162,13 @@ async def list_jobs(
 ) -> None:
     """List all cron jobs."""
 
-    async def _via_socket(client: SocketClient) -> list[dict]:
+    async def _via_socket(client: SocketClient) -> list[dict[str, Any]]:
         response = await client.query_jobs(timeout=5.0)
         if response is None:
             raise ConnectionError("Socket connected but query failed")
         return response.jobs
 
-    async def _via_store() -> list[dict]:
+    async def _via_store() -> list[dict[str, Any]]:
         store = get_store()
         jobs = await store.load_jobs()
         return [
@@ -316,7 +316,7 @@ async def run():
 async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -> None:
     """Review a pending job's details."""
 
-    async def _via_socket(client: SocketClient) -> dict:
+    async def _via_socket(client: SocketClient) -> dict[str, Any]:
         response = await client.query_jobs(timeout=5.0)
         if response is None:
             raise ConnectionError("Socket connected but query failed")
@@ -325,7 +325,7 @@ async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
             raise ValueError(f"Job '{job_id}' not found")
         return job
 
-    async def _via_store() -> dict:
+    async def _via_store() -> dict[str, Any]:
         store = get_store()
         jobs = await store.load_jobs()
         job = _find_job_model(jobs, job_id)
@@ -476,7 +476,7 @@ async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
             raise ConnectionError("Failed to send reject")
         if not reject_response.success:
             raise RuntimeError(reject_response.message)
-        return job.get("name", "")
+        return str(job.get("name", ""))
 
     async def _via_store() -> str:
         store = get_store()
@@ -485,7 +485,7 @@ async def reject_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
         if job is None:
             raise ValueError(f"Job '{job_id}' not found")
         await store.delete_job(job.job_id)
-        return job.name
+        return str(job.name)
 
     try:
         job_name = await try_socket_first(_via_socket, _via_store)
@@ -587,7 +587,7 @@ async def show_history(
         await client.stop()
 
 
-def _find_job_dict(jobs: list[dict], identifier: str) -> dict | None:
+def _find_job_dict(jobs: list[dict[str, Any]], identifier: str) -> dict[str, Any] | None:
     """Find job by ID or fuzzy name match."""
     identifier_lower = identifier.lower()
 
@@ -611,7 +611,7 @@ def _find_job_dict(jobs: list[dict], identifier: str) -> dict | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def _find_job_model(jobs: list, identifier: str):
+def _find_job_model(jobs: list[Any], identifier: str) -> Any | None:
     """Find job model by ID or fuzzy name match."""
     identifier_lower = identifier.lower()
 
