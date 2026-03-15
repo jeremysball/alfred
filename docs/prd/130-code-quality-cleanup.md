@@ -8,8 +8,8 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 | Tool | Issues | Severity |
 |------|--------|----------|
-| **Radon** | 25 functions with grade C+ complexity | 🔴 High |
-| **Vulture** | 4 unused variables | 🟡 Low |
+| **Radon** | 4 functions with grade D+ complexity | 🔴 High |
+| **Vulture** | 0 issues | ✅ Complete |
 | **MyPy** | 30 type errors | 🔴 High |
 
 ## Goals
@@ -26,24 +26,24 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 ## Todo List (TDD)
 
-### Phase 1: Dead Code (Quick Wins)
+### Phase 1: Dead Code (Quick Wins) ✅
 
-- [ ] Test: Verify unused variables exist and are safe to remove
-- [ ] Implement: Remove `bg` variable from `cli/main.py:112`
-- [ ] Implement: Remove `max_tokens` variable from `context.py:276`
-- [ ] Implement: Prefix unused `frame` params with `_` in `daemon.py`
+- [x] Test: Verify unused variables exist and are safe to remove
+- [x] Implement: Remove `bg` variable from `cli/main.py:112`
+- [x] Implement: Remove `max_tokens` variable from `context.py:276`
+- [x] Implement: Prefix unused `frame` params with `_` in `daemon.py`
 
 ### Phase 2: High Complexity Functions (Grade D+)
 
-#### SocketServer._dispatch_message (Complexity 30)
+#### SocketServer._dispatch_message ✅
 
-- [ ] Test: Extract handler lookup logic
-- [ ] Implement: Create `_get_handler_for_message()` method
-- [ ] Test: Extract response creation
-- [ ] Implement: Create `_create_response()` method
-- [ ] Test: Extract error handling
-- [ ] Implement: Create `_handle_dispatch_error()` method
-- [ ] Verify: Complexity reduced to grade C or below
+- [x] Test: Extract handler lookup logic
+- [x] Implement: Create `_get_handler()` method
+- [x] Test: Extract request handler lookup
+- [x] Implement: Create `_get_request_handler()` method
+- [x] Test: Extract response sending
+- [x] Implement: Create `_send_response()` method
+- [x] Verify: Complexity reduced from 30 (grade D) to 7 (grade B)
 
 #### AlfredTUI._input_listener (Complexity 29)
 
@@ -131,6 +131,39 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - [ ] Fix Alfred.memory_store attribute access
 - [ ] Fix cron_runner.py unused coroutine warning
 - [ ] Fix EmbeddingProvider/LLMProvider abstract class issues
+
+## Progress Summary
+
+### Completed ✅
+
+**Phase 1 - Dead Code (100% complete):**
+- Removed deprecated `bg` parameter from `daemon_start()` in `cli/main.py`
+- Removed unused `max_tokens` parameter from `_format_tool_calls()` in `context.py`
+- Prefixed unused `frame` params with `_` in signal handlers in `daemon.py`
+- **Result:** Vulture now reports 0 issues
+
+**Phase 2 - SocketServer Complexity (1 of 5 functions refactored):**
+- Extracted `_get_handler()` for simple event message routing
+- Extracted `_get_request_handler()` for request/response message routing
+- Extracted `_send_response()` for response serialization
+- Simplified `_dispatch_message()` using early returns instead of nested elifs
+- **Result:** Complexity reduced from 30 (grade D) to 7 (grade B)
+- **Tests:** All 8 socket server tests pass
+
+### Remaining Work
+
+**Phase 2 - High Complexity Functions (4 remaining):**
+- `AlfredTUI._input_listener` (complexity 29)
+- `Agent.run_stream` (complexity 28)
+- `config_update` (complexity 24)
+- `KimiProvider.stream_chat_with_tools` (complexity 41)
+
+**Phase 3-5 - MyPy Errors (30 errors across 12 files):**
+- MemoryStore.search signature override error
+- SocketServer response type issues
+- Factory type issues (Config vs Path confusion)
+- Private attribute access in wrapped_input.py
+- Generic return type issues in llm.py and bge_provider.py
 
 ## Success Criteria
 
