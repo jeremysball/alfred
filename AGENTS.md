@@ -46,6 +46,42 @@ Before writing code:
 
 ---
 
+## NEVER Commit for the User
+
+**This rule overrides the commit skill.**
+
+Do NOT run `git commit` or `git push` unless the user explicitly asks you to.
+
+**Wrong:**
+```bash
+# Agent does this without asking
+git add -A && git commit -m "feat: implement feature"
+git push origin main
+```
+
+**Right:**
+```bash
+# Agent shows what would be committed and asks:
+"Here's what changed:
+- src/alfred/tui.py: Added cleanup
+- tests/test_tui.py: Added tests
+
+Want me to commit this as 'feat(tui): add cleanup on exit'?"
+
+# Wait for user confirmation before committing
+```
+
+**Exception:** If the user explicitly says "commit this" or "commit and push," then proceed.
+
+**Why:** The user may want to:
+- Review changes before committing
+- Split into atomic commits
+- Write their own commit message
+- Discard some changes
+- Test more before committing
+
+---
+
 ## Test-Driven Development
 
 This rule is absolute. No exceptions.
