@@ -230,7 +230,6 @@ class ContextBuilder:
             tool_calls_section = self._format_tool_calls(
                 session_messages_with_tools,
                 max_calls=tool_calls_max_calls,
-                max_tokens=tool_calls_max_tokens,
                 include_output=tool_calls_include_output,
                 include_arguments=tool_calls_include_arguments,
             )
@@ -273,7 +272,6 @@ class ContextBuilder:
         self,
         messages: list[Any],
         max_calls: int = 5,
-        max_tokens: int = 2000,
         include_output: bool = True,
         include_arguments: bool = True,
     ) -> str:

@@ -28,9 +28,9 @@ class TestRichRendererInit:
 
     def test_init_enforces_min_width(self) -> None:
         """Test that width is clamped to minimum."""
-        renderer = RichRenderer(width=20)
+        renderer = RichRenderer(width=10)
 
-        assert renderer.width == 40  # MIN_WIDTH
+        assert renderer.width == 20  # MIN_WIDTH
 
 
 class TestRenderMarkdown:
@@ -209,9 +209,9 @@ class TestUpdateWidth:
         """Test width is clamped to minimum on update."""
         renderer = RichRenderer(width=80)
 
-        renderer.update_width(20)
+        renderer.update_width(10)
 
-        assert renderer.width == 40  # MIN_WIDTH
+        assert renderer.width == 20  # MIN_WIDTH
 
     def test_update_width_affects_line_wrapping(self) -> None:
         """Test that width changes affect how text wraps."""

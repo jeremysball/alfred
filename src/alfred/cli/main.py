@@ -109,11 +109,6 @@ def daemon_start(
         "--fg",
         help="Run in foreground (don't daemonize)",
     ),
-    bg: bool = typer.Option(
-        False,
-        "--bg",
-        help="Run in background (daemonize) [deprecated: this is now the default]",
-    ),
 ) -> None:
     """Start the daemon."""
     if fg:

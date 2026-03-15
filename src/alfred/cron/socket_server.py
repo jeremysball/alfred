@@ -172,81 +172,67 @@ class SocketServer:
                 await writer.wait_closed()
             logger.debug(f"Client disconnected: {peer}")
 
-    async def _dispatch_message(self, message: SocketMessage, writer: asyncio.StreamWriter) -> None:
+    def _get_handler(self, message: SocketMessage) -> Callable | None:
+        """Get the appropriate handler callback for a message type."""
+        handlers: dict[type[SocketMessage], Callable | None] = {
+            NotifyMessage: self._on_notify,
+            JobStartedMessage: self._on_job_started,
+            JobCompletedMessage: self._on_job_completed,
+            JobFailedMessage: self._on_job_failed,
+            RunnerStartedMessage: self._on_runner_started,
+            RunnerStoppingMessage: self._on_runner_stopping,
+        }
+        return handlers.get(type(message))
+
+    def _get_request_handler(
+        self, message: SocketMessage
+    ) -> Callable | None:
+        """Get the appropriate handler for request messages that need responses."""
+        handlers: dict[type[SocketMessage], Callable | None] = {
+            QueryJobsRequest: self._on_query_jobs,
+            SubmitJobRequest: self._on_submit_job,
+            ApproveJobRequest: self._on_approve_job,
+            RejectJobRequest: self._on_reject_job,
+        }
+        return handlers.get(type(message))
+
+    async def _send_response(
+        self, writer: asyncio.StreamWriter, response: SocketMessage
+    ) -> None:
+        """Send a response message back to the client."""
+        writer.write(response.to_json().encode("utf-8"))
+        await writer.drain()
+
+    async def _dispatch_message(
+        self, message: SocketMessage, writer: asyncio.StreamWriter
+    ) -> None:
         """Dispatch a message to the appropriate callback."""
         try:
-            if isinstance(message, NotifyMessage):
-                if self._on_notify:
-                    self._on_notify(message)
+            # Handle ping/pong directly
+            if isinstance(message, PingMessage):
+                await self._send_response(writer, PongMessage())
+                return
 
-            elif isinstance(message, JobStartedMessage):
-                if self._on_job_started:
-                    self._on_job_started(message)
-
-            elif isinstance(message, JobCompletedMessage):
-                if self._on_job_completed:
-                    self._on_job_completed(message)
-
-            elif isinstance(message, JobFailedMessage):
-                if self._on_job_failed:
-                    self._on_job_failed(message)
-
-            elif isinstance(message, RunnerStartedMessage):
-                if self._on_runner_started:
-                    self._on_runner_started(message)
-
-            elif isinstance(message, RunnerStoppingMessage):
-                if self._on_runner_stopping:
-                    self._on_runner_stopping(message)
-
-            elif isinstance(message, PingMessage):
-                # Respond with pong
-                pong = PongMessage()
-                writer.write(pong.to_json().encode("utf-8"))
-                await writer.drain()
-
-            elif isinstance(message, PongMessage):
+            if isinstance(message, PongMessage):
                 # Pong responses are handled by the client
-                pass
+                return
 
-            elif isinstance(message, QueryJobsRequest):
-                # Handle job status query
-                if self._on_query_jobs:
-                    response = self._on_query_jobs(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
+            # Handle simple event messages
+            handler = self._get_handler(message)
+            if handler:
+                handler(message)
+                return
 
-            elif isinstance(message, SubmitJobRequest):
-                # Handle job submission request
-                if self._on_submit_job:
-                    response = self._on_submit_job(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
+            # Handle request/response messages
+            request_handler = self._get_request_handler(message)
+            if request_handler:
+                response = request_handler(message)
+                if inspect.iscoroutine(response):
+                    response = await response
+                await self._send_response(writer, response)
+                return
 
-            elif isinstance(message, ApproveJobRequest):
-                # Handle job approval request
-                if self._on_approve_job:
-                    response = self._on_approve_job(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
-
-            elif isinstance(message, RejectJobRequest):
-                # Handle job rejection request
-                if self._on_reject_job:
-                    response = self._on_reject_job(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
-
-            elif isinstance(message, RunnerStoppingMessage) and self._on_runner_stopping:
-                self._on_runner_stopping(message)
+            logger.warning(f"Unhandled message type: {type(message).__name__}")
 
         except Exception as e:
             logger.error(f"Error dispatching message {message.type}: {e}")

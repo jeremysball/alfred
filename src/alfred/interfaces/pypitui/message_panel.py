@@ -51,11 +51,18 @@ class MessagePanel(BorderedBox):
         self._use_markdown = use_markdown
 
         # Create RichRenderer if markdown enabled
+        # Width must account for nested tool call boxes:
+        # - MessagePanel borders: 2 chars
+        # - Tool box borders: 2 chars
+        # - Tool box padding: 2 chars (1 on each side)
+        # So tool content width = terminal_width - 8
         self._renderer: RichRenderer | None = None
         if use_markdown:
             from alfred.interfaces.pypitui.rich_renderer import RichRenderer
 
-            self._renderer = RichRenderer(width=max(40, terminal_width - 4))
+            # Use tool content area width to ensure tool calls render correctly
+            renderer_width = max(20, terminal_width - 8)
+            self._renderer = RichRenderer(width=renderer_width)
 
         # Tool calls embedded in this message
         self._tool_calls: list[ToolCallInfo] = []
@@ -243,8 +250,9 @@ class MessagePanel(BorderedBox):
         if width != self._terminal_width:
             self._terminal_width = width
             # Update renderer width if exists
+            # Use tool content area width (terminal - 8) to ensure tool calls render correctly
             if self._renderer:
-                self._renderer.update_width(max(40, width - 4))
+                self._renderer.update_width(max(20, width - 8))
             self._rebuild_content()
 
     def _rebuild_content(self) -> None:
@@ -320,9 +328,6 @@ class MessagePanel(BorderedBox):
             # Add arguments as first line (NEW)
             if tc.arguments:
                 args_str = ", ".join(f"{k}={v}" for k, v in tc.arguments.items())
-                # Truncate if too long
-                if len(args_str) > 60:
-                    args_str = args_str[:57] + "..."
                 content_lines.append(f"{DIM}{args_str}{RESET}")
                 content_lines.append("")  # Empty line after args
 
