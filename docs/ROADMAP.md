@@ -245,6 +245,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 25 | ✅ Code Quality | Auto-fix Ruff violations, manual lint fixes (PRD #125) |
 | 131 | Ctrl-T Tool Call Expansion | Toggle all tool call boxes to show full output (PRD #131) |
+| 132 | Dynamic Embedding Dimension Support | Auto-detect and re-embed when switching models (BGE↔OpenAI) (PRD #132) |
 
 ### Medium-term 📅
 
