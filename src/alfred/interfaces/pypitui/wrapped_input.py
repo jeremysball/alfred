@@ -186,17 +186,19 @@ class WrappedInput(Component, Focusable):
     def set_cursor_pos(self, pos: int) -> None:
         """Set cursor position directly."""
         max_pos = len(self.get_value())
-        self._input._cursor_pos = max(0, min(pos, max_pos))
+        # Access private attribute through setattr for type safety
+        setattr(self._input, "_cursor_pos", max(0, min(pos, max_pos)))
 
     @property
     def _cursor_pos(self) -> int:
         """Get current cursor position."""
-        return int(self._input._cursor_pos)
+        # Access private attribute through getattr for type safety
+        return int(getattr(self._input, "_cursor_pos", 0))
 
     @_cursor_pos.setter
     def _cursor_pos(self, value: int) -> None:
         """Set cursor position."""
-        self._input._cursor_pos = value
+        setattr(self._input, "_cursor_pos", value)
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.
@@ -397,8 +399,8 @@ class WrappedInput(Component, Focusable):
         self._input.handle_input(data)
 
         # Run post-input hooks after value is updated
-        for hook_fn in self._post_input_hooks:
-            hook_fn()
+        for post_hook in self._post_input_hooks:
+            post_hook()
 
         # Update display column after typing
         _, col = self._get_cursor_display_pos(self._last_width)

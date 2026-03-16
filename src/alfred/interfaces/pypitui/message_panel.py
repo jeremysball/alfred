@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from alfred.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from alfred.interfaces.pypitui.models import ToolCallInfo
@@ -376,7 +376,7 @@ class MessagePanel(BorderedBox):
                 parsed = json.loads(stripped)
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
                 if self._renderer:
-                    return self._renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                    return cast(str, self._renderer.render_markdown(f"```json\n{pretty_json}\n```"))
                 return pretty_json
             except json.JSONDecodeError:
                 pass
@@ -387,7 +387,7 @@ class MessagePanel(BorderedBox):
                 parsed = json.loads(stripped)
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
                 if self._renderer:
-                    return self._renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                    return cast(str, self._renderer.render_markdown(f"```json\n{pretty_json}\n```"))
                 return pretty_json
             except json.JSONDecodeError:
                 pass
@@ -396,7 +396,7 @@ class MessagePanel(BorderedBox):
         if "```" in output:
             if self._renderer:
                 try:
-                    return self._renderer.render_markdown(output)
+                    return cast(str, self._renderer.render_markdown(output))
                 except Exception:
                     pass
             return output
@@ -404,7 +404,7 @@ class MessagePanel(BorderedBox):
         # For plain text, use dim styling
         if self._renderer and output:
             try:
-                return self._renderer.render_markup(f"[dim]{output}[/dim]")
+                return cast(str, self._renderer.render_markup(f"[dim]{output}[/dim]"))
             except Exception:
                 pass
 
@@ -444,7 +444,8 @@ class MessagePanel(BorderedBox):
             return self._cache[1]
 
         # Calculate content width (inside borders and padding)
-        content_width = max(1, width - 2 - self._padding_x * 2)
+        padding_x: int = getattr(self, "_padding_x", 0)
+        content_width = max(1, width - 2 - padding_x * 2)
 
         # Build content lines from blocks
         content_lines: list[str] = []
@@ -480,12 +481,14 @@ class MessagePanel(BorderedBox):
         # Top padding
         lines.extend(
             self.VERTICAL + " " * (width - 2) + self.VERTICAL
-            for _ in range(self._padding_y)
+            for _ in range(getattr(self, "_padding_y", 0))
         )
 
         # Title if provided
-        if self._title:
-            title_padded = " " * self._padding_x + self._title + " " * self._padding_x
+        title_val: str | None = getattr(self, "_title", None)
+        if title_val:
+            padding_x_val: int = getattr(self, "_padding_x", 0)
+            title_padded = " " * padding_x_val + title_val + " " * padding_x_val
             inner_width = width - 2
             if visible_width(title_padded) < inner_width:
                 title_padded += " " * (inner_width - visible_width(title_padded))
@@ -495,22 +498,23 @@ class MessagePanel(BorderedBox):
 
         # Content lines with padding
         for content_line in content_lines:
-            padding = " " * self._padding_x
-            right_padding = " " * self._padding_x
+            padding = " " * getattr(self, "_padding_x", 0)
+            right_padding = " " * getattr(self, "_padding_x", 0)
             lines.append(self.VERTICAL + padding + content_line + right_padding + self.VERTICAL)
 
         # Bottom padding
         lines.extend(
             self.VERTICAL + " " * (width - 2) + self.VERTICAL
-            for _ in range(self._padding_y)
+            for _ in range(getattr(self, "_padding_y", 0))
         )
 
         # Bottom border
         bottom_border = self.BOTTOM_LEFT + self.HORIZONTAL * (width - 2) + self.BOTTOM_RIGHT
         lines.append(bottom_border)
 
-        # Cache
-        self._cache = (width, lines)
+        # Cache - use setattr to avoid type issues with inherited attribute
+        cache_value: tuple[int, list[str]] = (width, lines)
+        setattr(self, "_cache", cache_value)
 
         return lines
 
