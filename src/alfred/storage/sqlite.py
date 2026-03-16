@@ -1310,3 +1310,211 @@ class SQLiteStore:
                 raise RuntimeError("Failed to search messages") from e
 
             return results
+
+
+class ReembedResult:
+    """Result of a re-embedding operation."""
+
+    def __init__(self, success: bool, message: str, stats: dict | None = None) -> None:
+        """Initialize result.
+
+        Args:
+            success: Whether the operation succeeded
+            message: Human-readable status message
+            stats: Optional statistics about the operation
+        """
+        self.success = success
+        self.message = message
+        self.stats = stats or {}
+
+
+class EmbeddingReembedder:
+    """Handles re-embedding of all vector data when dimensions change.
+
+    This class orchestrates the safe migration of vec0 tables from one
+    embedding dimension to another, preserving all content.
+    """
+
+    def __init__(self, store: "SQLiteStore", embedder: Any) -> None:
+        """Initialize reembedder.
+
+        Args:
+            store: SQLiteStore instance with database connection
+            embedder: Embedder instance for generating new embeddings
+        """
+        self._store = store
+        self._embedder = embedder
+
+    async def reembed_all(self, old_dim: int, new_dim: int) -> ReembedResult:
+        """Re-embed all vector data with new dimension.
+
+        Args:
+            old_dim: Previous embedding dimension
+            new_dim: New embedding dimension
+
+        Returns:
+            ReembedResult with success status and statistics
+        """
+        logger.info(f"Starting re-embedding: {old_dim} -> {new_dim}")
+
+        try:
+            # Re-embed each table type
+            memory_count = await self._reembed_memories()
+            summary_count = await self._reembed_session_summaries()
+            message_count = await self._reembed_message_embeddings()
+
+            stats = {
+                "memories_reembedded": memory_count,
+                "summaries_reembedded": summary_count,
+                "messages_reembedded": message_count,
+                "old_dimension": old_dim,
+                "new_dimension": new_dim,
+            }
+
+            msg = f"Re-embedding complete ({old_dim} -> {new_dim}): {memory_count} memories, {summary_count} summaries, {message_count} messages"
+            logger.info(msg)
+
+            return ReembedResult(success=True, message=msg, stats=stats)
+
+        except Exception as e:
+            logger.error(f"Re-embedding failed: {e}")
+            return ReembedResult(
+                success=False,
+                message=f"Re-embedding failed: {e}",
+                stats={"error": str(e)}
+            )
+
+    async def _reembed_memories(self) -> int:
+        """Re-embed all memories with current embedder dimension.
+
+        Returns:
+            Number of memories re-embedded
+        """
+        import aiosqlite
+
+        count = 0
+        db_path = self._store.db_path
+
+        async with aiosqlite.connect(db_path) as db:
+            await self._store._load_extensions(db)
+
+            # Fetch all memories from base table
+            async with db.execute(
+                "SELECT id, content, metadata FROM memories"
+            ) as cursor:
+                memories = await cursor.fetchall()
+
+            total = len(memories)
+            logger.info(f"Re-embedding {total} memories...")
+
+            for i, (mem_id, content, metadata) in enumerate(memories, 1):
+                # Generate new embedding
+                embedding = await self._embedder.embed(content)
+
+                # Update in database
+                await db.execute(
+                    """
+                    UPDATE memory_embeddings
+                    SET embedding = ?
+                    WHERE id = ?
+                    """,
+                    (json.dumps(embedding), mem_id)
+                )
+
+                count += 1
+                if i % 10 == 0 or i == total:
+                    logger.info(f"  Re-embedded memory {i}/{total}")
+
+            await db.commit()
+
+        return count
+
+    async def _reembed_session_summaries(self) -> int:
+        """Re-embed all session summaries with current embedder dimension.
+
+        Returns:
+            Number of summaries re-embedded
+        """
+        import aiosqlite
+
+        count = 0
+        db_path = self._store.db_path
+
+        async with aiosqlite.connect(db_path) as db:
+            await self._store._load_extensions(db)
+
+            # Fetch all summaries from base table
+            async with db.execute(
+                "SELECT session_id, summary_text FROM session_summaries"
+            ) as cursor:
+                summaries = await cursor.fetchall()
+
+            total = len(summaries)
+            logger.info(f"Re-embedding {total} session summaries...")
+
+            for i, (session_id, summary_text) in enumerate(summaries, 1):
+                # Generate new embedding
+                embedding = await self._embedder.embed(summary_text)
+
+                # Update in database
+                await db.execute(
+                    """
+                    UPDATE session_summaries_vec
+                    SET embedding = ?
+                    WHERE session_id = ?
+                    """,
+                    (json.dumps(embedding), session_id)
+                )
+
+                count += 1
+                if i % 10 == 0 or i == total:
+                    logger.info(f"  Re-embedded summary {i}/{total}")
+
+            await db.commit()
+
+        return count
+
+    async def _reembed_message_embeddings(self) -> int:
+        """Re-embed all message embeddings with current embedder dimension.
+
+        Returns:
+            Number of messages re-embedded
+        """
+        import aiosqlite
+
+        count = 0
+        db_path = self._store.db_path
+
+        async with aiosqlite.connect(db_path) as db:
+            await self._store._load_extensions(db)
+
+            # Fetch all message embeddings from base table
+            async with db.execute(
+                "SELECT id, content_snippet FROM message_embeddings"
+            ) as cursor:
+                messages = await cursor.fetchall()
+
+            total = len(messages)
+            logger.info(f"Re-embedding {total} message embeddings...")
+
+            for i, (msg_id, content_snippet) in enumerate(messages, 1):
+                # Generate new embedding
+                embedding = await self._embedder.embed(content_snippet)
+
+                # Update in database
+                await db.execute(
+                    """
+                    UPDATE message_embeddings_vec
+                    SET embedding = ?
+                    WHERE id = ?
+                    """,
+                    (json.dumps(embedding), msg_id)
+                )
+
+                count += 1
+                if i % 10 == 0 or i == total:
+                    logger.info(f"  Re-embedded message {i}/{total}")
+
+            await db.commit()
+
+        return count
