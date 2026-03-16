@@ -5,7 +5,7 @@ import json
 import logging
 import random
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Callable, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine, Iterator
 from dataclasses import dataclass
 from typing import Any, ParamSpec, TypeVar, cast
 
@@ -556,8 +556,6 @@ class KimiProvider(LLMProvider):
         For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
         followed by JSON array of tool calls.
         """
-        import tiktoken
-
         # Convert messages and create stream
         api_messages = self._convert_messages_to_api_format(messages)
         stream = await self._create_stream_with_retry(api_messages, tools)
