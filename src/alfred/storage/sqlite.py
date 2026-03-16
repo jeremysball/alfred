@@ -29,16 +29,23 @@ class SQLiteStore:
     All operations are ACID-compliant via SQLite transactions.
     """
 
-    def __init__(self, db_path: Path | str, embedding_dim: int = 768) -> None:
+    def __init__(
+        self,
+        db_path: Path | str,
+        embedding_dim: int = 768,
+        embedder: Any | None = None
+    ) -> None:
         """Initialize SQLite store.
 
         Args:
             db_path: Path to SQLite database file
             embedding_dim: Dimension of embeddings (768 for BGE, 1536 for OpenAI)
+            embedder: Optional embedder for automatic re-embedding on dimension change
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._embedding_dim = embedding_dim
+        self._embedder = embedder
         self._initialized = False
 
     async def _load_extensions(self, db: Any) -> None:
@@ -49,6 +56,61 @@ class SQLiteStore:
         await db.enable_load_extension(True)
         import sqlite_vec
         await db.load_extension(sqlite_vec.loadable_path())
+
+    async def _get_vec0_dimension(self, db: Any, table_name: str) -> int | None:
+        """Extract embedding dimension from existing vec0 table schema.
+
+        Queries sqlite_master to find the table's CREATE statement and
+        extracts the FLOAT[N] dimension using regex.
+
+        Args:
+            db: Database connection
+            table_name: Name of the vec0 table
+
+        Returns:
+            Dimension as int (e.g., 768, 1536) or None if table doesn't exist
+        """
+        import re
+
+        async with db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row or not row[0]:
+                return None
+
+            schema = row[0]
+            # Extract FLOAT[N] dimension from schema like:
+            # CREATE VIRTUAL TABLE x USING vec0(..., embedding FLOAT[768])
+            match = re.search(r'FLOAT\[(\d+)\]', schema)
+            if match:
+                return int(match.group(1))
+
+            return None
+
+    async def _check_dimension_mismatch(self, db: Any, table_name: str) -> tuple[int, int] | None:
+        """Check if vec0 table dimension differs from expected dimension.
+
+        Args:
+            db: Database connection
+            table_name: Name of the vec0 table
+
+        Returns:
+            Tuple of (old_dim, new_dim) if mismatch detected, None otherwise
+        """
+        actual_dim = await self._get_vec0_dimension(db, table_name)
+
+        # If table doesn't exist, no mismatch (will be created with correct dimension)
+        if actual_dim is None:
+            return None
+
+        # If dimensions match, no mismatch
+        if actual_dim == self._embedding_dim:
+            return None
+
+        # Mismatch detected
+        return (actual_dim, self._embedding_dim)
 
     async def _init(self) -> None:
         """Lazy initialization of database connection and tables."""
@@ -183,12 +245,24 @@ class SQLiteStore:
                     if match:
                         existing_dim = int(match.group(1))
                         if existing_dim != dim:
-                            logger.warning(
-                                f"Embedding dimension mismatch: {table_name} has {existing_dim}, "
-                                f"expected {dim}. Dropping and recreating (vec0 data will be lost)."
-                            )
-                            await db.execute(f"DROP TABLE {table_name}")
-                            table_exists = False
+                            if self._embedder is not None:
+                                # Use reembedder to preserve data
+                                logger.warning(
+                                    f"Embedding dimension changed: {table_name} has {existing_dim}, "
+                                    f"expected {dim}. Starting automatic re-embedding..."
+                                )
+                                reembedder = EmbeddingReembedder(self, self._embedder)
+                                await reembedder.reembed_all(existing_dim, dim)
+                                # Table was recreated by reembedder
+                                return
+                            else:
+                                # No embedder available, just drop and warn
+                                logger.warning(
+                                    f"Embedding dimension mismatch: {table_name} has {existing_dim}, "
+                                    f"expected {dim}. Dropping and recreating (vec0 data will be lost)."
+                                )
+                                await db.execute(f"DROP TABLE {table_name}")
+                                table_exists = False
 
         # Create table with correct dimension
         if not table_exists:
@@ -1255,3 +1329,247 @@ class SQLiteStore:
                 raise RuntimeError("Failed to search messages") from e
 
             return results
+
+    async def count_sessions(self) -> int:
+        """Count total sessions in database.
+
+        Returns:
+            Number of sessions
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            async with db.execute("SELECT COUNT(*) FROM sessions") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
+    async def count_memories(self) -> int:
+        """Count total memories in database.
+
+        Returns:
+            Number of memories
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            async with db.execute("SELECT COUNT(*) FROM memories") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
+
+class ReembedResult:
+    """Result of a re-embedding operation."""
+
+    def __init__(self, success: bool, message: str, stats: dict[str, Any] | None = None) -> None:
+        """Initialize result.
+
+        Args:
+            success: Whether the operation succeeded
+            message: Human-readable status message
+            stats: Optional statistics about the operation
+        """
+        self.success = success
+        self.message = message
+        self.stats = stats or {}
+
+
+class EmbeddingReembedder:
+    """Handles re-embedding of all vector data when dimensions change.
+
+    This class orchestrates the safe migration of vec0 tables from one
+    embedding dimension to another, preserving all content.
+    """
+
+    def __init__(self, store: "SQLiteStore", embedder: Any) -> None:
+        """Initialize reembedder.
+
+        Args:
+            store: SQLiteStore instance with database connection
+            embedder: Embedder instance for generating new embeddings
+        """
+        self._store = store
+        self._embedder = embedder
+
+    async def reembed_all(self, old_dim: int, new_dim: int) -> ReembedResult:
+        """Re-embed all vector data with new dimension.
+
+        Args:
+            old_dim: Previous embedding dimension
+            new_dim: New embedding dimension
+
+        Returns:
+            ReembedResult with success status and statistics
+        """
+        logger.info(f"Starting re-embedding: {old_dim} -> {new_dim}")
+
+        try:
+            # Re-embed each table type
+            memory_count = await self._reembed_memories()
+            summary_count = await self._reembed_session_summaries()
+            message_count = await self._reembed_message_embeddings()
+
+            stats = {
+                "memories_reembedded": memory_count,
+                "summaries_reembedded": summary_count,
+                "messages_reembedded": message_count,
+                "old_dimension": old_dim,
+                "new_dimension": new_dim,
+            }
+
+            msg = (
+                f"Re-embedding complete ({old_dim} -> {new_dim}): "
+                f"{memory_count} memories, {summary_count} summaries, "
+                f"{message_count} messages"
+            )
+            logger.info(msg)
+
+            return ReembedResult(success=True, message=msg, stats=stats)
+
+        except Exception as e:
+            logger.error(f"Re-embedding failed: {e}")
+            return ReembedResult(
+                success=False,
+                message=f"Re-embedding failed: {e}",
+                stats={"error": str(e)}
+            )
+
+    async def _reembed_memories(self) -> int:
+        """Re-embed all memories with current embedder dimension.
+
+        Returns:
+            Number of memories re-embedded
+        """
+        import aiosqlite
+
+        count = 0
+        db_path = self._store.db_path
+
+        async with aiosqlite.connect(db_path) as db:
+            await self._store._load_extensions(db)
+
+            # Fetch all memories from base table
+            async with db.execute(
+                "SELECT entry_id, content FROM memories"
+            ) as cursor:
+                memories = list(await cursor.fetchall())
+
+            total = len(memories)
+            logger.info(f"Re-embedding {total} memories...")
+
+            for i, (entry_id, content) in enumerate(memories, 1):
+                # Generate new embedding
+                embedding = await self._embedder.embed(content)
+
+                # Update in database
+                await db.execute(
+                    """
+                    UPDATE memory_embeddings
+                    SET embedding = ?
+                    WHERE entry_id = ?
+                    """,
+                    (json.dumps(embedding), entry_id)
+                )
+
+                count += 1
+                if i % 10 == 0 or i == total:
+                    logger.info(f"  Re-embedded memory {i}/{total}")
+
+            await db.commit()
+
+        return count
+
+    async def _reembed_session_summaries(self) -> int:
+        """Re-embed all session summaries with current embedder dimension.
+
+        Returns:
+            Number of summaries re-embedded
+        """
+        import aiosqlite
+
+        count = 0
+        db_path = self._store.db_path
+
+        async with aiosqlite.connect(db_path) as db:
+            await self._store._load_extensions(db)
+
+            # Fetch all summaries from base table
+            async with db.execute(
+                "SELECT summary_id, summary_text FROM session_summaries"
+            ) as cursor:
+                summaries = list(await cursor.fetchall())
+
+            total = len(summaries)
+            logger.info(f"Re-embedding {total} session summaries...")
+
+            for i, (summary_id, summary_text) in enumerate(summaries, 1):
+                # Generate new embedding
+                embedding = await self._embedder.embed(summary_text)
+
+                # Update in database
+                await db.execute(
+                    """
+                    UPDATE session_summaries_vec
+                    SET embedding = ?
+                    WHERE summary_id = ?
+                    """,
+                    (json.dumps(embedding), summary_id)
+                )
+
+                count += 1
+                if i % 10 == 0 or i == total:
+                    logger.info(f"  Re-embedded summary {i}/{total}")
+
+            await db.commit()
+
+        return count
+
+    async def _reembed_message_embeddings(self) -> int:
+        """Re-embed all message embeddings with current embedder dimension.
+
+        Returns:
+            Number of messages re-embedded
+        """
+        import aiosqlite
+
+        count = 0
+        db_path = self._store.db_path
+
+        async with aiosqlite.connect(db_path) as db:
+            await self._store._load_extensions(db)
+
+            # Fetch all message embeddings from base table
+            async with db.execute(
+                "SELECT message_embedding_id, content_snippet FROM message_embeddings"
+            ) as cursor:
+                messages = list(await cursor.fetchall())
+
+            total = len(messages)
+            logger.info(f"Re-embedding {total} message embeddings...")
+
+            for i, (msg_id, content_snippet) in enumerate(messages, 1):
+                # Generate new embedding
+                embedding = await self._embedder.embed(content_snippet)
+
+                # Update in database
+                await db.execute(
+                    """
+                    UPDATE message_embeddings_vec
+                    SET embedding = ?
+                    WHERE message_embedding_id = ?
+                    """,
+                    (json.dumps(embedding), msg_id)
+                )
+
+                count += 1
+                if i % 10 == 0 or i == total:
+                    logger.info(f"  Re-embedded message {i}/{total}")
+
+            await db.commit()
+
+        return count

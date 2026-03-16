@@ -10,9 +10,9 @@ from alfred.interfaces.pypitui.commands.throbbers import ThrobbersCommand
 
 __all__ = [
     "Command",
+    "ListSessionsCommand",
     "NewSessionCommand",
     "ResumeSessionCommand",
-    "ListSessionsCommand",
     "ShowSessionCommand",
     "ShowContextCommand",
     "ThrobbersCommand",

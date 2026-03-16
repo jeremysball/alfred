@@ -33,7 +33,7 @@ class SQLiteStoreFactory:
 
         Args:
             config: Application configuration with data_dir
-            embedder: Optional embedding provider to get dimension from
+            embedder: Optional embedding provider for dimension and re-embedding
 
         Returns:
             Configured SQLiteStore instance
@@ -41,7 +41,7 @@ class SQLiteStoreFactory:
         db_path = config.data_dir / "alfred.db"
         # Get embedding dimension from provider if available
         embedding_dim = embedder.dimension if embedder else 768
-        return SQLiteStore(db_path, embedding_dim=embedding_dim)
+        return SQLiteStore(db_path, embedding_dim=embedding_dim, embedder=embedder)
 
 
 class EmbeddingProviderFactory:
