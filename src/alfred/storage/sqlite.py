@@ -682,13 +682,14 @@ class SQLiteStore:
             db.row_factory = aiosqlite.Row
 
             # Use sqlite-vec for vector search
+            # Note: sqlite-vec requires k constraint for KNN queries
             query = """
                 SELECT m.*, e.distance
                 FROM memory_embeddings e
                 JOIN memories m ON e.entry_id = m.entry_id
-                WHERE e.embedding MATCH ?
+                WHERE e.embedding MATCH ? AND k = ?
             """
-            params: list[Any] = [json.dumps(query_embedding)]
+            params: list[Any] = [json.dumps(query_embedding), top_k]
 
             if role:
                 query += " AND m.role = ?"
@@ -699,9 +700,6 @@ class SQLiteStore:
                 for tag in tags:
                     query += " AND json_extract(m.tags, '$') LIKE ?"
                     params.append(f'%"{tag}"%')
-
-            query += " ORDER BY e.distance LIMIT ?"
-            params.append(top_k)
 
             async with db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
@@ -1116,6 +1114,7 @@ class SQLiteStore:
                 raise RuntimeError("sqlite-vec required for summary search") from e
 
             # Use sqlite-vec for vector similarity search
+            # Note: sqlite-vec requires k constraint for KNN queries
             results = []
             try:
                 async with db.execute(
@@ -1127,9 +1126,8 @@ class SQLiteStore:
                         v.distance as similarity
                     FROM session_summaries_vec v
                     JOIN session_summaries s ON v.summary_id = s.summary_id
-                    WHERE v.embedding MATCH ?
+                    WHERE v.embedding MATCH ? AND k = ?
                     ORDER BY v.distance
-                    LIMIT ?
                     """,
                     (json.dumps(query_embedding), top_k),
                 ) as cursor:
@@ -1183,6 +1181,7 @@ class SQLiteStore:
                 raise RuntimeError("sqlite-vec required for message search") from e
 
             # Use sqlite-vec for vector similarity search
+            # Note: sqlite-vec requires k constraint for KNN queries
             results = []
             try:
                 async with db.execute(
@@ -1194,12 +1193,11 @@ class SQLiteStore:
                         v.distance as similarity
                     FROM message_embeddings_vec v
                     JOIN message_embeddings m ON v.message_embedding_id = m.message_embedding_id
-                    WHERE v.embedding MATCH ?
+                    WHERE v.embedding MATCH ? AND k = ?
                         AND m.session_id = ?
                     ORDER BY v.distance
-                    LIMIT ?
                     """,
-                    (json.dumps(query_embedding), session_id, top_k),
+                    (json.dumps(query_embedding), top_k, session_id),
                 ) as cursor:
                     async for row in cursor:
                         results.append(
