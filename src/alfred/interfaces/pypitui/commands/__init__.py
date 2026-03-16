@@ -1,7 +1,6 @@
 """TUI commands for session management and system operations."""
 
 from alfred.interfaces.pypitui.commands.base import Command
-from alfred.interfaces.pypitui.commands.health import HealthCommand
 from alfred.interfaces.pypitui.commands.list_sessions import ListSessionsCommand
 from alfred.interfaces.pypitui.commands.new_session import NewSessionCommand
 from alfred.interfaces.pypitui.commands.resume_session import ResumeSessionCommand
@@ -11,11 +10,10 @@ from alfred.interfaces.pypitui.commands.throbbers import ThrobbersCommand
 
 __all__ = [
     "Command",
-    "HealthCommand",
     "ListSessionsCommand",
     "NewSessionCommand",
     "ResumeSessionCommand",
-    "ShowContextCommand",
     "ShowSessionCommand",
+    "ShowContextCommand",
     "ThrobbersCommand",
 ]
