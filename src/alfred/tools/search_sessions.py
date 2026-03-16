@@ -149,10 +149,7 @@ class SessionSummarizer:
         # Parse datetime from ISO format string
         created_at = None
         if data.get("created_at"):
-            if isinstance(data["created_at"], str):
-                created_at = datetime.fromisoformat(data["created_at"])
-            else:
-                created_at = data["created_at"]
+            created_at = datetime.fromisoformat(data["created_at"]) if isinstance(data["created_at"], str) else data["created_at"]
 
         return SessionSummary(
             session_id=data["session_id"],

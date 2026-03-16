@@ -414,10 +414,11 @@ class Alfred:
                     param_type = "any"
                     if hasattr(field, "annotation") and field.annotation:
                         ann = field.annotation
-                        if hasattr(ann, "__name__"):
-                            param_type = ann.__name__.lower()
-                        else:
-                            param_type = str(ann).lower()
+                        param_type = (
+                            ann.__name__.lower()
+                            if hasattr(ann, "__name__")
+                            else str(ann).lower()
+                        )
                     param_list.append(f"{name}: {param_type}")
 
                 params_str = ", ".join(param_list)

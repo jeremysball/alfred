@@ -63,10 +63,7 @@ class StructuredLogger:
     ) -> None:
         """Log job execution end."""
         status = getattr(execution_record, "status", None)
-        if status is not None and hasattr(status, "value"):
-            status_value = status.value
-        else:
-            status_value = str(status) if status else "unknown"
+        status_value = status.value if status is not None and hasattr(status, "value") else str(status) if status else "unknown"
         is_success = _get_status_success(status_value)
         level = "INFO" if is_success else "ERROR"
         entry = {
