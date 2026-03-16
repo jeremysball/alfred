@@ -200,7 +200,7 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - Extracted `_create_stream_with_retry()` - Create stream with retry logic (A:5)
 - Simplified `stream_chat_with_tools()` to orchestrate helpers
 - **Result:** Complexity reduced from 41 (grade F) to 5 (grade A) (-88%)
-- **Tests:** 20 new tests added, all 20 existing LLM tests pass
+- **Tests:** All 20 existing LLM tests pass (functionality verified by integration tests)
 
 ### Remaining Work
 
@@ -224,7 +224,7 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 | MyPy errors | 30 | 30 | **0** (zero tolerance) |
 | Test coverage | 64% | 64%* | ≥64% (maintain) |
 
-\* Coverage maintained with 76 new tests (27 TUI + 7 agent + 22 CLI + 20 KimiProvider)
+\* Coverage maintained with 56 new tests (27 TUI + 7 agent + 22 CLI)
 
 ## Implementation Notes
 
