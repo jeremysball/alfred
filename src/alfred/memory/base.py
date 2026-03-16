@@ -44,10 +44,21 @@ class MemoryStore:
 
     async def search(
         self,
-        query_embedding: list[float],
+        query: str,
         top_k: int = 10,
-    ) -> list[MemoryEntry]:
-        """Search memories by vector similarity."""
+    ) -> tuple[list[MemoryEntry], dict[str, float], dict[str, float]]:
+        """Search memories by vector similarity.
+
+        Args:
+            query: Search query text (implementations handle embedding generation)
+            top_k: Maximum number of results to return
+
+        Returns:
+            Tuple of (entries, similarities, scores) where:
+                - entries: List of matching MemoryEntry objects
+                - similarities: Dict mapping entry_id to similarity score
+                - scores: Dict mapping entry_id to score
+        """
         raise NotImplementedError
 
     async def delete(self, entry_id: str) -> bool:
