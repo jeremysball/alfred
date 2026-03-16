@@ -155,3 +155,81 @@ class TestCheckDimensionMismatch:
             result = await store._check_dimension_mismatch(db, "nonexistent_table")
 
         assert result is None
+
+
+class TestInitDimensionDetection:
+    """Tests for dimension detection during SQLiteStore initialization."""
+
+    @pytest.mark.asyncio
+    async def test_init_detects_dimension_mismatch_on_startup(self, caplog):
+        """Test that dimension mismatch is detected and logged during init."""
+        from alfred.storage.sqlite import SQLiteStore
+        import tempfile
+        import os
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+            db_path = tmp.name
+
+        try:
+            # First store creates tables with 768
+            store1 = SQLiteStore(db_path, embedding_dim=768)
+            await store1._init()
+
+            # Second store expects 1536 - should detect mismatch
+            store2 = SQLiteStore(db_path, embedding_dim=1536)
+
+            with caplog.at_level("WARNING"):
+                await store2._init()
+
+            # Verify warning was logged
+            assert "768" in caplog.text and "1536" in caplog.text
+
+        finally:
+            os.unlink(db_path)
+
+    @pytest.mark.asyncio
+    async def test_dimension_check_skipped_when_match(self, caplog):
+        """Test that no warning is logged when dimensions match."""
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(":memory:", embedding_dim=768)
+
+        with caplog.at_level("WARNING"):
+            await store._init()
+
+        # Should not have dimension mismatch warnings
+        dim_warnings = [r for r in caplog.records if "dimension changed" in r.message.lower()]
+        assert len(dim_warnings) == 0
+
+
+class TestAllVec0Tables:
+    """Tests for checking all three vec0 tables."""
+
+    @pytest.mark.asyncio
+    async def test_checks_all_vec0_tables(self, caplog):
+        """Test that dimension check runs for all three vec0 tables."""
+        from alfred.storage.sqlite import SQLiteStore
+        import tempfile
+        import os
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+            db_path = tmp.name
+
+        try:
+            # First store creates tables with 768
+            store1 = SQLiteStore(db_path, embedding_dim=768)
+            await store1._init()
+
+            # Second store expects 1536 - should detect mismatch in all tables
+            store2 = SQLiteStore(db_path, embedding_dim=1536)
+
+            with caplog.at_level("WARNING"):
+                await store2._init()
+
+            # Verify all three tables are mentioned
+            assert "memory_embeddings" in caplog.text
+            assert "message_embeddings_vec" in caplog.text
+            assert "session_summaries_vec" in caplog.text
+
+        finally:
+            os.unlink(db_path)
