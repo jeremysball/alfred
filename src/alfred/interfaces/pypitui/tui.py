@@ -10,7 +10,6 @@ from alfred.alfred import Alfred
 # Import commands
 from alfred.interfaces.pypitui.commands import (
     Command,
-    HealthCommand,
     ListSessionsCommand,
     NewSessionCommand,
     ResumeSessionCommand,
@@ -142,7 +141,6 @@ class AlfredTUI:
             "/session": ShowSessionCommand(),
             "/context": ShowContextCommand(),
             "/throbbers": ThrobbersCommand(),
-            "/health": HealthCommand(),
         }
 
         # Toast manager is passed directly, no need to configure through notifier
@@ -562,6 +560,7 @@ class AlfredTUI:
             ("/session", "Show current session info"),
             ("/context", "Show system context"),
             ("/throbbers", "Show throbber animations"),
+            ("/health", "Show system health status"),
         ]
 
         # Filter by fuzzy match
