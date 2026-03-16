@@ -149,11 +149,11 @@ def load_config(config_path: Path | None = None) -> Config:
     config = Config(**base_config)
 
     # Compute context_files if not provided
-    # Note: TOOLS.md is phased out (content moved to SYSTEM.md and USER.md per PRD #102)
     if config.context_files is None:
         config.context_files = {
             "system": config.workspace_dir / "SYSTEM.md",
             "agents": config.workspace_dir / "AGENTS.md",
+            "tools": config.workspace_dir / "TOOLS.md",
             "soul": config.workspace_dir / "SOUL.md",
             "user": config.workspace_dir / "USER.md",
         }
