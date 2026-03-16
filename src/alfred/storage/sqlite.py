@@ -1419,14 +1419,14 @@ class EmbeddingReembedder:
 
             # Fetch all memories from base table
             async with db.execute(
-                "SELECT id, content, metadata FROM memories"
+                "SELECT entry_id, content FROM memories"
             ) as cursor:
                 memories = await cursor.fetchall()
 
             total = len(memories)
             logger.info(f"Re-embedding {total} memories...")
 
-            for i, (mem_id, content, metadata) in enumerate(memories, 1):
+            for i, (entry_id, content) in enumerate(memories, 1):
                 # Generate new embedding
                 embedding = await self._embedder.embed(content)
 
@@ -1435,9 +1435,9 @@ class EmbeddingReembedder:
                     """
                     UPDATE memory_embeddings
                     SET embedding = ?
-                    WHERE id = ?
+                    WHERE entry_id = ?
                     """,
-                    (json.dumps(embedding), mem_id)
+                    (json.dumps(embedding), entry_id)
                 )
 
                 count += 1
@@ -1509,7 +1509,7 @@ class EmbeddingReembedder:
 
             # Fetch all message embeddings from base table
             async with db.execute(
-                "SELECT id, content_snippet FROM message_embeddings"
+                "SELECT message_embedding_id, content_snippet FROM message_embeddings"
             ) as cursor:
                 messages = await cursor.fetchall()
 
@@ -1525,7 +1525,7 @@ class EmbeddingReembedder:
                     """
                     UPDATE message_embeddings_vec
                     SET embedding = ?
-                    WHERE id = ?
+                    WHERE message_embedding_id = ?
                     """,
                     (json.dumps(embedding), msg_id)
                 )
