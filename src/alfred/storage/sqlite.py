@@ -13,7 +13,7 @@ from typing import Any
 
 # sqlite-vec is required for vector search
 try:
-    import sqlite_vec  # noqa: F401
+    import sqlite_vec  # type: ignore[import-untyped]  # noqa: F401
 except ImportError as e:
     raise ImportError(
         "sqlite-vec is required. Install with: uv add sqlite-vec"
@@ -1330,11 +1330,43 @@ class SQLiteStore:
 
             return results
 
+    async def count_sessions(self) -> int:
+        """Count total sessions in database.
+
+        Returns:
+            Number of sessions
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            async with db.execute("SELECT COUNT(*) FROM sessions") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
+    async def count_memories(self) -> int:
+        """Count total memories in database.
+
+        Returns:
+            Number of memories
+        """
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            async with db.execute("SELECT COUNT(*) FROM memories") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
 
 class ReembedResult:
     """Result of a re-embedding operation."""
 
-    def __init__(self, success: bool, message: str, stats: dict | None = None) -> None:
+    def __init__(self, success: bool, message: str, stats: dict[str, Any] | None = None) -> None:
         """Initialize result.
 
         Args:
