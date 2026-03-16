@@ -82,6 +82,29 @@ class SQLiteStore:
 
             return None
 
+    async def _check_dimension_mismatch(self, db: Any, table_name: str) -> tuple[int, int] | None:
+        """Check if vec0 table dimension differs from expected dimension.
+
+        Args:
+            db: Database connection
+            table_name: Name of the vec0 table
+
+        Returns:
+            Tuple of (old_dim, new_dim) if mismatch detected, None otherwise
+        """
+        actual_dim = await self._get_vec0_dimension(db, table_name)
+
+        # If table doesn't exist, no mismatch (will be created with correct dimension)
+        if actual_dim is None:
+            return None
+
+        # If dimensions match, no mismatch
+        if actual_dim == self._embedding_dim:
+            return None
+
+        # Mismatch detected
+        return (actual_dim, self._embedding_dim)
+
     async def _init(self) -> None:
         """Lazy initialization of database connection and tables."""
         if self._initialized:
