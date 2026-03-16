@@ -86,7 +86,7 @@ line-length = 140
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
-ignore = []
+ignore = ["UP047"]  # Allow traditional TypeVar for generic functions
 
 [tool.ruff.format]
 quote-style = "double"

@@ -92,7 +92,7 @@ class MessagePanel(BorderedBox):
         self._set_border_color(role)
 
         # Build initial content
-        self._build_content()
+        self._compose_content()
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -121,7 +121,7 @@ class MessagePanel(BorderedBox):
             text: New content text
         """
         self._text_content = text
-        self._build_content()
+        self._compose_content()
         # Invalidate render cache so new content appears
         self._cache = None
 
@@ -161,7 +161,7 @@ class MessagePanel(BorderedBox):
             arguments=arguments,
         )
         self._tool_calls.append(tool_info)
-        self._build_content()
+        self._compose_content()
         self._cache = None
 
     def update_tool_call(self, tool_call_id: str, output: str) -> None:
@@ -174,7 +174,7 @@ class MessagePanel(BorderedBox):
         for tc in self._tool_calls:
             if tc.tool_call_id == tool_call_id:
                 tc.output = output
-                self._build_content()
+                self._compose_content()
                 self._cache = None
                 return
 
@@ -188,7 +188,7 @@ class MessagePanel(BorderedBox):
         for tc in self._tool_calls:
             if tc.tool_call_id == tool_call_id:
                 tc.status = status
-                self._build_content()
+                self._compose_content()
                 self._cache = None
                 return
 
@@ -216,7 +216,7 @@ class MessagePanel(BorderedBox):
             return
 
         self._tool_calls = list(tool_calls)
-        self._build_content()
+        self._compose_content()
         self._cache = None
 
     def restore_tool_calls_from_records(self, tool_calls: list[Any] | None) -> None:
@@ -260,10 +260,10 @@ class MessagePanel(BorderedBox):
             self._terminal_width = width
             if self._renderer:
                 self._renderer.update_width(max(20, width - 8))
-            self._build_content()
+            self._compose_content()
 
-    def _build_content(self) -> None:
-        """Build content blocks from text and tool calls."""
+    def _compose_content(self) -> None:
+        """Compose content blocks from text and tool calls."""
         from alfred.interfaces.ansi import apply_ansi
 
         self._content_blocks = []
@@ -514,7 +514,7 @@ class MessagePanel(BorderedBox):
 
         # Cache - use setattr to avoid type issues with inherited attribute
         cache_value: tuple[int, list[str]] = (width, lines)
-        setattr(self, "_cache", cache_value)
+        self._cache = cache_value
 
         return lines
 
