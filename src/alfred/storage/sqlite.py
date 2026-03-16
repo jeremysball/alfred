@@ -1464,14 +1464,14 @@ class EmbeddingReembedder:
 
             # Fetch all summaries from base table
             async with db.execute(
-                "SELECT session_id, summary_text FROM session_summaries"
+                "SELECT summary_id, summary_text FROM session_summaries"
             ) as cursor:
                 summaries = await cursor.fetchall()
 
             total = len(summaries)
             logger.info(f"Re-embedding {total} session summaries...")
 
-            for i, (session_id, summary_text) in enumerate(summaries, 1):
+            for i, (summary_id, summary_text) in enumerate(summaries, 1):
                 # Generate new embedding
                 embedding = await self._embedder.embed(summary_text)
 
@@ -1480,9 +1480,9 @@ class EmbeddingReembedder:
                     """
                     UPDATE session_summaries_vec
                     SET embedding = ?
-                    WHERE session_id = ?
+                    WHERE summary_id = ?
                     """,
-                    (json.dumps(embedding), session_id)
+                    (json.dumps(embedding), summary_id)
                 )
 
                 count += 1
