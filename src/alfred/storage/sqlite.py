@@ -29,14 +29,16 @@ class SQLiteStore:
     All operations are ACID-compliant via SQLite transactions.
     """
 
-    def __init__(self, db_path: Path | str) -> None:
+    def __init__(self, db_path: Path | str, embedding_dim: int = 768) -> None:
         """Initialize SQLite store.
 
         Args:
             db_path: Path to SQLite database file
+            embedding_dim: Dimension of embeddings (768 for BGE, 1536 for OpenAI)
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._embedding_dim = embedding_dim
         self._initialized = False
 
     async def _load_extensions(self, db: Any) -> None:
@@ -124,6 +126,9 @@ class SQLiteStore:
             ON session_summaries(created_at)
         """)
 
+        # Virtual table for vector search on summaries
+        await self._ensure_vec0_dimension(db, "session_summaries_vec", "summary_id")
+
     async def _create_message_embeddings_table(self, db: Any) -> None:
         """Create message_embeddings table with FK to sessions."""
         await db.execute("""
@@ -144,13 +149,55 @@ class SQLiteStore:
             ON message_embeddings(session_id)
         """)
 
-        # Create sqlite-vec virtual table for message embeddings
-        await db.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS message_embeddings_vec USING vec0(
-                message_embedding_id TEXT PRIMARY KEY,
-                embedding FLOAT[768]
-            )
-        """)
+        # Check if vec0 table exists with different dimension
+        await self._ensure_vec0_dimension(db, "message_embeddings_vec", "message_embedding_id")
+
+    async def _ensure_vec0_dimension(self, db: Any, table_name: str, id_column: str) -> None:
+        """Ensure vec0 table exists with correct dimension.
+
+        Drops and recreates the table if dimension mismatch is detected.
+        """
+        import re
+
+        dim = self._embedding_dim
+
+        # Check if table exists
+        async with db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            table_exists = row is not None
+
+        if table_exists:
+            # Get the table schema to check dimension
+            async with db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+                (table_name,)
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row and row[0]:
+                    schema = row[0]
+                    # Extract dimension from FLOAT[N]
+                    match = re.search(r'FLOAT\[(\d+)\]', schema)
+                    if match:
+                        existing_dim = int(match.group(1))
+                        if existing_dim != dim:
+                            logger.warning(
+                                f"Embedding dimension mismatch: {table_name} has {existing_dim}, "
+                                f"expected {dim}. Dropping and recreating (vec0 data will be lost)."
+                            )
+                            await db.execute(f"DROP TABLE {table_name}")
+                            table_exists = False
+
+        # Create table with correct dimension
+        if not table_exists:
+            await db.execute(f"""
+                CREATE VIRTUAL TABLE {table_name} USING vec0(
+                    {id_column} TEXT PRIMARY KEY,
+                    embedding FLOAT[{dim}]
+                )
+            """)
 
     async def _create_cron_tables(self, db: Any) -> None:
         """Create cron jobs and history tables."""
@@ -208,13 +255,8 @@ class SQLiteStore:
             )
         """)
 
-        # Virtual table for vector search
-        await db.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS memory_embeddings USING vec0(
-                entry_id TEXT PRIMARY KEY,
-                embedding FLOAT[768]  -- Adjustable dimension
-            )
-        """)
+        # Virtual table for vector search - dimension handled dynamically
+        await self._ensure_vec0_dimension(db, "memory_embeddings", "entry_id")
 
         # Index for timestamp queries
         await db.execute("""
@@ -682,13 +724,14 @@ class SQLiteStore:
             db.row_factory = aiosqlite.Row
 
             # Use sqlite-vec for vector search
+            # Note: sqlite-vec requires k constraint for KNN queries
             query = """
                 SELECT m.*, e.distance
                 FROM memory_embeddings e
                 JOIN memories m ON e.entry_id = m.entry_id
-                WHERE e.embedding MATCH ?
+                WHERE e.embedding MATCH ? AND k = ?
             """
-            params: list[Any] = [json.dumps(query_embedding)]
+            params: list[Any] = [json.dumps(query_embedding), top_k]
 
             if role:
                 query += " AND m.role = ?"
@@ -699,9 +742,6 @@ class SQLiteStore:
                 for tag in tags:
                     query += " AND json_extract(m.tags, '$') LIKE ?"
                     params.append(f'%"{tag}"%')
-
-            query += " ORDER BY e.distance LIMIT ?"
-            params.append(top_k)
 
             async with db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
@@ -1116,6 +1156,7 @@ class SQLiteStore:
                 raise RuntimeError("sqlite-vec required for summary search") from e
 
             # Use sqlite-vec for vector similarity search
+            # Note: sqlite-vec requires k constraint for KNN queries
             results = []
             try:
                 async with db.execute(
@@ -1127,9 +1168,8 @@ class SQLiteStore:
                         v.distance as similarity
                     FROM session_summaries_vec v
                     JOIN session_summaries s ON v.summary_id = s.summary_id
-                    WHERE v.embedding MATCH ?
+                    WHERE v.embedding MATCH ? AND k = ?
                     ORDER BY v.distance
-                    LIMIT ?
                     """,
                     (json.dumps(query_embedding), top_k),
                 ) as cursor:
@@ -1183,6 +1223,7 @@ class SQLiteStore:
                 raise RuntimeError("sqlite-vec required for message search") from e
 
             # Use sqlite-vec for vector similarity search
+            # Note: sqlite-vec requires k constraint for KNN queries
             results = []
             try:
                 async with db.execute(
@@ -1194,12 +1235,11 @@ class SQLiteStore:
                         v.distance as similarity
                     FROM message_embeddings_vec v
                     JOIN message_embeddings m ON v.message_embedding_id = m.message_embedding_id
-                    WHERE v.embedding MATCH ?
+                    WHERE v.embedding MATCH ? AND k = ?
                         AND m.session_id = ?
                     ORDER BY v.distance
-                    LIMIT ?
                     """,
-                    (json.dumps(query_embedding), session_id, top_k),
+                    (json.dumps(query_embedding), top_k, session_id),
                 ) as cursor:
                     async for row in cursor:
                         results.append(

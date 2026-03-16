@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from contextlib import suppress
+from dataclasses import dataclass
+from typing import Any, Literal, cast
 
 from alfred.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from alfred.interfaces.pypitui.models import ToolCallInfo
-from pypitui import BorderedBox, Text
+from pypitui import BorderedBox
+from pypitui.utils import visible_width
+
+
+@dataclass
+class ContentBlock:
+    """A block of content - either text or a tool call."""
+
+    type: Literal["text", "tool"]
+    content: str = ""
+    tool_info: ToolCallInfo | None = None
 
 
 class MessagePanel(BorderedBox):
-    """A bordered panel for displaying conversation messages.
+    """A bordered panel for displaying conversation messages with embedded tool calls.
 
     Uses different border colors based on role:
     - user: cyan border, title "You"
@@ -19,6 +31,9 @@ class MessagePanel(BorderedBox):
     - error: red border (after set_error() called)
 
     Supports embedded tool call boxes for inline tool display.
+    Tool calls are rendered as separate blocks to prevent text wrapping issues.
+
+    Future: Supports Ctrl-T expansion of tool calls.
     """
 
     def __init__(
@@ -51,14 +66,23 @@ class MessagePanel(BorderedBox):
         self._use_markdown = use_markdown
 
         # Create RichRenderer if markdown enabled
-        self._renderer: RichRenderer | None = None
+        # Width must account for nested tool call boxes:
+        # - MessagePanel borders: 2 chars
+        # - Tool box borders: 2 chars
+        # - Tool box padding: 2 chars (1 on each side)
+        # So tool content width = terminal_width - 8
+        self._renderer: Any = None
         if use_markdown:
             from alfred.interfaces.pypitui.rich_renderer import RichRenderer
 
-            self._renderer = RichRenderer(width=max(40, terminal_width - 4))
+            renderer_width = max(20, terminal_width - 8)
+            self._renderer = RichRenderer(width=renderer_width)
 
         # Tool calls embedded in this message
         self._tool_calls: list[ToolCallInfo] = []
+
+        # Content blocks for mixed rendering
+        self._content_blocks: list[ContentBlock] = []
 
         # Set title based on role
         title = {"user": "You", "assistant": "Alfred", "system": "System"}.get(role, "Alfred")
@@ -67,8 +91,8 @@ class MessagePanel(BorderedBox):
         # Set border color based on role
         self._set_border_color(role)
 
-        # Build initial content (with markdown and ANSI placeholders if enabled)
-        self._rebuild_content()
+        # Build initial content
+        self._compose_content()
 
     def _set_border_color(self, role_or_state: str) -> None:
         """Set border color by overriding class border characters.
@@ -97,7 +121,9 @@ class MessagePanel(BorderedBox):
             text: New content text
         """
         self._text_content = text
-        self._rebuild_content()
+        self._compose_content()
+        # Invalidate render cache so new content appears
+        self._cache = None
 
     def set_error(self, error_msg: str) -> None:
         """Set panel to error state with red border.
@@ -124,9 +150,6 @@ class MessagePanel(BorderedBox):
             tool_call_id: Unique ID for this tool call
             arguments: Optional tool arguments (dict of key=value pairs)
         """
-        # Use text length as insert position, but add sequence number to
-        # disambiguate when multiple tools are added at the same position.
-        # This ensures tools render in order even when called before text arrives.
         insert_position = len(self._text_content)
         sequence = len(self._tool_calls)
 
@@ -138,7 +161,8 @@ class MessagePanel(BorderedBox):
             arguments=arguments,
         )
         self._tool_calls.append(tool_info)
-        self._rebuild_content()
+        self._compose_content()
+        self._cache = None
 
     def update_tool_call(self, tool_call_id: str, output: str) -> None:
         """Update output for a tool call.
@@ -150,7 +174,8 @@ class MessagePanel(BorderedBox):
         for tc in self._tool_calls:
             if tc.tool_call_id == tool_call_id:
                 tc.output = output
-                self._rebuild_content()
+                self._compose_content()
+                self._cache = None
                 return
 
     def finalize_tool_call(self, tool_call_id: str, status: Literal["success", "error"]) -> None:
@@ -163,7 +188,8 @@ class MessagePanel(BorderedBox):
         for tc in self._tool_calls:
             if tc.tool_call_id == tool_call_id:
                 tc.status = status
-                self._rebuild_content()
+                self._compose_content()
+                self._cache = None
                 return
 
     def get_tool_call(self, tool_call_id: str) -> ToolCallInfo | None:
@@ -183,8 +209,6 @@ class MessagePanel(BorderedBox):
     def restore_tool_calls(self, tool_calls: list[ToolCallInfo] | None) -> None:
         """Restore tool calls from stored ToolCallInfo objects.
 
-        Used when loading session messages to restore tool call display.
-
         Args:
             tool_calls: List of ToolCallInfo objects to restore
         """
@@ -192,24 +216,17 @@ class MessagePanel(BorderedBox):
             return
 
         self._tool_calls = list(tool_calls)
-        self._rebuild_content()
+        self._compose_content()
+        self._cache = None
 
     def restore_tool_calls_from_records(self, tool_calls: list[Any] | None) -> None:
-        """Restore tool calls from session ToolCallRecord objects.
-
-        Converts ToolCallRecord dataclasses to ToolCallInfo for display.
-
-        Args:
-            tool_calls: List of ToolCallRecord objects from session storage
-        """
+        """Restore tool calls from session ToolCallRecord objects."""
         if not tool_calls:
             return
 
         tool_infos: list[ToolCallInfo] = []
         for tc in tool_calls:
-            # Handle both ToolCallRecord dataclass and dict formats
             if hasattr(tc, "tool_call_id"):
-                # ToolCallRecord dataclass
                 tool_info = ToolCallInfo(
                     tool_name=tc.tool_name,
                     tool_call_id=tc.tool_call_id,
@@ -220,7 +237,6 @@ class MessagePanel(BorderedBox):
                     arguments=tc.arguments if tc.arguments else {},
                 )
             else:
-                # Dict format (fallback)
                 tool_info = ToolCallInfo(
                     tool_name=tc.get("tool_name", "unknown"),
                     tool_call_id=tc.get("tool_call_id", ""),
@@ -242,126 +258,107 @@ class MessagePanel(BorderedBox):
         """
         if width != self._terminal_width:
             self._terminal_width = width
-            # Update renderer width if exists
             if self._renderer:
-                self._renderer.update_width(max(40, width - 4))
-            self._rebuild_content()
+                self._renderer.update_width(max(20, width - 8))
+            self._compose_content()
 
-    def _rebuild_content(self) -> None:
-        """Rebuild the content with embedded tool call boxes."""
+    def _compose_content(self) -> None:
+        """Compose content blocks from text and tool calls."""
         from alfred.interfaces.ansi import apply_ansi
 
-        self.clear()
+        self._content_blocks = []
 
         if not self._tool_calls:
             # Simple case: no tool calls
-            # First replace {cyan} etc. with ANSI codes, then apply markdown
-            text_with_ansi = apply_ansi(self._text_content)
-            display_text = text_with_ansi
-            # Use Rich markdown rendering if enabled
+            text = apply_ansi(self._text_content)
             if self._use_markdown and self._renderer:
-                try:
-                    display_text = self._renderer.render_markdown(text_with_ansi)
-                except Exception:
-                    # Fallback to plain text on error
-                    display_text = text_with_ansi
-            self.add_child(Text(display_text, padding_x=0))
+                with suppress(Exception):
+                    text = self._renderer.render_markdown(text)
+            self._content_blocks.append(ContentBlock(type="text", content=text))
         else:
-            # Build content with tool boxes inline
-            self._build_content_with_tools()
+            # Mixed case: text with embedded tool calls
+            sorted_tools = sorted(
+                self._tool_calls, key=lambda t: (t.insert_position, t.sequence)
+            )
 
-    def _build_content_with_tools(self) -> None:
-        """Build content string with tool call boxes embedded."""
-        from alfred.interfaces.ansi import apply_ansi
+            last_pos = 0
+            for tc in sorted_tools:
+                # Add text before this tool
+                if last_pos < tc.insert_position:
+                    segment = self._text_content[last_pos : tc.insert_position]
+                    if segment:
+                        text = apply_ansi(segment)
+                        if self._use_markdown and self._renderer:
+                            with suppress(Exception):
+                                text = self._renderer.render_markdown(text)
+                        self._content_blocks.append(
+                            ContentBlock(type="text", content=text)
+                        )
+
+                # Add tool call block
+                self._content_blocks.append(
+                    ContentBlock(type="tool", content="", tool_info=tc)
+                )
+                last_pos = tc.insert_position
+
+            # Add remaining text after last tool
+            if last_pos < len(self._text_content):
+                segment = self._text_content[last_pos:]
+                text = apply_ansi(segment)
+                if self._use_markdown and self._renderer:
+                    with suppress(Exception):
+                        text = self._renderer.render_markdown(text)
+                self._content_blocks.append(ContentBlock(type="text", content=text))
+
+    def _build_tool_box(self, tool_info: ToolCallInfo) -> list[str]:
+        """Build a tool call box as list of lines.
+
+        Args:
+            tool_info: Tool call information
+
+        Returns:
+            List of rendered lines for the tool box
+        """
         from alfred.interfaces.pypitui.box_utils import build_bordered_box
         from alfred.interfaces.pypitui.constants import DIM_BLUE, DIM_GREEN, DIM_RED
 
-        # Build the full content with tool boxes as inline text
-        parts: list[str] = []
-
-        # Sort tool calls by (position, sequence) to maintain order
-        sorted_tools = sorted(self._tool_calls, key=lambda t: (t.insert_position, t.sequence))
+        color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(
+            tool_info.status, DIM_BLUE
+        )
 
         # Tool box width: terminal width minus panel borders (2) and padding (2)
         box_width = max(20, self._terminal_width - 4)
 
-        # Lazy import RichRenderer for tool output formatting
-        renderer = None
-        if self._use_markdown and self._renderer:
-            renderer = self._renderer
+        content_lines: list[str] = []
 
-        def render_segment(text: str) -> str:
-            """Render text segment with markdown if enabled."""
-            if not text:
-                return text
-            text_with_ansi = apply_ansi(text)
-            if renderer:
-                try:
-                    return renderer.render_markdown(text_with_ansi)
-                except Exception:
-                    pass
-            return text_with_ansi
+        # Add arguments
+        if tool_info.arguments:
+            args_str = ", ".join(f"{k}={v}" for k, v in tool_info.arguments.items())
+            content_lines.append(f"{DIM}{args_str}{RESET}")
+            content_lines.append("")
 
-        last_pos = 0
-        for tc in sorted_tools:
-            # Add text before this tool (with markdown rendering)
-            if last_pos < tc.insert_position:
-                segment = self._text_content[last_pos : tc.insert_position]
-                parts.append(render_segment(segment))
-
-            # Add tool box with consistent borders
-            color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(
-                tc.status, DIM_BLUE
+        # Add output if any
+        if tool_info.output:
+            display_output = (
+                tool_info.output[:200] if len(tool_info.output) > 200 else tool_info.output
             )
+            formatted = self._format_tool_output(display_output)
+            content_lines.extend(formatted.split("\n"))
 
-            # Build tool box lines with Rich formatting
-            content_lines: list[str] = []
+        fancy_title = f"{BOLD}{tool_info.tool_name}{RESET}{color}"
+        return build_bordered_box(
+            lines=content_lines,
+            width=box_width,
+            color=color,
+            title=fancy_title,
+            center=False,
+        )
 
-            # Add arguments as first line (NEW)
-            if tc.arguments:
-                args_str = ", ".join(f"{k}={v}" for k, v in tc.arguments.items())
-                # Truncate if too long
-                if len(args_str) > 60:
-                    args_str = args_str[:57] + "..."
-                content_lines.append(f"{DIM}{args_str}{RESET}")
-                content_lines.append("")  # Empty line after args
-
-            if tc.output:
-                # Truncate output for display (show beginning, not end)
-                display_output = tc.output[:200] if len(tc.output) > 200 else tc.output
-
-                # Try to format as JSON if applicable
-                formatted_output = self._format_tool_output(display_output, renderer)
-                content_lines = content_lines + formatted_output.split("\n")
-
-            # Bold tool name in title using ANSI constants, then restore box color
-            fancy_title = f"{BOLD}{tc.tool_name}{RESET}{color}"
-
-            box_lines = build_bordered_box(
-                lines=content_lines,
-                width=box_width,
-                color=color,
-                title=fancy_title,
-                center=False,
-            )
-            parts.append("\n" + "\n".join(box_lines) + "\n")
-
-            last_pos = tc.insert_position
-
-        # Add remaining text after last tool (with markdown rendering)
-        if last_pos < len(self._text_content):
-            segment = self._text_content[last_pos:]
-            parts.append(render_segment(segment))
-
-        content = "".join(parts)
-        self.add_child(Text(content, padding_x=0))
-
-    def _format_tool_output(self, output: str, renderer):  # type: ignore[no-untyped-def]
+    def _format_tool_output(self, output: str) -> str:
         """Format tool output with Rich markup if possible.
 
         Args:
             output: Raw tool output
-            renderer: Optional RichRenderer for formatting
 
         Returns:
             Formatted output string
@@ -377,11 +374,9 @@ class MessagePanel(BorderedBox):
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
                 parsed = json.loads(stripped)
-                # Pretty print JSON
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
-                if renderer:
-                    # Wrap in markdown code block for syntax highlighting
-                    return renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                if self._renderer:
+                    return cast(str, self._renderer.render_markdown(f"```json\n{pretty_json}\n```"))
                 return pretty_json
             except json.JSONDecodeError:
                 pass
@@ -391,36 +386,147 @@ class MessagePanel(BorderedBox):
             try:
                 parsed = json.loads(stripped)
                 pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
-                if renderer:
-                    return renderer.render_markdown(f"```json\n{pretty_json}\n```")
+                if self._renderer:
+                    return cast(str, self._renderer.render_markdown(f"```json\n{pretty_json}\n```"))
                 return pretty_json
             except json.JSONDecodeError:
                 pass
 
-        # Check for markdown code blocks (e.g., from review_job tool)
+        # Check for markdown code blocks
         if "```" in output:
-            if renderer:
+            if self._renderer:
                 try:
-                    # Use markdown renderer to properly format code blocks
-                    return renderer.render_markdown(output)
+                    return cast(str, self._renderer.render_markdown(output))
                 except Exception:
                     pass
             return output
 
-        # For plain text, just return as-is (renderer will handle ANSI if enabled)
-        if renderer and output:
+        # For plain text, use dim styling
+        if self._renderer and output:
             try:
-                # Try to render any markup in the output
-                return renderer.render_markup(f"[dim]{output}[/dim]")
+                return cast(str, self._renderer.render_markup(f"[dim]{output}[/dim]"))
             except Exception:
                 pass
 
         return output
 
+    def _render_text_block(self, text: str, width: int) -> list[str]:
+        """Render a text block by wrapping it to the given width.
+
+        Args:
+            text: Text content to render
+            width: Width to wrap to
+
+        Returns:
+            List of wrapped lines
+        """
+        from pypitui.utils import wrap_text_with_ansi
+
+        if not text:
+            return []
+
+        # Wrap text preserving ANSI codes
+        return wrap_text_with_ansi(text, width)
+
+    def render(self, width: int) -> list[str]:
+        """Render the message panel with mixed content.
+
+        Overrides BorderedBox.render to handle mixed text and tool call blocks.
+
+        Args:
+            width: Width to render at
+
+        Returns:
+            List of rendered lines
+        """
+        # Check cache
+        if self._cache and self._cache[0] == width:
+            return self._cache[1]
+
+        # Calculate content width (inside borders and padding)
+        padding_x: int = getattr(self, "_padding_x", 0)
+        content_width = max(1, width - 2 - padding_x * 2)
+
+        # Build content lines from blocks
+        content_lines: list[str] = []
+
+        for block in self._content_blocks:
+            if block.type == "text":
+                # Render text block
+                if block.content:
+                    text_lines = self._render_text_block(block.content, content_width)
+                    # Pad each line to content_width
+                    for line in text_lines:
+                        vwidth = visible_width(line)
+                        if vwidth < content_width:
+                            line = line + " " * (content_width - vwidth)
+                        content_lines.append(line)
+            elif block.type == "tool" and block.tool_info:
+                # Render tool block as pre-formatted box lines
+                tool_lines = self._build_tool_box(block.tool_info)
+                # Pad each line to content_width to maintain alignment
+                for line in tool_lines:
+                    vwidth = visible_width(line)
+                    if vwidth < content_width:
+                        line = line + " " * (content_width - vwidth)
+                    content_lines.append(line)
+
+        # Build the bordered output
+        lines: list[str] = []
+
+        # Top border
+        top_border = self.TOP_LEFT + self.HORIZONTAL * (width - 2) + self.TOP_RIGHT
+        lines.append(top_border)
+
+        # Top padding
+        lines.extend(
+            self.VERTICAL + " " * (width - 2) + self.VERTICAL
+            for _ in range(getattr(self, "_padding_y", 0))
+        )
+
+        # Title if provided
+        title_val: str | None = getattr(self, "_title", None)
+        if title_val:
+            padding_x_val: int = getattr(self, "_padding_x", 0)
+            title_padded = " " * padding_x_val + title_val + " " * padding_x_val
+            inner_width = width - 2
+            if visible_width(title_padded) < inner_width:
+                title_padded += " " * (inner_width - visible_width(title_padded))
+            lines.append(self.VERTICAL + title_padded + self.VERTICAL)
+            sep_inner = self.HORIZONTAL * inner_width
+            lines.append(self.T_LEFT + sep_inner + self.T_RIGHT)
+
+        # Content lines with padding
+        for content_line in content_lines:
+            padding = " " * getattr(self, "_padding_x", 0)
+            right_padding = " " * getattr(self, "_padding_x", 0)
+            lines.append(self.VERTICAL + padding + content_line + right_padding + self.VERTICAL)
+
+        # Bottom padding
+        lines.extend(
+            self.VERTICAL + " " * (width - 2) + self.VERTICAL
+            for _ in range(getattr(self, "_padding_y", 0))
+        )
+
+        # Bottom border
+        bottom_border = self.BOTTOM_LEFT + self.HORIZONTAL * (width - 2) + self.BOTTOM_RIGHT
+        lines.append(bottom_border)
+
+        # Cache - use setattr to avoid type issues with inherited attribute
+        cache_value: tuple[int, list[str]] = (width, lines)
+        setattr(self, "_cache", cache_value)  # noqa: B010
+
+        return lines
+
     @property
     def tool_calls(self) -> list[ToolCallInfo]:
         """Get list of tool calls in this message."""
         return self._tool_calls
+
+    @property
+    def content_blocks(self) -> list[ContentBlock]:
+        """Get content blocks for inspection/testing."""
+        return self._content_blocks
 
     @property
     def _content(self) -> str:

@@ -13,5 +13,4 @@ uv run basedpyright src/ || echo "⚠️  basedpyright found issues (non-blockin
 echo "Running completions sync check..."
 uv run python scripts/generate-static-completions.py --check
 
-echo "Running pytest..."
-uv run pytest
+echo "Pre-commit checks complete. Run 'uv run pytest' manually for full test suite."

@@ -8,8 +8,9 @@ import contextlib
 import inspect
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, TypeVar
 
 from alfred.cron.socket_protocol import (
     SOCKET_NAME,
@@ -35,6 +36,9 @@ from alfred.data_manager import get_cache_dir
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+R = TypeVar("R")
+
 
 class SocketServer:
     """Unix socket server that receives messages from the cron runner.
@@ -50,10 +54,10 @@ class SocketServer:
         on_job_failed: Callable[[JobFailedMessage], None] | None = None,
         on_runner_started: Callable[[RunnerStartedMessage], None] | None = None,
         on_runner_stopping: Callable[[RunnerStoppingMessage], None] | None = None,
-        on_query_jobs: Callable[[QueryJobsRequest], QueryJobsResponse] | None = None,
-        on_submit_job: Callable[[SubmitJobRequest], SubmitJobResponse] | None = None,
-        on_approve_job: Callable[[ApproveJobRequest], ApproveJobResponse] | None = None,
-        on_reject_job: Callable[[RejectJobRequest], RejectJobResponse] | None = None,
+        on_query_jobs: Callable[[QueryJobsRequest], QueryJobsResponse | Awaitable[QueryJobsResponse]] | None = None,
+        on_submit_job: Callable[[SubmitJobRequest], SubmitJobResponse | Awaitable[SubmitJobResponse]] | None = None,
+        on_approve_job: Callable[[ApproveJobRequest], ApproveJobResponse | Awaitable[ApproveJobResponse]] | None = None,
+        on_reject_job: Callable[[RejectJobRequest], RejectJobResponse | Awaitable[RejectJobResponse]] | None = None,
     ):
         """Initialize the socket server.
 
@@ -74,16 +78,16 @@ class SocketServer:
         self._running = False
 
         # Callbacks
-        self._on_notify = on_notify
-        self._on_job_started = on_job_started
-        self._on_job_completed = on_job_completed
-        self._on_job_failed = on_job_failed
-        self._on_runner_started = on_runner_started
-        self._on_runner_stopping = on_runner_stopping
-        self._on_query_jobs = on_query_jobs
-        self._on_submit_job = on_submit_job
-        self._on_approve_job = on_approve_job
-        self._on_reject_job = on_reject_job
+        self._on_notify: Callable[[NotifyMessage], None] | None = on_notify
+        self._on_job_started: Callable[[JobStartedMessage], None] | None = on_job_started
+        self._on_job_completed: Callable[[JobCompletedMessage], None] | None = on_job_completed
+        self._on_job_failed: Callable[[JobFailedMessage], None] | None = on_job_failed
+        self._on_runner_started: Callable[[RunnerStartedMessage], None] | None = on_runner_started
+        self._on_runner_stopping: Callable[[RunnerStoppingMessage], None] | None = on_runner_stopping
+        self._on_query_jobs: Callable[[QueryJobsRequest], QueryJobsResponse | Awaitable[QueryJobsResponse]] | None = on_query_jobs
+        self._on_submit_job: Callable[[SubmitJobRequest], SubmitJobResponse | Awaitable[SubmitJobResponse]] | None = on_submit_job
+        self._on_approve_job: Callable[[ApproveJobRequest], ApproveJobResponse | Awaitable[ApproveJobResponse]] | None = on_approve_job
+        self._on_reject_job: Callable[[RejectJobRequest], RejectJobResponse | Awaitable[RejectJobResponse]] | None = on_reject_job
 
     @property
     def path(self) -> Path:
@@ -172,81 +176,81 @@ class SocketServer:
                 await writer.wait_closed()
             logger.debug(f"Client disconnected: {peer}")
 
-    async def _dispatch_message(self, message: SocketMessage, writer: asyncio.StreamWriter) -> None:
+    def _get_handler(self, message: SocketMessage) -> Callable[[Any], None] | None:
+        """Get the appropriate handler callback for a message type."""
+        if isinstance(message, NotifyMessage):
+            return self._on_notify
+        if isinstance(message, JobStartedMessage):
+            return self._on_job_started
+        if isinstance(message, JobCompletedMessage):
+            return self._on_job_completed
+        if isinstance(message, JobFailedMessage):
+            return self._on_job_failed
+        if isinstance(message, RunnerStartedMessage):
+            return self._on_runner_started
+        if isinstance(message, RunnerStoppingMessage):
+            return self._on_runner_stopping
+        return None
+
+    def _get_request_handler(
+        self, message: SocketMessage
+    ) -> Callable[[Any], SocketMessage | Awaitable[SocketMessage]] | None:
+        """Get the appropriate handler for request messages that need responses."""
+        if isinstance(message, QueryJobsRequest):
+            return self._on_query_jobs
+        if isinstance(message, SubmitJobRequest):
+            return self._on_submit_job
+        if isinstance(message, ApproveJobRequest):
+            return self._on_approve_job
+        if isinstance(message, RejectJobRequest):
+            return self._on_reject_job
+        return None
+
+    async def _send_response(
+        self, writer: asyncio.StreamWriter, response: SocketMessage
+    ) -> None:
+        """Send a response message back to the client."""
+        writer.write(response.to_json().encode("utf-8"))
+        await writer.drain()
+
+    @staticmethod
+    async def _resolve_response(
+        raw: SocketMessage | Awaitable[SocketMessage],
+    ) -> SocketMessage:
+        """Resolve a response that may be sync or async."""
+        if inspect.isawaitable(raw):
+            return await raw
+        return raw
+
+    async def _dispatch_message(
+        self, message: SocketMessage, writer: asyncio.StreamWriter
+    ) -> None:
         """Dispatch a message to the appropriate callback."""
         try:
-            if isinstance(message, NotifyMessage):
-                if self._on_notify:
-                    self._on_notify(message)
+            # Handle ping/pong directly
+            if isinstance(message, PingMessage):
+                await self._send_response(writer, PongMessage())
+                return
 
-            elif isinstance(message, JobStartedMessage):
-                if self._on_job_started:
-                    self._on_job_started(message)
-
-            elif isinstance(message, JobCompletedMessage):
-                if self._on_job_completed:
-                    self._on_job_completed(message)
-
-            elif isinstance(message, JobFailedMessage):
-                if self._on_job_failed:
-                    self._on_job_failed(message)
-
-            elif isinstance(message, RunnerStartedMessage):
-                if self._on_runner_started:
-                    self._on_runner_started(message)
-
-            elif isinstance(message, RunnerStoppingMessage):
-                if self._on_runner_stopping:
-                    self._on_runner_stopping(message)
-
-            elif isinstance(message, PingMessage):
-                # Respond with pong
-                pong = PongMessage()
-                writer.write(pong.to_json().encode("utf-8"))
-                await writer.drain()
-
-            elif isinstance(message, PongMessage):
+            if isinstance(message, PongMessage):
                 # Pong responses are handled by the client
-                pass
+                return
 
-            elif isinstance(message, QueryJobsRequest):
-                # Handle job status query
-                if self._on_query_jobs:
-                    response = self._on_query_jobs(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
+            # Handle simple event messages
+            handler = self._get_handler(message)
+            if handler:
+                handler(message)
+                return
 
-            elif isinstance(message, SubmitJobRequest):
-                # Handle job submission request
-                if self._on_submit_job:
-                    response = self._on_submit_job(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
+            # Handle request/response messages
+            request_handler = self._get_request_handler(message)
+            if request_handler:
+                raw_response: SocketMessage | Awaitable[SocketMessage] = request_handler(message)
+                response = await self._resolve_response(raw_response)
+                await self._send_response(writer, response)
+                return
 
-            elif isinstance(message, ApproveJobRequest):
-                # Handle job approval request
-                if self._on_approve_job:
-                    response = self._on_approve_job(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
-
-            elif isinstance(message, RejectJobRequest):
-                # Handle job rejection request
-                if self._on_reject_job:
-                    response = self._on_reject_job(message)
-                    if inspect.iscoroutine(response):
-                        response = await response
-                    writer.write(response.to_json().encode("utf-8"))
-                    await writer.drain()
-
-            elif isinstance(message, RunnerStoppingMessage) and self._on_runner_stopping:
-                self._on_runner_stopping(message)
+            logger.warning(f"Unhandled message type: {type(message).__name__}")
 
         except Exception as e:
             logger.error(f"Error dispatching message {message.type}: {e}")

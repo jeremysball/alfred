@@ -3,6 +3,8 @@
 Uses SQLite + sqlite-vec for unified storage with vector search.
 """
 
+from alfred.config import Config
+from alfred.embeddings.provider import EmbeddingProvider
 from alfred.memory.base import MemoryEntry, MemoryStore
 from alfred.memory.sqlite_store import SQLiteMemoryStore
 
@@ -15,7 +17,7 @@ __all__ = [
 ]
 
 
-def create_memory_store(config, embedder):
+def create_memory_store(config: Config, embedder: EmbeddingProvider) -> SQLiteMemoryStore:
     """Create SQLite memory store.
 
     Args:

@@ -23,8 +23,8 @@ class NewSessionCommand(Command):
 
     async def _execute_async(self, tui: "AlfredTUI") -> None:
         """Async implementation of new session creation."""
-        tui._clear_conversation()  # type: ignore[misc]
+        tui._clear_conversation()
         tui.alfred.token_tracker.reset()
         session = await tui.alfred.core.session_manager.new_session_async()
-        tui._add_user_message(f"New session created: {session.meta.session_id}")  # type: ignore[misc]
-        tui._update_status()  # type: ignore[misc]
+        tui._add_user_message(f"New session created: {session.meta.session_id}")
+        tui._update_status()

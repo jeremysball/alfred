@@ -7,7 +7,7 @@ Manual routing via match/case for type selection.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic.dataclasses import dataclass
 
@@ -32,7 +32,7 @@ class JobInfo:
     created_at: datetime
     updated_at: datetime
     last_run: datetime | None
-    resource_limits: dict
+    resource_limits: dict[str, object]
     chat_id: int | None
     # Computed fields added by daemon (must come after required fields)
     approved_at: datetime | None = None
@@ -305,16 +305,20 @@ Event = JobStarted | JobCompleted | JobFailed | Notification
 def serialize_message(msg: SocketMessage) -> str:
     """Serialize a message to JSON string with newline delimiter."""
     import json
-    from dataclasses import asdict, is_dataclass
+    from dataclasses import asdict
+    from typing import cast
 
     def default(obj: object) -> object:
         if isinstance(obj, datetime):
             return obj.isoformat()
-        if is_dataclass(obj):
-            return asdict(obj)
+        # Check for dataclass by looking for __dataclass_fields__
+        dc_fields = getattr(obj, "__dataclass_fields__", None)
+        if dc_fields is not None:
+            # All SocketMessage types are dataclasses
+            return asdict(cast(Any, obj))
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-    return json.dumps(asdict(msg), default=default) + "\n"
+    return json.dumps(asdict(cast(Any, msg)), default=default) + "\n"
 
 
 def serialize_message_bytes(msg: SocketMessage) -> bytes:
@@ -391,7 +395,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value)
 
 
-def _parse_jobs_response(parsed: dict) -> JobsResponse:
+def _parse_jobs_response(parsed: dict[str, Any]) -> JobsResponse:
     """Parse JobsResponse with nested JobInfo objects."""
     jobs_data = parsed.get("jobs", [])
     failures_data = parsed.get("recent_failures", [])
@@ -416,14 +420,14 @@ def _parse_jobs_response(parsed: dict) -> JobsResponse:
     )
 
 
-def _parse_pong(parsed: dict) -> Pong:
+def _parse_pong(parsed: dict[str, Any]) -> Pong:
     """Parse Pong with datetime."""
     return Pong(
         timestamp=_parse_datetime(parsed.get("timestamp")) or datetime.now(),
     )
 
 
-def _parse_job_started(parsed: dict) -> JobStarted:
+def _parse_job_started(parsed: dict[str, Any]) -> JobStarted:
     """Parse JobStarted with datetime."""
     return JobStarted(
         job_id=parsed["job_id"],
@@ -432,7 +436,7 @@ def _parse_job_started(parsed: dict) -> JobStarted:
     )
 
 
-def _parse_job_completed(parsed: dict) -> JobCompleted:
+def _parse_job_completed(parsed: dict[str, Any]) -> JobCompleted:
     """Parse JobCompleted with datetime."""
     return JobCompleted(
         job_id=parsed["job_id"],
@@ -443,7 +447,7 @@ def _parse_job_completed(parsed: dict) -> JobCompleted:
     )
 
 
-def _parse_job_failed(parsed: dict) -> JobFailed:
+def _parse_job_failed(parsed: dict[str, Any]) -> JobFailed:
     """Parse JobFailed with datetime."""
     return JobFailed(
         job_id=parsed["job_id"],
@@ -454,7 +458,7 @@ def _parse_job_failed(parsed: dict) -> JobFailed:
     )
 
 
-def _parse_notification(parsed: dict) -> Notification:
+def _parse_notification(parsed: dict[str, Any]) -> Notification:
     """Parse Notification with datetime."""
     return Notification(
         message=parsed["message"],

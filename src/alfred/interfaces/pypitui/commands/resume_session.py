@@ -18,7 +18,7 @@ class ResumeSessionCommand(Command):
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """Resume an existing session."""
         if not arg:
-            tui._add_user_message(  # type: ignore[misc]
+            tui._add_user_message(
                 "Usage: /resume <session_id>\nUse /sessions to see available sessions."
             )
             return True
@@ -29,12 +29,12 @@ class ResumeSessionCommand(Command):
     async def _execute_async(self, tui: "AlfredTUI", session_id: str) -> None:
         """Async implementation of resume session."""
         try:
-            tui._clear_conversation()  # type: ignore[misc]
+            tui._clear_conversation()
             await tui.alfred.core.session_manager.resume_session_async(session_id)
 
             # Load all session messages into conversation
-            await tui._load_session_messages()  # type: ignore[misc]
+            await tui._load_session_messages()
 
-            tui._update_status()  # type: ignore[misc]
+            tui._update_status()
         except ValueError as e:
-            tui._add_user_message(f"Error: {e}")  # type: ignore[misc]
+            tui._add_user_message(f"Error: {e}")

@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import typer
@@ -108,11 +109,6 @@ def daemon_start(
         False,
         "--fg",
         help="Run in foreground (don't daemonize)",
-    ),
-    bg: bool = typer.Option(
-        False,
-        "--bg",
-        help="Run in background (daemonize) [deprecated: this is now the default]",
     ),
 ) -> None:
     """Start the daemon."""
@@ -216,6 +212,131 @@ app.add_typer(memory_app)
 config_app = typer.Typer(name="config", help="Manage configuration files", no_args_is_help=True)
 
 
+def _get_preserve_set(force: bool) -> set[str]:
+    """Determine which files to preserve based on force flag.
+
+    Args:
+        force: If True, don't preserve any files. If False, preserve user files.
+
+    Returns:
+        Set of filenames to preserve.
+    """
+    if force:
+        return set()
+    return {"USER.md", "SOUL.md", "CUSTOM.md"}
+
+
+def _group_update_results(results: dict[str, Any]) -> dict[str, Any]:
+    """Group template update results by status.
+
+    Args:
+        results: Dictionary of filename -> result info from update_templates.
+
+    Returns:
+        Dictionary with grouped results:
+        - updated: List of (name, message) tuples for updated/dry_run files
+        - preserved: List of (name, message) tuples for preserved files
+        - skipped: List of (name, message) tuples for skipped files
+        - errors: List of (name, message) tuples for error files
+        - prompts: Dict with prompts status or None
+    """
+    groups: dict[str, Any] = {
+        "updated": [],
+        "preserved": [],
+        "skipped": [],
+        "errors": [],
+        "prompts": None,
+    }
+
+    for name, info in results.items():
+        if name == "prompts/":
+            groups["prompts"] = info
+            continue
+
+        status = info.get("status", "unknown")
+        message = info.get("message", "")
+        entry = (name, message)
+
+        if status in ("updated", "dry_run"):
+            groups["updated"].append(entry)
+        elif status == "preserved":
+            groups["preserved"].append(entry)
+        elif status == "skipped":
+            groups["skipped"].append(entry)
+        elif status == "error":
+            groups["errors"].append(entry)
+
+    return groups
+
+
+def _display_update_results(groups: dict[str, Any], dry_run: bool) -> None:
+    """Display grouped update results to console.
+
+    Args:
+        groups: Grouped results from _group_update_results.
+        dry_run: Whether this was a dry run.
+    """
+    # Header
+    if dry_run:
+        console.print("[bold]Dry run - no changes made:[/bold]\n")
+    else:
+        console.print("[bold]Config update results:[/bold]\n")
+
+    # Updated files
+    if groups["updated"]:
+        console.print("[green]Updated:[/green]")
+        for name, msg in groups["updated"]:
+            console.print(f"  ✓ {name} - {msg}")
+        console.print()
+
+    # Preserved files
+    if groups["preserved"]:
+        console.print("[yellow]Preserved (not overwritten):[/yellow]")
+        for name, msg in groups["preserved"]:
+            console.print(f"  ○ {name} - {msg}")
+        console.print()
+
+    # Skipped files
+    if groups["skipped"]:
+        console.print("[dim]Skipped (up to date):[/dim]")
+        for name, msg in groups["skipped"]:
+            console.print(f"  - {name} - {msg}")
+        console.print()
+
+    # Errors
+    if groups["errors"]:
+        console.print("[red]Errors:[/red]")
+        for name, msg in groups["errors"]:
+            console.print(f"  ✗ {name} - {msg}")
+        console.print()
+
+    # Prompts (special handling)
+    prompts = groups["prompts"]
+    if prompts:
+        status = prompts.get("status", "unknown")
+        message = prompts.get("message", "")
+        if status == "updated":
+            console.print(f"[green]Prompts:[/green] {message}")
+        elif status == "skipped":
+            console.print(f"[dim]Prompts:[/dim] {message}")
+        else:
+            console.print(f"Prompts: {message}")
+
+
+def _display_footer(workspace_dir: Path, force: bool, preserved: list[tuple[str, str]]) -> None:
+    """Display footer with workspace info and tips.
+
+    Args:
+        workspace_dir: Path to the workspace directory.
+        force: Whether --force flag was used.
+        preserved: List of preserved files.
+    """
+    console.print(f"\n[dim]Config files location: {workspace_dir}[/dim]")
+
+    if not force and preserved:
+        console.print("\n[dim]Tip: Use --force to also update USER.md and SOUL.md[/dim]")
+
+
 @config_app.callback()
 def config_callback() -> None:
     """Configuration file management."""
@@ -247,11 +368,7 @@ def config_update(
 
     workspace_dir = get_workspace_dir()
     manager = TemplateManager(workspace_dir)
-
-    # Determine which files to preserve
-    preserve = set()
-    if not force:
-        preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
+    preserve = _get_preserve_set(force)
 
     try:
         results = manager.update_templates(preserve=preserve, dry_run=dry_run)
@@ -259,74 +376,9 @@ def config_update(
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(1) from e
 
-    # Display results
-    if dry_run:
-        console.print("[bold]Dry run - no changes made:[/bold]\n")
-    else:
-        console.print("[bold]Config update results:[/bold]\n")
-
-    # Group by status
-    updated = []
-    preserved = []
-    skipped = []
-    errors = []
-    prompts_status = None
-
-    for name, info in results.items():
-        if name == "prompts/":
-            prompts_status = info
-            continue
-
-        status = info.get("status", "unknown")
-        message = info.get("message", "")
-
-        if status == "updated" or status == "dry_run":
-            updated.append((name, message))
-        elif status == "preserved":
-            preserved.append((name, message))
-        elif status == "skipped":
-            skipped.append((name, message))
-        elif status == "error":
-            errors.append((name, message))
-
-    if updated:
-        console.print("[green]Updated:[/green]")
-        for name, msg in updated:
-            console.print(f"  ✓ {name} - {msg}")
-        console.print()
-
-    if preserved:
-        console.print("[yellow]Preserved (not overwritten):[/yellow]")
-        for name, msg in preserved:
-            console.print(f"  ○ {name} - {msg}")
-        console.print()
-
-    if skipped:
-        console.print("[dim]Skipped (up to date):[/dim]")
-        for name, msg in skipped:
-            console.print(f"  - {name} - {msg}")
-        console.print()
-
-    if errors:
-        console.print("[red]Errors:[/red]")
-        for name, msg in errors:
-            console.print(f"  ✗ {name} - {msg}")
-        console.print()
-
-    if prompts_status:
-        status = prompts_status.get("status", "unknown")
-        message = prompts_status.get("message", "")
-        if status == "updated":
-            console.print(f"[green]Prompts:[/green] {message}")
-        elif status == "skipped":
-            console.print(f"[dim]Prompts:[/dim] {message}")
-        else:
-            console.print(f"Prompts: {message}")
-
-    console.print(f"\n[dim]Config files location: {workspace_dir}[/dim]")
-
-    if not force and preserved:
-        console.print("\n[dim]Tip: Use --force to also update USER.md and SOUL.md[/dim]")
+    groups = _group_update_results(results)
+    _display_update_results(groups, dry_run)
+    _display_footer(workspace_dir, force, groups["preserved"])
 
 
 app.add_typer(config_app)

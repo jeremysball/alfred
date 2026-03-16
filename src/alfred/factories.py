@@ -8,6 +8,7 @@ All service creation is centralized here to support:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from alfred.config import Config
@@ -27,17 +28,20 @@ class SQLiteStoreFactory:
     """Factory for creating SQLiteStore instances."""
 
     @staticmethod
-    def create(config: Config) -> SQLiteStore:
+    def create(config: Config, embedder: EmbeddingProvider | None = None) -> SQLiteStore:
         """Create SQLiteStore from config.
 
         Args:
             config: Application configuration with data_dir
+            embedder: Optional embedding provider to get dimension from
 
         Returns:
             Configured SQLiteStore instance
         """
         db_path = config.data_dir / "alfred.db"
-        return SQLiteStore(db_path)
+        # Get embedding dimension from provider if available
+        embedding_dim = embedder.dimension if embedder else 768
+        return SQLiteStore(db_path, embedding_dim=embedding_dim)
 
 
 class EmbeddingProviderFactory:
@@ -93,7 +97,7 @@ class SessionManagerFactory:
     """Factory for creating SessionManager instances."""
 
     @staticmethod
-    def create(store: SQLiteStore, data_dir: Config) -> SessionManager:
+    def create(store: SQLiteStore, data_dir: Path) -> SessionManager:
         """Create SessionManager from store and config.
 
         Args:
@@ -106,16 +110,17 @@ class SessionManagerFactory:
         return SessionManager(store=store, data_dir=data_dir)
 
     @classmethod
-    def create_from_config(cls, config: Config) -> SessionManager:
+    def create_from_config(cls, config: Config, embedder: EmbeddingProvider | None = None) -> SessionManager:
         """Create SessionManager from config (creates own SQLiteStore).
 
         Args:
             config: Application configuration
+            embedder: Optional embedding provider for dimension detection
 
         Returns:
             Configured SessionManager instance
         """
-        store = SQLiteStoreFactory.create(config)
+        store = SQLiteStoreFactory.create(config, embedder=embedder)
         return cls.create(store=store, data_dir=config.data_dir)
 
 

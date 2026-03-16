@@ -87,7 +87,8 @@ class SessionSummarizer:
         # Simple implementation - in production this would use the actual LLM client
         # For now, use the injected llm_client
         if hasattr(self.llm_client, "generate_summary"):
-            return await self.llm_client.generate_summary(conversation_preview)
+            result = await self.llm_client.generate_summary(conversation_preview)
+            return str(result)
 
         # Fallback: extract key topics from first user message
         lines = conversation_preview.strip().split("\n")
@@ -148,10 +149,7 @@ class SessionSummarizer:
         # Parse datetime from ISO format string
         created_at = None
         if data.get("created_at"):
-            if isinstance(data["created_at"], str):
-                created_at = datetime.fromisoformat(data["created_at"])
-            else:
-                created_at = data["created_at"]
+            created_at = datetime.fromisoformat(data["created_at"]) if isinstance(data["created_at"], str) else data["created_at"]
 
         return SessionSummary(
             session_id=data["session_id"],
@@ -187,7 +185,7 @@ class SearchSessionsTool(Tool):
         self.min_similarity = min_similarity
         self.summarizer = summarizer
 
-    async def _find_relevant_sessions(self, query: str, top_k: int = 3) -> list[dict]:
+    async def _find_relevant_sessions(self, query: str, top_k: int = 3) -> list[dict[str, Any]]:
         """Stage 1: Find relevant sessions via summary search.
 
         Args:
@@ -211,7 +209,7 @@ class SearchSessionsTool(Tool):
 
     async def _search_session_messages(
         self, session_id: str, query_embedding: list[float], top_k: int = 3
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Stage 2: Search messages within a session.
 
         Args:

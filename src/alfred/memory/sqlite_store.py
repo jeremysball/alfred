@@ -44,9 +44,10 @@ class SQLiteMemoryStore(MemoryStore):
 
         # Use data_dir from config
         db_path = config.data_dir / "memories.db"
-        self._store = SQLiteStore(db_path)
+        # Pass embedding dimension to ensure vec0 tables match
+        self._store = SQLiteStore(db_path, embedding_dim=embedder.dimension)
 
-        logger.info(f"SQLite memory store initialized: {db_path}")
+        logger.info(f"SQLite memory store initialized: {db_path} (dim={embedder.dimension})")
 
     async def add(self, entry: Any) -> None:
         """Add a memory entry.

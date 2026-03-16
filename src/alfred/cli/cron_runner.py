@@ -81,12 +81,20 @@ async def run_scheduler(
         data_dir=data_dir,
     )
 
+    # Track background tasks to prevent "Task was destroyed but it is pending" warnings
+    _background_tasks: set[asyncio.Task[None]] = set()
+
     # Set up signal handlers
     def _on_shutdown() -> None:
-        asyncio.create_task(scheduler.stop())  # noqa: RUF006
+        task = asyncio.create_task(scheduler.stop())
+        # Keep reference to avoid "Task was destroyed but it is pending" warning
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
 
     def _on_reload() -> None:
-        asyncio.ensure_future(scheduler.reload_jobs())
+        task = asyncio.create_task(scheduler.reload_jobs())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
 
     daemon_manager.setup_signals(
         on_shutdown=_on_shutdown,
@@ -109,7 +117,7 @@ async def run_scheduler(
         while not daemon_manager.shutdown_requested:
             # Check for reload requests
             if daemon_manager.reload_requested:
-                scheduler.reload_jobs()
+                await scheduler.reload_jobs()
 
             await asyncio.sleep(1.0)
 

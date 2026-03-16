@@ -397,8 +397,9 @@ class TestMessagePanelAnsiIntegration:
             use_markdown=True,
         )
 
-        text_component = panel.children[0]
-        rendered = text_component._text
+        # Render and check output
+        lines = panel.render(width=80)
+        rendered = "\n".join(lines)
 
         # Should have ANSI codes, not placeholders
         assert "{cyan}" not in rendered
@@ -417,8 +418,9 @@ class TestMessagePanelAnsiIntegration:
             use_markdown=True,
         )
 
-        text_component = panel.children[0]
-        rendered = text_component._text
+        # Render and check output
+        lines = panel.render(width=80)
+        rendered = "\n".join(lines)
 
         assert "plain text without colors" in rendered
 
@@ -433,8 +435,9 @@ class TestMessagePanelAnsiIntegration:
             use_markdown=True,
         )
 
-        text_component = panel.children[0]
-        rendered = text_component._text
+        # Render and check output
+        lines = panel.render(width=80)
+        rendered = "\n".join(lines)
 
         # Markdown should be processed (no **)
         assert "**" not in rendered
@@ -452,8 +455,9 @@ class TestMessagePanelAnsiIntegration:
             use_markdown=True,
         )
 
-        text_component = panel.children[0]
-        rendered = text_component._text
+        # Render and check output
+        lines = panel.render(width=80)
+        rendered = "\n".join(lines)
 
         # Invalid placeholders should remain
         assert "{invalid}" in rendered

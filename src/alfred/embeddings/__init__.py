@@ -14,7 +14,7 @@ from alfred.embeddings.provider import EmbeddingProvider
 
 # Provide EmbeddingClient alias for backwards compatibility
 class EmbeddingClient:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
         raise NotImplementedError("EmbeddingClient is deprecated. Use create_provider() instead.")
 
 

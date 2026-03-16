@@ -244,6 +244,8 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 23 | Test Configuration | Skip integration/e2e by default, separate CI jobs |
 | 24 | Type Safety | Fix Tool class type safety, complete type annotations |
 | 25 | ✅ Code Quality | Auto-fix Ruff violations, manual lint fixes (PRD #125) |
+| 131 | Ctrl-T Tool Call Expansion | Toggle all tool call boxes to show full output (PRD #131) |
+| 132 | Dynamic Embedding Dimension Support | Auto-detect and re-embed when switching models (BGE↔OpenAI) (PRD #132) |
 
 ### Medium-term 📅
 
@@ -271,7 +273,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 - [ ] **Add Shift+Enter to queue message** - Allow queuing messages while LLM is running
 - [ ] **Normal Enter is steering mode** - Interject with it instead of waiting for completion
 - [ ] **Add background color to tool call output** - Better visual distinction for tool calls
-- [ ] **Keybind to toggle tool call output** - Show/hide tool call sections
+- [x] **Keybind to toggle tool call output** - Ctrl-T expands all tool calls to show full output (PRD #131)
 - [ ] **Create PRD for ESC keybinding** - Add keyboard shortcut to cancel the current LLM call
 
 ### Reasoning & Agent Behavior

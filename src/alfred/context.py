@@ -32,6 +32,7 @@ class AssembledContext(BaseModel):
     """Complete assembled context for LLM prompt."""
 
     agents: str
+    tools: str
     soul: str
     user: str
     memories: list[MemoryEntry]
@@ -44,6 +45,7 @@ class AssembledContext(BaseModel):
 CONTEXT_TO_TEMPLATE = {
     "system": "SYSTEM.md",
     "agents": "AGENTS.md",
+    "tools": "TOOLS.md",
     "soul": "SOUL.md",
     "user": "USER.md",
 }
@@ -230,7 +232,6 @@ class ContextBuilder:
             tool_calls_section = self._format_tool_calls(
                 session_messages_with_tools,
                 max_calls=tool_calls_max_calls,
-                max_tokens=tool_calls_max_tokens,
                 include_output=tool_calls_include_output,
                 include_arguments=tool_calls_include_arguments,
             )
@@ -273,7 +274,6 @@ class ContextBuilder:
         self,
         messages: list[Any],
         max_calls: int = 5,
-        max_tokens: int = 2000,
         include_output: bool = True,
         include_arguments: bool = True,
     ) -> str:
@@ -471,6 +471,7 @@ class ContextLoader:
 
         return AssembledContext(
             agents=files["agents"].content,
+            tools=files["tools"].content,
             soul=files["soul"].content,
             user=files["user"].content,
             memories=memories or [],
@@ -543,7 +544,7 @@ class ContextLoader:
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:
         """Combine context files into system prompt."""
         parts = []
-        for name in ["system", "agents", "soul", "user"]:
+        for name in ["system", "agents", "tools", "soul", "user"]:
             if name in files:
                 parts.append(f"# {name.upper()}\n\n{files[name].content}")
         return "\n\n---\n\n".join(parts) if parts else ""

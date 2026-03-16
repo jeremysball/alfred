@@ -62,6 +62,10 @@ class AlfredTUI:
         # setattr(self.tui, "on_resize", self._on_resize)
         self._toast_manager = toast_manager
 
+        # Initialize terminal width from actual terminal size
+        initial_width, _ = self.terminal.get_size()
+        self._terminal_width: int = initial_width
+
         # Main conversation container
         self.conversation = Container()
 
@@ -101,7 +105,6 @@ class AlfredTUI:
 
         # State
         self.running = True
-        self._terminal_width: int = 80  # Default width
 
         # Ctrl-C state
         self._ctrl_c_pending = False
@@ -255,30 +258,35 @@ class AlfredTUI:
         Returns:
             Total height in terminal rows occupied by fixed components.
         """
+        # Always use actual terminal width for accurate calculations
+        # Using cached self._terminal_width causes layout issues after resize
+        term_width, _ = self.terminal.get_size()
         static_height = 0
 
         # Input field (always visible at bottom)
         # WrappedInput renders at least 1 line, more if text wraps
-        input_lines = len(self.input_field.render(self._terminal_width))
+        input_lines = len(self.input_field.render(term_width))
         static_height += input_lines
 
         # Completion menu (conditional, above input)
         if self.completion_menu.is_open:
-            menu_lines = len(self.completion_menu.render(self._terminal_width))
+            menu_lines = len(self.completion_menu.render(term_width))
             static_height += menu_lines
 
         # Status line (always visible, above completion menu)
-        status_lines = len(self.status_line.render(self._terminal_width))
+        status_lines = len(self.status_line.render(term_width))
         static_height += status_lines
 
         return static_height
 
-    def _input_listener(self, data: str) -> dict[str, Any] | None:
-        """Intercept input for history navigation, shortcuts, and queue management.
+    def _handle_control_keys(self, data: str) -> dict[str, Any] | None:
+        """Handle control key shortcuts.
+
+        Args:
+            data: The input data to process.
 
         Returns:
-            {"consume": True} to block input from reaching input field,
-            None to allow input to pass through.
+            {"consume": True} if key was handled, None otherwise.
         """
         # Ctrl+U: Clear from cursor to start of line
         if data == "\x15" and self._basic_handler.on_clear_line():  # Ctrl+U
@@ -313,65 +321,112 @@ class AlfredTUI:
         if data == "\x1b[1;5C" and self._basic_handler.on_word_right():
             return {"consume": True}
 
-        # ESC clears the queue
-        if matches_key(data, Key.escape):
-            if self._message_queue:
-                self._message_queue.clear()
-                self._queue_nav_index = -1
-                self._queue_draft = ""
-                self.input_field.set_value("")
-                self._update_status()
-                return {"consume": True}
+        return None
+
+    def _handle_escape_key(self) -> dict[str, Any] | None:
+        """Handle escape key - clears message queue if not empty.
+
+        Returns:
+            {"consume": True} if queue was cleared, None otherwise.
+        """
+        if self._message_queue:
+            self._message_queue.clear()
+            self._queue_nav_index = -1
+            self._queue_draft = ""
+            self.input_field.set_value("")
+            self._update_status()
+            return {"consume": True}
+        return None
+
+    def _handle_up_navigation(self, cursor_line: int) -> dict[str, Any] | None:
+        """Handle UP arrow key - queue nav first, then history.
+
+        Args:
+            cursor_line: The current cursor line (0-indexed).
+
+        Returns:
+            {"consume": True} if handled, None otherwise.
+        """
+        if cursor_line != 0:
             return None
 
-        # UP arrow: message queue navigation first, then history
+        # First try message queue navigation
+        if self._message_queue:
+            if self._queue_nav_index == -1:
+                # Save current draft and enter queue at end
+                self._queue_draft = self.input_field.get_value()
+                self._queue_nav_index = len(self._message_queue) - 1
+            elif self._queue_nav_index > 0:
+                # Navigate up in queue
+                self._queue_nav_index -= 1
+            else:
+                return {"consume": True}  # Already at top
+
+            self.input_field.set_value(self._message_queue[self._queue_nav_index])
+            return {"consume": True}
+
+        # Fall back to history navigation
+        if self._history_handler.on_history_up():
+            return {"consume": True}
+
+        return None
+
+    def _handle_down_navigation(self) -> dict[str, Any] | None:
+        """Handle DOWN arrow key - queue nav first, then history.
+
+        Returns:
+            {"consume": True} if handled, None otherwise.
+        """
+        # First try message queue navigation
+        if self._queue_nav_index != -1:
+            if self._queue_nav_index < len(self._message_queue) - 1:
+                # Navigate down in queue
+                self._queue_nav_index += 1
+                self.input_field.set_value(self._message_queue[self._queue_nav_index])
+            else:
+                # Exit queue nav, restore draft
+                self._queue_nav_index = -1
+                self.input_field.set_value(self._queue_draft)
+            return {"consume": True}
+
+        # Fall back to history navigation
+        if self._history_handler.on_history_down():
+            return {"consume": True}
+
+        return None
+
+    def _reset_queue_navigation(self) -> None:
+        """Reset queue navigation state when other keys are pressed."""
+        self._queue_nav_index = -1
+        self._queue_draft = ""
+
+    def _input_listener(self, data: str) -> dict[str, Any] | None:
+        """Intercept input for history navigation, shortcuts, and queue management.
+
+        Returns:
+            {"consume": True} to block input from reaching input field,
+            None to allow input to pass through.
+        """
+        # Handle control keys
+        if result := self._handle_control_keys(data):
+            return result
+
+        # Handle escape key
+        if matches_key(data, Key.escape):
+            return self._handle_escape_key()
+
+        # Handle UP arrow
         if matches_key(data, Key.up):
             cursor_line = self._get_input_cursor_line()
-            if cursor_line == 0:
-                # First try message queue navigation
-                if self._message_queue:
-                    if self._queue_nav_index == -1:
-                        # Save current draft and enter queue at end
-                        self._queue_draft = self.input_field.get_value()
-                        self._queue_nav_index = len(self._message_queue) - 1
-                    elif self._queue_nav_index > 0:
-                        # Navigate up in queue
-                        self._queue_nav_index -= 1
-                    else:
-                        return {"consume": True}  # Already at top
+            return self._handle_up_navigation(cursor_line)
 
-                    self.input_field.set_value(self._message_queue[self._queue_nav_index])
-                    return {"consume": True}
-
-                # Fall back to history navigation
-                if self._history_handler.on_history_up():
-                    return {"consume": True}
-            return None
-
-        # DOWN arrow: message queue navigation first, then history
+        # Handle DOWN arrow
         if matches_key(data, Key.down):
-            # First try message queue navigation
-            if self._queue_nav_index != -1:
-                if self._queue_nav_index < len(self._message_queue) - 1:
-                    # Navigate down in queue
-                    self._queue_nav_index += 1
-                    self.input_field.set_value(self._message_queue[self._queue_nav_index])
-                else:
-                    # Exit queue nav, restore draft
-                    self._queue_nav_index = -1
-                    self.input_field.set_value(self._queue_draft)
-                return {"consume": True}
-
-            # Fall back to history navigation
-            if self._history_handler.on_history_down():
-                return {"consume": True}
-
-            return None
+            return self._handle_down_navigation()
 
         # Any other key resets queue navigation
         if self._queue_nav_index != -1:
-            self._queue_nav_index = -1
-            self._queue_draft = ""
+            self._reset_queue_navigation()
 
         return None
 
@@ -751,6 +806,19 @@ class AlfredTUI:
 
     async def run(self) -> None:
         """Main event loop - process input and render every frame."""
+        # Set up SIGWINCH handler for terminal resize
+        import signal
+
+        def _handle_sigwinch(_signum: int, _frame: object) -> None:
+            """Handle terminal resize signal."""
+            term_width, term_height = self.terminal.get_size()
+            self._on_resize(term_width, term_height)
+            self.tui.request_resize_check()
+            self.tui.request_render(force=True)
+
+        # Install our custom handler that also updates AlfredTUI state
+        old_handler = signal.signal(signal.SIGWINCH, _handle_sigwinch)
+
         self.tui.start()
         await self._load_session_messages()
         self._update_status()
@@ -784,4 +852,6 @@ class AlfredTUI:
                 await asyncio.sleep(0.016)
         finally:
             self.tui.stop()
+            # Restore original SIGWINCH handler
+            signal.signal(signal.SIGWINCH, old_handler)
             await self.alfred.stop()

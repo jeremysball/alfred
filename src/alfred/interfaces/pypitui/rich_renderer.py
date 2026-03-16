@@ -10,7 +10,7 @@ from rich.markdown import Markdown
 class RichRenderer:
     """Renders Rich markdown/markup to ANSI text for PyPiTUI display."""
 
-    MIN_WIDTH = 40
+    MIN_WIDTH = 20
 
     def __init__(
         self,

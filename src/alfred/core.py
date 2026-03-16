@@ -75,11 +75,11 @@ class AlfredCore:
 
     def _init_services(self) -> None:
         """Initialize all shared services via factories."""
-        logger.debug("Initializing SQLite store...")
-        self.sqlite_store = SQLiteStoreFactory.create(self.config)
-
         logger.debug("Initializing embedder...")
         self.embedder = EmbeddingProviderFactory.create(self.config)
+
+        logger.debug("Initializing SQLite store...")
+        self.sqlite_store = SQLiteStoreFactory.create(self.config, embedder=self.embedder)
 
         logger.debug("Initializing LLM...")
         self.llm = LLMProviderFactory.create(self.config)

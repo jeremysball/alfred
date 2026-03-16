@@ -98,10 +98,7 @@ class UpdateMemoryTool(Tool):
                 lines.append("")
 
                 # Build confirmation call
-                if entry_id:
-                    confirm_call = f"update_memory(entry_id='{entry_id}'"
-                else:
-                    confirm_call = f"update_memory(search_query='{search_query}'"
+                confirm_call = f"update_memory(entry_id='{entry_id}'" if entry_id else f"update_memory(search_query='{search_query}'"
 
                 if new_content:
                     confirm_call += f", new_content='{new_content}'"
