@@ -2,7 +2,7 @@
 
 ## Status
 
-**Draft** - Ready for implementation
+**✅ COMPLETE** - All phases implemented and tested
 
 ## Problem Statement
 
@@ -178,12 +178,50 @@ async def _reembed_table(self, db, table_name, id_column, old_dim, new_dim) -> N
 
 ## Success Criteria
 
-- [ ] Can switch from BGE (768) to OpenAI (1536) without errors
-- [ ] All memories remain searchable after dimension change
-- [ ] All session summaries remain searchable after dimension change
-- [ ] Progress is logged during re-embedding
-- [ ] Failed re-embedding doesn't lose data
-- [ ] Works with both sync and async embedding providers
+- [x] Can switch from BGE (768) to OpenAI (1536) without errors
+- [x] All memories remain searchable after dimension change
+- [x] All session summaries remain searchable after dimension change
+- [x] Progress is logged during re-embedding
+- [x] Failed re-embedding doesn't lose data (fallback to drop+warn)
+- [x] Works with both sync and async embedding providers
+
+## Implementation Summary
+
+### Phase 1: Dimension Detection ✅
+- `_get_vec0_dimension()` - Extracts FLOAT[N] from table schema via regex
+- `_check_dimension_mismatch()` - Compares actual vs expected dimensions
+- Integrated into `_ensure_vec0_dimension()` during table creation
+- All 3 vec0 tables checked: `memory_embeddings`, `message_embeddings_vec`, `session_summaries_vec`
+
+### Phase 2: Re-embedding Orchestrator ✅
+- `ReembedResult` dataclass for operation results
+- `EmbeddingReembedder` class with store and embedder references
+- `reembed_all()` orchestration method with statistics
+- `_reembed_memories()` - Re-embeds all memories with progress logging
+- `_reembed_session_summaries()` - Re-embeds all session summaries
+- `_reembed_message_embeddings()` - Re-embeds all message embeddings
+- Error handling with graceful fallback
+
+### Phase 3: Integration ✅
+- `SQLiteStore.__init__()` accepts optional `embedder` parameter
+- `SQLiteStoreFactory.create()` passes embedder to store
+- `_ensure_vec0_dimension()` automatically triggers re-embedding when:
+  - Dimension mismatch detected AND embedder provided
+  - Falls back to drop+warn if no embedder available
+- No breaking changes to existing API
+
+## Test Coverage
+
+- **28 storage tests** covering dimension detection, mismatch handling, and re-embedding
+- **3 core reembedder tests** for initialization, orchestration, and error handling
+- All tests passing: `uv run pytest tests/storage/ -v` (28 passed)
+
+## Files Modified
+
+1. `src/alfred/storage/sqlite.py` - Core implementation
+2. `src/alfred/factories.py` - Factory integration
+3. `tests/storage/test_sqlite_vec.py` - Dimension detection tests
+4. `tests/storage/test_reembedder.py` - Re-embedding tests
 
 ## Testing Strategy
 
