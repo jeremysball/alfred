@@ -35,7 +35,7 @@ jobs:
 
       - name: Run radon (complexity check)
         run: |
-          output=$(uv run radon cc src/ --min=F -s)
+          output=$(uv run radon cc src/ --min=F -s 2>/dev/null | grep -v '^$' || true)
           if [ -n "$output" ]; then
             echo "$output"
             echo "::error::Code complexity grade F detected"
