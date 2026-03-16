@@ -50,6 +50,38 @@ class SQLiteStore:
         import sqlite_vec
         await db.load_extension(sqlite_vec.loadable_path())
 
+    async def _get_vec0_dimension(self, db: Any, table_name: str) -> int | None:
+        """Extract embedding dimension from existing vec0 table schema.
+
+        Queries sqlite_master to find the table's CREATE statement and
+        extracts the FLOAT[N] dimension using regex.
+
+        Args:
+            db: Database connection
+            table_name: Name of the vec0 table
+
+        Returns:
+            Dimension as int (e.g., 768, 1536) or None if table doesn't exist
+        """
+        import re
+
+        async with db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row or not row[0]:
+                return None
+
+            schema = row[0]
+            # Extract FLOAT[N] dimension from schema like:
+            # CREATE VIRTUAL TABLE x USING vec0(..., embedding FLOAT[768])
+            match = re.search(r'FLOAT\[(\d+)\]', schema)
+            if match:
+                return int(match.group(1))
+
+            return None
+
     async def _init(self) -> None:
         """Lazy initialization of database connection and tables."""
         if self._initialized:
