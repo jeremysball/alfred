@@ -8,6 +8,7 @@ All service creation is centralized here to support:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from alfred.config import Config
@@ -96,7 +97,7 @@ class SessionManagerFactory:
     """Factory for creating SessionManager instances."""
 
     @staticmethod
-    def create(store: SQLiteStore, data_dir: Config) -> SessionManager:
+    def create(store: SQLiteStore, data_dir: Path) -> SessionManager:
         """Create SessionManager from store and config.
 
         Args:

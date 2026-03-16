@@ -4,6 +4,7 @@ Provides global access to registered services for cron jobs and other
 components that need dependencies but can't receive them via constructors.
 """
 
+from abc import ABC
 from typing import TypeVar
 
 T = TypeVar("T")
@@ -27,7 +28,7 @@ class ServiceLocator:
     _services: dict[type, object] = {}
 
     @classmethod
-    def register(cls, service_type: type[T], instance: T) -> None:
+    def register(cls, service_type: type[T] | type[ABC], instance: T) -> None:
         """Register a service instance.
 
         Args:
@@ -37,7 +38,7 @@ class ServiceLocator:
         cls._services[service_type] = instance
 
     @classmethod
-    def resolve(cls, service_type: type[T]) -> T:
+    def resolve(cls, service_type: type[T] | type[ABC]) -> T:
         """Resolve a service by type.
 
         Args:
@@ -54,7 +55,7 @@ class ServiceLocator:
         return cls._services[service_type]  # type: ignore
 
     @classmethod
-    def has(cls, service_type: type[T]) -> bool:
+    def has(cls, service_type: type[T] | type[ABC]) -> bool:
         """Check if a service is registered."""
         return service_type in cls._services
 

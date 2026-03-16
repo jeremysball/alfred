@@ -240,7 +240,7 @@ def _group_update_results(results: dict[str, Any]) -> dict[str, Any]:
         - errors: List of (name, message) tuples for error files
         - prompts: Dict with prompts status or None
     """
-    groups = {
+    groups: dict[str, Any] = {
         "updated": [],
         "preserved": [],
         "skipped": [],
@@ -323,7 +323,7 @@ def _display_update_results(groups: dict[str, Any], dry_run: bool) -> None:
             console.print(f"Prompts: {message}")
 
 
-def _display_footer(workspace_dir: Path, force: bool, preserved: list) -> None:
+def _display_footer(workspace_dir: Path, force: bool, preserved: list[tuple[str, str]]) -> None:
     """Display footer with workspace info and tips.
 
     Args:

@@ -305,16 +305,20 @@ Event = JobStarted | JobCompleted | JobFailed | Notification
 def serialize_message(msg: SocketMessage) -> str:
     """Serialize a message to JSON string with newline delimiter."""
     import json
-    from dataclasses import asdict, is_dataclass
+    from dataclasses import asdict
+    from typing import cast
 
     def default(obj: object) -> object:
         if isinstance(obj, datetime):
             return obj.isoformat()
-        if is_dataclass(obj):
-            return asdict(obj)
+        # Check for dataclass by looking for __dataclass_fields__
+        dc_fields = getattr(obj, "__dataclass_fields__", None)
+        if dc_fields is not None:
+            # All SocketMessage types are dataclasses
+            return asdict(cast(Any, obj))
         raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-    return json.dumps(asdict(msg), default=default) + "\n"
+    return json.dumps(asdict(cast(Any, msg)), default=default) + "\n"
 
 
 def serialize_message_bytes(msg: SocketMessage) -> bytes:
