@@ -63,15 +63,18 @@ class TimeoutError(LLMError):
     pass
 
 
+R = TypeVar("R")
+
+
 async def _retry_async(
-    operation: Callable[[], Any],
+    operation: Callable[[], Coroutine[Any, Any, R]],
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
     operation_name: str = "operation",
-) -> Any:
+) -> R:
     """Retry an async operation with exponential backoff.
 
     Used both as a standalone function and as the core logic
@@ -127,9 +130,9 @@ def retry_with_backoff(
     """
 
     def decorator(
-        func: Callable[P, Coroutine[Any, Any, T]],
-    ) -> Callable[P, Coroutine[Any, Any, T]]:
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        func: Callable[P, Coroutine[Any, Any, R]],
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             return await _retry_async(
                 operation=lambda: func(*args, **kwargs),
                 max_retries=max_retries,
@@ -195,7 +198,7 @@ class KimiProvider(LLMProvider):
         )
         self.model = config.chat_model
 
-    async def _retry(self, name: str, fn: "Callable[[], Coroutine[Any, Any, T]]") -> "T":
+    async def _retry(self, name: str, fn: Callable[[], Coroutine[Any, Any, R]]) -> R:
         """Run fn with exponential-backoff retry. Single source of retry logic."""
         return await _retry_async(fn, max_retries=3, base_delay=1.0, operation_name=name)
 
@@ -561,7 +564,7 @@ class KimiProvider(LLMProvider):
         stream = await self._create_stream_with_retry(api_messages, tools)
 
         # Initialize state for streaming
-        state = {
+        state: dict[str, Any] = {
             "tool_calls_data": [],
             "current_tool_call": None,
             "full_content": "",

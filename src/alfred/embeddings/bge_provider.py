@@ -6,7 +6,7 @@ Implements lazy async loading with singleton pattern.
 
 import asyncio
 import logging
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from alfred.embeddings.provider import EmbeddingProvider
 
@@ -238,9 +238,9 @@ class BGEProvider(EmbeddingProvider):
     def _embed_sync(self, text: str) -> list[float]:
         """Synchronous embedding (called from thread pool)."""
         embedding = self.model.encode(text, normalize_embeddings=True)
-        return embedding.tolist()
+        return cast(list[float], embedding.tolist())
 
     def _embed_batch_sync(self, texts: list[str]) -> list[list[float]]:
         """Synchronous batch embedding (called from thread pool)."""
         embeddings = self.model.encode(texts, normalize_embeddings=True)
-        return embeddings.tolist()
+        return cast(list[list[float]], embeddings.tolist())
