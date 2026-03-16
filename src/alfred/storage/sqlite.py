@@ -29,16 +29,23 @@ class SQLiteStore:
     All operations are ACID-compliant via SQLite transactions.
     """
 
-    def __init__(self, db_path: Path | str, embedding_dim: int = 768) -> None:
+    def __init__(
+        self,
+        db_path: Path | str,
+        embedding_dim: int = 768,
+        embedder: Any | None = None
+    ) -> None:
         """Initialize SQLite store.
 
         Args:
             db_path: Path to SQLite database file
             embedding_dim: Dimension of embeddings (768 for BGE, 1536 for OpenAI)
+            embedder: Optional embedder for automatic re-embedding on dimension change
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._embedding_dim = embedding_dim
+        self._embedder = embedder
         self._initialized = False
 
     async def _load_extensions(self, db: Any) -> None:
@@ -238,12 +245,24 @@ class SQLiteStore:
                     if match:
                         existing_dim = int(match.group(1))
                         if existing_dim != dim:
-                            logger.warning(
-                                f"Embedding dimension mismatch: {table_name} has {existing_dim}, "
-                                f"expected {dim}. Dropping and recreating (vec0 data will be lost)."
-                            )
-                            await db.execute(f"DROP TABLE {table_name}")
-                            table_exists = False
+                            if self._embedder is not None:
+                                # Use reembedder to preserve data
+                                logger.warning(
+                                    f"Embedding dimension changed: {table_name} has {existing_dim}, "
+                                    f"expected {dim}. Starting automatic re-embedding..."
+                                )
+                                reembedder = EmbeddingReembedder(self, self._embedder)
+                                await reembedder.reembed_all(existing_dim, dim)
+                                # Table was recreated by reembedder
+                                return
+                            else:
+                                # No embedder available, just drop and warn
+                                logger.warning(
+                                    f"Embedding dimension mismatch: {table_name} has {existing_dim}, "
+                                    f"expected {dim}. Dropping and recreating (vec0 data will be lost)."
+                                )
+                                await db.execute(f"DROP TABLE {table_name}")
+                                table_exists = False
 
         # Create table with correct dimension
         if not table_exists:
