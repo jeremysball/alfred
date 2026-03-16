@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -121,6 +122,8 @@ class MessagePanel(BorderedBox):
         """
         self._text_content = text
         self._rebuild_content()
+        # Invalidate render cache so new content appears
+        self._cache = None
 
     def set_error(self, error_msg: str) -> None:
         """Set panel to error state with red border.
@@ -159,6 +162,7 @@ class MessagePanel(BorderedBox):
         )
         self._tool_calls.append(tool_info)
         self._rebuild_content()
+        self._cache = None
 
     def update_tool_call(self, tool_call_id: str, output: str) -> None:
         """Update output for a tool call.
@@ -171,6 +175,7 @@ class MessagePanel(BorderedBox):
             if tc.tool_call_id == tool_call_id:
                 tc.output = output
                 self._rebuild_content()
+                self._cache = None
                 return
 
     def finalize_tool_call(self, tool_call_id: str, status: Literal["success", "error"]) -> None:
@@ -184,6 +189,7 @@ class MessagePanel(BorderedBox):
             if tc.tool_call_id == tool_call_id:
                 tc.status = status
                 self._rebuild_content()
+                self._cache = None
                 return
 
     def get_tool_call(self, tool_call_id: str) -> ToolCallInfo | None:
@@ -211,6 +217,7 @@ class MessagePanel(BorderedBox):
 
         self._tool_calls = list(tool_calls)
         self._rebuild_content()
+        self._cache = None
 
     def restore_tool_calls_from_records(self, tool_calls: list[Any] | None) -> None:
         """Restore tool calls from session ToolCallRecord objects."""
@@ -265,10 +272,8 @@ class MessagePanel(BorderedBox):
             # Simple case: no tool calls
             text = apply_ansi(self._text_content)
             if self._use_markdown and self._renderer:
-                try:
+                with suppress(Exception):
                     text = self._renderer.render_markdown(text)
-                except Exception:
-                    pass
             self._content_blocks.append(ContentBlock(type="text", content=text))
         else:
             # Mixed case: text with embedded tool calls
@@ -284,10 +289,8 @@ class MessagePanel(BorderedBox):
                     if segment:
                         text = apply_ansi(segment)
                         if self._use_markdown and self._renderer:
-                            try:
+                            with suppress(Exception):
                                 text = self._renderer.render_markdown(text)
-                            except Exception:
-                                pass
                         self._content_blocks.append(
                             ContentBlock(type="text", content=text)
                         )
@@ -303,10 +306,8 @@ class MessagePanel(BorderedBox):
                 segment = self._text_content[last_pos:]
                 text = apply_ansi(segment)
                 if self._use_markdown and self._renderer:
-                    try:
+                    with suppress(Exception):
                         text = self._renderer.render_markdown(text)
-                    except Exception:
-                        pass
                 self._content_blocks.append(ContentBlock(type="text", content=text))
 
     def _build_tool_box(self, tool_info: ToolCallInfo) -> list[str]:

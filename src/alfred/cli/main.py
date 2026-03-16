@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import typer

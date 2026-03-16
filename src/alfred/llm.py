@@ -348,20 +348,17 @@ class KimiProvider(LLMProvider):
             logger.error(f"Error during stream: {e}")
             raise LLMError(f"Stream error: {e}") from e
 
-    async def stream_chat_with_tools(
-        self,
-        messages: list[ChatMessage],
-        tools: list[dict[str, Any]] | None = None,
-    ) -> AsyncIterator[str]:
-        """Stream chat with tool support.
+    def _convert_messages_to_api_format(
+        self, messages: list[ChatMessage]
+    ) -> list[dict[str, Any]]:
+        """Convert ChatMessage objects to API format.
 
-        For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
-        followed by JSON array of tool calls.
+        Args:
+            messages: List of ChatMessage objects.
+
+        Returns:
+            List of API-formatted message dictionaries.
         """
-        import openai
-
-        # Convert messages to API format, including tool_call_id for tool messages
-        # and reasoning_content for assistant messages
         api_messages: list[dict[str, Any]] = []
         for m in messages:
             msg: dict[str, Any] = {"role": m.role, "content": m.content}
@@ -372,12 +369,154 @@ class KimiProvider(LLMProvider):
             if m.reasoning_content and m.role == "assistant":
                 msg["reasoning_content"] = m.reasoning_content
             api_messages.append(msg)
+        return api_messages
+
+    def _extract_usage_data(
+        self,
+        usage: Any,
+        full_reasoning: str,
+        encoder: Any,
+    ) -> dict[str, Any]:
+        """Extract usage data from chunk, including cache and reasoning tokens.
+
+        Args:
+            usage: Usage object from API response.
+            full_reasoning: Accumulated reasoning content for fallback counting.
+            encoder: Token encoder for manual counting.
+
+        Returns:
+            Dictionary with usage statistics.
+        """
+        usage_data = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+        }
+
+        # Extract cache tokens
+        cached = 0
+        if hasattr(usage, "cached_tokens") and usage.cached_tokens:
+            cached = usage.cached_tokens
+        elif usage.prompt_tokens_details:
+            cached = usage.prompt_tokens_details.cached_tokens or 0
+        if cached > 0:
+            usage_data["prompt_tokens_details"] = {"cached_tokens": cached}
+
+        # Extract reasoning tokens
+        reasoning = 0
+        details = usage.completion_tokens_details
+        if details and details.reasoning_tokens:
+            reasoning = details.reasoning_tokens
+        elif full_reasoning:
+            reasoning = len(encoder.encode(full_reasoning))
+
+        if reasoning > 0:
+            usage_data["completion_tokens_details"] = {"reasoning_tokens": reasoning}
+
+        return usage_data
+
+    def _accumulate_tool_calls(
+        self,
+        tool_calls: list[Any],
+        state: dict[str, Any],
+    ) -> None:
+        """Accumulate tool calls from delta into state.
+
+        Args:
+            tool_calls: List of tool call deltas from the stream.
+            state: Mutable state dictionary for tracking accumulation.
+        """
+        for tc in tool_calls:
+            if tc.id:
+                # New tool call
+                func_name = ""
+                if hasattr(tc, "function") and tc.function:
+                    func_name = tc.function.name or ""
+                state["current_tool_call"] = {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": func_name, "arguments": ""},
+                }
+                state["tool_calls_data"].append(state["current_tool_call"])
+
+            if hasattr(tc, "function") and tc.function:
+                current = state["current_tool_call"]
+                if tc.function.name and current:
+                    current["function"]["name"] = tc.function.name
+                if tc.function.arguments and current:
+                    current["function"]["arguments"] += tc.function.arguments
+
+    def _process_stream_chunk(
+        self,
+        chunk: Any,
+        state: dict[str, Any],
+        encoder: Any,
+    ) -> Iterator[str]:
+        """Process a single stream chunk and yield outputs.
+
+        Args:
+            chunk: The stream chunk from the API.
+            state: Mutable state dict for tracking accumulation.
+            encoder: Token encoder for counting.
+
+        Yields:
+            Content, reasoning markers, and usage data.
+        """
+        # Handle usage chunk (no choices)
+        if not chunk.choices:
+            if hasattr(chunk, "usage") and chunk.usage:
+                usage_data = self._extract_usage_data(
+                    chunk.usage, state["full_reasoning"], encoder
+                )
+                yield f"[USAGE]{json.dumps(usage_data)}"
+            return
+
+        delta = chunk.choices[0].delta
+
+        # Handle content
+        if delta.content:
+            state["full_content"] += delta.content
+            yield delta.content
+
+        # Handle reasoning content
+        if hasattr(delta, "reasoning_content") and delta.reasoning_content:
+            state["full_reasoning"] += delta.reasoning_content
+            yield f"[REASONING]{delta.reasoning_content}"
+
+        # Handle tool calls
+        if delta.tool_calls:
+            self._accumulate_tool_calls(delta.tool_calls, state)
+
+    async def _create_stream_with_retry(
+        self,
+        api_messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+    ) -> Any:
+        """Create stream with retry logic and error handling.
+
+        Args:
+            api_messages: Messages in API format.
+            tools: Optional tool definitions.
+
+        Returns:
+            Stream object from API.
+
+        Raises:
+            RateLimitError: On rate limit exceeded.
+            TimeoutError: On request timeout.
+            APIError: On API error.
+            LLMError: On unexpected error.
+        """
+        import openai
+        from openai import Omit
+        from openai.types.chat import (
+            ChatCompletionMessageParam,
+            ChatCompletionToolUnionParam,
+        )
 
         async def _create_stream() -> Any:
-            from openai import Omit
-            from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
-
-            tools_param = cast(list[ChatCompletionToolUnionParam], tools) if tools else Omit()
+            tools_param = (
+                cast(list[ChatCompletionToolUnionParam], tools) if tools else Omit()
+            )
             return await self.client.chat.completions.create(
                 model=self.model,
                 messages=cast(list[ChatCompletionMessageParam], api_messages),
@@ -388,7 +527,7 @@ class KimiProvider(LLMProvider):
             )
 
         try:
-            stream = await _retry_async(
+            return await _retry_async(
                 _create_stream,
                 max_retries=3,
                 base_delay=1.0,
@@ -407,84 +546,39 @@ class KimiProvider(LLMProvider):
             logger.error(f"Unexpected error calling Kimi: {e}")
             raise LLMError(f"Unexpected error: {e}") from e
 
-        # Collect streaming data
-        tool_calls_data: list[dict[str, Any]] = []
-        current_tool_call: dict[str, Any] | None = None
-        full_content = ""
-        full_reasoning = ""  # Accumulate reasoning content for token counting
-        encoder = tiktoken.get_encoding("cl100k_base")  # Tokenizer for counting
+    async def stream_chat_with_tools(
+        self,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> AsyncIterator[str]:
+        """Stream chat with tool support.
+
+        For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
+        followed by JSON array of tool calls.
+        """
+        import tiktoken
+
+        # Convert messages and create stream
+        api_messages = self._convert_messages_to_api_format(messages)
+        stream = await self._create_stream_with_retry(api_messages, tools)
+
+        # Initialize state for streaming
+        state = {
+            "tool_calls_data": [],
+            "current_tool_call": None,
+            "full_content": "",
+            "full_reasoning": "",
+        }
+        encoder = tiktoken.get_encoding("cl100k_base")
 
         try:
             async for chunk in stream:
-                # Handle usage chunk (comes when choices is empty)
-                if not chunk.choices:
-                    if hasattr(chunk, "usage") and chunk.usage:
-                        usage_data = {
-                            "prompt_tokens": chunk.usage.prompt_tokens,
-                            "completion_tokens": chunk.usage.completion_tokens,
-                        }
-                        # Extract cache tokens (Kimi puts them at top level)
-                        cached = 0
-                        if hasattr(chunk.usage, "cached_tokens") and chunk.usage.cached_tokens:
-                            cached = chunk.usage.cached_tokens
-                        elif chunk.usage.prompt_tokens_details:
-                            cached = chunk.usage.prompt_tokens_details.cached_tokens or 0
-                        if cached > 0:
-                            usage_data["prompt_tokens_details"] = {
-                                "cached_tokens": cached,
-                            }
+                for output in self._process_stream_chunk(chunk, state, encoder):
+                    yield output
 
-                        # Extract reasoning tokens - first try API response, fallback to counting
-                        reasoning = 0
-                        details = chunk.usage.completion_tokens_details
-                        if details and details.reasoning_tokens:
-                            reasoning = details.reasoning_tokens
-                        elif full_reasoning:
-                            # Kimi doesn't return reasoning_tokens, count them ourselves
-                            reasoning = len(encoder.encode(full_reasoning))
-
-                        if reasoning > 0:
-                            usage_data["completion_tokens_details"] = {
-                                "reasoning_tokens": reasoning,
-                            }
-                        yield f"[USAGE]{json.dumps(usage_data)}"
-                    continue
-
-                delta = chunk.choices[0].delta
-
-                # Handle content
-                if delta.content:
-                    full_content += delta.content
-                    yield delta.content
-
-                # Handle reasoning content (required for Kimi thinking mode with tool calls)
-                if hasattr(delta, "reasoning_content") and delta.reasoning_content:
-                    full_reasoning += delta.reasoning_content
-                    yield f"[REASONING]{delta.reasoning_content}"
-
-                # Handle tool calls
-                if delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        if tc.id:
-                            # New tool call
-                            func_name = ""
-                            if hasattr(tc, "function") and tc.function:
-                                func_name = tc.function.name or ""
-                            current_tool_call = {
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {"name": func_name, "arguments": ""},
-                            }
-                            tool_calls_data.append(current_tool_call)
-                        if hasattr(tc, "function") and tc.function:
-                            if tc.function.name and current_tool_call:
-                                current_tool_call["function"]["name"] = tc.function.name
-                            if tc.function.arguments and current_tool_call:
-                                current_tool_call["function"]["arguments"] += tc.function.arguments
-
-            # Yield tool calls if any were collected
-            if tool_calls_data:
-                yield f"[TOOL_CALLS]{json.dumps(tool_calls_data)}"
+            # Yield collected tool calls
+            if state["tool_calls_data"]:
+                yield f"[TOOL_CALLS]{json.dumps(state['tool_calls_data'])}"
 
         except Exception as e:
             logger.error(f"Error in stream_chat_with_tools: {e}")
