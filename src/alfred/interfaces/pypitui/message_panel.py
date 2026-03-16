@@ -514,7 +514,7 @@ class MessagePanel(BorderedBox):
 
         # Cache - use setattr to avoid type issues with inherited attribute
         cache_value: tuple[int, list[str]] = (width, lines)
-        self._cache = cache_value
+        setattr(self, "_cache", cache_value)  # noqa: B010
 
         return lines
 

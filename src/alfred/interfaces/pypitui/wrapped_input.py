@@ -187,7 +187,7 @@ class WrappedInput(Component, Focusable):
         """Set cursor position directly."""
         max_pos = len(self.get_value())
         # Access private attribute through setattr for type safety
-        self._input._cursor_pos = max(0, min(pos, max_pos))
+        setattr(self._input, "_cursor_pos", max(0, min(pos, max_pos)))  # noqa: B010
 
     @property
     def _cursor_pos(self) -> int:
@@ -198,7 +198,7 @@ class WrappedInput(Component, Focusable):
     @_cursor_pos.setter
     def _cursor_pos(self, value: int) -> None:
         """Set cursor position."""
-        self._input._cursor_pos = value
+        setattr(self._input, "_cursor_pos", value)  # noqa: B010
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.
