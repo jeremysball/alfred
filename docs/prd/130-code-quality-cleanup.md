@@ -8,7 +8,7 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 | Tool | Issues | Severity |
 |------|--------|----------|
-| **Radon** | 3 functions with grade D+ complexity | 🔴 High |
+| **Radon** | 1 function with grade D+ complexity | 🔴 High |
 | **Vulture** | 0 issues | ✅ Complete |
 | **MyPy** | 30 type errors | 🔴 High |
 
@@ -66,13 +66,17 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - [x] Test: Verify tool execution with events (success/error/no-callback cases)
 - [x] Verify: Complexity reduced from 28 (grade D) to 22 (grade D)
 
-#### config_update (Complexity 24)
+#### config_update ✅
 
-- [ ] Test: Extract config validation
-- [ ] Implement: Create `_validate_config_changes()` function
-- [ ] Test: Extract config application
-- [ ] Implement: Create `_apply_config_changes()` function
-- [ ] Verify: Complexity reduced to grade C or below
+- [x] Test: Extract preserve set logic
+- [x] Implement: Create `_get_preserve_set()` function
+- [x] Test: Extract results grouping
+- [x] Implement: Create `_group_update_results()` function
+- [x] Test: Extract display logic
+- [x] Implement: Create `_display_update_results()` function
+- [x] Test: Extract footer display
+- [x] Implement: Create `_display_footer()` function
+- [x] Verify: Complexity reduced from 24 (grade D) to 2 (grade A)
 
 #### KimiProvider.stream_chat_with_tools (Complexity 41)
 
@@ -174,10 +178,18 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - **Result:** Complexity reduced from 28 (grade D) to 22 (grade D) (-21%)
 - **Tests:** 7 new tests added, all 7 existing agent tests pass
 
+**Phase 2 - CLI Complexity (4 of 5 functions refactored):**
+- Extracted `_get_preserve_set()` - Determine files to preserve based on --force flag
+- Extracted `_group_update_results()` - Group template update results by status
+- Extracted `_display_update_results()` - Handle all console output formatting
+- Extracted `_display_footer()` - Show workspace path and tips
+- Simplified `config_update()` to orchestrate helpers
+- **Result:** Complexity reduced from 24 (grade D) to 2 (grade A) (-92%)
+- **Tests:** 22 new tests added, all 42 config-related tests pass
+
 ### Remaining Work
 
-**Phase 2 - High Complexity Functions (2 remaining):**
-- `config_update` (complexity 24)
+**Phase 2 - High Complexity Functions (1 remaining):**
 - `KimiProvider.stream_chat_with_tools` (complexity 41)
 
 **Phase 3-5 - MyPy Errors (30 errors across 12 files):**
@@ -191,13 +203,13 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 | Metric | Before | Current | Target |
 |--------|--------|---------|--------|
-| Radon grade D+ | 5 | **2** | 0 |
+| Radon grade D+ | 5 | **1** | 0 |
 | Radon grade F | 1 | 1 | 0 |
 | Vulture issues | 4 | **0** ✅ | 0 |
 | MyPy errors | 30 | 30 | **0** (zero tolerance) |
 | Test coverage | 64% | 64%* | ≥64% (maintain) |
 
-\* Coverage maintained with 34 new tests (27 TUI + 7 agent)
+\* Coverage maintained with 56 new tests (27 TUI + 7 agent + 22 CLI)
 
 ## Implementation Notes
 
