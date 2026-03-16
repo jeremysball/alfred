@@ -1390,7 +1390,11 @@ class EmbeddingReembedder:
                 "new_dimension": new_dim,
             }
 
-            msg = f"Re-embedding complete ({old_dim} -> {new_dim}): {memory_count} memories, {summary_count} summaries, {message_count} messages"
+            msg = (
+                f"Re-embedding complete ({old_dim} -> {new_dim}): "
+                f"{memory_count} memories, {summary_count} summaries, "
+                f"{message_count} messages"
+            )
             logger.info(msg)
 
             return ReembedResult(success=True, message=msg, stats=stats)
