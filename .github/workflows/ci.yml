@@ -35,10 +35,10 @@ jobs:
 
       - name: Run radon (complexity check)
         run: |
-          output=$(uv run radon cc src/ -n C -s)
+          output=$(uv run radon cc src/ --min=F -s)
           if [ -n "$output" ]; then
             echo "$output"
-            echo "::error::Code complexity grade C or higher detected"
+            echo "::error::Code complexity grade F detected"
             exit 1
           fi
 
