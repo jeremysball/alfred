@@ -806,7 +806,7 @@ class AlfredTUI:
 
     async def run(self) -> None:
         """Main event loop - process input and render every frame."""
-        # Set up SIGWINCH handler for terminal resize
+        # Set up signal handlers
         import signal
 
         def _handle_sigwinch(_signum: int, _frame: object) -> None:
@@ -816,8 +816,13 @@ class AlfredTUI:
             self.tui.request_resize_check()
             self.tui.request_render(force=True)
 
-        # Install our custom handler that also updates AlfredTUI state
-        old_handler = signal.signal(signal.SIGWINCH, _handle_sigwinch)
+        def _handle_sigint(_signum: int, _frame: object) -> None:
+            """Handle SIGINT (Ctrl+C) gracefully even if terminal not in raw mode."""
+            self._handle_ctrl_c()
+
+        # Install our custom handlers
+        old_sigwinch_handler = signal.signal(signal.SIGWINCH, _handle_sigwinch)
+        old_sigint_handler = signal.signal(signal.SIGINT, _handle_sigint)
 
         self.tui.start()
         await self._load_session_messages()
@@ -828,7 +833,7 @@ class AlfredTUI:
                 # Check for input
                 data = self.terminal.read_sequence(timeout=0.0)
 
-                # Check for Ctrl+C
+                # Check for Ctrl+C (handled as raw input when terminal in raw mode)
                 if data == "\x03":  # Ctrl+C
                     self._handle_ctrl_c()
                     if not self.running:
@@ -852,6 +857,7 @@ class AlfredTUI:
                 await asyncio.sleep(0.016)
         finally:
             self.tui.stop()
-            # Restore original SIGWINCH handler
-            signal.signal(signal.SIGWINCH, old_handler)
+            # Restore original signal handlers
+            signal.signal(signal.SIGWINCH, old_sigwinch_handler)
+            signal.signal(signal.SIGINT, old_sigint_handler)
             await self.alfred.stop()

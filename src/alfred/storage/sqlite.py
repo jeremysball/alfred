@@ -13,7 +13,7 @@ from typing import Any
 
 # sqlite-vec is required for vector search
 try:
-    import sqlite_vec  # type: ignore[import-untyped]  # noqa: F401
+    import sqlite_vec  # noqa: F401
 except ImportError as e:
     raise ImportError(
         "sqlite-vec is required. Install with: uv add sqlite-vec"
@@ -1421,7 +1421,7 @@ class EmbeddingReembedder:
             async with db.execute(
                 "SELECT entry_id, content FROM memories"
             ) as cursor:
-                memories = await cursor.fetchall()
+                memories = list(await cursor.fetchall())
 
             total = len(memories)
             logger.info(f"Re-embedding {total} memories...")
@@ -1466,7 +1466,7 @@ class EmbeddingReembedder:
             async with db.execute(
                 "SELECT summary_id, summary_text FROM session_summaries"
             ) as cursor:
-                summaries = await cursor.fetchall()
+                summaries = list(await cursor.fetchall())
 
             total = len(summaries)
             logger.info(f"Re-embedding {total} session summaries...")
@@ -1511,7 +1511,7 @@ class EmbeddingReembedder:
             async with db.execute(
                 "SELECT message_embedding_id, content_snippet FROM message_embeddings"
             ) as cursor:
-                messages = await cursor.fetchall()
+                messages = list(await cursor.fetchall())
 
             total = len(messages)
             logger.info(f"Re-embedding {total} message embeddings...")
