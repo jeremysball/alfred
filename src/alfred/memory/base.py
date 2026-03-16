@@ -64,3 +64,11 @@ class MemoryStore:
     async def delete(self, entry_id: str) -> bool:
         """Delete a memory by ID."""
         raise NotImplementedError
+
+    async def get_all_entries(self) -> list[MemoryEntry]:
+        """Get all memory entries.
+
+        Returns:
+            List of all MemoryEntry objects in the store.
+        """
+        raise NotImplementedError

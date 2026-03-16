@@ -49,7 +49,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             total_system_tokens += tokens
 
     # Get all memories
-    all_memories = await alfred.memory_store.get_all_entries()
+    all_memories = await alfred.core.memory_store.get_all_entries()
 
     # Get session messages for display
     session_messages = alfred.core.session_manager.get_messages_for_context(session_id)
