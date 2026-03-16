@@ -78,15 +78,19 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - [x] Implement: Create `_display_footer()` function
 - [x] Verify: Complexity reduced from 24 (grade D) to 2 (grade A)
 
-#### KimiProvider.stream_chat_with_tools (Complexity 41)
+#### KimiProvider.stream_chat_with_tools ✅
 
-- [ ] Test: Extract stream initialization
-- [ ] Implement: Create `_init_tool_stream()` method
-- [ ] Test: Extract chunk processing
-- [ ] Implement: Create `_process_stream_chunk()` method
-- [ ] Test: Extract tool call accumulation
-- [ ] Implement: Create `_accumulate_tool_calls()` method
-- [ ] Verify: Complexity reduced significantly
+- [x] Test: Extract message conversion
+- [x] Implement: Create `_convert_messages_to_api_format()` method (B:7)
+- [x] Test: Extract usage data extraction
+- [x] Implement: Create `_extract_usage_data()` method (B:10)
+- [x] Test: Extract tool call accumulation
+- [x] Implement: Create `_accumulate_tool_calls()` method (C:12)
+- [x] Test: Extract chunk processing
+- [x] Implement: Create `_process_stream_chunk()` method (B:8)
+- [x] Test: Extract stream creation with retry
+- [x] Implement: Create `_create_stream_with_retry()` method (A:5)
+- [x] Verify: Complexity reduced from 41 (grade F) to 5 (grade A)
 
 ### Phase 3: Critical MyPy Errors
 
@@ -187,10 +191,20 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 - **Result:** Complexity reduced from 24 (grade D) to 2 (grade A) (-92%)
 - **Tests:** 22 new tests added, all 42 config-related tests pass
 
+**Phase 2 - KimiProvider Complexity (5 of 5 functions refactored):**
+- Extracted `_convert_messages_to_api_format()` - Convert ChatMessages to API format (B:7)
+- Extracted `_extract_usage_data()` - Extract usage with cache/reasoning tokens (B:10)
+- Extracted `_accumulate_tool_calls()` - Accumulate streaming tool calls (C:12)
+- Extracted `_process_stream_chunk()` - Process individual stream chunks (B:8)
+- Extracted `_create_stream_with_retry()` - Create stream with retry logic (A:5)
+- Simplified `stream_chat_with_tools()` to orchestrate helpers
+- **Result:** Complexity reduced from 41 (grade F) to 5 (grade A) (-88%)
+- **Tests:** 20 new tests added, all 20 existing LLM tests pass
+
 ### Remaining Work
 
-**Phase 2 - High Complexity Functions (1 remaining):**
-- `KimiProvider.stream_chat_with_tools` (complexity 41)
+**Phase 2 - High Complexity Functions (0 remaining):** ✅ COMPLETE
+- All grade D+ functions refactored
 
 **Phase 3-5 - MyPy Errors (30 errors across 12 files):**
 - MemoryStore.search signature override error
@@ -203,13 +217,13 @@ Systematic cleanup of code quality issues identified by radon, vulture, and mypy
 
 | Metric | Before | Current | Target |
 |--------|--------|---------|--------|
-| Radon grade D+ | 5 | **1** | 0 |
-| Radon grade F | 1 | 1 | 0 |
+| Radon grade D+ | 5 | **0** ✅ | 0 |
+| Radon grade F | 1 | **0** ✅ | 0 |
 | Vulture issues | 4 | **0** ✅ | 0 |
 | MyPy errors | 30 | 30 | **0** (zero tolerance) |
 | Test coverage | 64% | 64%* | ≥64% (maintain) |
 
-\* Coverage maintained with 56 new tests (27 TUI + 7 agent + 22 CLI)
+\* Coverage maintained with 76 new tests (27 TUI + 7 agent + 22 CLI + 20 KimiProvider)
 
 ## Implementation Notes
 
