@@ -230,7 +230,7 @@ class Alfred:
         session_messages_with_tools = self.core.session_manager.get_messages_with_tools_for_context(
             session_id
         )
-        system_prompt, memories_count = self.context_loader.assemble_with_search(
+        system_prompt, memories_count = await self.context_loader.assemble_with_search(
             query_embedding=query_embedding,
             memories=all_memories,
             session_messages=session_messages,

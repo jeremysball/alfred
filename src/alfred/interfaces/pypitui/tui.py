@@ -10,6 +10,7 @@ from alfred.alfred import Alfred
 # Import commands
 from alfred.interfaces.pypitui.commands import (
     Command,
+    HealthCommand,
     ListSessionsCommand,
     NewSessionCommand,
     ResumeSessionCommand,
@@ -90,10 +91,10 @@ class AlfredTUI:
         completion.register("/", self._command_provider)
         completion.register("/resume ", self._session_id_provider)
 
-        # Build layout: conversation (flex), status, completion menu, input
+        # Build layout: conversation (flex), status, input
+        # Completion menu is shown as overlay, not child component
         self.tui.add_child(self.conversation)
         self.tui.add_child(self.status_line)
-        self.tui.add_child(self.completion_menu)
         self.tui.add_child(self.input_field)
         self.tui.set_focus(self.input_field)
 
@@ -102,6 +103,9 @@ class AlfredTUI:
         self._toast_handle: OverlayHandle | None = None
         if toast_manager is not None:
             self._toast_overlay = ToastOverlay(toast_manager)
+
+        # Completion menu overlay handle
+        self._completion_handle: OverlayHandle | None = None
 
         # State
         self.running = True
@@ -141,6 +145,7 @@ class AlfredTUI:
             "/session": ShowSessionCommand(),
             "/context": ShowContextCommand(),
             "/throbbers": ThrobbersCommand(),
+            "/health": HealthCommand(),
         }
 
         # Toast manager is passed directly, no need to configure through notifier
@@ -212,6 +217,32 @@ class AlfredTUI:
                 self._toast_handle.hide()
             self._toast_handle = None
 
+    def _update_completion_overlay(self) -> None:
+        """Update completion menu overlay visibility.
+
+        Shows overlay when menu is open, hides when closed.
+        Menu is positioned above the input field.
+        """
+        menu_open = self.completion_menu.is_open
+
+        if menu_open and self._completion_handle is None:
+            # Show completion menu as overlay above input field
+            # Position: just above the input line(s)
+            input_lines = len(self.input_field.render(self._terminal_width))
+            # Offset up by input lines to appear directly above input
+            offset_y = -input_lines
+
+            options = OverlayOptions(
+                anchor="bottom-left",
+                offset_y=offset_y,
+                margin=0,
+            )
+            self._completion_handle = self.tui.show_overlay(self.completion_menu, options)
+        elif not menu_open and self._completion_handle is not None:
+            # Hide completion menu
+            self._completion_handle.hide()
+            self._completion_handle = None
+
     def _update_status(self, estimated_out: int | None = None) -> None:
         """Update status line with current token counts.
 
@@ -268,14 +299,11 @@ class AlfredTUI:
         input_lines = len(self.input_field.render(term_width))
         static_height += input_lines
 
-        # Completion menu (conditional, above input)
-        if self.completion_menu.is_open:
-            menu_lines = len(self.completion_menu.render(term_width))
-            static_height += menu_lines
-
-        # Status line (always visible, above completion menu)
+        # Status line (always visible, above input)
         status_lines = len(self.status_line.render(term_width))
         static_height += status_lines
+
+        # Note: Completion menu is now an overlay, not included in static height
 
         return static_height
 
@@ -851,6 +879,9 @@ class AlfredTUI:
 
                 # Update toast overlay visibility
                 self._update_toast_overlay()
+
+                # Manage completion menu overlay visibility
+                self._update_completion_overlay()
 
                 # Render every frame - diff renderer only outputs changes
                 self.tui.render_frame()

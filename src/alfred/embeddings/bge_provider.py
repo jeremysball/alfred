@@ -131,6 +131,7 @@ class BGEProvider(EmbeddingProvider):
     - 768-dimensional embeddings (bge-base)
     - ~52ms query latency
     - Free (no API costs)
+    - Tracks in-flight embedding operations for observability
     """
 
     def __init__(self, model_name: str = "bge-base") -> None:
@@ -145,6 +146,9 @@ class BGEProvider(EmbeddingProvider):
         self._model_name = model_name
         self._config = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["bge-base"])
         self._model: Any | None = None
+        # Track in-flight embedding operations
+        self._in_flight: set[str] = set()
+        self._in_flight_lock = asyncio.Lock()
 
     @property
     def dimension(self) -> int:
@@ -188,10 +192,20 @@ class BGEProvider(EmbeddingProvider):
         if self._model is None:
             await self.initialize()
 
+    @property
+    def in_flight_items(self) -> list[str]:
+        """Get list of items currently being embedded.
+
+        Returns:
+            List of text snippets being processed (truncated for display)
+        """
+        return list(self._in_flight)
+
     async def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text.
 
         Loads the model automatically on first call if not already loaded.
+        Tracks the operation in in_flight while processing.
 
         Args:
             text: Input text to embed
@@ -201,19 +215,29 @@ class BGEProvider(EmbeddingProvider):
         """
         await self._ensure_model_loaded()
 
-        # Run in thread pool since SentenceTransformer is synchronous
-        loop = asyncio.get_event_loop()
-        embedding = await loop.run_in_executor(
-            None,
-            self._embed_sync,
-            text,
-        )
-        return embedding
+        # Track in-flight (truncate long texts for display)
+        display_text = text[:50] + "..." if len(text) > 50 else text
+        async with self._in_flight_lock:
+            self._in_flight.add(display_text)
+
+        try:
+            # Run in thread pool since SentenceTransformer is synchronous
+            loop = asyncio.get_event_loop()
+            embedding = await loop.run_in_executor(
+                None,
+                self._embed_sync,
+                text,
+            )
+            return embedding
+        finally:
+            async with self._in_flight_lock:
+                self._in_flight.discard(display_text)
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts.
 
         Loads the model automatically on first call if not already loaded.
+        Tracks the operations in in_flight while processing.
 
         Args:
             texts: List of input texts to embed
@@ -226,14 +250,28 @@ class BGEProvider(EmbeddingProvider):
 
         await self._ensure_model_loaded()
 
-        # Run in thread pool since SentenceTransformer is synchronous
-        loop = asyncio.get_event_loop()
-        embeddings = await loop.run_in_executor(
-            None,
-            self._embed_batch_sync,
-            texts,
-        )
-        return embeddings
+        # Track in-flight (truncate long texts for display, show count for batches)
+        display_texts = [t[:50] + "..." if len(t) > 50 else t for t in texts]
+        batch_label = f"batch of {len(texts)} items"
+        async with self._in_flight_lock:
+            self._in_flight.add(batch_label)
+            for dt in display_texts:
+                self._in_flight.add(dt)
+
+        try:
+            # Run in thread pool since SentenceTransformer is synchronous
+            loop = asyncio.get_event_loop()
+            embeddings = await loop.run_in_executor(
+                None,
+                self._embed_batch_sync,
+                texts,
+            )
+            return embeddings
+        finally:
+            async with self._in_flight_lock:
+                self._in_flight.discard(batch_label)
+                for dt in display_texts:
+                    self._in_flight.discard(dt)
 
     def _embed_sync(self, text: str) -> list[float]:
         """Synchronous embedding (called from thread pool)."""

@@ -119,6 +119,9 @@ class ContextBuilder:
             top_k=top_k * 2,  # Get extra for deduplication
         )
 
+        # Build similarity lookup from results
+        similarities_by_id = {r["entry_id"]: r.get("similarity", 0.0) for r in results}
+
         # Convert to MemoryEntry objects
         memories = []
         for r in results:
@@ -139,8 +142,8 @@ class ContextBuilder:
         # Apply hybrid scoring
         scored = []
         for memory in memories:
-            # Get similarity from search result or compute it
-            similarity = r.get("similarity", 0.0)
+            # Get similarity from search results lookup
+            similarity = similarities_by_id.get(memory.entry_id, 0.0)
             if similarity < self.min_similarity:
                 continue
 
@@ -194,7 +197,7 @@ class ContextBuilder:
 
         return unique
 
-    def build_context(
+    async def build_context(
         self,
         query_embedding: list[float],
         memories: list[MemoryEntry],
@@ -210,15 +213,8 @@ class ContextBuilder:
         """Build full context with relevant memories and session history injected."""
         logger.debug(f"Building context with {len(memories)} memories available")
 
-        # Search and deduplicate (async, but called from sync context)
-        try:
-            loop = asyncio.get_event_loop()
-            # Only create coroutine when we have an event loop
-            coro = self.search_memories(query_embedding, top_k=10)
-            relevant, similarities, scores = loop.run_until_complete(coro)
-        except RuntimeError:
-            # No event loop - coroutine was never created, no warning
-            relevant, similarities, scores = [], {}, {}
+        # Search and deduplicate
+        relevant, similarities, scores = await self.search_memories(query_embedding, top_k=10)
 
         # Build memory section
         memory_section = self._format_memories(relevant, similarities, scores)
@@ -478,7 +474,7 @@ class ContextLoader:
             system_prompt=self._build_system_prompt(files),
         )
 
-    def assemble_with_search(
+    async def assemble_with_search(
         self,
         query_embedding: list[float],
         memories: list[Any],
@@ -493,7 +489,7 @@ class ContextLoader:
             )
 
         system_prompt = self._build_system_prompt_sync()
-        return self._context_builder.build_context(
+        return await self._context_builder.build_context(
             query_embedding=query_embedding,
             memories=memories,
             system_prompt=system_prompt,

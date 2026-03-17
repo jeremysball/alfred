@@ -17,11 +17,12 @@
 
 Do this before every response:
 
-1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
-2. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
-3. Read `/workspace/alfred-prd/.pi/skills/commit/SKILL.md`
-4. Read `/workspace/alfred-prd/docs/ROADMAP.md`
-5. Confirm: "✅ Skills and parent PRD loaded"
+1. Read `/home/node/.pi/skills/skill-index/SKILL.md` — Quick reference for all available skills
+2. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
+3. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
+4. Read `/workspace/alfred-prd/.pi/skills/commit/SKILL.md`
+5. Read `/workspace/alfred-prd/docs/ROADMAP.md`
+6. Confirm: "✅ Skills and parent PRD loaded"
 
 This applies to all messages and commands—including simple questions.
 

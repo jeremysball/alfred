@@ -207,7 +207,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
-    { name = "pypitui", specifier = ">=0.4.3" },
+    { name = "pypitui", specifier = ">=1.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
@@ -1587,14 +1587,14 @@ wheels = [
 
 [[package]]
 name = "pypitui"
-version = "0.4.3"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "wcwidth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/06/c8/7889df3aee3774d354b42a6321327391a7efbae94f12a5014e2b01ed34b2/pypitui-0.4.3.tar.gz", hash = "sha256:9f5642ee7d99fd5cc5327905b4d0db583c9bab473d256df33500fc0a853a2663", size = 35015095, upload-time = "2026-03-13T06:16:16.265Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/26/d2/bf92b09ebffaec218fc6fbe944fd9fb95b352f9e058e948e9011c8d039a3/pypitui-1.0.0.tar.gz", hash = "sha256:a566e0637972e9bf1ff871efd6ddf5f9ee1ad95c717ad130d11f927728823264", size = 35015211, upload-time = "2026-03-16T22:46:01.634Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/0d/a4c3d1a044013588e543e03b0614bc1caf39e6b335ac9e80df1a1f83258b/pypitui-0.4.3-py3-none-any.whl", hash = "sha256:a07b82b2e6cd177748adea907581ab123eb476831622fa77bf98d71527da3a39", size = 66125, upload-time = "2026-03-13T06:16:14.493Z" },
+    { url = "https://files.pythonhosted.org/packages/04/6b/50f5a3c197107644cd2a5df97e9958dd1c24cafa5d2c4a25bbad3835a22e/pypitui-1.0.0-py3-none-any.whl", hash = "sha256:0627d73613005ad6082290302007626b5e4eb1a8638bbe1aa0a410360c8236ce", size = 66004, upload-time = "2026-03-16T22:45:59.987Z" },
 ]
 
 [[package]]
