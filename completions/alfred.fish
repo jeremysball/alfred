@@ -13,6 +13,7 @@ complete -c alfred -l help -d "Show help"
 # Top-level commands with descriptions
 complete -c alfred -n "__fish_use_subcommand" -a "daemon" -d "Manage the background daemon process"
 complete -c alfred -n "__fish_use_subcommand" -a "cron" -d "Manage scheduled cron jobs"
+complete -c alfred -n "__fish_use_subcommand" -a "webui" -d "webui"
 complete -c alfred -n "__fish_use_subcommand" -a "memory" -d "Memory system management"
 complete -c alfred -n "__fish_use_subcommand" -a "config" -d "config"
 complete -c alfred -n "__fish_use_subcommand" -a "--telegram" -d "--telegram"

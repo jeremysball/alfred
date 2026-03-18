@@ -19,7 +19,7 @@ _alfred_completion() {
 
     case "$cmd_path" in
         "")
-            opts="--help --install-completions --log --telegram -l -t config cron daemon memory"
+            opts="--help --install-completions --log --telegram -l -t config cron daemon memory webui"
             ;;
         config)
             opts="update"

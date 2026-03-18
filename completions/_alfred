@@ -15,6 +15,7 @@ _alfred() {
             _values "alfred commands" \
                 "daemon" \
                 "cron" \
+                "webui" \
                 "memory" \
                 "config" \
                 "--telegram" \

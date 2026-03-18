@@ -190,6 +190,22 @@ app.add_typer(cron_app)
 
 
 # ============================================================================
+# WebUI subcommands - web interface
+# ============================================================================
+
+webui_app = typer.Typer(name="webui", help="Launch web interface", no_args_is_help=False)
+
+
+@webui_app.callback()
+def webui_callback() -> None:
+    """Launch Alfred Web UI server."""
+    pass
+
+
+app.add_typer(webui_app)
+
+
+# ============================================================================
 # Memory subcommands - lazy-loaded proxies
 # ============================================================================
 

@@ -61,9 +61,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 
 ### CLI Command Integration
 
-- [ ] Test: `test_webui_command_registered()` - `alfred webui` command exists
-- [ ] Implement: Add `webui` subcommand to `src/alfred/cli/main.py`
-- [ ] Run: `uv run alfred webui --help` shows help message
+- [x] Test: `test_webui_command_registered()` - `alfred webui` command exists
+- [x] Implement: Add `webui` subcommand to `src/alfred/cli/main.py`
+- [x] Run: `uv run alfred webui --help` shows help message
 
 - [ ] Test: `test_webui_command_accepts_port()` - `--port` flag is recognized
 - [ ] Implement: Add `--port` option with default 8080
@@ -189,13 +189,13 @@ uv run pytest tests/webui/ -v
 - [x] Module Initialization - WebUIServer class created with tests
 - [x] FastAPI Application Structure - create_app() factory implemented and tested
 - [x] WebSocket Endpoint - /ws endpoint with connection handling and tests
+- [x] Static File Serving - index.html, CSS, JS files served with tests
+- [x] Health Check Endpoint - /health returns status and version with tests
+- [x] CLI Command Registration - `alfred webui` command registered with tests
 
 ### In Progress
-- [ ] Static File Serving
+- [ ] CLI Command Integration - Adding --port and --open flags
 
 ### Remaining
-- [ ] WebSocket Endpoint
-- [ ] Static File Serving
-- [ ] Health Check Endpoint
-- [ ] CLI Command Integration
+- [ ] CLI Command Integration - Wire server startup to CLI
 - [ ] Graceful Shutdown
