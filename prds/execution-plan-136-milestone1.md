@@ -33,9 +33,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 
 ### Static File Serving
 
-- [ ] Test: `test_static_directory_exists()` - Static files directory is created
-- [ ] Implement: Create `src/alfred/interfaces/webui/static/` directory structure
-- [ ] Run: `uv run python -c "from pathlib import Path; assert Path('src/alfred/interfaces/webui/static').exists(); print('OK')"`
+- [x] Test: `test_static_directory_exists()` - Static files directory is created
+- [x] Implement: Create `src/alfred/interfaces/webui/static/` directory structure
+- [x] Run: `uv run python -c "from pathlib import Path; assert Path('src/alfred/interfaces/webui/static').exists(); print('OK')"`
 
 - [ ] Test: `test_index_html_served()` - Root path serves HTML entry point
 - [ ] Implement: Create `static/index.html` and mount static files in FastAPI
