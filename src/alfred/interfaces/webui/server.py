@@ -1,6 +1,9 @@
 """FastAPI server for Alfred Web UI."""
 
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket
+from fastapi.staticfiles import StaticFiles
 
 
 def create_app() -> FastAPI:
@@ -14,6 +17,10 @@ def create_app() -> FastAPI:
         description="Web-based interface for Alfred",
         version="0.1.0",
     )
+
+    # Mount static files
+    static_dir = Path(__file__).parent / "static"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
