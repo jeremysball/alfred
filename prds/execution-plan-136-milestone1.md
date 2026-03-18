@@ -19,17 +19,17 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 
 ### WebSocket Endpoint
 
-- [ ] Test: `test_websocket_endpoint_exists()` - WebSocket route accepts connections
-- [ ] Implement: Add `/ws` WebSocket endpoint with connection accept/reject logic
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_endpoint_exists -v`
+- [x] Test: `test_websocket_endpoint_exists()` - WebSocket route accepts connections
+- [x] Implement: Add `/ws` WebSocket endpoint with connection accept/reject logic
+- [x] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_endpoint_exists -v`
 
-- [ ] Test: `test_websocket_echo_message()` - Connected client can send/receive messages
-- [ ] Implement: Basic message echo handler for testing connectivity
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_echo_message -v`
+- [x] Test: `test_websocket_echo_message()` - Connected client can send/receive messages
+- [x] Implement: Basic message echo handler for testing connectivity
+- [x] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_echo_message -v`
 
-- [ ] Test: `test_websocket_multiple_clients()` - Server handles multiple concurrent connections
-- [ ] Implement: Connection manager to track active WebSocket connections
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_multiple_clients -v`
+- [x] Test: `test_websocket_multiple_clients()` - Server handles multiple concurrent connections
+- [x] Implement: Connection manager to track active WebSocket connections
+- [x] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_multiple_clients -v`
 
 ### Static File Serving
 
@@ -188,9 +188,10 @@ uv run pytest tests/webui/ -v
 ### Completed Tasks
 - [x] Module Initialization - WebUIServer class created with tests
 - [x] FastAPI Application Structure - create_app() factory implemented and tested
+- [x] WebSocket Endpoint - /ws endpoint with connection handling and tests
 
 ### In Progress
-- [ ] WebSocket Endpoint
+- [ ] Static File Serving
 
 ### Remaining
 - [ ] WebSocket Endpoint
