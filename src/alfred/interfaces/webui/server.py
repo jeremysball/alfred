@@ -5,6 +5,8 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
 
+import alfred
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
@@ -25,7 +27,7 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health_check():
         """Health check endpoint."""
-        return {"status": "ok"}
+        return {"status": "ok", "version": alfred.__version__}
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:

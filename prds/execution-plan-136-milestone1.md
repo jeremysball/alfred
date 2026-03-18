@@ -55,9 +55,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Add `/health` endpoint returning `{"status": "ok"}`
 - [x] Run: `uv run pytest tests/webui/test_server.py::test_health_endpoint_returns_ok -v`
 
-- [ ] Test: `test_health_includes_version()` - Health check includes app version
-- [ ] Implement: Add version field to health response
-- [ ] Run: `uv run pytest tests/webui/test_server.py::test_health_includes_version -v`
+- [x] Test: `test_health_includes_version()` - Health check includes app version
+- [x] Implement: Add version field to health response
+- [x] Run: `uv run pytest tests/webui/test_server.py::test_health_includes_version -v`
 
 ### CLI Command Integration
 
