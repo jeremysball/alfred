@@ -22,6 +22,11 @@ def create_app() -> FastAPI:
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint."""
+        return {"status": "ok"}
+
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
         """WebSocket endpoint for real-time communication."""

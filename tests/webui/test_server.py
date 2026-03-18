@@ -32,3 +32,13 @@ def test_fastapi_app_factory():
     assert app is not None
     assert isinstance(app, FastAPI)
     assert app.title == "Alfred Web UI"
+
+
+def test_health_endpoint_returns_ok():
+    """Verify /health endpoint returns 200 with status."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
