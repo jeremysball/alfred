@@ -1,8 +1,10 @@
 """Tests for Web UI server."""
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from alfred.interfaces.webui import WebUIServer
+from alfred.interfaces.webui import WebUIServer, create_app
 
 
 def test_webui_module_exists():
@@ -22,3 +24,11 @@ def test_webui_server_custom_port():
     """Verify WebUIServer accepts custom port."""
     server = WebUIServer(port=3000)
     assert server.port == 3000
+
+
+def test_fastapi_app_factory():
+    """Verify create_app returns a valid FastAPI application."""
+    app = create_app()
+    assert app is not None
+    assert isinstance(app, FastAPI)
+    assert app.title == "Alfred Web UI"

@@ -70,6 +70,10 @@ class AlfredTUI:
         # Main conversation container
         self.conversation = Container()
 
+        # DEBUG
+        with open("/tmp/init_debug.log", "a") as f:
+            f.write(f"AlfredTUI __init__: conversation id={id(self.conversation)}\n")
+
         # Status line for model/token info
         self.status_line = StatusLine()
 
@@ -97,6 +101,14 @@ class AlfredTUI:
         self.tui.add_child(self.status_line)
         self.tui.add_child(self.input_field)
         self.tui.set_focus(self.input_field)
+
+        # DEBUG
+        with open("/tmp/init_debug.log", "a") as f:
+            f.write(f"TUI children after setup: {len(self.tui.children)}\n")
+            for i, child in enumerate(self.tui.children):
+                f.write(f"  {i}: {type(child).__name__} id={id(child)}\n")
+                if hasattr(child, 'children'):
+                    f.write(f"      has {len(child.children)} children\n")
 
         # Toast overlay (non-modal popup at bottom of screen)
         self._toast_overlay: ToastOverlay | None = None
@@ -544,6 +556,17 @@ class AlfredTUI:
         )
         self.conversation.add_child(user_msg)
 
+        # DEBUG: Verify the message was added
+        with open("/tmp/alfred_debug.log", "a") as f:
+            f.write(f"Added message: {repr(text)}\n")
+            f.write(f"  conversation id: {id(self.conversation)}\n")
+            f.write(f"  conversation children: {len(self.conversation.children)}\n")
+            f.write(f"  child type: {type(self.conversation.children[0]).__name__}\n")
+            lines = self.conversation.children[0].render(80)
+            f.write(f"  rendered lines: {len(lines)}\n")
+            for i, line in enumerate(lines):
+                f.write(f"    line {i}: {line[:50]}\n")
+
         # Add to history for future recall
         self._history_manager.add(text)
 
@@ -683,58 +706,16 @@ class AlfredTUI:
     def _populate_scrollback_by_scrolling(self) -> None:
         """Populate terminal scrollback by rendering and scrolling content.
 
-        To get content into the terminal's scrollback buffer, we need to:
-        1. Render a screenful of content (oldest content first)
-        2. Use SU (Scroll Up) to push it into scrollback
-        3. Repeat until all old content is in scrollback
-        4. Leave recent content for normal absolute-position render
+        DEPRECATED: This method is no longer needed. PyPiTUI now handles
+        scrollback naturally through _handle_content_growth. DECSTBM scroll
+        regions interfere with the new transient component rendering.
+
+        Kept for backwards compatibility but does nothing.
         """
-        term_width, term_height = self.terminal.get_size()
-        self._terminal_width = term_width  # Update cached width
-        static_height = self._calculate_static_height()
-        scrollable_height = max(1, term_height - static_height)
-
-        # Get rendered conversation lines
-        content_lines = self.conversation.render(term_width)
-
-        if len(content_lines) <= scrollable_height:
-            return  # Content fits, no scrollback needed
-
-        # Lines that should go into scrollback
-        lines_for_scrollback = len(content_lines) - scrollable_height
-
-        buffer = "\x1b[?2026h"  # Begin sync
-
-        # Set scroll region to protect static components
-        buffer += f"\x1b[1;{scrollable_height}r"
-
-        # Process scrollback content in screen-sized chunks
-        # Render a screenful, then scroll it all into scrollback
-        scrollback_content = content_lines[:lines_for_scrollback]
-        pos = 0
-
-        while pos < len(scrollback_content):
-            # Get next screenful of content
-            chunk = scrollback_content[pos : pos + scrollable_height]
-
-            # Render this chunk at absolute positions
-            for i, line in enumerate(chunk):
-                buffer += f"\x1b[{i + 1};1H"  # Position cursor
-                buffer += "\x1b[2K"  # Clear line
-                buffer += line
-
-            # Scroll this chunk into scrollback
-            buffer += f"\x1b[{len(chunk)}S"
-
-            pos += len(chunk)
-
-        buffer += "\x1b[r"  # Reset scroll region
-        buffer += "\x1b[?2026l"  # End sync
-
-        self.terminal.write(buffer)
-
-        # Track scrollback position to avoid re-rendering
-        self._scrollback_position = lines_for_scrollback
+        # Scrollback is now handled automatically by pypitui's
+        # _handle_content_growth method. Lines flow into scrollback
+        # naturally as content grows beyond terminal height.
+        pass
 
     def _add_user_message(self, content: str) -> None:
         """Add a user message panel to the conversation."""

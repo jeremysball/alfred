@@ -13,9 +13,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Create `src/alfred/interfaces/webui/__init__.py` with module exports
 - [x] Run: `uv run python -c "from alfred.interfaces.webui import WebUIServer; print('OK')"`
 
-- [ ] Test: `test_fastapi_app_factory()` - Verify FastAPI app can be created
-- [ ] Implement: Create `src/alfred/interfaces/webui/server.py` with `create_app()` factory
-- [ ] Run: `uv run pytest tests/webui/test_server.py::test_fastapi_app_factory -v`
+- [x] Test: `test_fastapi_app_factory()` - Verify FastAPI app can be created
+- [x] Implement: Create `src/alfred/interfaces/webui/server.py` with `create_app()` factory
+- [x] Run: `uv run pytest tests/webui/test_server.py::test_fastapi_app_factory -v`
 
 ### WebSocket Endpoint
 
@@ -187,9 +187,10 @@ uv run pytest tests/webui/ -v
 
 ### Completed Tasks
 - [x] Module Initialization - WebUIServer class created with tests
+- [x] FastAPI Application Structure - create_app() factory implemented and tested
 
 ### In Progress
-- [ ] FastAPI Application Structure - create_app() factory
+- [ ] WebSocket Endpoint
 
 ### Remaining
 - [ ] WebSocket Endpoint
