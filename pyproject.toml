@@ -136,6 +136,7 @@ source = "vcs"
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+pypitui = { path = "../pypitui", editable = true }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

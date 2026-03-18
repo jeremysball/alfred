@@ -247,6 +247,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 131 | Ctrl-T Tool Call Expansion | Toggle all tool call boxes to show full output (PRD #131) |
 | 132 | Dynamic Embedding Dimension Support | Auto-detect and re-embed when switching models (BGE↔OpenAI) (PRD #132) |
 | 135 | Persistent Memory Context | Keep memories loaded across turns with LRU eviction when limits reached (PRD #135) |
+| 136 | Web-based UI | Alternative to TUI using FastAPI + WebSocket + Web Components for faster development velocity (PRD #136) |
 
 ### Medium-term 📅
 
