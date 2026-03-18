@@ -197,7 +197,14 @@ webui_app = typer.Typer(name="webui", help="Launch web interface", no_args_is_he
 
 
 @webui_app.callback()
-def webui_callback() -> None:
+def webui_callback(
+    port: int = typer.Option(
+        8080,
+        "--port",
+        "-p",
+        help="Port to run the Web UI server on",
+    ),
+) -> None:
     """Launch Alfred Web UI server."""
     pass
 

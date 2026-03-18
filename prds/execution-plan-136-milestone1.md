@@ -65,9 +65,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Add `webui` subcommand to `src/alfred/cli/main.py`
 - [x] Run: `uv run alfred webui --help` shows help message
 
-- [ ] Test: `test_webui_command_accepts_port()` - `--port` flag is recognized
-- [ ] Implement: Add `--port` option with default 8080
-- [ ] Run: `uv run pytest tests/webui/test_cli.py::test_webui_command_accepts_port -v`
+- [x] Test: `test_webui_command_accepts_port()` - `--port` flag is recognized
+- [x] Implement: Add `--port` option with default 8080
+- [x] Run: `uv run pytest tests/webui/test_cli.py::test_webui_command_accepts_port -v`
 
 - [ ] Test: `test_webui_command_accepts_open()` - `--open` flag is recognized
 - [ ] Implement: Add `--open` boolean flag to launch browser
