@@ -41,13 +41,13 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Create `static/index.html` and mount static files in FastAPI
 - [x] Run: `uv run pytest tests/webui/test_static.py::test_index_html_served -v`
 
-- [ ] Test: `test_static_js_files_served()` - JavaScript files are accessible
-- [ ] Implement: Create `static/js/` directory and verify file serving
-- [ ] Run: `uv run pytest tests/webui/test_static.py::test_static_js_files_served -v`
+- [x] Test: `test_static_js_files_served()` - JavaScript files are accessible
+- [x] Implement: Create `static/js/` directory and verify file serving
+- [x] Run: `uv run pytest tests/webui/test_static.py::test_static_js_files_served -v`
 
-- [ ] Test: `test_static_css_files_served()` - CSS files are accessible
-- [ ] Implement: Create `static/css/` directory and verify file serving
-- [ ] Run: `uv run pytest tests/webui/test_static.py::test_static_css_files_served -v`
+- [x] Test: `test_static_css_files_served()` - CSS files are accessible
+- [x] Implement: Create `static/css/` directory and verify file serving
+- [x] Run: `uv run pytest tests/webui/test_static.py::test_static_css_files_served -v`
 
 ### Health Check Endpoint
 

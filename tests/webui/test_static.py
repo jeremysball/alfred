@@ -37,3 +37,25 @@ def test_index_html_served():
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert b"Alfred Web UI" in response.content
+
+
+def test_static_css_files_served():
+    """Verify CSS files are accessible."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/css/base.css")
+    assert response.status_code == 200
+    assert "text/css" in response.headers["content-type"]
+    assert b"Alfred Web UI" in response.content
+
+
+def test_static_js_files_served():
+    """Verify JavaScript files are accessible."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+    assert b"Alfred Web UI" in response.content
