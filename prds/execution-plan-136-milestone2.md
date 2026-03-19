@@ -9,21 +9,21 @@ Implement bidirectional message streaming between the Web UI and Alfred's LLM ba
 
 ### WebSocket Protocol Implementation
 
-- [ ] Test: `test_chat_send_message()` - Verify client can send chat message
-- [ ] Implement: Add `chat.send` message handler in WebSocket endpoint
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_chat_send_message -v`
+- [x] Test: `test_chat_send_message()` - Verify client can send chat message
+- [x] Implement: Add `chat.send` message handler in WebSocket endpoint
+- [x] Run: `uv run pytest tests/webui/test_protocol.py -v` (12 tests passing)
 
-- [ ] Test: `test_chat_chunk_received()` - Verify server streams chunks to client
-- [ ] Implement: Add `chat.chunk` message type for streaming tokens
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_chat_chunk_received -v`
+- [x] Test: `test_chat_chunk_received()` - Verify server streams chunks to client
+- [x] Implement: Add `chat.chunk` message type for streaming tokens
+- [x] Run: `uv run pytest tests/webui/test_protocol.py -v`
 
-- [ ] Test: `test_chat_complete_received()` - Verify completion message sent
-- [ ] Implement: Add `chat.complete` message with final content and usage
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_chat_complete_received -v`
+- [x] Test: `test_chat_complete_received()` - Verify completion message sent
+- [x] Implement: Add `chat.complete` message with final content and usage
+- [x] Run: `uv run pytest tests/webui/test_protocol.py -v`
 
-- [ ] Test: `test_chat_error_handling()` - Verify errors are properly communicated
-- [ ] Implement: Add `chat.error` message type for error handling
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_chat_error_handling -v`
+- [x] Test: `test_chat_error_handling()` - Verify errors are properly communicated
+- [x] Implement: Add `chat.error` message type for error handling
+- [x] Run: `uv run pytest tests/webui/test_protocol.py -v`
 
 ### Alfred Integration
 
