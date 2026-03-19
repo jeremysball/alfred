@@ -211,26 +211,162 @@ body {
     background: #555;
 }
 
+/* Tool Call Styles */
+.tool-call {
+    margin: 0.75rem 0;
+    border-radius: 0.5rem;
+    border: 1px solid #444;
+    background: #1e1e1e;
+    overflow: hidden;
+}
+
+.tool-call.running {
+    border-color: #f57c00;
+}
+
+.tool-call.success {
+    border-color: #2e7d32;
+}
+
+.tool-call.error {
+    border-color: #c62828;
+}
+
+.tool-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #252525;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.tool-header:hover {
+    background: #333;
+}
+
+.tool-icon {
+    font-size: 1rem;
+    width: 1.5rem;
+    text-align: center;
+}
+
+.tool-call.running .tool-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.tool-name {
+    font-weight: 600;
+    flex: 1;
+    color: #e0e0e0;
+}
+
+.tool-status {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    background: #444;
+}
+
+.tool-call.running .tool-status {
+    background: #f57c00;
+    color: #1a1a1a;
+}
+
+.tool-call.success .tool-status {
+    background: #2e7d32;
+    color: #fff;
+}
+
+.tool-call.error .tool-status {
+    background: #c62828;
+    color: #fff;
+}
+
+.tool-toggle {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.tool-content {
+    padding: 1rem;
+    border-top: 1px solid #333;
+}
+
+.tool-call.collapsed .tool-content {
+    display: none;
+}
+
+.tool-arguments,
+.tool-output {
+    margin-bottom: 1rem;
+}
+
+.tool-arguments:last-child,
+.tool-output:last-child {
+    margin-bottom: 0;
+}
+
+.tool-arguments strong,
+.tool-output strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #888;
+    font-size: 0.875rem;
+}
+
+.tool-arguments pre,
+.tool-output pre {
+    background: #141414;
+    padding: 0.75rem;
+    border-radius: 0.25rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.tool-arguments code,
+.tool-output code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    color: #e0e0e0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .app-header {
         padding: 0.75rem 1rem;
     }
-    
+
     .app-header h1 {
         font-size: 1.25rem;
     }
-    
+
     .chat-container {
         padding: 0.75rem;
     }
-    
+
     .message {
         max-width: 95%;
         padding: 0.75rem;
     }
-    
+
     .app-footer {
         padding: 0.75rem 1rem;
+    }
+
+    .tool-header {
+        padding: 0.625rem 0.75rem;
+    }
+
+    .tool-content {
+        padding: 0.75rem;
     }
 }

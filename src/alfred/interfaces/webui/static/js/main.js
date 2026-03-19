@@ -16,6 +16,8 @@ function initAlfredUI() {
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
   let currentAssistantMessage = null;
+  const activeToolCalls = new Map(); // toolCallId -> tool-call element
+  let allToolsExpanded = false;
 
   // Connection Status Handler
   function updateConnectionStatus(status, text) {
@@ -38,7 +40,7 @@ function initAlfredUI() {
   // Message Handler
   wsClient.addEventListener('message', (event) => {
     const msg = event.detail;
-    
+
     switch (msg.type) {
       case 'chat.started':
         // Create new assistant message element for streaming
@@ -49,39 +51,88 @@ function initAlfredUI() {
         messageList.appendChild(currentAssistantMessage);
         scrollToBottom();
         break;
-        
+
       case 'chat.chunk':
         // Append chunk to current assistant message
-        if (currentAssistantMessage && msg.content) {
-          currentAssistantMessage.appendContent(msg.content);
+        if (currentAssistantMessage && msg.payload && msg.payload.content) {
+          currentAssistantMessage.appendContent(msg.payload.content);
           scrollToBottom();
         }
         break;
-        
+
       case 'chat.complete':
         // Finalize assistant message
         currentAssistantMessage = null;
         enableInput();
         break;
-        
+
       case 'chat.error':
-        showError(msg.message || 'An error occurred');
+        showError(msg.payload?.error || 'An error occurred');
         currentAssistantMessage = null;
         enableInput();
         break;
-        
+
+      case 'tool.start':
+        handleToolStart(msg.payload);
+        break;
+
+      case 'tool.output':
+        handleToolOutput(msg.payload);
+        break;
+
+      case 'tool.end':
+        handleToolEnd(msg.payload);
+        break;
+
       case 'status.update':
-        console.log('Status update:', msg.status);
+        console.log('Status update:', msg.payload);
         break;
-        
+
       case 'toast':
-        showToast(msg.message, msg.level);
+        showToast(msg.payload?.message, msg.payload?.level);
         break;
-        
+
       default:
         console.log('Unhandled message type:', msg.type);
     }
   });
+
+  // Tool Call Handlers
+  function handleToolStart(payload) {
+    if (!currentAssistantMessage) return;
+
+    const toolCall = document.createElement('tool-call');
+    toolCall.setAttribute('tool-call-id', payload.toolCallId);
+    toolCall.setAttribute('tool-name', payload.toolName);
+    toolCall.setAttribute('arguments', JSON.stringify(payload.arguments || {}));
+    toolCall.setAttribute('status', 'running');
+    toolCall.setAttribute('expanded', 'false');
+
+    activeToolCalls.set(payload.toolCallId, toolCall);
+
+    // Append to current assistant message
+    currentAssistantMessage.appendChild(toolCall);
+    scrollToBottom();
+  }
+
+  function handleToolOutput(payload) {
+    const toolCall = activeToolCalls.get(payload.toolCallId);
+    if (toolCall) {
+      toolCall.appendOutput(payload.chunk);
+      scrollToBottom();
+    }
+  }
+
+  function handleToolEnd(payload) {
+    const toolCall = activeToolCalls.get(payload.toolCallId);
+    if (toolCall) {
+      toolCall.setStatus(payload.success ? 'success' : 'error');
+      if (payload.output) {
+        toolCall.setAttribute('output', payload.output);
+      }
+      // Keep in map for potential Ctrl+T toggle
+    }
+  }
 
   // Send Message Handler
   function sendMessage() {
@@ -102,6 +153,20 @@ function initAlfredUI() {
 
     // Send via WebSocket
     wsClient.sendChat(content);
+  }
+
+  // Global Tool Toggle (Ctrl+T)
+  function toggleAllTools() {
+    allToolsExpanded = !allToolsExpanded;
+    const toolCalls = document.querySelectorAll('tool-call');
+    toolCalls.forEach(tool => {
+      if (allToolsExpanded) {
+        tool.expand();
+      } else {
+        tool.collapse();
+      }
+    });
+    console.log(`All tools ${allToolsExpanded ? 'expanded' : 'collapsed'}`);
   }
 
   // UI Helpers
@@ -129,17 +194,25 @@ function initAlfredUI() {
   }
 
   function showToast(message, level = 'info') {
-    // Simple console log for now, could be expanded to UI toast
-    console.log(`[${level.toUpperCase()}] ${message}`);
+    console.log(`[${level?.toUpperCase() || 'INFO'}] ${message}`);
   }
 
   // Event Listeners
   sendButton.addEventListener('click', sendMessage);
-  
+
   messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+T - Toggle all tool calls
+    if (e.ctrlKey && e.key === 't') {
+      e.preventDefault();
+      toggleAllTools();
     }
   });
 
