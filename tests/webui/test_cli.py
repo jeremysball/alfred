@@ -37,3 +37,33 @@ def test_webui_command_accepts_open():
     )
     assert result.returncode == 0
     assert "--open" in result.stdout
+
+
+def test_webui_server_starts_on_specified_port():
+    """Verify server actually starts on specified port."""
+    import time
+
+    # Start server in background with a test port
+    test_port = 9998
+    process = subprocess.Popen(
+        [sys.executable, "-m", "alfred.cli.main", "webui", "--port", str(test_port)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Wait for server to start
+    time.sleep(2)
+
+    try:
+        # Test health endpoint
+        result = subprocess.run(
+            ["curl", "-s", f"http://localhost:{test_port}/health"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert '"status"' in result.stdout and '"ok"' in result.stdout
+    finally:
+        # Clean up
+        process.terminate()
+        process.wait(timeout=5)

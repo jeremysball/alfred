@@ -196,8 +196,9 @@ app.add_typer(cron_app)
 webui_app = typer.Typer(name="webui", help="Launch web interface", no_args_is_help=False)
 
 
-@webui_app.callback()
+@webui_app.callback(invoke_without_command=True)
 def webui_callback(
+    ctx: typer.Context,
     port: int = typer.Option(
         8080,
         "--port",
@@ -212,7 +213,30 @@ def webui_callback(
     ),
 ) -> None:
     """Launch Alfred Web UI server."""
-    pass
+    if ctx.invoked_subcommand is not None:
+        return
+
+    import uvicorn
+
+    from alfred.interfaces.webui.server import create_app
+
+    if open_browser:
+        import threading
+        import time
+        import webbrowser
+
+        def open_browser_delayed() -> None:
+            time.sleep(1)
+            webbrowser.open(f"http://localhost:{port}")
+
+        threading.Thread(target=open_browser_delayed, daemon=True).start()
+
+    uvicorn.run(
+        create_app(),
+        host="127.0.0.1",
+        port=port,
+        log_level="info",
+    )
 
 
 app.add_typer(webui_app)

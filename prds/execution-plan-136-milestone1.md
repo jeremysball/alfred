@@ -73,9 +73,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Add `--open` boolean flag to launch browser
 - [x] Run: `uv run pytest tests/webui/test_cli.py::test_webui_command_accepts_open -v`
 
-- [ ] Test: `test_webui_server_starts_on_specified_port()` - Server actually starts
-- [ ] Implement: Wire CLI command to start FastAPI server with uvicorn
-- [ ] Run: `timeout 3 uv run alfred webui --port 9999 || true` (verify it starts)
+- [x] Test: `test_webui_server_starts_on_specified_port()` - Server actually starts
+- [x] Implement: Wire CLI command to start FastAPI server with uvicorn
+- [x] Run: `timeout 3 uv run alfred webui --port 9999 || true` (verify it starts)
 
 ### Graceful Shutdown
 
@@ -191,11 +191,11 @@ uv run pytest tests/webui/ -v
 - [x] WebSocket Endpoint - /ws endpoint with connection handling and tests
 - [x] Static File Serving - index.html, CSS, JS files served with tests
 - [x] Health Check Endpoint - /health returns status and version with tests
-- [x] CLI Command Registration - `alfred webui` command registered with tests
+- [x] CLI Command Integration - `alfred webui` command with --port, --open flags, server startup wired
 
 ### In Progress
-- [ ] CLI Command Integration - Adding --port and --open flags
+- [ ] Graceful Shutdown
 
 ### Remaining
-- [ ] CLI Command Integration - Wire server startup to CLI
-- [ ] Graceful Shutdown
+- [ ] Graceful Shutdown - Signal handler for Ctrl+C
+- [ ] Graceful Shutdown - WebSocket connections closed on shutdown
