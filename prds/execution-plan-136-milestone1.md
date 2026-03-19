@@ -192,9 +192,12 @@ uv run pytest tests/webui/ -v
 - [x] Static File Serving - index.html, CSS, JS files served with tests
 - [x] Health Check Endpoint - /health returns status and version with tests
 - [x] CLI Command Integration - `alfred webui` command with --port, --open flags, server startup wired
+- [x] SIGINT Graceful Shutdown - Server shuts down cleanly on Ctrl+C (test added, uvicorn handles natively)
 
 ### In Progress
-- [ ] Graceful Shutdown - WebSocket connections closed on shutdown
+- [ ] Graceful Shutdown - WebSocket connections closed on shutdown (3 tasks remaining)
 
 ### Remaining
-- [ ] WebSocket connections closed on shutdown
+- [ ] Test: `test_websocket_connections_closed_on_shutdown()` - Active connections closed cleanly
+- [ ] Implement: Close all WebSocket connections before exiting
+- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_connections_closed_on_shutdown -v`
