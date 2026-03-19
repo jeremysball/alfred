@@ -19,9 +19,9 @@ def test_websocket_endpoint_exists():
     client = TestClient(app)
 
     with client.websocket_connect("/ws") as websocket:
-        # Receive initial connection message
-        data = websocket.receive_text()
-        assert data == "connected"
+        # Receive initial connection message (JSON format)
+        data = websocket.receive_json()
+        assert data["type"] == "connected"
 
 
 def test_websocket_echo_message():
@@ -31,12 +31,12 @@ def test_websocket_echo_message():
 
     with client.websocket_connect("/ws") as websocket:
         # Receive initial connection message
-        websocket.receive_text()
+        websocket.receive_json()
 
-        # Send a message and verify echo
-        websocket.send_text("hello")
-        response = websocket.receive_text()
-        assert response == "echo: hello"
+        # Send a valid JSON message and verify echo response
+        websocket.send_json({"type": "test", "payload": {"message": "hello"}})
+        response = websocket.receive_json()
+        assert response["type"] == "echo"
 
 
 def test_websocket_multiple_clients():
@@ -46,16 +46,20 @@ def test_websocket_multiple_clients():
 
     # Connect two clients
     with client.websocket_connect("/ws") as ws1, client.websocket_connect("/ws") as ws2:
-        # Both should receive connection message
-        assert ws1.receive_text() == "connected"
-        assert ws2.receive_text() == "connected"
+        # Both should receive connection message (JSON format)
+        response1 = ws1.receive_json()
+        response2 = ws2.receive_json()
+        assert response1["type"] == "connected"
+        assert response2["type"] == "connected"
 
         # Both should be able to send/receive independently
-        ws1.send_text("client1")
-        ws2.send_text("client2")
+        ws1.send_json({"type": "test", "payload": {"client": "1"}})
+        ws2.send_json({"type": "test", "payload": {"client": "2"}})
 
-        assert ws1.receive_text() == "echo: client1"
-        assert ws2.receive_text() == "echo: client2"
+        echo1 = ws1.receive_json()
+        echo2 = ws2.receive_json()
+        assert echo1["type"] == "echo"
+        assert echo2["type"] == "echo"
 
 
 def test_websocket_connections_closed_on_shutdown():

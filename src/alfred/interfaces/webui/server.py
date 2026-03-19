@@ -1,12 +1,18 @@
 """FastAPI server for Alfred Web UI."""
 
+import json
+import uuid
 from contextlib import suppress
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
 
 import alfred
+
+if TYPE_CHECKING:
+    from alfred.alfred import Alfred
 
 # Module-level set to track active WebSocket connections
 _active_connections: set[WebSocket] = set()
@@ -30,8 +36,73 @@ async def _close_all_connections() -> None:
         _active_connections.discard(ws)
 
 
-def create_app() -> FastAPI:
+async def _handle_chat_message(
+    websocket: WebSocket,
+    alfred_instance: "Alfred",
+    content: str,
+) -> None:
+    """Handle a chat message by streaming through Alfred.
+
+    Args:
+        websocket: The WebSocket connection
+        alfred_instance: The Alfred instance
+        content: The user message content
+    """
+    message_id = str(uuid.uuid4())
+
+    try:
+        # Send chat.started message
+        await websocket.send_json({
+            "type": "chat.started",
+            "payload": {
+                "messageId": message_id,
+                "role": "assistant",
+            },
+        })
+
+        # Stream response from Alfred
+        full_content = ""
+        async for chunk in alfred_instance.chat_stream(content):
+            full_content += chunk
+            await websocket.send_json({
+                "type": "chat.chunk",
+                "payload": {
+                    "messageId": message_id,
+                    "content": chunk,
+                },
+            })
+
+        # Send chat.complete message
+        await websocket.send_json({
+            "type": "chat.complete",
+            "payload": {
+                "messageId": message_id,
+                "finalContent": full_content,
+                "usage": {
+                    "inputTokens": 0,  # TODO: Get actual token counts
+                    "outputTokens": 0,
+                    "cacheReadTokens": 0,
+                    "reasoningTokens": 0,
+                },
+            },
+        })
+
+    except Exception as e:
+        # Send chat.error message
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {
+                "messageId": message_id,
+                "error": str(e),
+            },
+        })
+
+
+def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
     """Create and configure the FastAPI application.
+
+    Args:
+        alfred_instance: Optional Alfred instance for chat integration
 
     Returns:
         Configured FastAPI application instance.
@@ -41,6 +112,9 @@ def create_app() -> FastAPI:
         description="Web-based interface for Alfred",
         version="0.1.0",
     )
+
+    # Store Alfred instance in app state
+    app.state.alfred = alfred_instance
 
     # Mount static files
     static_dir = Path(__file__).parent / "static"
@@ -56,11 +130,56 @@ def create_app() -> FastAPI:
         """WebSocket endpoint for real-time communication."""
         await websocket.accept()
         await _register_connection(websocket)
-        await websocket.send_text("connected")
+
+        # Get Alfred instance from app state
+        alfred_instance: Alfred | None = websocket.app.state.alfred
+
         try:
+            # Send connected message
+            await websocket.send_json({
+                "type": "connected",
+                "payload": {},
+            })
+
             while True:
+                # Receive and parse message
                 data = await websocket.receive_text()
-                await websocket.send_text(f"echo: {data}")
+                try:
+                    message = json.loads(data)
+                except json.JSONDecodeError:
+                    await websocket.send_json({
+                        "type": "error",
+                        "payload": {"error": "Invalid JSON"},
+                    })
+                    continue
+
+                # Handle message based on type
+                msg_type = message.get("type")
+                payload = message.get("payload", {})
+
+                if msg_type == "chat.send":
+                    if alfred_instance is None:
+                        await websocket.send_json({
+                            "type": "chat.error",
+                            "payload": {
+                                "error": "Alfred instance not available",
+                            },
+                        })
+                        continue
+
+                    content = payload.get("content", "")
+                    await _handle_chat_message(
+                        websocket,
+                        alfred_instance,
+                        content,
+                    )
+                else:
+                    # Echo for other message types (for testing)
+                    await websocket.send_json({
+                        "type": "echo",
+                        "payload": {"received": message},
+                    })
+
         except Exception:
             pass  # Connection closed
         finally:
