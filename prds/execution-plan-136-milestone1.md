@@ -79,9 +79,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 
 ### Graceful Shutdown
 
-- [ ] Test: `test_server_shuts_down_on_sigint()` - Ctrl+C stops server cleanly
-- [ ] Implement: Signal handler for graceful shutdown
-- [ ] Run: `uv run pytest tests/webui/test_server.py::test_server_shuts_down_on_sigint -v`
+- [x] Test: `test_server_shuts_down_on_sigint()` - Ctrl+C stops server cleanly
+- [x] Implement: Signal handler for graceful shutdown
+- [x] Run: `uv run pytest tests/webui/test_server.py::test_server_shuts_down_on_sigint -v`
 
 - [ ] Test: `test_websocket_connections_closed_on_shutdown()` - Active connections closed cleanly
 - [ ] Implement: Close all WebSocket connections before exiting
@@ -194,8 +194,7 @@ uv run pytest tests/webui/ -v
 - [x] CLI Command Integration - `alfred webui` command with --port, --open flags, server startup wired
 
 ### In Progress
-- [ ] Graceful Shutdown
+- [ ] Graceful Shutdown - WebSocket connections closed on shutdown
 
 ### Remaining
-- [ ] Graceful Shutdown - Signal handler for Ctrl+C
-- [ ] Graceful Shutdown - WebSocket connections closed on shutdown
+- [ ] WebSocket connections closed on shutdown
