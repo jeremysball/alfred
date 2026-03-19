@@ -204,6 +204,12 @@ def webui_callback(
         "-p",
         help="Port to run the Web UI server on",
     ),
+    open_browser: bool = typer.Option(
+        False,
+        "--open",
+        "-o",
+        help="Open browser automatically",
+    ),
 ) -> None:
     """Launch Alfred Web UI server."""
     pass

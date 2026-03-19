@@ -69,9 +69,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Add `--port` option with default 8080
 - [x] Run: `uv run pytest tests/webui/test_cli.py::test_webui_command_accepts_port -v`
 
-- [ ] Test: `test_webui_command_accepts_open()` - `--open` flag is recognized
-- [ ] Implement: Add `--open` boolean flag to launch browser
-- [ ] Run: `uv run pytest tests/webui/test_cli.py::test_webui_command_accepts_open -v`
+- [x] Test: `test_webui_command_accepts_open()` - `--open` flag is recognized
+- [x] Implement: Add `--open` boolean flag to launch browser
+- [x] Run: `uv run pytest tests/webui/test_cli.py::test_webui_command_accepts_open -v`
 
 - [ ] Test: `test_webui_server_starts_on_specified_port()` - Server actually starts
 - [ ] Implement: Wire CLI command to start FastAPI server with uvicorn

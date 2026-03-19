@@ -26,3 +26,14 @@ def test_webui_command_accepts_port():
     )
     assert result.returncode == 0
     assert "--port" in result.stdout
+
+
+def test_webui_command_accepts_open():
+    """Verify `--open` flag is recognized."""
+    result = subprocess.run(
+        [sys.executable, "-m", "alfred.cli.main", "webui", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--open" in result.stdout
