@@ -47,6 +47,11 @@ class WrappedInput(Component, Focusable):
         """Input field is fixed at the bottom and should not scroll."""
         return True
 
+    @property
+    def is_transient(self) -> bool:
+        """Input field is transient and should not appear in scrollback."""
+        return True
+
     def __init__(self, placeholder: str = "") -> None:
         """Initialize WrappedInput.
 

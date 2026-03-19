@@ -48,6 +48,9 @@ dependencies = [
   "playwright>=1.58.0",
   "markdownify>=1.2.2",
   "tomli>=2.0.0",
+  "fastapi>=0.110.0",
+  "uvicorn[standard]>=0.29.0",
+  "websockets>=12.0",
   "torch>=2.0.0",
   "sentence-transformers>=2.5.0",
   "aiosqlite>=0.21.0",
@@ -136,6 +139,7 @@ source = "vcs"
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+pypitui = { path = "../pypitui", editable = true }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -157,4 +161,5 @@ dev = [
     "types-psutil>=7.2.2.20260130",
     "types-torch>=0.1.1",
     "vulture>=2.15",
+    "websocket-client>=1.9.0",
 ]

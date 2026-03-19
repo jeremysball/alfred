@@ -45,6 +45,11 @@ class StatusLine(Component):
         """Status bar is fixed at the bottom and should not scroll."""
         return True
 
+    @property
+    def is_transient(self) -> bool:
+        """Status bar is transient and should not appear in scrollback."""
+        return True
+
     def __init__(self) -> None:
         """Initialize status line with empty state."""
         super().__init__()
