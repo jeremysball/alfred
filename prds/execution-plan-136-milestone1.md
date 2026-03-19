@@ -83,9 +83,9 @@ Create the foundational WebSocket server infrastructure for Alfred's Web UI. Thi
 - [x] Implement: Signal handler for graceful shutdown
 - [x] Run: `uv run pytest tests/webui/test_server.py::test_server_shuts_down_on_sigint -v`
 
-- [ ] Test: `test_websocket_connections_closed_on_shutdown()` - Active connections closed cleanly
-- [ ] Implement: Close all WebSocket connections before exiting
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_connections_closed_on_shutdown -v`
+- [x] Test: `test_websocket_connections_closed_on_shutdown()` - Active connections closed cleanly
+- [x] Implement: Close all WebSocket connections before exiting
+- [x] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_connections_closed_on_shutdown -v`
 
 ---
 
@@ -193,11 +193,10 @@ uv run pytest tests/webui/ -v
 - [x] Health Check Endpoint - /health returns status and version with tests
 - [x] CLI Command Integration - `alfred webui` command with --port, --open flags, server startup wired
 - [x] SIGINT Graceful Shutdown - Server shuts down cleanly on Ctrl+C (test added, uvicorn handles natively)
+- [x] WebSocket Connection Cleanup - Active connections closed on shutdown with connection registry
 
 ### In Progress
-- [ ] Graceful Shutdown - WebSocket connections closed on shutdown (3 tasks remaining)
+- None
 
 ### Remaining
-- [ ] Test: `test_websocket_connections_closed_on_shutdown()` - Active connections closed cleanly
-- [ ] Implement: Close all WebSocket connections before exiting
-- [ ] Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_connections_closed_on_shutdown -v`
+- None - Milestone 1: Foundation Complete!

@@ -1,11 +1,33 @@
 """FastAPI server for Alfred Web UI."""
 
+from contextlib import suppress
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
 from fastapi.staticfiles import StaticFiles
 
 import alfred
+
+# Module-level set to track active WebSocket connections
+_active_connections: set[WebSocket] = set()
+
+
+async def _register_connection(websocket: WebSocket) -> None:
+    """Register an active WebSocket connection."""
+    _active_connections.add(websocket)
+
+
+async def _unregister_connection(websocket: WebSocket) -> None:
+    """Unregister a WebSocket connection."""
+    _active_connections.discard(websocket)
+
+
+async def _close_all_connections() -> None:
+    """Close all active WebSocket connections."""
+    for ws in list(_active_connections):
+        with suppress(Exception):
+            await ws.close()
+        _active_connections.discard(ws)
 
 
 def create_app() -> FastAPI:
@@ -33,14 +55,21 @@ def create_app() -> FastAPI:
     async def websocket_endpoint(websocket: WebSocket) -> None:
         """WebSocket endpoint for real-time communication."""
         await websocket.accept()
+        await _register_connection(websocket)
         await websocket.send_text("connected")
-        # Keep connection open for future message handling
         try:
             while True:
                 data = await websocket.receive_text()
                 await websocket.send_text(f"echo: {data}")
         except Exception:
             pass  # Connection closed
+        finally:
+            await _unregister_connection(websocket)
+
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Handle server shutdown by closing all WebSocket connections."""
+        await _close_all_connections()
 
     return app
 
