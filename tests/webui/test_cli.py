@@ -3,8 +3,6 @@
 import subprocess
 import sys
 
-import pytest
-
 
 def test_webui_command_registered():
     """Verify `alfred webui --help` shows help message."""

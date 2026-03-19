@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     @app.get("/health")
-    async def health_check():
+    async def health_check() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "ok", "version": alfred.__version__}
 
@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
             await _unregister_connection(websocket)
 
     @app.on_event("shutdown")
-    async def shutdown_event():
+    async def shutdown_event() -> None:
         """Handle server shutdown by closing all WebSocket connections."""
         await _close_all_connections()
 

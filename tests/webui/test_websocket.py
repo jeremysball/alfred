@@ -45,18 +45,17 @@ def test_websocket_multiple_clients():
     client = TestClient(app)
 
     # Connect two clients
-    with client.websocket_connect("/ws") as ws1:
-        with client.websocket_connect("/ws") as ws2:
-            # Both should receive connection message
-            assert ws1.receive_text() == "connected"
-            assert ws2.receive_text() == "connected"
+    with client.websocket_connect("/ws") as ws1, client.websocket_connect("/ws") as ws2:
+        # Both should receive connection message
+        assert ws1.receive_text() == "connected"
+        assert ws2.receive_text() == "connected"
 
-            # Both should be able to send/receive independently
-            ws1.send_text("client1")
-            ws2.send_text("client2")
+        # Both should be able to send/receive independently
+        ws1.send_text("client1")
+        ws2.send_text("client2")
 
-            assert ws1.receive_text() == "echo: client1"
-            assert ws2.receive_text() == "echo: client2"
+        assert ws1.receive_text() == "echo: client1"
+        assert ws2.receive_text() == "echo: client2"
 
 
 def test_websocket_connections_closed_on_shutdown():
