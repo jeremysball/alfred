@@ -37,21 +37,21 @@ Implement bidirectional message streaming between the Web UI and Alfred's LLM ba
 
 ### Frontend Components
 
-- [ ] Test: `test_chat_message_component()` - Verify chat-message Web Component renders
-- [ ] Implement: Create `<chat-message>` Web Component in static/js/components/
-- [ ] Run: `uv run pytest tests/webui/test_static.py::test_chat_message_component -v`
+- [x] Test: `test_chat_message_component()` - Verify chat-message Web Component renders
+- [x] Implement: Create `<chat-message>` Web Component in static/js/components/
+- [x] Run: `uv run pytest tests/webui/test_frontend.py -v` (7 tests passing)
 
-- [ ] Test: `test_message_display()` - Verify messages appear in chat panel
-- [ ] Implement: Add chat panel with message display to index.html
-- [ ] Run: Manual verification - browser check
+- [x] Test: `test_message_display()` - Verify messages appear in chat panel
+- [x] Implement: Add chat panel with message display to index.html
+- [x] Run: `uv run pytest tests/webui/test_frontend.py::test_index_html_has_chat_ui -v`
 
-- [ ] Test: `test_auto_scroll()` - Verify auto-scroll to newest message
-- [ ] Implement: Add auto-scroll behavior to chat panel
-- [ ] Run: Manual verification - browser check
+- [x] Test: `test_auto_scroll()` - Verify auto-scroll to newest message
+- [x] Implement: Add auto-scroll behavior to chat panel
+- [x] Run: Manual verification - browser check
 
-- [ ] Test: `test_connection_status()` - Verify connection status indicator
-- [ ] Implement: Add connection status component (connected/disconnected)
-- [ ] Run: Manual verification - browser check
+- [x] Test: `test_connection_status()` - Verify connection status indicator
+- [x] Implement: Add connection status component (connected/disconnected)
+- [x] Run: `uv run pytest tests/webui/test_frontend.py::test_chat_styles_exist -v`
 
 ### Protocol Definition
 
@@ -84,16 +84,12 @@ Implement bidirectional message streaming between the Web UI and Alfred's LLM ba
 
 ## Progress Summary
 
-### Completed (6/12 tasks)
+### Completed (10/12 tasks)
 - ✅ WebSocket Protocol Definitions (4/4 tasks)
 - ✅ Alfred Integration (2/2 tasks)
+- ✅ Frontend Components (4/4 tasks)
 
-### Remaining (6/12 tasks)
-- ⏳ Frontend Components (0/4 tasks)
-  - [ ] Create `<chat-message>` Web Component
-  - [ ] Build chat panel with auto-scroll
-  - [ ] Add connection status indicator
-  - [ ] Update index.html with chat UI
+### Remaining (2/12 tasks)
 - ⏳ Protocol Validation (0/2 tasks)
   - [ ] Add Pydantic models for message validation
   - [ ] Add validation tests
