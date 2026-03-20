@@ -154,6 +154,15 @@ class AlfredWebSocketClient extends EventTarget {
     this.send(payload);
   }
 
+  sendCommand(command) {
+    this.send({
+      type: 'command.execute',
+      payload: {
+        command: command
+      }
+    });
+  }
+
   sendAck(messageId) {
     this.send({
       type: 'ack',

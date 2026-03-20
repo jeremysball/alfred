@@ -234,3 +234,44 @@ async def test_chat_stream_error_handling():
     error_calls = [c for c in calls if c[0][0]["type"] == "chat.error"]
     assert len(error_calls) == 1
     assert "Test error" in error_calls[0][0][0]["payload"]["error"]
+
+
+def test_websocket_handles_command_execute(client_with_alfred):
+    """Verify WebSocket handles command.execute message type."""
+    # Mock the new_session method
+    client_with_alfred.app.state.alfred.new_session = AsyncMock(return_value=MagicMock(
+        session_id="test-session-123"
+    ))
+    
+    with client_with_alfred.websocket_connect("/ws") as websocket:
+        # Receive connected message
+        websocket.receive_json()
+        
+        # Send command message
+        websocket.send_json({
+            "type": "command.execute",
+            "payload": {"command": "/new"},
+        })
+        
+        # Receive session.new response
+        response = websocket.receive_json()
+        assert response["type"] == "session.new"
+        assert "sessionId" in response["payload"]
+
+
+def test_websocket_command_unknown_command(client_with_alfred):
+    """Verify WebSocket returns error for unknown commands."""
+    with client_with_alfred.websocket_connect("/ws") as websocket:
+        # Receive connected message
+        websocket.receive_json()
+        
+        # Send unknown command
+        websocket.send_json({
+            "type": "command.execute",
+            "payload": {"command": "/unknown"},
+        })
+        
+        # Receive error response
+        response = websocket.receive_json()
+        assert response["type"] == "chat.error"
+        assert "Unknown command" in response["payload"]["error"]
