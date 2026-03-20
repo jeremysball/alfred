@@ -2,6 +2,7 @@
  * WebSocket Client for Alfred Web UI
  * 
  * Manages WebSocket connection, message handling, and reconnection logic.
+ * Includes keepalive ping/pong and visibility handling for mobile browser switching.
  */
 class AlfredWebSocketClient extends EventTarget {
   constructor(url = null) {
@@ -9,10 +10,13 @@ class AlfredWebSocketClient extends EventTarget {
     this.url = url || `ws://${window.location.host}/ws`;
     this.ws = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
+    this.maxReconnectAttempts = 10; // Increased for mobile
     this.reconnectDelay = 1000;
     this.isConnected = false;
     this.messageQueue = [];
+    this.pingInterval = null;
+    this.pingTimeout = null;
+    this.visibilityHandler = null;
   }
 
   connect() {
@@ -28,6 +32,7 @@ class AlfredWebSocketClient extends EventTarget {
       console.log('WebSocket connected');
       this.isConnected = true;
       this.reconnectAttempts = 0;
+      this._startPing();
       this._flushMessageQueue();
       this.dispatchEvent(new CustomEvent('connected', { detail: event }));
     };
@@ -35,6 +40,11 @@ class AlfredWebSocketClient extends EventTarget {
     this.ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        // Handle pong responses
+        if (message.type === 'pong') {
+          this._clearPingTimeout();
+          return;
+        }
         console.log('WebSocket message received:', message);
         this.dispatchEvent(new CustomEvent('message', { detail: message }));
       } catch (error) {
@@ -46,9 +56,11 @@ class AlfredWebSocketClient extends EventTarget {
     this.ws.onclose = (event) => {
       console.log('WebSocket closed:', event.code, event.reason);
       this.isConnected = false;
+      this._stopPing();
       this.dispatchEvent(new CustomEvent('disconnected', { detail: event }));
       
-      if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
+      // Always try to reconnect unless explicitly disconnected
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this._scheduleReconnect();
       }
     };
@@ -57,6 +69,57 @@ class AlfredWebSocketClient extends EventTarget {
       console.error('WebSocket error:', error);
       this.dispatchEvent(new CustomEvent('error', { detail: error }));
     };
+
+    // Setup visibility handling for mobile browser switching
+    this._setupVisibilityHandling();
+  }
+
+  _setupVisibilityHandling() {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    
+    this.visibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page visible, checking WebSocket connection');
+        if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) {
+          console.log('Reconnecting on visibility change');
+          this.reconnectAttempts = 0; // Reset for user-initiated reconnect
+          this.connect();
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  _startPing() {
+    // Send ping every 15 seconds to keep connection alive
+    this.pingInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }));
+        // Expect pong within 5 seconds
+        this.pingTimeout = setTimeout(() => {
+          console.log('Ping timeout, closing connection');
+          this.ws?.close();
+        }, 5000);
+      }
+    }, 15000);
+  }
+
+  _clearPingTimeout() {
+    if (this.pingTimeout) {
+      clearTimeout(this.pingTimeout);
+      this.pingTimeout = null;
+    }
+  }
+
+  _stopPing() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    this._clearPingTimeout();
   }
 
   disconnect() {

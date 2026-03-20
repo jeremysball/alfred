@@ -2,20 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Alfred Web UI</title>
-    <link rel="stylesheet" href="/static/css/base.css">
-    <link rel="stylesheet" href="/static/css/themes.css">
-    <link rel="stylesheet" href="/static/css/themes/dark-academia.css">
-    <link rel="stylesheet" href="/static/css/themes/swiss-international.css">
-    <link rel="stylesheet" href="/static/css/themes/neumorphism.css">
+    <link rel="stylesheet" href="/static/css/base.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/dark-academia.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/swiss-international.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/neumorphism.css?v=3">
 </head>
 <body>
     <div id="app">
         <header class="app-header">
             <h1>Alfred</h1>
             <div class="header-status">
-                <theme-selector></theme-selector>
+                <settings-menu></settings-menu>
                 <div id="queue-badge" class="queue-badge hidden">0</div>
                 <div id="connection-status" class="status disconnected">Disconnected</div>
             </div>
@@ -25,10 +29,6 @@
             <div id="chat-container" class="chat-container">
                 <div id="message-list" class="message-list">
                     <!-- Messages will be inserted here -->
-                </div>
-                <div id="thinking-indicator" class="thinking-indicator hidden">
-                    <span class="throbber"></span>
-                    <span class="thinking-text">Thinking...</span>
                 </div>
             </div>
         </main>
@@ -51,11 +51,11 @@
     </div>
 
     <!-- Web Components -->
-    <script src="/static/js/components/theme-selector.js"></script>
-    <script src="/static/js/components/chat-message.js"></script>
-    <script src="/static/js/components/tool-call.js"></script>
-    <script src="/static/js/components/completion-menu.js"></script>
-    <script src="/static/js/websocket-client.js"></script>
-    <script src="/static/js/main.js"></script>
+    <script src="/static/js/components/theme-selector.js?v=3"></script>
+    <script src="/static/js/components/chat-message.js?v=3"></script>
+    <script src="/static/js/components/tool-call.js?v=3"></script>
+    <script src="/static/js/components/completion-menu.js?v=3"></script>
+    <script src="/static/js/websocket-client.js?v=3"></script>
+    <script src="/static/js/main.js?v=3"></script>
 </body>
 </html>

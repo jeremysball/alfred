@@ -3,170 +3,243 @@
  *
  * Soft, extruded plastic aesthetic with subtle shadows.
  * Monochromatic base with soft highlights and shadows.
- * Tactile, modern, approachable feel.
  */
 
 [data-theme="neumorphism"] {
   /* Color Palette - Soft Gray Base */
-  --bg-primary: #e0e5ec;
-  --bg-secondary: #e0e5ec;
-  --bg-tertiary: #e0e5ec;
-  --bg-message-user: #d1d9e6;
-  --bg-message-assistant: #e0e5ec;
-  --bg-input: #e0e5ec;
-  --bg-reasoning: #e6ebf3;
-
+  --neo-bg-primary: #e0e5ec;
+  --neo-bg-secondary: #e0e5ec;
+  --neo-bg-input: #e0e5ec;
+  --neo-bg-header: #e0e5ec;
+  --neo-bg-footer: #e0e5ec;
+  
+  /* Message Colors */
+  --neo-bg-message-user: #d1d9e6;
+  --neo-bg-message-assistant: #e0e5ec;
+  --neo-shadow-light: #ffffff;
+  --neo-shadow-dark: #b8b9be;
+  
   /* Text Colors */
-  --text-primary: #4a5568;
-  --text-secondary: #718096;
-  --text-muted: #a0aec0;
-  --text-accent: #667eea;
-  --text-user: #2d3748;
-
-  /* Accent Colors - Soft */
-  --accent-primary: #667eea;
-  --accent-success: #48bb78;
-  --accent-warning: #ed8936;
-  --accent-error: #f56565;
-
-  /* Neumorphic Shadows */
-  --shadow-raised: 6px 6px 12px #b8b9be, -6px -6px 12px #ffffff;
-  --shadow-pressed: inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff;
-  --shadow-concave: inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff;
-  --shadow-convex: 4px 4px 8px #b8b9be, -4px -4px 8px #ffffff;
-
-  /* Borders */
-  --border-color: transparent;
-  --border-subtle: rgba(255, 255, 255, 0.5);
-
+  --neo-text-primary: #4a5568;
+  --neo-text-secondary: #718096;
+  --neo-text-muted: #a0aec0;
+  --neo-text-accent: #667eea;
+  
+  /* Accent Colors */
+  --neo-accent-primary: #667eea;
+  --neo-accent-success: #48bb78;
+  --neo-accent-warning: #ed8936;
+  --neo-accent-error: #f56565;
+  
+  /* Shadows */
+  --neo-shadow-raised: 6px 6px 12px #b8b9be, -6px -6px 12px #ffffff;
+  --neo-shadow-pressed: inset 4px 4px 8px #b8b9be, inset -4px -4px 8px #ffffff;
+  --neo-shadow-concave: inset 3px 3px 6px #b8b9be, inset -3px -3px 6px #ffffff;
+  --neo-shadow-convex: 4px 4px 8px #b8b9be, -4px -4px 8px #ffffff;
+  --neo-shadow-soft: 2px 2px 4px #b8b9be, -2px -2px 4px #ffffff;
+  
   /* Typography */
-  --font-primary: 'Nunito', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --neo-font-primary: system-ui, -apple-system, sans-serif;
+  --neo-font-mono: 'Monaco', 'Menlo', monospace;
 }
 
-/* Neumorphism Specific Styles */
+/* Body & App */
 [data-theme="neumorphism"] body {
-  background: var(--bg-primary);
-  background-image: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, rgba(184, 185, 190, 0.1) 0%, transparent 50%);
-  color: var(--text-primary);
-  font-family: var(--font-primary);
+  background: var(--neo-bg-primary);
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.5) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(184, 185, 190, 0.1) 0%, transparent 50%);
+  color: var(--neo-text-primary);
+  font-family: var(--neo-font-primary);
 }
 
+[data-theme="neumorphism"] #app {
+  background: transparent;
+}
+
+/* Header */
 [data-theme="neumorphism"] .app-header {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-pressed);
+  background: var(--neo-bg-header);
+  box-shadow: var(--neo-shadow-pressed);
   border-radius: 0 0 20px 20px;
   margin: 0 20px;
   margin-bottom: 20px;
   padding: 16px 24px;
+  border-bottom: none;
 }
 
 [data-theme="neumorphism"] .app-header h1 {
-  font-family: var(--font-primary);
+  font-family: var(--neo-font-primary);
   font-weight: 700;
-  color: var(--accent-primary);
+  color: var(--neo-accent-primary);
   text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8), -1px -1px 2px rgba(184, 185, 190, 0.5);
   font-size: 1.5rem;
 }
 
-[data-theme="neumorphism"] .message.user {
-  background: var(--bg-message-user);
-  box-shadow: var(--shadow-raised);
-  border-radius: 20px 20px 4px 20px;
+[data-theme="neumorphism"] .status.connected {
+  background: var(--neo-accent-success);
+  box-shadow: var(--neo-shadow-convex);
+  color: #fff;
+}
+
+[data-theme="neumorphism"] .status.disconnected {
+  background: var(--neo-accent-error);
+  color: #fff;
+}
+
+/* Chat Container */
+[data-theme="neumorphism"] .chat-container {
+  background: transparent;
+}
+
+[data-theme="neumorphism"] .message-list {
+  max-width: 800px;
+}
+
+/* Messages */
+[data-theme="neumorphism"] .message {
+  max-width: 80%;
+  padding: 1rem 1.25rem;
   border: none;
+}
+
+[data-theme="neumorphism"] .message.user {
+  background: var(--neo-bg-message-user);
+  box-shadow: var(--neo-shadow-raised);
+  border-radius: 20px 20px 4px 20px;
+  align-self: flex-end;
+  margin-left: auto;
+  margin-right: 0;
 }
 
 [data-theme="neumorphism"] .message.assistant {
-  background: var(--bg-message-assistant);
-  box-shadow: var(--shadow-convex);
+  background: var(--neo-bg-message-assistant);
+  box-shadow: var(--neo-shadow-convex);
   border-radius: 20px 20px 20px 4px;
-  border: none;
+  align-self: flex-start;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[data-theme="neumorphism"] .message-header {
+  margin-bottom: 0.75rem;
 }
 
 [data-theme="neumorphism"] .message-role {
-  font-family: var(--font-primary);
-  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--accent-primary);
+  color: var(--neo-accent-primary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  font-size: 0.6875rem;
 }
 
+[data-theme="neumorphism"] .message-time {
+  font-size: 0.6875rem;
+  color: var(--neo-text-muted);
+}
+
+[data-theme="neumorphism"] .message-content {
+  color: var(--neo-text-primary);
+}
+
+/* Reasoning Section */
 [data-theme="neumorphism"] .reasoning-section {
-  background: var(--bg-reasoning);
-  box-shadow: var(--shadow-convex);
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: var(--neo-bg-secondary);
+  box-shadow: var(--neo-shadow-convex);
   border-radius: 16px;
   border: none;
 }
 
 [data-theme="neumorphism"] .reasoning-header {
   background: transparent;
-  padding: 12px 16px;
+  padding: 0;
+  margin-bottom: 0.5rem;
 }
 
 [data-theme="neumorphism"] .reasoning-label {
-  color: var(--accent-primary);
+  color: var(--neo-accent-primary);
   font-weight: 600;
 }
 
 [data-theme="neumorphism"] .reasoning-content {
   background: rgba(255, 255, 255, 0.3);
+  box-shadow: var(--neo-shadow-concave);
   border-radius: 12px;
-  margin: 0 12px 12px 12px;
-  padding: 12px;
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  font-family: var(--neo-font-mono);
+  color: var(--neo-text-secondary);
+  font-size: 0.8125rem;
 }
 
-[data-theme="neumorphism"] .input-area {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-pressed);
+/* Footer / Input */
+[data-theme="neumorphism"] .app-footer {
+  background: var(--neo-bg-footer);
+  box-shadow: var(--neo-shadow-pressed);
   border-radius: 20px 20px 0 0;
   margin: 0 20px;
   padding: 20px;
+  border-top: none;
+}
+
+[data-theme="neumorphism"] .input-area {
+  max-width: 800px;
+  align-items: center;
+  gap: 1rem;
 }
 
 [data-theme="neumorphism"] .message-input {
-  background: var(--bg-input);
-  box-shadow: var(--shadow-concave);
+  background: var(--neo-bg-input);
+  box-shadow: var(--neo-shadow-concave);
   border: none;
   border-radius: 16px;
-  color: var(--text-primary);
-  font-family: var(--font-primary);
-  padding: 16px 20px;
+  color: var(--neo-text-primary);
+  font-family: var(--neo-font-primary);
+  padding: 1rem 1.25rem;
 }
 
 [data-theme="neumorphism"] .message-input:focus {
-  box-shadow: var(--shadow-pressed);
+  box-shadow: var(--neo-shadow-pressed);
   outline: none;
 }
 
+[data-theme="neumorphism"] .message-input::placeholder {
+  color: var(--neo-text-muted);
+}
+
 [data-theme="neumorphism"] .send-button {
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-raised);
-  color: var(--accent-primary);
-  font-family: var(--font-primary);
+  background: var(--neo-bg-primary);
+  box-shadow: var(--neo-shadow-raised);
+  color: var(--neo-accent-primary);
+  font-family: var(--neo-font-primary);
   font-weight: 700;
   border: none;
   border-radius: 16px;
-  padding: 12px 24px;
+  padding: 1rem 1.5rem;
   transition: all 0.2s ease;
 }
 
 [data-theme="neumorphism"] .send-button:hover {
-  box-shadow: var(--shadow-convex);
+  box-shadow: var(--neo-shadow-convex);
   transform: translateY(-2px);
 }
 
 [data-theme="neumorphism"] .send-button:active {
-  box-shadow: var(--shadow-pressed);
+  box-shadow: var(--neo-shadow-pressed);
   transform: translateY(0);
 }
 
+[data-theme="neumorphism"] .send-button:disabled {
+  opacity: 0.5;
+  box-shadow: var(--neo-shadow-concave);
+}
+
+/* Tool Calls */
 [data-theme="neumorphism"] .tool-call {
-  background: var(--bg-tertiary);
-  box-shadow: var(--shadow-convex);
+  background: var(--neo-bg-secondary);
+  box-shadow: var(--neo-shadow-convex);
   border-radius: 16px;
   border: none;
 }
@@ -174,49 +247,165 @@
 [data-theme="neumorphism"] .tool-header {
   background: rgba(255, 255, 255, 0.3);
   border-radius: 16px 16px 0 0;
-  padding: 12px 16px;
+  padding: 0.75rem 1rem;
+  border-bottom: none;
 }
 
-[data-theme="neumorphism"] .status.connected {
-  color: var(--accent-success);
-  font-weight: 600;
-  text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.8);
+[data-theme="neumorphism"] .tool-content {
+  border-top: none;
 }
 
-[data-theme="neumorphism"] .queue-badge {
-  background: var(--accent-primary);
-  box-shadow: var(--shadow-raised);
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.75rem;
+[data-theme="neumorphism"] .tool-arguments pre,
+[data-theme="neumorphism"] .tool-output pre {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: var(--neo-shadow-concave);
+  border-radius: 8px;
 }
 
-[data-theme="neumorphism"] .thinking-indicator .throbber {
-  border-color: var(--bg-primary);
-  border-top-color: var(--accent-primary);
-  box-shadow: var(--shadow-convex);
+/* Mobile-first responsive for Neumorphism */
+@media (max-width: 768px) {
+  [data-theme="neumorphism"] .message {
+    max-width: 95%;
+    padding: 0.75rem 1rem;
+    border-radius: 16px 16px 4px 16px;
+  }
+
+  [data-theme="neumorphism"] .message.assistant {
+    border-radius: 16px 16px 16px 4px;
+  }
+
+  [data-theme="neumorphism"] .app-header {
+    border-radius: 0 0 16px 16px;
+    margin: 0 10px;
+    margin-bottom: 10px;
+    padding: 12px 16px;
+  }
+
+  [data-theme="neumorphism"] .app-header h1 {
+    font-size: 1.25rem;
+  }
+
+  [data-theme="neumorphism"] .app-footer {
+    border-radius: 16px 16px 0 0;
+    margin: 0 10px;
+    padding: 12px;
+  }
+
+  [data-theme="neumorphism"] .message-input {
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+  }
+
+  [data-theme="neumorphism"] .send-button {
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+  }
+
+  [data-theme="neumorphism"] .settings-dropdown {
+    background: var(--neo-bg-secondary);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+  }
+
+  [data-theme="neumorphism"] .theme-option {
+    border-radius: 10px;
+    margin: 4px;
+  }
 }
 
-[data-theme="neumorphism"] ::-webkit-scrollbar {
+/* Scrollbar */
+[data-theme="neumorphism"] .chat-container::-webkit-scrollbar {
   width: 12px;
 }
 
-[data-theme="neumorphism"] ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+[data-theme="neumorphism"] .chat-container::-webkit-scrollbar-track {
+  background: var(--neo-bg-primary);
   border-radius: 6px;
 }
 
-[data-theme="neumorphism"] ::-webkit-scrollbar-thumb {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-convex);
+[data-theme="neumorphism"] .chat-container::-webkit-scrollbar-thumb {
+  background: var(--neo-bg-secondary);
+  box-shadow: var(--neo-shadow-convex);
   border-radius: 6px;
 }
 
-[data-theme="neumorphism"] ::-webkit-scrollbar-thumb:hover {
-  box-shadow: var(--shadow-raised);
+/* Completion Menu */
+[data-theme="neumorphism"] completion-menu {
+  background: var(--neo-bg-secondary);
+  box-shadow: var(--neo-shadow-raised);
+  border-radius: 16px;
+  border: none;
+  margin-bottom: 0.75rem;
+}
+
+[data-theme="neumorphism"] .completion-item:hover,
+[data-theme="neumorphism"] .completion-item.selected {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+}
+
+/* Settings Menu */
+[data-theme="neumorphism"] .settings-icon {
+  stroke: var(--neo-accent-primary);
+  filter: drop-shadow(1px 1px 1px rgba(255, 255, 255, 0.5)) drop-shadow(-1px -1px 1px rgba(184, 185, 190, 0.3));
+}
+
+[data-theme="neumorphism"] .settings-toggle:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+[data-theme="neumorphism"] .settings-dropdown {
+  background: var(--neo-bg-secondary);
+  border: none;
+  border-radius: 16px;
+  box-shadow: var(--neo-shadow-raised);
+}
+
+[data-theme="neumorphism"] .settings-section-header {
+  color: var(--neo-text-muted);
+  font-family: var(--neo-font-primary);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  border-bottom: none;
+  padding-bottom: 8px;
+}
+
+[data-theme="neumorphism"] .theme-option {
+  border-radius: 12px;
+  margin: 4px 8px;
+}
+
+[data-theme="neumorphism"] .theme-option:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="neumorphism"] .theme-option.active {
+  background: var(--neo-bg-primary);
+  box-shadow: var(--neo-shadow-concave);
+}
+
+[data-theme="neumorphism"] .theme-option.active .theme-name {
+  color: var(--neo-accent-primary);
+}
+
+[data-theme="neumorphism"] .theme-color-preview {
+  box-shadow: var(--neo-shadow-soft);
+}
+
+[data-theme="neumorphism"] .theme-name {
+  color: var(--neo-text-primary);
+  font-family: var(--neo-font-primary);
+  font-weight: 600;
+}
+
+[data-theme="neumorphism"] .theme-description {
+  color: var(--neo-text-secondary);
+  font-size: 0.75rem;
+}
+
+[data-theme="neumorphism"] .theme-check {
+  color: var(--neo-accent-primary);
 }

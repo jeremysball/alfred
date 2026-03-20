@@ -56,6 +56,7 @@ class Message:
     output_tokens: int = 0
     cached_tokens: int = 0
     reasoning_tokens: int = 0
+    reasoning_content: str = ""  # Persisted reasoning/thinking content
     tool_calls: list[ToolCallRecord] | None = None
 
 

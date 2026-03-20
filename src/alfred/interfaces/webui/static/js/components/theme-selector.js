@@ -1,14 +1,12 @@
 /**
- * Theme Selector Web Component
+ * Settings Menu Web Component
  *
- * Usage: <theme-selector></theme-selector>
+ * Usage: <settings-menu></settings-menu>
  *
- * Allows switching between available themes:
- * - dark-academia: Classical, warm, literary aesthetic
- * - swiss-international: Clean, grid-based, typographic
- * - neumorphism: Soft, tactile, extruded plastic
+ * Contains:
+ * - Theme selector (Dark Academia, Swiss International, Neumorphism)
  */
-class ThemeSelector extends HTMLElement {
+class SettingsMenu extends HTMLElement {
   constructor() {
     super();
     this._currentTheme = localStorage.getItem('alfred-theme') || 'dark-academia';
@@ -17,19 +15,19 @@ class ThemeSelector extends HTMLElement {
         id: 'dark-academia',
         name: 'Dark Academia',
         description: 'Classical library aesthetic',
-        icon: '📚'
+        color: '#c9a959'
       },
       {
         id: 'swiss-international',
         name: 'Swiss International',
         description: 'Clean typographic style',
-        icon: '🇨🇭'
+        color: '#e30613'
       },
       {
         id: 'neumorphism',
         name: 'Neumorphism',
         description: 'Soft tactile plastic',
-        icon: '🔮'
+        color: '#667eea'
       }
     ];
   }
@@ -51,42 +49,46 @@ class ThemeSelector extends HTMLElement {
       const isActive = theme.id === this._currentTheme;
       return `
         <div class="theme-option ${isActive ? 'active' : ''}" data-theme="${theme.id}">
-          <span class="theme-icon">${theme.icon}</span>
+          <div class="theme-color-preview" style="background: ${theme.color}"></div>
           <div class="theme-info">
             <div class="theme-name">${theme.name}</div>
             <div class="theme-description">${theme.description}</div>
           </div>
+          ${isActive ? '<div class="theme-check">✓</div>' : ''}
         </div>
       `;
     }).join('');
 
     this.innerHTML = `
-      <div class="theme-selector">
-        <button class="theme-toggle" title="Change theme">
-          <span class="current-theme-icon">
-            ${this._themes.find(t => t.id === this._currentTheme)?.icon || '🎨'}
-          </span>
+      <div class="settings-menu">
+        <button class="settings-toggle" title="Settings">
+          <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6m4.22-10.22l4.24-4.24M6.34 17.66l-4.24 4.24M23 12h-6m-6 0H1m20.24 4.24l-4.24-4.24M6.34 6.34L2.1 2.1"/>
+          </svg>
         </button>
-        <div class="theme-menu hidden">
-          <div class="theme-menu-header">Select Theme</div>
-          ${themeOptions}
+        <div class="settings-dropdown hidden">
+          <div class="settings-section">
+            <div class="settings-section-header">Theme</div>
+            ${themeOptions}
+          </div>
         </div>
       </div>
     `;
   }
 
   _setupListeners() {
-    const toggle = this.querySelector('.theme-toggle');
-    const menu = this.querySelector('.theme-menu');
+    const toggle = this.querySelector('.settings-toggle');
+    const dropdown = this.querySelector('.settings-dropdown');
 
     toggle?.addEventListener('click', (e) => {
       e.stopPropagation();
-      menu?.classList.toggle('hidden');
+      dropdown?.classList.toggle('hidden');
     });
 
     // Close menu when clicking outside
     document.addEventListener('click', () => {
-      menu?.classList.add('hidden');
+      dropdown?.classList.add('hidden');
     });
 
     // Theme selection
@@ -103,4 +105,4 @@ class ThemeSelector extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('theme-selector', ThemeSelector);
+customElements.define('settings-menu', SettingsMenu);

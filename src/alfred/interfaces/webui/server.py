@@ -62,6 +62,7 @@ async def _load_current_session(
                 "id": msg.id if hasattr(msg, "id") else str(uuid.uuid4()),
                 "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
                 "content": msg.content,
+                "reasoningContent": msg.reasoning_content if hasattr(msg, "reasoning_content") else "",
             })
 
         await websocket.send_json({
@@ -486,6 +487,11 @@ def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
                 # Handle message based on type
                 msg_type = message.get("type")
                 payload = message.get("payload", {})
+
+                if msg_type == "ping":
+                    # Respond to keepalive ping
+                    await websocket.send_json({"type": "pong"})
+                    continue
 
                 if msg_type == "chat.send":
                     if alfred_instance is None:

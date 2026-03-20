@@ -90,6 +90,15 @@ class ChatMessage extends HTMLElement {
     return this._role;
   }
 
+  setReasoning(reasoning) {
+    this._reasoning = reasoning;
+    this._render();
+  }
+
+  getReasoning() {
+    return this._reasoning;
+  }
+
   appendContent(chunk) {
     this._content += chunk;
     // Only update the content div, don't re-render entire element (preserves children like tool-call)

@@ -3,275 +3,391 @@
  * 
  * Inspired by the International Typographic Style (1950s-60s).
  * Grid-based, clean, objective, with strong typography.
- * Uses Helvetica/Arial, asymmetric layouts, and primary colors.
  */
 
 [data-theme="swiss-international"] {
-  /* Color Palette - Classic Swiss */
-  --bg-primary: #f5f5f5;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #eeeeee;
-  --bg-message-user: #e8e8e8;
-  --bg-message-assistant: #ffffff;
-  --bg-input: #ffffff;
-  --bg-reasoning: #fafafa;
+  /* Color Palette */
+  --swiss-bg-primary: #f5f5f5;
+  --swiss-bg-secondary: #ffffff;
+  --swiss-bg-input: #ffffff;
+  --swiss-bg-header: #ffffff;
+  --swiss-bg-footer: #ffffff;
+  
+  /* Message Colors */
+  --swiss-bg-message-user: #e8e8e8;
+  --swiss-bg-message-assistant: #ffffff;
+  --swiss-border-user: #e30613;
+  --swiss-border-assistant: #1a1a1a;
   
   /* Text Colors */
-  --text-primary: #1a1a1a;
-  --text-secondary: #4a4a4a;
-  --text-muted: #8a8a8a;
-  --text-accent: #e30613; /* Swiss red */
-  --text-user: #1a1a1a;
+  --swiss-text-primary: #1a1a1a;
+  --swiss-text-secondary: #4a4a4a;
+  --swiss-text-muted: #8a8a8a;
+  --swiss-text-accent: #e30613;
   
   /* Accent Colors */
-  --accent-red: #e30613;
-  --accent-blue: #0066cc;
-  --accent-black: #1a1a1a;
-  --accent-yellow: #ffcc00;
+  --swiss-red: #e30613;
+  --swiss-blue: #0066cc;
+  --swiss-black: #1a1a1a;
   
   /* Borders */
-  --border-color: #1a1a1a;
-  --border-subtle: #cccccc;
+  --swiss-border-color: #1a1a1a;
+  --swiss-border-subtle: #cccccc;
+  --swiss-border-light: #e0e0e0;
   
-  /* Typography - Swiss Style */
-  --font-primary: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-mono: 'Courier New', Courier, monospace;
-  
-  /* Grid & Spacing */
-  --grid-unit: 8px;
-  
-  /* Effects */
-  --shadow-soft: none;
-  --shadow-hard: 4px 4px 0 #1a1a1a;
+  /* Typography */
+  --swiss-font-primary: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --swiss-font-mono: 'Courier New', Courier, monospace;
 }
 
-/* Swiss Theme Specific Styles */
+/* Body & App */
 [data-theme="swiss-international"] body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-primary);
-  line-height: 1.4;
+  background-color: var(--swiss-bg-primary);
+  color: var(--swiss-text-primary);
+  font-family: var(--swiss-font-primary);
 }
 
+[data-theme="swiss-international"] #app {
+  background: var(--swiss-bg-primary);
+}
+
+/* Header */
 [data-theme="swiss-international"] .app-header {
-  background: var(--bg-secondary);
-  border-bottom: 2px solid var(--border-color);
-  padding: calc(var(--grid-unit) * 2) calc(var(--grid-unit) * 3);
+  background: var(--swiss-bg-header);
+  border-bottom: 2px solid var(--swiss-border-color);
+  padding: 1rem 1.5rem;
 }
 
 [data-theme="swiss-international"] .app-header h1 {
-  font-family: var(--font-primary);
+  font-family: var(--swiss-font-primary);
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--accent-red);
+  color: var(--swiss-red);
   text-transform: uppercase;
   font-size: 1.25rem;
 }
 
-[data-theme="swiss-international"] .message-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 800px;
+[data-theme="swiss-international"] .status.connected {
+  background: var(--swiss-blue);
+  color: #fff;
+  font-family: var(--swiss-font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border-radius: 0;
 }
 
-[data-theme="swiss-international"] .message {
+[data-theme="swiss-international"] .status.disconnected {
+  background: var(--swiss-red);
+  color: #fff;
   border-radius: 0;
-  max-width: 100%;
-  padding: calc(var(--grid-unit) * 2);
+}
+
+/* Chat Container */
+[data-theme="swiss-international"] .chat-container {
+  background: var(--swiss-bg-primary);
+}
+
+[data-theme="swiss-international"] .message-list {
+  max-width: 800px;
+  gap: 2px;
+}
+
+/* Messages */
+[data-theme="swiss-international"] .message {
+  max-width: 85%;
+  padding: 1rem 1.25rem;
+  border-radius: 0;
 }
 
 [data-theme="swiss-international"] .message.user {
-  background: var(--bg-message-user);
-  border-left: 4px solid var(--accent-red);
+  background: var(--swiss-bg-message-user);
+  border-left: 4px solid var(--swiss-border-user);
   align-self: flex-start;
   margin-left: 0;
   margin-right: auto;
-  width: 80%;
 }
 
 [data-theme="swiss-international"] .message.assistant {
-  background: var(--bg-message-assistant);
-  border-left: 4px solid var(--accent-black);
+  background: var(--swiss-bg-message-assistant);
+  border-left: 4px solid var(--swiss-border-assistant);
   align-self: flex-end;
   margin-left: auto;
   margin-right: 0;
-  width: 80%;
+  box-shadow: none;
 }
 
 [data-theme="swiss-international"] .message-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: calc(var(--grid-unit));
+  margin-bottom: 0.5rem;
 }
 
 [data-theme="swiss-international"] .message-role {
-  font-family: var(--font-primary);
+  font-family: var(--swiss-font-primary);
   font-size: 0.625rem;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: var(--text-muted);
+  color: var(--swiss-text-muted);
   font-weight: 700;
 }
 
 [data-theme="swiss-international"] .message-time {
-  font-family: var(--font-mono);
+  font-family: var(--swiss-font-mono);
   font-size: 0.625rem;
-  color: var(--text-muted);
+  color: var(--swiss-text-muted);
   text-transform: uppercase;
 }
 
 [data-theme="swiss-international"] .message-content {
+  color: var(--swiss-text-primary);
   font-size: 0.9375rem;
   line-height: 1.5;
 }
 
+/* Reasoning Section */
 [data-theme="swiss-international"] .reasoning-section {
-  background: var(--bg-reasoning);
-  border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--accent-blue);
+  margin: 0.75rem 0;
+  padding: 0;
+  background: var(--swiss-bg-primary);
+  border: 1px solid var(--swiss-border-subtle);
+  border-left: 4px solid var(--swiss-blue);
   border-radius: 0;
-  margin: calc(var(--grid-unit) * 2) 0;
 }
 
 [data-theme="swiss-international"] .reasoning-header {
-  background: var(--bg-tertiary);
-  padding: calc(var(--grid-unit)) calc(var(--grid-unit) * 2);
+  background: var(--swiss-bg-message-user);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--swiss-border-subtle);
 }
 
 [data-theme="swiss-international"] .reasoning-label {
-  font-family: var(--font-primary);
+  font-family: var(--swiss-font-primary);
   font-size: 0.625rem;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: var(--accent-blue);
+  color: var(--swiss-blue);
   font-weight: 700;
 }
 
 [data-theme="swiss-international"] .reasoning-content {
-  font-family: var(--font-mono);
+  font-family: var(--swiss-font-mono);
   font-size: 0.8125rem;
-  color: var(--text-secondary);
+  color: var(--swiss-text-secondary);
   background: transparent;
+  margin-top: 0;
+  padding: 0.75rem;
+}
+
+/* Footer / Input */
+[data-theme="swiss-international"] .app-footer {
+  background: var(--swiss-bg-footer);
+  border-top: 2px solid var(--swiss-border-color);
+  padding: 1rem 1.5rem;
 }
 
 [data-theme="swiss-international"] .input-area {
-  background: var(--bg-secondary);
-  border-top: 2px solid var(--border-color);
-  padding: calc(var(--grid-unit) * 2);
-}
-
-[data-theme="swiss-international"] .input-wrapper {
-  display: flex;
-  gap: calc(var(--grid-unit) * 2);
+  max-width: 800px;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 [data-theme="swiss-international"] .message-input {
-  background: var(--bg-input);
-  border: 2px solid var(--border-color);
-  color: var(--text-primary);
-  font-family: var(--font-primary);
+  background: var(--swiss-bg-input);
+  border: 2px solid var(--swiss-border-color);
+  color: var(--swiss-text-primary);
+  font-family: var(--swiss-font-primary);
   border-radius: 0;
-  font-size: 0.9375rem;
-  min-height: calc(var(--grid-unit) * 6);
 }
 
 [data-theme="swiss-international"] .message-input:focus {
-  border-color: var(--accent-red);
+  border-color: var(--swiss-red);
   outline: none;
   box-shadow: none;
 }
 
+[data-theme="swiss-international"] .message-input::placeholder {
+  color: var(--swiss-text-muted);
+}
+
 [data-theme="swiss-international"] .send-button {
-  background: var(--accent-red);
-  color: white;
-  font-family: var(--font-primary);
+  background: var(--swiss-red);
+  color: #fff;
+  font-family: var(--swiss-font-primary);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   border-radius: 0;
-  border: 2px solid var(--accent-red);
-  padding: calc(var(--grid-unit)) calc(var(--grid-unit) * 3);
   font-size: 0.75rem;
-  transition: all 0.15s ease;
+  padding: 0.75rem 1.5rem;
 }
 
 [data-theme="swiss-international"] .send-button:hover {
-  background: var(--bg-primary);
-  color: var(--accent-red);
+  background: var(--swiss-black);
 }
 
+[data-theme="swiss-international"] .send-button:disabled {
+  background: var(--swiss-text-muted);
+  opacity: 0.5;
+}
+
+/* Tool Calls */
 [data-theme="swiss-international"] .tool-call {
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
-  border-left: 4px solid var(--accent-yellow);
+  background: var(--swiss-bg-secondary);
+  border: 2px solid var(--swiss-border-color);
+  border-left: 4px solid #ffcc00;
   border-radius: 0;
 }
 
 [data-theme="swiss-international"] .tool-call.success {
-  border-left-color: var(--accent-blue);
+  border-left-color: var(--swiss-blue);
 }
 
 [data-theme="swiss-international"] .tool-call.error {
-  border-left-color: var(--accent-red);
+  border-left-color: var(--swiss-red);
 }
 
 [data-theme="swiss-international"] .tool-header {
-  border-bottom: 1px solid var(--border-subtle);
-  padding: calc(var(--grid-unit)) calc(var(--grid-unit) * 2);
+  background: transparent;
+  border-bottom: 1px solid var(--swiss-border-subtle);
 }
 
 [data-theme="swiss-international"] .tool-name {
-  font-family: var(--font-mono);
+  font-family: var(--swiss-font-mono);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
-[data-theme="swiss-international"] .status.connected {
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  font-weight: 700;
+[data-theme="swiss-international"] .tool-content {
+  border-top: 1px solid var(--swiss-border-subtle);
 }
 
-[data-theme="swiss-international"] .thinking-indicator {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
+[data-theme="swiss-international"] .tool-arguments pre,
+[data-theme="swiss-international"] .tool-output pre {
+  background: var(--swiss-bg-primary);
+  border: 1px solid var(--swiss-border-subtle);
 }
 
-[data-theme="swiss-international"] ::-webkit-scrollbar {
+/* Mobile-first responsive for Swiss */
+@media (max-width: 768px) {
+  [data-theme="swiss-international"] .message {
+    max-width: 95%;
+    padding: 0.75rem 1rem;
+  }
+
+  [data-theme="swiss-international"] .message-role,
+  [data-theme="swiss-international"] .reasoning-label {
+    font-size: 0.5625rem;
+    letter-spacing: 0.15em;
+  }
+
+  [data-theme="swiss-international"] .app-header h1 {
+    font-size: 1.125rem;
+  }
+
+  [data-theme="swiss-international"] .send-button {
+    padding: 0.625rem 1rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.05em;
+  }
+
+  [data-theme="swiss-international"] .theme-name {
+    font-size: 0.6875rem;
+  }
+
+  [data-theme="swiss-international"] .settings-dropdown {
+    background: var(--swiss-bg-secondary);
+    border-radius: 0;
+    border: 2px solid var(--swiss-border-color);
+    border-bottom: none;
+    box-shadow: 0 -4px 0 rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Scrollbar */
+[data-theme="swiss-international"] .chat-container::-webkit-scrollbar {
   width: 6px;
 }
 
-[data-theme="swiss-international"] ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+[data-theme="swiss-international"] .chat-container::-webkit-scrollbar-track {
+  background: var(--swiss-bg-primary);
 }
 
-[data-theme="swiss-international"] ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+[data-theme="swiss-international"] .chat-container::-webkit-scrollbar-thumb {
+  background: var(--swiss-border-color);
   border-radius: 0;
 }
 
-/* Grid overlay effect for Swiss style */
-[data-theme="swiss-international"] .chat-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1px;
-  height: 100%;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(227, 6, 19, 0.1) 50%,
-    transparent 100%
-  );
-  pointer-events: none;
+/* Completion Menu */
+[data-theme="swiss-international"] completion-menu {
+  background: var(--swiss-bg-secondary);
+  border: 2px solid var(--swiss-border-color);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="swiss-international"] .completion-item:hover,
+[data-theme="swiss-international"] .completion-item.selected {
+  background: var(--swiss-bg-primary);
+}
+
+[data-theme="swiss-international"] .completion-value {
+  color: var(--swiss-red);
+  font-family: var(--swiss-font-mono);
+}
+
+/* Settings Menu */
+[data-theme="swiss-international"] .settings-icon {
+  stroke: var(--swiss-red);
+}
+
+[data-theme="swiss-international"] .settings-dropdown {
+  background: var(--swiss-bg-secondary);
+  border: 2px solid var(--swiss-border-color);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="swiss-international"] .settings-section-header {
+  color: var(--swiss-text-muted);
+  font-family: var(--swiss-font-primary);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  border-bottom: 2px solid var(--swiss-border-color);
+}
+
+[data-theme="swiss-international"] .theme-option:hover {
+  background: var(--swiss-bg-primary);
+}
+
+[data-theme="swiss-international"] .theme-option.active {
+  background: var(--swiss-bg-primary);
+}
+
+[data-theme="swiss-international"] .theme-option.active .theme-name {
+  color: var(--swiss-red);
+}
+
+[data-theme="swiss-international"] .theme-color-preview {
+  border-radius: 0;
+}
+
+[data-theme="swiss-international"] .theme-name {
+  color: var(--swiss-text-primary);
+  font-family: var(--swiss-font-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+[data-theme="swiss-international"] .theme-description {
+  color: var(--swiss-text-muted);
+  font-size: 0.6875rem;
+}
+
+[data-theme="swiss-international"] .theme-check {
+  color: var(--swiss-red);
+  font-family: var(--swiss-font-mono);
 }
