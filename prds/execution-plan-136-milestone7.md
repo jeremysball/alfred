@@ -30,22 +30,22 @@ Implement rich markdown rendering with syntax highlighting for code blocks, copy
 
 ---
 
-### 7.2 Code Block Syntax Highlighting
+### 7.2 Code Block Syntax Highlighting ✅
 
-- [ ] **Test**: `test_highlight_js_loaded()` - Verify highlight.js is available
+- [x] **Test**: `test_highlight_js_loaded()` - Verify highlight.js is available
   - Check that `hljs` is defined after loading
   - Run: `grep "highlight" src/alfred/interfaces/webui/static/index.html`
 
-- [ ] **Implement**: Add highlight.js to index.html
+- [x] **Implement**: Add highlight.js to index.html
   - Add highlight.js CSS theme (github-dark or similar)
   - Add highlight.js library
   - Commit: `feat(webui): add highlight.js for syntax highlighting`
 
-- [ ] **Test**: `test_code_blocks_highlighted()` - Verify code blocks have highlighting
+- [x] **Test**: `test_code_blocks_highlighted()` - Verify code blocks have highlighting
   - Check that `<pre><code class="language-*">` blocks are processed
   - Run: Manual verification with sample message containing code
 
-- [ ] **Implement**: Apply syntax highlighting to code blocks
+- [x] **Implement**: Apply syntax highlighting to code blocks
   - After rendering markdown, find all `<pre><code>` elements
   - Call `hljs.highlightElement()` on each
   - Auto-detect language if not specified

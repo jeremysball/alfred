@@ -98,6 +98,8 @@ function initAlfredUI() {
         hideStreaming();
         currentAssistantMessage = null;
         enableInput();
+        // Add copy buttons to any new code blocks
+        addCopyButtons();
         // Send next queued message if any
         processQueue();
         break;
@@ -185,6 +187,8 @@ function initAlfredUI() {
         messageList.appendChild(messageEl);
       });
       scrollToBottom();
+      // Add copy buttons to code blocks in loaded messages
+      addCopyButtons();
     }
 
     showSystemMessage(`Session resumed: ${payload.sessionId}`);
@@ -636,6 +640,48 @@ function initAlfredUI() {
   messageInput.focus();
 
   console.log('Alfred Web UI initialized');
+}
+
+// Add copy buttons to code blocks
+function addCopyButtons() {
+  const codeBlocks = document.querySelectorAll('pre code');
+  codeBlocks.forEach((codeBlock) => {
+    // Skip if already wrapped
+    if (codeBlock.closest('.code-block-wrapper')) return;
+
+    const pre = codeBlock.parentElement;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-block-wrapper';
+
+    // Create copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'code-copy-btn';
+    copyBtn.innerHTML = 'Copy';
+    copyBtn.title = 'Copy to clipboard';
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(codeBlock.textContent);
+        copyBtn.innerHTML = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.innerHTML = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        copyBtn.innerHTML = 'Failed';
+        setTimeout(() => {
+          copyBtn.innerHTML = 'Copy';
+        }, 2000);
+      }
+    });
+
+    // Wrap the pre element
+    pre.parentNode.insertBefore(wrapper, pre);
+    wrapper.appendChild(copyBtn);
+    wrapper.appendChild(pre);
+  });
 }
 
 // Initialize when DOM is ready
