@@ -36,11 +36,11 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
   - Verify error handling for invalid commands
   - Commit: `test(webui): add WebSocket command execution tests`
 
-- [ ] **Test**: `test_websocket_status_updates()` - Verify status protocol
+- [x] **Test**: `test_websocket_status_updates()` - Verify status protocol
   - Test `status.update` messages with token usage, model info
   - Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_status_updates -v`
 
-- [ ] **Implement**: Add status update protocol tests
+- [x] **Implement**: Add status update protocol tests
   - Verify status message format matches protocol spec
   - Test token usage counters and model name propagation
   - Commit: `test(webui): add status update protocol tests`
