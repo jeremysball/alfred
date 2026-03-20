@@ -210,13 +210,13 @@ $ alfred webui --open
 ### Milestone 6: Status and Notifications
 **Goal**: Status bar and toast system
 
-- [ ] Fixed status bar component
-- [ ] Real-time token usage display
-- [ ] Model name display
-- [ ] Queue counter with badge
-- [ ] Animated throbber during streaming
-- [ ] Toast notification system for cron events
-- [ ] WebSocket protocol for server→client notifications
+- [x] Fixed status bar component
+- [x] Real-time token usage display
+- [x] Model name display
+- [x] Queue counter with badge
+- [x] Animated throbber during streaming
+- [x] Toast notification system for cron events
+- [x] WebSocket protocol for server→client notifications
 
 **Success Criteria**:
 - Status bar shows accurate token counts
