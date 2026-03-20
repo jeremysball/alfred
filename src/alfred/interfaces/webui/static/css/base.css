@@ -1457,3 +1457,20 @@ toast-container {
   align-items: center;
   justify-content: center;
 }
+
+
+/* Mobile: Always show action buttons */
+@media (max-width: 768px) {
+  .message-actions {
+    opacity: 1 !important;
+  }
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 768px) {
+  .message-action.icon-only {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.25rem;
+  }
+}

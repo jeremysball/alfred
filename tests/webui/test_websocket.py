@@ -1,5 +1,7 @@
 """WebSocket protocol tests for Alfred Web UI."""
 
+from datetime import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from starlette.testclient import TestClient as StarletteTestClient
@@ -128,13 +130,49 @@ class TestWebSocketChatWithoutAlfred:
                    "Alfred instance not available" in data["payload"]["error"]
 
 
+class MockSession:
+    """Mock session for testing."""
+
+    class Message:
+        """Mock message."""
+
+        def __init__(self, role, content):
+            self.role = MockSession.Role(role)
+            self.content = content
+            self.id = "msg-123"
+
+    class Role:
+        """Mock role."""
+
+        def __init__(self, value):
+            self.value = value
+
+    def __init__(self, session_id="test-session-123", messages=None):
+        self.session_id = session_id
+        self.messages = messages or []
+        self.created_at = datetime.now()
+        self.summary = "Test session summary"
+        self.meta = MockSession.Meta(session_id)
+
+    class Meta:
+        """Mock session meta."""
+
+        def __init__(self, session_id):
+            self.session_id = session_id
+
+
 class MockAlfred:
     """Mock Alfred instance for testing chat flow."""
 
-    def __init__(self, chunks=None):
+    def __init__(self, chunks=None, sessions=None):
         self.chunks = chunks or ["Hello", " ", "world", "!"]
         self.chat_called = False
         self.last_message = None
+        self._sessions = sessions or [MockSession("session-1"), MockSession("session-2")]
+        self._current_session = self._sessions[0] if self._sessions else None
+        self.new_session_called = False
+        self.resume_session_called = False
+        self.list_sessions_called = False
 
     async def chat_stream(self, message, tool_callback=None):
         """Mock chat stream that yields chunks."""
@@ -142,6 +180,43 @@ class MockAlfred:
         self.last_message = message
         for chunk in self.chunks:
             yield chunk
+
+    async def new_session(self):
+        """Mock creating a new session."""
+        self.new_session_called = True
+        new_session = MockSession(f"new-session-{len(self._sessions) + 1}")
+        self._sessions.insert(0, new_session)
+        self._current_session = new_session
+        return new_session
+
+    async def resume_session(self, session_id):
+        """Mock resuming a session."""
+        self.resume_session_called = True
+        for session in self._sessions:
+            if session.session_id == session_id:
+                self._current_session = session
+                # Add a mock message to the session
+                session.messages = [MockSession.Message("user", "Hello")]
+                return session
+        raise ValueError(f"Session {session_id} not found")
+
+    async def list_sessions(self, limit=10):
+        """Mock listing sessions."""
+        self.list_sessions_called = True
+        return self._sessions[:limit]
+
+    @property
+    def current_session(self):
+        """Get current session."""
+        return self._current_session
+
+    def get_context(self):
+        """Mock getting context."""
+        return {
+            "cwd": "/test/path",
+            "files": ["test.py"],
+            "system_info": {"platform": "linux"},
+        }
 
 
 @pytest.fixture
@@ -320,3 +395,144 @@ class TestWebSocketCommandWithoutAlfred:
             # Should receive error about Alfred instance first
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
+
+
+class TestWebSocketCommandsWithMockedAlfred:
+    """Test command execution with mocked Alfred instance."""
+
+    def test_command_new_session(self):
+        """Test /new command creates new session."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send /new command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/new"}
+            })
+
+            # Should receive session.new
+            data = websocket.receive_json()
+            assert data["type"] == "session.new"
+            assert "sessionId" in data["payload"]
+            assert "New session created" in data["payload"]["message"]
+            assert mock_alfred.new_session_called
+
+    def test_command_list_sessions(self):
+        """Test /sessions command lists sessions."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send /sessions command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/sessions"}
+            })
+
+            # Should receive session.list
+            data = websocket.receive_json()
+            assert data["type"] == "session.list"
+            assert "sessions" in data["payload"]
+            assert len(data["payload"]["sessions"]) == 2
+            assert data["payload"]["sessions"][0]["id"] == "session-1"
+            assert mock_alfred.list_sessions_called
+
+    def test_command_session_info(self):
+        """Test /session command shows current session info."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send /session command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/session"}
+            })
+
+            # Should receive session.info
+            data = websocket.receive_json()
+            assert data["type"] == "session.info"
+            assert data["payload"]["sessionId"] == "session-1"
+            assert "messageCount" in data["payload"]
+            assert "created" in data["payload"]
+
+    def test_command_resume_session(self):
+        """Test /resume command resumes a session."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send /resume command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/resume session-2"}
+            })
+
+            # Should receive session.loaded
+            data = websocket.receive_json()
+            assert data["type"] == "session.loaded"
+            assert data["payload"]["sessionId"] == "session-2"
+            assert "messages" in data["payload"]
+            assert mock_alfred.resume_session_called
+
+    def test_command_resume_without_session_id(self):
+        """Test /resume command without session ID returns error."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send /resume command without args
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/resume"}
+            })
+
+            # Should receive error
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Session ID required" in data["payload"]["error"]
+
+    def test_command_context(self):
+        """Test /context command shows system context."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send /context command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/context"}
+            })
+
+            # Should receive context.info
+            data = websocket.receive_json()
+            assert data["type"] == "context.info"
+            assert data["payload"]["cwd"] == "/test/path"
+            assert data["payload"]["files"] == ["test.py"]
+            assert "systemInfo" in data["payload"]
