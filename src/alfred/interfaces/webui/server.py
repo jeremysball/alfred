@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 import alfred
 
 if TYPE_CHECKING:
+    from alfred.agent import ToolEvent
     from alfred.alfred import Alfred
 
 # Module-level set to track active WebSocket connections
@@ -48,7 +49,41 @@ async def _handle_chat_message(
         alfred_instance: The Alfred instance
         content: The user message content
     """
+    from alfred.agent import ToolEnd, ToolOutput, ToolStart
+
     message_id = str(uuid.uuid4())
+
+    def _tool_callback(event: "ToolEvent") -> None:
+        """Send tool events via WebSocket (sync wrapper for async send)."""
+        import asyncio
+
+        if isinstance(event, ToolStart):
+            asyncio.create_task(websocket.send_json({
+                "type": "tool.start",
+                "payload": {
+                    "toolCallId": event.tool_call_id,
+                    "toolName": event.tool_name,
+                    "arguments": event.arguments,
+                    "messageId": message_id,
+                },
+            }))
+        elif isinstance(event, ToolOutput):
+            asyncio.create_task(websocket.send_json({
+                "type": "tool.output",
+                "payload": {
+                    "toolCallId": event.tool_call_id,
+                    "chunk": event.chunk,
+                },
+            }))
+        elif isinstance(event, ToolEnd):
+            asyncio.create_task(websocket.send_json({
+                "type": "tool.end",
+                "payload": {
+                    "toolCallId": event.tool_call_id,
+                    "success": not event.is_error,
+                    "output": event.result if not event.is_error else None,
+                },
+            }))
 
     try:
         # Send chat.started message
@@ -60,9 +95,9 @@ async def _handle_chat_message(
             },
         })
 
-        # Stream response from Alfred
+        # Stream response from Alfred with tool callback
         full_content = ""
-        async for chunk in alfred_instance.chat_stream(content):
+        async for chunk in alfred_instance.chat_stream(content, tool_callback=_tool_callback):
             full_content += chunk
             await websocket.send_json({
                 "type": "chat.chunk",

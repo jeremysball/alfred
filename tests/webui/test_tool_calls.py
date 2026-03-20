@@ -130,6 +130,107 @@ def test_tool_message_serialization():
 
 
 # =============================================================================
+# Tool Callback Integration Test
+# =============================================================================
+
+def test_tool_callback_sends_websocket_messages():
+    """Verify tool callback sends correct WebSocket messages."""
+    from alfred.agent import ToolStart, ToolOutput, ToolEnd
+    from alfred.interfaces.webui.server import _handle_chat_message
+    import asyncio
+
+    # Track messages sent via WebSocket
+    sent_messages = []
+
+    class MockWebSocket:
+        """Mock WebSocket that captures sent messages."""
+
+        async def send_json(self, data):
+            sent_messages.append(data)
+
+    class MockAlfred:
+        """Mock Alfred that simulates chat with tool calls."""
+
+        async def chat_stream(self, content, tool_callback=None):
+            """Simulate chat streaming with tool calls."""
+            yield "I'll help you read that file."
+
+            # Simulate tool start
+            if tool_callback:
+                tool_callback(ToolStart(
+                    tool_call_id="call_abc123",
+                    tool_name="read_file",
+                    arguments={"path": "/tmp/test.txt"}
+                ))
+
+            await asyncio.sleep(0)  # Let event loop process the task
+            yield " "
+
+            # Simulate tool output
+            if tool_callback:
+                tool_callback(ToolOutput(
+                    tool_call_id="call_abc123",
+                    tool_name="read_file",
+                    chunk="File contents here"
+                ))
+
+            await asyncio.sleep(0)
+            yield "Done"
+
+            # Simulate tool end
+            if tool_callback:
+                tool_callback(ToolEnd(
+                    tool_call_id="call_abc123",
+                    tool_name="read_file",
+                    result="File contents here",
+                    is_error=False
+                ))
+
+            await asyncio.sleep(0)
+
+    async def run_test():
+        mock_ws = MockWebSocket()
+        mock_alfred = MockAlfred()
+
+        await _handle_chat_message(mock_ws, mock_alfred, "Read /tmp/test.txt")
+
+        # Give event loop time to process any pending tasks
+        await asyncio.sleep(0.1)
+
+        return sent_messages
+
+    # Run the async test
+    messages = asyncio.run(run_test())
+
+    # Verify message types
+    message_types = [m["type"] for m in messages]
+
+    # Should have: chat.started, chat.chunk(s), tool.start, tool.output, tool.end, chat.complete
+    assert "chat.started" in message_types, f"Expected chat.started in {message_types}"
+    assert "chat.complete" in message_types, f"Expected chat.complete in {message_types}, got {messages}"
+    assert "tool.start" in message_types, f"Expected tool.start in {message_types}"
+    assert "tool.output" in message_types, f"Expected tool.output in {message_types}"
+    assert "tool.end" in message_types, f"Expected tool.end in {message_types}"
+
+    # Verify tool.start payload
+    tool_start_msg = next(m for m in messages if m["type"] == "tool.start")
+    assert tool_start_msg["payload"]["toolCallId"] == "call_abc123"
+    assert tool_start_msg["payload"]["toolName"] == "read_file"
+    assert tool_start_msg["payload"]["arguments"] == {"path": "/tmp/test.txt"}
+
+    # Verify tool.output payload
+    tool_output_msg = next(m for m in messages if m["type"] == "tool.output")
+    assert tool_output_msg["payload"]["toolCallId"] == "call_abc123"
+    assert tool_output_msg["payload"]["chunk"] == "File contents here"
+
+    # Verify tool.end payload
+    tool_end_msg = next(m for m in messages if m["type"] == "tool.end")
+    assert tool_end_msg["payload"]["toolCallId"] == "call_abc123"
+    assert tool_end_msg["payload"]["success"] is True
+    assert tool_end_msg["payload"]["output"] == "File contents here"
+
+
+# =============================================================================
 # Frontend Component Tests
 # =============================================================================
 

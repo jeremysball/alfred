@@ -30,31 +30,4 @@ def event_loop():
 # ============================================================================
 
 
-@pytest_asyncio.fixture(scope="session")
-async def browser() -> AsyncGenerator["Browser", None]:
-    """Launch browser for integration tests."""
-    pytest.importorskip("playwright")
-    from playwright.async_api import async_playwright
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        yield browser
-        await browser.close()
-
-
-@pytest_asyncio.fixture
-async def context(browser: "Browser") -> AsyncGenerator["BrowserContext", None]:
-    """Create browser context for each test."""
-    context = await browser.new_context(
-        viewport={"width": 1280, "height": 720},
-    )
-    yield context
-    await context.close()
-
-
-@pytest_asyncio.fixture
-async def page(context: "BrowserContext") -> AsyncGenerator["Page", None]:
-    """Create page for each test."""
-    page = await context.new_page()
-    yield page
-    await page.close()

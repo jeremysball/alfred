@@ -81,10 +81,12 @@ class AlfredWebSocketClient extends EventTarget {
   sendChat(message, sessionId = null) {
     const payload = {
       type: 'chat.send',
-      content: message
+      payload: {
+        content: message
+      }
     };
     if (sessionId) {
-      payload.session_id = sessionId;
+      payload.payload.session_id = sessionId;
     }
     this.send(payload);
   }

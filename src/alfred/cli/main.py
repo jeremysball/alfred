@@ -222,6 +222,9 @@ def webui_callback(
     if ctx.invoked_subcommand is not None:
         return
 
+    # Setup logging FIRST before any other operations
+    _setup_logging()
+
     import uvicorn
 
     from alfred.alfred import Alfred
@@ -467,6 +470,9 @@ app.add_typer(config_app)
 
 async def _run_interactive() -> None:
     """Run interactive CLI or Telegram bot."""
+    # Setup logging FIRST before any other operations
+    _setup_logging()
+
     # Lazy imports - these only run when interactive mode is invoked
     from alfred.alfred import Alfred
     from alfred.config import load_config
@@ -476,10 +482,11 @@ async def _run_interactive() -> None:
     toast_manager: ToastManager | None = None
     if not _run_telegram:
         toast_manager = ToastManager()
+        # Re-configure with toast handler now that we have it
+        _setup_logging(toast_manager)
 
     init_xdg_directories()
     config = load_config()
-    _setup_logging(toast_manager)
 
     alfred = Alfred(config, telegram_mode=_run_telegram)
 

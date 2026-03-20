@@ -114,7 +114,7 @@ show_error_codes = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=alfred --cov-report=term-missing -m 'not integration and not e2e and not slow'"
+addopts = "--cov=alfred --cov-report=term-missing --ignore=tests/e2e"
 filterwarnings = [
   # FAISS ships C extensions via SWIG; these warnings come from the C layer, not our code
   "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
@@ -165,4 +165,5 @@ dev = [
     "types-torch>=0.1.1",
     "vulture>=2.15",
     "websocket-client>=1.9.0",
+    "pytest-timeout",
 ]
