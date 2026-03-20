@@ -98,6 +98,217 @@ async def _handle_chat_message(
         })
 
 
+async def _handle_command(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+    command: str,
+) -> None:
+    """Handle a command message.
+
+    Args:
+        websocket: The WebSocket connection
+        alfred_instance: The Alfred instance (optional)
+        command: The command string
+    """
+    cmd_parts = command.strip().split()
+    if not cmd_parts:
+        return
+
+    cmd = cmd_parts[0].lower()
+    args = cmd_parts[1:] if len(cmd_parts) > 1 else []
+
+    if cmd == "/new":
+        await _handle_new_command(websocket, alfred_instance)
+    elif cmd == "/resume":
+        await _handle_resume_command(websocket, alfred_instance, args)
+    elif cmd == "/sessions":
+        await _handle_sessions_command(websocket, alfred_instance)
+    elif cmd == "/session":
+        await _handle_session_command(websocket, alfred_instance)
+    elif cmd == "/context":
+        await _handle_context_command(websocket, alfred_instance)
+    else:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": f"Unknown command: {cmd}"},
+        })
+
+
+async def _handle_new_command(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+) -> None:
+    """Handle /new command to create a new session."""
+    if alfred_instance is None:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": "Alfred instance not available"},
+        })
+        return
+
+    try:
+        # Create new session via Alfred
+        new_session = await alfred_instance.new_session()
+
+        await websocket.send_json({
+            "type": "session.new",
+            "payload": {
+                "sessionId": new_session.session_id,
+                "message": "New session created",
+            },
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": f"Failed to create session: {str(e)}"},
+        })
+
+
+async def _handle_resume_command(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+    args: list[str],
+) -> None:
+    """Handle /resume command to resume a session."""
+    if alfred_instance is None:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": "Alfred instance not available"},
+        })
+        return
+
+    if not args:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": "Session ID required: /resume <session_id>"},
+        })
+        return
+
+    session_id = args[0]
+
+    try:
+        # Resume session via Alfred
+        session = await alfred_instance.resume_session(session_id)
+
+        # Convert messages to serializable format
+        messages = []
+        for msg in session.messages:
+            messages.append({
+                "id": msg.id if hasattr(msg, "id") else str(uuid.uuid4()),
+                "role": msg.role,
+                "content": msg.content,
+            })
+
+        await websocket.send_json({
+            "type": "session.loaded",
+            "payload": {
+                "sessionId": session.session_id,
+                "messages": messages,
+            },
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": f"Failed to resume session: {str(e)}"},
+        })
+
+
+async def _handle_sessions_command(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+) -> None:
+    """Handle /sessions command to list recent sessions."""
+    if alfred_instance is None:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": "Alfred instance not available"},
+        })
+        return
+
+    try:
+        # Get recent sessions
+        sessions = await alfred_instance.list_sessions(limit=10)
+
+        session_list = []
+        for session in sessions:
+            session_list.append({
+                "id": session.session_id,
+                "created": session.created_at.isoformat() if hasattr(session, "created_at") else "",
+                "messageCount": len(session.messages) if hasattr(session, "messages") else 0,
+                "summary": session.summary if hasattr(session, "summary") else "",
+            })
+
+        await websocket.send_json({
+            "type": "session.list",
+            "payload": {"sessions": session_list},
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": f"Failed to list sessions: {str(e)}"},
+        })
+
+
+async def _handle_session_command(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+) -> None:
+    """Handle /session command to show current session info."""
+    if alfred_instance is None:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": "Alfred instance not available"},
+        })
+        return
+
+    try:
+        current_session = alfred_instance.current_session
+
+        await websocket.send_json({
+            "type": "session.info",
+            "payload": {
+                "sessionId": current_session.session_id if hasattr(current_session, "session_id") else "unknown",
+                "messageCount": len(current_session.messages) if hasattr(current_session, "messages") else 0,
+                "created": current_session.created_at.isoformat() if hasattr(current_session, "created_at") else "",
+            },
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": f"Failed to get session info: {str(e)}"},
+        })
+
+
+async def _handle_context_command(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+) -> None:
+    """Handle /context command to show system context."""
+    if alfred_instance is None:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": "Alfred instance not available"},
+        })
+        return
+
+    try:
+        context = alfred_instance.get_context() if hasattr(alfred_instance, "get_context") else {}
+
+        await websocket.send_json({
+            "type": "context.info",
+            "payload": {
+                "cwd": context.get("cwd", ""),
+                "files": context.get("files", []),
+                "systemInfo": context.get("system_info", {}),
+            },
+        })
+    except Exception as e:
+        await websocket.send_json({
+            "type": "chat.error",
+            "payload": {"error": f"Failed to get context: {str(e)}"},
+        })
+
+
 def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -172,6 +383,13 @@ def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
                         websocket,
                         alfred_instance,
                         content,
+                    )
+                elif msg_type == "command.execute":
+                    command = payload.get("command", "")
+                    await _handle_command(
+                        websocket,
+                        alfred_instance,
+                        command,
                     )
                 else:
                     # Echo for other message types (for testing)

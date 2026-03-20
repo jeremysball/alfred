@@ -90,6 +90,26 @@ function initAlfredUI() {
         enableInput();
         break;
 
+      case 'session.new':
+        handleSessionNew(msg.payload);
+        break;
+
+      case 'session.loaded':
+        handleSessionLoaded(msg.payload);
+        break;
+
+      case 'session.list':
+        handleSessionList(msg.payload);
+        break;
+
+      case 'session.info':
+        handleSessionInfo(msg.payload);
+        break;
+
+      case 'context.info':
+        handleContextInfo(msg.payload);
+        break;
+
       case 'tool.start':
         handleToolStart(msg.payload);
         break;
@@ -118,6 +138,101 @@ function initAlfredUI() {
         console.log('Unhandled message type:', msg.type);
     }
   });
+
+  // Session Handlers
+  function handleSessionNew(payload) {
+    // Clear message list for new session
+    messageList.innerHTML = '';
+    showSystemMessage(`New session created: ${payload.sessionId}`);
+    enableInput();
+  }
+
+  function handleSessionLoaded(payload) {
+    // Clear current messages
+    messageList.innerHTML = '';
+
+    // Load session messages
+    if (payload.messages && payload.messages.length > 0) {
+      payload.messages.forEach(msg => {
+        const messageEl = document.createElement('chat-message');
+        messageEl.setAttribute('role', msg.role);
+        messageEl.setAttribute('content', msg.content);
+        messageEl.setAttribute('timestamp', new Date().toISOString());
+        messageList.appendChild(messageEl);
+      });
+      scrollToBottom();
+    }
+
+    showSystemMessage(`Session resumed: ${payload.sessionId}`);
+    enableInput();
+  }
+
+  function handleSessionList(payload) {
+    const sessions = payload.sessions || [];
+
+    if (sessions.length === 0) {
+      showSystemMessage('No recent sessions found.');
+      return;
+    }
+
+    let content = 'Recent sessions:\n\n';
+    sessions.forEach(session => {
+      const created = session.created ? new Date(session.created).toLocaleString() : 'Unknown';
+      content += `ID: ${session.id}\n`;
+      content += `  Created: ${created}\n`;
+      content += `  Messages: ${session.messageCount}\n`;
+      if (session.summary) {
+        content += `  Summary: ${session.summary}\n`;
+      }
+      content += '\n';
+    });
+
+    showSystemMessage(content);
+    enableInput();
+  }
+
+  function handleSessionInfo(payload) {
+    let content = 'Current Session:\n\n';
+    content += `ID: ${payload.sessionId}\n`;
+    content += `Messages: ${payload.messageCount}\n`;
+    if (payload.created) {
+      content += `Created: ${new Date(payload.created).toLocaleString()}\n`;
+    }
+
+    showSystemMessage(content);
+    enableInput();
+  }
+
+  function handleContextInfo(payload) {
+    let content = 'System Context:\n\n';
+    content += `Working Directory: ${payload.cwd || 'Unknown'}\n\n`;
+
+    if (payload.files && payload.files.length > 0) {
+      content += 'Files in context:\n';
+      payload.files.forEach(file => {
+        content += `  - ${file}\n`;
+      });
+      content += '\n';
+    }
+
+    if (payload.systemInfo) {
+      content += 'System Info:\n';
+      Object.entries(payload.systemInfo).forEach(([key, value]) => {
+        content += `  ${key}: ${value}\n`;
+      });
+    }
+
+    showSystemMessage(content);
+    enableInput();
+  }
+
+  function showSystemMessage(content) {
+    const systemMsg = document.createElement('chat-message');
+    systemMsg.setAttribute('role', 'system');
+    systemMsg.setAttribute('content', content);
+    messageList.appendChild(systemMsg);
+    scrollToBottom();
+  }
 
   // Tool Call Handlers
   function handleToolStart(payload) {
