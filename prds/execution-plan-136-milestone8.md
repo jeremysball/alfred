@@ -83,31 +83,31 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
   - Verify content rendering for different tool types
   - Commit: `test(webui): add tool-call component tests`
 
-### 8.3 Integration Tests
+### 8.3 Integration Tests ✅
 
-- [ ] **Test**: `test_full_chat_flow()` - End-to-end chat flow
+- [x] **Test**: `test_full_chat_flow()` - End-to-end chat flow
   - Connect, send message, receive streaming response, verify UI updates
   - Run: `uv run pytest tests/webui/test_integration.py::test_full_chat_flow -v`
 
-- [ ] **Implement**: Create `tests/webui/test_integration.py`
+- [x] **Implement**: Create `tests/webui/test_integration.py`
   - Full stack test with real WebSocket connection
   - Verify message appears in chat panel, status updates, etc.
   - Commit: `test(webui): add full chat flow integration test`
 
-- [ ] **Test**: `test_session_management_flow()` - Session creation and resumption
+- [x] **Test**: `test_session_management_flow()` - Session creation and resumption
   - Test `/new`, `/sessions`, `/resume` commands end-to-end
   - Run: `uv run pytest tests/webui/test_integration.py::test_session_management_flow -v`
 
-- [ ] **Implement**: Add session management integration tests
+- [x] **Implement**: Add session management integration tests
   - Test creating new session, listing sessions, resuming session
   - Verify session state persistence
   - Commit: `test(webui): add session management integration tests`
 
-- [ ] **Test**: `test_error_handling()` - Error scenarios
+- [x] **Test**: `test_error_handling()` - Error scenarios
   - Test WebSocket disconnection, server errors, invalid messages
   - Run: `uv run pytest tests/webui/test_integration.py::test_error_handling -v`
 
-- [ ] **Implement**: Add error handling integration tests
+- [x] **Implement**: Add error handling integration tests
   - Verify graceful handling of connection loss
   - Test error message display in UI
   - Commit: `test(webui): add error handling integration tests`
