@@ -18,11 +18,11 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
   - Test connection acceptance and initial session state
   - Commit: `test(webui): add WebSocket connection handshake tests`
 
-- [ ] **Test**: `test_websocket_chat_send_receive()` - Verify chat message flow
+- [x] **Test**: `test_websocket_chat_send_receive()` - Verify chat message flow
   - Test sending `chat.send` and receiving `chat.chunk` responses
   - Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_chat_send_receive -v`
 
-- [ ] **Implement**: Add chat message flow tests
+- [x] **Implement**: Add chat message flow tests
   - Mock Alfred core responses for deterministic testing
   - Verify message chunks are received in correct order
   - Commit: `test(webui): add chat message flow tests`
