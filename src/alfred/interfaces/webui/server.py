@@ -77,6 +77,47 @@ async def _load_current_session(
         print(f"Failed to load session: {e}")
 
 
+async def _send_status_update(
+    websocket: WebSocket,
+    alfred_instance: "Alfred | None",
+    extra_status: dict | None = None,
+) -> None:
+    """Send current status to the client.
+
+    Args:
+        websocket: The WebSocket connection
+        alfred_instance: The Alfred instance (optional)
+        extra_status: Additional status fields to include
+    """
+    status = {
+        "model": "",
+        "contextTokens": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cacheReadTokens": 0,
+        "reasoningTokens": 0,
+        "queueLength": 0,
+        "isStreaming": False,
+    }
+
+    if extra_status:
+        status.update(extra_status)
+
+    # Try to get model from config
+    if alfred_instance is not None and hasattr(alfred_instance, "config"):
+        try:
+            model = alfred_instance.config.get("model", "")
+            if model:
+                status["model"] = model
+        except Exception:
+            pass
+
+    await websocket.send_json({
+        "type": "status.update",
+        "payload": status,
+    })
+
+
 async def _handle_chat_message(
     websocket: WebSocket,
     alfred_instance: "Alfred",
@@ -125,8 +166,16 @@ async def _handle_chat_message(
                 },
             }))
 
+    # Track token usage
+    token_usage = {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cacheReadTokens": 0,
+        "reasoningTokens": 0,
+    }
+
     try:
-        # Send chat.started message
+        # Send chat.started message and status update
         await websocket.send_json({
             "type": "chat.started",
             "payload": {
@@ -134,6 +183,11 @@ async def _handle_chat_message(
                 "role": "assistant",
             },
         })
+        await _send_status_update(
+            websocket,
+            alfred_instance,
+            {"isStreaming": True, "inputTokens": len(content) // 4},  # Rough estimate
+        )
 
         # Stream response from Alfred with tool callback
         full_content = ""
@@ -182,20 +236,27 @@ async def _handle_chat_message(
                     },
                 })
 
+        # Calculate approximate token counts
+        # Rough approximation: 4 chars ≈ 1 token for English text
+        token_usage["outputTokens"] = len(full_content) // 4
+        token_usage["reasoningTokens"] = len(full_reasoning) // 4
+
         # Send chat.complete message
         await websocket.send_json({
             "type": "chat.complete",
             "payload": {
                 "messageId": message_id,
                 "finalContent": full_content,
-                "usage": {
-                    "inputTokens": 0,  # TODO: Get actual token counts
-                    "outputTokens": 0,
-                    "cacheReadTokens": 0,
-                    "reasoningTokens": 0,
-                },
+                "usage": token_usage,
             },
         })
+
+        # Send status update when streaming ends
+        await _send_status_update(
+            websocket,
+            alfred_instance,
+            {"isStreaming": False, **token_usage},
+        )
 
     except Exception as e:
         # Send chat.error message
@@ -206,6 +267,12 @@ async def _handle_chat_message(
                 "error": str(e),
             },
         })
+        # Send status update when streaming ends on error
+        await _send_status_update(
+            websocket,
+            alfred_instance,
+            {"isStreaming": False, **token_usage},
+        )
 
 
 async def _handle_command(

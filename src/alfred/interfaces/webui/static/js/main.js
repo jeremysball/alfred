@@ -148,7 +148,7 @@ function initAlfredUI() {
         break;
 
       case 'status.update':
-        console.log('Status update:', msg.payload);
+        updateStatusBar(msg.payload);
         break;
 
       case 'toast':
@@ -466,6 +466,42 @@ function initAlfredUI() {
 
   function showToast(message, level = 'info') {
     console.log(`[${level?.toUpperCase() || 'INFO'}] ${message}`);
+  }
+
+  // Status Bar Update
+  function updateStatusBar(payload) {
+    const statusBar = document.getElementById('status-bar');
+    if (!statusBar) return;
+
+    // Update model
+    if (payload.model !== undefined) {
+      statusBar.setAttribute('model', payload.model);
+    }
+
+    // Update tokens
+    if (payload.inputTokens !== undefined || payload.outputTokens !== undefined) {
+      statusBar.setAttribute('inputtokens', payload.inputTokens || 0);
+      statusBar.setAttribute('outputtokens', payload.outputTokens || 0);
+      if (payload.cacheReadTokens !== undefined) {
+        statusBar.setAttribute('cachedtokens', payload.cacheReadTokens);
+      }
+      if (payload.reasoningTokens !== undefined) {
+        statusBar.setAttribute('reasoningtokens', payload.reasoningTokens);
+      }
+      if (payload.contextTokens !== undefined) {
+        statusBar.setAttribute('contexttokens', payload.contextTokens);
+      }
+    }
+
+    // Update queue
+    if (payload.queueLength !== undefined) {
+      statusBar.setAttribute('queue', payload.queueLength);
+    }
+
+    // Update streaming status
+    if (payload.isStreaming !== undefined) {
+      statusBar.setAttribute('streaming', payload.isStreaming);
+    }
   }
 
   // Event Listeners
