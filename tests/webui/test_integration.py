@@ -1,457 +1,694 @@
 """Integration tests for Alfred Web UI.
 
-These tests run the full stack to catch bugs that unit tests miss.
-Uses httpx for API tests and Playwright for UI tests.
-
-NOTE: These tests are marked as slow and require the full Alfred server
-to start, which can take 30+ seconds due to model loading.
+These tests verify end-to-end functionality through the WebSocket connection,
+testing the complete flow from connection establishment through message handling.
 """
-
-from __future__ import annotations
-
-import asyncio
-import json
-import os
-import subprocess
-import sys
-import time
-from typing import TYPE_CHECKING
 
 import pytest
+from fastapi.testclient import TestClient
 
-if TYPE_CHECKING:
-    from playwright.async_api import Page
-
-
-pytestmark = [
-    pytest.mark.playwright,
-    pytest.mark.slow,
-    pytest.mark.timeout(30),  # Global 30s timeout for all tests in this file
-]
+from alfred.interfaces.webui.server import create_app
 
 
-# ============================================================================
-# Skip Conditions
-# ============================================================================
+class MockSession:
+    """Mock session for integration testing."""
+
+    class Message:
+        """Mock message."""
+
+        def __init__(self, role, content):
+            from datetime import datetime
+            self.role = MockSession.Role(role)
+            self.content = content
+            self.id = f"msg-{datetime.now().timestamp()}"
+            self.created_at = datetime.now()
+
+    class Role:
+        """Mock role."""
+
+        def __init__(self, value):
+            self.value = value
+
+    def __init__(self, session_id="test-session-123", messages=None):
+        from datetime import datetime
+        self.session_id = session_id
+        self.messages = messages or []
+        self.created_at = datetime.now()
+        self.summary = "Test session summary"
+        self.meta = MockSession.Meta(session_id)
+
+    class Meta:
+        """Mock session meta."""
+
+        def __init__(self, session_id):
+            self.session_id = session_id
 
 
-def pytest_configure(config):
-    """Register custom markers."""
-    config.addinivalue_line("markers", "slow: marks tests as slow running")
+class MockAlfred:
+    """Mock Alfred instance for integration testing."""
+
+    def __init__(self, chunks=None, sessions=None, config=None):
+        self.chunks = chunks or ["Hello", ", ", "this", " is", " a", " test", " response", "."]
+        self.chat_called = False
+        self.last_message = None
+        self._sessions = sessions or [
+            MockSession("session-1"),
+            MockSession("session-2"),
+        ]
+        self._current_session = self._sessions[0] if self._sessions else None
+        self.new_session_called = False
+        self.resume_session_called = False
+        self.list_sessions_called = False
+        self.config = config or {"model": "claude-3-sonnet-20240229"}
+
+    async def chat_stream(self, message, tool_callback=None):
+        """Mock chat stream that yields chunks."""
+        self.chat_called = True
+        self.last_message = message
+        for chunk in self.chunks:
+            yield chunk
+
+    async def new_session(self):
+        """Mock creating a new session."""
+        self.new_session_called = True
+        new_session = MockSession(f"new-session-{len(self._sessions) + 1}")
+        self._sessions.insert(0, new_session)
+        self._current_session = new_session
+        return new_session
+
+    async def resume_session(self, session_id):
+        """Mock resuming a session."""
+        self.resume_session_called = True
+        for session in self._sessions:
+            if session.session_id == session_id:
+                self._current_session = session
+                # Add a mock message to the session
+                session.messages = [MockSession.Message("user", "Hello")]
+                return session
+        raise ValueError(f"Session {session_id} not found")
+
+    async def list_sessions(self, limit=10):
+        """Mock listing sessions."""
+        self.list_sessions_called = True
+        return self._sessions[:limit]
+
+    @property
+    def current_session(self):
+        """Get current session."""
+        return self._current_session
+
+    def get_context(self):
+        """Mock getting context."""
+        return {
+            "cwd": "/workspace/alfred-prd",
+            "files": ["README.md", "pyproject.toml"],
+            "system_info": {"platform": "linux"},
+        }
 
 
-# Skip if running in CI or SKIP_SLOW_TESTS is set (but not for browser check -
-# browser tests have their own skip markers)
-pytestmark.append(
-    pytest.mark.skipif(
-        os.environ.get("SKIP_SLOW_TESTS") == "1" or os.environ.get("CI") == "1",
-        reason="Skipped: CI or SKIP_SLOW_TESTS=1",
-    )
-)
+@pytest.fixture
+def mock_alfred():
+    """Create a mock Alfred instance."""
+    return MockAlfred()
 
 
-# ============================================================================
-# Fixtures
-# ============================================================================
+@pytest.fixture
+def client(mock_alfred):
+    """Create test client with mocked Alfred."""
+    app = create_app(alfred_instance=mock_alfred)
+    return TestClient(app), mock_alfred
 
 
-@pytest.fixture(scope="module")
-def server_port() -> int:
-    """Get a free port for the test server."""
-    import socket
+class TestFullChatFlow:
+    """End-to-end tests for complete chat flows."""
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+    def test_full_chat_flow_single_message(self, client):
+        """Test complete flow: connect, send message, receive streaming response.
 
+        Verifies:
+        - WebSocket connection established
+        - Chat message sent successfully
+        - Streaming response received in correct order
+        - Status updates received during streaming
+        - Final completion message received
+        - All message IDs are consistent
+        """
+        test_client, mock_alfred = client
 
-@pytest.fixture(scope="module")
-def server_url(server_port: int) -> str:
-    """Get the server URL."""
-    return f"http://127.0.0.1:{server_port}"
+        with test_client.websocket_connect("/ws") as websocket:
+            # Step 1: Receive connection confirmation
+            data = websocket.receive_json()
+            assert data["type"] == "connected"
+            assert "payload" in data
 
+            # Step 2: Send a chat message
+            test_message = "What is the weather today?"
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": test_message}
+            })
 
-@pytest.fixture(scope="module")
-def server_process(server_port: int):
-    """Start the Alfred Web UI server as a subprocess with timeout."""
-    import tempfile
-    import shutil
+            # Step 3: Receive chat.started
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+            assert "messageId" in data["payload"]
+            message_id = data["payload"]["messageId"]
+            assert data["payload"]["role"] == "assistant"
 
-    # Create a temporary directory for test data
-    temp_dir = tempfile.mkdtemp(prefix="alfred_test_")
+            # Step 4: Collect streaming response
+            received_chunks = []
+            status_updates = []
+            received_complete = False
 
-    # Set environment variables for test isolation
-    env = os.environ.copy()
-    env["XDG_DATA_HOME"] = os.path.join(temp_dir, "data")
-    env["XDG_CONFIG_HOME"] = os.path.join(temp_dir, "config")
-    env["XDG_STATE_HOME"] = os.path.join(temp_dir, "state")
-    env["ALFRED_CONFIG_DIR"] = temp_dir
-    # Use local embeddings to avoid API calls
-    env["EMBEDDING_MODEL"] = "BAAI/bge-base-en-v1.5"
-    # Reduce log noise
-    env["PYTHONWARNINGS"] = "ignore"
+            while not received_complete:
+                data = websocket.receive_json()
 
-    # Start server with a standalone script - use minimal config
-    server_script = f"""
-import asyncio
-import sys
-import os
+                if data["type"] == "chat.chunk":
+                    received_chunks.append(data["payload"]["content"])
+                    assert data["payload"]["messageId"] == message_id
+                elif data["type"] == "status.update":
+                    status_updates.append(data["payload"])
+                    # Verify status format
+                    assert "model" in data["payload"]
+                    assert "inputTokens" in data["payload"]
+                    assert "outputTokens" in data["payload"]
+                    assert "isStreaming" in data["payload"]
+                elif data["type"] == "chat.complete":
+                    assert data["payload"]["messageId"] == message_id
+                    assert "finalContent" in data["payload"]
+                    assert "usage" in data["payload"]
+                    received_complete = True
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
 
-# Silence verbose logging
-os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+            # Step 5: Verify results
+            assert received_chunks == mock_alfred.chunks
+            assert mock_alfred.chat_called
+            assert mock_alfred.last_message == test_message
+            assert len(status_updates) >= 1  # At least one status update
 
-sys.path.insert(0, "/workspace/alfred-prd/src")
+    def test_full_chat_flow_multiple_messages(self, client):
+        """Test sending multiple messages in sequence.
 
-async def main():
-    # Create a minimal mock Alfred that just serves the web UI
-    from fastapi import FastAPI
-    from fastapi.staticfiles import StaticFiles
-    from starlette.responses import FileResponse, RedirectResponse
-    import uvicorn
+        Verifies:
+        - Multiple chat messages can be sent in one session
+        - Each message gets its own message ID
+        - Message IDs are unique per message
+        """
+        test_client, mock_alfred = client
 
-    app = FastAPI()
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
 
-    # Minimal static file serving setup
-    static_dir = "/workspace/alfred-prd/src/alfred/interfaces/webui/static"
+            message_ids = []
 
-    @app.get("/health")
-    async def health():
-        return {{"status": "ok", "version": "test"}}
+            for i in range(3):
+                # Send message
+                websocket.send_json({
+                    "type": "chat.send",
+                    "payload": {"content": f"Message {i + 1}"}
+                })
 
-    @app.get("/")
-    async def root():
-        return FileResponse(f"{{static_dir}}/index.html")
+                # Receive chat.started (may be preceded by status updates)
+                while True:
+                    data = websocket.receive_json()
+                    if data["type"] == "chat.started":
+                        message_id = data["payload"]["messageId"]
+                        message_ids.append(message_id)
+                        break
+                    elif data["type"] == "status.update":
+                        continue
 
-    # Serve static files
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+                # Collect response
+                while True:
+                    data = websocket.receive_json()
+                    if data["type"] == "chat.complete":
+                        break
+                    elif data["type"] == "status.update":
+                        continue
+                    # Ignore other message types
 
-    # WebSocket endpoint - minimal mock
-    from fastapi import WebSocket
+            # Verify all message IDs are unique
+            assert len(message_ids) == 3
+            assert len(set(message_ids)) == 3  # All unique
 
-    @app.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket):
-        await websocket.accept()
-        await websocket.send_json({{"type": "connected", "payload": {{}}}})
-        try:
+    def test_full_chat_flow_with_reasoning(self, client):
+        """Test chat flow with reasoning blocks.
+
+        Verifies:
+        - Reasoning chunks are properly identified and sent
+        - Reasoning and content chunks are separated
+        - Final content includes both reasoning and response
+        """
+        test_client, mock_alfred = client
+
+        # Setup reasoning chunks
+        mock_alfred.chunks = [
+            "[REASONING]",
+            "Let me think about this question",
+            ". I need to consider the context",
+            "[/REASONING]",
+            "Based on my analysis, the answer is 42."
+        ]
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "What is the meaning of life?"}
+            })
+
+            # Collect response
+            reasoning_chunks = []
+            content_chunks = []
+
             while True:
-                data = await websocket.receive_json()
-                msg_type = data.get("type", "")
-                payload = data.get("payload", {{}})
-                content = payload.get("content", "").strip()
-
-                if msg_type == "chat.send":
-                    if not content:
-                        await websocket.send_json({{
-                            "type": "chat.error",
-                            "payload": {{"error": "Message cannot be empty"}}
-                        }})
-                    else:
-                        await websocket.send_json({{
-                            "type": "chat.response",
-                            "payload": {{"content": f"Echo: {{content}}"}}
-                        }})
-        except Exception:
-            pass
-
-    config = uvicorn.Config(
-        app,
-        host="127.0.0.1",
-        port={server_port},
-        log_level="critical",
-        access_log=False,
-    )
-    server = uvicorn.Server(config)
-    await server.serve()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-"""
-
-    process = subprocess.Popen(
-        [sys.executable, "-c", server_script],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
-    )
-
-    # Wait for server to start with hard timeout
-    max_retries = 60  # 30 seconds max
-    started = False
-    start_time = time.time()
-
-    for i in range(max_retries):
-        # Check if process died
-        if process.poll() is not None:
-            stdout, stderr = process.communicate()
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            raise RuntimeError(
-                f"Server exited early (code {process.returncode}).\n"
-                f"stdout: {stdout.decode()[:1000]}\n"
-                f"stderr: {stderr.decode()[:1000]}"
-            )
-
-        # Check overall timeout
-        if time.time() - start_time > 30:
-            process.terminate()
-            try:
-                stdout, stderr = process.communicate(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                stdout, stderr = b"", b""
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            raise RuntimeError(
-                f"Server startup timeout (30s).\n"
-                f"stdout: {stdout.decode()[:1000]}\n"
-                f"stderr: {stderr.decode()[:1000]}"
-            )
-
-        # Try to connect
-        try:
-            import socket
-
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(1.0)
-                s.connect(("127.0.0.1", server_port))
-                started = True
-                break
-        except (ConnectionRefusedError, socket.timeout, OSError):
-            time.sleep(0.5)
-
-    if not started:
-        process.terminate()
-        try:
-            stdout, stderr = process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            stdout, stderr = b"", b""
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        raise RuntimeError(
-            f"Server failed to start after {max_retries} retries.\n"
-            f"stdout: {stdout.decode()[:1000]}\n"
-            f"stderr: {stderr.decode()[:1000]}"
-        )
-
-    yield process
-
-    # Cleanup
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill()
-
-    shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-# ============================================================================
-# HTTP/API Tests
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_server_health_endpoint(server_process, server_url: str) -> None:
-    """Test that health endpoint returns OK."""
-    import httpx
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{server_url}/health", timeout=10.0)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert "version" in data
-
-
-@pytest.mark.asyncio
-async def test_static_files_served(server_process, server_url: str) -> None:
-    """Test that static files are served correctly."""
-    import httpx
-
-    async with httpx.AsyncClient() as client:
-        # Test index.html redirect
-        response = await client.get(f"{server_url}/", timeout=10.0)
-        assert response.status_code in [200, 307, 302]
-
-        # Test static files
-        response = await client.get(f"{server_url}/static/css/base.css", timeout=10.0)
-        assert response.status_code == 200
-
-        response = await client.get(f"{server_url}/static/js/main.js", timeout=10.0)
-        assert response.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_websocket_connection(server_process, server_url: str) -> None:
-    """Test WebSocket connection and basic message handling."""
-    import websockets
-
-    ws_url = server_url.replace("http://", "ws://") + "/ws"
-
-    async with websockets.connect(ws_url) as websocket:
-        # Wait for connected message
-        response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-        data = json.loads(response)
-        assert data["type"] == "connected"
-
-
-@pytest.mark.asyncio
-async def test_empty_message_rejected(server_process, server_url: str) -> None:
-    """Test that empty messages are rejected via WebSocket."""
-    import websockets
-
-    ws_url = server_url.replace("http://", "ws://") + "/ws"
-
-    async with websockets.connect(ws_url) as websocket:
-        # Wait for connected message
-        await asyncio.wait_for(websocket.recv(), timeout=5.0)
-
-        # Send empty message
-        await websocket.send(
-            json.dumps({"type": "chat.send", "payload": {"content": "   "}})
-        )
-
-        # Should receive error
-        response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-        data = json.loads(response)
-        assert data["type"] == "chat.error"
-        assert "empty" in data["payload"]["error"].lower()
-
-
-@pytest.mark.asyncio
-async def test_whitespace_only_message_rejected(server_process, server_url: str) -> None:
-    """Test that whitespace-only messages are rejected."""
-    import websockets
-
-    ws_url = server_url.replace("http://", "ws://") + "/ws"
-
-    async with websockets.connect(ws_url) as websocket:
-        await asyncio.wait_for(websocket.recv(), timeout=5.0)
-
-        await websocket.send(
-            json.dumps({"type": "chat.send", "payload": {"content": "\n\t  "}})
-        )
-
-        response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-        data = json.loads(response)
-        assert data["type"] == "chat.error"
-
-
-# ============================================================================
-# Playwright UI Tests
-# ============================================================================
-# NOTE: These tests require a working Playwright browser installation.
-# They use the synchronous page fixture from pytest-playwright.
-
-
-def test_page_loads_and_shows_chat_interface(page, server_process, server_url: str) -> None:
-    """Test that the page loads and shows the chat interface."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    # Check title contains Alfred
-    title = page.title()
-    assert "Alfred" in title
-
-    # Check main elements exist
-    assert page.locator("#chat-container").count() > 0
-    assert page.locator("#message-input").count() > 0
-
-
-def test_empty_message_shows_error(page, server_process, server_url: str) -> None:
-    """Test that sending an empty message shows an error."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    # Clear input and try to send
-    input_field = page.locator("#message-input")
-    input_field.fill("")
-
-    # Click send button (or press Enter)
-    send_button = page.locator("#send-button")
-    if send_button.count() > 0:
-        send_button.click()
-    else:
-        input_field.press("Enter")
-
-    # Wait a moment for any error
-    page.wait_for_timeout(500)
-
-
-def test_command_completion_shows_on_slash(page, server_process, server_url: str) -> None:
-    """Test that typing '/' shows command completion menu."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    input_field = page.locator("#message-input")
-    input_field.fill("/")
-
-    # Wait for completion menu
-    try:
-        completion_menu = page.locator("#completion-menu")
-        completion_menu.wait_for(state="visible", timeout=2000)
-    except Exception:
-        # Menu might not exist yet - that's ok for this test
-        pass
-
-
-def test_escape_closes_completion_menu(page, server_process, server_url: str) -> None:
-    """Test that Escape key closes the completion menu."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    input_field = page.locator("#message-input")
-    input_field.fill("/")
-    page.wait_for_timeout(300)
-
-    # Press Escape
-    page.keyboard.press("Escape")
-    page.wait_for_timeout(300)
-
-
-def test_connection_status_indicator(page, server_process, server_url: str) -> None:
-    """Test that connection status indicator exists."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    # Look for connection indicator
-    indicators = [
-        "[data-testid='connection-status']",
-        ".connection-status",
-        "#connection-status",
-    ]
-
-    found = False
-    for selector in indicators:
-        if page.locator(selector).count() > 0:
-            found = True
-            break
-
-    # Just check page loaded successfully
-    assert page.locator("body").count() > 0
-
-
-def test_chat_container_exists(page, server_process, server_url: str) -> None:
-    """Test that chat container exists."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    chat_container = page.locator("#chat-container")
-    assert chat_container.count() > 0
-
-
-def test_input_field_exists(page, server_process, server_url: str) -> None:
-    """Test that input field exists and is editable."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    input_field = page.locator("#message-input")
-    assert input_field.count() > 0
-    assert input_field.is_visible()
-
-
-def test_send_button_exists(page, server_process, server_url: str) -> None:
-    """Test that send button exists."""
-    page.goto(server_url, timeout=10000, wait_until="domcontentloaded")
-
-    # Button might have different selectors
-    selectors = ["#send-button", "button[type='submit']", ".send-button"]
-
-    for selector in selectors:
-        if page.locator(selector).count() > 0:
-            return
-
-    # If no button found, that's ok - Enter key might be the only way
-    pass
+                data = websocket.receive_json()
+
+                if data["type"] == "reasoning.chunk":
+                    reasoning_chunks.append(data["payload"]["content"])
+                elif data["type"] == "chat.chunk":
+                    content_chunks.append(data["payload"]["content"])
+                elif data["type"] == "chat.complete":
+                    break
+                elif data["type"] == "status.update":
+                    continue
+
+            # Verify reasoning was extracted
+            assert len(reasoning_chunks) > 0
+            assert "Let me think" in "".join(reasoning_chunks)
+            assert "answer is 42" in "".join(content_chunks)
+
+
+class TestSessionManagementFlow:
+    """End-to-end tests for session management commands."""
+
+    def test_session_create_new_session(self, client):
+        """Test creating a new session via /new command.
+
+        Verifies:
+        - /new command creates a new session
+        - New session ID is returned
+        - Confirmation message is sent
+        """
+        test_client, mock_alfred = client
+        original_session_count = len(mock_alfred._sessions)
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send /new command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/new"}
+            })
+
+            # Receive session.new response
+            data = websocket.receive_json()
+            assert data["type"] == "session.new"
+            assert "sessionId" in data["payload"]
+            assert "New session created" in data["payload"]["message"]
+
+            # Verify session was created
+            assert mock_alfred.new_session_called
+            assert len(mock_alfred._sessions) == original_session_count + 1
+
+    def test_session_list_sessions(self, client):
+        """Test listing sessions via /sessions command.
+
+        Verifies:
+        - /sessions command returns list of sessions
+        - Each session has required fields (id, summary, created)
+        """
+        test_client, mock_alfred = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send /sessions command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/sessions"}
+            })
+
+            # Receive session.list response
+            data = websocket.receive_json()
+            assert data["type"] == "session.list"
+            assert "sessions" in data["payload"]
+            assert len(data["payload"]["sessions"]) == 2
+
+            # Verify session structure
+            for session in data["payload"]["sessions"]:
+                assert "id" in session
+                assert "summary" in session
+                assert "created" in session
+
+            assert mock_alfred.list_sessions_called
+
+    def test_session_resume_session(self, client):
+        """Test resuming a session via /resume command.
+
+        Verifies:
+        - /resume <session_id> switches to specified session
+        - Session messages are loaded
+        - Confirmation message includes session ID
+        """
+        test_client, mock_alfred = client
+        target_session_id = "session-2"
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send /resume command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": f"/resume {target_session_id}"}
+            })
+
+            # Receive session.loaded response
+            data = websocket.receive_json()
+            assert data["type"] == "session.loaded"
+            assert data["payload"]["sessionId"] == target_session_id
+            assert "messages" in data["payload"]
+
+            assert mock_alfred.resume_session_called
+
+    def test_session_resume_without_id(self, client):
+        """Test /resume command without session ID.
+
+        Verifies:
+        - Error is returned when session ID is missing
+        - Error message is descriptive
+        """
+        test_client, mock_alfred = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send /resume without ID
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/resume"}
+            })
+
+            # Receive error response
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Session ID required" in data["payload"]["error"]
+
+    def test_session_full_workflow(self, client):
+        """Test complete session management workflow.
+
+        Verifies:
+        - Create new session
+        - List sessions shows new session
+        - Resume original session
+        - List sessions again
+        """
+        test_client, mock_alfred = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Step 1: Create new session
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/new"}
+            })
+            data = websocket.receive_json()
+            assert data["type"] == "session.new"
+            new_session_id = data["payload"]["sessionId"]
+
+            # Step 2: List sessions
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/sessions"}
+            })
+            data = websocket.receive_json()
+            assert data["type"] == "session.list"
+            assert len(data["payload"]["sessions"]) == 3  # Original 2 + new 1
+
+            # Step 3: Resume original session
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/resume session-1"}
+            })
+            data = websocket.receive_json()
+            assert data["type"] == "session.loaded"
+            assert data["payload"]["sessionId"] == "session-1"
+
+            # Step 4: Get current session info
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/session"}
+            })
+            data = websocket.receive_json()
+            assert data["type"] == "session.info"
+            assert data["payload"]["sessionId"] == "session-1"
+
+
+class TestErrorHandling:
+    """Tests for error scenarios and edge cases."""
+
+    def test_error_chat_without_alfred(self):
+        """Test error when Alfred instance is not available.
+
+        Verifies:
+        - Appropriate error is returned
+        - Connection remains open
+        """
+        app = create_app(alfred_instance=None)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Hello"}
+            })
+
+            # Receive error
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Alfred instance not available" in data["payload"]["error"]
+
+            # Verify connection is still open
+            websocket.send_json({"type": "ping"})
+            data = websocket.receive_json()
+            assert data["type"] == "pong"
+
+    def test_error_invalid_json(self, client):
+        """Test handling of invalid JSON messages.
+
+        Verifies:
+        - Error is returned for invalid JSON
+        - Connection remains open
+        """
+        test_client, _ = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send invalid JSON
+            websocket.send_text("not valid json {{{")
+
+            # Receive error
+            data = websocket.receive_json()
+            assert data["type"] == "error"
+            assert "Invalid JSON" in data["payload"]["error"]
+
+            # Verify connection is still open
+            websocket.send_json({"type": "ping"})
+            data = websocket.receive_json()
+            assert data["type"] == "pong"
+
+    def test_error_unknown_command(self, client):
+        """Test handling of unknown commands.
+
+        Verifies:
+        - Error is returned for unknown commands
+        - Connection remains open
+        """
+        test_client, _ = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send unknown command
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/unknowncommand"}
+            })
+
+            # Receive error
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+
+            # Verify connection is still open
+            websocket.send_json({"type": "ping"})
+            data = websocket.receive_json()
+            assert data["type"] == "pong"
+
+    def test_error_empty_message(self, client):
+        """Test handling of empty chat messages.
+
+        Verifies:
+        - Error is returned for empty content
+        - Connection remains open
+        """
+        test_client, _ = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send empty message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "   "}
+            })
+
+            # Receive error
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "cannot be empty" in data["payload"]["error"]
+
+    def test_error_resume_nonexistent_session(self, client):
+        """Test resuming a session that doesn't exist.
+
+        Verifies:
+        - Error is returned for non-existent session
+        - Connection remains open
+        """
+        test_client, _ = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Try to resume non-existent session
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/resume nonexistent-session"}
+            })
+
+            # Receive error
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "not found" in data["payload"]["error"].lower()
+
+    def test_recovery_after_error(self, client):
+        """Test that normal operation resumes after an error.
+
+        Verifies:
+        - Error occurs
+        - Subsequent valid requests work correctly
+        """
+        test_client, mock_alfred = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Step 1: Cause an error (empty message)
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": ""}
+            })
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+
+            # Step 2: Send valid message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Valid message after error"}
+            })
+
+            # Should receive chat.started
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+
+            # Complete the chat
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "chat.complete":
+                    break
+
+            assert mock_alfred.chat_called
+
+
+class TestConcurrentOperations:
+    """Tests for concurrent and rapid operations."""
+
+    def test_rapid_ping_pong(self, client):
+        """Test rapid ping/pong exchanges.
+
+        Verifies:
+        - Server handles rapid messages
+        - All pongs are received
+        - No message loss
+        """
+        test_client, _ = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send 10 rapid pings
+            for _ in range(10):
+                websocket.send_json({"type": "ping"})
+
+            # Receive all pongs
+            pong_count = 0
+            for _ in range(10):
+                data = websocket.receive_json()
+                if data["type"] == "pong":
+                    pong_count += 1
+
+            assert pong_count == 10
+
+    def test_multiple_commands_in_sequence(self, client):
+        """Test multiple commands sent in rapid succession.
+
+        Verifies:
+        - All commands are processed
+        - Responses are received in order
+        """
+        test_client, mock_alfred = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            # Receive connection confirmation
+            websocket.receive_json()
+
+            # Send multiple commands rapidly
+            commands = ["/session", "/context", "/sessions"]
+            for cmd in commands:
+                websocket.send_json({
+                    "type": "command.execute",
+                    "payload": {"command": cmd}
+                })
+
+            # Collect responses
+            responses = []
+            for _ in range(len(commands)):
+                data = websocket.receive_json()
+                responses.append(data["type"])
+
+            # Verify all commands were processed
+            assert "session.info" in responses
+            assert "context.info" in responses
+            assert "session.list" in responses
