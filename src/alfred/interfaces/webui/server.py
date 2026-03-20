@@ -384,14 +384,27 @@ def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
                         })
                         continue
 
-                    content = payload.get("content", "")
+                    content = payload.get("content", "").strip()
+                    if not content:
+                        await websocket.send_json({
+                            "type": "chat.error",
+                            "payload": {"error": "Message content cannot be empty"},
+                        })
+                        continue
+
                     await _handle_chat_message(
                         websocket,
                         alfred_instance,
                         content,
                     )
                 elif msg_type == "command.execute":
-                    command = payload.get("command", "")
+                    command = payload.get("command", "").strip()
+                    if not command:
+                        await websocket.send_json({
+                            "type": "chat.error",
+                            "payload": {"error": "Command cannot be empty"},
+                        })
+                        continue
                     await _handle_command(
                         websocket,
                         alfred_instance,
