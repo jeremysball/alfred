@@ -197,6 +197,7 @@ class Agent:
                 if chunk.startswith("[REASONING]"):
                     chunk_reasoning = chunk[11:]
                     reasoning_content = (reasoning_content or "") + chunk_reasoning
+                    yield chunk  # Forward reasoning to client
                     continue
 
                 # Regular content
