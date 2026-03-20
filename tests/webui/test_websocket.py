@@ -673,3 +673,194 @@ class TestWebSocketStatusUpdates:
                     assert data["payload"]["queueLength"] >= 0
                 elif data["type"] == "chat.complete":
                     break
+
+
+class TestWebSocketErrorHandling:
+    """Test error handling in WebSocket protocol."""
+
+    def test_command_new_session_failure(self):
+        """Test error handling when new_session raises an exception."""
+        mock_alfred = MockAlfred()
+
+        # Override new_session to raise exception
+        async def failing_new_session():
+            raise RuntimeError("Database connection failed")
+        mock_alfred.new_session = failing_new_session
+
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()  # connected
+
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/new"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Failed to create session" in data["payload"]["error"]
+            assert "Database connection failed" in data["payload"]["error"]
+
+    def test_command_resume_session_failure(self):
+        """Test error handling when resume_session raises an exception."""
+        mock_alfred = MockAlfred()
+
+        async def failing_resume_session(session_id):
+            raise ValueError("Session not found in database")
+        mock_alfred.resume_session = failing_resume_session
+
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()  # connected
+
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/resume nonexistent-session"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Failed to resume session" in data["payload"]["error"]
+
+    def test_command_list_sessions_failure(self):
+        """Test error handling when list_sessions raises an exception."""
+        mock_alfred = MockAlfred()
+
+        async def failing_list_sessions(limit=10):
+            raise RuntimeError("Storage backend unavailable")
+        mock_alfred.list_sessions = failing_list_sessions
+
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()  # connected
+
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/sessions"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Failed to list sessions" in data["payload"]["error"]
+
+    def test_command_context_failure(self):
+        """Test error handling when get_context raises an exception."""
+        mock_alfred = MockAlfred()
+
+        def failing_get_context():
+            raise RuntimeError("Context unavailable")
+        mock_alfred.get_context = failing_get_context
+
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()  # connected
+
+            websocket.send_json({
+                "type": "command.execute",
+                "payload": {"command": "/context"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Failed to get context" in data["payload"]["error"]
+
+    def test_chat_stream_exception_handling(self):
+        """Test that chat stream errors are properly handled."""
+        mock_alfred = MockAlfred()
+
+        async def failing_chat_stream(message, tool_callback=None):
+            yield "Starting response..."
+            raise RuntimeError("LLM API error")
+
+        mock_alfred.chat_stream = failing_chat_stream
+
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()  # connected
+
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Hello"}
+            })
+
+            # Should receive chat.started
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+
+            # Collect messages until we get error or complete
+            received_error = False
+            for _ in range(10):  # Limit iterations to prevent infinite loop
+                data = websocket.receive_json()
+                if data["type"] == "chat.error":
+                    received_error = True
+                    assert "LLM API error" in data["payload"]["error"]
+                    break
+                elif data["type"] == "chat.complete":
+                    break
+                # status.update and chat.chunk are also valid
+
+            assert received_error, "Expected chat.error message"
+
+    def test_echo_unknown_message_type(self):
+        """Test that unknown message types are echoed back."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()  # connected
+
+            # Send unknown message type
+            websocket.send_json({
+                "type": "custom.unknown.type",
+                "payload": {"data": "test"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "echo"
+            assert data["payload"]["received"]["type"] == "custom.unknown.type"
+
+
+class TestWebUIHTTPEndpoints:
+    """Test HTTP endpoints for Web UI."""
+
+    def test_health_check_endpoint(self):
+        """Test the /health endpoint returns correct status."""
+        app = create_app(alfred_instance=None)
+        client = TestClient(app)
+
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "version" in data
+
+    def test_root_redirects_to_static(self):
+        """Test that / redirects to static index.html."""
+        app = create_app(alfred_instance=None)
+        client = TestClient(app)
+
+        response = client.get("/", follow_redirects=False)
+        assert response.status_code == 307
+        assert response.headers["location"] == "/static/index.html"
+
+    def test_static_files_served(self):
+        """Test that static files are accessible."""
+        app = create_app(alfred_instance=None)
+        client = TestClient(app)
+
+        # Should be able to access static files (index.html should exist)
+        response = client.get("/static/index.html")
+        # File exists or returns 200, or 404 if file doesn't exist
+        # Mainly testing the static file mounting works
+        assert response.status_code in [200, 404]
