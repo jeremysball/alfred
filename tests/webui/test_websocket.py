@@ -173,6 +173,7 @@ class MockAlfred:
         self.new_session_called = False
         self.resume_session_called = False
         self.list_sessions_called = False
+        self.config = {}
 
     async def chat_stream(self, message, tool_callback=None):
         """Mock chat stream that yields chunks."""
@@ -536,3 +537,139 @@ class TestWebSocketCommandsWithMockedAlfred:
             assert data["payload"]["cwd"] == "/test/path"
             assert data["payload"]["files"] == ["test.py"]
             assert "systemInfo" in data["payload"]
+
+
+class TestWebSocketStatusUpdates:
+    """Test status update protocol."""
+
+    def test_status_update_during_chat_streaming(self):
+        """Test that status updates are sent during chat streaming."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Hello"}
+            })
+
+            # Collect messages
+            status_updates = []
+            received_complete = False
+
+            while not received_complete:
+                data = websocket.receive_json()
+                if data["type"] == "status.update":
+                    status_updates.append(data["payload"])
+                    # Verify status format
+                    assert "model" in data["payload"]
+                    assert "inputTokens" in data["payload"]
+                    assert "outputTokens" in data["payload"]
+                    assert "isStreaming" in data["payload"]
+                elif data["type"] == "chat.complete":
+                    received_complete = True
+
+            # Should have received at least 1 status update
+            # Server sends status at start of streaming
+            assert len(status_updates) >= 1
+
+            # First status should show streaming started
+            assert status_updates[0]["isStreaming"] is True
+
+    def test_status_update_with_model_from_config(self):
+        """Test that status includes model from Alfred config."""
+        # Create mock Alfred with config
+        mock_alfred = MockAlfred()
+        mock_alfred.config = {"model": "claude-3-opus-20240229"}
+
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Test"}
+            })
+
+            # Look for status update with model
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "status.update":
+                    if data["payload"]["model"]:
+                        assert data["payload"]["model"] == "claude-3-opus-20240229"
+                        break
+                elif data["type"] == "chat.complete":
+                    break
+
+    def test_status_update_token_counts(self):
+        """Test that status updates include token usage."""
+        mock_alfred = MockAlfred(chunks=["This is a longer response with more tokens"] * 5)
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Hello world test message"}
+            })
+
+            final_status = None
+
+            # Collect final status
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "status.update":
+                    final_status = data["payload"]
+                elif data["type"] == "chat.complete":
+                    break
+
+            # Verify token counts are present
+            assert final_status is not None
+            assert "contextTokens" in final_status
+            assert "inputTokens" in final_status
+            assert "outputTokens" in final_status
+            assert "cacheReadTokens" in final_status
+            assert "reasoningTokens" in final_status
+
+            # Token counts should be non-negative
+            assert final_status["inputTokens"] >= 0
+            assert final_status["outputTokens"] >= 0
+
+    def test_status_update_queue_length(self):
+        """Test that status includes queue length."""
+        mock_alfred = MockAlfred()
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Test"}
+            })
+
+            # Look for status with queueLength
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "status.update":
+                    assert "queueLength" in data["payload"]
+                    assert isinstance(data["payload"]["queueLength"], int)
+                    assert data["payload"]["queueLength"] >= 0
+                elif data["type"] == "chat.complete":
+                    break
