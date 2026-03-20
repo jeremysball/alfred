@@ -41,6 +41,14 @@
 
         <footer class="app-footer">
             <div id="input-area" class="input-area">
+                <div class="input-history-controls mobile-only">
+                    <button id="history-up" class="history-btn" title="Previous message" aria-label="Previous message">
+                        <span>↑</span>
+                    </button>
+                    <button id="history-down" class="history-btn" title="Next message" aria-label="Next message">
+                        <span>↓</span>
+                    </button>
+                </div>
                 <div class="input-wrapper">
                     <textarea
                         id="message-input"
@@ -63,6 +71,10 @@
     <script src="/static/js/components/completion-menu.js?v=3"></script>
     <script src="/static/js/components/status-bar.js?v=3"></script>
     <script src="/static/js/components/toast-container.js?v=3"></script>
+
+    <!-- Markdown and Syntax Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+
     <script src="/static/js/websocket-client.js?v=3"></script>
     <script src="/static/js/main.js?v=3"></script>
 </body>

@@ -53,13 +53,13 @@ class ChatMessage extends HTMLElement {
   _getAvatar() {
     switch (this._role) {
       case 'user':
-        return '👤';
+        return '●'; // Solid circle for user
       case 'assistant':
-        return '🤖';
+        return '◆'; // Diamond for assistant
       case 'system':
-        return 'ℹ️';
+        return '▸'; // Arrow for system
       default:
-        return '💬';
+        return '○'; // Empty circle default
     }
   }
 
@@ -105,7 +105,7 @@ class ChatMessage extends HTMLElement {
     const reasoningSection = this._reasoning
       ? `<div class="reasoning-section">
           <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
-            <span class="reasoning-icon">💭</span>
+            <span class="reasoning-icon">◈</span>
             <span class="reasoning-label">Thinking</span>
             <span class="reasoning-toggle">${this._reasoningExpanded ? '−' : '+'}</span>
           </div>
@@ -119,22 +119,27 @@ class ChatMessage extends HTMLElement {
     const actionButtons = this._role === 'assistant' 
       ? `<div class="message-actions">
           <button class="message-action" data-action="copy" title="Copy message">
-            <span class="action-icon">📋</span>
+            <span class="action-icon">□</span>
             <span class="action-text">Copy</span>
           </button>
           <button class="message-action" data-action="retry" title="Regenerate response">
-            <span class="action-icon">🔄</span>
+            <span class="action-icon">↻</span>
             <span class="action-text">Retry</span>
           </button>
           <div class="message-actions-spacer"></div>
           <button class="message-action feedback-btn" data-action="thumbs-up" title="Helpful">
-            <span class="action-icon">👍</span>
+            <span class="action-icon">+</span>
           </button>
           <button class="message-action feedback-btn" data-action="thumbs-down" title="Not helpful">
-            <span class="action-icon">👎</span>
+            <span class="action-icon">−</span>
           </button>
         </div>`
       : '';
+
+    // Render content: markdown for assistant, plain text for user
+    const renderedContent = this._role === 'assistant'
+      ? this._renderMarkdown(this._content)
+      : this._escapeHtml(this._content);
 
     this.innerHTML = `
       <div class="message ${roleClass}">
@@ -145,11 +150,32 @@ class ChatMessage extends HTMLElement {
         </div>
         ${reasoningSection}
         <div class="message-bubble">
-          <div class="message-content">${this._escapeHtml(this._content)}</div>
+          <div class="message-content">${renderedContent}</div>
         </div>
         ${actionButtons}
       </div>
     `;
+  }
+
+  _renderMarkdown(content) {
+    // Check if marked is available
+    if (typeof marked === 'undefined') {
+      console.warn('marked.js not loaded, falling back to plain text');
+      return this._escapeHtml(content);
+    }
+
+    // Configure marked options
+    marked.setOptions({
+      gfm: true,              // GitHub Flavored Markdown (tables, etc.)
+      breaks: true,           // Convert line breaks to <br>
+      headerIds: false,       // Don't add ids to headers
+      mangle: false,          // Don't mangle email addresses
+    });
+
+    // Parse markdown
+    const html = marked.parse(content);
+
+    return html;
   }
 
   _setupEventListeners() {
@@ -259,8 +285,12 @@ class ChatMessage extends HTMLElement {
   appendContent(chunk) {
     this._content += chunk;
     const contentDiv = this.querySelector('.message-content');
-    if (contentDiv) {
+    if (contentDiv && this._role !== 'assistant') {
+      // For user messages, append plain text
       contentDiv.textContent += chunk;
+    } else if (contentDiv && this._role === 'assistant') {
+      // For assistant messages, re-render full markdown (context-sensitive)
+      contentDiv.innerHTML = this._renderMarkdown(this._content);
     } else {
       this._render();
       this._setupEventListeners();
