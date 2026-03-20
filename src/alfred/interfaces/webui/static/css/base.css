@@ -903,6 +903,123 @@ status-bar {
     }
 }
 
+/* Toast Notifications */
+toast-container {
+    display: block;
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1001;
+    pointer-events: none;
+}
+
+.toast-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #2e2e2e;
+    border: 1px solid #444;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 280px;
+    max-width: 400px;
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-enter {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-exit {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-icon {
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    color: #e0e0e0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    color: #e0e0e0;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Toast level styles */
+.toast-info {
+    border-left: 4px solid #4fc3f7;
+}
+
+.toast-success {
+    border-left: 4px solid #81c784;
+}
+
+.toast-warning {
+    border-left: 4px solid #ffb74d;
+}
+
+.toast-error {
+    border-left: 4px solid #e57373;
+}
+
+/* Toast Mobile Adjustments */
+@media (max-width: 768px) {
+    toast-container {
+        top: auto;
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+    }
+
+    .toast-container {
+        align-items: stretch;
+    }
+
+    .toast {
+        min-width: auto;
+        max-width: none;
+        width: 100%;
+    }
+}
+
 /* Landscape mobile optimization */
 @media (max-height: 500px) and (orientation: landscape) {
     .app-header {

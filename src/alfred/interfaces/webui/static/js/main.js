@@ -464,8 +464,14 @@ function initAlfredUI() {
     scrollToBottom();
   }
 
+  // Toast notification
   function showToast(message, level = 'info') {
-    console.log(`[${level?.toUpperCase() || 'INFO'}] ${message}`);
+    const toastContainer = document.getElementById('toast-container');
+    if (toastContainer && toastContainer.show) {
+      toastContainer.show(message, level, 5000);
+    } else {
+      console.log(`[${level?.toUpperCase() || 'INFO'}] ${message}`);
+    }
   }
 
   // Status Bar Update
