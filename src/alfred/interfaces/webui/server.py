@@ -413,6 +413,11 @@ def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
     async def shutdown_event() -> None:
         """Handle server shutdown by closing all WebSocket connections."""
         await _close_all_connections()
+        # Stop Alfred instance if available
+        alfred_instance: Alfred | None = app.state.alfred
+        if alfred_instance is not None:
+            with suppress(Exception):
+                await alfred_instance.stop()
 
     return app
 

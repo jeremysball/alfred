@@ -224,7 +224,23 @@ def webui_callback(
 
     import uvicorn
 
+    from alfred.alfred import Alfred
+    from alfred.config import load_config
+    from alfred.data_manager import init_xdg_directories
     from alfred.interfaces.webui.server import create_app
+
+    # Initialize Alfred (similar to interactive mode)
+    init_xdg_directories()
+    config = load_config()
+
+    # Create and start Alfred instance
+    alfred = Alfred(config, telegram_mode=False)
+
+    async def start_alfred() -> None:
+        await alfred.start()
+
+    import asyncio
+    asyncio.run(start_alfred())
 
     if open_browser:
         import threading
@@ -237,8 +253,9 @@ def webui_callback(
 
         threading.Thread(target=open_browser_delayed, daemon=True).start()
 
+    # Run server with Alfred instance
     uvicorn.run(
-        create_app(),
+        create_app(alfred_instance=alfred),
         host=host,
         port=port,
         log_level="info",
