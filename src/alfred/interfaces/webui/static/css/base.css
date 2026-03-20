@@ -153,6 +153,50 @@ body {
     max-width: 85%;
 }
 
+/* Reasoning Section */
+.reasoning-section {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 0.5rem;
+}
+
+.reasoning-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #888;
+    user-select: none;
+}
+
+.reasoning-header:hover {
+    color: #aaa;
+}
+
+.reasoning-toggle {
+    font-size: 0.75rem;
+}
+
+.reasoning-label {
+    font-weight: 500;
+}
+
+.reasoning-content {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #252525;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    color: #666;
+    white-space: pre-wrap;
+    font-family: monospace;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
 .message.user {
     background: #1565c0;
     align-self: flex-end;

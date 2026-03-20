@@ -97,15 +97,68 @@ async def _handle_chat_message(
 
         # Stream response from Alfred with tool callback
         full_content = ""
+        full_reasoning = ""
+        in_reasoning = False
+        reasoning_buffer = ""
+
         async for chunk in alfred_instance.chat_stream(content, tool_callback=_tool_callback):
-            full_content += chunk
-            await websocket.send_json({
-                "type": "chat.chunk",
-                "payload": {
-                    "messageId": message_id,
-                    "content": chunk,
-                },
-            })
+            # Parse [REASONING] markers
+            if chunk.startswith("[REASONING]"):
+                in_reasoning = True
+                reasoning_content = chunk[11:]  # Remove [REASONING] prefix
+                reasoning_buffer += reasoning_content
+                full_reasoning += reasoning_content
+                await websocket.send_json({
+                    "type": "reasoning.chunk",
+                    "payload": {
+                        "messageId": message_id,
+                        "content": reasoning_content,
+                    },
+                })
+            elif in_reasoning:
+                # Check if this chunk ends reasoning (contains [/REASONING] or regular content)
+                if chunk.startswith("[") and not chunk.startswith("[REASONING]"):
+                    in_reasoning = False
+                    # Send remaining reasoning
+                    if reasoning_buffer:
+                        await websocket.send_json({
+                            "type": "reasoning.chunk",
+                            "payload": {
+                                "messageId": message_id,
+                                "content": reasoning_buffer,
+                            },
+                        })
+                        reasoning_buffer = ""
+                    # Send as regular content
+                    full_content += chunk
+                    await websocket.send_json({
+                        "type": "chat.chunk",
+                        "payload": {
+                            "messageId": message_id,
+                            "content": chunk,
+                        },
+                    })
+                else:
+                    # Still in reasoning
+                    reasoning_buffer += chunk
+                    full_reasoning += chunk
+                    await websocket.send_json({
+                        "type": "reasoning.chunk",
+                        "payload": {
+                            "messageId": message_id,
+                            "content": chunk,
+                        },
+                    })
+            else:
+                # Regular content chunk
+                full_content += chunk
+                await websocket.send_json({
+                    "type": "chat.chunk",
+                    "payload": {
+                        "messageId": message_id,
+                        "content": chunk,
+                    },
+                })
 
         # Send chat.complete message
         await websocket.send_json({

@@ -82,6 +82,13 @@ function initAlfredUI() {
         scrollToBottom();
         break;
 
+      case 'reasoning.chunk':
+        if (currentAssistantMessage && msg.payload && msg.payload.content) {
+          currentAssistantMessage.appendReasoning(msg.payload.content);
+          scrollToBottom();
+        }
+        break;
+
       case 'chat.chunk':
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendContent(msg.payload.content);

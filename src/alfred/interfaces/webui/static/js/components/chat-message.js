@@ -14,6 +14,8 @@ class ChatMessage extends HTMLElement {
     this._content = '';
     this._role = 'user';
     this._timestamp = null;
+    this._reasoning = '';
+    this._reasoningExpanded = false;
   }
 
   static get observedAttributes() {
@@ -43,8 +45,20 @@ class ChatMessage extends HTMLElement {
 
   _render() {
     const roleClass = this._role.toLowerCase();
-    const timeDisplay = this._timestamp 
-      ? new Date(this._timestamp).toLocaleTimeString() 
+    const timeDisplay = this._timestamp
+      ? new Date(this._timestamp).toLocaleTimeString()
+      : '';
+
+    const reasoningSection = this._reasoning
+      ? `<div class="reasoning-section">
+          <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
+            <span class="reasoning-toggle">${this._reasoningExpanded ? '▼' : '▶'}</span>
+            <span class="reasoning-label">Thinking</span>
+          </div>
+          <div class="reasoning-content" style="display: ${this._reasoningExpanded ? 'block' : 'none'}">
+            ${this._escapeHtml(this._reasoning)}
+          </div>
+        </div>`
       : '';
 
     this.innerHTML = `
@@ -53,6 +67,7 @@ class ChatMessage extends HTMLElement {
           <span class="message-role">${this._escapeHtml(this._role)}</span>
           ${timeDisplay ? `<span class="message-time">${timeDisplay}</span>` : ''}
         </div>
+        ${reasoningSection}
         <div class="message-content">${this._escapeHtml(this._content)}</div>
       </div>
     `;
@@ -91,6 +106,37 @@ class ChatMessage extends HTMLElement {
       contentDiv.textContent += chunk;
     } else {
       this._render();
+    }
+  }
+
+  appendReasoning(chunk) {
+    this._reasoning += chunk;
+    // Update reasoning display if it exists
+    const reasoningContent = this.querySelector('.reasoning-content');
+    const reasoningSection = this.querySelector('.reasoning-section');
+    if (reasoningContent) {
+      reasoningContent.textContent += chunk;
+    } else if (reasoningSection) {
+      // Section exists but content div missing, re-render
+      this._render();
+    } else {
+      // No reasoning section yet, create it
+      this._render();
+      // Auto-expand first reasoning chunk
+      this._reasoningExpanded = true;
+      this._render();
+    }
+  }
+
+  _toggleReasoning() {
+    this._reasoningExpanded = !this._reasoningExpanded;
+    const content = this.querySelector('.reasoning-content');
+    const toggle = this.querySelector('.reasoning-toggle');
+    if (content) {
+      content.style.display = this._reasoningExpanded ? 'block' : 'none';
+    }
+    if (toggle) {
+      toggle.textContent = this._reasoningExpanded ? '▼' : '▶';
     }
   }
 }
