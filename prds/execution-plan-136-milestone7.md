@@ -77,17 +77,17 @@ Implement rich markdown rendering with syntax highlighting for code blocks, copy
 
 ---
 
-### 7.4 Inline Code Styling
+### 7.4 Inline Code Styling ✅
 
-- [ ] **Test**: `test_inline_code_styled()` - Verify inline code has proper styling
+- [x] **Test**: `test_inline_code_styled()` - Verify inline code has proper styling
   - Check that `<code>` elements without `<pre>` parent are styled
   - Run: Visual inspection
 
-- [ ] **Implement**: Style inline code elements
+- [x] **Implement**: Style inline code elements
   - Add CSS for `code:not(pre code)` selector
   - Use monospace font, subtle background, padding
   - Ensure contrast with message background
-  - Commit: `style(webui): style inline code elements`
+  - Commit: `feat(webui): style inline code elements`
 
 ---
 

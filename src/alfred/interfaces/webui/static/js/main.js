@@ -516,6 +516,12 @@ function initAlfredUI() {
   // Event Listeners
   sendButton.addEventListener('click', sendMessage);
 
+  // History navigation buttons (mobile)
+  const historyUpBtn = document.getElementById('history-up');
+  const historyDownBtn = document.getElementById('history-down');
+  historyUpBtn?.addEventListener('click', () => navigateHistory('up'));
+  historyDownBtn?.addEventListener('click', () => navigateHistory('down'));
+
   // Textarea input handling
   messageInput.addEventListener('input', () => {
     autoResizeTextarea();

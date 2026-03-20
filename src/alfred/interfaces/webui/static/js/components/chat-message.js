@@ -165,12 +165,21 @@ class ChatMessage extends HTMLElement {
       return this._escapeHtml(content);
     }
 
+    // Create custom renderer to open links in new tab
+    const renderer = new marked.Renderer();
+    const originalLinkRenderer = renderer.link.bind(renderer);
+    renderer.link = (href, title, text) => {
+      const html = originalLinkRenderer(href, title, text);
+      return html.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
+    };
+
     // Configure marked options
     marked.setOptions({
       gfm: true,              // GitHub Flavored Markdown (tables, etc.)
       breaks: true,           // Convert line breaks to <br>
       headerIds: false,       // Don't add ids to headers
       mangle: false,          // Don't mangle email addresses
+      renderer: renderer,     // Use custom renderer
     });
 
     // Parse markdown
