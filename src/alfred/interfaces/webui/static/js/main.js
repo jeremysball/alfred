@@ -14,6 +14,7 @@ function initAlfredUI() {
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
   const completionMenu = document.getElementById('completion-menu');
+  const thinkingIndicator = document.getElementById('thinking-indicator');
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
@@ -56,12 +57,23 @@ function initAlfredUI() {
     updateConnectionStatus('disconnected', 'Error');
   });
 
+  // Thinking Indicator
+  function showThinking() {
+    thinkingIndicator.classList.remove('hidden');
+    scrollToBottom();
+  }
+
+  function hideThinking() {
+    thinkingIndicator.classList.add('hidden');
+  }
+
   // Message Handler
   wsClient.addEventListener('message', (event) => {
     const msg = event.detail;
 
     switch (msg.type) {
       case 'chat.started':
+        hideThinking();
         currentAssistantMessage = document.createElement('chat-message');
         currentAssistantMessage.setAttribute('role', 'assistant');
         currentAssistantMessage.setAttribute('content', '');
@@ -85,6 +97,7 @@ function initAlfredUI() {
         break;
 
       case 'chat.error':
+        hideThinking();
         showError(msg.payload?.error || 'An error occurred');
         currentAssistantMessage = null;
         enableInput();
@@ -345,6 +358,9 @@ function initAlfredUI() {
 
     disableInput();
     scrollToBottom();
+
+    // Show thinking indicator while waiting for response
+    showThinking();
 
     // Send via WebSocket
     wsClient.sendChat(content);

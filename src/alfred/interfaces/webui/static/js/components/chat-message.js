@@ -85,7 +85,13 @@ class ChatMessage extends HTMLElement {
 
   appendContent(chunk) {
     this._content += chunk;
-    this._render();
+    // Only update the content div, don't re-render entire element (preserves children like tool-call)
+    const contentDiv = this.querySelector('.message-content');
+    if (contentDiv) {
+      contentDiv.textContent += chunk;
+    } else {
+      this._render();
+    }
   }
 }
 

@@ -113,6 +113,39 @@ body {
     margin: 0 auto;
 }
 
+/* Thinking Indicator */
+.thinking-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+    color: #888;
+    font-size: 0.875rem;
+}
+
+.thinking-indicator.hidden {
+    display: none;
+}
+
+.throbber {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #444;
+    border-top-color: #1565c0;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Message Styles */
 .message {
     padding: 1rem;
