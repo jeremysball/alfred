@@ -426,7 +426,8 @@ class TestSessionManagementFlow:
             })
             data = websocket.receive_json()
             assert data["type"] == "session.new"
-            new_session_id = data["payload"]["sessionId"]
+            # Verify we got a session ID (we'll use it in the assertion below)
+            assert "sessionId" in data["payload"]
 
             # Step 2: List sessions
             websocket.send_json({

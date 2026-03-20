@@ -1,7 +1,5 @@
 """Tests for status bar Web Component"""
 
-import pytest
-from unittest.mock import MagicMock, patch
 
 
 def test_status_bar_renders_all_elements():

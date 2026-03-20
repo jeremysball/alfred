@@ -1,7 +1,5 @@
 """Tests for tool call WebSocket protocol and integration."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -21,7 +19,7 @@ def test_tool_start_message_structure():
             message_id="msg-123"
         )
     )
-    
+
     assert message.type == "tool.start"
     assert message.payload.tool_call_id == "call_abc123"
     assert message.payload.tool_name == "read_file"
@@ -39,7 +37,7 @@ def test_tool_output_message_structure():
             chunk="File contents here"
         )
     )
-    
+
     assert message.type == "tool.output"
     assert message.payload.tool_call_id == "call_abc123"
     assert message.payload.chunk == "File contents here"
@@ -57,7 +55,7 @@ def test_tool_end_message_success():
             output="Final result"
         )
     )
-    
+
     assert message.type == "tool.end"
     assert message.payload.success is True
     assert message.payload.output == "Final result"
@@ -75,7 +73,7 @@ def test_tool_end_message_error():
             output=None
         )
     )
-    
+
     assert message.type == "tool.end"
     assert message.payload.success is False
     assert message.payload.output is None
@@ -95,13 +93,13 @@ def test_websocket_accepts_tool_messages():
         # Verify connection is established (receives connected message)
         response = websocket.receive_json()
         assert response["type"] == "connected"
-        
+
         # Send a chat message (will be queued since no Alfred instance)
         websocket.send_json({
             "type": "chat.send",
             "payload": {"content": "Read file /tmp/test.txt"}
         })
-        
+
         # In a real scenario with Alfred, would receive chat.started then tool.start
         # Here we just verify the connection handles the message without error
 
@@ -109,7 +107,7 @@ def test_websocket_accepts_tool_messages():
 def test_tool_message_serialization():
     """Verify tool messages serialize to correct JSON format."""
     from alfred.interfaces.webui.validation import ToolStartMessage, ToolStartPayload
-    
+
     message = ToolStartMessage(
         type="tool.start",
         payload=ToolStartPayload(
@@ -119,10 +117,10 @@ def test_tool_message_serialization():
             message_id="msg-123"
         )
     )
-    
+
     # Serialize and verify camelCase
     json_data = message.model_dump(by_alias=True)
-    
+
     assert json_data["type"] == "tool.start"
     assert json_data["payload"]["toolCallId"] == "call_abc123"
     assert json_data["payload"]["toolName"] == "bash"
@@ -135,9 +133,10 @@ def test_tool_message_serialization():
 
 def test_tool_callback_sends_websocket_messages():
     """Verify tool callback sends correct WebSocket messages."""
-    from alfred.agent import ToolStart, ToolOutput, ToolEnd
-    from alfred.interfaces.webui.server import _handle_chat_message
     import asyncio
+
+    from alfred.agent import ToolEnd, ToolOutput, ToolStart
+    from alfred.interfaces.webui.server import _handle_chat_message
 
     # Track messages sent via WebSocket
     sent_messages = []
@@ -256,7 +255,7 @@ def test_tool_call_component_structure():
     # Verify it defines a custom element
     assert "class ToolCall" in content or "tool-call" in content
     assert "customElements.define" in content
-    
+
     # Verify it handles key attributes
     assert "tool-call-id" in content or "toolCallId" in content
     assert "tool-name" in content or "toolName" in content

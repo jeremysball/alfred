@@ -4,8 +4,6 @@ from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
-from starlette.testclient import TestClient as StarletteTestClient
-from starlette.websockets import WebSocketDisconnect
 
 from alfred.interfaces.webui.server import create_app
 

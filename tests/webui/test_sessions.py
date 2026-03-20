@@ -1,6 +1,5 @@
 """Tests for session management commands."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
@@ -77,9 +76,7 @@ def test_context_command_structure():
 
 def test_session_loaded_message_structure():
     """Verify session.loaded message structure."""
-    from alfred.interfaces.webui.validation import (
-        SessionLoadedMessage, SessionLoadedPayload, SessionMessage
-    )
+    from alfred.interfaces.webui.validation import SessionLoadedMessage, SessionLoadedPayload, SessionMessage
 
     messages = [
         SessionMessage(id="msg-1", role="user", content="Hello"),
