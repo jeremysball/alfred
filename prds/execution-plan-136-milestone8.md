@@ -27,11 +27,11 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
   - Verify message chunks are received in correct order
   - Commit: `test(webui): add chat message flow tests`
 
-- [ ] **Test**: `test_websocket_command_execute()` - Verify command execution
+- [x] **Test**: `test_websocket_command_execute()` - Verify command execution
   - Test `/new`, `/resume`, `/sessions` commands via WebSocket
   - Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_command_execute -v`
 
-- [ ] **Implement**: Add command execution tests
+- [x] **Implement**: Add command execution tests
   - Test each command type with expected responses
   - Verify error handling for invalid commands
   - Commit: `test(webui): add WebSocket command execution tests`
