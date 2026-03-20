@@ -41,6 +41,29 @@ body {
     font-weight: 600;
 }
 
+/* Header Status (Queue Badge + Connection) */
+.header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Queue Badge */
+.queue-badge {
+    background: #f57c00;
+    color: #1a1a1a;
+    padding: 0.25rem 0.625rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 1.5rem;
+    text-align: center;
+}
+
+.queue-badge.hidden {
+    display: none;
+}
+
 /* Connection Status */
 .status {
     padding: 0.25rem 0.75rem;
@@ -151,16 +174,29 @@ body {
     gap: 0.75rem;
     max-width: 900px;
     margin: 0 auto;
+    align-items: flex-end;
 }
 
-.message-input {
+.input-wrapper {
     flex: 1;
+    position: relative;
+}
+
+/* Textarea Input */
+.message-input {
+    width: 100%;
     padding: 0.75rem 1rem;
     border: 1px solid #444;
     border-radius: 0.5rem;
     background: #1a1a1a;
     color: #e0e0e0;
     font-size: 1rem;
+    font-family: inherit;
+    resize: none;
+    overflow-y: hidden;
+    min-height: 2.5rem;
+    max-height: 200px;
+    line-height: 1.5;
 }
 
 .message-input:focus {
@@ -170,6 +206,51 @@ body {
 
 .message-input::placeholder {
     color: #666;
+}
+
+/* Completion Menu */
+completion-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: 0.5rem;
+    background: #252525;
+    border: 1px solid #444;
+    border-radius: 0.5rem;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.completion-menu {
+    padding: 0.5rem 0;
+}
+
+.completion-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.completion-item:hover,
+.completion-item.selected {
+    background: #333;
+}
+
+.completion-value {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-weight: 500;
+    color: #4fc3f7;
+}
+
+.completion-description {
+    font-size: 0.875rem;
+    color: #888;
 }
 
 .send-button {
@@ -182,6 +263,7 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
+    height: fit-content;
 }
 
 .send-button:hover {

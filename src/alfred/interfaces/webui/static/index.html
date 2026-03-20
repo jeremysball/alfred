@@ -10,9 +10,12 @@
     <div id="app">
         <header class="app-header">
             <h1>Alfred</h1>
-            <div id="connection-status" class="status disconnected">Disconnected</div>
+            <div class="header-status">
+                <div id="queue-badge" class="queue-badge hidden">0</div>
+                <div id="connection-status" class="status disconnected">Disconnected</div>
+            </div>
         </header>
-        
+
         <main class="app-main">
             <div id="chat-container" class="chat-container">
                 <div id="message-list" class="message-list">
@@ -20,24 +23,28 @@
                 </div>
             </div>
         </main>
-        
+
         <footer class="app-footer">
             <div id="input-area" class="input-area">
-                <input 
-                    type="text" 
-                    id="message-input" 
-                    class="message-input" 
-                    placeholder="Type your message..."
-                    autocomplete="off"
-                >
+                <div class="input-wrapper">
+                    <textarea
+                        id="message-input"
+                        class="message-input"
+                        placeholder="Type your message... (Shift+Enter to queue)"
+                        autocomplete="off"
+                        rows="1"
+                    ></textarea>
+                    <completion-menu id="completion-menu" visible="false"></completion-menu>
+                </div>
                 <button id="send-button" class="send-button">Send</button>
             </div>
         </footer>
     </div>
-    
+
     <!-- Web Components -->
     <script src="/static/js/components/chat-message.js"></script>
     <script src="/static/js/components/tool-call.js"></script>
+    <script src="/static/js/components/completion-menu.js"></script>
     <script src="/static/js/websocket-client.js"></script>
     <script src="/static/js/main.js"></script>
 </body>
