@@ -232,6 +232,9 @@ class SessionManager:
                     embedding=msg_data.get("embedding"),
                     input_tokens=msg_data.get("input_tokens", 0),
                     output_tokens=msg_data.get("output_tokens", 0),
+                    cached_tokens=msg_data.get("cached_tokens", 0),
+                    reasoning_tokens=msg_data.get("reasoning_tokens", 0),
+                    reasoning_content=msg_data.get("reasoning_content", ""),
                     tool_calls=tool_calls,
                 )
                 messages.append(msg)
@@ -454,6 +457,7 @@ class SessionManager:
                     "output_tokens": msg.output_tokens,
                     "cached_tokens": msg.cached_tokens,
                     "reasoning_tokens": msg.reasoning_tokens,
+                    "reasoning_content": msg.reasoning_content,
                 }
                 if msg.embedding:
                     msg_dict["embedding"] = msg.embedding
