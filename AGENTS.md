@@ -18,8 +18,8 @@
 Do this before every response:
 
 1. Read `/home/node/.pi/skills/skill-index/SKILL.md` — Quick reference for all available skills
-2. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
-3. Read `/workspace/alfred-prd/.pi/skills/commit/SKILL.md`
+2. Read `/home/node/.pi/skills/using-prds/SKILL.md`
+3. Read `/home/node/.pi/skills/commit/SKILL.md`
 4. Read `/workspace/alfred-prd/docs/ROADMAP.md`
 5. Confirm: "✅ Skills and parent PRD loaded"
 
@@ -386,7 +386,7 @@ cat -v /tmp/ansi_out.log | grep '_pi:c'
 Before committing, read the commit skill:
 
 ```bash
-cat /workspace/alfred-prd/.pi/skills/commit/SKILL.md
+cat /home/node/.pi/skills/commit/SKILL.md
 ```
 
 Make small, atomic commits. Never batch multiple features into one commit.

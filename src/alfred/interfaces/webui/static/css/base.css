@@ -87,6 +87,48 @@ body {
     color: #fff;
 }
 
+/* Streaming Indicator */
+.streaming-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.streaming-indicator.hidden {
+    display: none;
+}
+
+.throbber {
+    display: inline-block;
+    font-family: monospace;
+    font-size: 1rem;
+    color: #4fc3f7;
+    animation: throbber-spin 0.1s steps(1) infinite;
+}
+
+.throbber::before {
+    content: '⠋';
+    animation: throbber-frames 0.8s steps(10) infinite;
+}
+
+@keyframes throbber-frames {
+    0% { content: '⠋'; }
+    10% { content: '⠙'; }
+    20% { content: '⠹'; }
+    30% { content: '⠸'; }
+    40% { content: '⠼'; }
+    50% { content: '⠴'; }
+    60% { content: '⠦'; }
+    70% { content: '⠧'; }
+    80% { content: '⠇'; }
+    90% { content: '⠏'; }
+}
+
+@keyframes throbber-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+}
+
 /* Main Content */
 .app-main {
     flex: 1;
@@ -120,13 +162,14 @@ body {
     max-width: 85%;
 }
 
-/* Reasoning Section */
+/* Reasoning Section - Distinct from code blocks */
 .reasoning-section {
     margin: 0.5rem 0;
-    padding: 0.5rem;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 0.5rem;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-left: 3px solid #555;
+    border-radius: 0;
 }
 
 .reasoning-header {
@@ -135,16 +178,21 @@ body {
     gap: 0.5rem;
     cursor: pointer;
     font-size: 0.875rem;
-    color: #888;
+    color: #777;
     user-select: none;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    font-style: italic;
 }
 
 .reasoning-header:hover {
-    color: #aaa;
+    color: #999;
 }
 
 .reasoning-toggle {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
+    font-style: normal;
+    font-weight: 600;
+    color: #4fc3f7;
 }
 
 .reasoning-label {
@@ -152,12 +200,13 @@ body {
 }
 
 .reasoning-content {
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    background: #252525;
-    border-radius: 0.25rem;
+    margin: 0.25rem 0 0 0.75rem;
+    padding: 0.5rem 0;
+    background: transparent;
+    border-radius: 0;
     font-size: 0.875rem;
-    color: #888;
+    color: #666;
+    font-style: italic;
     white-space: pre-wrap;
     max-height: 300px;
     overflow-y: auto;
@@ -497,6 +546,11 @@ completion-menu {
     height: 18px;
 }
 
+/* Settings menu container */
+.settings-menu {
+    position: relative;
+}
+
 /* Settings dropdown full width on mobile */
 .settings-dropdown {
     position: fixed;
@@ -508,6 +562,7 @@ completion-menu {
     border-radius: 1rem 1rem 0 0;
     max-height: 70vh;
     overflow-y: auto;
+    z-index: 1000;
 }
 
 /* Chat container mobile */
@@ -648,6 +703,7 @@ completion-menu {
         border-radius: 12px;
         min-width: 240px;
         max-height: none;
+        z-index: 1000;
     }
 
     .chat-container {

@@ -13,6 +13,7 @@ function initAlfredUI() {
   const connectionStatus = document.getElementById('connection-status');
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
+  const streamingIndicator = document.getElementById('streaming-indicator');
   const completionMenu = document.getElementById('completion-menu');
 
   // WebSocket Client
@@ -56,12 +57,22 @@ function initAlfredUI() {
     updateConnectionStatus('disconnected', 'Error');
   });
 
+  // Streaming Indicator
+  function showStreaming() {
+    streamingIndicator?.classList.remove('hidden');
+  }
+
+  function hideStreaming() {
+    streamingIndicator?.classList.add('hidden');
+  }
+
   // Message Handler
   wsClient.addEventListener('message', (event) => {
     const msg = event.detail;
 
     switch (msg.type) {
       case 'chat.started':
+        showStreaming();
         currentAssistantMessage = document.createElement('chat-message');
         currentAssistantMessage.setAttribute('role', 'assistant');
         currentAssistantMessage.setAttribute('content', '');
@@ -85,6 +96,7 @@ function initAlfredUI() {
         break;
 
       case 'chat.complete':
+        hideStreaming();
         currentAssistantMessage = null;
         enableInput();
         // Send next queued message if any
@@ -92,6 +104,7 @@ function initAlfredUI() {
         break;
 
       case 'chat.error':
+        hideStreaming();
         hideThinking();
         showError(msg.payload?.error || 'An error occurred');
         currentAssistantMessage = null;
@@ -348,18 +361,31 @@ function initAlfredUI() {
     // Add to history
     addToHistory(content);
 
-    // Add user message to UI
-    const userMessage = document.createElement('chat-message');
-    userMessage.setAttribute('role', 'user');
-    userMessage.setAttribute('content', content);
-    userMessage.setAttribute('timestamp', new Date().toISOString());
-    messageList.appendChild(userMessage);
+    // Send via WebSocket - commands use command.execute, chat uses chat.send
+    if (content.startsWith('/')) {
+      // Commands: show as system message, don't disable input
+      const cmdMsg = document.createElement('chat-message');
+      cmdMsg.setAttribute('role', 'system');
+      cmdMsg.setAttribute('content', `Command: ${content}`);
+      cmdMsg.setAttribute('timestamp', new Date().toISOString());
+      messageList.appendChild(cmdMsg);
+      scrollToBottom();
 
-    disableInput();
-    scrollToBottom();
+      wsClient.sendCommand(content);
+      // Don't disable input - commands are instant
+    } else {
+      // Chat messages: show as user message, disable input during streaming
+      const userMessage = document.createElement('chat-message');
+      userMessage.setAttribute('role', 'user');
+      userMessage.setAttribute('content', content);
+      userMessage.setAttribute('timestamp', new Date().toISOString());
+      messageList.appendChild(userMessage);
 
-    // Send via WebSocket
-    wsClient.sendChat(content);
+      disableInput();
+      scrollToBottom();
+
+      wsClient.sendChat(content);
+    }
   }
 
   // Textarea Auto-Resize
