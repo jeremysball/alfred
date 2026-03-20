@@ -50,7 +50,7 @@ class ChatMessage extends HTMLElement {
       : '';
 
     const reasoningSection = this._reasoning
-      ? `<div class="reasoning-section"><div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()"><span class="reasoning-toggle">${this._reasoningExpanded ? '▼' : '▶'}</span><span class="reasoning-label">Thinking</span></div><div class="reasoning-content" style="display: ${this._reasoningExpanded ? 'block' : 'none'}">${this._escapeHtml(this._reasoning)}</div></div>`
+      ? `<div class="reasoning-section"><div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()"><span class="reasoning-toggle">${this._reasoningExpanded ? '-' : '+'}</span><span class="reasoning-label">Thinking</span></div><div class="reasoning-content" style="display: ${this._reasoningExpanded ? 'block' : 'none'}">${this._escapeHtml(this._reasoning)}</div></div>`
       : '';
 
     this.innerHTML = `
@@ -137,7 +137,7 @@ class ChatMessage extends HTMLElement {
       content.style.display = this._reasoningExpanded ? 'block' : 'none';
     }
     if (toggle) {
-      toggle.textContent = this._reasoningExpanded ? '▼' : '▶';
+      toggle.textContent = this._reasoningExpanded ? '-' : '+';
     }
   }
 }

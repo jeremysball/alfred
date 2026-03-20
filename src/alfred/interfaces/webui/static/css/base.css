@@ -159,7 +159,6 @@ body {
     font-size: 0.875rem;
     color: #888;
     white-space: pre-wrap;
-    font-family: monospace;
     max-height: 300px;
     overflow-y: auto;
     line-height: 1.5;
