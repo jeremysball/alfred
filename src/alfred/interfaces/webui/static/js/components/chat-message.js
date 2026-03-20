@@ -116,23 +116,14 @@ class ChatMessage extends HTMLElement {
         </div>`
       : '';
 
-    // Build action buttons (only for assistant messages)
-    const actionButtons = this._role === 'assistant' 
+    // Build action buttons (only for assistant messages) - minimal icon-only design
+    const actionButtons = this._role === 'assistant'
       ? `<div class="message-actions">
-          <button class="message-action" data-action="copy" title="Copy message">
-            <span class="action-icon">□</span>
-            <span class="action-text">Copy</span>
+          <button class="message-action icon-only" data-action="copy" title="Copy">
+            ⧉
           </button>
-          <button class="message-action" data-action="retry" title="Regenerate response">
-            <span class="action-icon">↻</span>
-            <span class="action-text">Retry</span>
-          </button>
-          <div class="message-actions-spacer"></div>
-          <button class="message-action feedback-btn" data-action="thumbs-up" title="Helpful">
-            <span class="action-icon">+</span>
-          </button>
-          <button class="message-action feedback-btn" data-action="thumbs-down" title="Not helpful">
-            <span class="action-icon">−</span>
+          <button class="message-action icon-only" data-action="retry" title="Regenerate">
+            ↻
           </button>
         </div>`
       : '';
@@ -203,38 +194,33 @@ class ChatMessage extends HTMLElement {
   }
 
   _setupEventListeners() {
-    // Copy button
-    this.querySelector('[data-action="copy"]')?.addEventListener('click', () => {
-      this._copyToClipboard();
-    });
+    // Use event delegation for action buttons
+    this.addEventListener('click', (e) => {
+      const actionBtn = e.target.closest('[data-action]');
+      if (!actionBtn) return;
 
-    // Retry button
-    this.querySelector('[data-action="retry"]')?.addEventListener('click', () => {
-      this._retryMessage();
-    });
+      const action = actionBtn.getAttribute('data-action');
 
-    // Feedback buttons
-    this.querySelector('[data-action="thumbs-up"]')?.addEventListener('click', (e) => {
-      this._sendFeedback('positive');
-      e.currentTarget.classList.toggle('active');
-    });
-
-    this.querySelector('[data-action="thumbs-down"]')?.addEventListener('click', (e) => {
-      this._sendFeedback('negative');
-      e.currentTarget.classList.toggle('active');
+      switch (action) {
+        case 'copy':
+          this._copyToClipboard(actionBtn);
+          break;
+        case 'retry':
+          this._retryMessage();
+          break;
+      }
     });
   }
 
-  async _copyToClipboard() {
+  async _copyToClipboard(btn) {
     try {
       await navigator.clipboard.writeText(this._content);
-      const btn = this.querySelector('[data-action="copy"]');
       if (btn) {
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `<span class="action-icon">✓</span><span class="action-text">Copied!</span>`;
+        const originalText = btn.textContent;
+        btn.textContent = '✓';
         btn.classList.add('copied');
         setTimeout(() => {
-          btn.innerHTML = originalText;
+          btn.textContent = originalText;
           btn.classList.remove('copied');
         }, 2000);
       }

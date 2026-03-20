@@ -1445,3 +1445,15 @@ toast-container {
     background: transparent;
     font-family: inherit;
 }
+
+
+/* Icon-only action buttons */
+.message-action.icon-only {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
