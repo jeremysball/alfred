@@ -628,6 +628,83 @@ Since this is **local-only with Tailscale**:
 
 ---
 
+## Bug Fixes Post-Milestone 5
+
+### Issue 1: Commands Displayed as User Messages
+**Problem**: When typing a command like `/new` or `/sessions`, the command text appears as a user message bubble in the chat before being executed. This creates confusing UX where the command looks like a message to the LLM.
+
+**Expected Behavior**: Commands should either:
+- Not appear in chat at all (silent execution), OR
+- Appear as a system/notification message styled differently
+
+**Root Cause**: In `main.js`, `sendMessageContent()` adds the content to the UI as a user message before checking if it's a command.
+
+**Fix**: Move the user message creation after the command check, or render commands differently.
+
+---
+
+### Issue 2: Missing Streaming Throbber
+**Problem**: When the LLM is generating a response, there's no visual indicator that work is happening. Users can't tell if the system is processing or stuck.
+
+**Expected Behavior**: A throbber/loading indicator should appear:
+- In the status bar (animated indicator)
+- Next to the assistant message being generated
+- Similar to TUI's throbber: `⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`
+
+**Implementation**: 
+- CSS animation or JavaScript-based frame animation
+- Display during `chat.started` → `chat.complete` period
+- Pause when reasoning blocks are displayed (optional)
+
+---
+
+### Issue 3: Thinking Block Looks Like Code Block
+**Problem**: The reasoning/thinking block uses similar styling to code blocks (dark background, monospace font, bordered container), making it hard to distinguish from actual code.
+
+**Current Styling** (from `base.css`):
+```css
+.reasoning-section {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 0.5rem;
+}
+
+.reasoning-content {
+  background: #252525;
+  font-size: 0.875rem;
+  color: #888;
+}
+```
+
+**Expected Behavior**: Distinct visual treatment that clearly signals "this is the model's thinking process, not output":
+- Different background color (lighter/different hue)
+- Italic text styling
+- Border-left accent instead of full border
+- Collapsed by default with clear "Thinking..." label
+- Plus/minus toggle indicator (✓ already implemented)
+
+**Suggested Styling**:
+```css
+.reasoning-section {
+  background: transparent;
+  border: none;
+  border-left: 3px solid #666;
+  border-radius: 0;
+  margin: 0.5rem 0;
+  padding: 0 0 0 0.75rem;
+}
+
+.reasoning-content {
+  background: transparent;
+  color: #666;
+  font-style: italic;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+}
+```
+
+---
+
 ## Appendix: Web Component Lifecycle
 
 ```javascript
