@@ -59,10 +59,16 @@ function initAlfredUI() {
   // Streaming Indicator
   function showStreaming() {
     streamingDot?.classList.remove('hidden');
+    if (currentAssistantMessage) {
+      currentAssistantMessage.classList.add('streaming');
+    }
   }
 
   function hideStreaming() {
     streamingDot?.classList.add('hidden');
+    if (currentAssistantMessage) {
+      currentAssistantMessage.classList.remove('streaming');
+    }
   }
 
   // Message Handler
@@ -179,7 +185,7 @@ function initAlfredUI() {
         const messageEl = document.createElement('chat-message');
         messageEl.setAttribute('role', msg.role);
         messageEl.setAttribute('content', msg.content);
-        messageEl.setAttribute('timestamp', new Date().toISOString());
+        messageEl.setAttribute('timestamp', msg.timestamp || msg.createdAt || new Date().toISOString());
         // Set reasoning content if present (for assistant messages)
         if (msg.reasoningContent && msg.reasoningContent.trim()) {
           messageEl.setReasoning(msg.reasoningContent);
@@ -530,26 +536,7 @@ function initAlfredUI() {
 
   // Keyboard handling
   messageInput.addEventListener('keydown', (e) => {
-    // Shift+Enter: Queue message
-    if (e.key === 'Enter' && e.shiftKey) {
-      e.preventDefault();
-      const content = messageInput.value.trim();
-      if (content) {
-        addToQueue(content);
-        messageInput.value = '';
-        autoResizeTextarea();
-      }
-      return;
-    }
-
-    // Enter (without Shift): Send message
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-      return;
-    }
-
-    // Handle completion menu navigation
+    // Handle completion menu first (before other Enter handling)
     if (completionMenu.isVisible()) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -572,18 +559,35 @@ function initAlfredUI() {
       }
     }
 
-    // History navigation (only if completion not visible)
-    if (!completionMenu.isVisible()) {
-      if (e.key === 'ArrowUp' && messageInput.selectionStart === 0) {
-        e.preventDefault();
-        navigateHistory('up');
-        return;
+    // Shift+Enter: Queue message
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      const content = messageInput.value.trim();
+      if (content) {
+        addToQueue(content);
+        messageInput.value = '';
+        autoResizeTextarea();
       }
-      if (e.key === 'ArrowDown' && messageInput.selectionStart === messageInput.value.length) {
-        e.preventDefault();
-        navigateHistory('down');
-        return;
-      }
+      return;
+    }
+
+    // Enter (without Shift): Send message
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+      return;
+    }
+
+    // History navigation
+    if (e.key === 'ArrowUp' && messageInput.selectionStart === 0) {
+      e.preventDefault();
+      navigateHistory('up');
+      return;
+    }
+    if (e.key === 'ArrowDown' && messageInput.selectionStart === messageInput.value.length) {
+      e.preventDefault();
+      navigateHistory('down');
+      return;
     }
 
     // Ctrl+U: Clear input
@@ -659,27 +663,50 @@ function addCopyButtons() {
     const wrapper = document.createElement('div');
     wrapper.className = 'code-block-wrapper';
 
-    // Create copy button
+    // Create copy button - same icon as message copy
     const copyBtn = document.createElement('button');
     copyBtn.className = 'code-copy-btn';
-    copyBtn.innerHTML = 'Copy';
-    copyBtn.title = 'Copy to clipboard';
+    copyBtn.innerHTML = '⧉';
+    copyBtn.title = 'Copy code';
 
-    copyBtn.addEventListener('click', async () => {
+    copyBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const textToCopy = codeBlock.textContent;
+
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(textToCopy);
+          showCopyFeedback(copyBtn);
+          return;
+        } catch (err) {
+          console.log('Clipboard API failed, trying fallback');
+        }
+      }
+
+      // Fallback: use execCommand
       try {
-        await navigator.clipboard.writeText(codeBlock.textContent);
-        copyBtn.innerHTML = 'Copied!';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-          copyBtn.innerHTML = 'Copy';
-          copyBtn.classList.remove('copied');
-        }, 2000);
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+
+        if (successful) {
+          showCopyFeedback(copyBtn);
+        } else {
+          console.error('execCommand copy failed');
+          showCopyFailed(copyBtn);
+        }
       } catch (err) {
         console.error('Failed to copy:', err);
-        copyBtn.innerHTML = 'Failed';
-        setTimeout(() => {
-          copyBtn.innerHTML = 'Copy';
-        }, 2000);
+        showCopyFailed(copyBtn);
       }
     });
 
@@ -688,6 +715,28 @@ function addCopyButtons() {
     wrapper.appendChild(copyBtn);
     wrapper.appendChild(pre);
   });
+}
+
+function showCopyFeedback(btn) {
+  if (!btn) return;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '✓';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.innerHTML = originalText;
+    btn.classList.remove('copied');
+  }, 800);
+}
+
+function showCopyFailed(btn) {
+  if (!btn) return;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '✗';
+  btn.classList.add('failed');
+  setTimeout(() => {
+    btn.innerHTML = originalText;
+    btn.classList.remove('failed');
+  }, 1500);
 }
 
 // Initialize when DOM is ready

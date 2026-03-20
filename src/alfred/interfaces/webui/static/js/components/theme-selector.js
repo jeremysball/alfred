@@ -14,19 +14,37 @@ class SettingsMenu extends HTMLElement {
       {
         id: 'dark-academia',
         name: 'Dark Academia',
-        description: 'Classical library aesthetic',
+        description: 'Classical library dark',
         color: '#c9a959'
       },
       {
+        id: 'dark-academia-light',
+        name: 'Dark Academia Light',
+        description: 'Classical library light',
+        color: '#d4a574'
+      },
+      {
         id: 'swiss-international',
-        name: 'Swiss International',
-        description: 'Clean typographic style',
+        name: 'Swiss Light',
+        description: 'Clean light style',
         color: '#e30613'
       },
       {
+        id: 'swiss-international-dark',
+        name: 'Swiss Dark',
+        description: 'Clean dark style',
+        color: '#ff3333'
+      },
+      {
         id: 'neumorphism',
-        name: 'Neumorphism',
-        description: 'Soft tactile plastic',
+        name: 'Neumorphism Light',
+        description: 'Soft light plastic',
+        color: '#667eea'
+      },
+      {
+        id: 'neumorphism-dark',
+        name: 'Neumorphism Dark',
+        description: 'Soft dark plastic',
         color: '#667eea'
       }
     ];

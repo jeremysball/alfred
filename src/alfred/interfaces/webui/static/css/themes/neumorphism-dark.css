@@ -1,0 +1,247 @@
+/**
+ * Neumorphism Dark Theme
+ *
+ * Dark variant of the soft, extruded plastic aesthetic.
+ * Dark base with soft shadows and highlights.
+ */
+
+[data-theme="neumorphism-dark"] {
+  /* Color Palette - Dark Gray Base */
+  --neo-bg-primary: #2d3748;
+  --neo-bg-secondary: #1a202c;
+  --neo-bg-input: #2d3748;
+  --neo-bg-header: #1a202c;
+  --neo-bg-footer: #1a202c;
+  
+  /* Message Colors */
+  --neo-bg-message-user: #4a5568;
+  --neo-bg-message-assistant: #2d3748;
+  --neo-shadow-light: #3d4b5f;
+  --neo-shadow-dark: #1a202c;
+  
+  /* Text Colors */
+  --neo-text-primary: #e2e8f0;
+  --neo-text-secondary: #a0aec0;
+  --neo-text-muted: #718096;
+  --neo-text-accent: #667eea;
+  
+  /* Accent Colors */
+  --neo-accent-primary: #667eea;
+  --neo-accent-success: #48bb78;
+  --neo-accent-warning: #ed8936;
+  --neo-accent-error: #f56565;
+  
+  /* Shadows */
+  --neo-shadow-raised: 6px 6px 12px #1a202c, -6px -6px 12px #3d4b5f;
+  --neo-shadow-pressed: inset 4px 4px 8px #1a202c, inset -4px -4px 8px #3d4b5f;
+  --neo-shadow-concave: inset 3px 3px 6px #1a202c, inset -3px -3px 6px #3d4b5f;
+  --neo-shadow-convex: 4px 4px 8px #1a202c, -4px -4px 8px #3d4b5f;
+  --neo-shadow-soft: 2px 2px 4px #1a202c, -2px -2px 4px #3d4b5f;
+  
+  /* Typography */
+  --neo-font-primary: system-ui, -apple-system, sans-serif;
+  --neo-font-mono: 'Monaco', 'Menlo', monospace;
+}
+
+/* Body & App */
+[data-theme="neumorphism-dark"] body {
+  background: var(--neo-bg-primary);
+  color: var(--neo-text-primary);
+  font-family: var(--neo-font-primary);
+}
+
+[data-theme="neumorphism-dark"] #app {
+  background: transparent;
+}
+
+/* Header */
+[data-theme="neumorphism-dark"] .app-header {
+  background: var(--neo-bg-header);
+  box-shadow: var(--neo-shadow-pressed);
+  border-radius: 0 0 20px 20px;
+  margin: 0 20px;
+  margin-bottom: 20px;
+  padding: 16px 24px;
+  border-bottom: none;
+}
+
+[data-theme="neumorphism-dark"] .app-header h1 {
+  font-family: var(--neo-font-primary);
+  font-weight: 700;
+  color: var(--neo-accent-primary);
+  text-shadow: 1px 1px 2px rgba(61, 75, 95, 0.8), -1px -1px 2px rgba(26, 32, 44, 0.5);
+  font-size: 1.5rem;
+}
+
+[data-theme="neumorphism-dark"] .connection-pill.connected {
+  background: var(--neo-accent-success);
+  box-shadow: var(--neo-shadow-convex);
+}
+
+[data-theme="neumorphism-dark"] .connection-pill.disconnected {
+  background: var(--neo-accent-error);
+}
+
+/* Messages */
+[data-theme="neumorphism-dark"] .message {
+  max-width: 80%;
+  padding: 1rem 1.25rem;
+  border: none;
+}
+
+[data-theme="neumorphism-dark"] .message.user {
+  background: var(--neo-bg-message-user);
+  box-shadow: var(--neo-shadow-raised);
+  border-radius: 20px 20px 4px 20px;
+  align-self: flex-end;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+[data-theme="neumorphism-dark"] .message.assistant {
+  background: var(--neo-bg-message-assistant);
+  box-shadow: var(--neo-shadow-convex);
+  border-radius: 20px 20px 20px 4px;
+  align-self: flex-start;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[data-theme="neumorphism-dark"] .message.system {
+  background: transparent;
+  border: 1px dashed var(--neo-text-muted);
+  color: var(--neo-text-muted);
+}
+
+[data-theme="neumorphism-dark"] .message-role {
+  font-weight: 600;
+  color: var(--neo-accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.6875rem;
+}
+
+[data-theme="neumorphism-dark"] .message-time {
+  font-size: 0.6875rem;
+  color: var(--neo-text-muted);
+}
+
+[data-theme="neumorphism-dark"] .message-content {
+  color: var(--neo-text-primary);
+}
+
+/* Reasoning */
+[data-theme="neumorphism-dark"] .reasoning-section {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: var(--neo-bg-secondary);
+  box-shadow: var(--neo-shadow-convex);
+  border-radius: 16px;
+  border: none;
+}
+
+[data-theme="neumorphism-dark"] .reasoning-label {
+  color: var(--neo-accent-primary);
+  font-weight: 600;
+}
+
+[data-theme="neumorphism-dark"] .reasoning-content {
+  background: rgba(26, 32, 44, 0.3);
+  box-shadow: var(--neo-shadow-concave);
+  border-radius: 12px;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  font-family: var(--neo-font-mono);
+  color: var(--neo-text-secondary);
+  font-size: 0.8125rem;
+}
+
+/* Input */
+[data-theme="neumorphism-dark"] .app-footer {
+  background: var(--neo-bg-footer);
+  box-shadow: var(--neo-shadow-pressed);
+  border-radius: 20px 20px 0 0;
+  margin: 0 20px;
+  padding: 20px;
+  border-top: none;
+}
+
+[data-theme="neumorphism-dark"] .message-input {
+  background: var(--neo-bg-input);
+  box-shadow: var(--neo-shadow-concave);
+  border: none;
+  border-radius: 16px;
+  color: var(--neo-text-primary);
+  font-family: var(--neo-font-primary);
+  padding: 1rem 1.25rem;
+}
+
+[data-theme="neumorphism-dark"] .message-input:focus {
+  box-shadow: var(--neo-shadow-pressed);
+  outline: none;
+}
+
+[data-theme="neumorphism-dark"] .send-button {
+  background: var(--neo-bg-primary);
+  box-shadow: var(--neo-shadow-raised);
+  color: var(--neo-accent-primary);
+  font-family: var(--neo-font-primary);
+  font-weight: 700;
+  border: none;
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
+  transition: all 0.2s ease;
+}
+
+[data-theme="neumorphism-dark"] .send-button:hover {
+  box-shadow: var(--neo-shadow-convex);
+  transform: translateY(-2px);
+}
+
+[data-theme="neumorphism-dark"] .send-button:disabled {
+  opacity: 0.5;
+  box-shadow: var(--neo-shadow-concave);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  [data-theme="neumorphism-dark"] .message {
+    max-width: 95%;
+    padding: 0.75rem 1rem;
+  }
+
+  [data-theme="neumorphism-dark"] .app-header {
+    border-radius: 0 0 16px 16px;
+    margin: 0 10px 10px;
+    padding: 12px 16px;
+  }
+
+  [data-theme="neumorphism-dark"] .app-footer {
+    border-radius: 16px 16px 0 0;
+    margin: 0 10px;
+    padding: 12px;
+  }
+
+  [data-theme="neumorphism-dark"] .settings-dropdown {
+    background: var(--neo-bg-secondary);
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+/* Inline Code */
+[data-theme="neumorphism-dark"] .message-content code {
+  background: rgba(102, 126, 234, 0.2);
+  color: #8898ea;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.5rem;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.875em;
+  box-shadow: inset 2px 2px 4px #1a202c, inset -2px -2px 4px #3d4b5f;
+}
+
+[data-theme="neumorphism-dark"] .message-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  box-shadow: none;
+}

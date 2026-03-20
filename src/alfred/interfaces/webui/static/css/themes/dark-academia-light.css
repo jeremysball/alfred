@@ -1,0 +1,206 @@
+/**
+ * Dark Academia Light Theme
+ *
+ * A light variant of the classical library aesthetic.
+ * Cream paper, warm ink tones, and gold accents.
+ */
+
+[data-theme="dark-academia-light"] {
+  /* Color Palette - Warm Cream/Paper tones */
+  --da-bg-primary: #f5f0e8;
+  --da-bg-secondary: #ebe4d4;
+  --da-bg-tertiary: #e0d8c8;
+  --da-bg-elevated: #f0ebe3;
+  --da-bg-header: #f5f0e8;
+  --da-bg-footer: #f5f0e8;
+  
+  /* Message Colors */
+  --da-bg-message-user: #e8dcc8;
+  --da-bg-message-assistant: #f5f0e8;
+  --da-border-user: #8b4513;
+  --da-border-assistant: #556b2f;
+  
+  /* Text Colors */
+  --da-text-primary: #3d3d3d;
+  --da-text-secondary: #5a5a5a;
+  --da-text-muted: #8a8a8a;
+  --da-text-accent: #8b4513;
+  
+  /* Accent Colors */
+  --da-accent-gold: #8b4513;
+  --da-accent-oxblood: #722f37;
+  --da-accent-forest: #556b2f;
+  
+  /* Borders */
+  --da-border-color: #d4c8b8;
+  --da-border-subtle: #e0d8c8;
+  
+  /* Typography */
+  --da-font-primary: Georgia, 'Times New Roman', serif;
+  --da-font-mono: 'Courier New', Courier, monospace;
+}
+
+/* Body & App */
+[data-theme="dark-academia-light"] body {
+  background-color: var(--da-bg-primary);
+  background-image: radial-gradient(ellipse at top, rgba(139, 69, 19, 0.02) 0%, transparent 50%);
+  color: var(--da-text-primary);
+  font-family: var(--da-font-primary);
+}
+
+[data-theme="dark-academia-light"] #app {
+  background: var(--da-bg-primary);
+}
+
+/* Header */
+[data-theme="dark-academia-light"] .app-header {
+  background: var(--da-bg-header);
+  border-bottom: 2px solid var(--da-border-color);
+}
+
+[data-theme="dark-academia-light"] .app-header h1 {
+  font-family: var(--da-font-primary);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--da-accent-gold);
+  text-transform: uppercase;
+  font-size: 1.25rem;
+}
+
+[data-theme="dark-academia-light"] .connection-pill.connected {
+  background: var(--da-accent-forest);
+  color: #fff;
+}
+
+[data-theme="dark-academia-light"] .connection-pill.disconnected {
+  background: var(--da-accent-oxblood);
+  color: #fff;
+}
+
+/* Messages */
+[data-theme="dark-academia-light"] .message.user {
+  background: var(--da-bg-message-user);
+  border-left: 3px solid var(--da-border-user);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark-academia-light"] .message.assistant {
+  background: var(--da-bg-message-assistant);
+  border-left: 3px solid var(--da-border-assistant);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--da-border-color);
+}
+
+[data-theme="dark-academia-light"] .message.system {
+  background: transparent;
+  border: 1px dashed var(--da-border-color);
+  color: var(--da-text-muted);
+}
+
+[data-theme="dark-academia-light"] .message-role {
+  font-family: var(--da-font-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--da-accent-gold);
+  font-size: 0.6875rem;
+}
+
+[data-theme="dark-academia-light"] .message-time {
+  color: var(--da-text-muted);
+}
+
+[data-theme="dark-academia-light"] .message-content {
+  color: var(--da-text-primary);
+  line-height: 1.6;
+}
+
+/* Reasoning */
+[data-theme="dark-academia-light"] .reasoning-section {
+  border-left: 3px solid var(--da-accent-oxblood);
+  background: rgba(114, 47, 55, 0.05);
+}
+
+[data-theme="dark-academia-light"] .reasoning-header {
+  color: var(--da-text-secondary);
+}
+
+[data-theme="dark-academia-light"] .reasoning-label {
+  color: var(--da-accent-oxblood);
+}
+
+[data-theme="dark-academia-light"] .reasoning-content {
+  color: var(--da-text-secondary);
+  font-family: var(--da-font-mono);
+  font-size: 0.8125rem;
+}
+
+/* Input */
+[data-theme="dark-academia-light"] .app-footer {
+  background: var(--da-bg-footer);
+  border-top: 2px solid var(--da-border-color);
+}
+
+[data-theme="dark-academia-light"] .message-input {
+  background: var(--da-bg-tertiary);
+  border: 1px solid var(--da-border-color);
+  color: var(--da-text-primary);
+  font-family: var(--da-font-primary);
+}
+
+[data-theme="dark-academia-light"] .message-input:focus {
+  border-color: var(--da-accent-gold);
+  box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.15);
+}
+
+[data-theme="dark-academia-light"] .message-input::placeholder {
+  color: var(--da-text-muted);
+}
+
+[data-theme="dark-academia-light"] .send-button {
+  background: var(--da-accent-gold);
+  color: #fff;
+  font-family: var(--da-font-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+[data-theme="dark-academia-light"] .send-button:hover {
+  background: var(--da-text-primary);
+}
+
+[data-theme="dark-academia-light"] .send-button:disabled {
+  background: var(--da-text-muted);
+  opacity: 0.5;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  [data-theme="dark-academia-light"] .message {
+    max-width: 95%;
+    padding: 0.75rem 1rem;
+  }
+
+  [data-theme="dark-academia-light"] .settings-dropdown {
+    background: var(--da-bg-secondary);
+    border: 2px solid var(--da-border-color);
+    border-bottom: none;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Inline Code */
+[data-theme="dark-academia-light"] .message-content code {
+  background: rgba(139, 69, 19, 0.12);
+  color: #8b4513;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875em;
+}
+
+[data-theme="dark-academia-light"] .message-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}

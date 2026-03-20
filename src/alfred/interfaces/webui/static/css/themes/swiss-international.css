@@ -90,7 +90,7 @@
 
 [data-theme="swiss-international"] .message-list {
   max-width: 800px;
-  gap: 2px;
+  gap: 1rem;
 }
 
 /* Messages */
@@ -390,4 +390,20 @@
 [data-theme="swiss-international"] .theme-check {
   color: var(--swiss-red);
   font-family: var(--swiss-font-mono);
+}
+
+/* Inline Code */
+[data-theme="swiss-international"] .message-content code {
+  background: rgba(227, 6, 19, 0.08);
+  color: #c62828;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.875em;
+}
+
+[data-theme="swiss-international"] .message-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
 }
