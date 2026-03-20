@@ -53,23 +53,23 @@ Implement rich markdown rendering with syntax highlighting for code blocks, copy
 
 ---
 
-### 7.3 Copy Button on Code Blocks
+### 7.3 Copy Button on Code Blocks ✅
 
-- [ ] **Test**: `test_copy_button_exists()` - Verify copy buttons are added
+- [x] **Test**: `test_copy_button_exists()` - Verify copy buttons are added
   - Check that code blocks have associated copy buttons
   - Run: `uv run pytest tests/webui/test_markdown.py::test_copy_button -v`
 
-- [ ] **Implement**: Add copy button to code blocks
+- [x] **Implement**: Add copy button to code blocks
   - Create `addCopyButtons()` function in main.js
   - Wrap code blocks in container with copy button
   - Style button with CSS (position top-right of code block)
   - Commit: `feat(webui): add copy buttons to code blocks`
 
-- [ ] **Test**: `test_copy_button_copies_text()` - Verify copy functionality works
+- [x] **Test**: `test_copy_button_copies_text()` - Verify copy functionality works
   - Test that clicking copy button copies code to clipboard
   - Run: Manual verification
 
-- [ ] **Implement**: Implement copy functionality
+- [x] **Implement**: Implement copy functionality
   - Use Clipboard API (`navigator.clipboard.writeText()`)
   - Show visual feedback on click (checkmark icon, "Copied!" tooltip)
   - Revert to original icon after 2 seconds

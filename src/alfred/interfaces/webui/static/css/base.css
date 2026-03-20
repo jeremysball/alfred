@@ -1342,3 +1342,14 @@ toast-container {
     color: #81c784;
     opacity: 1;
 }
+
+/* Inline Code Styling */
+.message-content code:not(pre code) {
+    background: rgba(79, 195, 247, 0.15);
+    color: #4fc3f7;
+    padding: 0.15em 0.4em;
+    border-radius: 0.25rem;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 0.875em;
+    font-weight: 500;
+}
