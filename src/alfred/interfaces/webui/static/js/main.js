@@ -12,12 +12,31 @@ function initAlfredUI() {
   const sendButton = document.getElementById('send-button');
   const connectionStatus = document.getElementById('connection-status');
   const chatContainer = document.getElementById('chat-container');
+  const queueBadge = document.getElementById('queue-badge');
+  const completionMenu = document.getElementById('completion-menu');
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
   let currentAssistantMessage = null;
-  const activeToolCalls = new Map(); // toolCallId -> tool-call element
+  const activeToolCalls = new Map();
   let allToolsExpanded = false;
+
+  // Message Queue
+  const messageQueue = [];
+
+  // Message History
+  const messageHistory = [];
+  let historyIndex = -1;
+
+  // Available Commands
+  const commands = [
+    { value: '/new', description: 'Start new session' },
+    { value: '/resume', description: 'Resume a session' },
+    { value: '/sessions', description: 'List recent sessions' },
+    { value: '/session', description: 'Show current session info' },
+    { value: '/context', description: 'Show system context' },
+    { value: '/help', description: 'Show available commands' }
+  ];
 
   // Connection Status Handler
   function updateConnectionStatus(status, text) {
@@ -43,7 +62,6 @@ function initAlfredUI() {
 
     switch (msg.type) {
       case 'chat.started':
-        // Create new assistant message element for streaming
         currentAssistantMessage = document.createElement('chat-message');
         currentAssistantMessage.setAttribute('role', 'assistant');
         currentAssistantMessage.setAttribute('content', '');
@@ -53,7 +71,6 @@ function initAlfredUI() {
         break;
 
       case 'chat.chunk':
-        // Append chunk to current assistant message
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendContent(msg.payload.content);
           scrollToBottom();
@@ -61,9 +78,10 @@ function initAlfredUI() {
         break;
 
       case 'chat.complete':
-        // Finalize assistant message
         currentAssistantMessage = null;
         enableInput();
+        // Send next queued message if any
+        processQueue();
         break;
 
       case 'chat.error':
@@ -82,6 +100,10 @@ function initAlfredUI() {
 
       case 'tool.end':
         handleToolEnd(msg.payload);
+        break;
+
+      case 'completion.suggestions':
+        showCompletionMenu(msg.payload?.suggestions || []);
         break;
 
       case 'status.update':
@@ -109,8 +131,6 @@ function initAlfredUI() {
     toolCall.setAttribute('expanded', 'false');
 
     activeToolCalls.set(payload.toolCallId, toolCall);
-
-    // Append to current assistant message
     currentAssistantMessage.appendChild(toolCall);
     scrollToBottom();
   }
@@ -130,14 +150,76 @@ function initAlfredUI() {
       if (payload.output) {
         toolCall.setAttribute('output', payload.output);
       }
-      // Keep in map for potential Ctrl+T toggle
     }
   }
 
-  // Send Message Handler
+  // Queue Management
+  function addToQueue(content) {
+    messageQueue.push(content);
+    updateQueueBadge();
+    showToast(`Message queued (${messageQueue.length})`, 'info');
+  }
+
+  function processQueue() {
+    if (messageQueue.length > 0 && !currentAssistantMessage) {
+      const content = messageQueue.shift();
+      updateQueueBadge();
+      sendMessageContent(content);
+    }
+  }
+
+  function updateQueueBadge() {
+    queueBadge.textContent = messageQueue.length;
+    if (messageQueue.length === 0) {
+      queueBadge.classList.add('hidden');
+    } else {
+      queueBadge.classList.remove('hidden');
+    }
+  }
+
+  function clearQueue() {
+    messageQueue.length = 0;
+    updateQueueBadge();
+    showToast('Queue cleared', 'info');
+  }
+
+  // Message History
+  function addToHistory(content) {
+    messageHistory.push(content);
+    historyIndex = messageHistory.length;
+  }
+
+  function navigateHistory(direction) {
+    if (messageHistory.length === 0) return;
+
+    if (direction === 'up') {
+      historyIndex = Math.max(0, historyIndex - 1);
+    } else {
+      historyIndex = Math.min(messageHistory.length, historyIndex + 1);
+    }
+
+    if (historyIndex < messageHistory.length) {
+      messageInput.value = messageHistory[historyIndex];
+    } else {
+      messageInput.value = '';
+    }
+
+    autoResizeTextarea();
+  }
+
+  // Send Message
   function sendMessage() {
     const content = messageInput.value.trim();
     if (!content) return;
+
+    sendMessageContent(content);
+    messageInput.value = '';
+    autoResizeTextarea();
+  }
+
+  function sendMessageContent(content) {
+    // Add to history
+    addToHistory(content);
 
     // Add user message to UI
     const userMessage = document.createElement('chat-message');
@@ -146,13 +228,50 @@ function initAlfredUI() {
     userMessage.setAttribute('timestamp', new Date().toISOString());
     messageList.appendChild(userMessage);
 
-    // Clear input and disable until response
-    messageInput.value = '';
     disableInput();
     scrollToBottom();
 
     // Send via WebSocket
     wsClient.sendChat(content);
+  }
+
+  // Textarea Auto-Resize
+  function autoResizeTextarea() {
+    messageInput.style.height = 'auto';
+    const newHeight = Math.min(messageInput.scrollHeight, 200);
+    messageInput.style.height = `${newHeight}px`;
+  }
+
+  // Command Completion
+  function showCompletionMenu(items) {
+    if (items.length === 0) {
+      completionMenu.hide();
+      return;
+    }
+    completionMenu.setItems(items);
+    completionMenu.show();
+  }
+
+  function checkForCompletionTrigger() {
+    const value = messageInput.value;
+    const cursorPosition = messageInput.selectionStart;
+
+    // Get text before cursor
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lines = textBeforeCursor.split('\n');
+    const currentLine = lines[lines.length - 1];
+
+    // Check if we're at the start of a command
+    if (currentLine.startsWith('/')) {
+      const filter = currentLine.substring(1);
+      const filtered = commands.filter(cmd =>
+        cmd.value.toLowerCase().includes(filter.toLowerCase()) ||
+        (cmd.description && cmd.description.toLowerCase().includes(filter.toLowerCase()))
+      );
+      showCompletionMenu(filtered);
+    } else {
+      completionMenu.hide();
+    }
   }
 
   // Global Tool Toggle (Ctrl+T)
@@ -166,7 +285,6 @@ function initAlfredUI() {
         tool.collapse();
       }
     });
-    console.log(`All tools ${allToolsExpanded ? 'expanded' : 'collapsed'}`);
   }
 
   // UI Helpers
@@ -200,20 +318,118 @@ function initAlfredUI() {
   // Event Listeners
   sendButton.addEventListener('click', sendMessage);
 
-  messageInput.addEventListener('keypress', (e) => {
+  // Textarea input handling
+  messageInput.addEventListener('input', () => {
+    autoResizeTextarea();
+    checkForCompletionTrigger();
+  });
+
+  // Keyboard handling
+  messageInput.addEventListener('keydown', (e) => {
+    // Shift+Enter: Queue message
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      const content = messageInput.value.trim();
+      if (content) {
+        addToQueue(content);
+        messageInput.value = '';
+        autoResizeTextarea();
+      }
+      return;
+    }
+
+    // Enter (without Shift): Send message
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+      return;
+    }
+
+    // Handle completion menu navigation
+    if (completionMenu.isVisible()) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        completionMenu.selectNext();
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        completionMenu.selectPrevious();
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        completionMenu.selectCurrent();
+        return;
+      }
+      if (e.key === 'Escape') {
+        completionMenu.hide();
+        return;
+      }
+    }
+
+    // History navigation (only if completion not visible)
+    if (!completionMenu.isVisible()) {
+      if (e.key === 'ArrowUp' && messageInput.selectionStart === 0) {
+        e.preventDefault();
+        navigateHistory('up');
+        return;
+      }
+      if (e.key === 'ArrowDown' && messageInput.selectionStart === messageInput.value.length) {
+        e.preventDefault();
+        navigateHistory('down');
+        return;
+      }
+    }
+
+    // Ctrl+U: Clear input
+    if (e.ctrlKey && e.key === 'u') {
+      e.preventDefault();
+      messageInput.value = '';
+      autoResizeTextarea();
+      return;
     }
   });
 
-  // Keyboard shortcuts
+  // Global keyboard shortcuts
   document.addEventListener('keydown', (e) => {
-    // Ctrl+T - Toggle all tool calls
+    // Ctrl+T: Toggle all tool calls
     if (e.ctrlKey && e.key === 't') {
       e.preventDefault();
       toggleAllTools();
+      return;
     }
+
+    // Escape: Clear queue
+    if (e.key === 'Escape' && messageQueue.length > 0) {
+      clearQueue();
+    }
+  });
+
+  // Completion menu selection
+  completionMenu.addEventListener('select', (e) => {
+    const selected = e.detail;
+    const value = messageInput.value;
+    const cursorPosition = messageInput.selectionStart;
+
+    // Replace current command with selected one
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lines = textBeforeCursor.split('\n');
+    const currentLineIndex = lines.length - 1;
+    const currentLine = lines[currentLineIndex];
+
+    if (currentLine.startsWith('/')) {
+      lines[currentLineIndex] = selected.value + ' ';
+      const newTextBefore = lines.join('\n');
+      const newValue = newTextBefore + value.substring(cursorPosition);
+
+      messageInput.value = newValue;
+      const newCursorPos = newTextBefore.length;
+      messageInput.setSelectionRange(newCursorPos, newCursorPos);
+      messageInput.focus();
+    }
+
+    completionMenu.hide();
   });
 
   // Auto-scroll on window resize
