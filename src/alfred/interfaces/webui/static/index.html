@@ -17,16 +17,15 @@
 <body>
     <div id="app">
         <header class="app-header">
-            <h1>Alfred</h1>
-            <div class="header-status">
-                <settings-menu></settings-menu>
-                <div id="queue-badge" class="queue-badge hidden">0</div>
-                <div id="streaming-indicator" class="streaming-indicator hidden">
-                    <span class="throbber"></span>
-                </div>
-                <div id="connection-status" class="status disconnected">Disconnected</div>
+            <div class="header-brand">
+                <h1>Alfred</h1>
+                <span id="connection-pill" class="connection-pill disconnected">●</span>
             </div>
-            <status-bar id="status-bar" model="" queue="0" streaming="false"></status-bar>
+            <div class="header-status">
+                <div id="streaming-dot" class="streaming-dot hidden" title="Generating response..."></div>
+                <div id="queue-badge" class="queue-badge hidden">0</div>
+                <settings-menu></settings-menu>
+            </div>
         </header>
 
         <toast-container id="toast-container"></toast-container>
@@ -69,11 +68,11 @@
     <script src="/static/js/components/chat-message.js?v=3"></script>
     <script src="/static/js/components/tool-call.js?v=3"></script>
     <script src="/static/js/components/completion-menu.js?v=3"></script>
-    <script src="/static/js/components/status-bar.js?v=3"></script>
-    <script src="/static/js/components/toast-container.js?v=3"></script>
 
     <!-- Markdown and Syntax Highlighting -->
     <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
     <script src="/static/js/websocket-client.js?v=3"></script>
     <script src="/static/js/main.js?v=3"></script>

@@ -1228,3 +1228,67 @@ toast-container {
     color: #c9a959;
     opacity: 0.8;
 }
+
+/* ============================================
+   SIMPLIFIED HEADER
+   ============================================ */
+
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.connection-pill {
+    font-size: 0.5rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.connection-pill.connected {
+    color: #2e7d32;
+    background: #2e7d32;
+    box-shadow: 0 0 8px #2e7d32;
+}
+
+.connection-pill.disconnected {
+    color: #c62828;
+    background: #c62828;
+}
+
+.connection-pill.connecting {
+    color: #f57c00;
+    background: #f57c00;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Single streaming indicator dot */
+.streaming-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4fc3f7;
+    animation: streaming-pulse 1s ease-in-out infinite;
+}
+
+@keyframes streaming-pulse {
+    0%, 100% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.6;
+        transform: scale(0.9);
+    }
+}
+
+.streaming-dot.hidden {
+    display: none;
+}

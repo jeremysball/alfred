@@ -10,10 +10,10 @@ function initAlfredUI() {
   const messageList = document.getElementById('message-list');
   const messageInput = document.getElementById('message-input');
   const sendButton = document.getElementById('send-button');
-  const connectionStatus = document.getElementById('connection-status');
+  const connectionPill = document.getElementById('connection-pill');
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
-  const streamingIndicator = document.getElementById('streaming-indicator');
+  const streamingDot = document.getElementById('streaming-dot');
   const completionMenu = document.getElementById('completion-menu');
 
   // WebSocket Client
@@ -40,30 +40,29 @@ function initAlfredUI() {
   ];
 
   // Connection Status Handler
-  function updateConnectionStatus(status, text) {
-    connectionStatus.className = `status ${status}`;
-    connectionStatus.textContent = text;
+  function updateConnectionStatus(status) {
+    connectionPill.className = `connection-pill ${status}`;
   }
 
   wsClient.addEventListener('connected', () => {
-    updateConnectionStatus('connected', 'Connected');
+    updateConnectionStatus('connected');
   });
 
   wsClient.addEventListener('disconnected', () => {
-    updateConnectionStatus('disconnected', 'Disconnected');
+    updateConnectionStatus('disconnected');
   });
 
   wsClient.addEventListener('error', () => {
-    updateConnectionStatus('disconnected', 'Error');
+    updateConnectionStatus('disconnected');
   });
 
   // Streaming Indicator
   function showStreaming() {
-    streamingIndicator?.classList.remove('hidden');
+    streamingDot?.classList.remove('hidden');
   }
 
   function hideStreaming() {
-    streamingIndicator?.classList.add('hidden');
+    streamingDot?.classList.add('hidden');
   }
 
   // Message Handler

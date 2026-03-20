@@ -7,22 +7,22 @@ Implement rich markdown rendering with syntax highlighting for code blocks, copy
 
 ## Phase 7: Markdown Rendering
 
-### 7.1 marked.js Integration
+### 7.1 marked.js Integration ✅
 
-- [ ] **Test**: `test_marked_js_loaded()` - Verify marked library is available
+- [x] **Test**: `test_marked_js_loaded()` - Verify marked library is available
   - Check that `window.marked` is defined after loading
   - Run: `grep "marked" src/alfred/interfaces/webui/static/index.html`
 
-- [ ] **Implement**: Add marked.js to index.html
+- [x] **Implement**: Add marked.js to index.html
   - Add `<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>` before main.js
   - Or download and serve locally for offline support
   - Commit: `feat(webui): add marked.js for markdown parsing`
 
-- [ ] **Test**: `test_chat_message_renders_markdown()` - Verify markdown is parsed
+- [x] **Test**: `test_chat_message_renders_markdown()` - Verify markdown is parsed
   - Create test checking that chat-message component uses marked.parse()
   - Run: Manual verification via browser console
 
-- [ ] **Implement**: Update chat-message.js to render markdown
+- [x] **Implement**: Update chat-message.js to render markdown
   - Import/use marked to parse message content
   - Replace `_escapeHtml()` with `marked.parse()` for assistant messages
   - Sanitize output to prevent XSS

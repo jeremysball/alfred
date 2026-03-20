@@ -47,6 +47,7 @@ class ChatMessage extends HTMLElement {
 
   connectedCallback() {
     this._render();
+    this._applySyntaxHighlighting();
     this._setupEventListeners();
   }
 
@@ -178,6 +179,20 @@ class ChatMessage extends HTMLElement {
     return html;
   }
 
+  _applySyntaxHighlighting() {
+    // Check if highlight.js is available
+    if (typeof hljs === 'undefined') {
+      console.warn('highlight.js not loaded, skipping syntax highlighting');
+      return;
+    }
+
+    // Find all code blocks and apply highlighting
+    const codeBlocks = this.querySelectorAll('pre code');
+    codeBlocks.forEach((block) => {
+      hljs.highlightElement(block);
+    });
+  }
+
   _setupEventListeners() {
     // Copy button
     this.querySelector('[data-action="copy"]')?.addEventListener('click', () => {
@@ -275,6 +290,7 @@ class ChatMessage extends HTMLElement {
   setReasoning(reasoning) {
     this._reasoning = reasoning;
     this._render();
+    this._applySyntaxHighlighting();
     this._setupEventListeners();
   }
 
@@ -291,8 +307,11 @@ class ChatMessage extends HTMLElement {
     } else if (contentDiv && this._role === 'assistant') {
       // For assistant messages, re-render full markdown (context-sensitive)
       contentDiv.innerHTML = this._renderMarkdown(this._content);
+      // Re-apply syntax highlighting to new code blocks
+      this._applySyntaxHighlighting();
     } else {
       this._render();
+      this._applySyntaxHighlighting();
       this._setupEventListeners();
     }
   }
@@ -304,6 +323,7 @@ class ChatMessage extends HTMLElement {
       reasoningContent.textContent += chunk;
     } else {
       this._render();
+      this._applySyntaxHighlighting();
       this._setupEventListeners();
       this._reasoningExpanded = true;
       const content = this.querySelector('.reasoning-content');
