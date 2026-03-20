@@ -7,13 +7,13 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
 
 ## Phase 8: Testing and Documentation
 
-### 8.1 WebSocket Protocol Unit Tests
+### 8.1 WebSocket Protocol Unit Tests ✅
 
-- [ ] **Test**: `test_websocket_connection_handshake()` - Verify connection upgrade and session creation
+- [x] **Test**: `test_websocket_connection_handshake()` - Verify connection upgrade and session creation
   - Test that connecting to `/ws` creates a session with valid UUID
   - Run: `uv run pytest tests/webui/test_websocket.py::test_websocket_connection_handshake -v`
 
-- [ ] **Implement**: Create `tests/webui/test_websocket.py` with connection tests
+- [x] **Implement**: Create `tests/webui/test_websocket.py` with connection tests
   - Use `pytest-asyncio` for async WebSocket testing
   - Test connection acceptance and initial session state
   - Commit: `test(webui): add WebSocket connection handshake tests`

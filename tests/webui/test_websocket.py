@@ -128,6 +128,144 @@ class TestWebSocketChatWithoutAlfred:
                    "Alfred instance not available" in data["payload"]["error"]
 
 
+class MockAlfred:
+    """Mock Alfred instance for testing chat flow."""
+
+    def __init__(self, chunks=None):
+        self.chunks = chunks or ["Hello", " ", "world", "!"]
+        self.chat_called = False
+        self.last_message = None
+
+    async def chat_stream(self, message, tool_callback=None):
+        """Mock chat stream that yields chunks."""
+        self.chat_called = True
+        self.last_message = message
+        for chunk in self.chunks:
+            yield chunk
+
+
+@pytest.fixture
+def mock_app():
+    """Create test app with mocked Alfred instance."""
+    mock_alfred = MockAlfred()
+    return create_app(alfred_instance=mock_alfred), mock_alfred
+
+
+@pytest.fixture
+def mock_client(mock_app):
+    """Create test client with mocked Alfred."""
+    app, _ = mock_app
+    return TestClient(app)
+
+
+class TestWebSocketChatWithMockedAlfred:
+    """Test chat functionality with mocked Alfred instance."""
+
+    def test_chat_send_receive_flow(self, mock_client, mock_app):
+        """Test complete chat.send and chat.chunk flow.
+
+        Verifies:
+        - chat.started is sent first
+        - chat.chunk messages are received in order
+        - chat.complete is sent at the end
+        - Message ID is consistent across all messages
+        """
+        _, mock_alfred = mock_app
+
+        with mock_client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Hello there"}
+            })
+
+            # Should receive chat.started
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+            assert "messageId" in data["payload"]
+            message_id = data["payload"]["messageId"]
+            assert data["payload"]["role"] == "assistant"
+
+            # Should receive chunks in order
+            received_chunks = []
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "chat.chunk":
+                    received_chunks.append(data["payload"]["content"])
+                    assert data["payload"]["messageId"] == message_id
+                elif data["type"] == "chat.complete":
+                    # Verify completion
+                    assert data["payload"]["messageId"] == message_id
+                    assert "finalContent" in data["payload"]
+                    assert "usage" in data["payload"]
+                    break
+                elif data["type"] == "status.update":
+                    # Status updates may be sent during streaming
+                    continue
+                else:
+                    # Unexpected message type
+                    pytest.fail(f"Unexpected message type: {data['type']}")
+
+            # Verify all chunks received
+            assert received_chunks == ["Hello", " ", "world", "!"]
+            assert mock_alfred.chat_called
+            assert mock_alfred.last_message == "Hello there"
+
+    def test_chat_with_reasoning(self, mock_client):
+        """Test chat flow with reasoning chunks."""
+        # Create app with reasoning chunks
+        reasoning_chunks = [
+            "[REASONING]Let me think",
+            " about this",
+            "[/REASONING]",
+            "The answer is 42"
+        ]
+        mock_alfred = MockAlfred(chunks=reasoning_chunks)
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            # Receive connected message
+            websocket.receive_json()
+
+            # Send chat message
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "What is the answer?"}
+            })
+
+            # Receive chat.started
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+            message_id = data["payload"]["messageId"]
+
+            # Collect all chunks
+            reasoning_chunks_received = []
+            content_chunks_received = []
+
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "reasoning.chunk":
+                    reasoning_chunks_received.append(data["payload"]["content"])
+                    assert data["payload"]["messageId"] == message_id
+                elif data["type"] == "chat.chunk":
+                    content_chunks_received.append(data["payload"]["content"])
+                    assert data["payload"]["messageId"] == message_id
+                elif data["type"] == "chat.complete":
+                    break
+                elif data["type"] == "status.update":
+                    continue
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
+
+            # Verify reasoning was split correctly
+            assert "Let me think" in reasoning_chunks_received[0]
+            assert "The answer is 42" in content_chunks_received
+
+
 class TestWebSocketCommandWithoutAlfred:
     """Test command functionality when Alfred instance is not available."""
 
