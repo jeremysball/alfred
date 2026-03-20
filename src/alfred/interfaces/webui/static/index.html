@@ -5,12 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alfred Web UI</title>
     <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/themes.css">
+    <link rel="stylesheet" href="/static/css/themes/dark-academia.css">
+    <link rel="stylesheet" href="/static/css/themes/swiss-international.css">
+    <link rel="stylesheet" href="/static/css/themes/neumorphism.css">
 </head>
 <body>
     <div id="app">
         <header class="app-header">
             <h1>Alfred</h1>
             <div class="header-status">
+                <theme-selector></theme-selector>
                 <div id="queue-badge" class="queue-badge hidden">0</div>
                 <div id="connection-status" class="status disconnected">Disconnected</div>
             </div>
@@ -46,6 +51,7 @@
     </div>
 
     <!-- Web Components -->
+    <script src="/static/js/components/theme-selector.js"></script>
     <script src="/static/js/components/chat-message.js"></script>
     <script src="/static/js/components/tool-call.js"></script>
     <script src="/static/js/components/completion-menu.js"></script>
