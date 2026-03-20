@@ -205,6 +205,12 @@ def webui_callback(
         "-p",
         help="Port to run the Web UI server on",
     ),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        "-h",
+        help="Host to bind the server to (use 0.0.0.0 for Tailscale/network access)",
+    ),
     open_browser: bool = typer.Option(
         False,
         "--open",
@@ -233,7 +239,7 @@ def webui_callback(
 
     uvicorn.run(
         create_app(),
-        host="127.0.0.1",
+        host=host,
         port=port,
         log_level="info",
     )
