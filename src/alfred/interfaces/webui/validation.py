@@ -181,6 +181,13 @@ class ToolOutputPayload(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ToolOutputMessage(BaseModel):
+    """Server streams tool output."""
+
+    type: Literal["tool.output"]
+    payload: ToolOutputPayload
+
+
 class ToolEndPayload(BaseModel):
     """Payload for tool.end message."""
 
@@ -286,6 +293,7 @@ ServerMessage = (
     | ChatCompleteMessage
     | ChatErrorMessage
     | ToolStartMessage
+    | ToolOutputMessage
     | ToolEndMessage
     | CompletionSuggestionsMessage
     | StatusUpdateMessage
