@@ -91,13 +91,13 @@ Implement rich markdown rendering with syntax highlighting for code blocks, copy
 
 ---
 
-### 7.5 Link Handling
+### 7.5 Link Handling ✅
 
-- [ ] **Test**: `test_links_open_in_new_tab()` - Verify links have target="_blank"
+- [x] **Test**: `test_links_open_in_new_tab()` - Verify links have target="_blank"
   - Check that `<a>` tags have `target="_blank"` and `rel="noopener"`
   - Run: Manual verification
 
-- [ ] **Implement**: Configure marked to open links in new tab
+- [x] **Implement**: Configure marked to open links in new tab
   - Use marked renderer to customize link output
   - Add `target="_blank"` and `rel="noopener noreferrer"` to all links
   - Commit: `feat(webui): open markdown links in new tab`
