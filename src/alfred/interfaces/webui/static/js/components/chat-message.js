@@ -50,15 +50,7 @@ class ChatMessage extends HTMLElement {
       : '';
 
     const reasoningSection = this._reasoning
-      ? `<div class="reasoning-section">
-          <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
-            <span class="reasoning-toggle">${this._reasoningExpanded ? '▼' : '▶'}</span>
-            <span class="reasoning-label">Thinking</span>
-          </div>
-          <div class="reasoning-content" style="display: ${this._reasoningExpanded ? 'block' : 'none'}">
-            ${this._escapeHtml(this._reasoning)}
-          </div>
-        </div>`
+      ? `<div class="reasoning-section"><div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()"><span class="reasoning-toggle">${this._reasoningExpanded ? '▼' : '▶'}</span><span class="reasoning-label">Thinking</span></div><div class="reasoning-content" style="display: ${this._reasoningExpanded ? 'block' : 'none'}">${this._escapeHtml(this._reasoning)}</div></div>`
       : '';
 
     this.innerHTML = `
@@ -115,7 +107,7 @@ class ChatMessage extends HTMLElement {
     const reasoningContent = this.querySelector('.reasoning-content');
     const reasoningSection = this.querySelector('.reasoning-section');
     if (reasoningContent) {
-      reasoningContent.textContent += chunk;
+      reasoningContent.textContent = this._reasoning.trim();
     } else if (reasoningSection) {
       // Section exists but content div missing, re-render
       this._render();

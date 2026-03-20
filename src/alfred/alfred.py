@@ -327,7 +327,10 @@ class Alfred:
             ]
 
         # Add assistant response to session with tool calls
-        assistant_message = "".join(full_response)
+        # Strip reasoning markers for storage (they're only for streaming)
+        import re
+        raw_message = "".join(full_response)
+        assistant_message = re.sub(r'\[REASONING\]|\[/REASONING\]', '', raw_message)
 
         # Create message manually to include tool_calls
         from datetime import UTC, datetime

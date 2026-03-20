@@ -37,6 +37,45 @@ async def _close_all_connections() -> None:
         _active_connections.discard(ws)
 
 
+async def _load_current_session(
+    websocket: WebSocket,
+    alfred_instance: "Alfred",
+) -> None:
+    """Load and send current session messages on connection.
+
+    Args:
+        websocket: The WebSocket connection
+        alfred_instance: The Alfred instance
+    """
+    try:
+        # Get current CLI session
+        session = alfred_instance.core.session_manager.get_current_cli_session()
+
+        if session is None:
+            # No active session, create one
+            session = alfred_instance.core.session_manager.start_session()
+
+        # Convert messages to JSON format
+        messages = []
+        for msg in session.messages:
+            messages.append({
+                "id": msg.id if hasattr(msg, "id") else str(uuid.uuid4()),
+                "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
+                "content": msg.content,
+            })
+
+        await websocket.send_json({
+            "type": "session.loaded",
+            "payload": {
+                "sessionId": session.meta.session_id,
+                "messages": messages,
+            },
+        })
+    except Exception as e:
+        # Silently ignore - session loading is optional
+        print(f"Failed to load session: {e}")
+
+
 async def _handle_chat_message(
     websocket: WebSocket,
     alfred_instance: "Alfred",
@@ -116,30 +155,12 @@ async def _handle_chat_message(
                     },
                 })
             elif in_reasoning:
-                # Check if this chunk ends reasoning (contains [/REASONING] or regular content)
-                if chunk.startswith("[") and not chunk.startswith("[REASONING]"):
+                # Check if this chunk ends reasoning
+                if chunk.startswith("[/REASONING]"):
                     in_reasoning = False
-                    # Send remaining reasoning
-                    if reasoning_buffer:
-                        await websocket.send_json({
-                            "type": "reasoning.chunk",
-                            "payload": {
-                                "messageId": message_id,
-                                "content": reasoning_buffer,
-                            },
-                        })
-                        reasoning_buffer = ""
-                    # Send as regular content
-                    full_content += chunk
-                    await websocket.send_json({
-                        "type": "chat.chunk",
-                        "payload": {
-                            "messageId": message_id,
-                            "content": chunk,
-                        },
-                    })
+                    reasoning_buffer = ""  # Clear buffer
                 else:
-                    # Still in reasoning
+                    # Still in reasoning - send chunk and accumulate
                     reasoning_buffer += chunk
                     full_reasoning += chunk
                     await websocket.send_json({
@@ -283,14 +304,14 @@ async def _handle_resume_command(
         for msg in session.messages:
             messages.append({
                 "id": msg.id if hasattr(msg, "id") else str(uuid.uuid4()),
-                "role": msg.role,
+                "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
                 "content": msg.content,
             })
 
         await websocket.send_json({
             "type": "session.loaded",
             "payload": {
-                "sessionId": session.session_id,
+                "sessionId": session.meta.session_id,
                 "messages": messages,
             },
         })
@@ -445,6 +466,10 @@ def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
                 "type": "connected",
                 "payload": {},
             })
+
+            # Load current session if available
+            if alfred_instance is not None:
+                await _load_current_session(websocket, alfred_instance)
 
             while True:
                 # Receive and parse message
