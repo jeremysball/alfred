@@ -331,6 +331,12 @@ def create_app(alfred_instance: "Alfred | None" = None) -> FastAPI:
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    @app.get("/")
+    async def root() -> None:
+        """Redirect root to static index.html."""
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/static/index.html")
+
     @app.get("/health")
     async def health_check() -> dict[str, str]:
         """Health check endpoint."""
