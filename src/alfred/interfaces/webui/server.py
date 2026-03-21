@@ -3,6 +3,7 @@
 import json
 import uuid
 from contextlib import suppress
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -62,6 +63,7 @@ async def _load_current_session(
                 "id": msg.id if hasattr(msg, "id") else str(uuid.uuid4()),
                 "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
                 "content": msg.content,
+                "timestamp": msg.timestamp.isoformat() if hasattr(msg, "timestamp") and msg.timestamp else datetime.now(UTC).isoformat(),
                 "reasoningContent": msg.reasoning_content if hasattr(msg, "reasoning_content") else "",
             })
 
@@ -324,13 +326,13 @@ async def _handle_new_command(
         return
 
     try:
-        # Create new session via Alfred
-        new_session = await alfred_instance.new_session()
+        # Create new session via session_manager
+        new_session = await alfred_instance.core.session_manager.new_session_async()
 
         await websocket.send_json({
             "type": "session.new",
             "payload": {
-                "sessionId": new_session.session_id,
+                "sessionId": new_session.meta.session_id,
                 "message": "New session created",
             },
         })
@@ -364,16 +366,18 @@ async def _handle_resume_command(
     session_id = args[0]
 
     try:
-        # Resume session via Alfred
-        session = await alfred_instance.resume_session(session_id)
+        # Resume session via session_manager
+        session = await alfred_instance.core.session_manager.resume_session_async(session_id)
 
         # Convert messages to serializable format
         messages = []
         for msg in session.messages:
             messages.append({
-                "id": msg.id if hasattr(msg, "id") else str(uuid.uuid4()),
+                "id": msg.idx if hasattr(msg, "idx") else str(uuid.uuid4()),
                 "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
                 "content": msg.content,
+                "timestamp": msg.timestamp.isoformat() if hasattr(msg, "timestamp") and msg.timestamp else datetime.now(UTC).isoformat(),
+                "reasoningContent": msg.reasoning_content if hasattr(msg, "reasoning_content") else "",
             })
 
         await websocket.send_json({
@@ -404,15 +408,15 @@ async def _handle_sessions_command(
 
     try:
         # Get recent sessions
-        sessions = await alfred_instance.list_sessions(limit=10)
+        sessions = await alfred_instance.core.session_manager.list_sessions_async()
 
         session_list = []
-        for session in sessions:
+        for session in sessions[:10]:  # Limit to 10
             session_list.append({
                 "id": session.session_id,
                 "created": session.created_at.isoformat() if hasattr(session, "created_at") else "",
-                "messageCount": len(session.messages) if hasattr(session, "messages") else 0,
-                "summary": session.summary if hasattr(session, "summary") else "",
+                "messageCount": session.message_count if hasattr(session, "message_count") else 0,
+                "summary": "",  # SessionMeta doesn't have summary field
             })
 
         await websocket.send_json({
@@ -439,14 +443,21 @@ async def _handle_session_command(
         return
 
     try:
-        current_session = alfred_instance.current_session
+        current_session = alfred_instance.core.session_manager.get_current_cli_session()
+
+        if current_session is None:
+            await websocket.send_json({
+                "type": "chat.error",
+                "payload": {"error": "No active session"},
+            })
+            return
 
         await websocket.send_json({
             "type": "session.info",
             "payload": {
-                "sessionId": current_session.session_id if hasattr(current_session, "session_id") else "unknown",
-                "messageCount": len(current_session.messages) if hasattr(current_session, "messages") else 0,
-                "created": current_session.created_at.isoformat() if hasattr(current_session, "created_at") else "",
+                "sessionId": current_session.meta.session_id,
+                "messageCount": len(current_session.messages),
+                "created": current_session.meta.created_at.isoformat(),
             },
         })
     except Exception as e:
@@ -469,14 +480,15 @@ async def _handle_context_command(
         return
 
     try:
-        context = alfred_instance.get_context() if hasattr(alfred_instance, "get_context") else {}
+        from pathlib import Path
+        cwd = str(Path.cwd())
 
         await websocket.send_json({
             "type": "context.info",
             "payload": {
-                "cwd": context.get("cwd", ""),
-                "files": context.get("files", []),
-                "systemInfo": context.get("system_info", {}),
+                "cwd": cwd,
+                "files": [],
+                "systemInfo": {"model": alfred_instance.config.get("model", "unknown")},
             },
         })
     except Exception as e:

@@ -111,7 +111,6 @@ function initAlfredUI() {
 
       case 'chat.error':
         hideStreaming();
-        hideThinking();
         showError(msg.payload?.error || 'An error occurred');
         currentAssistantMessage = null;
         enableInput();
