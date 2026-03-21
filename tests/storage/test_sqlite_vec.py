@@ -163,9 +163,10 @@ class TestInitDimensionDetection:
     @pytest.mark.asyncio
     async def test_init_detects_dimension_mismatch_on_startup(self, caplog):
         """Test that dimension mismatch is detected and logged during init."""
-        from alfred.storage.sqlite import SQLiteStore
-        import tempfile
         import os
+        import tempfile
+
+        from alfred.storage.sqlite import SQLiteStore
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
@@ -208,9 +209,10 @@ class TestAllVec0Tables:
     @pytest.mark.asyncio
     async def test_checks_all_vec0_tables(self, caplog):
         """Test that dimension check runs for all three vec0 tables."""
-        from alfred.storage.sqlite import SQLiteStore
-        import tempfile
         import os
+        import tempfile
+
+        from alfred.storage.sqlite import SQLiteStore
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name

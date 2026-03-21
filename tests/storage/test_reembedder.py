@@ -1,7 +1,8 @@
 """Tests for EmbeddingReembedder - Phase 2 of PRD #132."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 
 
 class TestEmbeddingReembedderInit:
@@ -75,10 +76,12 @@ class TestReembedMethods:
     @pytest.mark.asyncio
     async def test_reembed_memories_queries_and_embeds(self) -> None:
         """Test _reembed_memories queries memories and calls embedder."""
-        from alfred.storage.sqlite import EmbeddingReembedder
-        import aiosqlite
-        import tempfile
         import os
+        import tempfile
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import EmbeddingReembedder
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
@@ -101,10 +104,7 @@ class TestReembedMethods:
                 await store._load_extensions(db)
 
                 # Use correct column names from schema
-                if "entry_id" in col_names:
-                    id_col = "entry_id"
-                else:
-                    id_col = col_names[0]  # Fallback to first column
+                id_col = "entry_id" if "entry_id" in col_names else col_names[0]
 
                 await db.execute(
                     f"""INSERT INTO memories ({id_col}, role, content)
@@ -137,10 +137,12 @@ class TestReembedMethods:
     @pytest.mark.asyncio
     async def test_reembed_session_summaries_queries_and_embeds(self) -> None:
         """Test _reembed_session_summaries queries and re-embeds."""
-        from alfred.storage.sqlite import EmbeddingReembedder, SQLiteStore
-        import aiosqlite
-        import tempfile
         import os
+        import tempfile
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import EmbeddingReembedder, SQLiteStore
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name
@@ -181,10 +183,12 @@ class TestReembedMethods:
     @pytest.mark.asyncio
     async def test_reembed_message_embeddings_queries_and_embeds(self) -> None:
         """Test _reembed_message_embeddings queries and re-embeds."""
-        from alfred.storage.sqlite import EmbeddingReembedder, SQLiteStore
-        import aiosqlite
-        import tempfile
         import os
+        import tempfile
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import EmbeddingReembedder, SQLiteStore
 
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
             db_path = tmp.name

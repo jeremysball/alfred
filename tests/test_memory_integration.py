@@ -134,7 +134,7 @@ async def test_memory_similarity_scoring_bug_fixed(config, mock_store):
     print("=" * 60)
     print(f"mem-1 similarity: {similarities['mem-1']:.2f} (expected 0.95)")
     print(f"mem-2 similarity: {similarities['mem-2']:.2f} (expected 0.60)")
-    print(f"mem-3: filtered out (similarity 0.30 < threshold 0.50)")
+    print("mem-3: filtered out (similarity 0.30 < threshold 0.50)")
     print("=" * 60)
 
 
@@ -281,7 +281,7 @@ async def test_memory_deduplication(config, mock_store):
     print("\n" + "=" * 60)
     print("DEDUPLICATION TEST")
     print("=" * 60)
-    print(f"Input memories: 3")
+    print("Input memories: 3")
     print(f"Output memories: {len(memories)}")
     for m in memories:
         print(f"  - {m.entry_id}: {m.content[:40]}...")
