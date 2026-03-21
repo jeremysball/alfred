@@ -19,9 +19,11 @@ function initAlfredUI() {
   const queueBadge = document.getElementById('queue-badge');
 
   const completionMenu = document.getElementById('completion-menu');
+  const kidcoreAudioControls = document.querySelector('.kidcore-audio-controls');
   const kidcoreAudioManager = window.kidcoreAudioManager ?? null;
   const kidcoreAudioPlayButton = document.getElementById('kidcore-audio-play');
   const kidcoreAudioMuteButton = document.getElementById('kidcore-audio-mute');
+  const kidcoreAudioStatus = document.getElementById('kidcore-audio-status');
 
   function playKidcoreClick() {
     kidcoreAudioManager?.playClick?.();
@@ -39,15 +41,48 @@ function initAlfredUI() {
     kidcoreAudioManager?.playError?.();
   }
 
+  function syncKidcoreAudioControls() {
+    if (!kidcoreAudioControls || !kidcoreAudioManager) {
+      return;
+    }
+
+    const isMuted = kidcoreAudioManager.isMuted;
+    const isMusicPlaying = kidcoreAudioManager.isMusicPlaying;
+
+    kidcoreAudioControls.dataset.audioState = isMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
+
+    if (kidcoreAudioStatus) {
+      kidcoreAudioStatus.textContent = isMuted ? 'Muted' : isMusicPlaying ? 'Playing' : 'Ready';
+    }
+
+    kidcoreAudioPlayButton?.setAttribute('aria-pressed', String(isMusicPlaying && !isMuted));
+    kidcoreAudioMuteButton?.setAttribute('aria-pressed', String(isMuted));
+  }
+
+  function resumeKidcoreMusic() {
+    if (!kidcoreAudioManager) {
+      return;
+    }
+
+    kidcoreAudioManager.unmute?.();
+    if (!kidcoreAudioManager.isMusicPlaying) {
+      kidcoreAudioManager.startMusic?.();
+    }
+    syncKidcoreAudioControls();
+  }
+
   kidcoreAudioPlayButton?.addEventListener('click', () => {
+    resumeKidcoreMusic();
     playKidcoreClick();
-    kidcoreAudioManager?.startMusic?.();
   });
 
   kidcoreAudioMuteButton?.addEventListener('click', () => {
     playKidcoreClick();
     kidcoreAudioManager?.mute?.();
+    syncKidcoreAudioControls();
   });
+
+  syncKidcoreAudioControls();
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();

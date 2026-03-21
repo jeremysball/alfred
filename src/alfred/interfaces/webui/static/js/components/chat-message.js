@@ -83,11 +83,16 @@ class ChatMessage extends HTMLElement {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  _getToolCallsContainer() {
+    return this.querySelector('.tool-calls');
+  }
+
   _render() {
     const roleClass = this._role.toLowerCase();
     const avatar = this._getAvatar();
     const displayName = this._getDisplayName();
     const timeDisplay = this._formatTime();
+    const existingToolCalls = Array.from(this.querySelectorAll('.tool-calls > tool-call'));
 
     // System messages are simpler
     if (this._role === 'system') {
@@ -141,12 +146,20 @@ class ChatMessage extends HTMLElement {
           ${timeDisplay ? `<span class="message-time">${timeDisplay}</span>` : ''}
         </div>
         ${reasoningSection}
+        <div class="tool-calls"></div>
         <div class="message-bubble">
           <div class="message-content">${renderedContent}</div>
         </div>
         ${actionButtons}
       </div>
     `;
+
+    const toolCallsContainer = this._getToolCallsContainer();
+    if (toolCallsContainer && existingToolCalls.length > 0) {
+      existingToolCalls.forEach((toolCall) => {
+        toolCallsContainer.appendChild(toolCall);
+      });
+    }
   }
 
   _renderMarkdown(content) {
@@ -323,6 +336,45 @@ class ChatMessage extends HTMLElement {
 
   getReasoning() {
     return this._reasoning;
+  }
+
+  appendToolCall(toolCallElement) {
+    const container = this._getToolCallsContainer();
+    if (container) {
+      container.appendChild(toolCallElement);
+    } else {
+      this._render();
+      this._applySyntaxHighlighting();
+      this._setupEventListeners();
+      const toolCallsContainer = this._getToolCallsContainer();
+      if (toolCallsContainer) {
+        toolCallsContainer.appendChild(toolCallElement);
+      }
+    }
+  }
+
+  setToolCalls(toolCalls) {
+    const container = this._getToolCallsContainer();
+    if (!container) {
+      this._render();
+      this._applySyntaxHighlighting();
+      this._setupEventListeners();
+    }
+
+    const toolCallsContainer = this._getToolCallsContainer();
+    if (!toolCallsContainer) return;
+
+    toolCallsContainer.innerHTML = '';
+    toolCalls.forEach((toolCallData) => {
+      const toolCall = document.createElement('tool-call');
+      toolCall.setAttribute('tool-call-id', toolCallData.toolCallId || toolCallData.tool_call_id || '');
+      toolCall.setAttribute('tool-name', toolCallData.toolName || toolCallData.tool_name || '');
+      toolCall.setAttribute('arguments', JSON.stringify(toolCallData.arguments || {}));
+      toolCall.setAttribute('status', toolCallData.status || 'success');
+      toolCall.setAttribute('output', toolCallData.output || '');
+      toolCall.setAttribute('expanded', (toolCallData.status || '') === 'running' ? 'true' : 'false');
+      toolCallsContainer.appendChild(toolCall);
+    });
   }
 
   appendContent(chunk) {

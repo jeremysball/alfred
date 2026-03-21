@@ -126,8 +126,11 @@ export class KidcoreAudioManager {
     return this._playAudio(music);
   }
 
-  stopMusic() {
-    this._musicRequested = false;
+  stopMusic({ preserveIntent = false } = {}) {
+    if (!preserveIntent) {
+      this._musicRequested = false;
+    }
+
     this._musicPlaying = false;
 
     if (!this._music) {
@@ -139,10 +142,16 @@ export class KidcoreAudioManager {
   }
 
   setMuted(isMuted) {
-    this._muted = Boolean(isMuted);
+    const nextMuted = Boolean(isMuted);
+
+    if (this._muted === nextMuted) {
+      return true;
+    }
+
+    this._muted = nextMuted;
 
     if (this._muted) {
-      this.stopMusic();
+      this.stopMusic({ preserveIntent: true });
       return true;
     }
 
