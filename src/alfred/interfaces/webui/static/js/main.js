@@ -180,9 +180,162 @@ function initAlfredUI() {
 
   syncKidcoreAudioControls();
 
+  function getSessionMessageId(msg, fallbackIndex = '') {
+    return String(msg?.id ?? msg?.messageId ?? msg?.idx ?? fallbackIndex);
+  }
+
+  function applySessionMessageState(messageEl, msg, { preserveExistingAssistantContent = false } = {}) {
+    if (!messageEl || !msg) {
+      return;
+    }
+
+    const role = msg.role || 'user';
+    const messageId = getSessionMessageId(msg);
+    const loadedContent = msg.content || '';
+    const loadedTimestamp = msg.timestamp || msg.createdAt || new Date().toISOString();
+    const existingContent = typeof messageEl.getContent === 'function'
+      ? messageEl.getContent()
+      : (messageEl.getAttribute('content') || '');
+    const contentToSet = preserveExistingAssistantContent && role === 'assistant' && existingContent.length > loadedContent.length
+      ? existingContent
+      : loadedContent;
+    const existingReasoning = typeof messageEl.getReasoning === 'function'
+      ? messageEl.getReasoning()
+      : (messageEl.getAttribute('reasoning') || '');
+    const loadedReasoning = msg.reasoningContent || '';
+
+    messageEl.setAttribute('data-session-message', 'true');
+    messageEl.setAttribute('role', role);
+    messageEl.setAttribute('content', contentToSet);
+    messageEl.setAttribute('timestamp', loadedTimestamp);
+
+    if (messageId) {
+      messageEl.setAttribute('message-id', messageId);
+    } else {
+      messageEl.removeAttribute('message-id');
+    }
+
+    if (role === 'assistant' && msg.streaming) {
+      messageEl.classList.add('streaming');
+    } else {
+      messageEl.classList.remove('streaming');
+    }
+
+    if (loadedReasoning || !preserveExistingAssistantContent) {
+      if (!preserveExistingAssistantContent || loadedReasoning.length >= existingReasoning.length) {
+        messageEl.setReasoning(loadedReasoning);
+      }
+    }
+
+    if (Array.isArray(msg.toolCalls) && (msg.toolCalls.length > 0 || !preserveExistingAssistantContent)) {
+      messageEl.setToolCalls(msg.toolCalls);
+    }
+  }
+
+  function reconcileSessionLoaded(payload) {
+    const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+    const incomingSessionId = payload?.sessionId || null;
+    const incomingMessageIds = new Set(messages.map((msg, index) => getSessionMessageId(msg, index)));
+    const currentAssistantId = currentAssistantMessage?.getAttribute('message-id') || null;
+    const preserveOrphanAssistant = Boolean(
+      currentAssistantMessage &&
+      currentAssistantMessage.classList.contains('streaming') &&
+      currentAssistantId &&
+      (!activeSessionId || activeSessionId === incomingSessionId)
+    );
+
+    const existingSessionMessages = Array.from(messageList.querySelectorAll('chat-message[data-session-message="true"]'));
+    const existingById = new Map();
+
+    // Remove ephemeral UI-only messages before we rebuild the loaded session state.
+    Array.from(messageList.children).forEach((child) => {
+      if (child.matches?.('chat-message[data-session-message="true"]')) {
+        return;
+      }
+      child.remove();
+    });
+
+    messageHistory.length = 0;
+    historyIndex = -1;
+    activeToolCalls.clear();
+
+    existingSessionMessages.forEach((messageEl) => {
+      const messageId = messageEl.getAttribute('message-id');
+      if (messageId) {
+        existingById.set(messageId, messageEl);
+      }
+    });
+
+    existingSessionMessages.forEach((messageEl) => {
+      const messageId = messageEl.getAttribute('message-id');
+      if (!messageId) {
+        if (!(messageEl === currentAssistantMessage && preserveOrphanAssistant)) {
+          messageEl.remove();
+        }
+        return;
+      }
+
+      if (!incomingMessageIds.has(messageId) && (!preserveOrphanAssistant || messageId !== currentAssistantId)) {
+        messageEl.remove();
+      }
+    });
+
+    const fragment = document.createDocumentFragment();
+    let nextCurrentAssistantMessage = null;
+
+    messages.forEach((msg, index) => {
+      const messageId = getSessionMessageId(msg, index);
+      let messageEl = existingById.get(messageId) || null;
+
+      if (messageEl) {
+        applySessionMessageState(messageEl, msg, {
+          preserveExistingAssistantContent: messageEl === currentAssistantMessage,
+        });
+      } else {
+        messageEl = document.createElement('chat-message');
+        applySessionMessageState(messageEl, msg);
+      }
+
+      fragment.appendChild(messageEl);
+
+      if (msg.role === 'user') {
+        messageHistory.push(msg.content || '');
+      }
+
+      if (msg.role === 'assistant' && msg.streaming) {
+        nextCurrentAssistantMessage = messageEl;
+      }
+    });
+
+    if (preserveOrphanAssistant && currentAssistantMessage && currentAssistantId && !incomingMessageIds.has(currentAssistantId)) {
+      applySessionMessageState(currentAssistantMessage, {
+        role: 'assistant',
+        content: typeof currentAssistantMessage.getContent === 'function'
+          ? currentAssistantMessage.getContent()
+          : (currentAssistantMessage.getAttribute('content') || ''),
+        id: currentAssistantId,
+        timestamp: currentAssistantMessage.getAttribute('timestamp') || new Date().toISOString(),
+        reasoningContent: typeof currentAssistantMessage.getReasoning === 'function'
+          ? currentAssistantMessage.getReasoning()
+          : '',
+        streaming: true,
+      }, {
+        preserveExistingAssistantContent: true,
+      });
+      fragment.appendChild(currentAssistantMessage);
+      nextCurrentAssistantMessage = currentAssistantMessage;
+    }
+
+    messageList.appendChild(fragment);
+    currentAssistantMessage = nextCurrentAssistantMessage;
+    activeSessionId = incomingSessionId;
+    historyIndex = messageHistory.length;
+  }
+
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
   let currentAssistantMessage = null;
+  let activeSessionId = null;
   const activeToolCalls = new Map();
   let allToolsExpanded = false;
 
@@ -241,6 +394,9 @@ function initAlfredUI() {
         currentAssistantMessage.setAttribute('role', 'assistant');
         currentAssistantMessage.setAttribute('content', '');
         currentAssistantMessage.setAttribute('timestamp', new Date().toISOString());
+        currentAssistantMessage.setAttribute('message-id', msg.payload?.messageId || '');
+        currentAssistantMessage.setAttribute('data-session-message', 'true');
+        currentAssistantMessage.classList.add('streaming');
         messageList.appendChild(currentAssistantMessage);
         applyGlueShimmerEffect(currentAssistantMessage);
         showStreaming();
@@ -270,6 +426,7 @@ function initAlfredUI() {
         playKidcoreMessageComplete();
         clearGlueShimmerEffect(currentAssistantMessage);
         currentAssistantMessage = null;
+        activeToolCalls.clear();
         enableInput();
         // Add copy buttons to any new code blocks
         addCopyButtons();
@@ -283,6 +440,7 @@ function initAlfredUI() {
         showError(msg.payload?.error || 'An error occurred');
         clearGlueShimmerEffect(currentAssistantMessage);
         currentAssistantMessage = null;
+        activeToolCalls.clear();
         enableInput();
         break;
 
@@ -353,54 +511,17 @@ function initAlfredUI() {
     messageList.innerHTML = '';
     messageHistory.length = 0;
     historyIndex = -1;
+    currentAssistantMessage = null;
+    activeToolCalls.clear();
+    activeSessionId = payload.sessionId || null;
     showSystemMessage(`New session created: ${payload.sessionId}`);
     enableInput();
   }
 
   function handleSessionLoaded(payload) {
-    // Clear current messages and history
-    messageList.innerHTML = '';
-    messageHistory.length = 0;
-    historyIndex = -1;
-
-    // Load session messages
-    if (payload.messages && payload.messages.length > 0) {
-      payload.messages.forEach(msg => {
-        const messageEl = document.createElement('chat-message');
-        messageEl.setAttribute('role', msg.role);
-        messageEl.setAttribute('content', msg.content);
-        messageEl.setAttribute('timestamp', msg.timestamp || msg.createdAt || new Date().toISOString());
-        // Set reasoning content if present (for assistant messages)
-        if (msg.reasoningContent && msg.reasoningContent.trim()) {
-          messageEl.setReasoning(msg.reasoningContent);
-        }
-        messageList.appendChild(messageEl);
-
-        if (Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0) {
-          const orderedToolCalls = [...msg.toolCalls].sort((a, b) => {
-            const sequenceA = a.sequence ?? 0;
-            const sequenceB = b.sequence ?? 0;
-            if (sequenceA !== sequenceB) return sequenceA - sequenceB;
-            const insertA = a.insertPosition ?? 0;
-            const insertB = b.insertPosition ?? 0;
-            return insertA - insertB;
-          });
-          messageEl.setToolCalls(orderedToolCalls);
-        }
-
-        // Add user messages to history for navigation
-        if (msg.role === 'user') {
-          messageHistory.push(msg.content);
-        }
-      });
-      // Set history index to end (no selection)
-      historyIndex = messageHistory.length;
-      scrollToBottom();
-      // Add copy buttons to code blocks in loaded messages
-      addCopyButtons();
-    }
-
+    reconcileSessionLoaded(payload);
     showSystemMessage(`Session resumed: ${payload.sessionId}`);
+    addCopyButtons();
     enableInput();
   }
 
@@ -628,6 +749,7 @@ function initAlfredUI() {
       userMessage.setAttribute('role', 'user');
       userMessage.setAttribute('content', content);
       userMessage.setAttribute('timestamp', new Date().toISOString());
+      userMessage.setAttribute('data-session-message', 'true');
       messageList.appendChild(userMessage);
 
       disableInput();

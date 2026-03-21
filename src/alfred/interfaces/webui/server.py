@@ -236,14 +236,16 @@ def _serialize_message(message: object) -> dict[str, object]:
     role = getattr(message, "role", "")
     role_value = role.value if hasattr(role, "value") else str(role)
     timestamp = getattr(message, "timestamp", None)
+    message_id = getattr(message, "id", None) or getattr(message, "idx", uuid.uuid4())
     payload: dict[str, object] = {
-        "id": str(getattr(message, "id", getattr(message, "idx", uuid.uuid4()))),
+        "id": str(message_id),
         "role": role_value,
         "content": str(getattr(message, "content", "")),
         "timestamp": (
             timestamp.isoformat() if isinstance(timestamp, datetime) else datetime.now(UTC).isoformat()
         ),
         "reasoningContent": str(getattr(message, "reasoning_content", "")),
+        "streaming": bool(getattr(message, "streaming", False)),
     }
 
     tool_calls = getattr(message, "tool_calls", None)
@@ -622,9 +624,14 @@ async def _handle_chat_message(
 
         try:
             try:
-                stream = alfred_instance.chat_stream(content, tool_callback=_tool_callback)
+                stream = alfred_instance.chat_stream(
+                    content,
+                    tool_callback=_tool_callback,
+                    persist_partial=True,
+                    assistant_message_id=message_id,
+                )
             except TypeError:
-                stream = alfred_instance.chat_stream(content)
+                stream = alfred_instance.chat_stream(content, tool_callback=_tool_callback)
 
             async for chunk in stream:
                 # Parse [REASONING] markers
