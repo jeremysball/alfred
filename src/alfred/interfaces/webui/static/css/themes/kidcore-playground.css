@@ -241,6 +241,106 @@
   text-transform: uppercase;
 }
 
+[data-theme="kidcore-playground"] .kidcore-audio-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  max-width: 28rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.55rem;
+  border: 3px solid #140022;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(20, 0, 34, 0.9) 0%, rgba(60, 0, 96, 0.92) 100%);
+  box-shadow:
+    0 0 0 4px rgba(255, 79, 216, 0.18),
+    0 10px 0 rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-label,
+[data-theme="kidcore-playground"] .kidcore-audio-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem 0.55rem;
+  border: 2px solid #140022;
+  border-radius: 9999px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.18);
+  font-family: var(--font-primary);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-label {
+  background: #ffef5d;
+  color: #140022;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-status {
+  background: #fff7ff;
+  color: #7c4dff;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-controls[data-audio-state="playing"] .kidcore-audio-status {
+  background: #7cff6b;
+  color: #140022;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-controls[data-audio-state="muted"] .kidcore-audio-status {
+  background: #ff5d8f;
+  color: #140022;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-control {
+  min-height: 2.15rem;
+  padding: 0.4rem 0.8rem;
+  border: 2px solid #140022;
+  border-radius: 9999px;
+  color: #140022;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.22);
+  font-family: var(--font-primary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-control[data-audio-action="play"] {
+  background: linear-gradient(135deg, #00e5ff 0%, #7cff6b 100%);
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-control[data-audio-action="mute"] {
+  background: linear-gradient(135deg, #ffef5d 0%, #ff4fd8 100%);
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-control:hover {
+  transform: translateY(-1px) rotate(-1deg);
+  filter: saturate(1.15) brightness(1.02);
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-control:focus-visible {
+  outline: 3px solid #00e5ff;
+  outline-offset: 2px;
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-controls[data-audio-state="muted"] .kidcore-audio-control[data-audio-action="play"] {
+  box-shadow:
+    0 0 0 3px rgba(0, 229, 255, 0.24),
+    2px 2px 0 rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="kidcore-playground"] .kidcore-audio-controls[data-audio-state="playing"] .kidcore-audio-control[data-audio-action="mute"] {
+  box-shadow:
+    0 0 0 3px rgba(255, 239, 93, 0.24),
+    2px 2px 0 rgba(0, 0, 0, 0.22);
+}
+
 [data-theme="kidcore-playground"] .kidcore-banner[hidden] {
   display: flex !important;
 }

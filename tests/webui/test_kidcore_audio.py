@@ -193,3 +193,154 @@ async def test_kidcore_audio_browser_controls_work() -> None:
             except TimeoutError:
                 process.kill()
                 await process.wait()
+
+
+@pytest.mark.asyncio
+async def test_kidcore_audio_controls_hide_outside_kidcore_theme() -> None:
+    port = _find_free_port()
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "webui",
+        "--port",
+        str(port),
+        cwd=PROJECT_ROOT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+
+    try:
+        await _wait_for_server(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.add_init_script(
+                "localStorage.setItem('alfred-theme', 'dark-academia');"
+            )
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            data = await page.evaluate(
+                """
+                () => {
+                  const controls = document.querySelector('.kidcore-audio-controls');
+                  const styles = controls ? getComputedStyle(controls) : null;
+                  return {
+                    theme: document.documentElement.getAttribute('data-theme'),
+                    exists: Boolean(controls),
+                    display: styles?.display || null,
+                    visibility: styles?.visibility || null,
+                    offsetParent: Boolean(controls?.offsetParent),
+                  };
+                }
+                """
+            )
+
+            assert data["theme"] == "dark-academia"
+            assert data["exists"] is True
+            assert data["display"] == "none"
+            assert data["offsetParent"] is False
+
+            await browser.close()
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+
+
+@pytest.mark.asyncio
+async def test_kidcore_audio_play_resumes_after_mute() -> None:
+    port = _find_free_port()
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "webui",
+        "--port",
+        str(port),
+        cwd=PROJECT_ROOT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+
+    try:
+        await _wait_for_server(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.add_init_script(
+                "localStorage.setItem('alfred-theme', 'kidcore-playground');"
+            )
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            await page.evaluate(
+                """
+                () => {
+                  const audio = window.kidcoreAudioManager;
+                  window.__kidcoreAudioCalls = {
+                    startMusic: 0,
+                    mute: 0,
+                    playClick: 0,
+                    playSend: 0,
+                  };
+
+                  for (const method of Object.keys(window.__kidcoreAudioCalls)) {
+                    const original = audio[method].bind(audio);
+                    audio[method] = (...args) => {
+                      window.__kidcoreAudioCalls[method] += 1;
+                      return original(...args);
+                    };
+                  }
+                }
+                """
+            )
+
+            await page.click('#kidcore-audio-play')
+            await page.wait_for_timeout(100)
+            await page.click('#kidcore-audio-mute')
+            await page.wait_for_timeout(100)
+            await page.click('#kidcore-audio-play')
+            await page.wait_for_timeout(100)
+
+            data = await page.evaluate(
+                """
+                () => ({
+                  theme: document.documentElement.getAttribute('data-theme'),
+                  calls: window.__kidcoreAudioCalls,
+                  isMuted: window.kidcoreAudioManager.isMuted,
+                  isMusicPlaying: window.kidcoreAudioManager.isMusicPlaying,
+                  playButtonText: document.querySelector('#kidcore-audio-play')?.textContent || '',
+                  muteButtonText: document.querySelector('#kidcore-audio-mute')?.textContent || '',
+                })
+                """
+            )
+
+            assert data["theme"] == "kidcore-playground"
+            assert data["calls"]["startMusic"] == 2
+            assert data["calls"]["mute"] == 1
+            assert data["isMuted"] is False
+            assert data["isMusicPlaying"] is True
+            assert "Play" in data["playButtonText"]
+            assert "Mute" in data["muteButtonText"]
+
+            await browser.close()
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except TimeoutError:
+                process.kill()
+                await process.wait()

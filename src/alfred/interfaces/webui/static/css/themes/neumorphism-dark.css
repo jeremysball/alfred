@@ -169,16 +169,23 @@
 [data-theme="neumorphism-dark"] .message-input {
   background: var(--neo-bg-input);
   box-shadow: var(--neo-shadow-concave);
-  border: none;
-  border-radius: 16px;
+  border: 2px solid transparent;
+  border-radius: 12px;
   color: var(--neo-text-primary);
   font-family: var(--neo-font-primary);
   padding: 1rem 1.25rem;
+  transition: all 0.2s ease;
 }
 
 [data-theme="neumorphism-dark"] .message-input:focus {
-  box-shadow: var(--neo-shadow-pressed);
+  box-shadow: var(--neo-shadow-convex);
+  border-color: var(--neo-accent-primary);
   outline: none;
+}
+
+[data-theme="neumorphism-dark"] .message-input::placeholder {
+  color: var(--neo-text-muted);
+  opacity: 0.7;
 }
 
 [data-theme="neumorphism-dark"] .send-button {
@@ -244,4 +251,92 @@
   color: inherit;
   padding: 0;
   box-shadow: none;
+}
+
+/* Status Bar */
+[data-theme="neumorphism-dark"] status-bar {
+  --status-bg: var(--neo-bg-footer);
+  --status-border: transparent;
+  --status-streaming: var(--neo-accent-primary);
+  --status-model: var(--neo-accent-primary);
+  --status-tokens: var(--neo-accent-success);
+  --status-queue: var(--neo-accent-warning);
+  --font-mono: var(--neo-font-mono);
+}
+
+/* Session List */
+[data-theme="neumorphism-dark"] .session-list-message {
+  --session-card-bg: var(--neo-bg-secondary);
+  --session-card-hover: var(--neo-bg-primary);
+  --session-border: var(--neo-shadow-dark);
+  --session-accent: var(--neo-accent-primary);
+  --session-accent-glow: rgba(102, 126, 234, 0.2);
+  --session-header-text: var(--neo-text-primary);
+  --session-body-text: var(--neo-text-secondary);
+  --session-meta-text: var(--neo-text-muted);
+  --session-action-text: var(--neo-text-muted);
+}
+
+[data-theme="neumorphism-dark"] .session-card {
+  box-shadow: var(--neo-shadow-convex);
+}
+
+[data-theme="neumorphism-dark"] .session-card:hover {
+  box-shadow: var(--neo-shadow-raised);
+}
+
+/* History Buttons */
+[data-theme="neumorphism-dark"] .history-btn {
+  --history-btn-text: var(--neo-text-muted);
+  --history-btn-hover-text: var(--neo-accent-primary);
+  --history-btn-glow: var(--neo-accent-primary);
+}
+
+/* Tool Calls - High Contrast */
+[data-theme="neumorphism-dark"] {
+  --tool-bg: var(--neo-bg-secondary);
+  --tool-border: transparent;
+  --tool-header-bg: rgba(45, 55, 72, 0.5);
+  --tool-header-hover: rgba(45, 55, 72, 0.7);
+  --tool-icon: var(--neo-accent-primary);
+  --tool-status-bg: rgba(45, 55, 72, 0.5);
+  --tool-running-bg: #ed8936;
+  --tool-running-text: #fff;
+  --tool-success-bg: #48bb78;
+  --tool-success-text: #fff;
+  --tool-error-bg: #f56565;
+  --tool-error-text: #fff;
+}
+
+
+
+/* Settings Menu - CSS Variables */
+[data-theme="neumorphism-dark"] {
+  --settings-overlay-bg: rgba(0, 0, 0, 0.5);
+  --settings-bg: var(--neo-bg-secondary);
+  --settings-radius: 20px;
+  --settings-border: none;
+  --settings-shadow: var(--neo-shadow-raised);
+  --settings-header-bg: transparent;
+  --settings-header-border: none;
+  --theme-option-border: none;
+  --theme-option-hover: transparent;
+  --theme-option-active: var(--neo-bg-primary);
+  --theme-option-active-border: none;
+  --theme-name-active: var(--neo-accent-primary);
+  --theme-preview-border: var(--neo-shadow-dark);
+}
+
+[data-theme="neumorphism-dark"] .theme-option {
+  border-radius: 12px;
+  margin: 4px 8px;
+  box-shadow: var(--neo-shadow-soft);
+}
+
+[data-theme="neumorphism-dark"] .theme-option:hover {
+  box-shadow: var(--neo-shadow-convex);
+}
+
+[data-theme="neumorphism-dark"] .theme-option.active {
+  box-shadow: var(--neo-shadow-concave);
 }

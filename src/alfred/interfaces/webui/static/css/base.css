@@ -110,6 +110,10 @@ body {
     display: none;
 }
 
+.kidcore-audio-controls {
+    display: none;
+}
+
 /* ============================================
    MAIN CONTENT & CHAT
    ============================================ */
