@@ -128,8 +128,7 @@ uv run alfred webui --port 8080
 
 ---
 
-## Next Task
+## Milestone Status
 
-- [ ] **Test**: `test_kidcore_audio_browser_controls_work()`
-- [ ] **Implement**: Add browser-level verification for kidcore audio play/mute behavior
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_browser_controls_work -v`
+Milestone 3 is complete.
+Continue with Milestone 4: Browser Verification & Final Polish in `prds/execution-plan-138a-milestone4.md`.
