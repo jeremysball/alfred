@@ -10,7 +10,7 @@ from playwright.async_api import async_playwright
 
 from alfred.interfaces.webui.server import create_app
 
-THEMES = ("swiss-international", "element-modern")
+THEMES = ("swiss-international", "element-modern", "spacejam-neocities")
 
 
 def _find_free_port() -> int:
@@ -163,7 +163,7 @@ async def test_light_theme_rows_are_readable_on_dark_theme() -> None:
                     return (lighter + 0.05) / (darker + 0.05);
                   };
 
-                  const themeIds = ["dark-academia-light", "swiss-international", "neumorphism", "minimal"];
+                  const themeIds = ["dark-academia-light", "swiss-international", "neumorphism", "minimal", "spacejam-neocities"];
                   return themeIds.map((themeId) => {
                     const option = document.querySelector(`.theme-option[data-theme="${themeId}"]`);
                     if (!option) {

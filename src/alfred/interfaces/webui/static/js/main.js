@@ -21,9 +21,11 @@ function initAlfredUI() {
   const completionMenu = document.getElementById('completion-menu');
   const kidcoreAudioControls = document.querySelector('.kidcore-audio-controls');
   const kidcoreAudioManager = window.kidcoreAudioManager ?? null;
-  const kidcoreAudioPlayButton = document.getElementById('kidcore-audio-play');
-  const kidcoreAudioMuteButton = document.getElementById('kidcore-audio-mute');
-  const kidcoreAudioStatus = document.getElementById('kidcore-audio-status');
+  const kidcoreMusicPlayButton = document.getElementById('kidcore-music-play');
+  const kidcoreMusicMuteButton = document.getElementById('kidcore-music-mute');
+  const kidcoreSfxToggleButton = document.getElementById('kidcore-sfx-toggle');
+  const kidcoreMusicStatus = document.getElementById('kidcore-music-status');
+  const kidcoreSfxStatus = document.getElementById('kidcore-sfx-status');
 
   const KIDCORE_THEME_ID = 'kidcore-playground';
   let pendingKidcoreStreamingFx = null;
@@ -77,17 +79,28 @@ function initAlfredUI() {
     }
 
     const isKidcore = isKidcoreThemeActive();
-    const isMuted = isKidcore && kidcoreAudioManager.isMuted;
+    const isMusicMuted = isKidcore && kidcoreAudioManager.isMusicMuted;
     const isMusicPlaying = isKidcore && kidcoreAudioManager.isMusicPlaying;
+    const isSfxMuted = isKidcore && kidcoreAudioManager.isSfxMuted;
 
-    kidcoreAudioControls.dataset.audioState = !isKidcore ? 'disabled' : isMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
+    kidcoreAudioControls.dataset.audioState = !isKidcore ? 'disabled' : isMusicMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
+    kidcoreAudioControls.dataset.musicState = !isKidcore ? 'disabled' : isMusicMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
+    kidcoreAudioControls.dataset.sfxState = !isKidcore ? 'disabled' : isSfxMuted ? 'muted' : 'on';
 
-    if (kidcoreAudioStatus) {
-      kidcoreAudioStatus.textContent = !isKidcore ? 'Hidden' : isMuted ? 'Muted' : isMusicPlaying ? 'Playing' : 'Ready';
+    if (kidcoreMusicStatus) {
+      kidcoreMusicStatus.textContent = !isKidcore ? 'Hidden' : isMusicMuted ? 'Muted' : isMusicPlaying ? 'Playing' : 'Ready';
     }
 
-    kidcoreAudioPlayButton?.setAttribute('aria-pressed', String(isKidcore && isMusicPlaying));
-    kidcoreAudioMuteButton?.setAttribute('aria-pressed', String(isKidcore && isMuted));
+    if (kidcoreSfxStatus) {
+      kidcoreSfxStatus.textContent = !isKidcore ? 'Hidden' : isSfxMuted ? 'Muted' : 'On';
+    }
+
+    kidcoreMusicPlayButton?.setAttribute('aria-pressed', String(isKidcore && isMusicPlaying));
+    kidcoreMusicMuteButton?.setAttribute('aria-pressed', String(isKidcore && isMusicMuted));
+    kidcoreSfxToggleButton?.setAttribute('aria-pressed', String(isKidcore && isSfxMuted));
+    if (kidcoreSfxToggleButton) {
+      kidcoreSfxToggleButton.textContent = !isKidcore ? '🔊 SFX' : isSfxMuted ? '🔇 SFX Off' : '🔊 SFX On';
+    }
   }
 
   function resumeKidcoreMusic() {
@@ -95,7 +108,7 @@ function initAlfredUI() {
       return;
     }
 
-    kidcoreAudioManager.unmute?.();
+    kidcoreAudioManager.unmuteMusic?.();
     if (!kidcoreAudioManager.isMusicPlaying) {
       kidcoreAudioManager.startMusic?.();
     }
@@ -145,14 +158,23 @@ function initAlfredUI() {
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-  kidcoreAudioPlayButton?.addEventListener('click', () => {
+  kidcoreMusicPlayButton?.addEventListener('click', () => {
     resumeKidcoreMusic();
     playKidcoreClick();
   });
 
-  kidcoreAudioMuteButton?.addEventListener('click', () => {
+  kidcoreMusicMuteButton?.addEventListener('click', () => {
     playKidcoreClick();
-    kidcoreAudioManager?.mute?.();
+    kidcoreAudioManager?.muteMusic?.();
+    syncKidcoreAudioControls();
+  });
+
+  kidcoreSfxToggleButton?.addEventListener('click', () => {
+    const wasMuted = Boolean(kidcoreAudioManager?.isSfxMuted);
+    kidcoreAudioManager?.toggleSfxMute?.();
+    if (wasMuted) {
+      playKidcoreClick();
+    }
     syncKidcoreAudioControls();
   });
 

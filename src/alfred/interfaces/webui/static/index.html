@@ -18,33 +18,173 @@
     <link rel="stylesheet" href="/static/css/themes/minimal.css?v=3">
     <link rel="stylesheet" href="/static/css/themes/element-modern.css?v=3">
     <link rel="stylesheet" href="/static/css/themes/kidcore-playground.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/spacejam-neocities.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/kidcore-homeboard.css?v=3">
+    <link rel="stylesheet" href="/static/css/scrapbook.css?v=3">
 </head>
 <body>
     <div id="app">
         <header class="app-header">
             <div class="header-brand">
-                <h1>Alfred</h1>
-                <span id="connection-pill" class="connection-pill disconnected">●</span>
+                <div class="header-title-row">
+                    <h1>Alfred</h1>
+                    <span id="connection-pill" class="connection-pill disconnected">●</span>
+                </div>
             </div>
             <div class="header-status">
                 <div id="queue-badge" class="queue-badge hidden">0</div>
                 <settings-menu></settings-menu>
                 <div class="kidcore-audio-controls" aria-label="Kidcore audio controls">
-                    <span class="kidcore-audio-label">Kidcore</span>
-                    <span id="kidcore-audio-status" class="kidcore-audio-status" aria-live="polite">Ready</span>
-                    <button id="kidcore-audio-play" class="kidcore-audio-control" type="button" data-audio-action="play" aria-label="Play kidcore music">▶ Play</button>
-                    <button id="kidcore-audio-mute" class="kidcore-audio-control" type="button" data-audio-action="mute" aria-label="Mute or stop kidcore music">⏹ Mute</button>
+                    <div class="kidcore-audio-chip kidcore-audio-music-chip">
+                        <span class="kidcore-audio-label">Music</span>
+                        <span id="kidcore-music-status" class="kidcore-audio-status" aria-live="polite">Off</span>
+                        <button id="kidcore-music-play" class="kidcore-audio-control" type="button" data-audio-action="play" aria-label="Start kidcore ambient music">♪ Play</button>
+                        <button id="kidcore-music-mute" class="kidcore-audio-control" type="button" data-audio-action="mute" aria-label="Mute kidcore music">⏹ Mute</button>
+                    </div>
+                    <div class="kidcore-audio-chip kidcore-audio-sfx-chip">
+                        <span class="kidcore-audio-label">SFX</span>
+                        <span id="kidcore-sfx-status" class="kidcore-audio-status" aria-live="polite">On</span>
+                        <button id="kidcore-sfx-toggle" class="kidcore-audio-control kidcore-sfx-toggle" type="button" data-audio-action="toggle-sfx" aria-label="Mute kidcore sound effects">🔊 SFX On</button>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <div class="kidcore-banner" aria-hidden="true" hidden>
-            <span class="kidcore-banner-badge kidcore-badge kidcore-banner-badge-left">NEW!</span>
-            <div class="kidcore-banner-marquee">
-                <span>KIDCORE PLAYGROUND • STICKERS • SPARKLES • YIPPEE! •</span>
+        <section id="kidcore-homeboard-window" class="kidcore-window" aria-label="Kidcore scrapbook window" data-window-state="collapsed" hidden>
+            <div id="kidcore-homeboard-titlebar" class="kidcore-window-titlebar" tabindex="0" aria-label="Kidcore scrapbook window titlebar">
+                <div class="kidcore-window-title-copy">
+                    <span class="kidcore-window-icon" aria-hidden="true">✿</span>
+                    <div class="kidcore-window-title-text">
+                        <span class="kidcore-window-title">guestbook / webring / links</span>
+                        <span class="kidcore-window-subtitle">a little homemade page window</span>
+                    </div>
+                </div>
+                <div class="kidcore-window-controls" aria-label="Window controls">
+                    <button id="kidcore-homeboard-collapse" class="kidcore-window-control" type="button" aria-label="Collapse scrapbook window">—</button>
+                    <button id="kidcore-homeboard-close" class="kidcore-window-control" type="button" aria-label="Close scrapbook window">×</button>
+                </div>
             </div>
-            <span class="kidcore-banner-badge kidcore-badge kidcore-banner-badge-right">WOW!</span>
-        </div>
+            <div class="kidcore-window-body" id="kidcore-homeboard-body">
+                <section id="kidcore-homeboard" class="kidcore-homeboard" aria-label="Kidcore personal site">
+                    <div class="kidcore-homeboard-header">
+                        <div class="kidcore-homeboard-copy">
+                            <p class="kidcore-site-note">a tiny homemade corner for guestbooks, webrings, updates, and friendly links</p>
+                            <p class="kidcore-homeboard-caption">playful, messy, and proudly not corporate</p>
+                        </div>
+                        <div class="kidcore-homeboard-tabs" role="tablist" aria-label="Kidcore clubhouse tabs">
+                            <button id="kidcore-tab-guestbook" class="kidcore-homeboard-tab" type="button" data-kidcore-tab="guestbook" role="tab" aria-controls="kidcore-guestbook-panel" aria-selected="true">guestbook</button>
+                            <button id="kidcore-tab-webring" class="kidcore-homeboard-tab" type="button" data-kidcore-tab="webring" role="tab" aria-controls="kidcore-webring-panel" aria-selected="false">webring</button>
+                            <button id="kidcore-tab-links" class="kidcore-homeboard-tab" type="button" data-kidcore-tab="links" role="tab" aria-controls="kidcore-links-panel" aria-selected="false">links</button>
+                            <button id="kidcore-tab-updates" class="kidcore-homeboard-tab" type="button" data-kidcore-tab="updates" role="tab" aria-controls="kidcore-updates-panel" aria-selected="false">updates</button>
+                        </div>
+                        <div class="kidcore-homeboard-toolbar" aria-label="Scrapbook tools">
+                            <label class="kidcore-homeboard-search" for="kidcore-homeboard-search">
+                                <span>Search scrapbook</span>
+                                <input id="kidcore-homeboard-search" type="search" placeholder="find a note, link, or update" autocomplete="off">
+                            </label>
+                            <button id="kidcore-homeboard-clear-search" class="kidcore-homeboard-toolbar-button" type="button">clear search</button>
+                            <button id="kidcore-homeboard-export" class="kidcore-homeboard-toolbar-button" type="button">export JSON</button>
+                            <span id="kidcore-homeboard-search-summary" class="kidcore-homeboard-search-summary" aria-live="polite">browse guestbook notes, updates, and links.</span>
+                        </div>
+                    </div>
+
+                    <div class="kidcore-homeboard-panels">
+                        <article id="kidcore-guestbook-panel" class="kidcore-homeboard-panel active" role="tabpanel" aria-labelledby="kidcore-tab-guestbook">
+                            <div class="kidcore-panel-heading">
+                                <div>
+                                    <h2>guestbook</h2>
+                                    <p>leave a note, a doodle, or a very small compliment.</p>
+                                </div>
+                                <span id="kidcore-homeboard-status" class="kidcore-homeboard-status">little corners for guestbooks, webrings, and friendly links</span>
+                            </div>
+                            <form id="kidcore-guestbook-form" class="kidcore-guestbook-form">
+                                <label class="kidcore-field">
+                                    <span>Name</span>
+                                    <input id="kidcore-guestbook-name" type="text" maxlength="36" autocomplete="nickname" placeholder="Moonbeam">
+                                </label>
+                                <label class="kidcore-field kidcore-field-message">
+                                    <span>Message</span>
+                                    <textarea id="kidcore-guestbook-message" rows="4" maxlength="280" placeholder="thanks for visiting the little glitter shelf"></textarea>
+                                </label>
+                                <button id="kidcore-guestbook-submit" class="kidcore-guestbook-submit" type="submit">sign guestbook</button>
+                            </form>
+                            <ol id="kidcore-guestbook-entries" class="kidcore-guestbook-entries"></ol>
+                        </article>
+
+                        <article id="kidcore-webring-panel" class="kidcore-homeboard-panel" role="tabpanel" aria-labelledby="kidcore-tab-webring" hidden>
+                            <div class="kidcore-panel-heading">
+                                <div>
+                                    <h2>webring</h2>
+                                    <p>a pretend loop of neighbor sites, buttons, and tiny web homes.</p>
+                                </div>
+                                <span id="kidcore-webring-position" class="kidcore-webring-position"></span>
+                            </div>
+                            <div class="kidcore-webring-actions">
+                                <button id="kidcore-webring-prev" class="kidcore-webring-nav" type="button">← prev</button>
+                                <button id="kidcore-webring-random" class="kidcore-webring-nav" type="button">shuffle</button>
+                                <button id="kidcore-webring-next" class="kidcore-webring-nav" type="button">next →</button>
+                            </div>
+                            <div class="kidcore-webring-card">
+                                <h3 id="kidcore-webring-title"></h3>
+                                <p id="kidcore-webring-description" class="kidcore-webring-description"></p>
+                                <p id="kidcore-webring-url" class="kidcore-webring-url"></p>
+                                <p id="kidcore-webring-note" class="kidcore-webring-note"></p>
+                                <button id="kidcore-webring-visit" class="kidcore-webring-visit" type="button">pretend to visit</button>
+                            </div>
+                        </article>
+
+                        <article id="kidcore-links-panel" class="kidcore-homeboard-panel" role="tabpanel" aria-labelledby="kidcore-tab-links" hidden>
+                            <div class="kidcore-panel-heading">
+                                <div>
+                                    <h2>links &amp; friends</h2>
+                                    <p>tiny bookmark buttons for imaginary pals and little pages.</p>
+                                </div>
+                            </div>
+                            <div class="kidcore-links-layout">
+                                <div class="kidcore-link-buttons" role="list" aria-label="Kidcore link shortcuts">
+                                    <button id="kidcore-link-0" class="kidcore-link-button" type="button" data-kidcore-link="0" role="listitem">guestbook</button>
+                                    <button id="kidcore-link-1" class="kidcore-link-button" type="button" data-kidcore-link="1" role="listitem">buttons</button>
+                                    <button id="kidcore-link-2" class="kidcore-link-button" type="button" data-kidcore-link="2" role="listitem">webring</button>
+                                    <button id="kidcore-link-3" class="kidcore-link-button" type="button" data-kidcore-link="3" role="listitem">friends</button>
+                                    <button id="kidcore-link-4" class="kidcore-link-button" type="button" data-kidcore-link="4" role="listitem">updates</button>
+                                </div>
+                                <div class="kidcore-links-preview">
+                                    <h3 id="kidcore-links-title"></h3>
+                                    <p id="kidcore-links-description" class="kidcore-links-description"></p>
+                                    <p id="kidcore-links-url" class="kidcore-links-url"></p>
+                                    <p id="kidcore-links-note" class="kidcore-links-note"></p>
+                                    <button id="kidcore-links-action" class="kidcore-links-action" type="button">open link</button>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article id="kidcore-updates-panel" class="kidcore-homeboard-panel" role="tabpanel" aria-labelledby="kidcore-tab-updates" hidden>
+                            <div class="kidcore-panel-heading">
+                                <div>
+                                    <h2>updates</h2>
+                                    <p>a tiny site log for changes, notes, and future ideas.</p>
+                                </div>
+                                <span id="kidcore-updates-summary" class="kidcore-updates-summary">local updates only</span>
+                            </div>
+                            <form id="kidcore-update-form" class="kidcore-update-form">
+                                <label class="kidcore-field">
+                                    <span>Title</span>
+                                    <input id="kidcore-update-title" type="text" maxlength="80" autocomplete="off" placeholder="retro tools">
+                                </label>
+                                <label class="kidcore-field kidcore-field-message">
+                                    <span>Details</span>
+                                    <textarea id="kidcore-update-message" rows="4" maxlength="400" placeholder="search, nav, export, and notes are alive"></textarea>
+                                </label>
+                                <button id="kidcore-update-submit" class="kidcore-update-submit" type="submit">post update</button>
+                            </form>
+                            <ol id="kidcore-updates-list" class="kidcore-updates-list"></ol>
+                        </article>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <button id="kidcore-homeboard-launcher" class="kidcore-homeboard-launcher" type="button" aria-label="Open scrapbook window" hidden>open scrapbook</button>
 
         <toast-container id="toast-container"></toast-container>
 
@@ -99,6 +239,8 @@
 
     <script src="/app-config.js"></script>
     <script src="/static/js/websocket-client.js?v=3"></script>
+    <script type="module" src="/static/js/kidcore-homeboard.js?v=3"></script>
+    <script type="module" src="/static/js/scrapbook.js?v=3"></script>
     <script type="module" src="/static/js/main.js?v=3"></script>
 </body>
 </html>

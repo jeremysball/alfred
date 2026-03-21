@@ -535,6 +535,13 @@ chat-message.streaming .message-avatar {
    SETTINGS MENU
    ============================================ */
 
+.settings-portal-root {
+    position: fixed;
+    inset: 0;
+    z-index: 11000;
+    pointer-events: none;
+}
+
 .settings-menu-wrapper {
     position: relative;
 }
@@ -573,6 +580,11 @@ chat-message.streaming .message-avatar {
 
 .settings-overlay.hidden {
     display: none;
+}
+
+.settings-overlay,
+.settings-content {
+    pointer-events: auto;
 }
 
 .settings-content {

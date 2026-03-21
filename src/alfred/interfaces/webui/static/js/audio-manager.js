@@ -43,7 +43,13 @@ export class KidcoreAudioManager {
   constructor(assets = {}) {
     this._assets = { ...DEFAULT_AUDIO_ASSETS, ...assets };
     this._music = null;
-    this._muted = false;
+    this._musicSource = null;
+    this._musicFilter = null;
+    this._musicGainNode = null;
+    this._musicBuffer = null;
+    this._musicBufferSampleRate = null;
+    this._musicMuted = false;
+    this._sfxMuted = false;
     this._musicRequested = false;
     this._musicPlaying = false;
     this._lastError = null;
@@ -62,8 +68,16 @@ export class KidcoreAudioManager {
     }
   }
 
+  get isMusicMuted() {
+    return this._musicMuted;
+  }
+
+  get isSfxMuted() {
+    return this._sfxMuted;
+  }
+
   get isMuted() {
-    return this._muted;
+    return this._musicMuted;
   }
 
   get isMusicPlaying() {
@@ -111,6 +125,83 @@ export class KidcoreAudioManager {
     }
   }
 
+  _clearMusicNodes() {
+    if (this._musicSource) {
+      try {
+        this._musicSource.onended = null;
+        this._musicSource.disconnect();
+      } catch {
+        // Ignore teardown issues.
+      }
+    }
+
+    if (this._musicFilter) {
+      try {
+        this._musicFilter.disconnect();
+      } catch {
+        // Ignore teardown issues.
+      }
+    }
+
+    if (this._musicGainNode) {
+      try {
+        this._musicGainNode.disconnect();
+      } catch {
+        // Ignore teardown issues.
+      }
+    }
+
+    this._musicSource = null;
+    this._musicFilter = null;
+    this._musicGainNode = null;
+  }
+
+  _buildAmbientLoopBuffer(context) {
+    if (
+      this._musicBuffer &&
+      this._musicBufferSampleRate === context.sampleRate
+    ) {
+      return this._musicBuffer;
+    }
+
+    const sampleRate = context.sampleRate;
+    const durationSeconds = 12;
+    const length = Math.max(1, Math.floor(sampleRate * durationSeconds));
+    const buffer = context.createBuffer(1, length, sampleRate);
+    const channel = buffer.getChannelData(0);
+    const motifs = [
+      [261.63, 329.63, 392.0],
+      [220.0, 277.18, 329.63],
+      [196.0, 246.94, 293.66],
+      [174.61, 220.0, 261.63],
+    ];
+
+    for (let index = 0; index < channel.length; index += 1) {
+      const time = index / sampleRate;
+      const loopProgress = (time % durationSeconds) / durationSeconds;
+      const motifIndex = Math.floor(loopProgress * motifs.length) % motifs.length;
+      const motif = motifs[motifIndex];
+      const envelope = Math.pow(Math.sin(Math.PI * loopProgress), 1.35);
+      const shimmer = 0.82 + 0.18 * Math.sin((Math.PI * 2 * time) / 5.25);
+      const sway = 0.88 + 0.12 * Math.sin((Math.PI * 2 * time) / 8.5 + 0.65);
+      let sample = 0;
+
+      motif.forEach((frequency, noteIndex) => {
+        const detune = 1 + 0.0018 * Math.sin((Math.PI * 2 * time) / 7.25 + noteIndex * 0.7);
+        const phase = noteIndex * 0.33 + motifIndex * 0.52;
+        sample += Math.sin((Math.PI * 2 * frequency * detune * time) + phase) * (0.16 / (noteIndex + 1));
+      });
+
+      sample += Math.sin((Math.PI * 2 * 55 * time) + 0.25) * 0.05;
+      sample += Math.sin((Math.PI * 2 * 110 * time) + 0.5) * 0.02;
+      channel[index] = clamp(sample * envelope * shimmer * sway, -0.18, 0.18);
+    }
+
+    this._musicBuffer = buffer;
+    this._musicBufferSampleRate = sampleRate;
+    return buffer;
+  }
+
   _playTone({
     startFrequency,
     endFrequency = null,
@@ -123,7 +214,7 @@ export class KidcoreAudioManager {
     filterQ = 0.9,
   }) {
     const context = this._ensureAudioContext();
-    if (!context || this._muted) {
+    if (!context || this._sfxMuted) {
       return false;
     }
 
@@ -165,7 +256,7 @@ export class KidcoreAudioManager {
     filterQ = 9,
   }) {
     const context = this._ensureAudioContext();
-    if (!context || this._muted) {
+    if (!context || this._sfxMuted) {
       return false;
     }
 
@@ -342,19 +433,81 @@ export class KidcoreAudioManager {
     return buzz || wobble;
   }
 
-  startMusic() {
-    this._musicRequested = true;
-
-    if (this._muted || typeof Audio === 'undefined') {
+  _startAmbientMusic() {
+    const context = this._ensureAudioContext();
+    if (!context) {
       return false;
     }
 
+    if (this._musicSource) {
+      return true;
+    }
+
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gainNode = context.createGain();
+    const startAt = context.currentTime + 0.01;
+
+    source.buffer = this._buildAmbientLoopBuffer(context);
+    source.loop = true;
+    source.playbackRate.value = 0.94;
+
+    filter.type = 'lowpass';
+    filter.frequency.value = 1600;
+    filter.Q.value = 0.65;
+
+    gainNode.gain.setValueAtTime(0.0001, startAt);
+    gainNode.gain.exponentialRampToValueAtTime(0.18, startAt + 1.1);
+
+    source.connect(filter);
+    filter.connect(gainNode);
+    this._routeSynthToMaster(gainNode);
+
+    source.onended = () => {
+      if (this._musicSource === source) {
+        this._clearMusicNodes();
+        this._musicPlaying = false;
+      }
+    };
+
+    this._musicSource = source;
+    this._musicFilter = filter;
+    this._musicGainNode = gainNode;
+    this._musicPlaying = true;
+
+    source.start(startAt);
+    return true;
+  }
+
+  _playFallbackMusic() {
     const music = this._ensureMusic();
     music.loop = true;
     music.muted = false;
-    music.volume = 0.32;
+    music.volume = 0.18;
     this._musicPlaying = true;
     return this._playAudio(music);
+  }
+
+  startMusic() {
+    this._musicRequested = true;
+
+    if (this._musicMuted) {
+      return false;
+    }
+
+    if (this._musicPlaying) {
+      return true;
+    }
+
+    if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
+      return this._startAmbientMusic();
+    }
+
+    if (typeof Audio === 'undefined') {
+      return false;
+    }
+
+    return this._playFallbackMusic();
   }
 
   _ensureMusic() {
@@ -362,7 +515,7 @@ export class KidcoreAudioManager {
       return this._music;
     }
 
-    this._music = createAudioElement(this._assets.music, { loop: true, volume: 0.32 });
+    this._music = createAudioElement(this._assets.music, { loop: true, volume: 0.18 });
     this._music.addEventListener('ended', () => {
       this._musicPlaying = false;
     });
@@ -379,24 +532,41 @@ export class KidcoreAudioManager {
 
     this._musicPlaying = false;
 
+    if (this._musicSource) {
+      const context = this._audioContext;
+      const stopAt = context ? context.currentTime + 0.15 : 0;
+      try {
+        if (context && this._musicGainNode) {
+          this._musicGainNode.gain.cancelScheduledValues(context.currentTime);
+          this._musicGainNode.gain.setValueAtTime(Math.max(this._musicGainNode.gain.value, 0.0001), context.currentTime);
+          this._musicGainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+        }
+        this._musicSource.stop(stopAt);
+      } catch {
+        this._clearMusicNodes();
+      }
+      return true;
+    }
+
     if (!this._music) {
       return false;
     }
 
     cleanupAudio(this._music);
+    this._music = null;
     return true;
   }
 
-  setMuted(isMuted) {
+  setMusicMuted(isMuted) {
     const nextMuted = Boolean(isMuted);
 
-    if (this._muted === nextMuted) {
+    if (this._musicMuted === nextMuted) {
       return true;
     }
 
-    this._muted = nextMuted;
+    this._musicMuted = nextMuted;
 
-    if (this._muted) {
+    if (this._musicMuted) {
       this.stopMusic({ preserveIntent: true });
       return true;
     }
@@ -408,20 +578,65 @@ export class KidcoreAudioManager {
     return true;
   }
 
+  muteMusic() {
+    return this.setMusicMuted(true);
+  }
+
+  unmuteMusic() {
+    return this.setMusicMuted(false);
+  }
+
+  toggleMusicMute() {
+    return this.setMusicMuted(!this._musicMuted);
+  }
+
+  setMuted(isMuted) {
+    return this.setMusicMuted(isMuted);
+  }
+
   mute() {
-    return this.setMuted(true);
+    return this.muteMusic();
   }
 
   unmute() {
-    return this.setMuted(false);
+    return this.unmuteMusic();
   }
 
   toggleMute() {
-    return this.setMuted(!this._muted);
+    return this.toggleMusicMute();
+  }
+
+  setSfxMuted(isMuted) {
+    const nextMuted = Boolean(isMuted);
+
+    if (this._sfxMuted === nextMuted) {
+      return true;
+    }
+
+    this._sfxMuted = nextMuted;
+
+    if (this._sfxMuted) {
+      this._activeEffects.forEach((audio) => cleanupAudio(audio));
+      this._activeEffects.clear();
+    }
+
+    return true;
+  }
+
+  muteSfx() {
+    return this.setSfxMuted(true);
+  }
+
+  unmuteSfx() {
+    return this.setSfxMuted(false);
+  }
+
+  toggleSfxMute() {
+    return this.setSfxMuted(!this._sfxMuted);
   }
 
   playEffect(effectName, options = {}) {
-    if (this._muted || typeof Audio === 'undefined') {
+    if (this._sfxMuted || typeof Audio === 'undefined') {
       return false;
     }
 
@@ -474,6 +689,7 @@ export class KidcoreAudioManager {
 
   stopAll() {
     this.stopMusic();
+    this._clearMusicNodes();
     this._activeEffects.forEach((audio) => cleanupAudio(audio));
     this._activeEffects.clear();
   }

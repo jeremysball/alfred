@@ -2,40 +2,42 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 THEME_CSS = PROJECT_ROOT / "src/alfred/interfaces/webui/static/css/themes/kidcore-playground.css"
+HOMEBOARD_CSS = PROJECT_ROOT / "src/alfred/interfaces/webui/static/css/themes/kidcore-homeboard.css"
 INDEX_HTML = PROJECT_ROOT / "src/alfred/interfaces/webui/static/index.html"
 
 
-def test_index_includes_kidcore_decorative_hooks() -> None:
+def test_index_includes_kidcore_homeboard_and_controls() -> None:
     source = INDEX_HTML.read_text()
 
-    assert 'class="kidcore-banner"' in source
-    assert 'kidcore-banner-marquee' in source
-    assert 'kidcore-banner-badge' in source
-    assert 'aria-hidden="true"' in source
+    assert 'kidcore-banner' not in source
+    assert 'kidcore-homeboard' in source
+    assert 'kidcore-guestbook-panel' in source
+    assert 'kidcore-webring-panel' in source
+    assert 'kidcore-links-panel' in source
+    assert 'kidcore-music-play' in source
+    assert 'kidcore-music-mute' in source
+    assert 'kidcore-sfx-toggle' in source
+    assert '/static/js/kidcore-homeboard.js?v=3' in source
 
 
-def test_kidcore_theme_defines_chaos_animations() -> None:
-    source = THEME_CSS.read_text()
-
-    assert '[data-theme="kidcore-playground"] .kidcore-banner' in source
-    assert '[data-theme="kidcore-playground"] .kidcore-banner-marquee span' in source
-    assert '[data-theme="kidcore-playground"] .kidcore-badge' in source
-    assert '@keyframes kidcore-marquee-scroll' in source
-    assert '@keyframes kidcore-badge-float' in source
-    assert '@keyframes kidcore-badge-wiggle' in source
-
-
-def test_kidcore_theme_styles_secondary_components() -> None:
-    source = THEME_CSS.read_text()
+def test_kidcore_homeboard_css_styles_functional_panels() -> None:
+    source = HOMEBOARD_CSS.read_text()
 
     for selector in [
-        '[data-theme="kidcore-playground"] .status-bar',
-        '[data-theme="kidcore-playground"] .toast',
-        '[data-theme="kidcore-playground"] .session-card',
-        '[data-theme="kidcore-playground"] .tool-call',
-        '[data-theme="kidcore-playground"] .tool-header',
+        '[data-theme="kidcore-playground"] .kidcore-homeboard',
+        '[data-theme="kidcore-playground"] .kidcore-homeboard-tab',
+        '[data-theme="kidcore-playground"] .kidcore-homeboard-panel',
+        '[data-theme="kidcore-playground"] .kidcore-homeboard-panel.active',
+        '[data-theme="kidcore-playground"] .kidcore-guestbook-entry',
+        '[data-theme="kidcore-playground"] .kidcore-webring-card',
+        '[data-theme="kidcore-playground"] .kidcore-link-card',
+        '[data-theme="kidcore-playground"] .kidcore-sfx-toggle',
     ]:
         assert selector in source
+
+    assert '[data-theme="kidcore-playground"] .kidcore-homeboard[hidden]' in source
+    assert '[data-theme="kidcore-playground"] .kidcore-link-button.active' in source
+    assert '[data-theme="kidcore-playground"] .kidcore-guestbook-submit' in source
 
 
 def test_kidcore_theme_keeps_message_and_composer_surfaces_readable() -> None:
@@ -50,6 +52,8 @@ def test_kidcore_theme_keeps_message_and_composer_surfaces_readable() -> None:
     ]:
         assert selector in source
 
-    assert 'border: 4px solid #140022' in source
+    assert 'background: linear-gradient(135deg, #fff3cf 0%, #ffd0ea 58%, #ffb2d6 100%)' in source
+    assert 'background: linear-gradient(135deg, #f8f2ff 0%, #e7f5ff 100%)' in source
+    assert 'border-color: #ff70c8' in source
+    assert 'border-color: #8a5cf6' in source
     assert 'background: #fff5fd' in source
-    assert 'background: linear-gradient(135deg, #ff4fd8 0%, #7c4dff 100%)' in source

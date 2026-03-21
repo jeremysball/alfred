@@ -1,6 +1,5 @@
 import asyncio
 import socket
-import subprocess
 import time
 import urllib.request
 from pathlib import Path
@@ -44,8 +43,8 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
         "--port",
         str(port),
         cwd=PROJECT_ROOT,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
 
     try:
@@ -91,9 +90,10 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
                 () => {
                   const body = getComputedStyle(document.body);
                   const header = getComputedStyle(document.querySelector('.app-header h1'));
-                  const active = document.querySelector('.theme-option.active[data-theme="kidcore-playground"]');
-                  const banner = document.querySelector('.kidcore-banner');
-                  const bannerStyle = banner ? getComputedStyle(banner) : null;
+                  const homeboard = document.querySelector('#kidcore-homeboard');
+                  const homeboardStyle = homeboard ? getComputedStyle(homeboard) : null;
+                  const guestbookPanel = document.querySelector('#kidcore-guestbook-panel');
+                  const activeTab = document.querySelector('.kidcore-homeboard-tab.active');
                   const messageBubble = document.querySelector('.message.assistant .message-bubble');
                   const messageBubbleStyle = messageBubble ? getComputedStyle(messageBubble) : null;
                   const messageInput = getComputedStyle(document.querySelector('.message-input'));
@@ -104,10 +104,12 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
                     fontFamily: body.fontFamily,
                     backgroundImage: body.backgroundImage,
                     headerColor: header.color,
-                    activeText: active?.querySelector('.theme-name')?.textContent || '',
-                    bannerDisplay: bannerStyle?.display || '',
-                    bannerText: banner?.textContent || '',
-                    bannerBorder: bannerStyle?.borderTopWidth || '',
+                    homeboardHidden: homeboard ? homeboard.hidden : true,
+                    homeboardDisplay: homeboardStyle?.display || '',
+                    guestbookActive: guestbookPanel?.classList.contains('active') || false,
+                    activeText: activeTab?.textContent || '',
+                    note: document.querySelector('.kidcore-site-note')?.textContent || '',
+                    bannerExists: Boolean(document.querySelector('.kidcore-banner')),
                     messageBubbleBackground:
                       messageBubbleStyle?.backgroundImage || messageBubbleStyle?.backgroundColor || '',
                     messageBubbleBorder: messageBubbleStyle?.borderTopWidth || '',
@@ -119,15 +121,15 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
             )
 
             assert data["theme"] == "kidcore-playground"
-            assert "Comic Sans" in data["fontFamily"] or "Trebuchet" in data["fontFamily"]
+            assert "Georgia" in data["fontFamily"] or "Times" in data["fontFamily"]
             assert "radial-gradient" in data["backgroundImage"]
-            assert data["activeText"] == "Kidcore Playground"
             assert data["headerColor"]
-
-            assert data["bannerDisplay"] == "flex"
-            assert "KIDCORE PLAYGROUND" in data["bannerText"]
-            assert data["bannerBorder"] != "0px"
-
+            assert data["homeboardHidden"] is False
+            assert data["homeboardDisplay"] != "none"
+            assert data["guestbookActive"] is True
+            assert data["activeText"] == "guestbook"
+            assert "guestbooks" in data["note"].lower()
+            assert data["bannerExists"] is False
             assert data["messageBubbleBackground"]
             assert data["messageBubbleBorder"] != "0px"
             assert data["messageInputBackground"] != "rgba(0, 0, 0, 0)"
@@ -136,18 +138,15 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
             await page.reload(wait_until="networkidle")
             persisted = await page.evaluate(
                 """
-                () => {
-                  const active = document.querySelector('.theme-option.active[data-theme="kidcore-playground"]');
-                  return {
-                    theme: document.documentElement.getAttribute('data-theme'),
-                    activeText: active?.querySelector('.theme-name')?.textContent || '',
-                  };
-                }
+                () => ({
+                  theme: document.documentElement.getAttribute('data-theme'),
+                  homeboardHidden: document.querySelector('#kidcore-homeboard')?.hidden ?? true,
+                })
                 """
             )
 
             assert persisted["theme"] == "kidcore-playground"
-            assert persisted["activeText"] == "Kidcore Playground"
+            assert persisted["homeboardHidden"] is False
 
             await browser.close()
     finally:
@@ -171,8 +170,8 @@ async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
         "--port",
         str(port),
         cwd=PROJECT_ROOT,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
 
     try:
@@ -195,7 +194,7 @@ async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
                   const list = document.querySelector('#message-list');
                   if (!list) return;
 
-                  for (let index = 0; index < 30; index += 1) {
+                  for (let index = 0; index < 20; index += 1) {
                     const message = document.createElement('div');
                     message.className = 'message user';
                     message.innerHTML = `
@@ -211,22 +210,33 @@ async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
             await page.wait_for_timeout(100)
 
             header = await page.locator('.app-header').bounding_box()
-            play_button = await page.locator('#kidcore-audio-play').bounding_box()
-            mute_button = await page.locator('#kidcore-audio-mute').bounding_box()
+            homeboard_window = await page.locator('#kidcore-homeboard-window').bounding_box()
+            homeboard_body = await page.locator('#kidcore-homeboard').bounding_box()
+            music_play = await page.locator('#kidcore-music-play').bounding_box()
+            music_mute = await page.locator('#kidcore-music-mute').bounding_box()
+            sfx_toggle = await page.locator('#kidcore-sfx-toggle').bounding_box()
             composer = await page.locator('#message-input').bounding_box()
             send_button = await page.locator('#send-button').bounding_box()
 
             assert header is not None
-            assert play_button is not None
-            assert mute_button is not None
+            assert homeboard_window is not None
+            assert homeboard_body is None
+            assert music_play is not None
+            assert music_mute is not None
+            assert sfx_toggle is not None
             assert composer is not None
             assert send_button is not None
 
             assert header["width"] <= 390.5
-            assert play_button["x"] >= 0
-            assert play_button["x"] + play_button["width"] <= 390.5
-            assert mute_button["x"] >= 0
-            assert mute_button["x"] + mute_button["width"] <= 390.5
+            assert header["height"] <= 200
+            assert homeboard_window["width"] <= 390.5
+            assert homeboard_window["height"] <= 90
+            assert music_play["x"] >= 0
+            assert music_play["x"] + music_play["width"] <= 390.5
+            assert music_mute["x"] >= 0
+            assert music_mute["x"] + music_mute["width"] <= 390.5
+            assert sfx_toggle["x"] >= 0
+            assert sfx_toggle["x"] + sfx_toggle["width"] <= 390.5
             assert composer["x"] >= 0
             assert composer["x"] + composer["width"] <= 390.5
             assert send_button["x"] >= 0

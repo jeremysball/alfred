@@ -1,0 +1,404 @@
+/*
+ * Space Jam Neocities Theme
+ * Loud, neon, a little tacky, and proudly early-web.
+ */
+
+[data-theme="spacejam-neocities"] {
+  color-scheme: dark;
+
+  --bg-primary: #130027;
+  --bg-secondary: #220041;
+  --bg-tertiary: #2f0056;
+  --bg-header: linear-gradient(135deg, #ff6f00 0%, #7c4dff 52%, #00e5ff 100%);
+  --bg-footer: #16002e;
+  --bg-elevated: #32005b;
+
+  --text-primary: #fff9fe;
+  --text-secondary: #ffe1f7;
+  --text-muted: #ffc3ea;
+  --text-inverse: #130027;
+
+  --accent-primary: #00e5ff;
+  --accent-secondary: #ffef5d;
+  --accent-tertiary: #ff6f00;
+  --accent-danger: #ff4f8a;
+  --accent-warning: #ffb300;
+
+  --border-color: #ff7bd4;
+  --border-subtle: rgba(255, 255, 255, 0.16);
+  --border-strong: #ffef5d;
+
+  --surface-bg: var(--bg-primary);
+  --surface-panel-bg: var(--bg-secondary);
+  --surface-elevated-bg: var(--bg-tertiary);
+  --surface-input-bg: #fff5fd;
+  --surface-footer-bg: var(--bg-footer);
+  --surface-accent-bg: linear-gradient(135deg, #ff6f00 0%, #7c4dff 50%, #00e5ff 100%);
+  --surface-tool-bg: #340060;
+  --surface-success-bg: #7cff6b;
+  --surface-warning-bg: #ffef5d;
+  --surface-error-bg: #ff4f8a;
+  --surface-running-bg: #ffb300;
+
+  --settings-bg: #1a0034;
+  --settings-overlay-bg: rgba(11, 0, 24, 0.86);
+  --settings-border: 4px solid #ff6f00;
+  --settings-shadow: 0 -18px 36px rgba(0, 0, 0, 0.42);
+  --settings-header-bg: linear-gradient(135deg, #ff6f00 0%, #ffef5d 100%);
+  --settings-header-border: 2px solid #00e5ff;
+  --settings-toggle: #fff9fe;
+  --settings-toggle-hover: #00e5ff;
+  --settings-toggle-hover-bg: rgba(255, 255, 255, 0.16);
+
+  --tool-bg: #300053;
+  --tool-border: #ff7bd4;
+  --tool-header-bg: rgba(255, 255, 255, 0.08);
+  --tool-header-hover: rgba(255, 255, 255, 0.14);
+  --tool-icon: #ffef5d;
+  --tool-status-bg: #00e5ff;
+  --tool-running-bg: #ffb300;
+  --tool-running-border: #ffb300;
+  --tool-running-text: #130027;
+  --tool-success-bg: #7cff6b;
+  --tool-success-border: #7cff6b;
+  --tool-success-text: #130027;
+  --tool-error-bg: #ff4f8a;
+  --tool-error-border: #ff4f8a;
+  --tool-error-text: #130027;
+
+  --session-card-bg: #2f0056;
+  --session-card-hover: #43006f;
+  --session-border: #ff7bd4;
+  --session-header-text: #fff9fe;
+  --session-meta-text: #ffe1f7;
+  --session-accent: #00e5ff;
+  --session-accent-glow: rgba(0, 229, 255, 0.22);
+
+  --history-btn-text: #fff9fe;
+  --history-btn-hover-text: #00e5ff;
+  --history-btn-glow: rgba(0, 229, 255, 0.55);
+
+  --status-bg: #1a0034;
+  --status-border: #ff6f00;
+
+  --composer-bg: #fff5fd;
+  --composer-border: 4px solid #ff6f00;
+  --composer-radius: 1rem;
+  --composer-shadow: 0 0 0 4px rgba(255, 111, 0, 0.15), 0 12px 0 rgba(0, 0, 0, 0.2);
+  --composer-focus-border: #00e5ff;
+  --composer-focus-shadow: 0 0 0 4px rgba(0, 229, 255, 0.24);
+  --composer-send-radius: 1rem;
+  --composer-max-width: 980px;
+
+  --send-button-bg: linear-gradient(135deg, #ff6f00 0%, #7c4dff 55%, #00e5ff 100%);
+  --send-button-hover-bg: linear-gradient(135deg, #00e5ff 0%, #ffef5d 52%, #ff6f00 100%);
+  --send-button-disabled-bg: #88608f;
+  --send-button-shadow: 0 8px 0 rgba(124, 77, 255, 0.34);
+
+  --contrast-text: #fff9fe;
+  --contrast-muted: #ffe1f7;
+  --contrast-accent: #00e5ff;
+  --contrast-settings-text: #fff9fe;
+  --contrast-settings-muted: #ffe1f7;
+  --contrast-settings-accent: #ffef5d;
+  --contrast-status-text: #fff9fe;
+  --contrast-status-muted: #ffe1f7;
+  --contrast-status-accent: #00e5ff;
+  --contrast-tool-text: #fff9fe;
+  --contrast-tool-muted: #ffe1f7;
+  --contrast-tool-accent: #ffef5d;
+  --contrast-composer-text: #130027;
+  --contrast-composer-muted: #6f5675;
+  --contrast-composer-accent: #00e5ff;
+  --contrast-send-text: #130027;
+
+  --font-primary: "Impact", "Arial Black", "Trebuchet MS", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "Courier New", "Lucida Console", monospace;
+}
+
+[data-theme="spacejam-neocities"] body {
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  background-color: #130027;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(255, 111, 0, 0.35) 0, transparent 20%),
+    radial-gradient(circle at 84% 14%, rgba(0, 229, 255, 0.28) 0, transparent 22%),
+    radial-gradient(circle at 70% 82%, rgba(255, 239, 93, 0.22) 0, transparent 24%),
+    radial-gradient(circle at 22% 78%, rgba(255, 79, 138, 0.24) 0, transparent 23%),
+    linear-gradient(135deg, #130027 0%, #220041 42%, #130027 100%);
+  background-attachment: fixed;
+}
+
+[data-theme="spacejam-neocities"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.1;
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.12) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.12) 75%, transparent 75%, transparent),
+    radial-gradient(circle, rgba(255, 255, 255, 0.28) 1px, transparent 1px);
+  background-size: 72px 72px, 24px 24px;
+  mix-blend-mode: screen;
+  animation: spacejam-grid-drift 32s linear infinite;
+}
+
+[data-theme="spacejam-neocities"] #app {
+  position: relative;
+  background: rgba(18, 0, 39, 0.84);
+  box-shadow:
+    0 0 0 5px rgba(255, 255, 255, 0.08),
+    0 0 0 11px rgba(0, 0, 0, 0.18),
+    0 24px 50px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+}
+
+[data-theme="spacejam-neocities"] #app::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.04)),
+    radial-gradient(circle at 50% 0%, rgba(255, 239, 93, 0.08), transparent 35%);
+  mix-blend-mode: screen;
+}
+
+[data-theme="spacejam-neocities"] .app-header {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ff6f00 0%, #7c4dff 52%, #00e5ff 100%);
+  border-bottom: 6px solid #ffef5d;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="spacejam-neocities"] .app-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 20px;
+  background: repeating-linear-gradient(90deg, #ffef5d 0 18px, #ff6f00 18px 36px, #00e5ff 36px 54px, #ff4f8a 54px 72px);
+  opacity: 0.38;
+  animation: spacejam-banner-scroll 9s linear infinite;
+}
+
+[data-theme="spacejam-neocities"] .header-brand,
+[data-theme="spacejam-neocities"] .header-status {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="spacejam-neocities"] .app-header h1 {
+  color: #fff9fe;
+  font-family: var(--font-primary);
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow:
+    2px 2px 0 #130027,
+    4px 4px 0 rgba(255, 239, 93, 0.88),
+    6px 6px 0 rgba(0, 0, 0, 0.2);
+  animation: spacejam-title-bob 4.2s ease-in-out infinite;
+}
+
+[data-theme="spacejam-neocities"] .connection-pill {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid #130027;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="spacejam-neocities"] .connection-pill.connected {
+  background: #7cff6b;
+  color: #7cff6b;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12), 0 0 14px rgba(124, 255, 107, 0.78);
+}
+
+[data-theme="spacejam-neocities"] .connection-pill.disconnected {
+  background: #ff4f8a;
+  color: #ff4f8a;
+}
+
+[data-theme="spacejam-neocities"] .connection-pill.connecting {
+  background: #ffef5d;
+  color: #ffef5d;
+  animation: spacejam-pulse 1.1s ease-in-out infinite;
+}
+
+[data-theme="spacejam-neocities"] .queue-badge {
+  background: linear-gradient(135deg, #ffef5d 0%, #ff6f00 100%);
+  color: #130027;
+  border: 2px solid #130027;
+  font-family: var(--font-primary);
+  font-weight: 900;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.22);
+}
+
+[data-theme="spacejam-neocities"] .kidcore-audio-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  max-width: 28rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.55rem;
+  border: 3px solid #130027;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(19, 0, 39, 0.92) 0%, rgba(55, 0, 95, 0.94) 100%);
+  box-shadow:
+    0 0 0 4px rgba(255, 111, 0, 0.2),
+    0 10px 0 rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="spacejam-neocities"] .kidcore-audio-label {
+  color: #ffef5d;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+[data-theme="spacejam-neocities"] .kidcore-audio-status {
+  color: #fff9fe;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+[data-theme="spacejam-neocities"] .kidcore-audio-control {
+  border-color: #ffef5d;
+  background: linear-gradient(135deg, #ff6f00 0%, #7c4dff 100%);
+  color: #fff9fe;
+  box-shadow: 0 6px 0 rgba(124, 77, 255, 0.34);
+}
+
+[data-theme="spacejam-neocities"] .kidcore-audio-control:hover {
+  transform: translateY(-1px) rotate(-1deg);
+  background: linear-gradient(135deg, #00e5ff 0%, #ffef5d 100%);
+  color: #130027;
+}
+
+[data-theme="spacejam-neocities"] .kidcore-banner {
+  display: none;
+}
+
+[data-theme="spacejam-neocities"] .app-main,
+[data-theme="spacejam-neocities"] .app-footer {
+  position: relative;
+  z-index: 0;
+}
+
+[data-theme="spacejam-neocities"] .message {
+  position: relative;
+}
+
+[data-theme="spacejam-neocities"] .message-bubble {
+  background: linear-gradient(135deg, rgba(52, 0, 96, 0.95) 0%, rgba(32, 0, 58, 0.95) 100%);
+  border: 2px solid rgba(255, 239, 93, 0.42);
+  border-radius: 1rem 1rem 1rem 0.35rem;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="spacejam-neocities"] .message.user .message-bubble {
+  background: linear-gradient(135deg, rgba(255, 111, 0, 0.18) 0%, rgba(124, 77, 255, 0.18) 100%);
+  border-color: rgba(0, 229, 255, 0.42);
+}
+
+[data-theme="spacejam-neocities"] .message.assistant .message-bubble {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.1) 0%, rgba(255, 239, 93, 0.14) 100%);
+  border-color: rgba(255, 239, 93, 0.46);
+  transform: translateY(-1px) rotate(-0.6deg);
+}
+
+[data-theme="spacejam-neocities"] .message.system .message-bubble {
+  background: linear-gradient(135deg, rgba(255, 239, 93, 0.16) 0%, rgba(255, 111, 0, 0.12) 100%);
+  border-color: rgba(255, 111, 0, 0.4);
+}
+
+[data-theme="spacejam-neocities"] .message-action,
+[data-theme="spacejam-neocities"] .history-btn,
+[data-theme="spacejam-neocities"] .completion-item,
+[data-theme="spacejam-neocities"] .session-card,
+[data-theme="spacejam-neocities"] .tool-call,
+[data-theme="spacejam-neocities"] .status-chip,
+[data-theme="spacejam-neocities"] .toast {
+  border-color: rgba(255, 239, 93, 0.35);
+}
+
+[data-theme="spacejam-neocities"] #scrapbook-panel {
+  --scrapbook-bg: rgba(20, 0, 40, 0.9);
+  --scrapbook-surface: rgba(255, 255, 255, 0.12);
+  --scrapbook-surface-strong: rgba(255, 255, 255, 0.2);
+  --scrapbook-border: #ff6f00;
+  --scrapbook-accent: #00e5ff;
+  --scrapbook-accent-2: #ffef5d;
+  --scrapbook-text: #fff9fe;
+  --scrapbook-muted: #ffe1f7;
+  --scrapbook-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  --scrapbook-card-shadow: 6px 6px 0 rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-card {
+  border-color: rgba(255, 239, 93, 0.34);
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-tab.active,
+[data-theme="spacejam-neocities"] .scrapbook-icon-button[data-tone="primary"] {
+  background: linear-gradient(135deg, #ff6f00 0%, #ffef5d 100%);
+  color: #130027;
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-badge {
+  background: linear-gradient(135deg, #ff6f00 0%, #00e5ff 100%);
+  color: #130027;
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-shell__title h2 {
+  color: #fff9fe;
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-shell__title p,
+[data-theme="spacejam-neocities"] .scrapbook-summary {
+  color: #ffe1f7;
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-search input,
+[data-theme="spacejam-neocities"] .scrapbook-field input,
+[data-theme="spacejam-neocities"] .scrapbook-field textarea {
+  background: #fff9fe;
+}
+
+[data-theme="spacejam-neocities"] .scrapbook-empty {
+  border-color: rgba(255, 239, 93, 0.35);
+}
+
+@keyframes spacejam-grid-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(48px, 48px, 0); }
+}
+
+@keyframes spacejam-banner-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 240px 0; }
+}
+
+@keyframes spacejam-title-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px) rotate(-0.5deg); }
+}
+
+@keyframes spacejam-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.16); }
+}
+
+@media (max-width: 700px) {
+  [data-theme="spacejam-neocities"] .app-header h1 {
+    font-size: 1.18rem;
+    letter-spacing: 0.12em;
+  }
+
+  [data-theme="spacejam-neocities"] .kidcore-audio-controls {
+    max-width: 100%;
+  }
+}

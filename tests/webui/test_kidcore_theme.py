@@ -53,5 +53,6 @@ def test_theme_selector_keeps_generic_activation_and_existing_themes() -> None:
         "minimal",
         "element-modern",
         "kidcore-playground",
+        "spacejam-neocities",
     ]:
         assert theme_id in source

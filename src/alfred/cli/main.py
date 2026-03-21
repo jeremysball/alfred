@@ -9,7 +9,7 @@ import logging
 import os
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import typer
 from rich.console import Console
@@ -217,6 +217,11 @@ def webui_callback(
         "-o",
         help="Open browser automatically",
     ),
+    hotswap: bool = typer.Option(
+        False,
+        "--hotswap",
+        help="Restart the Web UI server when static web assets change",
+    ),
 ) -> None:
     """Launch Alfred Web UI server."""
     if ctx.invoked_subcommand is not None:
@@ -225,44 +230,11 @@ def webui_callback(
     # Setup logging FIRST before any other operations
     _setup_logging()
 
-    import uvicorn
+    from alfred.cli.webui_hotswap import run_webui_hotswap, run_webui_server
 
-    from alfred.alfred import Alfred
-    from alfred.config import load_config
-    from alfred.data_manager import init_xdg_directories
-    from alfred.interfaces.webui.server import create_app
-
-    # Initialize Alfred (similar to interactive mode)
-    init_xdg_directories()
-    config = load_config()
-
-    # Create and start Alfred instance
-    alfred = Alfred(config, telegram_mode=False)
-
-    async def start_alfred() -> None:
-        await alfred.start()
-
-    import asyncio
-    asyncio.run(start_alfred())
-
-    if open_browser:
-        import threading
-        import time
-        import webbrowser
-
-        def open_browser_delayed() -> None:
-            time.sleep(1)
-            webbrowser.open(f"http://localhost:{port}")
-
-        threading.Thread(target=open_browser_delayed, daemon=True).start()
-
-    # Run server with Alfred instance
-    uvicorn.run(
-        create_app(alfred_instance=cast(Any, alfred), debug=_log_level == "debug"),
-        host=host,
-        port=port,
-        log_level="debug" if _log_level == "debug" else "info",
-    )
+    debug = _log_level == "debug"
+    runner = run_webui_hotswap if hotswap else run_webui_server
+    runner(host=host, port=port, open_browser=open_browser, debug=debug)
 
 
 app.add_typer(webui_app)
