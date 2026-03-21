@@ -62,6 +62,32 @@ class SQLiteStore:
         """Convert backend distance into Alfred-facing similarity."""
         return 1.0 - distance
 
+    async def _get_vec0_metric(self, db: Any, table_name: str) -> str | None:
+        """Extract the vec0 distance metric from an existing table schema."""
+        import re
+
+        async with db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row or not row[0]:
+                return None
+
+            schema = row[0]
+            metric_match = re.search(
+                r"distance_metric\s*=\s*([A-Za-z0-9_]+)",
+                schema,
+                re.IGNORECASE,
+            )
+            if metric_match:
+                return metric_match.group(1).lower()
+
+            if "using vec0" in schema.lower():
+                return "l2"
+
+            return None
+
     async def _get_vec0_dimension(self, db: Any, table_name: str) -> int | None:
         """Extract embedding dimension from existing vec0 table schema.
 
@@ -219,6 +245,24 @@ class SQLiteStore:
         # Check if vec0 table exists with different dimension
         await self._ensure_vec0_dimension(db, "message_embeddings_vec", "message_embedding_id")
 
+    async def _check_vec0_schema_mismatch(
+        self,
+        db: Any,
+        table_name: str,
+    ) -> tuple[int, str, int, str] | None:
+        """Check whether a vec0 table violates Alfred's schema contract."""
+        actual_dim = await self._get_vec0_dimension(db, table_name)
+        actual_metric = await self._get_vec0_metric(db, table_name)
+
+        if actual_dim is None:
+            return None
+
+        expected_metric = "cosine"
+        if actual_dim != self._embedding_dim or actual_metric != expected_metric:
+            return (actual_dim, actual_metric or "l2", self._embedding_dim, expected_metric)
+
+        return None
+
     async def _ensure_vec0_dimension(self, db: Any, table_name: str, id_column: str) -> None:
         """Ensure vec0 table exists with correct dimension.
 
@@ -269,14 +313,30 @@ class SQLiteStore:
                                 await db.execute(f"DROP TABLE {table_name}")
                                 table_exists = False
 
+        if table_exists:
+            schema_mismatch = await self._check_vec0_schema_mismatch(db, table_name)
+            if schema_mismatch is not None:
+                actual_dim, actual_metric, expected_dim, expected_metric = schema_mismatch
+                message = (
+                    f"vec0 schema mismatch for {table_name}: "
+                    f"dimension={actual_dim} metric={actual_metric}; "
+                    f"expected dimension={expected_dim} metric={expected_metric}. "
+                    "Rebuild required."
+                )
+                raise RuntimeError(message)
+
         # Create table with correct dimension
         if not table_exists:
-            await db.execute(f"""
-                CREATE VIRTUAL TABLE {table_name} USING vec0(
-                    {id_column} TEXT PRIMARY KEY,
-                    embedding FLOAT[{dim}]
-                )
-            """)
+            await self._create_vec0_table(db, table_name, id_column)
+
+    async def _create_vec0_table(self, db: Any, table_name: str, id_column: str) -> None:
+        """Create a vec0 table with Alfred's cosine contract."""
+        await db.execute(f"""
+            CREATE VIRTUAL TABLE {table_name} USING vec0(
+                {id_column} TEXT PRIMARY KEY,
+                embedding FLOAT[{self._embedding_dim}] distance_metric=cosine
+            )
+        """)
 
     async def _create_cron_tables(self, db: Any) -> None:
         """Create cron jobs and history tables."""
