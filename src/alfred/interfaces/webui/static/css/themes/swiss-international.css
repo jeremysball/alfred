@@ -336,9 +336,6 @@
 }
 
 /* Settings Menu */
-[data-theme="swiss-international"] .settings-icon {
-  stroke: var(--swiss-red);
-}
 
 [data-theme="swiss-international"] .settings-dropdown {
   background: var(--swiss-bg-secondary);
@@ -348,7 +345,6 @@
 }
 
 [data-theme="swiss-international"] .settings-section-header {
-  color: var(--swiss-text-muted);
   font-family: var(--swiss-font-primary);
   font-size: 0.625rem;
   text-transform: uppercase;
@@ -365,31 +361,16 @@
   background: var(--swiss-bg-primary);
 }
 
-[data-theme="swiss-international"] .theme-option.active .theme-name {
-  color: var(--swiss-red);
-}
-
 [data-theme="swiss-international"] .theme-color-preview {
   border-radius: 0;
 }
 
 [data-theme="swiss-international"] .theme-name {
-  color: var(--swiss-text-primary);
   font-family: var(--swiss-font-primary);
   font-weight: 600;
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
-}
-
-[data-theme="swiss-international"] .theme-description {
-  color: var(--swiss-text-muted);
-  font-size: 0.6875rem;
-}
-
-[data-theme="swiss-international"] .theme-check {
-  color: var(--swiss-red);
-  font-family: var(--swiss-font-mono);
 }
 
 /* Inline Code */
@@ -406,4 +387,73 @@
   background: transparent;
   color: inherit;
   padding: 0;
+}
+
+/* Status Bar */
+[data-theme="swiss-international"] status-bar {
+  --status-bg: var(--swiss-bg-footer);
+  --status-border: var(--swiss-border-color);
+  --status-streaming: var(--swiss-red);
+  --status-model: var(--swiss-red);
+  --status-tokens: var(--swiss-blue);
+  --status-queue: var(--swiss-red);
+  --font-mono: var(--swiss-font-mono);
+}
+
+/* Session List */
+[data-theme="swiss-international"] .session-list-message {
+  --session-card-bg: var(--swiss-bg-secondary);
+  --session-card-hover: var(--swiss-bg-primary);
+  --session-border: var(--swiss-border-subtle);
+  --session-accent: var(--swiss-red);
+  --session-accent-glow: rgba(227, 6, 19, 0.1);
+  --session-header-text: var(--swiss-text-primary);
+  --session-body-text: var(--swiss-text-secondary);
+  --session-meta-text: var(--swiss-text-muted);
+  --session-action-text: var(--swiss-text-muted);
+}
+
+/* History Buttons */
+[data-theme="swiss-international"] .history-btn {
+  --history-btn-text: var(--swiss-text-muted);
+  --history-btn-hover-text: var(--swiss-red);
+  --history-btn-glow: var(--swiss-red);
+}
+
+/* Tool Calls - High Contrast */
+[data-theme="swiss-international"] {
+  --tool-bg: var(--swiss-bg-secondary);
+  --tool-border: var(--swiss-border-color);
+  --tool-header-bg: transparent;
+  --tool-header-hover: var(--swiss-bg-primary);
+  --tool-icon: var(--swiss-red);
+  --tool-status-bg: var(--swiss-bg-primary);
+  --tool-running-border: #ffcc00;
+  --tool-running-bg: #ffcc00;
+  --tool-running-text: #1a1a1a;
+  --tool-success-border: var(--swiss-blue);
+  --tool-success-bg: var(--swiss-blue);
+  --tool-success-text: #ffffff;
+  --tool-error-border: var(--swiss-red);
+  --tool-error-bg: var(--swiss-red);
+  --tool-error-text: #ffffff;
+}
+
+
+
+/* Settings Menu - CSS Variables */
+[data-theme="swiss-international"] {
+  --settings-overlay-bg: rgba(0, 0, 0, 0.3);
+  --settings-bg: var(--swiss-bg-secondary);
+  --settings-radius: 0;
+  --settings-border: 2px solid var(--swiss-border-color);
+  --settings-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
+  --settings-header-bg: var(--swiss-bg-secondary);
+  --settings-header-border: 2px solid var(--swiss-border-color);
+  --theme-option-border: 1px solid var(--swiss-border-subtle);
+  --theme-option-hover: var(--swiss-bg-primary);
+  --theme-option-active: var(--swiss-bg-primary);
+  --theme-option-active-border: 3px solid var(--swiss-red);
+  --theme-name-active: var(--swiss-red);
+  --theme-preview-border: var(--swiss-border-color);
 }

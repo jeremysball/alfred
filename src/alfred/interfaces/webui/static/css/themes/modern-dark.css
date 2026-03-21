@@ -30,6 +30,7 @@
 
   /* Accent Colors */
   --md-accent-primary: #58a6ff;
+  --md-accent-primary-hover: #79c0ff;
   --md-accent-success: #238636;
   --md-accent-warning: #d29922;
   --md-accent-danger: #da3633;
@@ -127,23 +128,23 @@
 
 [data-theme="modern-dark"] .status.connected {
   background: var(--md-accent-success);
-  color: #fff;
+  color: var(--contrast-status-success-text, var(--md-text-primary));
 }
 
 [data-theme="modern-dark"] .status.disconnected {
   background: var(--md-accent-danger);
-  color: #fff;
+  color: var(--contrast-status-error-text, var(--md-text-primary));
 }
 
 [data-theme="modern-dark"] .status.connecting {
   background: var(--md-accent-warning);
-  color: #000;
+  color: var(--contrast-status-running-text, var(--md-text-primary));
 }
 
 /* Queue Badge */
 [data-theme="modern-dark"] .queue-badge {
   background: var(--md-accent-warning);
-  color: #000;
+  color: var(--contrast-status-running-text, var(--md-text-primary));
   padding: var(--md-space-xs) var(--md-space-sm);
   border-radius: var(--md-radius-full);
   font-size: 0.75rem;
@@ -428,7 +429,7 @@
   border: none;
   border-radius: var(--md-radius-md);
   background: var(--md-accent-primary);
-  color: #fff;
+  color: var(--contrast-send-text, var(--md-text-primary));
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -441,7 +442,7 @@
 }
 
 [data-theme="modern-dark"] .send-button:hover {
-  background: #79c0ff;
+  background: var(--md-accent-primary-hover);
 }
 
 [data-theme="modern-dark"] .send-button:active {
@@ -537,7 +538,7 @@
 [data-theme="modern-dark"] .tool-name {
   font-weight: 600;
   flex: 1;
-  color: var(--md-text-primary);
+  color: var(--contrast-tool-text, var(--md-text-primary));
   font-family: var(--md-font-mono);
   font-size: 0.8125rem;
 }
@@ -548,27 +549,28 @@
   padding: var(--md-space-xs) var(--md-space-sm);
   border-radius: var(--md-radius-sm);
   background: var(--md-bg-elevated);
+  color: var(--contrast-tool-muted, var(--md-text-muted));
   font-weight: 500;
 }
 
 [data-theme="modern-dark"] .tool-call.running .tool-status {
   background: var(--md-accent-warning);
-  color: #000;
+  color: var(--contrast-tool-running-text, #000);
 }
 
 [data-theme="modern-dark"] .tool-call.success .tool-status {
   background: var(--md-accent-success);
-  color: #fff;
+  color: var(--contrast-tool-success-text, #fff);
 }
 
 [data-theme="modern-dark"] .tool-call.error .tool-status {
   background: var(--md-accent-danger);
-  color: #fff;
+  color: var(--contrast-tool-error-text, #fff);
 }
 
 [data-theme="modern-dark"] .tool-toggle {
   font-size: 0.75rem;
-  color: var(--md-text-muted);
+  color: var(--contrast-tool-muted, var(--md-text-muted));
 }
 
 [data-theme="modern-dark"] .tool-content {
@@ -670,29 +672,9 @@
    SETTINGS MENU
    ============================================ */
 
-[data-theme="modern-dark"] .settings-toggle {
-  padding: var(--md-space-sm);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: var(--md-radius-md);
-  transition: background var(--md-transition-fast);
-}
 
-[data-theme="modern-dark"] .settings-toggle:hover {
-  background: var(--md-bg-tertiary);
-}
 
-[data-theme="modern-dark"] .settings-icon {
-  width: 20px;
-  height: 20px;
-  stroke: var(--md-text-secondary);
-  transition: stroke var(--md-transition-fast);
-}
 
-[data-theme="modern-dark"] .settings-toggle:hover .settings-icon {
-  stroke: var(--md-text-primary);
-}
 
 [data-theme="modern-dark"] .settings-dropdown {
   position: absolute;
@@ -714,7 +696,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--md-text-muted);
+  color: var(--contrast-settings-text, var(--md-text-muted));
   background: var(--md-bg-tertiary);
   border-bottom: 1px solid var(--md-border-color);
 }
@@ -746,21 +728,21 @@
 [data-theme="modern-dark"] .theme-name {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--md-text-primary);
+  color: var(--contrast-settings-text, var(--md-text-primary));
 }
 
 [data-theme="modern-dark"] .theme-option.active .theme-name {
-  color: var(--md-accent-primary);
+  color: var(--contrast-settings-accent, var(--md-accent-primary));
 }
 
 [data-theme="modern-dark"] .theme-description {
   font-size: 0.75rem;
-  color: var(--md-text-muted);
+  color: var(--contrast-settings-muted, var(--md-text-muted));
 }
 
 [data-theme="modern-dark"] .theme-check {
   margin-left: auto;
-  color: var(--md-accent-primary);
+  color: var(--contrast-settings-text, var(--md-accent-primary));
   font-weight: 600;
 }
 

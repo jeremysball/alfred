@@ -1,22 +1,34 @@
 /**
  * Settings Menu Web Component
  */
-import { applyThemeContrast } from '../utils/contrast.js';
+import { applyThemeContrast, getContrastPalette } from '../utils/contrast.js';
+
+function buildThemeOptionStyle(theme) {
+  const palette = getContrastPalette(theme.surfaceColor);
+  return [
+    `background: ${theme.surfaceColor}`,
+    `--theme-option-bg: ${theme.surfaceColor}`,
+    `--theme-option-text: ${palette.text}`,
+    `--theme-option-muted: ${palette.muted}`,
+    `--theme-option-accent: ${palette.accent}`,
+    `--theme-option-active-border: 2px solid ${palette.accent}`,
+  ].join('; ');
+}
 
 class SettingsMenu extends HTMLElement {
   constructor() {
     super();
     this._currentTheme = localStorage.getItem('alfred-theme') || 'dark-academia';
     this._themes = [
-      { id: 'dark-academia', name: 'Dark Academia', description: 'Classical library dark', previewColor: '#8b6914' },
-      { id: 'dark-academia-light', name: 'Dark Academia Light', description: 'Classical library light', previewColor: '#8b5a2b' },
-      { id: 'swiss-international', name: 'Swiss Light', description: 'Clean light style', previewColor: '#990000' },
-      { id: 'swiss-international-dark', name: 'Swiss Dark', description: 'Clean dark style', previewColor: '#cc0000' },
-      { id: 'neumorphism', name: 'Neumorphism Light', description: 'Soft light plastic', previewColor: '#3d4fb8' },
-      { id: 'neumorphism-dark', name: 'Neumorphism Dark', description: 'Soft dark plastic', previewColor: '#3d4fb8' },
-      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0' },
-      { id: 'element-modern', name: 'Element Modern', description: 'True black, seamless flow', previewColor: '#A855F7' },
-      { id: 'kidcore-playground', name: 'Kidcore Playground', description: 'Neocities glitter chaos', previewColor: '#ff4fd8' }
+      { id: 'dark-academia', name: 'Dark Academia', description: 'Classical library dark', previewColor: '#8b6914', surfaceColor: '#24201c' },
+      { id: 'dark-academia-light', name: 'Dark Academia Light', description: 'Classical library light', previewColor: '#8b5a2b', surfaceColor: '#f4efe6' },
+      { id: 'swiss-international', name: 'Swiss Light', description: 'Clean light style', previewColor: '#990000', surfaceColor: '#ffffff' },
+      { id: 'swiss-international-dark', name: 'Swiss Dark', description: 'Clean dark style', previewColor: '#cc0000', surfaceColor: '#2a2a2a' },
+      { id: 'neumorphism', name: 'Neumorphism Light', description: 'Soft light plastic', previewColor: '#3d4fb8', surfaceColor: '#e0e5ec' },
+      { id: 'neumorphism-dark', name: 'Neumorphism Dark', description: 'Soft dark plastic', previewColor: '#3d4fb8', surfaceColor: '#1a202c' },
+      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0', surfaceColor: '#f5f5f5' },
+      { id: 'element-modern', name: 'Element Modern', description: 'True black, seamless flow', previewColor: '#A855F7', surfaceColor: '#0a0a0a' },
+      { id: 'kidcore-playground', name: 'Kidcore Playground', description: 'Neocities glitter chaos', previewColor: '#ff4fd8', surfaceColor: '#26003d' }
     ];
     this._isOpen = false;
   }
@@ -37,7 +49,7 @@ class SettingsMenu extends HTMLElement {
     const themeOptions = this._themes.map(theme => {
       const isActive = theme.id === this._currentTheme;
       return `
-        <div class="theme-option ${isActive ? 'active' : ''}" data-theme="${theme.id}">
+        <div class="theme-option ${isActive ? 'active' : ''}" data-theme="${theme.id}" style="${buildThemeOptionStyle(theme)}">
           <div class="theme-color-preview" style="background: ${theme.previewColor}"></div>
           <div class="theme-info">
             <div class="theme-name">${theme.name}</div>

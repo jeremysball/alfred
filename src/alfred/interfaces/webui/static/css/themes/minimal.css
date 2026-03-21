@@ -252,9 +252,6 @@
 }
 
 /* Settings Menu */
-[data-theme="minimal"] .settings-icon {
-  stroke: var(--min-text-muted);
-}
 
 [data-theme="minimal"] .settings-dropdown {
   background: var(--min-bg-secondary);
@@ -264,7 +261,6 @@
 }
 
 [data-theme="minimal"] .settings-section-header {
-  color: var(--min-text-muted);
   font-family: var(--min-font-primary);
   font-size: 0.625rem;
   text-transform: uppercase;
@@ -281,21 +277,76 @@
   background: var(--min-bg-tertiary);
 }
 
-[data-theme="minimal"] .theme-option.active .theme-name {
-  color: var(--min-accent-blue);
-}
-
 [data-theme="minimal"] .theme-name {
-  color: var(--min-text-primary);
   font-family: var(--min-font-primary);
   font-weight: 500;
 }
 
-[data-theme="minimal"] .theme-description {
-  color: var(--min-text-muted);
-  font-size: 0.75rem;
+/* Status Bar */
+[data-theme="minimal"] status-bar {
+  --status-bg: var(--min-bg-footer);
+  --status-border: var(--min-border-color);
+  --status-streaming: var(--min-accent-blue);
+  --status-model: var(--min-accent-blue);
+  --status-tokens: var(--min-accent-cyan);
+  --status-queue: var(--min-accent-pink);
+  --font-mono: var(--min-font-mono);
 }
 
-[data-theme="minimal"] .theme-check {
-  color: var(--min-accent-blue);
+/* Session List */
+[data-theme="minimal"] .session-list-message {
+  --session-card-bg: var(--min-bg-secondary);
+  --session-card-hover: var(--min-bg-tertiary);
+  --session-border: var(--min-border-color);
+  --session-accent: var(--min-accent-blue);
+  --session-accent-glow: rgba(33, 150, 243, 0.1);
+  --session-header-text: var(--min-text-primary);
+  --session-body-text: var(--min-text-secondary);
+  --session-meta-text: var(--min-text-muted);
+  --session-action-text: var(--min-text-muted);
+}
+
+/* History Buttons */
+[data-theme="minimal"] .history-btn {
+  --history-btn-text: var(--min-text-muted);
+  --history-btn-hover-text: var(--min-accent-blue);
+  --history-btn-glow: var(--min-accent-blue);
+}
+
+/* Tool Calls - High Contrast */
+[data-theme="minimal"] {
+  --tool-bg: var(--min-bg-secondary);
+  --tool-border: var(--min-border-color);
+  --tool-header-bg: transparent;
+  --tool-header-hover: var(--min-bg-tertiary);
+  --tool-icon: var(--min-accent-blue);
+  --tool-status-bg: var(--min-bg-tertiary);
+  --tool-running-border: #ff9800;
+  --tool-running-bg: #ff9800;
+  --tool-running-text: #212121;
+  --tool-success-border: #4caf50;
+  --tool-success-bg: #4caf50;
+  --tool-success-text: #ffffff;
+  --tool-error-border: #f44336;
+  --tool-error-bg: #f44336;
+  --tool-error-text: #ffffff;
+}
+
+
+
+/* Settings Menu - CSS Variables */
+[data-theme="minimal"] {
+  --settings-overlay-bg: rgba(0, 0, 0, 0.3);
+  --settings-bg: var(--min-bg-secondary);
+  --settings-radius: 0;
+  --settings-border: 1px solid var(--min-border-color);
+  --settings-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --settings-header-bg: var(--min-bg-secondary);
+  --settings-header-border: 1px solid var(--min-border-color);
+  --theme-option-border: 1px solid var(--min-border-subtle);
+  --theme-option-hover: var(--min-bg-tertiary);
+  --theme-option-active: var(--min-bg-tertiary);
+  --theme-option-active-border: 2px solid var(--min-accent-blue);
+  --theme-name-active: var(--min-accent-blue);
+  --theme-preview-border: var(--min-border-color);
 }

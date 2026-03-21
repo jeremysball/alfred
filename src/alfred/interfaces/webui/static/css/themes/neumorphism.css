@@ -193,20 +193,23 @@
 [data-theme="neumorphism"] .message-input {
   background: var(--neo-bg-input);
   box-shadow: var(--neo-shadow-concave);
-  border: none;
-  border-radius: 16px;
+  border: 2px solid transparent;
+  border-radius: 12px;
   color: var(--neo-text-primary);
   font-family: var(--neo-font-primary);
   padding: 1rem 1.25rem;
+  transition: all 0.2s ease;
 }
 
 [data-theme="neumorphism"] .message-input:focus {
-  box-shadow: var(--neo-shadow-pressed);
+  box-shadow: var(--neo-shadow-convex);
+  border-color: var(--neo-accent-primary);
   outline: none;
 }
 
 [data-theme="neumorphism"] .message-input::placeholder {
   color: var(--neo-text-muted);
+  opacity: 0.7;
 }
 
 [data-theme="neumorphism"] .send-button {
@@ -236,7 +239,22 @@
   box-shadow: var(--neo-shadow-concave);
 }
 
-/* Tool Calls */
+/* Tool Calls - High Contrast */
+[data-theme="neumorphism"] {
+  --tool-bg: var(--neo-bg-secondary);
+  --tool-border: transparent;
+  --tool-header-bg: rgba(255, 255, 255, 0.3);
+  --tool-header-hover: rgba(255, 255, 255, 0.5);
+  --tool-icon: var(--neo-accent-primary);
+  --tool-status-bg: rgba(255, 255, 255, 0.2);
+  --tool-running-bg: #ed8936;
+  --tool-running-text: #fff;
+  --tool-success-bg: #48bb78;
+  --tool-success-text: #fff;
+  --tool-error-bg: #f56565;
+  --tool-error-text: #fff;
+}
+
 [data-theme="neumorphism"] .tool-call {
   background: var(--neo-bg-secondary);
   box-shadow: var(--neo-shadow-convex);
@@ -261,6 +279,8 @@
   box-shadow: var(--neo-shadow-concave);
   border-radius: 8px;
 }
+
+
 
 /* Mobile-first responsive for Neumorphism */
 @media (max-width: 768px) {
@@ -345,15 +365,7 @@
 }
 
 /* Settings Menu */
-[data-theme="neumorphism"] .settings-icon {
-  stroke: var(--neo-accent-primary);
-  filter: drop-shadow(1px 1px 1px rgba(255, 255, 255, 0.5)) drop-shadow(-1px -1px 1px rgba(184, 185, 190, 0.3));
-}
 
-[data-theme="neumorphism"] .settings-toggle:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
 
 [data-theme="neumorphism"] .settings-dropdown {
   background: var(--neo-bg-secondary);
@@ -363,7 +375,6 @@
 }
 
 [data-theme="neumorphism"] .settings-section-header {
-  color: var(--neo-text-muted);
   font-family: var(--neo-font-primary);
   font-size: 0.625rem;
   text-transform: uppercase;
@@ -387,27 +398,13 @@
   box-shadow: var(--neo-shadow-concave);
 }
 
-[data-theme="neumorphism"] .theme-option.active .theme-name {
-  color: var(--neo-accent-primary);
-}
-
 [data-theme="neumorphism"] .theme-color-preview {
   box-shadow: var(--neo-shadow-soft);
 }
 
 [data-theme="neumorphism"] .theme-name {
-  color: var(--neo-text-primary);
   font-family: var(--neo-font-primary);
   font-weight: 600;
-}
-
-[data-theme="neumorphism"] .theme-description {
-  color: var(--neo-text-secondary);
-  font-size: 0.75rem;
-}
-
-[data-theme="neumorphism"] .theme-check {
-  color: var(--neo-accent-primary);
 }
 
 /* Inline Code */
@@ -426,4 +423,74 @@
   color: inherit;
   padding: 0;
   box-shadow: none;
+}
+
+/* Status Bar */
+[data-theme="neumorphism"] status-bar {
+  --status-bg: var(--neo-bg-footer);
+  --status-border: transparent;
+  --status-streaming: var(--neo-accent-primary);
+  --status-model: var(--neo-accent-primary);
+  --status-tokens: var(--neo-accent-success);
+  --status-queue: var(--neo-accent-warning);
+  --font-mono: var(--neo-font-mono);
+}
+
+/* Session List */
+[data-theme="neumorphism"] .session-list-message {
+  --session-card-bg: var(--neo-bg-secondary);
+  --session-card-hover: var(--neo-bg-primary);
+  --session-border: var(--neo-shadow-dark);
+  --session-accent: var(--neo-accent-primary);
+  --session-accent-glow: rgba(102, 126, 234, 0.2);
+  --session-header-text: var(--neo-text-primary);
+  --session-body-text: var(--neo-text-secondary);
+  --session-meta-text: var(--neo-text-muted);
+  --session-action-text: var(--neo-text-muted);
+}
+
+[data-theme="neumorphism"] .session-card {
+  box-shadow: var(--neo-shadow-convex);
+}
+
+[data-theme="neumorphism"] .session-card:hover {
+  box-shadow: var(--neo-shadow-raised);
+}
+
+/* History Buttons */
+[data-theme="neumorphism"] .history-btn {
+  --history-btn-text: var(--neo-text-muted);
+  --history-btn-hover-text: var(--neo-accent-primary);
+  --history-btn-glow: var(--neo-accent-primary);
+}
+
+/* Settings Menu - CSS Variables */
+[data-theme="neumorphism"] {
+  --settings-overlay-bg: rgba(0, 0, 0, 0.2);
+  --settings-bg: var(--neo-bg-secondary);
+  --settings-radius: 20px;
+  --settings-border: none;
+  --settings-shadow: var(--neo-shadow-raised);
+  --settings-header-bg: transparent;
+  --settings-header-border: none;
+  --theme-option-border: none;
+  --theme-option-hover: rgba(255, 255, 255, 0.3);
+  --theme-option-active: var(--neo-bg-primary);
+  --theme-option-active-border: none;
+  --theme-name-active: var(--neo-accent-primary);
+  --theme-preview-border: var(--neo-shadow-dark);
+}
+
+[data-theme="neumorphism"] .theme-option {
+  border-radius: 12px;
+  margin: 4px 8px;
+  box-shadow: var(--neo-shadow-soft);
+}
+
+[data-theme="neumorphism"] .theme-option:hover {
+  box-shadow: var(--neo-shadow-convex);
+}
+
+[data-theme="neumorphism"] .theme-option.active {
+  box-shadow: var(--neo-shadow-concave);
 }

@@ -216,7 +216,25 @@
   opacity: 0.5;
 }
 
-/* Tool Calls */
+/* Tool Calls - High Contrast */
+[data-theme="dark-academia"] {
+  --tool-bg: var(--da-bg-tertiary);
+  --tool-border: var(--da-border-color);
+  --tool-header-bg: transparent;
+  --tool-header-hover: rgba(0, 0, 0, 0.2);
+  --tool-icon: var(--da-accent-oxblood);
+  --tool-status-bg: rgba(0, 0, 0, 0.3);
+  --tool-running-border: #c9a959;
+  --tool-running-bg: #c9a959;
+  --tool-running-text: #1a1814;
+  --tool-success-border: #2d4a3e;
+  --tool-success-bg: #2d4a3e;
+  --tool-success-text: #ffffff;
+  --tool-error-border: #722f37;
+  --tool-error-bg: #722f37;
+  --tool-error-text: #ffffff;
+}
+
 [data-theme="dark-academia"] .tool-call {
   background: var(--da-bg-tertiary);
   border: 1px solid var(--da-border-color);
@@ -245,6 +263,8 @@
 [data-theme="dark-academia"] .tool-output pre {
   background: rgba(0, 0, 0, 0.3);
 }
+
+
 
 /* Mobile-first responsive for Dark Academia */
 @media (max-width: 768px) {
@@ -309,9 +329,6 @@
 }
 
 /* Settings Menu */
-[data-theme="dark-academia"] .settings-icon {
-  stroke: var(--da-accent-gold);
-}
 
 [data-theme="dark-academia"] .settings-dropdown {
   background: var(--da-bg-secondary);
@@ -321,7 +338,6 @@
 }
 
 [data-theme="dark-academia"] .settings-section-header {
-  color: var(--da-accent-gold);
   font-family: var(--da-font-primary);
   font-size: 0.625rem;
   letter-spacing: 0.2em;
@@ -336,21 +352,8 @@
   background: var(--da-bg-tertiary);
 }
 
-[data-theme="dark-academia"] .theme-option.active .theme-name {
-  color: var(--da-accent-gold);
-}
-
 [data-theme="dark-academia"] .theme-name {
-  color: var(--da-text-primary) !important;
   font-family: var(--da-font-primary);
-}
-
-[data-theme="dark-academia"] .theme-description {
-  color: var(--da-text-muted) !important;
-}
-
-[data-theme="dark-academia"] .theme-check {
-  color: var(--da-accent-gold);
 }
 
 /* Inline Code */
@@ -374,12 +377,46 @@
 [data-theme="dark-academia"] status-bar {
   --status-bg: var(--da-bg-footer);
   --status-border: var(--da-border-color);
-  --status-text: var(--da-text-secondary);
-  --status-label: var(--da-text-muted);
-  --status-value: var(--da-text-secondary);
   --status-streaming: var(--da-accent-gold);
   --status-model: var(--da-accent-gold);
   --status-tokens: var(--da-accent-forest);
   --status-queue: var(--da-accent-oxblood);
   --font-mono: var(--da-font-mono);
+}
+
+/* Session List */
+[data-theme="dark-academia"] .session-list-message {
+  --session-card-bg: var(--da-bg-tertiary);
+  --session-card-hover: var(--da-bg-secondary);
+  --session-border: var(--da-border-color);
+  --session-accent: var(--da-accent-gold);
+  --session-accent-glow: rgba(201, 169, 89, 0.15);
+  --session-header-text: var(--da-text-primary);
+  --session-body-text: var(--da-text-secondary);
+  --session-meta-text: var(--da-text-muted);
+  --session-action-text: var(--da-text-muted);
+}
+
+/* History Buttons */
+[data-theme="dark-academia"] .history-btn {
+  --history-btn-text: var(--da-text-muted);
+  --history-btn-hover-text: var(--da-accent-gold);
+  --history-btn-glow: var(--da-accent-gold);
+}
+
+/* Settings Menu - CSS Variables */
+[data-theme="dark-academia"] {
+  --settings-overlay-bg: rgba(0, 0, 0, 0.6);
+  --settings-bg: var(--da-bg-secondary);
+  --settings-radius: 4px;
+  --settings-border: 1px solid var(--da-border-color);
+  --settings-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --settings-header-bg: var(--da-bg-secondary);
+  --settings-header-border: 1px solid var(--da-border-color);
+  --theme-option-border: 1px solid var(--da-border-subtle);
+  --theme-option-hover: var(--da-bg-tertiary);
+  --theme-option-active: var(--da-bg-tertiary);
+  --theme-option-active-border: 2px solid var(--da-accent-gold);
+  --theme-name-active: var(--da-accent-gold);
+  --theme-preview-border: var(--da-border-color);
 }
