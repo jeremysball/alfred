@@ -47,7 +47,6 @@ from alfred.interfaces.pypitui.models import ToolCallInfo
 from alfred.interfaces.pypitui.status_line import StatusLine
 from alfred.interfaces.pypitui.toast import ToastManager, add_toast
 from alfred.interfaces.pypitui.toast_overlay import ToastOverlay
-from alfred.interfaces.pypitui.tui import AlfredTUI
 from alfred.interfaces.pypitui.utils import format_tokens
 
 __all__ = [
