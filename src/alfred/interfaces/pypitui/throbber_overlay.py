@@ -61,7 +61,7 @@ class ThrobberOverlay(Component):
                 changed = True
         return changed
 
-    def measure(self, available_width: int, available_height: int) -> Size:
+    def measure(self, available_width: int, _available_height: int) -> Size:
         """Measure the throbber showcase overlay."""
         return Size(width=available_width, height=len(self.render(available_width)))
 

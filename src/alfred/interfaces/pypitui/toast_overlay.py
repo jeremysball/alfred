@@ -26,7 +26,7 @@ class ToastOverlay(Component):
         """
         self._toast_manager = toast_manager
 
-    def measure(self, available_width: int, available_height: int) -> Size:
+    def measure(self, available_width: int, _available_height: int) -> Size:
         """Measure the toast overlay height for the current toast set."""
         return Size(width=available_width, height=len(self.render(available_width)))
 

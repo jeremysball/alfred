@@ -206,7 +206,7 @@ class WrappedInput(Component, Focusable):
         """Set cursor position."""
         setattr(self._input, "_cursor_pos", value)  # noqa: B010
 
-    def measure(self, available_width: int, available_height: int) -> Size:
+    def measure(self, available_width: int, _available_height: int) -> Size:
         """Measure the wrapped input field."""
         return Size(width=available_width, height=max(1, len(self.render(available_width))))
 

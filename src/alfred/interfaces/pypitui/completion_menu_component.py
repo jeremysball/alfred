@@ -80,7 +80,7 @@ class CompletionMenuComponent(Component):
             return
         self._selected_index = (self._selected_index - 1) % len(self._options)
 
-    def measure(self, available_width: int, available_height: int) -> Size:
+    def measure(self, available_width: int, _available_height: int) -> Size:
         """Measure the menu height for the current option set."""
         return Size(width=available_width, height=len(self.render(available_width)))
 

@@ -109,7 +109,7 @@ class StatusLine(Component):
             return self._throbber.tick()
         return False
 
-    def measure(self, available_width: int, available_height: int) -> Size:
+    def measure(self, available_width: int, _available_height: int) -> Size:
         """Measure the status line.
 
         Status always renders on a single line.
