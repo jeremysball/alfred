@@ -153,7 +153,6 @@ def load_config(config_path: Path | None = None) -> Config:
         config.context_files = {
             "system": config.workspace_dir / "SYSTEM.md",
             "agents": config.workspace_dir / "AGENTS.md",
-            "tools": config.workspace_dir / "TOOLS.md",
             "soul": config.workspace_dir / "SOUL.md",
             "user": config.workspace_dir / "USER.md",
         }
