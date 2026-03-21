@@ -29,6 +29,10 @@
             <div class="header-status">
                 <div id="queue-badge" class="queue-badge hidden">0</div>
                 <settings-menu></settings-menu>
+                <div class="kidcore-audio-controls" aria-label="Kidcore audio controls">
+                    <button id="kidcore-audio-play" class="kidcore-audio-control" type="button" data-audio-action="play" aria-label="Play kidcore music">▶ Play</button>
+                    <button id="kidcore-audio-mute" class="kidcore-audio-control" type="button" data-audio-action="mute" aria-label="Mute or stop kidcore music">⏹ Mute</button>
+                </div>
             </div>
         </header>
 
@@ -84,6 +88,7 @@
     <script src="/static/js/components/status-bar.js?v=3"></script>
     <script src="/static/js/components/toast-container.js?v=3"></script>
     <script src="/static/js/components/session-list.js?v=3"></script>
+    <script type="module" src="/static/js/audio-manager.js?v=3"></script>
 
     <!-- Markdown and Syntax Highlighting -->
     <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>

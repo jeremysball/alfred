@@ -2,7 +2,7 @@
 
 **Parent PRD**: [#138 Modernize Web UI Design](./138-modernize-web-ui-design.md)  
 **Local ID**: 138A (sub-PRD, no GitHub issue)  
-**Status**: Draft  
+**Status**: In Progress  
 **Priority**: Medium  
 **Created**: 2026-03-21
 
@@ -41,13 +41,13 @@ This theme is **not** the default. It is a special-purpose aesthetic mode for us
 
 ### Success Criteria
 
-- [ ] Theme appears in the theme selector and persists across refresh.
-- [ ] Theme visibly transforms the app shell, header, messages, composer, and controls.
-- [ ] Theme includes animated decorative effects by default.
+- [x] Theme appears in the theme selector and persists across refresh.
+- [x] Theme visibly transforms the app shell, header, messages, composer, and controls.
+- [x] Theme includes animated decorative effects by default.
 - [ ] Sound effects fire for core interactions.
 - [ ] Music starts only after clicking a visible play control.
 - [ ] A visible mute / stop control exists.
-- [ ] The UI is visually ridiculous without completely breaking message reading or input.
+- [x] The UI is visually ridiculous without completely breaking message reading or input.
 
 ---
 
@@ -124,21 +124,21 @@ Not:
 ### Milestone 1: Theme Registration & Base Surfaces
 **Goal**: Add the theme and restyle the core UI surfaces.
 
-- [ ] Add `kidcore-playground.css`
-- [ ] Register the theme in `theme-selector.js`
-- [ ] Load the theme stylesheet from `index.html`
-- [ ] Restyle the shell, header, messages, composer, and primary controls
-- [ ] Verify theme selection and persistence still work
+- [x] Add `kidcore-playground.css`
+- [x] Register the theme in `theme-selector.js`
+- [x] Load the theme stylesheet from `index.html`
+- [x] Restyle the shell, header, messages, composer, and primary controls
+- [x] Verify theme selection and persistence still work
 
 **Validation**: The new theme is selectable and immediately transforms the main UI.
 
 ### Milestone 2: Full Chaos Visual Layer
 **Goal**: Add the intentionally obnoxious decorative effects.
 
-- [ ] Add animated gradients, sparkles, sticker/badge accents, and marquee-style flair
-- [ ] Add theme-specific motion like wiggle, shimmer, bounce, and float
-- [ ] Push status bar, toasts, and session/tool cards further into the theme aesthetic
-- [ ] Verify the app still reads as a chat UI rather than pure visual soup
+- [x] Add animated gradients, sparkles, sticker/badge accents, and marquee-style flair
+- [x] Add theme-specific motion like wiggle, shimmer, bounce, and float
+- [x] Push status bar, toasts, and session/tool cards further into the theme aesthetic
+- [x] Verify the app still reads as a chat UI rather than pure visual soup
 
 **Validation**: The UI feels obviously ridiculous and heavily themed.
 
@@ -230,7 +230,7 @@ It **does** need to:
 
 ## 9. Next Step
 
-Create execution plans for Milestones 1-4 and implement them test-first.
+Continue Milestone 3: Audio & Music using `prds/execution-plan-138a-milestone3.md`.
 
 ---
 

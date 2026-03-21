@@ -11,21 +11,21 @@ Add the theme's sound effects and looping music with the simplest possible contr
 ## 1. Audio Manager Foundation
 
 ### 1.1 Add failing audio-manager coverage
-- [ ] **Test**: `test_audio_manager_exists_and_requires_explicit_start()`
-  - Create `tests/webui/test_kidcore_audio.py`
-  - Assert `audio-manager.js` exists
-  - Assert it exposes explicit methods for starting music and stopping/muting audio
-  - Assert it does not imply autoplay on load
+- [x] **Test**: `test_audio_manager_exists_and_requires_explicit_start()`
+  - Created `tests/webui/test_kidcore_audio.py`
+  - Asserted `audio-manager.js` exists
+  - Asserted it exposes explicit methods for starting music and stopping/muting audio
+  - Asserted it does not imply autoplay on load
   - Run: `uv run pytest tests/webui/test_kidcore_audio.py::test_audio_manager_exists_and_requires_explicit_start -v`
 
 ### 1.2 Create audio manager
-- [ ] **Implement**: Create `src/alfred/interfaces/webui/static/js/audio-manager.js`
+- [x] **Implement**: Create `src/alfred/interfaces/webui/static/js/audio-manager.js`
   - Manage music playback
   - Manage sound effect playback
   - Fail gracefully if audio is blocked or unsupported
 
 ### 1.3 Verify audio manager
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_audio_manager_exists_and_requires_explicit_start -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_audio_manager_exists_and_requires_explicit_start -v`
 
 ---
 
@@ -130,6 +130,6 @@ uv run alfred webui --port 8080
 
 ## Next Task
 
-- [ ] **Test**: `test_audio_manager_exists_and_requires_explicit_start()`
-- [ ] **Implement**: Create `audio-manager.js`
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_audio_manager_exists_and_requires_explicit_start -v`
+- [ ] **Test**: `test_index_includes_kidcore_audio_controls_and_script()`
+- [ ] **Implement**: Add the audio manager script plus play / mute controls to `index.html`
+- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_index_includes_kidcore_audio_controls_and_script -v`
