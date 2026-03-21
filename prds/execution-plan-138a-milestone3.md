@@ -32,19 +32,19 @@ Add the theme's sound effects and looping music with the simplest possible contr
 ## 2. Audio Controls in the UI
 
 ### 2.1 Add failing UI-control coverage
-- [ ] **Test**: `test_index_includes_kidcore_audio_controls_and_script()`
-  - Assert `index.html` loads `audio-manager.js`
-  - Assert `index.html` contains a visible play control and a visible mute / stop control
+- [x] **Test**: `test_index_includes_kidcore_audio_controls_and_script()`
+  - Asserted `index.html` loads `audio-manager.js`
+  - Asserted `index.html` contains a visible play control and a visible mute / stop control
   - Run: `uv run pytest tests/webui/test_kidcore_audio.py::test_index_includes_kidcore_audio_controls_and_script -v`
 
 ### 2.2 Add audio controls
-- [ ] **Implement**: Update `src/alfred/interfaces/webui/static/index.html`
-  - Add the audio manager script
-  - Add one play button
-  - Add one mute / stop button
+- [x] **Implement**: Update `src/alfred/interfaces/webui/static/index.html`
+  - Added the audio manager script
+  - Added one play button
+  - Added one mute / stop button
 
 ### 2.3 Verify audio controls
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_index_includes_kidcore_audio_controls_and_script -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_index_includes_kidcore_audio_controls_and_script -v`
 
 ---
 
@@ -130,6 +130,6 @@ uv run alfred webui --port 8080
 
 ## Next Task
 
-- [ ] **Test**: `test_index_includes_kidcore_audio_controls_and_script()`
-- [ ] **Implement**: Add the audio manager script plus play / mute controls to `index.html`
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_index_includes_kidcore_audio_controls_and_script -v`
+- [ ] **Test**: `test_main_wires_kidcore_audio_to_core_interactions()`
+- [ ] **Implement**: Wire play / mute controls and chat interaction sounds in `main.js`
+- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_main_wires_kidcore_audio_to_core_interactions -v`
