@@ -1,10 +1,7 @@
 """Tests for config_update command refactoring."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
-import typer
+from unittest.mock import patch
 
 from alfred.cli.main import (
     _display_footer,

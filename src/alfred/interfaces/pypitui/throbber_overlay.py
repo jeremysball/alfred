@@ -4,7 +4,7 @@ import time
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.pypitui.throbber import THROBBER_STYLES, Throbber, ThrobberStyle
-from pypitui import Component
+from pypitui import Component, Size
 
 if TYPE_CHECKING:
     pass
@@ -60,6 +60,10 @@ class ThrobberOverlay(Component):
             if throbber.tick(now):
                 changed = True
         return changed
+
+    def measure(self, available_width: int, _available_height: int) -> Size:
+        """Measure the throbber showcase overlay."""
+        return Size(width=available_width, height=len(self.render(available_width)))
 
     def render(self, width: int) -> list[str]:
         """Render throbbers in a grid layout.

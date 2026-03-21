@@ -251,9 +251,10 @@ class Alfred:
 
         logger.debug("Starting agent loop...")
 
-        # Accumulator for tool calls during this turn
+        # Accumulator for tool calls and reasoning during this turn
         tool_calls_accumulator: list[dict[str, Any]] = []
         full_response: list[str] = []
+        reasoning_content: list[str] = []  # Accumulate reasoning separately
 
         def _tool_callback_wrapper(event: ToolEvent) -> None:
             """Wrapper to capture tool calls while still calling external callback."""
@@ -307,7 +308,13 @@ class Alfred:
             usage_callback=self._on_usage,
             tool_callback=_tool_callback_wrapper,
         ):
-            full_response.append(chunk)
+            # Separate reasoning from content for storage
+            if chunk.startswith("[REASONING]"):
+                reasoning_content.append(chunk[11:])  # Strip [REASONING] prefix
+            elif chunk.startswith("[/REASONING]"):
+                pass  # Skip end marker
+            else:
+                full_response.append(chunk)
             yield chunk
 
         # Build ToolCallRecord objects from accumulated data
@@ -328,8 +335,9 @@ class Alfred:
 
         # Add assistant response to session with tool calls
         assistant_message = "".join(full_response)
+        reasoning_text = "".join(reasoning_content)
 
-        # Create message manually to include tool_calls
+        # Create message manually to include tool_calls and reasoning
         from datetime import UTC, datetime
 
         from alfred.session import Message, Role
@@ -343,6 +351,7 @@ class Alfred:
             content=assistant_message,
             timestamp=datetime.now(UTC),
             tool_calls=tool_calls,
+            reasoning_content=reasoning_text,
         )
 
         # Get session and append message

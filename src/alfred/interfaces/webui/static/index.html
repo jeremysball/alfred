@@ -2,15 +2,103 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Alfred Web UI</title>
-    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/base.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/dark-academia.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/swiss-international.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/swiss-international-dark.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/neumorphism.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/neumorphism-dark.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/minimal.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/element-modern.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/kidcore-playground.css?v=3">
 </head>
 <body>
     <div id="app">
-        <h1>Alfred Web UI</h1>
-        <p>Loading...</p>
+        <header class="app-header">
+            <div class="header-brand">
+                <h1>Alfred</h1>
+                <span id="connection-pill" class="connection-pill disconnected">●</span>
+            </div>
+            <div class="header-status">
+                <div id="queue-badge" class="queue-badge hidden">0</div>
+                <settings-menu></settings-menu>
+                <div class="kidcore-audio-controls" aria-label="Kidcore audio controls">
+                    <span class="kidcore-audio-label">Kidcore</span>
+                    <span id="kidcore-audio-status" class="kidcore-audio-status" aria-live="polite">Ready</span>
+                    <button id="kidcore-audio-play" class="kidcore-audio-control" type="button" data-audio-action="play" aria-label="Play kidcore music">▶ Play</button>
+                    <button id="kidcore-audio-mute" class="kidcore-audio-control" type="button" data-audio-action="mute" aria-label="Mute or stop kidcore music">⏹ Mute</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="kidcore-banner" aria-hidden="true" hidden>
+            <span class="kidcore-banner-badge kidcore-badge kidcore-banner-badge-left">NEW!</span>
+            <div class="kidcore-banner-marquee">
+                <span>KIDCORE PLAYGROUND • STICKERS • SPARKLES • YIPPEE! •</span>
+            </div>
+            <span class="kidcore-banner-badge kidcore-badge kidcore-banner-badge-right">WOW!</span>
+        </div>
+
+        <toast-container id="toast-container"></toast-container>
+
+        <main class="app-main">
+            <div id="chat-container" class="chat-container">
+                <div id="message-list" class="message-list">
+                    <!-- Messages will be inserted here -->
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <div id="input-area" class="input-area">
+                <div class="input-history-controls mobile-only">
+                    <button id="history-up" class="history-btn" title="Previous message" aria-label="Previous message">
+                        <span>↑</span>
+                    </button>
+                    <button id="history-down" class="history-btn" title="Next message" aria-label="Next message">
+                        <span>↓</span>
+                    </button>
+                </div>
+                <div class="input-wrapper">
+                    <textarea
+                        id="message-input"
+                        class="message-input"
+                        placeholder="Type your message... (Shift+Enter to queue)"
+                        autocomplete="off"
+                        rows="1"
+                    ></textarea>
+                    <completion-menu id="completion-menu" visible="false"></completion-menu>
+                </div>
+                <button id="send-button" class="send-button">Send</button>
+            </div>
+            <status-bar id="status-bar"></status-bar>
+        </footer>
     </div>
-    <script src="/static/js/main.js"></script>
+
+    <!-- Web Components -->
+    <script type="module" src="/static/js/components/theme-selector.js?v=3"></script>
+    <script src="/static/js/components/chat-message.js?v=3"></script>
+    <script src="/static/js/components/tool-call.js?v=3"></script>
+    <script src="/static/js/components/completion-menu.js?v=3"></script>
+    <script src="/static/js/components/status-bar.js?v=3"></script>
+    <script src="/static/js/components/toast-container.js?v=3"></script>
+    <script src="/static/js/components/session-list.js?v=3"></script>
+    <script type="module" src="/static/js/audio-manager.js?v=3"></script>
+
+    <!-- Markdown and Syntax Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <script src="/app-config.js"></script>
+    <script src="/static/js/websocket-client.js?v=3"></script>
+    <script type="module" src="/static/js/main.js?v=3"></script>
 </body>
 </html>

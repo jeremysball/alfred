@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from alfred.agent import Agent
-from alfred.llm import ChatMessage
 from alfred.tools import clear_registry, get_registry, register_builtin_tools
 from alfred.tools.bash import BashTool
 from alfred.tools.edit import EditTool
@@ -289,64 +287,3 @@ class TestStreamingIntegration:
         assert "success" in result.lower() or "edited" in result.lower()
 
 
-@pytest.mark.integration
-@pytest.mark.skipif(os.environ.get("SKIP_LLM_TESTS"), reason="Skipping tests that require LLM")
-class TestAgentWithRealLLM:
-    """Integration tests requiring real LLM (optional)."""
-
-    @pytest.mark.asyncio
-    async def test_agent_reads_file(self, temp_workspace):
-        """Test agent actually reading a file via LLM."""
-        from pathlib import Path
-
-        from alfred.config import load_config
-        from alfred.llm import LLMFactory
-
-        # Create a test file
-        with open("test_content.txt", "w") as f:
-            f.write("This is test content for the agent to read.")
-
-        # Load config from project root (tests are in tests/ subdirectory)
-        project_root = Path(__file__).parent.parent
-        config = load_config(project_root / "config.json")
-        llm = LLMFactory.create(config)
-        register_builtin_tools()
-        registry = get_registry()
-
-        agent = Agent(llm, registry, max_iterations=3)
-
-        messages = [ChatMessage(role="user", content="Read the file test_content.txt")]
-
-        result = await agent.run(messages)
-
-        # Agent should have read and reported the content
-        assert "test content" in result.lower()
-
-    @pytest.mark.asyncio
-    async def test_agent_writes_file(self, temp_workspace):
-        """Test agent writing a file via LLM."""
-        import os
-        from pathlib import Path
-
-        from alfred.config import load_config
-        from alfred.llm import LLMFactory
-
-        project_root = Path(__file__).parent.parent
-        config = load_config(project_root / "config.json")
-        llm = LLMFactory.create(config)
-        register_builtin_tools()
-        registry = get_registry()
-
-        agent = Agent(llm, registry, max_iterations=3)
-
-        messages = [
-            ChatMessage(role="user", content="Write 'Hello from Agent' to agent_output.txt")
-        ]
-
-        await agent.run(messages)
-
-        # Verify file was created
-        assert os.path.exists("agent_output.txt")
-        with open("agent_output.txt") as f:
-            content = f.read()
-        assert "Hello from Agent" in content

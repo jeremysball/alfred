@@ -4,14 +4,14 @@ import asyncio
 from typing import TYPE_CHECKING, override
 
 from alfred.interfaces.pypitui.commands.base import Command
+from alfred.interfaces.pypitui.compat import OverlayHandle, OverlayOptions
 from alfred.interfaces.pypitui.throbber_overlay import ThrobberOverlay
-from pypitui import Key, OverlayOptions, matches_key
+from pypitui import Key, matches_key
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from alfred.interfaces.pypitui.tui import AlfredTUI
-    from pypitui import OverlayHandle
 
 
 class ThrobbersCommand(Command):

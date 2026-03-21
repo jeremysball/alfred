@@ -12,8 +12,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.history_cache import HistoryManager
     from tests.pypitui.conftest import InvariantAssertions
+
+    from alfred.interfaces.pypitui.history_cache import HistoryManager
 
 
 def test_history_manager_initialization(history_manager: HistoryManager) -> None:

@@ -171,6 +171,7 @@ class Agent:
             tool_calls_data: list[dict[str, Any]] = []
             in_tool_call = False
             reasoning_content: str | None = None
+            in_reasoning = False
 
             async for chunk in stream:
                 # Check for usage marker
@@ -195,12 +196,18 @@ class Agent:
 
                 # Check for reasoning content marker
                 if chunk.startswith("[REASONING]"):
+                    in_reasoning = True
                     chunk_reasoning = chunk[11:]
                     reasoning_content = (reasoning_content or "") + chunk_reasoning
+                    yield chunk  # Forward reasoning to client
                     continue
 
-                # Regular content
+                # Regular content - check if we need to end reasoning
                 if not in_tool_call:
+                    if in_reasoning:
+                        # End reasoning mode before regular content
+                        in_reasoning = False
+                        yield "[/REASONING]"
                     full_content += chunk
                     yield chunk
 

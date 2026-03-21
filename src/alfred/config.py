@@ -39,9 +39,9 @@ class Config(BaseSettings):
     kimi_base_url: str = Field(..., validation_alias=AliasChoices("KIMI_BASE_URL", "kimi_base_url"))
 
     # Runtime settings (from config.toml or XDG defaults)
-    default_llm_provider: str
-    embedding_model: str
-    chat_model: str
+    default_llm_provider: str = "kimi"
+    embedding_model: str = "text-embedding-3-small"
+    chat_model: str = "kimi-k2-5"
     memory_budget: int = 32000
     memory_ttl_days: int = 90
     memory_warning_threshold: int = 1000
@@ -153,7 +153,6 @@ def load_config(config_path: Path | None = None) -> Config:
         config.context_files = {
             "system": config.workspace_dir / "SYSTEM.md",
             "agents": config.workspace_dir / "AGENTS.md",
-            "tools": config.workspace_dir / "TOOLS.md",
             "soul": config.workspace_dir / "SOUL.md",
             "user": config.workspace_dir / "USER.md",
         }
