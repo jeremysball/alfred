@@ -4,656 +4,461 @@ These tests verify end-to-end functionality through the WebSocket connection,
 testing the complete flow from connection establishment through message handling.
 """
 
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
-from alfred.interfaces.webui.server import create_app
-
-
-class MockSession:
-    """Mock session for integration testing."""
-
-    class Message:
-        """Mock message."""
-
-        def __init__(self, role, content):
-            from datetime import datetime
-            self.role = MockSession.Role(role)
-            self.content = content
-            self.id = f"msg-{datetime.now().timestamp()}"
-            self.created_at = datetime.now()
-
-    class Role:
-        """Mock role."""
-
-        def __init__(self, value):
-            self.value = value
-
-    def __init__(self, session_id="test-session-123", messages=None):
-        from datetime import datetime
-        self.session_id = session_id
-        self.messages = messages or []
-        self.created_at = datetime.now()
-        self.summary = "Test session summary"
-        self.meta = MockSession.Meta(session_id)
-
-    class Meta:
-        """Mock session meta."""
-
-        def __init__(self, session_id):
-            self.session_id = session_id
-
-
-class MockAlfred:
-    """Mock Alfred instance for integration testing."""
-
-    def __init__(self, chunks=None, sessions=None, config=None):
-        self.chunks = chunks or ["Hello", ", ", "this", " is", " a", " test", " response", "."]
-        self.chat_called = False
-        self.last_message = None
-        self._sessions = sessions or [
-            MockSession("session-1"),
-            MockSession("session-2"),
-        ]
-        self._current_session = self._sessions[0] if self._sessions else None
-        self.new_session_called = False
-        self.resume_session_called = False
-        self.list_sessions_called = False
-        self.config = config or {"model": "claude-3-sonnet-20240229"}
-
-    async def chat_stream(self, message, tool_callback=None):
-        """Mock chat stream that yields chunks."""
-        self.chat_called = True
-        self.last_message = message
-        for chunk in self.chunks:
-            yield chunk
-
-    async def new_session(self):
-        """Mock creating a new session."""
-        self.new_session_called = True
-        new_session = MockSession(f"new-session-{len(self._sessions) + 1}")
-        self._sessions.insert(0, new_session)
-        self._current_session = new_session
-        return new_session
-
-    async def resume_session(self, session_id):
-        """Mock resuming a session."""
-        self.resume_session_called = True
-        for session in self._sessions:
-            if session.session_id == session_id:
-                self._current_session = session
-                # Add a mock message to the session
-                session.messages = [MockSession.Message("user", "Hello")]
-                return session
-        raise ValueError(f"Session {session_id} not found")
-
-    async def list_sessions(self, limit=10):
-        """Mock listing sessions."""
-        self.list_sessions_called = True
-        return self._sessions[:limit]
-
-    @property
-    def current_session(self):
-        """Get current session."""
-        return self._current_session
-
-    def get_context(self):
-        """Mock getting context."""
-        return {
-            "cwd": "/workspace/alfred-prd",
-            "files": ["README.md", "pyproject.toml"],
-            "system_info": {"platform": "linux"},
-        }
+from alfred.interfaces.webui import create_app
+from tests.webui.fakes import FakeAlfred
 
 
 @pytest.fixture
-def mock_alfred():
-    """Create a mock Alfred instance."""
-    return MockAlfred()
+def mock_alfred() -> FakeAlfred:
+    """Create a realistic Alfred fake."""
+
+    return FakeAlfred()
 
 
 @pytest.fixture
-def client(mock_alfred):
-    """Create test client with mocked Alfred."""
+def client(mock_alfred: FakeAlfred) -> tuple[TestClient, FakeAlfred]:
+    """Create test client with a realistic Alfred fake."""
+
     app = create_app(alfred_instance=mock_alfred)
     return TestClient(app), mock_alfred
+
+
+def _consume_startup_messages(websocket) -> tuple[dict, dict, dict]:
+    """Read the standard Web UI startup sequence."""
+
+    connected = websocket.receive_json()
+    session_loaded = websocket.receive_json()
+    status_update = websocket.receive_json()
+    return connected, session_loaded, status_update
+
+
+def _collect_chat_response(websocket) -> tuple[list[str], list[str], list[dict], dict]:
+    """Collect chat stream output until chat.complete arrives."""
+
+    content_chunks: list[str] = []
+    reasoning_chunks: list[str] = []
+    status_updates: list[dict] = []
+    complete: dict | None = None
+
+    while complete is None:
+        data = websocket.receive_json()
+        if data["type"] == "chat.chunk":
+            content_chunks.append(data["payload"]["content"])
+        elif data["type"] == "reasoning.chunk":
+            reasoning_chunks.append(data["payload"]["content"])
+        elif data["type"] == "status.update":
+            status_updates.append(data["payload"])
+        elif data["type"] == "chat.complete":
+            complete = data
+        else:
+            pytest.fail(f"Unexpected message type: {data['type']}")
+
+    trailing = websocket.receive_json()
+    if trailing["type"] == "status.update":
+        status_updates.append(trailing["payload"])
+    else:
+        pytest.fail(f"Unexpected trailing message type: {trailing['type']}")
+
+    return content_chunks, reasoning_chunks, status_updates, complete
 
 
 class TestFullChatFlow:
     """End-to-end tests for complete chat flows."""
 
-    def test_full_chat_flow_single_message(self, client):
-        """Test complete flow: connect, send message, receive streaming response.
+    def test_full_chat_flow_single_message(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test complete flow: connect, send message, receive streaming response."""
 
-        Verifies:
-        - WebSocket connection established
-        - Chat message sent successfully
-        - Streaming response received in correct order
-        - Status updates received during streaming
-        - Final completion message received
-        - All message IDs are consistent
-        """
-        test_client, mock_alfred = client
+        test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Step 1: Receive connection confirmation
-            data = websocket.receive_json()
-            assert data["type"] == "connected"
-            assert "payload" in data
+            connected, session_loaded, status_update = _consume_startup_messages(websocket)
+            assert connected["type"] == "connected"
+            assert session_loaded["type"] == "session.loaded"
+            assert status_update["type"] == "status.update"
 
-            # Step 2: Send a chat message
             test_message = "What is the weather today?"
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": test_message}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": test_message}})
 
-            # Step 3: Receive chat.started
-            data = websocket.receive_json()
-            assert data["type"] == "chat.started"
-            assert "messageId" in data["payload"]
-            message_id = data["payload"]["messageId"]
-            assert data["payload"]["role"] == "assistant"
+            started = websocket.receive_json()
+            assert started["type"] == "chat.started"
+            message_id = started["payload"]["messageId"]
+            assert started["payload"]["role"] == "assistant"
 
-            # Step 4: Collect streaming response
-            received_chunks = []
-            status_updates = []
-            received_complete = False
+            received_chunks, _, status_updates, complete = _collect_chat_response(websocket)
 
-            while not received_complete:
-                data = websocket.receive_json()
+        assert "".join(received_chunks) == "Hello! How can I help?"
+        assert complete["payload"]["messageId"] == message_id
+        assert complete["payload"]["finalContent"] == "Hello! How can I help?"
+        assert len(status_updates) >= 1
+        assert fake_alfred.chat_called is True
+        assert fake_alfred.last_message == test_message
 
-                if data["type"] == "chat.chunk":
-                    received_chunks.append(data["payload"]["content"])
-                    assert data["payload"]["messageId"] == message_id
-                elif data["type"] == "status.update":
-                    status_updates.append(data["payload"])
-                    # Verify status format
-                    assert "model" in data["payload"]
-                    assert "inputTokens" in data["payload"]
-                    assert "outputTokens" in data["payload"]
-                    assert "isStreaming" in data["payload"]
-                elif data["type"] == "chat.complete":
-                    assert data["payload"]["messageId"] == message_id
-                    assert "finalContent" in data["payload"]
-                    assert "usage" in data["payload"]
-                    received_complete = True
-                else:
-                    pytest.fail(f"Unexpected message type: {data['type']}")
+    def test_full_chat_flow_multiple_messages(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test sending multiple messages in sequence."""
 
-            # Step 5: Verify results
-            assert received_chunks == mock_alfred.chunks
-            assert mock_alfred.chat_called
-            assert mock_alfred.last_message == test_message
-            assert len(status_updates) >= 1  # At least one status update
-
-    def test_full_chat_flow_multiple_messages(self, client):
-        """Test sending multiple messages in sequence.
-
-        Verifies:
-        - Multiple chat messages can be sent in one session
-        - Each message gets its own message ID
-        - Message IDs are unique per message
-        """
-        test_client, mock_alfred = client
+        test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            message_ids = []
+            message_ids: list[str] = []
 
             for i in range(3):
-                # Send message
-                websocket.send_json({
-                    "type": "chat.send",
-                    "payload": {"content": f"Message {i + 1}"}
-                })
+                websocket.send_json({"type": "chat.send", "payload": {"content": f"Message {i + 1}"}})
 
-                # Receive chat.started (may be preceded by status updates)
+                data = websocket.receive_json()
+                assert data["type"] == "chat.started"
+                message_id = data["payload"]["messageId"]
+                message_ids.append(message_id)
+
+                received_chunks: list[str] = []
                 while True:
                     data = websocket.receive_json()
-                    if data["type"] == "chat.started":
-                        message_id = data["payload"]["messageId"]
-                        message_ids.append(message_id)
-                        break
+                    if data["type"] == "chat.chunk":
+                        received_chunks.append(data["payload"]["content"])
+                        assert data["payload"]["messageId"] == message_id
                     elif data["type"] == "status.update":
                         continue
-
-                # Collect response
-                while True:
-                    data = websocket.receive_json()
-                    if data["type"] == "chat.complete":
+                    elif data["type"] == "chat.complete":
+                        assert data["payload"]["messageId"] == message_id
                         break
-                    elif data["type"] == "status.update":
-                        continue
-                    # Ignore other message types
+                    else:
+                        pytest.fail(f"Unexpected message type: {data['type']}")
 
-            # Verify all message IDs are unique
-            assert len(message_ids) == 3
-            assert len(set(message_ids)) == 3  # All unique
+                trailing = websocket.receive_json()
+                assert trailing["type"] == "status.update"
+                assert "".join(received_chunks) == "Hello! How can I help?"
 
-    def test_full_chat_flow_with_reasoning(self, client):
-        """Test chat flow with reasoning blocks.
+        assert len(message_ids) == 3
+        assert len(set(message_ids)) == 3
+        assert fake_alfred.chat_messages == ["Message 1", "Message 2", "Message 3"]
 
-        Verifies:
-        - Reasoning chunks are properly identified and sent
-        - Reasoning and content chunks are separated
-        - Final content includes both reasoning and response
-        """
-        test_client, mock_alfred = client
+    def test_full_chat_flow_with_reasoning(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test chat flow with reasoning chunks."""
 
-        # Setup reasoning chunks
-        mock_alfred.chunks = [
-            "[REASONING]",
-            "Let me think about this question",
-            ". I need to consider the context",
-            "[/REASONING]",
-            "Based on my analysis, the answer is 42."
-        ]
+        reasoning_parts = ["[REASONING]Let me think", " about this", "[/REASONING]", "The answer is 42"]
+        fake_alfred = FakeAlfred(stream_parts=reasoning_parts)
+        app = create_app(alfred_instance=fake_alfred)
+        test_client = TestClient(app)
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "What is the meaning of life?"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "What is the answer?"}})
 
-            # Collect response
-            reasoning_chunks = []
-            content_chunks = []
+            started = websocket.receive_json()
+            assert started["type"] == "chat.started"
+            message_id = started["payload"]["messageId"]
+
+            reasoning_chunks: list[str] = []
+            content_chunks: list[str] = []
 
             while True:
                 data = websocket.receive_json()
-
                 if data["type"] == "reasoning.chunk":
                     reasoning_chunks.append(data["payload"]["content"])
+                    assert data["payload"]["messageId"] == message_id
                 elif data["type"] == "chat.chunk":
                     content_chunks.append(data["payload"]["content"])
-                elif data["type"] == "chat.complete":
-                    break
+                    assert data["payload"]["messageId"] == message_id
                 elif data["type"] == "status.update":
                     continue
+                elif data["type"] == "chat.complete":
+                    assert data["payload"]["messageId"] == message_id
+                    break
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
 
-            # Verify reasoning was extracted
-            assert len(reasoning_chunks) > 0
-            assert "Let me think" in "".join(reasoning_chunks)
-            assert "answer is 42" in "".join(content_chunks)
+            trailing = websocket.receive_json()
+            assert trailing["type"] == "status.update"
+
+        assert len(reasoning_chunks) > 0
+        assert "Let me think" in "".join(reasoning_chunks)
+        assert "answer is 42" in "".join(content_chunks)
 
 
 class TestSessionManagementFlow:
     """End-to-end tests for session management commands."""
 
-    def test_session_create_new_session(self, client):
-        """Test creating a new session via /new command.
+    def test_session_create_new_session(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test creating a new session via /new command."""
 
-        Verifies:
-        - /new command creates a new session
-        - New session ID is returned
-        - Confirmation message is sent
-        """
-        test_client, mock_alfred = client
-        original_session_count = len(mock_alfred._sessions)
+        test_client, fake_alfred = client
+        original_session_count = len(fake_alfred.core.session_manager._sessions)
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send /new command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/new"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/new"}})
 
-            # Receive session.new response
             data = websocket.receive_json()
             assert data["type"] == "session.new"
             assert "sessionId" in data["payload"]
-            assert "New session created" in data["payload"]["message"]
+            assert data["payload"]["message"] == "New session created"
+            assert fake_alfred.core.session_manager.new_session_called is True
+            assert len(fake_alfred.core.session_manager._sessions) == original_session_count + 1
 
-            # Verify session was created
-            assert mock_alfred.new_session_called
-            assert len(mock_alfred._sessions) == original_session_count + 1
+    def test_session_list_sessions(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test listing sessions via /sessions command."""
 
-    def test_session_list_sessions(self, client):
-        """Test listing sessions via /sessions command.
-
-        Verifies:
-        - /sessions command returns list of sessions
-        - Each session has required fields (id, summary, created)
-        """
-        test_client, mock_alfred = client
+        test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send /sessions command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/sessions"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/sessions"}})
 
-            # Receive session.list response
             data = websocket.receive_json()
             assert data["type"] == "session.list"
             assert "sessions" in data["payload"]
             assert len(data["payload"]["sessions"]) == 2
 
-            # Verify session structure
             for session in data["payload"]["sessions"]:
                 assert "id" in session
                 assert "summary" in session
                 assert "created" in session
 
-            assert mock_alfred.list_sessions_called
+            assert fake_alfred.core.session_manager.list_sessions_called is True
 
-    def test_session_resume_session(self, client):
-        """Test resuming a session via /resume command.
+    def test_session_resume_session(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test resuming a session via /resume command."""
 
-        Verifies:
-        - /resume <session_id> switches to specified session
-        - Session messages are loaded
-        - Confirmation message includes session ID
-        """
-        test_client, mock_alfred = client
+        test_client, fake_alfred = client
         target_session_id = "session-2"
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send /resume command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": f"/resume {target_session_id}"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": f"/resume {target_session_id}"}})
 
-            # Receive session.loaded response
             data = websocket.receive_json()
             assert data["type"] == "session.loaded"
             assert data["payload"]["sessionId"] == target_session_id
             assert "messages" in data["payload"]
 
-            assert mock_alfred.resume_session_called
+            status_update = websocket.receive_json()
+            assert status_update["type"] == "status.update"
 
-    def test_session_resume_without_id(self, client):
-        """Test /resume command without session ID.
+            assert fake_alfred.core.session_manager.resume_session_called is True
 
-        Verifies:
-        - Error is returned when session ID is missing
-        - Error message is descriptive
-        """
-        test_client, mock_alfred = client
+    def test_session_resume_without_id(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test /resume command without session ID."""
+
+        test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send /resume without ID
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/resume"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/resume"}})
 
-            # Receive error response
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
             assert "Session ID required" in data["payload"]["error"]
 
-    def test_session_full_workflow(self, client):
-        """Test complete session management workflow.
+    def test_session_full_workflow(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test complete session management workflow."""
 
-        Verifies:
-        - Create new session
-        - List sessions shows new session
-        - Resume original session
-        - List sessions again
-        """
-        test_client, mock_alfred = client
+        test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Step 1: Create new session
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/new"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/new"}})
             data = websocket.receive_json()
             assert data["type"] == "session.new"
-            # Verify we got a session ID (we'll use it in the assertion below)
             assert "sessionId" in data["payload"]
+            websocket.receive_json()  # status.update
 
-            # Step 2: List sessions
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/sessions"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/sessions"}})
             data = websocket.receive_json()
             assert data["type"] == "session.list"
-            assert len(data["payload"]["sessions"]) == 3  # Original 2 + new 1
+            assert len(data["payload"]["sessions"]) == 3
 
-            # Step 3: Resume original session
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/resume session-1"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/resume session-1"}})
             data = websocket.receive_json()
             assert data["type"] == "session.loaded"
             assert data["payload"]["sessionId"] == "session-1"
+            websocket.receive_json()  # status.update
 
-            # Step 4: Get current session info
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/session"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/session"}})
             data = websocket.receive_json()
             assert data["type"] == "session.info"
             assert data["payload"]["sessionId"] == "session-1"
+
+        assert fake_alfred.core.session_manager.new_session_called is True
+        assert fake_alfred.core.session_manager.list_sessions_called is True
+        assert fake_alfred.core.session_manager.resume_session_called is True
 
 
 class TestErrorHandling:
     """Tests for error scenarios and edge cases."""
 
-    def test_error_chat_without_alfred(self):
-        """Test error when Alfred instance is not available.
+    def test_error_chat_without_alfred(self) -> None:
+        """Test error when Alfred instance is not available."""
 
-        Verifies:
-        - Appropriate error is returned
-        - Connection remains open
-        """
         app = create_app(alfred_instance=None)
         client = TestClient(app)
 
         with client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
             websocket.receive_json()
 
-            # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Hello"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
 
-            # Receive error
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
             assert "Alfred instance not available" in data["payload"]["error"]
 
-            # Verify connection is still open
             websocket.send_json({"type": "ping"})
             data = websocket.receive_json()
             assert data["type"] == "pong"
 
-    def test_error_invalid_json(self, client):
-        """Test handling of invalid JSON messages.
+    def test_error_invalid_json(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test handling of invalid JSON messages."""
 
-        Verifies:
-        - Error is returned for invalid JSON
-        - Connection remains open
-        """
         test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send invalid JSON
             websocket.send_text("not valid json {{{")
 
-            # Receive error
             data = websocket.receive_json()
             assert data["type"] == "error"
             assert "Invalid JSON" in data["payload"]["error"]
 
-            # Verify connection is still open
             websocket.send_json({"type": "ping"})
             data = websocket.receive_json()
             assert data["type"] == "pong"
 
-    def test_error_unknown_command(self, client):
-        """Test handling of unknown commands.
+    def test_error_unknown_command(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test handling of unknown commands."""
 
-        Verifies:
-        - Error is returned for unknown commands
-        - Connection remains open
-        """
         test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send unknown command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/unknowncommand"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/unknowncommand"}})
 
-            # Receive error
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
+            assert "Unknown command" in data["payload"]["error"]
 
-            # Verify connection is still open
+    def test_error_empty_message(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test handling of empty chat messages."""
+
+        test_client, _ = client
+
+        with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
+            websocket.receive_json()
+            websocket.receive_json()
+
+            websocket.send_json({"type": "chat.send", "payload": {"content": "   "}})
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.error"
+            assert "Message content cannot be empty" in data["payload"]["error"]
+
             websocket.send_json({"type": "ping"})
             data = websocket.receive_json()
             assert data["type"] == "pong"
 
-    def test_error_empty_message(self, client):
-        """Test handling of empty chat messages.
+    def test_error_resume_nonexistent_session(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test resuming a session that doesn't exist."""
 
-        Verifies:
-        - Error is returned for empty content
-        - Connection remains open
-        """
-        test_client, _ = client
+        test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send empty message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "   "}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/resume nonexistent-session"}})
 
-            # Receive error
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
-            assert "cannot be empty" in data["payload"]["error"]
+            assert "Failed to resume session" in data["payload"]["error"]
+            assert fake_alfred.core.session_manager.resume_session_called is True
 
-    def test_error_resume_nonexistent_session(self, client):
-        """Test resuming a session that doesn't exist.
+    def test_recovery_after_error(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test that normal operation resumes after an error."""
 
-        Verifies:
-        - Error is returned for non-existent session
-        - Connection remains open
-        """
-        test_client, _ = client
+        test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Try to resume non-existent session
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/resume nonexistent-session"}
-            })
-
-            # Receive error
-            data = websocket.receive_json()
-            assert data["type"] == "chat.error"
-            assert "not found" in data["payload"]["error"].lower()
-
-    def test_recovery_after_error(self, client):
-        """Test that normal operation resumes after an error.
-
-        Verifies:
-        - Error occurs
-        - Subsequent valid requests work correctly
-        """
-        test_client, mock_alfred = client
-
-        with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
-            websocket.receive_json()
-
-            # Step 1: Cause an error (empty message)
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": ""}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": ""}})
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
 
-            # Step 2: Send valid message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Valid message after error"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
+            started = websocket.receive_json()
+            assert started["type"] == "chat.started"
+            message_id = started["payload"]["messageId"]
 
-            # Should receive chat.started
-            data = websocket.receive_json()
-            assert data["type"] == "chat.started"
-
-            # Complete the chat
+            received_chunks: list[str] = []
             while True:
                 data = websocket.receive_json()
-                if data["type"] == "chat.complete":
+                if data["type"] == "chat.chunk":
+                    received_chunks.append(data["payload"]["content"])
+                    assert data["payload"]["messageId"] == message_id
+                elif data["type"] == "status.update":
+                    continue
+                elif data["type"] == "chat.complete":
                     break
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
 
-            assert mock_alfred.chat_called
+        assert "".join(received_chunks) == "Hello! How can I help?"
+        assert fake_alfred.chat_called is True
+        assert fake_alfred.last_message == "Hello"
 
 
 class TestConcurrentOperations:
     """Tests for concurrent and rapid operations."""
 
-    def test_rapid_ping_pong(self, client):
-        """Test rapid ping/pong exchanges.
+    def test_rapid_ping_pong(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test rapid ping/pong exchanges."""
 
-        Verifies:
-        - Server handles rapid messages
-        - All pongs are received
-        - No message loss
-        """
         test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send 10 rapid pings
             for _ in range(10):
                 websocket.send_json({"type": "ping"})
 
-            # Receive all pongs
             pong_count = 0
             for _ in range(10):
                 data = websocket.receive_json()
@@ -662,34 +467,48 @@ class TestConcurrentOperations:
 
             assert pong_count == 10
 
-    def test_multiple_commands_in_sequence(self, client):
-        """Test multiple commands sent in rapid succession.
+    def test_multiple_commands_in_sequence(self, client: tuple[TestClient, FakeAlfred]) -> None:
+        """Test multiple commands sent in rapid succession."""
 
-        Verifies:
-        - All commands are processed
-        - Responses are received in order
-        """
-        test_client, mock_alfred = client
+        test_client, fake_alfred = client
+        context_data = {
+            "system_prompt": {"sections": [{"name": "AGENTS.md", "tokens": 12}], "total_tokens": 12},
+            "memories": {
+                "displayed": 1,
+                "total": 2,
+                "items": [{"role": "user", "content": "Remember this", "timestamp": "2026-03-20"}],
+                "tokens": 8,
+            },
+            "session_history": {"count": 1, "messages": [{"role": "user", "content": "hello"}], "tokens": 3},
+            "tool_calls": {
+                "count": 1,
+                "items": [
+                    {
+                        "tool_name": "read",
+                        "arguments": {"path": "README.md"},
+                        "output": "file contents",
+                        "status": "success",
+                    }
+                ],
+                "tokens": 9,
+            },
+            "total_tokens": 32,
+        }
 
-        with test_client.websocket_connect("/ws") as websocket:
-            # Receive connection confirmation
+        with patch(
+            "alfred.context_display.get_context_display",
+            AsyncMock(return_value=context_data),
+        ), test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
+            websocket.receive_json()
             websocket.receive_json()
 
-            # Send multiple commands rapidly
-            commands = ["/session", "/context", "/sessions"]
-            for cmd in commands:
-                websocket.send_json({
-                    "type": "command.execute",
-                    "payload": {"command": cmd}
-                })
+            for cmd in ["/session", "/context", "/sessions"]:
+                websocket.send_json({"type": "command.execute", "payload": {"command": cmd}})
 
-            # Collect responses
-            responses = []
-            for _ in range(len(commands)):
-                data = websocket.receive_json()
-                responses.append(data["type"])
+            responses = [websocket.receive_json()["type"] for _ in range(3)]
 
-            # Verify all commands were processed
-            assert "session.info" in responses
-            assert "context.info" in responses
-            assert "session.list" in responses
+        assert "session.info" in responses
+        assert "context.info" in responses
+        assert "session.list" in responses
+        assert fake_alfred.core.session_manager.list_sessions_called is True

@@ -1,11 +1,13 @@
 """WebSocket protocol tests for Alfred Web UI."""
 
-from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui.server import create_app
+from tests.webui.fakes import FakeAlfred as MockAlfred
+from tests.webui.fakes import make_message, make_session, make_tool_call
 
 
 @pytest.fixture
@@ -88,6 +90,44 @@ class TestWebSocketConnection:
             assert data["type"] == "pong"
 
 
+class TestWebSocketSessionRestore:
+    """Test session payload restore behavior."""
+
+    def test_session_loaded_includes_tool_calls(self):
+        """Session load should include persisted tool calls for assistant messages."""
+        assistant_message = make_message(
+            "assistant",
+            "Here are the results",
+            idx=1,
+            reasoning_content="thinking",
+            tool_calls=[
+                make_tool_call(
+                    tool_call_id="tool-1",
+                    tool_name="bash",
+                    arguments={"command": "ls"},
+                    output="done",
+                    status="success",
+                    insert_position=7,
+                    sequence=1,
+                )
+            ],
+        )
+        mock_alfred = MockAlfred(sessions=[make_session("session-restore", messages=[assistant_message])])
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            connected = websocket.receive_json()
+            session_loaded = websocket.receive_json()
+            status_update = websocket.receive_json()
+
+            assert connected["type"] == "connected"
+            assert session_loaded["type"] == "session.loaded"
+            assert status_update["type"] == "status.update"
+            assert session_loaded["payload"]["messages"][0]["toolCalls"][0]["toolCallId"] == "tool-1"
+            assert session_loaded["payload"]["messages"][0]["toolCalls"][0]["status"] == "success"
+
+
 class TestWebSocketChatWithoutAlfred:
     """Test chat functionality when Alfred instance is not available."""
 
@@ -128,122 +168,10 @@ class TestWebSocketChatWithoutAlfred:
                    "Alfred instance not available" in data["payload"]["error"]
 
 
-class MockSession:
-    """Mock session for testing."""
-
-    class Message:
-        """Mock message."""
-
-        def __init__(self, role, content):
-            self.role = MockSession.Role(role)
-            self.content = content
-            self.id = "msg-123"
-
-    class Role:
-        """Mock role."""
-
-        def __init__(self, value):
-            self.value = value
-
-    def __init__(self, session_id="test-session-123", messages=None):
-        self.session_id = session_id
-        self.messages = messages or []
-        self.created_at = datetime.now()
-        self.summary = "Test session summary"
-        self.meta = MockSession.Meta(session_id)
-
-    class Meta:
-        """Mock session meta."""
-
-        def __init__(self, session_id):
-            self.session_id = session_id
-            self.created_at = datetime.now()
-
-
-class MockSessionManager:
-    """Mock session manager for testing."""
-
-    def __init__(self, sessions=None):
-        self._sessions = sessions or [MockSession("session-1"), MockSession("session-2")]
-        self._current_session = self._sessions[0] if self._sessions else None
-        self.new_session_called = False
-        self.resume_session_called = False
-        self.list_sessions_called = False
-
-    async def new_session_async(self):
-        """Mock creating a new session."""
-        self.new_session_called = True
-        new_session = MockSession(f"new-session-{len(self._sessions) + 1}")
-        self._sessions.insert(0, new_session)
-        self._current_session = new_session
-        return new_session
-
-    async def resume_session_async(self, session_id):
-        """Mock resuming a session."""
-        self.resume_session_called = True
-        for session in self._sessions:
-            if session.session_id == session_id:
-                self._current_session = session
-                # Add a mock message to the session
-                session.messages = [MockSession.Message("user", "Hello")]
-                return session
-        raise ValueError(f"Session {session_id} not found")
-
-    async def list_sessions_async(self):
-        """Mock listing sessions."""
-        self.list_sessions_called = True
-        return self._sessions
-
-    def get_current_cli_session(self):
-        """Get current CLI session."""
-        return self._current_session
-
-    def start_session(self):
-        """Start a new session (compatibility with server)."""
-        return self._current_session or MockSession("default-session")
-
-
-class MockCore:
-    """Mock AlfredCore for testing."""
-
-    def __init__(self, sessions=None):
-        self.session_manager = MockSessionManager(sessions)
-
-
-class MockAlfred:
-    """Mock Alfred instance for testing chat flow."""
-
-    def __init__(self, chunks=None, sessions=None):
-        self.chunks = chunks or ["Hello", " ", "world", "!"]
-        self.chat_called = False
-        self.last_message = None
-        self.core = MockCore(sessions)
-        self.config = {}
-
-    async def chat_stream(self, message, tool_callback=None):
-        """Mock chat stream that yields chunks."""
-        self.chat_called = True
-        self.last_message = message
-        for chunk in self.chunks:
-            yield chunk
-
-    @property
-    def new_session_called(self):
-        return self.core.session_manager.new_session_called
-
-    @property
-    def resume_session_called(self):
-        return self.core.session_manager.resume_session_called
-
-    @property
-    def list_sessions_called(self):
-        return self.core.session_manager.list_sessions_called
-
-
 @pytest.fixture
 def mock_app():
     """Create test app with mocked Alfred instance."""
-    mock_alfred = MockAlfred()
+    mock_alfred = MockAlfred(chunks=["Hello", " ", "world", "!"])
     return create_app(alfred_instance=mock_alfred), mock_alfred
 
 
@@ -252,6 +180,45 @@ def mock_client(mock_app):
     """Create test client with mocked Alfred."""
     app, _ = mock_app
     return TestClient(app)
+
+
+class TestWebUIDebugInstrumentation:
+    """Test debug-only Web UI instrumentation hooks."""
+
+    def test_app_config_reports_debug_flag(self):
+        """The browser should be able to read whether Web UI debug instrumentation is enabled."""
+        app = create_app(alfred_instance=None, debug=True)
+        client = TestClient(app)
+
+        response = client.get("/app-config.js")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/javascript")
+        assert '"debug": true' in response.text
+
+    def test_chat_debug_logs_turn_summary(self, caplog):
+        """Debug mode should log per-turn websocket summary stats for long-response diagnosis."""
+        mock_alfred = MockAlfred(chunks=["a" * 20, "b" * 20, "c" * 20])
+        app = create_app(alfred_instance=mock_alfred, debug=True)
+        client = TestClient(app)
+
+        with caplog.at_level("DEBUG", logger="alfred.interfaces.webui.server"), client.websocket_connect("/ws") as websocket:
+            _connect_and_skip_initial_messages(websocket)
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "instrument this"}
+            })
+
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "chat.complete":
+                    break
+
+        turn_logs = [record.message for record in caplog.records if "webui ws turn summary" in record.message]
+        assert turn_logs
+        assert "chat.complete" in turn_logs[-1]
+        assert "total_bytes_sent=" in turn_logs[-1]
+        assert "max_frame_bytes=" in turn_logs[-1]
 
 
 class TestWebSocketChatWithMockedAlfred:
@@ -269,12 +236,7 @@ class TestWebSocketChatWithMockedAlfred:
         _, mock_alfred = mock_app
 
         with mock_client.websocket_connect("/ws") as websocket:
-            # Receive connected message
-            websocket.receive_json()
-
-            # Receive session.loaded message (sent on connection)
-            data = websocket.receive_json()
-            assert data["type"] == "session.loaded"
+            _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
             websocket.send_json({
@@ -309,8 +271,8 @@ class TestWebSocketChatWithMockedAlfred:
                     # Unexpected message type
                     pytest.fail(f"Unexpected message type: {data['type']}")
 
-            # Verify all chunks received
-            assert received_chunks == ["Hello", " ", "world", "!"]
+            # Verify all content received, regardless of batching boundaries
+            assert "".join(received_chunks) == "Hello world!"
             assert mock_alfred.chat_called
             assert mock_alfred.last_message == "Hello there"
 
@@ -328,12 +290,7 @@ class TestWebSocketChatWithMockedAlfred:
         client = TestClient(app)
 
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
-            websocket.receive_json()
-
-            # Receive session.loaded message (sent on connection)
-            data = websocket.receive_json()
-            assert data["type"] == "session.loaded"
+            _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
             websocket.send_json({
@@ -368,6 +325,125 @@ class TestWebSocketChatWithMockedAlfred:
             # Verify reasoning was split correctly
             assert "Let me think" in reasoning_chunks_received[0]
             assert "The answer is 42" in content_chunks_received
+
+    def test_chat_batches_many_small_content_chunks(self):
+        """Long streams should batch tiny content updates into fewer websocket messages."""
+        tiny_chunks = ["a"] * 300
+        mock_alfred = MockAlfred(chunks=tiny_chunks)
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            _connect_and_skip_initial_messages(websocket)
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Batch this content"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+
+            received_chunks = []
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "chat.chunk":
+                    received_chunks.append(data["payload"]["content"])
+                elif data["type"] == "chat.complete":
+                    break
+                elif data["type"] == "status.update":
+                    continue
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
+
+            assert "".join(received_chunks) == "a" * 300
+            assert len(received_chunks) < 50
+
+    def test_chat_batches_many_small_reasoning_chunks(self):
+        """Long reasoning streams should batch tiny reasoning updates into fewer websocket messages."""
+        reasoning_stream = ["[REASONING]a", *(["a"] * 299), "[/REASONING]", "done"]
+        mock_alfred = MockAlfred(chunks=reasoning_stream)
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            _connect_and_skip_initial_messages(websocket)
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Batch this reasoning"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+
+            reasoning_chunks_received = []
+            content_chunks_received = []
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "reasoning.chunk":
+                    reasoning_chunks_received.append(data["payload"]["content"])
+                elif data["type"] == "chat.chunk":
+                    content_chunks_received.append(data["payload"]["content"])
+                elif data["type"] == "chat.complete":
+                    break
+                elif data["type"] == "status.update":
+                    continue
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
+
+            assert "".join(reasoning_chunks_received) == "a" * 300
+            assert len(reasoning_chunks_received) < 50
+            assert "".join(content_chunks_received) == "done"
+
+    def test_chat_batches_many_small_tool_output_chunks(self):
+        """Long tool output streams should batch tiny tool.output updates into fewer websocket messages."""
+        from alfred.agent import ToolEnd, ToolOutput, ToolStart
+
+        mock_alfred = MockAlfred(
+            stream_parts=[
+                ToolStart(tool_call_id="tool-1", tool_name="bash", arguments={}),
+                *[
+                    ToolOutput(tool_call_id="tool-1", tool_name="bash", chunk="x")
+                    for _ in range(300)
+                ],
+                ToolEnd(tool_call_id="tool-1", tool_name="bash", result="ok"),
+                "done",
+            ]
+        )
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            _connect_and_skip_initial_messages(websocket)
+            websocket.send_json({
+                "type": "chat.send",
+                "payload": {"content": "Run tool"}
+            })
+
+            data = websocket.receive_json()
+            assert data["type"] == "chat.started"
+
+            tool_outputs = []
+            saw_tool_start = False
+            saw_tool_end = False
+            while True:
+                data = websocket.receive_json()
+                if data["type"] == "tool.start":
+                    saw_tool_start = True
+                elif data["type"] == "tool.output":
+                    tool_outputs.append(data["payload"]["chunk"])
+                elif data["type"] == "tool.end":
+                    saw_tool_end = True
+                elif data["type"] == "chat.complete":
+                    break
+                elif data["type"] == "status.update" or data["type"] == "chat.chunk":
+                    continue
+                else:
+                    pytest.fail(f"Unexpected message type: {data['type']}")
+
+            assert saw_tool_start is True
+            assert saw_tool_end is True
+            assert "".join(tool_outputs) == "x" * 300
+            assert len(tool_outputs) < 50
 
 
 class TestWebSocketCommandWithoutAlfred:
@@ -427,11 +503,14 @@ class TestWebSocketCommandWithoutAlfred:
 
 
 def _connect_and_skip_initial_messages(websocket):
-    """Helper to connect and skip connected + session.loaded messages."""
-    # Receive connected message
-    websocket.receive_json()
-    # Receive session.loaded message
-    websocket.receive_json()
+    """Helper to connect and skip connected, session.loaded, and status.update."""
+    connected = websocket.receive_json()
+    session_loaded = websocket.receive_json()
+    status_update = websocket.receive_json()
+
+    assert connected["type"] == "connected"
+    assert session_loaded["type"] == "session.loaded"
+    assert status_update["type"] == "status.update"
 
 
 class TestWebSocketCommandsWithMockedAlfred:
@@ -552,25 +631,34 @@ class TestWebSocketCommandsWithMockedAlfred:
             assert "Session ID required" in data["payload"]["error"]
 
     def test_command_context(self):
-        """Test /context command shows system context."""
+        """Test /context command shows shared structured context."""
         mock_alfred = MockAlfred()
         app = create_app(alfred_instance=mock_alfred)
         client = TestClient(app)
 
-        with client.websocket_connect("/ws") as websocket:
-            # Skip initial messages
+        context_data = {
+            "system_prompt": {"sections": [{"name": "AGENTS.md", "tokens": 12}], "total_tokens": 12},
+            "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+            "session_history": {"count": 1, "messages": [{"role": "user", "content": "hello"}], "tokens": 3},
+            "tool_calls": {"count": 0, "items": [], "tokens": 0},
+            "total_tokens": 15,
+        }
+
+        with (
+            patch("alfred.context_display.get_context_display", AsyncMock(return_value=context_data)),
+            client.websocket_connect("/ws") as websocket,
+        ):
             _connect_and_skip_initial_messages(websocket)
 
-            # Send /context command
             websocket.send_json({
                 "type": "command.execute",
                 "payload": {"command": "/context"}
             })
 
-            # Should receive context.info
             data = websocket.receive_json()
             assert data["type"] == "context.info"
-            assert "systemInfo" in data["payload"]
+            assert data["payload"]["systemPrompt"]["totalTokens"] == 12
+            assert data["payload"]["sessionHistory"]["count"] == 1
 
 
 class TestWebSocketStatusUpdates:
@@ -615,34 +703,29 @@ class TestWebSocketStatusUpdates:
             # First status should show streaming started
             assert status_updates[0]["isStreaming"] is True
 
-    def test_status_update_with_model_from_config(self):
-        """Test that status includes model from Alfred config."""
-        # Create mock Alfred with config
+    def test_status_update_with_model_name(self):
+        """Test that status includes Alfred.model_name."""
         mock_alfred = MockAlfred()
-        mock_alfred.config = {"model": "claude-3-opus-20240229"}
+        mock_alfred.model_name = "claude-3-opus-20240229"
 
         app = create_app(alfred_instance=mock_alfred)
         client = TestClient(app)
 
         with client.websocket_connect("/ws") as websocket:
-            # Skip initial messages
             _connect_and_skip_initial_messages(websocket)
 
-            # Send chat message
             websocket.send_json({
                 "type": "chat.send",
                 "payload": {"content": "Test"}
             })
 
-            # Look for status update with model
             while True:
                 data = websocket.receive_json()
-                if data["type"] == "status.update":
-                    if data["payload"]["model"]:
-                        assert data["payload"]["model"] == "claude-3-opus-20240229"
-                        break
-                elif data["type"] == "chat.complete":
+                if data["type"] == "status.update" and data["payload"]["model"]:
+                    assert data["payload"]["model"] == "claude-3-opus-20240229"
                     break
+                if data["type"] == "chat.complete":
+                    continue
 
     def test_status_update_token_counts(self):
         """Test that status updates include token usage."""

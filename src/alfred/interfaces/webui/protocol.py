@@ -6,6 +6,8 @@ the Web UI frontend and the FastAPI backend via WebSocket.
 
 from typing import Literal, NotRequired, TypedDict
 
+JsonObject = dict[str, object]
+
 # Client -> Server Messages
 
 
@@ -140,7 +142,7 @@ class ToolStartPayload(TypedDict):
 
     toolCallId: str
     toolName: str
-    arguments: dict
+    arguments: JsonObject
     messageId: str
 
 

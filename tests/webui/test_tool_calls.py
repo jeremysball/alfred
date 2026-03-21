@@ -4,6 +4,7 @@
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
+from tests.webui.fakes import FakeAlfred
 
 
 def test_tool_start_message_structure():
@@ -104,6 +105,88 @@ def test_websocket_accepts_tool_messages():
         # Here we just verify the connection handles the message without error
 
 
+def test_tool_call_websocket_flow_emits_start_output_and_end():
+    """Drive the real websocket flow and verify tool callbacks reach the client."""
+    from alfred.agent import ToolEnd, ToolOutput, ToolStart
+
+    fake_alfred = FakeAlfred(
+        stream_parts=[
+            ToolStart(
+                tool_call_id="call_abc123",
+                tool_name="read_file",
+                arguments={"path": "/tmp/test.txt"},
+            ),
+            ToolOutput(
+                tool_call_id="call_abc123",
+                tool_name="read_file",
+                chunk="File contents here",
+            ),
+            ToolEnd(
+                tool_call_id="call_abc123",
+                tool_name="read_file",
+                result="File contents here",
+                is_error=False,
+            ),
+            "done",
+        ]
+    )
+    app = create_app(alfred_instance=fake_alfred)
+    client = TestClient(app)
+
+    with client.websocket_connect("/ws") as websocket:
+        assert websocket.receive_json()["type"] == "connected"
+        assert websocket.receive_json()["type"] == "session.loaded"
+        assert websocket.receive_json()["type"] == "status.update"
+
+        websocket.send_json({
+            "type": "chat.send",
+            "payload": {"content": "Read file /tmp/test.txt"}
+        })
+
+        started = websocket.receive_json()
+        assert started["type"] == "chat.started"
+        message_id = started["payload"]["messageId"]
+
+        seen_types: list[str] = []
+        tool_start = None
+        tool_output = None
+        tool_end = None
+        final_complete = None
+
+        while final_complete is None:
+            data = websocket.receive_json()
+            seen_types.append(data["type"])
+            if data["type"] == "status.update":
+                continue
+            if data["type"] == "tool.start":
+                tool_start = data
+            elif data["type"] == "tool.output":
+                tool_output = data
+            elif data["type"] == "tool.end":
+                tool_end = data
+            elif data["type"] == "chat.chunk":
+                assert data["payload"]["messageId"] == message_id
+            elif data["type"] == "chat.complete":
+                final_complete = data
+            else:
+                raise AssertionError(f"Unexpected message type: {data['type']}")
+
+        assert tool_start is not None
+        assert tool_output is not None
+        assert tool_end is not None
+        assert tool_start["payload"]["toolCallId"] == "call_abc123"
+        assert tool_start["payload"]["toolName"] == "read_file"
+        assert tool_output["payload"]["toolCallId"] == "call_abc123"
+        assert tool_output["payload"]["chunk"] == "File contents here"
+        assert tool_end["payload"]["toolCallId"] == "call_abc123"
+        assert tool_end["payload"]["success"] is True
+        assert final_complete["payload"]["messageId"] == message_id
+        assert final_complete["payload"]["finalContent"] == "done"
+        assert "tool.start" in seen_types
+        assert "tool.output" in seen_types
+        assert "tool.end" in seen_types
+
+
 def test_tool_message_serialization():
     """Verify tool messages serialize to correct JSON format."""
     from alfred.interfaces.webui.validation import ToolStartMessage, ToolStartPayload
@@ -147,49 +230,32 @@ def test_tool_callback_sends_websocket_messages():
         async def send_json(self, data):
             sent_messages.append(data)
 
-    class MockAlfred:
-        """Mock Alfred that simulates chat with tool calls."""
-
-        async def chat_stream(self, content, tool_callback=None):
-            """Simulate chat streaming with tool calls."""
-            yield "I'll help you read that file."
-
-            # Simulate tool start
-            if tool_callback:
-                tool_callback(ToolStart(
-                    tool_call_id="call_abc123",
-                    tool_name="read_file",
-                    arguments={"path": "/tmp/test.txt"}
-                ))
-
-            await asyncio.sleep(0)  # Let event loop process the task
-            yield " "
-
-            # Simulate tool output
-            if tool_callback:
-                tool_callback(ToolOutput(
-                    tool_call_id="call_abc123",
-                    tool_name="read_file",
-                    chunk="File contents here"
-                ))
-
-            await asyncio.sleep(0)
-            yield "Done"
-
-            # Simulate tool end
-            if tool_callback:
-                tool_callback(ToolEnd(
-                    tool_call_id="call_abc123",
-                    tool_name="read_file",
-                    result="File contents here",
-                    is_error=False
-                ))
-
-            await asyncio.sleep(0)
+    mock_alfred = FakeAlfred(
+        stream_parts=[
+            "I'll help you read that file.",
+            ToolStart(
+                tool_call_id="call_abc123",
+                tool_name="read_file",
+                arguments={"path": "/tmp/test.txt"},
+            ),
+            " ",
+            ToolOutput(
+                tool_call_id="call_abc123",
+                tool_name="read_file",
+                chunk="File contents here",
+            ),
+            "Done",
+            ToolEnd(
+                tool_call_id="call_abc123",
+                tool_name="read_file",
+                result="File contents here",
+                is_error=False,
+            ),
+        ]
+    )
 
     async def run_test():
         mock_ws = MockWebSocket()
-        mock_alfred = MockAlfred()
 
         await _handle_chat_message(mock_ws, mock_alfred, "Read /tmp/test.txt")
 

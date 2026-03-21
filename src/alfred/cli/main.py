@@ -9,7 +9,7 @@ import logging
 import os
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import typer
 from rich.console import Console
@@ -258,10 +258,10 @@ def webui_callback(
 
     # Run server with Alfred instance
     uvicorn.run(
-        create_app(alfred_instance=alfred),
+        create_app(alfred_instance=cast(Any, alfred), debug=_log_level == "debug"),
         host=host,
         port=port,
-        log_level="info",
+        log_level="debug" if _log_level == "debug" else "info",
     )
 
 

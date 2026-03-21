@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
+JsonObject = dict[str, object]
+
 # =============================================================================
 # Client -> Server Messages (Incoming)
 # =============================================================================
@@ -159,7 +161,7 @@ class ToolStartPayload(BaseModel):
 
     tool_call_id: str = Field(..., alias="toolCallId", description="Tool call ID")
     tool_name: str = Field(..., alias="toolName", description="Tool name")
-    arguments: dict = Field(default_factory=dict, description="Tool arguments")
+    arguments: JsonObject = Field(default_factory=dict, description="Tool arguments")
     message_id: str = Field(..., alias="messageId", description="Parent message ID")
 
     model_config = {"populate_by_name": True}
@@ -307,7 +309,7 @@ ServerMessage = (
 # =============================================================================
 
 
-def validate_client_message(data: dict) -> tuple[bool, ClientMessage | None, str]:
+def validate_client_message(data: JsonObject) -> tuple[bool, ClientMessage | None, str]:
     """Validate incoming client message.
 
     Args:
@@ -343,7 +345,7 @@ def validate_client_message(data: dict) -> tuple[bool, ClientMessage | None, str
         return False, None, f"Validation error: {errors}"
 
 
-def create_validation_error_response(message_id: str, error: str) -> dict:
+def create_validation_error_response(message_id: str, error: str) -> JsonObject:
     """Create a chat.error response for validation failures.
 
     Args:
