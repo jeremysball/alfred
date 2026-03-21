@@ -3,8 +3,8 @@
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.ansi import RESET, REVERSE
+from alfred.interfaces.pypitui.utils import visible_width
 from pypitui import Component
-from pypitui.utils import visible_width
 
 if TYPE_CHECKING:
     pass
