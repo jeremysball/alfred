@@ -261,6 +261,10 @@ $ alfred webui --open
 - ✅ Documentation is complete
 - ✅ No regression in TUI functionality
 
+**Testing strategy clarification (2026-03-21)**:
+- Web UI component acceptance should use browser-behavior tests in Playwright or equivalent real browser automation.
+- Tests that only read JS/CSS source files are useful supplemental smoke checks, but they do not satisfy component-test acceptance on their own.
+
 ---
 
 ## WebSocket Protocol
@@ -610,6 +614,7 @@ Since this is **local-only with Tailscale**:
 | 2026-03-18 | FastAPI + WebSocket | Native async, Python-only stack |
 | 2026-03-18 | Local-only (no auth) | Tailscale handles network security |
 | 2026-03-18 | Feature parity with TUI | User wants all TUI features |
+| 2026-03-21 | Browser-behavior tests are the acceptance path for Web UI components | Web Components are defined by runtime DOM, events, and styling; source-string assertions are not enough |
 
 ---
 

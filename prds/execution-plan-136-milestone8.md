@@ -45,43 +45,45 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
   - Test token usage counters and model name propagation
   - Commit: `test(webui): add status update protocol tests`
 
-### 8.2 Web Components Unit Tests
+### 8.2 Web Component Browser Behavior Tests
 
-- [ ] **Test**: `test_chat_message_rendering()` - Verify chat-message component
-  - Test user, assistant, and system message rendering
+**Strategy note**: These tests must exercise real browser behavior via Playwright against actual custom elements. Static file inspections may remain as smoke checks, but they do not satisfy this phase on their own.
+
+- [ ] **Test**: `test_chat_message_rendering()` - Verify `<chat-message>` renders correctly in a real browser runtime
+  - Mount the actual component in a browser page
+  - Verify user, assistant, and system variants render the expected DOM and content
+  - Verify behavior through rendered output, not JS source-string assertions
   - Run: `uv run pytest tests/webui/test_components.py::test_chat_message_rendering -v`
 
 - [ ] **Implement**: Create `tests/webui/test_components.py`
-  - Use Playwright or similar for component testing
-  - Verify shadow DOM content and styling
-  - Commit: `test(webui): add chat-message component tests`
+  - Use Playwright for browser-behavior testing
+  - Exercise actual custom elements, shadow DOM, events, and rendered styling where relevant
+  - Commit: `test(webui): add chat-message browser behavior tests`
 
-- [ ] **Test**: `test_status_bar_updates()` - Verify status-bar component
-  - Test token counter, model display, queue badge updates
+- [ ] **Test**: `test_status_bar_updates()` - Verify `<status-bar>` updates in the real DOM
+  - Drive model, token, queue, and streaming-state updates through the actual element
+  - Verify rendered badges/text and throbber visibility in the browser
   - Run: `uv run pytest tests/webui/test_components.py::test_status_bar_updates -v`
 
-- [ ] **Implement**: Add status-bar component tests
-  - Test attribute changes trigger UI updates
-  - Verify streaming throbber animation states
-  - Commit: `test(webui): add status-bar component tests`
+- [ ] **Implement**: Add status-bar browser behavior tests
+  - Verify runtime updates through rendered output rather than source inspection
+  - Commit: `test(webui): add status-bar browser behavior tests`
 
-- [ ] **Test**: `test_toast_notifications()` - Verify toast-container component
-  - Test adding, auto-removing, and dismissing toasts
+- [ ] **Test**: `test_toast_notifications()` - Verify `<toast-container>` behavior in the browser
+  - Add real toasts, verify visible content/levels, and confirm auto-dismiss timing
   - Run: `uv run pytest tests/webui/test_components.py::test_toast_notifications -v`
 
-- [ ] **Implement**: Add toast notification tests
-  - Verify 4 toast levels (info, success, warning, error)
-  - Test auto-dismiss after timeout
-  - Commit: `test(webui): add toast notification tests`
+- [ ] **Implement**: Add toast browser behavior tests
+  - Verify the 4 toast levels (info, success, warning, error) and dismiss behavior in the real DOM
+  - Commit: `test(webui): add toast browser behavior tests`
 
-- [ ] **Test**: `test_tool_call_expansion()` - Verify tool-call component
-  - Test expand/collapse functionality
+- [ ] **Test**: `test_tool_call_expansion()` - Verify `<tool-call>` expand/collapse behavior in the browser
+  - Click the actual component and verify collapsed/expanded DOM states and content rendering
   - Run: `uv run pytest tests/webui/test_components.py::test_tool_call_expansion -v`
 
-- [ ] **Implement**: Add tool-call component tests
-  - Test all expand/collapse states
-  - Verify content rendering for different tool types
-  - Commit: `test(webui): add tool-call component tests`
+- [ ] **Implement**: Add tool-call browser behavior tests
+  - Verify interactive behavior and rendered content for representative tool states
+  - Commit: `test(webui): add tool-call browser behavior tests`
 
 ### 8.3 Integration Tests ✅
 
@@ -191,7 +193,7 @@ Complete the Web UI implementation with comprehensive tests and documentation. T
 | File | Changes |
 |------|---------|
 | `tests/webui/test_websocket.py` | New file - WebSocket protocol unit tests |
-| `tests/webui/test_components.py` | New file - Web Component unit tests |
+| `tests/webui/test_components.py` | New file - Playwright browser-behavior tests for Web Components |
 | `tests/webui/test_integration.py` | New file - End-to-end integration tests |
 | `tests/webui/__init__.py` | Create test package |
 | `README.md` | Add Web UI usage section |
@@ -225,6 +227,9 @@ test(webui): improve test coverage to 80%
 ## Verification Commands
 
 ```bash
+# Run component browser-behavior tests
+uv run pytest tests/webui/test_components.py -v
+
 # Run all Web UI tests
 uv run pytest tests/webui/ -v
 
@@ -248,6 +253,7 @@ uv run alfred webui --port 8080 &
 
 - [ ] Test coverage >80% for `src/alfred/interfaces/webui/`
 - [ ] All Web UI tests pass
+- [ ] Critical Web Components are verified via real browser behavior
 - [ ] README documents `alfred webui` command
 - [ ] WebSocket protocol documented
 - [ ] ROADMAP.md updated
