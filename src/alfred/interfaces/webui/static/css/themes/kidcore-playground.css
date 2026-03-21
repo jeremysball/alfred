@@ -590,6 +590,27 @@
   color: #fff7ff;
 }
 
+[data-theme="kidcore-playground"] chat-message.glue-shimmer .message-bubble {
+  border-color: #fff7ff;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.28) 0, transparent 24%),
+    radial-gradient(circle at 78% 0%, rgba(255, 239, 93, 0.2) 0, transparent 18%),
+    linear-gradient(135deg, #7c4dff 0%, #ff4fd8 46%, #00e5ff 100%);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.1),
+    7px 7px 0 rgba(0, 0, 0, 0.24),
+    0 0 28px rgba(255, 79, 216, 0.28);
+}
+
+[data-theme="kidcore-playground"] chat-message.glue-shimmer .message-content {
+  color: #fff7ff;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="kidcore-playground"] chat-message.glue-shimmer-pulse .message-bubble {
+  animation: kidcore-glue-bounce 260ms cubic-bezier(0.18, 0.89, 0.32, 1.35);
+}
+
 [data-theme="kidcore-playground"] .message-content {
   line-height: 1.65;
   font-family: var(--font-primary);
@@ -1034,6 +1055,21 @@
   }
   to {
     opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes kidcore-glue-bounce {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-5px) scale(1.02);
+  }
+  70% {
+    transform: translateY(1px) scale(0.995);
+  }
+  100% {
     transform: translateY(0) scale(1);
   }
 }

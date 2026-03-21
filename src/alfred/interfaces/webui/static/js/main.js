@@ -25,20 +25,50 @@ function initAlfredUI() {
   const kidcoreAudioMuteButton = document.getElementById('kidcore-audio-mute');
   const kidcoreAudioStatus = document.getElementById('kidcore-audio-status');
 
+  const KIDCORE_THEME_ID = 'kidcore-playground';
+  let pendingKidcoreStreamingFx = null;
+
+  function isKidcoreThemeActive() {
+    return document.documentElement.getAttribute('data-theme') === KIDCORE_THEME_ID;
+  }
+
   function playKidcoreClick() {
-    kidcoreAudioManager?.playClick?.();
+    if (!isKidcoreThemeActive() || !kidcoreAudioManager) {
+      return;
+    }
+    kidcoreAudioManager.playClick?.();
   }
 
   function playKidcoreSend() {
-    kidcoreAudioManager?.playSend?.();
+    if (!isKidcoreThemeActive() || !kidcoreAudioManager) {
+      return;
+    }
+    kidcoreAudioManager.playSend?.();
+  }
+
+  function playKidcoreChunk() {
+    if (!isKidcoreThemeActive() || !kidcoreAudioManager) {
+      return;
+    }
+    kidcoreAudioManager.playChunk?.();
   }
 
   function playKidcoreSuccess() {
-    kidcoreAudioManager?.playSuccess?.();
+    playKidcoreMessageComplete();
+  }
+
+  function playKidcoreMessageComplete() {
+    if (!isKidcoreThemeActive() || !kidcoreAudioManager) {
+      return;
+    }
+    kidcoreAudioManager.playMessageComplete?.();
   }
 
   function playKidcoreError() {
-    kidcoreAudioManager?.playError?.();
+    if (!isKidcoreThemeActive() || !kidcoreAudioManager) {
+      return;
+    }
+    kidcoreAudioManager.playError?.();
   }
 
   function syncKidcoreAudioControls() {
@@ -46,21 +76,22 @@ function initAlfredUI() {
       return;
     }
 
-    const isMuted = kidcoreAudioManager.isMuted;
-    const isMusicPlaying = kidcoreAudioManager.isMusicPlaying;
+    const isKidcore = isKidcoreThemeActive();
+    const isMuted = isKidcore && kidcoreAudioManager.isMuted;
+    const isMusicPlaying = isKidcore && kidcoreAudioManager.isMusicPlaying;
 
-    kidcoreAudioControls.dataset.audioState = isMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
+    kidcoreAudioControls.dataset.audioState = !isKidcore ? 'disabled' : isMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
 
     if (kidcoreAudioStatus) {
-      kidcoreAudioStatus.textContent = isMuted ? 'Muted' : isMusicPlaying ? 'Playing' : 'Ready';
+      kidcoreAudioStatus.textContent = !isKidcore ? 'Hidden' : isMuted ? 'Muted' : isMusicPlaying ? 'Playing' : 'Ready';
     }
 
-    kidcoreAudioPlayButton?.setAttribute('aria-pressed', String(isMusicPlaying && !isMuted));
-    kidcoreAudioMuteButton?.setAttribute('aria-pressed', String(isMuted));
+    kidcoreAudioPlayButton?.setAttribute('aria-pressed', String(isKidcore && isMusicPlaying));
+    kidcoreAudioMuteButton?.setAttribute('aria-pressed', String(isKidcore && isMuted));
   }
 
   function resumeKidcoreMusic() {
-    if (!kidcoreAudioManager) {
+    if (!isKidcoreThemeActive() || !kidcoreAudioManager) {
       return;
     }
 
@@ -70,6 +101,49 @@ function initAlfredUI() {
     }
     syncKidcoreAudioControls();
   }
+
+  function applyGlueShimmerEffect(messageEl) {
+    if (pendingKidcoreStreamingFx !== 'glue-shimmer' || !messageEl) {
+      return;
+    }
+
+    messageEl.classList.add('glue-shimmer');
+    messageEl.setAttribute('data-stream-fx', 'glue-shimmer');
+  }
+
+  function pulseGlueShimmer(messageEl) {
+    if (pendingKidcoreStreamingFx !== 'glue-shimmer' || !messageEl) {
+      return;
+    }
+
+    const bubble = messageEl.querySelector('.message-bubble');
+    if (!bubble) {
+      return;
+    }
+
+    bubble.classList.remove('glue-shimmer-pulse');
+    void bubble.offsetWidth;
+    bubble.classList.add('glue-shimmer-pulse');
+  }
+
+  function clearGlueShimmerEffect(messageEl) {
+    if (messageEl) {
+      messageEl.classList.remove('glue-shimmer');
+      messageEl.removeAttribute('data-stream-fx');
+      const bubble = messageEl.querySelector('.message-bubble');
+      bubble?.classList.remove('glue-shimmer-pulse');
+    }
+    pendingKidcoreStreamingFx = null;
+  }
+
+  const themeObserver = new MutationObserver(() => {
+    if (!isKidcoreThemeActive()) {
+      kidcoreAudioManager?.stopAll?.();
+      pendingKidcoreStreamingFx = null;
+    }
+    syncKidcoreAudioControls();
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
   kidcoreAudioPlayButton?.addEventListener('click', () => {
     resumeKidcoreMusic();
@@ -138,9 +212,7 @@ function initAlfredUI() {
   }
 
   // Message Handler
-  wsClient.addEventListener('message', (event) => {
-    const msg = event.detail;
-
+  function handleWebSocketMessage(msg) {
     switch (msg.type) {
       case 'chat.started':
         currentAssistantMessage = document.createElement('chat-message');
@@ -148,6 +220,7 @@ function initAlfredUI() {
         currentAssistantMessage.setAttribute('content', '');
         currentAssistantMessage.setAttribute('timestamp', new Date().toISOString());
         messageList.appendChild(currentAssistantMessage);
+        applyGlueShimmerEffect(currentAssistantMessage);
         showStreaming();
         scrollToBottom();
         break;
@@ -155,6 +228,8 @@ function initAlfredUI() {
       case 'reasoning.chunk':
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendReasoning(msg.payload.content);
+          playKidcoreChunk();
+          pulseGlueShimmer(currentAssistantMessage);
           scrollToBottom();
         }
         break;
@@ -162,14 +237,17 @@ function initAlfredUI() {
       case 'chat.chunk':
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendContent(msg.payload.content);
+          playKidcoreChunk();
+          pulseGlueShimmer(currentAssistantMessage);
           scrollToBottom();
         }
         break;
 
       case 'chat.complete':
         hideStreaming();
+        playKidcoreMessageComplete();
+        clearGlueShimmerEffect(currentAssistantMessage);
         currentAssistantMessage = null;
-        playKidcoreSuccess();
         enableInput();
         // Add copy buttons to any new code blocks
         addCopyButtons();
@@ -181,6 +259,7 @@ function initAlfredUI() {
         hideStreaming();
         playKidcoreError();
         showError(msg.payload?.error || 'An error occurred');
+        clearGlueShimmerEffect(currentAssistantMessage);
         currentAssistantMessage = null;
         enableInput();
         break;
@@ -232,7 +311,19 @@ function initAlfredUI() {
       default:
         console.log('Unhandled message type:', msg.type);
     }
+  }
+
+  wsClient.addEventListener('message', (event) => {
+    handleWebSocketMessage(event.detail);
   });
+
+  if (typeof window !== 'undefined') {
+    window.__alfredWebUI = {
+      emitMessage: handleWebSocketMessage,
+      syncKidcoreAudioControls,
+      getCurrentAssistantMessage: () => currentAssistantMessage,
+    };
+  }
 
   // Session Handlers
   function handleSessionNew(payload) {
@@ -495,6 +586,8 @@ function initAlfredUI() {
 
     // Send via WebSocket - commands use command.execute, chat uses chat.send
     if (content.startsWith('/')) {
+      pendingKidcoreStreamingFx = null;
+
       // Commands: show as system message, don't disable input
       const cmdMsg = document.createElement('chat-message');
       cmdMsg.setAttribute('role', 'system');
@@ -506,6 +599,8 @@ function initAlfredUI() {
       wsClient.sendCommand(content);
       // Don't disable input - commands are instant
     } else {
+      pendingKidcoreStreamingFx = content.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+
       // Chat messages: show as user message, disable input during streaming
       const userMessage = document.createElement('chat-message');
       userMessage.setAttribute('role', 'user');

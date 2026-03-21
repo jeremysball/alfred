@@ -344,3 +344,142 @@ async def test_kidcore_audio_play_resumes_after_mute() -> None:
             except TimeoutError:
                 process.kill()
                 await process.wait()
+
+
+@pytest.mark.asyncio
+async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
+    port = _find_free_port()
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "webui",
+        "--port",
+        str(port),
+        cwd=PROJECT_ROOT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+
+    try:
+        await _wait_for_server(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.add_init_script(
+                "localStorage.setItem('alfred-theme', 'kidcore-playground');"
+            )
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            await page.evaluate(
+                """
+                () => {
+                  const audio = window.kidcoreAudioManager;
+                  window.__kidcoreAudioCalls = {
+                    playChunk: 0,
+                    playMessageComplete: 0,
+                    playSend: 0,
+                  };
+
+                  for (const method of Object.keys(window.__kidcoreAudioCalls)) {
+                    const original = audio[method].bind(audio);
+                    audio[method] = (...args) => {
+                      window.__kidcoreAudioCalls[method] += 1;
+                      return original(...args);
+                    };
+                  }
+                }
+                """
+            )
+
+            await page.locator('#message-input').fill('glue shimmer')
+            await page.click('#send-button')
+            await page.wait_for_timeout(50)
+
+            await page.evaluate(
+                """
+                () => {
+                  window.__alfredWebUI.emitMessage({ type: 'chat.started' });
+                  window.__alfredWebUI.emitMessage({
+                    type: 'chat.chunk',
+                    payload: { content: 'glue ' },
+                  });
+                  window.__alfredWebUI.emitMessage({
+                    type: 'chat.chunk',
+                    payload: { content: 'shimmer' },
+                  });
+                }
+                """
+            )
+
+            during_stream = await page.evaluate(
+                """
+                () => {
+                  const assistant = document.querySelector('chat-message.glue-shimmer');
+                  const bubble = assistant?.querySelector('.message-bubble');
+                  return {
+                    theme: document.documentElement.getAttribute('data-theme'),
+                    calls: window.__kidcoreAudioCalls,
+                    hasAssistant: Boolean(assistant),
+                    hasGlueClass: Boolean(assistant?.classList.contains('glue-shimmer')),
+                    bubbleText: bubble?.textContent || '',
+                    animationName: bubble ? getComputedStyle(bubble).animationName : '',
+                  };
+                }
+                """
+            )
+
+            assert during_stream["theme"] == "kidcore-playground"
+            assert during_stream["calls"]["playSend"] == 1
+            assert during_stream["calls"]["playChunk"] == 2
+            assert during_stream["hasAssistant"] is True
+            assert during_stream["hasGlueClass"] is True
+            assert "glue shimmer" in during_stream["bubbleText"].lower()
+            assert during_stream["animationName"] != "none"
+
+            await page.evaluate(
+                """
+                () => {
+                  window.__alfredWebUI.emitMessage({ type: 'chat.complete' });
+                }
+                """
+            )
+            await page.wait_for_timeout(50)
+
+            done = await page.evaluate(
+                """
+                () => ({
+                  calls: window.__kidcoreAudioCalls,
+                  assistantStillStreaming: Boolean(document.querySelector('chat-message.glue-shimmer.streaming')),
+                  readyText: document.getElementById('kidcore-audio-status')?.textContent || '',
+                })
+                """
+            )
+
+            assert done["calls"]["playMessageComplete"] == 1
+            assert done["assistantStillStreaming"] is False
+            assert done["readyText"] in {"Ready", "Playing", "Muted"}
+
+            await browser.close()
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+
+
+def test_audio_manager_uses_web_audio_and_special_effect_files() -> None:
+    source = AUDIO_MANAGER.read_text()
+
+    assert 'AudioContext' in source or 'webkitAudioContext' in source
+    assert 'playChunk' in source
+    assert 'playMessageComplete' in source
+    assert 'success.mp3' in source
+    assert 'error.mp3' in source
