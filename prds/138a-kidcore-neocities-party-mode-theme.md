@@ -46,7 +46,7 @@ This theme is **not** the default. It is a special-purpose aesthetic mode for us
 - [x] Theme includes animated decorative effects by default.
 - [ ] Sound effects fire for core interactions.
 - [ ] Music starts only after clicking a visible play control.
-- [ ] A visible mute / stop control exists.
+- [x] A visible mute / stop control exists.
 - [x] The UI is visually ridiculous without completely breaking message reading or input.
 
 ---

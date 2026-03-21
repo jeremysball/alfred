@@ -51,18 +51,18 @@ Add the theme's sound effects and looping music with the simplest possible contr
 ## 3. Interaction Wiring
 
 ### 3.1 Add failing wiring coverage
-- [ ] **Test**: `test_main_wires_kidcore_audio_to_core_interactions()`
-  - Assert `main.js` calls audio behavior for send, success, error, and toast or equivalent visible interactions
+- [x] **Test**: `test_main_wires_kidcore_audio_to_core_interactions()`
+  - Asserted `main.js` calls audio behavior for send, success, error, and toast or equivalent visible interactions
   - Run: `uv run pytest tests/webui/test_kidcore_audio.py::test_main_wires_kidcore_audio_to_core_interactions -v`
 
 ### 3.2 Wire audio into the app
-- [ ] **Implement**: Update `src/alfred/interfaces/webui/static/js/main.js`
-  - Trigger click/send/error/success-ish sounds on meaningful events
-  - Hook play and mute controls to the audio manager
-  - Do not block chat if audio fails
+- [x] **Implement**: Update `src/alfred/interfaces/webui/static/js/main.js`
+  - Triggered click/send/error/success-ish sounds on meaningful events
+  - Hooked play and mute controls to the audio manager
+  - Did not block chat if audio fails
 
 ### 3.3 Verify wiring
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_main_wires_kidcore_audio_to_core_interactions -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_main_wires_kidcore_audio_to_core_interactions -v`
 
 ---
 
@@ -130,6 +130,6 @@ uv run alfred webui --port 8080
 
 ## Next Task
 
-- [ ] **Test**: `test_main_wires_kidcore_audio_to_core_interactions()`
-- [ ] **Implement**: Wire play / mute controls and chat interaction sounds in `main.js`
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_main_wires_kidcore_audio_to_core_interactions -v`
+- [ ] **Test**: `test_kidcore_audio_assets_exist()`
+- [ ] **Implement**: Add local static audio files under `src/alfred/interfaces/webui/static/audio/`
+- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_assets_exist -v`
