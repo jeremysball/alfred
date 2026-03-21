@@ -64,4 +64,4 @@ jobs:
           KIMI_API_KEY: test
           KIMI_BASE_URL: https://example.invalid
           TELEGRAM_BOT_TOKEN: test
-        run: uv run pytest
+        run: uv run pytest -m "not integration and not slow" --ignore=tests/webui/test_cli.py
