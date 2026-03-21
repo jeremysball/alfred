@@ -72,6 +72,7 @@ function initAlfredUI() {
   // Message Handler
   wsClient.addEventListener('message', (event) => {
     const msg = event.detail;
+    console.log('[WebSocket] Received message:', msg.type, msg);
 
     switch (msg.type) {
       case 'chat.started':

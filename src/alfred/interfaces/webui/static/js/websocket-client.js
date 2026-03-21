@@ -155,6 +155,7 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   sendCommand(command) {
+    console.log('[WebSocket] Sending command:', command);
     this.send({
       type: 'command.execute',
       payload: {

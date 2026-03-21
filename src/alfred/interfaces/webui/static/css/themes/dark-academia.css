@@ -369,3 +369,17 @@
   padding: 0;
   border-radius: 0;
 }
+
+/* Status Bar */
+[data-theme="dark-academia"] status-bar {
+  --status-bg: var(--da-bg-footer);
+  --status-border: var(--da-border-color);
+  --status-text: var(--da-text-secondary);
+  --status-label: var(--da-text-muted);
+  --status-value: var(--da-text-secondary);
+  --status-streaming: var(--da-accent-gold);
+  --status-model: var(--da-accent-gold);
+  --status-tokens: var(--da-accent-forest);
+  --status-queue: var(--da-accent-oxblood);
+  --font-mono: var(--da-font-mono);
+}

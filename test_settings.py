@@ -1,26 +1,40 @@
 #!/usr/bin/env python3
-"""Test the settings menu visibility."""
+"""Test settings menu on mobile."""
 
 import asyncio
 from playwright.async_api import async_playwright
 
-async def test_settings():
+async def test():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        page = await browser.new_page(viewport={"width": 1280, "height": 800})
+        
+        # Test mobile viewport
+        context = await browser.new_context(viewport={"width": 375, "height": 667})
+        page = await context.new_page()
         
         await page.goto("http://127.0.0.1:8080")
         await page.wait_for_timeout(2000)
         
-        # Click the settings button
-        await page.click(".settings-toggle")
-        await page.wait_for_timeout(500)
+        # Take screenshot before clicking
+        await page.screenshot(path="/workspace/alfred-prd/screenshots/settings_before.png")
         
-        # Take screenshot
-        await page.screenshot(path="/workspace/alfred-prd/screenshots/settings_menu.png", full_page=True)
-        print("Screenshot saved")
+        # Click settings button
+        settings_btn = await page.wait_for_selector(".settings-toggle")
+        print("Settings button found:", settings_btn is not None)
+        
+        # Try clicking
+        await settings_btn.click()
+        await page.wait_for_timeout(1000)
+        
+        # Take screenshot after clicking
+        await page.screenshot(path="/workspace/alfred-prd/screenshots/settings_after.png")
+        
+        # Check if dropdown is visible
+        dropdown = await page.query_selector(".settings-dropdown:not(.hidden)")
+        print("Dropdown visible:", dropdown is not None)
         
         await browser.close()
+        print("Test complete!")
 
 if __name__ == "__main__":
-    asyncio.run(test_settings())
+    asyncio.run(test())

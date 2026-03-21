@@ -122,9 +122,13 @@ class StatusBar extends HTMLElement {
 
     this.innerHTML = `
       <div class="status-bar ${streamingClass}">
+        <div class="status-section streaming-section ${this._streaming ? 'active' : 'hidden'}">
+          <span class="throbber">${throbberChar}</span>
+          <span class="streaming-text">Thinking...</span>
+        </div>
         <div class="status-section model-section">
           <span class="status-label">Model</span>
-          <span class="status-value model-name">${this._escapeHtml(this._model)}</span>
+          <span class="status-value model-name">${this._escapeHtml(this._model) || '-'}</span>
         </div>
         <div class="status-section tokens-section">
           <span class="status-label">Tokens</span>
@@ -133,10 +137,6 @@ class StatusBar extends HTMLElement {
         <div class="status-section queue-section ${queueClass}">
           <span class="status-label">Queue</span>
           <span class="status-value queue-count">${this._queue}</span>
-        </div>
-        <div class="status-section streaming-section ${this._streaming ? 'active' : 'hidden'}">
-          <span class="throbber">${throbberChar}</span>
-          <span class="streaming-text">Thinking...</span>
         </div>
       </div>
     `;
