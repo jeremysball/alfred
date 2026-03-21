@@ -19,7 +19,10 @@ jobs:
         with:
           repository: jeremysball/pypitui
           ref: v2
-          path: ../pypitui
+          path: pypitui
+
+      - name: Link sibling pypitui
+        run: ln -sfn "$GITHUB_WORKSPACE/pypitui" "$GITHUB_WORKSPACE/../pypitui"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
