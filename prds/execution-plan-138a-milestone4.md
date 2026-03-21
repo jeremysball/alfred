@@ -11,67 +11,71 @@ Verify the full chaos theme in a real browser, confirm the audio controls work, 
 ## 1. Regression Test Sweep
 
 ### 1.1 Run targeted kidcore tests
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_theme.py -v`
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_chaos.py -v`
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_theme.py -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_chaos.py -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py -v`
 
 ### 1.2 Run broader Web UI coverage
-- [ ] **Run**: `uv run pytest tests/webui/ -v`
+- [!] **Run**: `uv run pytest tests/webui/ -v`
+  - Blocked by unrelated pre-existing Web UI failures outside the kidcore theme work
 
 ### 1.3 Run code-quality checks on touched frontend files
-- [ ] **Run**: `uv run ruff check src/ tests/`
-- [ ] **Run**: `uv run mypy --strict src/alfred`
+- [!] **Run**: `uv run ruff check src/ tests/`
+- [!] **Run**: `uv run mypy --strict src/alfred`
+  - Blocked by unrelated pre-existing lint/type issues in the repository baseline
 
 ---
 
 ## 2. Real Browser Verification
 
 ### 2.1 Start the app
-- [ ] **Run**: `uv run alfred webui --port 8080`
+- [x] **Run**: `uv run alfred webui --port 8080`
 
 ### 2.2 Verify theme behavior in browser
-- [ ] **Verify**: theme appears in selector
-- [ ] **Verify**: selecting Kidcore Playground changes the whole UI
-- [ ] **Verify**: refresh preserves theme selection
-- [ ] **Verify**: messages still render correctly
-- [ ] **Verify**: composer still accepts input and send works
+- [x] **Verify**: theme appears in selector
+- [x] **Verify**: selecting Kidcore Playground changes the whole UI
+- [x] **Verify**: refresh preserves theme selection
+- [x] **Verify**: messages still render correctly
+- [x] **Verify**: composer still accepts input and send works
 
 ### 2.3 Verify audio behavior in browser
-- [ ] **Verify**: music does not start before clicking play
-- [ ] **Verify**: clicking play starts music
-- [ ] **Verify**: clicking mute / stop kills the noise
-- [ ] **Verify**: interaction sounds fire during normal use
+- [x] **Verify**: music does not start before clicking play
+- [x] **Verify**: clicking play starts music
+- [x] **Verify**: clicking mute / stop kills the noise
+- [x] **Verify**: interaction sounds fire during normal use
 
 ### 2.4 Prefer browser automation where practical
-- [ ] **Verify**: use Playwright or equivalent browser-level checks before calling the theme done
+- [x] **Verify**: use Playwright or equivalent browser-level checks before calling the theme done
 
 ---
 
 ## 3. Mobile / Small Viewport Check
 
 ### 3.1 Verify narrow layout survival
-- [ ] **Verify**: header still fits
-- [ ] **Verify**: audio controls remain usable
-- [ ] **Verify**: composer and send button remain reachable
-- [ ] **Verify**: scrolling still works
+- [x] **Verify**: header still fits
+- [x] **Verify**: audio controls remain usable
+- [x] **Verify**: composer and send button remain reachable
+- [x] **Verify**: scrolling still works
 
 ### 3.2 Fix obvious mobile breakage
-- [ ] **Implement**: patch any glaring layout failures found during verification
-- [ ] **Run**: rerun affected kidcore tests after fixes
+- [x] **Implement**: patch any glaring layout failures found during verification
+  - No glaring mobile layout failures were found, so no patch was required
+- [x] **Run**: rerun affected kidcore tests after fixes
 
 ---
 
 ## 4. Final Polish Pass
 
 ### 4.1 Tone adjustment
-- [ ] **Implement**: if the theme is not obnoxious enough, make it worse in safe places
-- [ ] **Implement**: if the theme makes chat unreadable, dial back only the content surfaces
+- [x] **Implement**: if the theme is not obnoxious enough, make it worse in safe places
+- [x] **Implement**: if the theme makes chat unreadable, dial back only the content surfaces
+  - No extra tone adjustment was required; the existing chaos level and readable surfaces were sufficient
 
 ### 4.2 Final acceptance check
-- [ ] **Verify**: the result feels like a bad old-web fever dream
-- [ ] **Verify**: it is opt-in
-- [ ] **Verify**: it is stoppable
-- [ ] **Verify**: it does not completely wreck Alfred
+- [x] **Verify**: the result feels like a bad old-web fever dream
+- [x] **Verify**: it is opt-in
+- [x] **Verify**: it is stoppable
+- [x] **Verify**: it does not completely wreck Alfred
 
 ---
 
@@ -110,9 +114,9 @@ uv run alfred webui --port 8080
 
 ## Exit Criteria
 
-- [ ] Kidcore Playground theme is selectable
-- [ ] Theme is visually chaotic and obviously intentional
-- [ ] Play button starts music only after user action
-- [ ] Mute / stop control works
-- [ ] Core chat flow still works in browser
-- [ ] No glaring mobile layout failure remains
+- [x] Kidcore Playground theme is selectable
+- [x] Theme is visually chaotic and obviously intentional
+- [x] Play button starts music only after user action
+- [x] Mute / stop control works
+- [x] Core chat flow still works in browser
+- [x] No glaring mobile layout failure remains

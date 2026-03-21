@@ -2,7 +2,7 @@
 
 **Parent PRD**: [#138 Modernize Web UI Design](./138-modernize-web-ui-design.md)  
 **Local ID**: 138A (sub-PRD, no GitHub issue)  
-**Status**: In Progress  
+**Status**: Complete  
 **Priority**: Medium  
 **Created**: 2026-03-21
 
@@ -230,7 +230,7 @@ It **does** need to:
 
 ## 9. Next Step
 
-Continue Milestone 4: Browser Verification & Final Polish using `prds/execution-plan-138a-milestone4.md`.
+Kidcore Playground is complete. Use `/prd-close` if you want to archive this sub-PRD.
 
 ---
 
