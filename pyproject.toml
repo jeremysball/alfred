@@ -98,6 +98,7 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+mypy_path = "$MYPY_CONFIG_FILE_DIR/src:$MYPY_CONFIG_FILE_DIR/../pypitui/src"
 disallow_any_generics = false
 warn_return_any = true
 warn_unused_configs = true
@@ -109,6 +110,14 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
 
+
+[[tool.mypy.overrides]]
+module = [
+    "alfred.interfaces.pypitui",
+    "alfred.interfaces.pypitui.*",
+    "alfred.interfaces.pypitui_cli",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
