@@ -145,11 +145,11 @@ Not:
 ### Milestone 3: Audio & Music
 **Goal**: Add the theme's noise.
 
-- [ ] Add sound effects for key interactions
-- [ ] Add looping background music
-- [ ] Add a visible play control for starting music
-- [ ] Add a visible mute / stop control
-- [ ] Wire sounds without blocking the app when audio fails or is blocked
+- [x] Add sound effects for key interactions
+- [x] Add looping background music
+- [x] Add a visible play control for starting music
+- [x] Add a visible mute / stop control
+- [x] Wire sounds without blocking the app when audio fails or is blocked
 
 **Validation**: Audio works after explicit user action and can be shut off easily.
 
@@ -230,7 +230,7 @@ It **does** need to:
 
 ## 9. Next Step
 
-Continue Milestone 3: Audio & Music using `prds/execution-plan-138a-milestone3.md`.
+Continue Milestone 4: Browser Verification & Final Polish using `prds/execution-plan-138a-milestone4.md`.
 
 ---
 

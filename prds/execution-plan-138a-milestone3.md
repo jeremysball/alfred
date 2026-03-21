@@ -69,8 +69,8 @@ Add the theme's sound effects and looping music with the simplest possible contr
 ## 4. Static Audio Assets
 
 ### 4.1 Add failing asset coverage
-- [ ] **Test**: `test_kidcore_audio_assets_exist()`
-  - Assert expected static assets exist under `src/alfred/interfaces/webui/static/audio/`
+- [x] **Test**: `test_kidcore_audio_assets_exist()`
+  - Asserted expected static assets exist under `src/alfred/interfaces/webui/static/audio/`
   - Suggested assets:
     - `kidcore-loop.mp3`
     - `click.mp3`
@@ -80,12 +80,12 @@ Add the theme's sound effects and looping music with the simplest possible contr
   - Run: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_assets_exist -v`
 
 ### 4.2 Add audio assets
-- [ ] **Implement**: Add local static audio files under `src/alfred/interfaces/webui/static/audio/`
-  - Use theme-appropriate noisy assets
-  - Keep filenames stable for JS wiring
+- [x] **Implement**: Add local static audio files under `src/alfred/interfaces/webui/static/audio/`
+  - Generated theme-appropriate noisy assets locally
+  - Kept filenames stable for JS wiring
 
 ### 4.3 Verify assets
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_assets_exist -v`
+- [x] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_assets_exist -v`
 
 ---
 
@@ -130,6 +130,6 @@ uv run alfred webui --port 8080
 
 ## Next Task
 
-- [ ] **Test**: `test_kidcore_audio_assets_exist()`
-- [ ] **Implement**: Add local static audio files under `src/alfred/interfaces/webui/static/audio/`
-- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_assets_exist -v`
+- [ ] **Test**: `test_kidcore_audio_browser_controls_work()`
+- [ ] **Implement**: Add browser-level verification for kidcore audio play/mute behavior
+- [ ] **Run**: `uv run pytest tests/webui/test_kidcore_audio.py::test_kidcore_audio_browser_controls_work -v`
