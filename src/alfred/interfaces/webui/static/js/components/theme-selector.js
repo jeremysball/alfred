@@ -15,37 +15,50 @@ class SettingsMenu extends HTMLElement {
         id: 'dark-academia',
         name: 'Dark Academia',
         description: 'Classical library dark',
-        color: '#c9a959'
+        color: '#c9a959',
+        previewColor: '#8b6914'
       },
       {
         id: 'dark-academia-light',
         name: 'Dark Academia Light',
         description: 'Classical library light',
-        color: '#d4a574'
+        color: '#d4a574',
+        previewColor: '#8b5a2b'
       },
       {
         id: 'swiss-international',
         name: 'Swiss Light',
         description: 'Clean light style',
-        color: '#e30613'
+        color: '#e30613',
+        previewColor: '#990000'
       },
       {
         id: 'swiss-international-dark',
         name: 'Swiss Dark',
         description: 'Clean dark style',
-        color: '#ff3333'
+        color: '#ff3333',
+        previewColor: '#cc0000'
       },
       {
         id: 'neumorphism',
         name: 'Neumorphism Light',
         description: 'Soft light plastic',
-        color: '#667eea'
+        color: '#667eea',
+        previewColor: '#3d4fb8'
       },
       {
         id: 'neumorphism-dark',
         name: 'Neumorphism Dark',
         description: 'Soft dark plastic',
-        color: '#667eea'
+        color: '#667eea',
+        previewColor: '#3d4fb8'
+      },
+      {
+        id: 'minimal',
+        name: 'Minimal',
+        description: 'Clean and simple',
+        color: '#2196f3',
+        previewColor: '#1565c0'
       }
     ];
   }
@@ -67,7 +80,7 @@ class SettingsMenu extends HTMLElement {
       const isActive = theme.id === this._currentTheme;
       return `
         <div class="theme-option ${isActive ? 'active' : ''}" data-theme="${theme.id}">
-          <div class="theme-color-preview" style="background: ${theme.color}"></div>
+          <div class="theme-color-preview" style="background: ${theme.previewColor || theme.color}"></div>
           <div class="theme-info">
             <div class="theme-name">${theme.name}</div>
             <div class="theme-description">${theme.description}</div>
@@ -99,26 +112,60 @@ class SettingsMenu extends HTMLElement {
     const toggle = this.querySelector('.settings-toggle');
     const dropdown = this.querySelector('.settings-dropdown');
 
+    // Toggle click handler
     toggle?.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      dropdown?.classList.toggle('hidden');
+      const isHidden = dropdown?.classList.contains('hidden');
+      if (isHidden) {
+        this._openMenu();
+      } else {
+        this._closeMenu();
+      }
     });
 
-    // Close menu when clicking outside
-    document.addEventListener('click', () => {
-      dropdown?.classList.add('hidden');
+    // Close on backdrop click
+    dropdown?.addEventListener('click', (e) => {
+      if (e.target === dropdown) {
+        this._closeMenu();
+      }
     });
 
     // Theme selection
     this.querySelectorAll('.theme-option').forEach(option => {
       option.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         const themeId = option.dataset.theme;
         this._applyTheme(themeId);
+        this._closeMenu();
         this._render();
         this._setupListeners();
       });
     });
+  }
+
+  _openMenu() {
+    const dropdown = this.querySelector('.settings-dropdown');
+    dropdown?.classList.remove('hidden');
+    // Close when clicking outside
+    this._outsideClickHandler = (e) => {
+      if (!this.contains(e.target)) {
+        this._closeMenu();
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', this._outsideClickHandler);
+    }, 0);
+  }
+
+  _closeMenu() {
+    const dropdown = this.querySelector('.settings-dropdown');
+    dropdown?.classList.add('hidden');
+    if (this._outsideClickHandler) {
+      document.removeEventListener('click', this._outsideClickHandler);
+      this._outsideClickHandler = null;
+    }
   }
 }
 

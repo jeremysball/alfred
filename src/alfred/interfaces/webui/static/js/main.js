@@ -13,7 +13,7 @@ function initAlfredUI() {
   const connectionPill = document.getElementById('connection-pill');
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
-  const streamingDot = document.getElementById('streaming-dot');
+
   const completionMenu = document.getElementById('completion-menu');
 
   // WebSocket Client
@@ -58,14 +58,12 @@ function initAlfredUI() {
 
   // Streaming Indicator
   function showStreaming() {
-    streamingDot?.classList.remove('hidden');
     if (currentAssistantMessage) {
       currentAssistantMessage.classList.add('streaming');
     }
   }
 
   function hideStreaming() {
-    streamingDot?.classList.add('hidden');
     if (currentAssistantMessage) {
       currentAssistantMessage.classList.remove('streaming');
     }
@@ -77,12 +75,12 @@ function initAlfredUI() {
 
     switch (msg.type) {
       case 'chat.started':
-        showStreaming();
         currentAssistantMessage = document.createElement('chat-message');
         currentAssistantMessage.setAttribute('role', 'assistant');
         currentAssistantMessage.setAttribute('content', '');
         currentAssistantMessage.setAttribute('timestamp', new Date().toISOString());
         messageList.appendChild(currentAssistantMessage);
+        showStreaming();
         scrollToBottom();
         break;
 

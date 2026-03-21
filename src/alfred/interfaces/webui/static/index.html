@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/static/css/themes/swiss-international-dark.css?v=3">
     <link rel="stylesheet" href="/static/css/themes/neumorphism.css?v=3">
     <link rel="stylesheet" href="/static/css/themes/neumorphism-dark.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/minimal.css?v=3">
 </head>
 <body>
     <div id="app">
@@ -25,7 +26,6 @@
                 <span id="connection-pill" class="connection-pill disconnected">●</span>
             </div>
             <div class="header-status">
-                <div id="streaming-dot" class="streaming-dot hidden" title="Generating response..."></div>
                 <div id="queue-badge" class="queue-badge hidden">0</div>
                 <settings-menu></settings-menu>
             </div>
@@ -63,6 +63,7 @@
                 </div>
                 <button id="send-button" class="send-button">Send</button>
             </div>
+            <status-bar id="status-bar"></status-bar>
         </footer>
     </div>
 
@@ -71,6 +72,8 @@
     <script src="/static/js/components/chat-message.js?v=3"></script>
     <script src="/static/js/components/tool-call.js?v=3"></script>
     <script src="/static/js/components/completion-menu.js?v=3"></script>
+    <script src="/static/js/components/status-bar.js?v=3"></script>
+    <script src="/static/js/components/toast-container.js?v=3"></script>
 
     <!-- Markdown and Syntax Highlighting -->
     <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>

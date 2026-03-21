@@ -58,7 +58,7 @@ class ChatMessage extends HTMLElement {
       case 'assistant':
         return '◆'; // Diamond for assistant
       case 'system':
-        return '▸'; // Arrow for system
+        return '◉'; // Double circle for system
       default:
         return '○'; // Empty circle default
     }
@@ -116,15 +116,15 @@ class ChatMessage extends HTMLElement {
         </div>`
       : '';
 
-    // Build action buttons (only for assistant messages) - minimal icon-only design
-    const actionButtons = this._role === 'assistant'
+    // Build action buttons for all non-system messages - minimal icon-only design
+    const actionButtons = this._role !== 'system'
       ? `<div class="message-actions">
           <button class="message-action icon-only" data-action="copy" title="Copy">
             ⧉
           </button>
-          <button class="message-action icon-only" data-action="retry" title="Regenerate">
+          ${this._role === 'assistant' ? `<button class="message-action icon-only" data-action="retry" title="Regenerate">
             ↻
-          </button>
+          </button>` : ''}
         </div>`
       : '';
 
