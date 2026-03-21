@@ -205,38 +205,36 @@ def webui_callback(
         "-p",
         help="Port to run the Web UI server on",
     ),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        "-h",
+        help="Host to bind the server to (use 0.0.0.0 for Tailscale/network access)",
+    ),
     open_browser: bool = typer.Option(
         False,
         "--open",
         "-o",
         help="Open browser automatically",
     ),
+    hotswap: bool = typer.Option(
+        False,
+        "--hotswap",
+        help="Restart the Web UI server when static web assets change",
+    ),
 ) -> None:
     """Launch Alfred Web UI server."""
     if ctx.invoked_subcommand is not None:
         return
 
-    import uvicorn
+    # Setup logging FIRST before any other operations
+    _setup_logging()
 
-    from alfred.interfaces.webui.server import create_app
+    from alfred.cli.webui_hotswap import run_webui_hotswap, run_webui_server
 
-    if open_browser:
-        import threading
-        import time
-        import webbrowser
-
-        def open_browser_delayed() -> None:
-            time.sleep(1)
-            webbrowser.open(f"http://localhost:{port}")
-
-        threading.Thread(target=open_browser_delayed, daemon=True).start()
-
-    uvicorn.run(
-        create_app(),
-        host="127.0.0.1",
-        port=port,
-        log_level="info",
-    )
+    debug = _log_level == "debug"
+    runner = run_webui_hotswap if hotswap else run_webui_server
+    runner(host=host, port=port, open_browser=open_browser, debug=debug)
 
 
 app.add_typer(webui_app)
@@ -444,6 +442,9 @@ app.add_typer(config_app)
 
 async def _run_interactive() -> None:
     """Run interactive CLI or Telegram bot."""
+    # Setup logging FIRST before any other operations
+    _setup_logging()
+
     # Lazy imports - these only run when interactive mode is invoked
     from alfred.alfred import Alfred
     from alfred.config import load_config
@@ -453,10 +454,11 @@ async def _run_interactive() -> None:
     toast_manager: ToastManager | None = None
     if not _run_telegram:
         toast_manager = ToastManager()
+        # Re-configure with toast handler now that we have it
+        _setup_logging(toast_manager)
 
     init_xdg_directories()
     config = load_config()
-    _setup_logging(toast_manager)
 
     alfred = Alfred(config, telegram_mode=_run_telegram)
 

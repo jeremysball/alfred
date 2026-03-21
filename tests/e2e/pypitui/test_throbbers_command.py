@@ -110,7 +110,7 @@ class TestThrobbersCommand:
 
             # Simulate escape key by calling the registered listener
             listener = mock_add_listener.call_args[0][0]
-            with patch.object(command, "_close") as mock_close:
+            with patch.object(command, "_close"):
                 result = listener("\x1b")  # ESC character
 
                 # Should consume the input

@@ -1,0 +1,289 @@
+/* ============================================
+   KIDCORE HOMEBOARD EXTRAS
+   Search, export, and updates panel styling.
+   ============================================ */
+
+#kidcore-homeboard .kidcore-homeboard-toolbar {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) auto auto;
+  gap: 0.5rem;
+  align-items: end;
+  padding: 0.8rem 1rem 0;
+}
+
+#kidcore-homeboard .kidcore-homeboard-search {
+  display: grid;
+  gap: 0.25rem;
+}
+
+#kidcore-homeboard .kidcore-homeboard-search span,
+#kidcore-homeboard .kidcore-homeboard-search-summary,
+#kidcore-homeboard .kidcore-updates-summary {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#kidcore-homeboard .kidcore-homeboard-search input {
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid currentColor;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: inherit;
+  font: inherit;
+}
+
+#kidcore-homeboard .kidcore-homeboard-search input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.22);
+}
+
+#kidcore-homeboard .kidcore-homeboard-toolbar-button {
+  min-height: 2.4rem;
+  padding: 0.5rem 0.8rem;
+  border: 2px solid currentColor;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#kidcore-homeboard .kidcore-homeboard-search-summary {
+  grid-column: 1 / -1;
+  min-height: 1.1rem;
+  line-height: 1.35;
+}
+
+#kidcore-homeboard .kidcore-updates-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
+#kidcore-homeboard .kidcore-update-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+#kidcore-homeboard .kidcore-updates-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#kidcore-homeboard .kidcore-update-entry {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 0.8rem;
+  border: 2px solid rgba(40, 23, 54, 0.14);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
+}
+
+#kidcore-homeboard .kidcore-update-entry[hidden] {
+  display: none !important;
+}
+
+#kidcore-homeboard .kidcore-update-entry-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+#kidcore-homeboard .kidcore-update-title {
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#kidcore-homeboard .kidcore-update-time {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+  text-transform: uppercase;
+}
+
+#kidcore-homeboard .kidcore-update-message {
+  margin: 0;
+  line-height: 1.55;
+}
+
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-homeboard-toolbar {
+  background: linear-gradient(135deg, rgba(255, 239, 93, 0.22) 0%, rgba(255, 178, 214, 0.16) 100%);
+  border-top: 1px solid rgba(40, 23, 54, 0.14);
+}
+
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-homeboard-toolbar-button {
+  background: linear-gradient(135deg, #ffef5d 0%, #ffb2d6 100%);
+  color: #281736;
+  box-shadow: 3px 3px 0 rgba(40, 23, 54, 0.14);
+}
+
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-homeboard-search input,
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-update-entry {
+  border-color: rgba(40, 23, 54, 0.18);
+}
+
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-update-entry {
+  background: linear-gradient(180deg, #fffdf8 0%, #fff4fb 100%);
+}
+
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-homeboard-search-summary,
+[data-theme="kidcore-playground"] #kidcore-homeboard .kidcore-updates-summary {
+  color: #5b456e;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-toolbar {
+  background: linear-gradient(135deg, rgba(255, 111, 0, 0.14) 0%, rgba(0, 229, 255, 0.14) 100%);
+  border-top: 1px solid rgba(255, 239, 93, 0.18);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-toolbar-button {
+  background: linear-gradient(135deg, rgba(255, 111, 0, 0.22) 0%, rgba(124, 77, 255, 0.28) 100%);
+  color: #fff9fe;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.18);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-search input,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-update-entry {
+  border-color: rgba(255, 239, 93, 0.22);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-update-entry {
+  background: linear-gradient(180deg, rgba(255, 249, 254, 0.94) 0%, rgba(255, 241, 251, 0.92) 100%);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-search-summary,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-updates-summary {
+  color: #ffe1f7;
+}
+
+@media (max-width: 900px) {
+  #kidcore-homeboard .kidcore-homeboard-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  #kidcore-homeboard .kidcore-homeboard-search-summary {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  #kidcore-homeboard .kidcore-homeboard-toolbar {
+    padding-inline: 0.75rem;
+  }
+
+  #kidcore-homeboard .kidcore-homeboard-toolbar-button {
+    width: 100%;
+  }
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem 1rem;
+  border: 3px solid #ffef5d;
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(35, 0, 65, 0.96) 0%, rgba(18, 0, 39, 0.96) 100%);
+  box-shadow:
+    0 0 0 4px rgba(0, 229, 255, 0.12),
+    0 18px 36px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-header {
+  display: grid;
+  gap: 0.8rem;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-copy {
+  display: grid;
+  gap: 0.15rem;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-tab {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+  border: 2px solid rgba(255, 239, 93, 0.3);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff9fe;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-tab.active {
+  background: linear-gradient(135deg, #ff6f00 0%, #00e5ff 100%);
+  color: #130027;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-panels {
+  display: grid;
+  gap: 0.85rem;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border: 2px solid rgba(255, 239, 93, 0.24);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-panel[hidden] {
+  display: none !important;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-panel-heading h2,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-panel-heading p,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-homeboard-caption,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-site-note {
+  margin: 0;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-guestbook-entry,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-webring-card,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-link-card,
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-update-entry {
+  border-color: rgba(255, 239, 93, 0.22);
+  background: linear-gradient(180deg, rgba(255, 249, 254, 0.12) 0%, rgba(255, 249, 254, 0.06) 100%);
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-link-button.active {
+  background: linear-gradient(135deg, #ff6f00 0%, #ffef5d 100%);
+  color: #130027;
+}
+
+[data-theme="spacejam-neocities"] #kidcore-homeboard .kidcore-guestbook-submit {
+  background: linear-gradient(135deg, #00e5ff 0%, #ffef5d 100%);
+  color: #130027;
+}

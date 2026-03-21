@@ -27,10 +27,9 @@ class TestXDGDirectoryPaths:
 
     def test_get_config_dir_defaults_to_dot_config(self):
         """get_config_dir defaults to ~/.config/alfred."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch.object(Path, "home", return_value=Path("/home/test")):
-                result = get_config_dir()
-                assert result == Path("/home/test/.config") / APP_NAME
+        with patch.dict(os.environ, {}, clear=True), patch.object(Path, "home", return_value=Path("/home/test")):
+            result = get_config_dir()
+            assert result == Path("/home/test/.config") / APP_NAME
 
     def test_get_data_dir_uses_xdg_data_home(self):
         """get_data_dir respects XDG_DATA_HOME."""
@@ -40,10 +39,9 @@ class TestXDGDirectoryPaths:
 
     def test_get_data_dir_defaults_to_dot_local_share(self):
         """get_data_dir defaults to ~/.local/share/alfred."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch.object(Path, "home", return_value=Path("/home/test")):
-                result = get_data_dir()
-                assert result == Path("/home/test/.local/share") / APP_NAME
+        with patch.dict(os.environ, {}, clear=True), patch.object(Path, "home", return_value=Path("/home/test")):
+            result = get_data_dir()
+            assert result == Path("/home/test/.local/share") / APP_NAME
 
     def test_get_workspace_dir_in_data_dir(self):
         """get_workspace_dir returns workspace in data dir."""
@@ -67,12 +65,11 @@ class TestXDGDirectoryPaths:
 
     def test_get_config_toml_path_defaults_to_dot_config(self):
         """get_config_toml_path defaults to ~/.config/alfred/config.toml."""
-        with patch.dict(os.environ, {}, clear=True):
-            with patch.object(Path, "home", return_value=Path("/home/test")):
-                from alfred.data_manager import get_config_toml_path
+        with patch.dict(os.environ, {}, clear=True), patch.object(Path, "home", return_value=Path("/home/test")):
+            from alfred.data_manager import get_config_toml_path
 
-                result = get_config_toml_path()
-                assert result == Path("/home/test/.config") / APP_NAME / "config.toml"
+            result = get_config_toml_path()
+            assert result == Path("/home/test/.config") / APP_NAME / "config.toml"
 
 
 class TestXDGDirectoryInit:

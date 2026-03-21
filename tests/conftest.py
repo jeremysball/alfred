@@ -1,8 +1,12 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    pass
 
 
 @pytest.fixture
@@ -17,3 +21,11 @@ def event_loop():
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+# ============================================================================
+# Playwright fixtures for integration tests
+# ============================================================================
+
+
+

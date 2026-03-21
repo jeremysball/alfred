@@ -1,6 +1,7 @@
 """Tests for message_embeddings table with sqlite-vec."""
 
 import json
+import sqlite3
 
 import aiosqlite
 import pytest
@@ -64,7 +65,7 @@ class TestMessageEmbeddingsTable:
         db = db_conn
 
         # Try to insert without parent session - should fail
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.IntegrityError):
             await db.execute(
                 """
                 INSERT INTO message_embeddings

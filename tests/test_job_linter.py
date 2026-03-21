@@ -114,7 +114,6 @@ async def run():
 """
         errors = lint_job_code(code)
         # Should pass without blocking call errors
-        blocking_errors = [e for e in errors if "sleep" not in str(e)]
         # Actually time.sleep would be wrong, asyncio.sleep is correct
         # So we should check that there's NO error about blocking sleep
         sleep_errors = [e for e in errors if "time.sleep" in str(e)]
@@ -247,7 +246,7 @@ async def run():
         errors = lint_job_code(code)
         # Currently we don't check non-run async functions
         # This is a known limitation
-        pass
+        assert errors == []
 
     def test_multiple_blocking_calls(self):
         """Should detect multiple blocking calls."""

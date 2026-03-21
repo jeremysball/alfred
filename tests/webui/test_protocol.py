@@ -1,15 +1,15 @@
 """Tests for WebSocket protocol definitions."""
 
 from alfred.interfaces.webui.protocol import (
-    ChatSendMessage,
-    ChatStartedMessage,
     ChatChunkMessage,
     ChatCompleteMessage,
     ChatErrorMessage,
-    ToolStartMessage,
-    ToolEndMessage,
+    ChatSendMessage,
+    ChatStartedMessage,
     StatusUpdateMessage,
     ToastMessage,
+    ToolEndMessage,
+    ToolStartMessage,
 )
 
 

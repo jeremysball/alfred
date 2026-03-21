@@ -1,6 +1,5 @@
 """Tests for input system (multiline, completion, queue, history)."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
@@ -30,7 +29,7 @@ def test_completion_menu_component_exists():
 
 def test_command_completion_structure():
     """Verify command completion data structure."""
-    from alfred.interfaces.webui.validation import CompletionSuggestionsMessage, CompletionSuggestion
+    from alfred.interfaces.webui.validation import CompletionSuggestion, CompletionSuggestionsMessage
 
     suggestion = CompletionSuggestion(value="/new", description="Start new session")
     message = CompletionSuggestionsMessage(

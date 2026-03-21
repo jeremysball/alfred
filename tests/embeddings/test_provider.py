@@ -1,8 +1,14 @@
 """Tests for EmbeddingProvider abstraction and implementations."""
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from alfred.config import Config
+
+if TYPE_CHECKING:
+    from alfred.embeddings.bge_provider import BGEProvider
+    from alfred.embeddings.openai_provider import OpenAIProvider
 
 # Check if sentence-transformers is available
 try:

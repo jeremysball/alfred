@@ -15,15 +15,15 @@
 
 ## Pre-Flight Check
 
-Do this before every response:
+Do this once per conversation/session:
 
 1. Read `/home/node/.pi/skills/skill-index/SKILL.md` — Quick reference for all available skills
-2. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
-3. Read `/workspace/alfred-prd/.pi/skills/commit/SKILL.md`
+2. Read `/home/node/.pi/skills/using-prds/SKILL.md`
+3. Read `/home/node/.pi/skills/commit/SKILL.md`
 4. Read `/workspace/alfred-prd/docs/ROADMAP.md`
-5. Confirm: "✅ Skills and parent PRD loaded"
+5. Confirm once: "✅ Skills and parent PRD loaded"
 
-This applies to all messages and commands—including simple questions.
+Do not repeat these reads or the confirmation on every turn unless the conversation/session context has been reset.
 
 ---
 
@@ -79,6 +79,30 @@ Want me to commit this as 'feat(tui): add cleanup on exit'?"
 - Write their own commit message
 - Discard some changes
 - Test more before committing
+
+---
+
+## Use the Todo Tool for Ad-Hoc Work
+
+Use the `todo` tool for:
+- non-PRD work
+- one-off bug fixes
+- small follow-up tasks during PRD work when `prd-exec` is not the right tool
+
+Create one todo per distinct change. Mark them complete as you finish them.
+
+**Do not skip this because a task feels small.** If the work is ad-hoc rather than spec-driven, track it with `todo`.
+
+---
+
+## Use Playwright for Web UI Development
+
+When developing, debugging, or verifying the Web UI:
+- use Playwright for browser-level verification
+- prefer real browser behavior over hand-waving about frontend state
+- use automated browser checks before claiming Web UI work is done
+
+For Web UI changes, do not stop at unit tests alone if browser behavior could regress.
 
 ---
 
@@ -234,6 +258,22 @@ mock_terminal.queue_input("\x03")    # Simulate Ctrl+C
 
 If the bug report says "it hangs," "it freezes," or "it doesn't clean up," the test must exercise the **full lifecycle** through the public interface.
 
+### Use Explicit Fakes for Contract-Shaped Collaborators
+
+When the code under test expects a real object graph like Alfred, a session manager, a token tracker, or a context loader, prefer handwritten fakes or stubs over a root-level `MagicMock`.
+
+- Use `MagicMock` / `AsyncMock` at narrow edges: websocket spies, isolated leaf dependencies, or simple call assertions.
+- Do **not** use a bare `MagicMock` for the whole app object; it invents attributes and hides API drift.
+- Fakes should mirror the production nested shape (`core.session_manager`, `chat_stream`, `sync_token_tracker_from_session`, etc.) but only implement the methods and state the test actually touches.
+- If the fake starts looking like a second Alfred, trim it back to the public contract.
+
+```python
+class FakeAlfred:
+    def __init__(self):
+        self.core = FakeCore(FakeSessionManager())
+        self.token_tracker = FakeTokenTracker()
+```
+
 ---
 
 ## TDD Workflow: Unit Tests First, Integration Tests Last
@@ -386,7 +426,7 @@ cat -v /tmp/ansi_out.log | grep '_pi:c'
 Before committing, read the commit skill:
 
 ```bash
-cat /workspace/alfred-prd/.pi/skills/commit/SKILL.md
+cat /home/node/.pi/skills/commit/SKILL.md
 ```
 
 Make small, atomic commits. Never batch multiple features into one commit.
@@ -634,15 +674,21 @@ uv run python src/script.py
 uv run pytest tests/
 ```
 
-### 12. Use MagicMock Over monkeypatch
+### 12. Prefer Fakes for Contract-Shaped Collaborators
 
-When mocking in tests, prefer `unittest.mock.MagicMock` over pytest's `monkeypatch`.
+Choose the smallest test double that matches the dependency's job.
+
+**Default order:**
+1. **Fake / Stub** for structured collaborators like Alfred, session managers, token trackers, and context loaders
+2. **Spy** when you need to record calls or arguments
+3. **MagicMock / AsyncMock** for narrow boundaries and leaf dependencies
+4. **monkeypatch** only when there is no better standard-library option
 
 **Why:**
-- MagicMock provides better introspection and assertion methods
-- More explicit about what is being mocked
-- Easier to verify call counts, arguments, and return values
-- Consistent with Python standard library patterns
+- Explicit fakes keep object shape honest
+- `MagicMock` is still useful, but only when you want call assertions or a small boundary double
+- Bare root mocks hide missing methods and nested attributes
+- Fake objects make the production contract obvious in tests
 
 **Wrong:**
 ```python
@@ -662,6 +708,12 @@ def test_something():
         result = do_something()
         assert result == "mocked"
         mock_func.assert_called_once()
+```
+
+**Better for structured collaborators:**
+```python
+fake_alfred = FakeAlfred()
+fake_alfred.core.session_manager = FakeSessionManager()
 ```
 
 **For async code:**

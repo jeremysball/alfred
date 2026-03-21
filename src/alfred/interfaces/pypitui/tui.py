@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from alfred.alfred import Alfred
 
@@ -18,6 +18,12 @@ from alfred.interfaces.pypitui.commands import (
     ShowSessionCommand,
     ThrobbersCommand,
 )
+from alfred.interfaces.pypitui.compat import (
+    CompatTUI,
+    OverlayHandle,
+    OverlayOptions,
+    ProcessTerminal,
+)
 from alfred.interfaces.pypitui.completion_menu_component import CompletionMenuComponent
 
 # Settings now accessed via self.alfred.config
@@ -29,10 +35,7 @@ from alfred.interfaces.pypitui.status_line import StatusLine
 from alfred.interfaces.pypitui.toast import ToastManager
 from alfred.interfaces.pypitui.toast_overlay import ToastOverlay
 from alfred.interfaces.pypitui.wrapped_input import WrappedInput
-from pypitui import TUI, Container, Key, OverlayOptions, matches_key
-
-if TYPE_CHECKING:
-    from pypitui import OverlayHandle, ProcessTerminal
+from pypitui import Container, Key, matches_key
 
 
 class AlfredTUI:
@@ -54,17 +57,14 @@ class AlfredTUI:
             history_manager: Optional HistoryManager for testing
                 (uses ~/.cache/alfred if not provided)
         """
-        from pypitui import ProcessTerminal
-
         self.alfred = alfred
         self.terminal = terminal or ProcessTerminal()
-        self.tui = TUI(self.terminal)
-        # on_resize does not exist on TUI — resize handling is not wired
-        # setattr(self.tui, "on_resize", self._on_resize)
+        self.tui = CompatTUI(self.terminal)
+        # Resize handling is routed through the compatibility TUI adapter.
         self._toast_manager = toast_manager
 
         # Initialize terminal width from actual terminal size
-        initial_width, _ = self.terminal.get_size()
+        initial_width, _ = self._get_terminal_size(default_width=80, default_height=24)
         self._terminal_width: int = initial_width
 
         # Main conversation container
@@ -168,6 +168,19 @@ class AlfredTUI:
 
         # Initialize status line with current values
         self._update_status()
+
+    def _get_terminal_size(
+        self, default_width: int = 80, default_height: int = 24
+    ) -> tuple[int, int]:
+        """Safely read the terminal size from any terminal-like object."""
+        getter = getattr(self.terminal, "get_size", None)
+        if callable(getter):
+            try:
+                width, height = getter()
+                return (int(width), int(height))
+            except Exception:
+                pass
+        return (default_width, default_height)
 
     def _handle_ctrl_c(self) -> None:
         """Handle Ctrl-C keypress.
@@ -303,7 +316,7 @@ class AlfredTUI:
         """
         # Always use actual terminal width for accurate calculations
         # Using cached self._terminal_width causes layout issues after resize
-        term_width, _ = self.terminal.get_size()
+        term_width, _ = self._get_terminal_size(default_width=self._terminal_width)
         static_height = 0
 
         # Input field (always visible at bottom)
@@ -472,7 +485,7 @@ class AlfredTUI:
 
     def _get_input_cursor_line(self) -> int:
         """Get which display line the cursor is on (0-indexed)."""
-        width = self.terminal.get_size()[0]
+        width = self._get_terminal_size(default_width=self._terminal_width)[0]
         if width <= 0:
             return 0
         cursor_pos = self.input_field._cursor_pos
@@ -821,7 +834,9 @@ class AlfredTUI:
 
         def _handle_sigwinch(_signum: int, _frame: object) -> None:
             """Handle terminal resize signal."""
-            term_width, term_height = self.terminal.get_size()
+            term_width, term_height = self._get_terminal_size(
+                default_width=self._terminal_width
+            )
             self._on_resize(term_width, term_height)
             self.tui.request_resize_check()
             self.tui.request_render(force=True)

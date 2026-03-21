@@ -10,8 +10,6 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from alfred.memory import MemoryEntry
-
 
 @pytest.fixture
 def mock_store():

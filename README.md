@@ -61,6 +61,7 @@ All local. No cloud. Your data stays in files you control.
 
 - **Persistent Memory** — JSONL files with OpenAI embeddings
 - **Semantic Search** — Find relevant context instantly
+- **Web Interface** — Modern browser-based chat with real-time streaming
 - **Telegram Bot** — Chat anywhere
 - **CLI** — Terminal interface with streaming
 - **Scheduled Jobs** — "Remind me every morning at 8am"
@@ -73,12 +74,57 @@ All local. No cloud. Your data stays in files you control.
 ```bash
 alfred              # Start interactive chat
 alfred --telegram   # Run as Telegram bot
+alfred webui        # Start web interface
 alfred cron list    # List scheduled jobs
 alfred cron submit  # Submit a new job
 alfred memory migrate   # Convert JSONL memories to FAISS
 alfred memory status    # Show memory store info
 alfred --debug info # Run with info logging
 ```
+
+## Web Interface
+
+Alfred includes a modern web-based interface as an alternative to the terminal UI. The Web UI provides the same persistent memory and streaming responses through a browser-based chat experience.
+
+### Starting the Web UI
+
+```bash
+# Start Web UI with defaults (localhost:8080)
+alfred webui
+
+# Custom port
+alfred webui --port 3000
+
+# Custom host (0.0.0.0 for LAN access)
+alfred webui --host 0.0.0.0 --port 8080
+
+# Auto-open browser
+alfred webui --open
+```
+
+### Web UI Features
+
+- **Real-time streaming** — Watch responses appear token-by-token
+- **Persistent sessions** — Conversations survive page refreshes
+- **Session management** — Create, list, and resume sessions with `/new`, `/sessions`, `/resume`
+- **Markdown rendering** — Full markdown support with syntax highlighting
+- **Reasoning display** — Collapsible reasoning blocks for supported models
+- **Tool call visualization** — Expandable tool execution details
+- **Status bar** — Live token counts and model information
+- **Toast notifications** — Success, error, and info messages
+- **Dark/light themes** — Automatic system preference detection
+- **Keyboard shortcuts** — `Ctrl+Enter` to send, `Escape` to cancel
+
+### Web UI Architecture
+
+The Web UI is built with modern web technologies:
+
+- **Backend:** FastAPI with WebSocket support
+- **Frontend:** Vanilla JavaScript with Web Components
+- **Styling:** CSS custom properties for theming
+- **Communication:** WebSocket protocol with JSON messages
+
+See [docs/websocket-protocol.md](docs/websocket-protocol.md) for the complete WebSocket protocol specification.
 
 ## Data Storage
 
@@ -137,6 +183,7 @@ For TOML-based configuration (`~/.config/alfred/config.toml`), see [docs/EMBEDDI
 - [Cron Jobs](docs/cron-jobs.md) — Scheduled tasks
 - [Embeddings and FAISS](docs/EMBEDDINGS.md) — Local embeddings, migration, performance tuning
 - [Memory System](docs/MEMORY.md) — Three-layer memory architecture
+- [WebSocket Protocol](docs/websocket-protocol.md) — Web UI real-time communication spec
 - [Roadmap](docs/ROADMAP.md) — Development progress
 
 ## Contributing

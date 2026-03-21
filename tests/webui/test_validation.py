@@ -34,7 +34,6 @@ from alfred.interfaces.webui.validation import (
     validate_client_message,
 )
 
-
 # =============================================================================
 # Chat Send Tests
 # =============================================================================
@@ -275,7 +274,7 @@ def test_validate_client_message_chat_send():
     """Verify validate_client_message accepts valid chat.send."""
     data = {"type": "chat.send", "payload": {"content": "Hello"}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is True
     assert error == ""
     assert isinstance(message, ChatSendMessage)
@@ -286,7 +285,7 @@ def test_validate_client_message_command_execute():
     """Verify validate_client_message accepts valid command.execute."""
     data = {"type": "command.execute", "payload": {"command": "/new"}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is True
     assert isinstance(message, CommandExecuteMessage)
 
@@ -295,7 +294,7 @@ def test_validate_client_message_completion_request():
     """Verify validate_client_message accepts valid completion.request."""
     data = {"type": "completion.request", "payload": {"text": "Hello", "cursor": 5}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is True
     assert isinstance(message, CompletionRequestMessage)
 
@@ -304,7 +303,7 @@ def test_validate_client_message_ack():
     """Verify validate_client_message accepts valid ack."""
     data = {"type": "ack", "payload": {"messageId": "msg-123"}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is True
     assert isinstance(message, AckMessage)
     assert message.payload.message_id == "msg-123"
@@ -313,7 +312,7 @@ def test_validate_client_message_ack():
 def test_validate_client_message_rejects_non_dict():
     """Verify validate_client_message rejects non-dict input."""
     is_valid, message, error = validate_client_message("not a dict")
-    
+
     assert is_valid is False
     assert message is None
     assert "must be a JSON object" in error
@@ -323,7 +322,7 @@ def test_validate_client_message_rejects_missing_type():
     """Verify validate_client_message rejects missing type field."""
     data = {"payload": {"content": "Hello"}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is False
     assert "must have a 'type' field" in error
 
@@ -332,7 +331,7 @@ def test_validate_client_message_rejects_unknown_type():
     """Verify validate_client_message rejects unknown message type."""
     data = {"type": "unknown.type", "payload": {}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is False
     assert "Unknown message type" in error
 
@@ -341,7 +340,7 @@ def test_validate_client_message_rejects_invalid_payload():
     """Verify validate_client_message rejects invalid payload."""
     data = {"type": "chat.send", "payload": {"content": ""}}  # Empty content
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is False
     assert "Validation error" in error
 
@@ -350,7 +349,7 @@ def test_validate_client_message_rejects_negative_cursor():
     """Verify validate_client_message rejects negative cursor."""
     data = {"type": "completion.request", "payload": {"text": "Hello", "cursor": -1}}
     is_valid, message, error = validate_client_message(data)
-    
+
     assert is_valid is False
     assert "Validation error" in error
 
@@ -363,7 +362,7 @@ def test_validate_client_message_rejects_negative_cursor():
 def test_create_validation_error_response():
     """Verify create_validation_error_response creates proper error message."""
     response = create_validation_error_response("msg-123", "Invalid message format")
-    
+
     assert response["type"] == "chat.error"
     assert response["payload"]["messageId"] == "msg-123"
     assert response["payload"]["error"] == "Invalid message format"

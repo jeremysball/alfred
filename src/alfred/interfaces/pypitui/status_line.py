@@ -3,7 +3,7 @@
 from alfred.interfaces.ansi import BRIGHT_BLACK, RESET
 from alfred.interfaces.pypitui.throbber import Throbber
 from alfred.interfaces.pypitui.utils import format_tokens
-from pypitui import Component
+from pypitui import Component, Size
 
 # Width thresholds for responsive layout
 STATUS_WIDTH_FULL = 80  # Show everything
@@ -108,6 +108,13 @@ class StatusLine(Component):
         if self._is_streaming:
             return self._throbber.tick()
         return False
+
+    def measure(self, available_width: int, _available_height: int) -> Size:
+        """Measure the status line.
+
+        Status always renders on a single line.
+        """
+        return Size(width=available_width, height=1)
 
     def render(self, width: int) -> list[str]:
         """Render status line.

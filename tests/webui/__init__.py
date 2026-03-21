@@ -1,1 +1,1 @@
-"""Tests for Alfred Web UI."""
+"""Web UI tests package."""

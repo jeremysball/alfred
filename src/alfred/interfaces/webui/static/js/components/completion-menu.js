@@ -153,9 +153,12 @@ class CompletionMenu extends HTMLElement {
   }
 
   selectCurrent() {
-    if (this._selectedIndex >= 0) {
-      this.selectItem(this._selectedIndex);
-    }
+    const filteredCount = this._getFilteredCount();
+    if (filteredCount === 0) return;
+
+    // If no selection, default to first item
+    const index = this._selectedIndex >= 0 ? this._selectedIndex : 0;
+    this.selectItem(index);
   }
 
   _getFilteredItems() {

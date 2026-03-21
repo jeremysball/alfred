@@ -32,7 +32,7 @@ class AssembledContext(BaseModel):
     """Complete assembled context for LLM prompt."""
 
     agents: str
-    tools: str
+    tools: str = ""
     soul: str
     user: str
     memories: list[MemoryEntry]
@@ -467,7 +467,7 @@ class ContextLoader:
 
         return AssembledContext(
             agents=files["agents"].content,
-            tools=files["tools"].content,
+            tools=files["tools"].content if "tools" in files else "",
             soul=files["soul"].content,
             user=files["user"].content,
             memories=memories or [],
