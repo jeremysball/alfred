@@ -158,3 +158,104 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
             except TimeoutError:
                 process.kill()
                 await process.wait()
+
+
+@pytest.mark.asyncio
+async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
+    port = _find_free_port()
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "webui",
+        "--port",
+        str(port),
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    try:
+        await _wait_for_server(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 390, "height": 844})
+            await page.add_init_script(
+                "localStorage.setItem('alfred-theme', 'kidcore-playground');"
+            )
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            await page.evaluate(
+                """
+                () => {
+                  const list = document.querySelector('#message-list');
+                  if (!list) return;
+
+                  for (let index = 0; index < 30; index += 1) {
+                    const message = document.createElement('div');
+                    message.className = 'message user';
+                    message.innerHTML = `
+                      <div class="message-bubble">
+                        <div class="message-content">mobile filler ${index}</div>
+                      </div>
+                    `;
+                    list.appendChild(message);
+                  }
+                }
+                """
+            )
+            await page.wait_for_timeout(100)
+
+            header = await page.locator('.app-header').bounding_box()
+            play_button = await page.locator('#kidcore-audio-play').bounding_box()
+            mute_button = await page.locator('#kidcore-audio-mute').bounding_box()
+            composer = await page.locator('#message-input').bounding_box()
+            send_button = await page.locator('#send-button').bounding_box()
+
+            assert header is not None
+            assert play_button is not None
+            assert mute_button is not None
+            assert composer is not None
+            assert send_button is not None
+
+            assert header["width"] <= 390.5
+            assert play_button["x"] >= 0
+            assert play_button["x"] + play_button["width"] <= 390.5
+            assert mute_button["x"] >= 0
+            assert mute_button["x"] + mute_button["width"] <= 390.5
+            assert composer["x"] >= 0
+            assert composer["x"] + composer["width"] <= 390.5
+            assert send_button["x"] >= 0
+            assert send_button["x"] + send_button["width"] <= 390.5
+
+            scroll_metrics = await page.evaluate(
+                """
+                () => {
+                  const chat = document.querySelector('#chat-container');
+                  if (!chat) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0 };
+                  chat.scrollTop = chat.scrollHeight;
+                  return {
+                    scrollTop: chat.scrollTop,
+                    scrollHeight: chat.scrollHeight,
+                    clientHeight: chat.clientHeight,
+                  };
+                }
+                """
+            )
+
+            assert scroll_metrics["scrollHeight"] > scroll_metrics["clientHeight"]
+            assert scroll_metrics["scrollTop"] > 0
+
+            await browser.close()
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except TimeoutError:
+                process.kill()
+                await process.wait()

@@ -1,10 +1,14 @@
 // Alfred Web UI - Main JavaScript
+import { applyThemeContrast } from './utils/contrast.js';
 
 /**
  * Initialize the Alfred Web UI
  */
 function initAlfredUI() {
   console.log('Initializing Alfred Web UI...');
+
+  // Apply initial contrast
+  applyThemeContrast();
 
   // DOM Elements
   const messageList = document.getElementById('message-list');
@@ -15,6 +19,35 @@ function initAlfredUI() {
   const queueBadge = document.getElementById('queue-badge');
 
   const completionMenu = document.getElementById('completion-menu');
+  const kidcoreAudioManager = window.kidcoreAudioManager ?? null;
+  const kidcoreAudioPlayButton = document.getElementById('kidcore-audio-play');
+  const kidcoreAudioMuteButton = document.getElementById('kidcore-audio-mute');
+
+  function playKidcoreClick() {
+    kidcoreAudioManager?.playClick?.();
+  }
+
+  function playKidcoreSend() {
+    kidcoreAudioManager?.playSend?.();
+  }
+
+  function playKidcoreSuccess() {
+    kidcoreAudioManager?.playSuccess?.();
+  }
+
+  function playKidcoreError() {
+    kidcoreAudioManager?.playError?.();
+  }
+
+  kidcoreAudioPlayButton?.addEventListener('click', () => {
+    playKidcoreClick();
+    kidcoreAudioManager?.startMusic?.();
+  });
+
+  kidcoreAudioMuteButton?.addEventListener('click', () => {
+    playKidcoreClick();
+    kidcoreAudioManager?.mute?.();
+  });
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
@@ -72,7 +105,6 @@ function initAlfredUI() {
   // Message Handler
   wsClient.addEventListener('message', (event) => {
     const msg = event.detail;
-    console.log('[WebSocket] Received message:', msg.type, msg);
 
     switch (msg.type) {
       case 'chat.started':
@@ -102,6 +134,7 @@ function initAlfredUI() {
       case 'chat.complete':
         hideStreaming();
         currentAssistantMessage = null;
+        playKidcoreSuccess();
         enableInput();
         // Add copy buttons to any new code blocks
         addCopyButtons();
@@ -111,6 +144,7 @@ function initAlfredUI() {
 
       case 'chat.error':
         hideStreaming();
+        playKidcoreError();
         showError(msg.payload?.error || 'An error occurred');
         currentAssistantMessage = null;
         enableInput();
@@ -167,15 +201,19 @@ function initAlfredUI() {
 
   // Session Handlers
   function handleSessionNew(payload) {
-    // Clear message list for new session
+    // Clear message list and history for new session
     messageList.innerHTML = '';
+    messageHistory.length = 0;
+    historyIndex = -1;
     showSystemMessage(`New session created: ${payload.sessionId}`);
     enableInput();
   }
 
   function handleSessionLoaded(payload) {
-    // Clear current messages
+    // Clear current messages and history
     messageList.innerHTML = '';
+    messageHistory.length = 0;
+    historyIndex = -1;
 
     // Load session messages
     if (payload.messages && payload.messages.length > 0) {
@@ -189,7 +227,26 @@ function initAlfredUI() {
           messageEl.setReasoning(msg.reasoningContent);
         }
         messageList.appendChild(messageEl);
+
+        if (Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0) {
+          const orderedToolCalls = [...msg.toolCalls].sort((a, b) => {
+            const sequenceA = a.sequence ?? 0;
+            const sequenceB = b.sequence ?? 0;
+            if (sequenceA !== sequenceB) return sequenceA - sequenceB;
+            const insertA = a.insertPosition ?? 0;
+            const insertB = b.insertPosition ?? 0;
+            return insertA - insertB;
+          });
+          messageEl.setToolCalls(orderedToolCalls);
+        }
+
+        // Add user messages to history for navigation
+        if (msg.role === 'user') {
+          messageHistory.push(msg.content);
+        }
       });
+      // Set history index to end (no selection)
+      historyIndex = messageHistory.length;
       scrollToBottom();
       // Add copy buttons to code blocks in loaded messages
       addCopyButtons();
@@ -204,31 +261,43 @@ function initAlfredUI() {
 
     if (sessions.length === 0) {
       showSystemMessage('No recent sessions found.');
+      enableInput();
       return;
     }
 
-    let content = 'Recent sessions:\n\n';
-    sessions.forEach(session => {
-      const created = session.created ? new Date(session.created).toLocaleString() : 'Unknown';
-      content += `ID: ${session.id}\n`;
-      content += `  Created: ${created}\n`;
-      content += `  Messages: ${session.messageCount}\n`;
-      if (session.summary) {
-        content += `  Summary: ${session.summary}\n`;
+    // Create session list container (not using chat-message to avoid re-render issues)
+    const container = document.createElement('div');
+    container.className = 'session-list-message';
+
+    // Create and append the session list component
+    const sessionList = document.createElement('session-list');
+    sessionList.setAttribute('sessions', JSON.stringify(sessions));
+
+    // Listen for session selection
+    sessionList.addEventListener('session-select', (e) => {
+      const sessionId = e.detail.sessionId;
+      if (sessionId) {
+        wsClient.sendCommand(`/resume ${sessionId}`);
       }
-      content += '\n';
     });
 
-    showSystemMessage(content);
+    container.appendChild(sessionList);
+    messageList.appendChild(container);
+
+    scrollToBottom();
     enableInput();
   }
 
   function handleSessionInfo(payload) {
     let content = 'Current Session:\n\n';
     content += `ID: ${payload.sessionId}\n`;
+    content += `Status: ${payload.status || 'unknown'}\n`;
     content += `Messages: ${payload.messageCount}\n`;
     if (payload.created) {
       content += `Created: ${new Date(payload.created).toLocaleString()}\n`;
+    }
+    if (payload.lastActive) {
+      content += `Last Active: ${new Date(payload.lastActive).toLocaleString()}\n`;
     }
 
     showSystemMessage(content);
@@ -236,25 +305,39 @@ function initAlfredUI() {
   }
 
   function handleContextInfo(payload) {
-    let content = 'System Context:\n\n';
-    content += `Working Directory: ${payload.cwd || 'Unknown'}\n\n`;
+    const lines = ['System Context:', ''];
 
-    if (payload.files && payload.files.length > 0) {
-      content += 'Files in context:\n';
-      payload.files.forEach(file => {
-        content += `  - ${file}\n`;
+    if (payload.systemPrompt) {
+      lines.push(`System Prompt: ${payload.systemPrompt.totalTokens || 0} tokens`);
+      const sections = payload.systemPrompt.sections || [];
+      sections.forEach(section => {
+        lines.push(`  - ${section.name}: ${section.tokens} tokens`);
       });
-      content += '\n';
+      lines.push('');
     }
 
-    if (payload.systemInfo) {
-      content += 'System Info:\n';
-      Object.entries(payload.systemInfo).forEach(([key, value]) => {
-        content += `  ${key}: ${value}\n`;
-      });
+    if (payload.memories) {
+      lines.push(
+        `Memories: ${payload.memories.displayed || 0} shown / ${payload.memories.total || 0} total (${payload.memories.tokens || 0} tokens)`
+      );
+      lines.push('');
     }
 
-    showSystemMessage(content);
+    if (payload.sessionHistory) {
+      lines.push(
+        `Session History: ${payload.sessionHistory.count || 0} messages (${payload.sessionHistory.tokens || 0} tokens)`
+      );
+      lines.push('');
+    }
+
+    if (payload.toolCalls) {
+      lines.push(`Tool Calls: ${payload.toolCalls.count || 0} (${payload.toolCalls.tokens || 0} tokens)`);
+      lines.push('');
+    }
+
+    lines.push(`Total Tokens: ${payload.totalTokens || 0}`);
+
+    showSystemMessage(lines.join('\n'));
     enableInput();
   }
 
@@ -275,10 +358,10 @@ function initAlfredUI() {
     toolCall.setAttribute('tool-name', payload.toolName);
     toolCall.setAttribute('arguments', JSON.stringify(payload.arguments || {}));
     toolCall.setAttribute('status', 'running');
-    toolCall.setAttribute('expanded', 'false');
+    toolCall.setAttribute('expanded', 'true');
 
     activeToolCalls.set(payload.toolCallId, toolCall);
-    currentAssistantMessage.appendChild(toolCall);
+    currentAssistantMessage.appendToolCall(toolCall);
     scrollToBottom();
   }
 
@@ -297,6 +380,12 @@ function initAlfredUI() {
       if (payload.output) {
         toolCall.setAttribute('output', payload.output);
       }
+      toolCall.collapse();
+      if (!payload.success) {
+        playKidcoreError();
+        showError(`Tool ${toolCall.getToolName()} failed`);
+      }
+      scrollToBottom();
     }
   }
 
@@ -367,6 +456,7 @@ function initAlfredUI() {
   function sendMessageContent(content) {
     // Add to history
     addToHistory(content);
+    playKidcoreSend();
 
     // Send via WebSocket - commands use command.execute, chat uses chat.send
     if (content.startsWith('/')) {
@@ -473,6 +563,7 @@ function initAlfredUI() {
 
   // Toast notification
   function showToast(message, level = 'info') {
+    playKidcoreClick();
     const toastContainer = document.getElementById('toast-container');
     if (toastContainer && toastContainer.show) {
       toastContainer.show(message, level, 5000);
