@@ -1,14 +1,12 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
-from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING
 
 import pytest
-import pytest_asyncio
 
 if TYPE_CHECKING:
-    from playwright.async_api import Browser, BrowserContext, Page
+    pass
 
 
 @pytest.fixture

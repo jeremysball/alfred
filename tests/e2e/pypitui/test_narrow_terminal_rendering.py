@@ -1,10 +1,11 @@
 """Integration tests for narrow terminal rendering to prevent truncation regressions."""
 
 import re
-import pytest
+
+from pypitui.utils import visible_width
+
 from alfred.interfaces.pypitui.message_panel import MessagePanel
 from alfred.interfaces.pypitui.rich_renderer import RichRenderer
-from pypitui.utils import visible_width
 
 
 def strip_ansi(text: str) -> str:

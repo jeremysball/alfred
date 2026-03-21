@@ -1,7 +1,6 @@
 """Tests for AlfredTUI input listener refactoring."""
 
 from unittest.mock import MagicMock
-import pytest
 
 
 class TestInputListenerControlKeys:
@@ -61,6 +60,7 @@ class TestInputListenerControlKeys:
     def test_ctrl_l_clears_screen(self, mock_alfred, mock_terminal):
         """Ctrl+L should clear screen and be consumed."""
         from unittest.mock import patch
+
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -151,7 +151,6 @@ class TestInputListenerEscapeKey:
         tui._update_status = MagicMock()
 
         # Use the actual escape key through _input_listener
-        from pypitui import Key, matches_key
 
         result = tui._handle_escape_key()
 
@@ -331,6 +330,7 @@ class TestInputListenerIntegration:
     def test_ctrl_key_routing(self, mock_alfred, mock_terminal):
         """Verify control keys are routed to _handle_control_keys."""
         from unittest.mock import patch
+
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -343,6 +343,7 @@ class TestInputListenerIntegration:
     def test_escape_key_routing(self, mock_alfred, mock_terminal):
         """Verify escape key is routed to _handle_escape_key."""
         from unittest.mock import patch
+
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -358,6 +359,7 @@ class TestInputListenerIntegration:
     def test_up_arrow_routing_with_queue(self, mock_alfred, mock_terminal):
         """Verify UP arrow routes to _handle_up_navigation when queue exists."""
         from unittest.mock import patch
+
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -367,7 +369,6 @@ class TestInputListenerIntegration:
              patch.object(tui, '_handle_escape_key', return_value=None), \
              patch.object(tui, '_get_input_cursor_line', return_value=0), \
              patch.object(tui, '_handle_up_navigation', return_value={"consume": True}) as mock_up:
-            from pypitui import Key
 
             result = tui._input_listener("\x1b[A")  # UP arrow sequence
 
@@ -377,6 +378,7 @@ class TestInputListenerIntegration:
     def test_down_arrow_routing(self, mock_alfred, mock_terminal):
         """Verify DOWN arrow routes to _handle_down_navigation."""
         from unittest.mock import patch
+
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
@@ -395,6 +397,7 @@ class TestInputListenerIntegration:
     def test_other_key_resets_queue_nav(self, mock_alfred, mock_terminal):
         """Verify other keys reset queue navigation."""
         from unittest.mock import patch
+
         from alfred.interfaces.pypitui.tui import AlfredTUI
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)

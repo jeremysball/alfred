@@ -1,7 +1,7 @@
 """Utilities for building bordered boxes in terminal UI."""
 
 from alfred.interfaces.ansi import RESET
-from pypitui.utils import visible_width, wrap_text_with_ansi
+from alfred.interfaces.pypitui.utils import visible_width, wrap_text_with_ansi
 
 # Box characters
 TOP_LEFT = "┌"

@@ -8,8 +8,8 @@ from typing import Any, Literal, cast
 
 from alfred.interfaces.ansi import BOLD, CYAN, DIM, GREEN, RED, RESET
 from alfred.interfaces.pypitui.models import ToolCallInfo
+from alfred.interfaces.pypitui.utils import visible_width, wrap_text_with_ansi
 from pypitui import BorderedBox
-from pypitui.utils import visible_width
 
 
 @dataclass
@@ -420,8 +420,6 @@ class MessagePanel(BorderedBox):
         Returns:
             List of wrapped lines
         """
-        from pypitui.utils import wrap_text_with_ansi
-
         if not text:
             return []
 
