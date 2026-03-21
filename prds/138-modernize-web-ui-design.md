@@ -405,6 +405,7 @@ Potential follow-up improvements after this PRD:
 - Current screenshots: `/screenshots/webui-analysis/`
 - Current theme files: `src/alfred/interfaces/webui/static/css/themes/`
 - Component files: `src/alfred/interfaces/webui/static/js/components/`
+- Follow-up sub-PRD: `prds/138a-kidcore-neocities-party-mode-theme.md`
 
 ---
 

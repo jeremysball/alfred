@@ -1,6 +1,8 @@
 /**
  * Settings Menu Web Component
  */
+import { applyThemeContrast } from '../utils/contrast.js';
+
 class SettingsMenu extends HTMLElement {
   constructor() {
     super();
@@ -12,7 +14,9 @@ class SettingsMenu extends HTMLElement {
       { id: 'swiss-international-dark', name: 'Swiss Dark', description: 'Clean dark style', previewColor: '#cc0000' },
       { id: 'neumorphism', name: 'Neumorphism Light', description: 'Soft light plastic', previewColor: '#3d4fb8' },
       { id: 'neumorphism-dark', name: 'Neumorphism Dark', description: 'Soft dark plastic', previewColor: '#3d4fb8' },
-      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0' }
+      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0' },
+      { id: 'element-modern', name: 'Element Modern', description: 'True black, seamless flow', previewColor: '#A855F7' },
+      { id: 'kidcore-playground', name: 'Kidcore Playground', description: 'Neocities glitter chaos', previewColor: '#ff4fd8' }
     ];
     this._isOpen = false;
   }
@@ -26,6 +30,7 @@ class SettingsMenu extends HTMLElement {
     document.documentElement.setAttribute('data-theme', themeId);
     localStorage.setItem('alfred-theme', themeId);
     this._currentTheme = themeId;
+    applyThemeContrast();
   }
 
   _render() {

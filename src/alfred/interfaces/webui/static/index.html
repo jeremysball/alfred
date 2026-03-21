@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="/static/css/themes/neumorphism.css?v=3">
     <link rel="stylesheet" href="/static/css/themes/neumorphism-dark.css?v=3">
     <link rel="stylesheet" href="/static/css/themes/minimal.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/element-modern.css?v=3">
+    <link rel="stylesheet" href="/static/css/themes/kidcore-playground.css?v=3">
 </head>
 <body>
     <div id="app">
@@ -67,19 +69,21 @@
     </div>
 
     <!-- Web Components -->
-    <script src="/static/js/components/theme-selector.js?v=3"></script>
+    <script type="module" src="/static/js/components/theme-selector.js?v=3"></script>
     <script src="/static/js/components/chat-message.js?v=3"></script>
     <script src="/static/js/components/tool-call.js?v=3"></script>
     <script src="/static/js/components/completion-menu.js?v=3"></script>
     <script src="/static/js/components/status-bar.js?v=3"></script>
     <script src="/static/js/components/toast-container.js?v=3"></script>
+    <script src="/static/js/components/session-list.js?v=3"></script>
 
     <!-- Markdown and Syntax Highlighting -->
     <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
+    <script src="/app-config.js"></script>
     <script src="/static/js/websocket-client.js?v=3"></script>
-    <script src="/static/js/main.js?v=3"></script>
+    <script type="module" src="/static/js/main.js?v=3"></script>
 </body>
 </html>
