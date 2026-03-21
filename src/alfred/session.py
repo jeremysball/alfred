@@ -224,11 +224,21 @@ class SessionManager:
                         for tc in tool_calls_data
                     ]
 
+                # Handle timestamp - older sessions may not have it
+                timestamp_str = msg_data.get("timestamp")
+                if timestamp_str:
+                    try:
+                        msg_timestamp = datetime.fromisoformat(timestamp_str)
+                    except (ValueError, TypeError):
+                        msg_timestamp = datetime.now(UTC)
+                else:
+                    msg_timestamp = datetime.now(UTC)
+
                 msg = Message(
                     idx=msg_data.get("idx", 0),
                     role=Role(msg_data["role"]),
                     content=msg_data["content"],
-                    timestamp=datetime.fromisoformat(msg_data["timestamp"]),
+                    timestamp=msg_timestamp,
                     embedding=msg_data.get("embedding"),
                     input_tokens=msg_data.get("input_tokens", 0),
                     output_tokens=msg_data.get("output_tokens", 0),
