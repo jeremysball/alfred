@@ -64,12 +64,40 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
             await page.click('button[aria-label="Settings"]')
             await page.wait_for_timeout(150)
 
+            await page.evaluate(
+                """
+                () => {
+                  const list = document.querySelector('#message-list');
+                  if (!list) return;
+
+                  const message = document.createElement('div');
+                  message.className = 'message assistant';
+                  message.innerHTML = `
+                    <div class="message-header">
+                      <span class="message-avatar" aria-hidden="true">◆</span>
+                      <span class="message-role">Alfred</span>
+                    </div>
+                    <div class="message-bubble">
+                      <div class="message-content">Kidcore still needs to read like a chat app.</div>
+                    </div>
+                  `;
+                  list.appendChild(message);
+                }
+                """
+            )
+
             data = await page.evaluate(
                 """
                 () => {
                   const body = getComputedStyle(document.body);
                   const header = getComputedStyle(document.querySelector('.app-header h1'));
                   const active = document.querySelector('.theme-option.active[data-theme="kidcore-playground"]');
+                  const banner = document.querySelector('.kidcore-banner');
+                  const bannerStyle = banner ? getComputedStyle(banner) : null;
+                  const messageBubble = document.querySelector('.message.assistant .message-bubble');
+                  const messageBubbleStyle = messageBubble ? getComputedStyle(messageBubble) : null;
+                  const messageInput = getComputedStyle(document.querySelector('.message-input'));
+                  const sendButton = getComputedStyle(document.querySelector('.send-button'));
 
                   return {
                     theme: document.documentElement.getAttribute('data-theme'),
@@ -77,6 +105,14 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
                     backgroundImage: body.backgroundImage,
                     headerColor: header.color,
                     activeText: active?.querySelector('.theme-name')?.textContent || '',
+                    bannerDisplay: bannerStyle?.display || '',
+                    bannerText: banner?.textContent || '',
+                    bannerBorder: bannerStyle?.borderTopWidth || '',
+                    messageBubbleBackground:
+                      messageBubbleStyle?.backgroundImage || messageBubbleStyle?.backgroundColor || '',
+                    messageBubbleBorder: messageBubbleStyle?.borderTopWidth || '',
+                    messageInputBackground: messageInput.backgroundColor,
+                    sendButtonBackground: sendButton.backgroundImage || sendButton.backgroundColor,
                   };
                 }
                 """
@@ -87,6 +123,15 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
             assert "radial-gradient" in data["backgroundImage"]
             assert data["activeText"] == "Kidcore Playground"
             assert data["headerColor"]
+
+            assert data["bannerDisplay"] == "flex"
+            assert "KIDCORE PLAYGROUND" in data["bannerText"]
+            assert data["bannerBorder"] != "0px"
+
+            assert data["messageBubbleBackground"]
+            assert data["messageBubbleBorder"] != "0px"
+            assert data["messageInputBackground"] != "rgba(0, 0, 0, 0)"
+            assert data["sendButtonBackground"] != "none"
 
             await page.reload(wait_until="networkidle")
             persisted = await page.evaluate(

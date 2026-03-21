@@ -241,6 +241,150 @@
   text-transform: uppercase;
 }
 
+[data-theme="kidcore-playground"] .kidcore-banner[hidden] {
+  display: flex !important;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 1rem 0;
+  padding: 0.55rem 0.8rem;
+  border: 4px solid #140022;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #ffef5d 0%, #ff4fd8 32%, #00e5ff 68%, #7cff6b 100%);
+  color: #140022;
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.24);
+  font-family: var(--font-primary);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  overflow: hidden;
+  pointer-events: none;
+  animation: kidcore-badge-float 6s ease-in-out infinite;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner::before,
+[data-theme="kidcore-playground"] .kidcore-banner::after {
+  content: "";
+  position: absolute;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 1.1rem;
+  border-radius: 9999px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.85) 0 6px,
+    rgba(255, 255, 255, 0.1) 6px 12px
+  );
+  opacity: 0.65;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner::before {
+  left: 0.45rem;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner::after {
+  right: 0.45rem;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner-badge,
+[data-theme="kidcore-playground"] .kidcore-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.25rem;
+  padding: 0.25rem 0.55rem;
+  border: 2px solid #140022;
+  border-radius: 9999px;
+  background: #fff7ff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+  animation: kidcore-badge-wiggle 4.5s ease-in-out infinite;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner-badge-left {
+  animation-delay: -1.2s;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner-badge-right {
+  background: #ffef5d;
+  animation-delay: -2.2s;
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner-marquee {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="kidcore-playground"] .kidcore-banner-marquee span {
+  display: inline-block;
+  padding-inline: 2rem;
+  animation: kidcore-marquee-scroll 12s linear infinite;
+}
+
+[data-theme="kidcore-playground"] .tool-call {
+  margin: 0;
+  border: 3px solid #ff88d4;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #380055 0%, #2a0050 100%);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+[data-theme="kidcore-playground"] .tool-call.running {
+  border-color: #ffef5d;
+}
+
+[data-theme="kidcore-playground"] .tool-call.success {
+  border-color: #7cff6b;
+}
+
+[data-theme="kidcore-playground"] .tool-call.error {
+  border-color: #ff5d8f;
+}
+
+[data-theme="kidcore-playground"] .tool-header {
+  background: rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="kidcore-playground"] .tool-header:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+[data-theme="kidcore-playground"] .tool-name {
+  color: #fff7ff;
+}
+
+[data-theme="kidcore-playground"] .tool-status {
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+[data-theme="kidcore-playground"] .tool-content {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  border-top: 2px dashed rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="kidcore-playground"] .tool-arguments strong,
+[data-theme="kidcore-playground"] .tool-output strong {
+  color: #ffef5d;
+}
+
+[data-theme="kidcore-playground"] .tool-arguments pre,
+[data-theme="kidcore-playground"] .tool-output pre {
+  background: rgba(20, 0, 34, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff7ff;
+}
+
 [data-theme="kidcore-playground"] .app-main {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 22%);
 }
@@ -739,6 +883,23 @@
 @keyframes kidcore-banner-scroll {
   0% { background-position: 0 0; }
   100% { background-position: 72px 0; }
+}
+
+@keyframes kidcore-marquee-scroll {
+  0% { transform: translateX(18%); }
+  100% { transform: translateX(-18%); }
+}
+
+@keyframes kidcore-badge-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(-0.8deg); }
+}
+
+@keyframes kidcore-badge-wiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(4deg) scale(1.02); }
+  50% { transform: rotate(-4deg) scale(0.98); }
+  75% { transform: rotate(2deg) scale(1.01); }
 }
 
 @keyframes kidcore-title-bob {
