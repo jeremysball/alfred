@@ -249,6 +249,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 135 | Persistent Memory Context | Keep memories loaded across turns with LRU eviction when limits reached (PRD #135) |
 | 136 | ✅ Web-based UI | Alternative to TUI using FastAPI + WebSocket + Web Components for faster development velocity (PRD #136) |
 | 140 | PyPiTUI v2 Adoption + Alfred Runtime Rewrite | Make PyPiTUI usable as a real runtime dependency and rewrite Alfred to consume it directly end-to-end (PRD #140) |
+| 142 | Web UI Daemon Autostart + Runtime Status Popover | Auto-start the daemon from the Web UI and expose live websocket/daemon health in the header popover (PRD #142) |
 
 ### Medium-term 📅
 
