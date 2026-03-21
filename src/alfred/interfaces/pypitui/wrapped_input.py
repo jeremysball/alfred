@@ -13,7 +13,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from alfred.interfaces.ansi import RESET, REVERSE
-from pypitui import CURSOR_MARKER, Component, Focusable, Input, Key, matches_key
+from alfred.interfaces.pypitui.compat import CURSOR_MARKER, Focusable
+from pypitui import Component, Input, Key, Size, matches_key
 from pypitui.utils import truncate_to_width
 
 if TYPE_CHECKING:
@@ -204,6 +205,10 @@ class WrappedInput(Component, Focusable):
     def _cursor_pos(self, value: int) -> None:
         """Set cursor position."""
         setattr(self._input, "_cursor_pos", value)  # noqa: B010
+
+    def measure(self, available_width: int, available_height: int) -> Size:
+        """Measure the wrapped input field."""
+        return Size(width=available_width, height=max(1, len(self.render(available_width))))
 
     def render(self, width: int) -> list[str]:
         """Render input showing all display lines with cursor.

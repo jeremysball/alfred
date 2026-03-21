@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from alfred.interfaces.ansi import RED, RESET, YELLOW
 from alfred.interfaces.pypitui.box_utils import build_bordered_box
-from pypitui import Component
+from pypitui import Component, Size
 
 if TYPE_CHECKING:
     from alfred.interfaces.pypitui.toast import ToastManager
@@ -25,6 +25,10 @@ class ToastOverlay(Component):
             toast_manager: The ToastManager to render toasts from
         """
         self._toast_manager = toast_manager
+
+    def measure(self, available_width: int, available_height: int) -> Size:
+        """Measure the toast overlay height for the current toast set."""
+        return Size(width=available_width, height=len(self.render(available_width)))
 
     def render(self, width: int) -> list[str]:
         """Render current toasts as bordered overlay lines.
