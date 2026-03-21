@@ -607,7 +607,7 @@
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
 }
 
-[data-theme="kidcore-playground"] chat-message.glue-shimmer-pulse .message-bubble {
+[data-theme="kidcore-playground"] .message-bubble.glue-shimmer-pulse {
   animation: kidcore-glue-bounce 260ms cubic-bezier(0.18, 0.89, 0.32, 1.35);
 }
 
