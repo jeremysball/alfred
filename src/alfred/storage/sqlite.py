@@ -57,6 +57,11 @@ class SQLiteStore:
         import sqlite_vec
         await db.load_extension(sqlite_vec.loadable_path())
 
+    @staticmethod
+    def _distance_to_similarity(distance: float) -> float:
+        """Convert backend distance into Alfred-facing similarity."""
+        return 1.0 - distance
+
     async def _get_vec0_dimension(self, db: Any, table_name: str) -> int | None:
         """Extract embedding dimension from existing vec0 table schema.
 
@@ -829,7 +834,7 @@ class SQLiteStore:
                     "content": row["content"],
                     "tags": json.loads(row["tags"]),
                     "permanent": bool(row["permanent"]),
-                    "similarity": row["distance"],
+                    "similarity": self._distance_to_similarity(float(row["distance"])),
                 }
                 result.append(entry)
             return result
@@ -1253,7 +1258,7 @@ class SQLiteStore:
                                 "summary_id": row[0],
                                 "session_id": row[1],
                                 "summary_text": row[2],
-                                "similarity": row[3],
+                                "similarity": self._distance_to_similarity(float(row[3])),
                             }
                         )
             except Exception as e:
@@ -1321,7 +1326,7 @@ class SQLiteStore:
                                 "message_idx": row[0],
                                 "role": row[1],
                                 "content_snippet": row[2],
-                                "similarity": row[3],
+                                "similarity": self._distance_to_similarity(float(row[3])),
                             }
                         )
             except Exception as e:

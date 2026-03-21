@@ -159,3 +159,48 @@ async def test_no_variable_leakage_bug(context_builder, mock_store):
                 f"expected {expected_similarity}, got {similarities[mem_id]}. "
                 "Bug: variable leakage from first loop!"
             )
+
+
+@pytest.mark.asyncio
+async def test_context_builder_min_similarity_accepts_best_memory_match_after_normalization():
+    """The best semantic match should survive the similarity threshold."""
+
+    class MockStore:
+        async def search_memories(self, query_embedding, top_k=10):
+            return [
+                {
+                    "entry_id": "mem-close",
+                    "content": "Best semantic match",
+                    "timestamp": datetime.now().isoformat(),
+                    "role": "system",
+                    "tags": [],
+                    "permanent": False,
+                    "similarity": 0.95,
+                },
+                {
+                    "entry_id": "mem-far",
+                    "content": "Worse semantic match",
+                    "timestamp": datetime.now().isoformat(),
+                    "role": "system",
+                    "tags": [],
+                    "permanent": False,
+                    "similarity": 0.05,
+                },
+            ]
+
+    from alfred.context import ContextBuilder
+
+    context_builder = ContextBuilder(
+        store=MockStore(),
+        memory_budget=32000,
+        min_similarity=0.6,
+    )
+
+    memories, similarities, scores = await context_builder.search_memories(
+        [0.1] * 768,
+        top_k=10,
+    )
+
+    assert [memory.entry_id for memory in memories] == ["mem-close"]
+    assert similarities["mem-close"] == 0.95
+    assert "mem-far" not in similarities
