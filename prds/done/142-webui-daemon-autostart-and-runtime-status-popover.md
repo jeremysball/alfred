@@ -1,8 +1,10 @@
 # PRD: Web UI Daemon Autostart and Runtime Status Popover
 
-**GitHub Issue**: [#142](https://github.com/jeremysball/alfred/issues/142)  
-**Status**: Draft  
-**Priority**: High  
+**GitHub Issue**: [#142](https://github.com/jeremysball/alfred/issues/142)
+**Status**: Complete
+**Last Updated**: 2026-03-22
+**Completed**: 2026-03-22
+**Priority**: High
 **Created**: 2026-03-21
 
 ---
@@ -18,8 +20,8 @@ When someone opens the Web UI today:
 - there is no place in the Web UI to inspect daemon PID, uptime, socket health, heartbeat age, or the last error/reload state
 
 That creates two user problems:
-1. **Operational friction** — users have to remember a separate daemon lifecycle.
-2. **Debugging friction** — when something is wrong, the UI does not show enough context to tell whether the issue is the browser connection, the WebSocket server, or the daemon.
+1. **Operational friction** - users have to remember a separate daemon lifecycle.
+2. **Debugging friction** - when something is wrong, the UI does not show enough context to tell whether the issue is the browser connection, the WebSocket server, or the daemon.
 
 This PRD fixes the immediate user experience and keeps the architecture pointed toward a future unified runtime where frontends talk over WebSocket and background work is owned by one server host.
 
