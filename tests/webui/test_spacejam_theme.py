@@ -81,9 +81,7 @@ async def test_spacejam_theme_activates_with_loud_retro_surface() -> None:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1440, "height": 900})
-            await page.add_init_script(
-                "localStorage.setItem('alfred-theme', 'spacejam-neocities');"
-            )
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'spacejam-neocities');")
             await page.goto(
                 f"http://127.0.0.1:{port}/static/index.html",
                 wait_until="networkidle",

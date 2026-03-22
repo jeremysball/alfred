@@ -94,10 +94,7 @@ class TelegramInterface:
         msg_count = len(session.messages) if session else 0
 
         if msg_count > 0:
-            await update.message.reply_text(
-                f"Hello, I'm Alfred. Welcome back! "
-                f"I remember our last conversation ({msg_count} messages)."
-            )
+            await update.message.reply_text(f"Hello, I'm Alfred. Welcome back! I remember our last conversation ({msg_count} messages).")
         else:
             await update.message.reply_text("Hello, I'm Alfred. I'll remember our conversations.")
 

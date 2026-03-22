@@ -113,9 +113,7 @@ class TestToolCallsLoadWithSession:
         mock_alfred = MagicMock()
         mock_alfred.config.use_markdown_rendering = True
         mock_alfred.core.session_manager.has_active_session.return_value = True
-        mock_alfred.core.session_manager.get_current_cli_session_async = AsyncMock(
-            return_value=mock_session
-        )
+        mock_alfred.core.session_manager.get_current_cli_session_async = AsyncMock(return_value=mock_session)
         # Mock token tracker to avoid MagicMock comparison errors
         mock_alfred.token_tracker.usage.input_tokens = 100
         mock_alfred.token_tracker.usage.output_tokens = 50

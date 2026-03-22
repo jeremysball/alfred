@@ -112,11 +112,11 @@ async def test_status_bar_renders_live_updates_in_browser() -> None:
                 """
             )
 
-            assert data["model"] == 'kimi-k2'
-            assert data["tokens"] == 'In: 1.2k | Out: 3.5k | Cache: 78 | Reason: 9'
-            assert data["queue"] == '3'
+            assert data["model"] == "kimi-k2"
+            assert data["tokens"] == "In: 1.2k | Out: 3.5k | Cache: 78 | Reason: 9"
+            assert data["queue"] == "3"
             assert data["streamingActive"] is True
-            assert data["streamingText"] == 'Thinking...'
+            assert data["streamingText"] == "Thinking..."
             assert data["throbber"]
 
             await page.evaluate(
@@ -193,8 +193,8 @@ async def test_toast_container_shows_and_dismisses_toasts_in_browser() -> None:
             )
 
             assert shown["exists"] is True
-            assert 'Sparkle parade ready' in shown["text"]
-            assert 'toast-success' in shown["classes"]
+            assert "Sparkle parade ready" in shown["text"]
+            assert "toast-success" in shown["classes"]
             assert shown["toastId"] == str(toast_id)
             assert shown["enter"] is True
 
@@ -271,11 +271,11 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
                 """
             )
 
-            assert collapsed["toolName"] == 'read_file'
-            assert collapsed["status"] == 'running'
-            assert collapsed["expanded"] == 'false'
-            assert 'collapsed' in collapsed["collapsedClass"]
-            assert 'File contents here' in collapsed["outputText"]
+            assert collapsed["toolName"] == "read_file"
+            assert collapsed["status"] == "running"
+            assert collapsed["expanded"] == "false"
+            assert "collapsed" in collapsed["collapsedClass"]
+            assert "File contents here" in collapsed["outputText"]
 
             await page.evaluate(
                 """
@@ -302,11 +302,11 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
                 """
             )
 
-            assert updated["status"] == 'success'
-            assert 'More output' in updated["outputText"]
-            assert 'success' in updated["collapsedClass"]
+            assert updated["status"] == "success"
+            assert "More output" in updated["outputText"]
+            assert "success" in updated["collapsedClass"]
 
-            await page.click('#browser-tool-call .tool-header')
+            await page.click("#browser-tool-call .tool-header")
             await page.wait_for_timeout(80)
 
             expanded = await page.evaluate(
@@ -323,9 +323,9 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
                 """
             )
 
-            assert expanded["expanded"] == 'true'
-            assert 'expanded' in expanded["expandedClass"]
-            assert expanded["toggle"] == '▼'
+            assert expanded["expanded"] == "true"
+            assert "expanded" in expanded["expandedClass"]
+            assert expanded["toggle"] == "▼"
 
             await browser.close()
     finally:

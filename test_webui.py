@@ -3,8 +3,9 @@
 
 import asyncio
 import subprocess
-import time
+
 from playwright.async_api import async_playwright
+
 
 async def test_webui():
     """Test the Web UI."""
@@ -83,6 +84,7 @@ async def test_webui():
     finally:
         proc.terminate()
         proc.wait()
+
 
 if __name__ == "__main__":
     asyncio.run(test_webui())

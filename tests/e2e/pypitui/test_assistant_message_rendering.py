@@ -25,10 +25,7 @@ class TestAssistantMessageRendering:
         await tui._send_message("Hello")
 
         # Get the last message panel (should be assistant)
-        assistant_panels = [
-            c for c in tui.conversation.children
-            if isinstance(c, MessagePanel) and c._role == "assistant"
-        ]
+        assistant_panels = [c for c in tui.conversation.children if isinstance(c, MessagePanel) and c._role == "assistant"]
         assert len(assistant_panels) >= 1, "Should have at least one assistant panel"
 
         assistant_panel = assistant_panels[-1]
@@ -48,6 +45,7 @@ class TestAssistantMessageRendering:
 
         # Create a custom stream that sends chunks
         chunks = ["Hello", " ", "world", "!"]
+
         async def chunk_stream(*args, **kwargs):
             for chunk in chunks:
                 yield chunk
@@ -58,10 +56,8 @@ class TestAssistantMessageRendering:
         await tui._send_message("Test")
 
         from alfred.interfaces.pypitui.message_panel import MessagePanel
-        assistant_panels = [
-            c for c in tui.conversation.children
-            if isinstance(c, MessagePanel) and c._role == "assistant"
-        ]
+
+        assistant_panels = [c for c in tui.conversation.children if isinstance(c, MessagePanel) and c._role == "assistant"]
         assert len(assistant_panels) >= 1
 
         assistant_panel = assistant_panels[-1]
@@ -88,10 +84,8 @@ class TestAssistantMessageRendering:
         await tui._send_message("Test markdown")
 
         from alfred.interfaces.pypitui.message_panel import MessagePanel
-        assistant_panels = [
-            c for c in tui.conversation.children
-            if isinstance(c, MessagePanel) and c._role == "assistant"
-        ]
+
+        assistant_panels = [c for c in tui.conversation.children if isinstance(c, MessagePanel) and c._role == "assistant"]
         assert len(assistant_panels) >= 1
 
         assistant_panel = assistant_panels[-1]
@@ -104,8 +98,7 @@ class TestAssistantMessageRendering:
         rendered_text = "".join(lines)
 
         # Should have content (markdown may add ANSI codes, so check for the text)
-        assert "Bold" in rendered_text or "**Bold**" in rendered_text, \
-            f"Markdown content not rendered. Got: {rendered_text[:200]}"
+        assert "Bold" in rendered_text or "**Bold**" in rendered_text, f"Markdown content not rendered. Got: {rendered_text[:200]}"
 
     @pytest.mark.asyncio
     async def test_assistant_message_empty_content_handling(self, mock_alfred, mock_terminal):
@@ -114,6 +107,7 @@ class TestAssistantMessageRendering:
 
         # Stream that yields nothing initially, then content
         call_count = 0
+
         async def delayed_stream(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -126,10 +120,8 @@ class TestAssistantMessageRendering:
         await tui._send_message("Test")
 
         from alfred.interfaces.pypitui.message_panel import MessagePanel
-        assistant_panels = [
-            c for c in tui.conversation.children
-            if isinstance(c, MessagePanel) and c._role == "assistant"
-        ]
+
+        assistant_panels = [c for c in tui.conversation.children if isinstance(c, MessagePanel) and c._role == "assistant"]
         assert len(assistant_panels) >= 1
 
         assistant_panel = assistant_panels[-1]
@@ -137,8 +129,7 @@ class TestAssistantMessageRendering:
         rendered_text = "".join(lines)
 
         # Should have the actual content
-        assert "Now I have content" in rendered_text, \
-            f"Empty content not handled. Got: {rendered_text[:200]}"
+        assert "Now I have content" in rendered_text, f"Empty content not handled. Got: {rendered_text[:200]}"
 
 
 class TestAssistantMessageWithToolCalls:
@@ -159,11 +150,7 @@ class TestAssistantMessageWithToolCalls:
         tui.conversation.add_child(assistant_msg)
 
         # Add tool call
-        tui._tool_callback(ToolStart(
-            tool_call_id="call-1",
-            tool_name="search_memories",
-            arguments={"query": "test"}
-        ))
+        tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="search_memories", arguments={"query": "test"}))
 
         # Add more content after tool
         assistant_msg.set_content("Let me search... Found it!")
@@ -325,6 +312,7 @@ class TestMockTerminalIntegration:
 
         # Check conversation has content
         from alfred.interfaces.pypitui.message_panel import MessagePanel
+
         panels = [c for c in tui.conversation.children if isinstance(c, MessagePanel)]
 
         assert len(panels) >= 2, "Should have user + assistant panels"
@@ -352,8 +340,7 @@ class TestMockTerminalIntegration:
             assert "Alfred" in rendered, f"No title at width {width}"
 
             # Content should be present (might be wrapped)
-            assert "test" in rendered or "This" in rendered, \
-                f"Content missing at width {width}: {rendered[:100]}"
+            assert "test" in rendered or "This" in rendered, f"Content missing at width {width}: {rendered[:100]}"
 
     def test_streaming_content_accumulation(self, mock_terminal):
         """Verify content accumulates correctly during simulated streaming."""
@@ -373,8 +360,7 @@ class TestMockTerminalIntegration:
             lines = panel.render(width=80)
             rendered = "".join(lines)
 
-            assert accumulated in rendered or chunk in rendered, \
-                f"Chunk '{chunk}' not in render. Accumulated: {accumulated}"
+            assert accumulated in rendered or chunk in rendered, f"Chunk '{chunk}' not in render. Accumulated: {accumulated}"
 
 
 class TestEdgeCases:

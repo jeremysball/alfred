@@ -9,15 +9,15 @@ INDEX_HTML = PROJECT_ROOT / "src/alfred/interfaces/webui/static/index.html"
 def test_index_includes_kidcore_homeboard_and_controls() -> None:
     source = INDEX_HTML.read_text()
 
-    assert 'kidcore-banner' not in source
-    assert 'kidcore-homeboard' in source
-    assert 'kidcore-guestbook-panel' in source
-    assert 'kidcore-webring-panel' in source
-    assert 'kidcore-links-panel' in source
-    assert 'kidcore-music-play' in source
-    assert 'kidcore-music-mute' in source
-    assert 'kidcore-sfx-toggle' in source
-    assert '/static/js/kidcore-homeboard.js?v=3' in source
+    assert "kidcore-banner" not in source
+    assert "kidcore-homeboard" in source
+    assert "kidcore-guestbook-panel" in source
+    assert "kidcore-webring-panel" in source
+    assert "kidcore-links-panel" in source
+    assert "kidcore-music-play" in source
+    assert "kidcore-music-mute" in source
+    assert "kidcore-sfx-toggle" in source
+    assert "/static/js/kidcore-homeboard.js?v=3" in source
 
 
 def test_kidcore_homeboard_css_styles_functional_panels() -> None:
@@ -52,8 +52,8 @@ def test_kidcore_theme_keeps_message_and_composer_surfaces_readable() -> None:
     ]:
         assert selector in source
 
-    assert 'background: linear-gradient(135deg, #fff3cf 0%, #ffd0ea 58%, #ffb2d6 100%)' in source
-    assert 'background: linear-gradient(135deg, #f8f2ff 0%, #e7f5ff 100%)' in source
-    assert 'border-color: #ff70c8' in source
-    assert 'border-color: #8a5cf6' in source
-    assert 'background: #fff5fd' in source
+    assert "background: linear-gradient(135deg, #fff3cf 0%, #ffd0ea 58%, #ffb2d6 100%)" in source
+    assert "background: linear-gradient(135deg, #f8f2ff 0%, #e7f5ff 100%)" in source
+    assert "border-color: #ff70c8" in source
+    assert "border-color: #8a5cf6" in source
+    assert "background: #fff5fd" in source

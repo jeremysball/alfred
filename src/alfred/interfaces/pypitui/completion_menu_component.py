@@ -128,20 +128,12 @@ class CompletionMenuComponent(Component):
             if value_space <= 0:
                 value_space = content_width
                 desc_text = ""
-            value_display = (
-                value[: max(0, value_space - 1)] + "…"
-                if value_space < visible_width(value)
-                else value
-            )
+            value_display = value[: max(0, value_space - 1)] + "…" if value_space < visible_width(value) else value
             # Manual padding since ljust doesn't handle ANSI codes
             padding = max(0, value_space - visible_width(value_display))
             content = f" {value_display}{' ' * padding}{desc_text} "
         else:
-            value_display = (
-                value[: max(0, content_width - 1)] + "…"
-                if visible_width(value) > content_width
-                else value
-            )
+            value_display = value[: max(0, content_width - 1)] + "…" if visible_width(value) > content_width else value
             # Manual padding since ljust doesn't handle ANSI codes
             padding = max(0, content_width - visible_width(value_display))
             content = f" {value_display}{' ' * padding} "

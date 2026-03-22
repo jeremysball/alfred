@@ -18,9 +18,7 @@ class ResumeSessionCommand(Command):
     def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
         """Resume an existing session."""
         if not arg:
-            tui._add_user_message(
-                "Usage: /resume <session_id>\nUse /sessions to see available sessions."
-            )
+            tui._add_user_message("Usage: /resume <session_id>\nUse /sessions to see available sessions.")
             return True
 
         asyncio.create_task(self._execute_async(tui, arg.strip()))

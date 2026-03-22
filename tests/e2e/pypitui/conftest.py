@@ -60,9 +60,7 @@ def temp_work_dir() -> Iterator[Path]:
 
 
 @pytest.fixture
-def history_manager(
-    temp_work_dir: Path, temp_cache_dir: Path, default_config: ConfigDict
-) -> HistoryManager:
+def history_manager(temp_work_dir: Path, temp_cache_dir: Path, default_config: ConfigDict) -> HistoryManager:
     """HistoryManager with default configuration.
 
     Returns:
@@ -91,9 +89,7 @@ def populated_history(history_manager: HistoryManager) -> HistoryManager:
 
 
 @pytest.fixture
-def history_at_max_capacity(
-    history_manager: HistoryManager, default_config: ConfigDict
-) -> HistoryManager:
+def history_at_max_capacity(history_manager: HistoryManager, default_config: ConfigDict) -> HistoryManager:
     """HistoryManager at max_history limit.
 
     Returns:
@@ -175,16 +171,12 @@ class InvariantAssertions:
     def no_consecutive_duplicates(history: HistoryManager) -> None:
         """No two consecutive entries are identical."""
         for i in range(len(history._history) - 1):
-            assert history._history[i].message != history._history[i + 1].message, (
-                f"Duplicate messages at indices {i} and {i + 1}"
-            )
+            assert history._history[i].message != history._history[i + 1].message, f"Duplicate messages at indices {i} and {i + 1}"
 
     @staticmethod
     def index_valid(history: HistoryManager) -> None:
         """Navigation index always in valid range."""
-        assert 0 <= history._index <= len(history._history), (
-            f"Index {history._index} out of range [0, {len(history._history)}]"
-        )
+        assert 0 <= history._index <= len(history._history), f"Index {history._index} out of range [0, {len(history._history)}]"
 
 
 @pytest.fixture

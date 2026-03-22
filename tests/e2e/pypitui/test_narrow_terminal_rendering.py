@@ -10,7 +10,7 @@ from alfred.interfaces.pypitui.rich_renderer import RichRenderer
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape sequences from text."""
-    return re.sub(r'\x1b\[[0-9;]*m', '', text).replace('\xa0', ' ')
+    return re.sub(r"\x1b\[[0-9;]*m", "", text).replace("\xa0", " ")
 
 
 class TestNarrowTerminalToolRendering:
@@ -42,9 +42,9 @@ class TestNarrowTerminalToolRendering:
             assert vwidth <= 40, f"Line {i} exceeds 40 chars: {vwidth}"
 
         # Check for Rich truncation pattern (word + ... at end)
-        content = '\n'.join(strip_ansi(line) for line in rendered)
+        content = "\n".join(strip_ansi(line) for line in rendered)
         # Rich truncation looks like "wor..." or "ti..." - a word cut off with ...
-        truncation_pattern = r'\w\.\.\.\s*$|\w\.\.\.\s+\|'
+        truncation_pattern = r"\w\.\.\.\s*$|\w\.\.\.\s+\|"
         matches = re.findall(truncation_pattern, content, re.MULTILINE)
         assert len(matches) == 0, f"Found Rich truncation patterns: {matches}"
 
@@ -68,12 +68,12 @@ class TestNarrowTerminalToolRendering:
         )
 
         rendered = panel.render(40)
-        content = '\n'.join(strip_ansi(line) for line in rendered)
+        content = "\n".join(strip_ansi(line) for line in rendered)
 
         # Should contain full words, not truncated fragments
         assert "This is" in content or "This" in content
         # Should not have mid-word truncation like "Thi..." or "con..."
-        assert not re.search(r'\w{2}\.\.\.', content), "Found mid-word truncation"
+        assert not re.search(r"\w{2}\.\.\.", content), "Found mid-word truncation"
 
     def test_renderer_width_matches_content_area_at_40_cols(self) -> None:
         """RichRenderer should use correct width for 40 column terminal."""
@@ -91,10 +91,10 @@ class TestNarrowTerminalToolRendering:
     def test_renderer_width_at_various_terminal_widths(self) -> None:
         """Renderer width should scale correctly with terminal."""
         test_cases = [
-            (40, 32),   # 40 - 8 = 32
-            (50, 42),   # 50 - 8 = 42
-            (60, 52),   # 60 - 8 = 52
-            (80, 72),   # 80 - 8 = 72
+            (40, 32),  # 40 - 8 = 32
+            (50, 42),  # 50 - 8 = 42
+            (60, 52),  # 60 - 8 = 52
+            (80, 72),  # 80 - 8 = 72
         ]
 
         for terminal_width, expected_renderer_width in test_cases:
@@ -106,8 +106,9 @@ class TestNarrowTerminalToolRendering:
             )
 
             if panel._renderer:
-                assert panel._renderer.width == expected_renderer_width, \
+                assert panel._renderer.width == expected_renderer_width, (
                     f"Terminal {terminal_width}: expected {expected_renderer_width}, got {panel._renderer.width}"
+                )
 
     def test_set_terminal_width_updates_renderer(self) -> None:
         """Updating terminal width should update renderer width."""
@@ -149,10 +150,10 @@ class TestNarrowTerminalToolRendering:
         panel.finalize_tool_call("test-789", "success")
 
         rendered = panel.render(40)
-        content = '\n'.join(strip_ansi(line) for line in rendered)
+        content = "\n".join(strip_ansi(line) for line in rendered)
 
         # Should not have mid-word truncation
-        assert not re.search(r'\w{2}\.\.\.', content), "Found mid-word truncation in output"
+        assert not re.search(r"\w{2}\.\.\.", content), "Found mid-word truncation in output"
 
 
 class TestRichRendererMinWidth:
@@ -221,15 +222,15 @@ class TestToolCallBoxRendering:
         )
 
         rendered = panel.render(40)
-        content = '\n'.join(strip_ansi(line) for line in rendered)
+        content = "\n".join(strip_ansi(line) for line in rendered)
 
         # Find tool box lines (they have the tool name in them)
-        tool_box_lines = [line for line in content.split('\n') if 'test_tool' in line or '│' in line]
+        tool_box_lines = [line for line in content.split("\n") if "test_tool" in line or "│" in line]
 
         # All tool box content lines should have the same visible width
         # (accounting for the nested structure)
         for line in tool_box_lines:
-            if '│' in line:
+            if "│" in line:
                 vwidth = len(line)  # After stripping ANSI, visible width equals length
                 # Should fit within 40
                 assert vwidth <= 42, f"Box line too wide: {vwidth}"  # Allow small margin

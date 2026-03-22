@@ -136,9 +136,7 @@ class TerminalSession:
         Returns:
             Plain text from terminal
         """
-        result = subprocess.run(
-            ["tmux", "capture-pane", "-p", "-t", self.name], capture_output=True, text=True
-        )
+        result = subprocess.run(["tmux", "capture-pane", "-p", "-t", self.name], capture_output=True, text=True)
         raw = result.stdout
 
         # Strip ANSI escape sequences
@@ -159,9 +157,7 @@ class TerminalSession:
         Returns:
             Raw text with ANSI codes preserved
         """
-        result = subprocess.run(
-            ["tmux", "capture-pane", "-e", "-p", "-t", self.name], capture_output=True, text=True
-        )
+        result = subprocess.run(["tmux", "capture-pane", "-e", "-p", "-t", self.name], capture_output=True, text=True)
         return result.stdout
 
     def capture_screenshot(self, filename: str = None, upload: bool = False) -> dict:

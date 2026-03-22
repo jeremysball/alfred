@@ -495,10 +495,13 @@ class TestConcurrentOperations:
             "total_tokens": 32,
         }
 
-        with patch(
-            "alfred.context_display.get_context_display",
-            AsyncMock(return_value=context_data),
-        ), test_client.websocket_connect("/ws") as websocket:
+        with (
+            patch(
+                "alfred.context_display.get_context_display",
+                AsyncMock(return_value=context_data),
+            ),
+            test_client.websocket_connect("/ws") as websocket,
+        ):
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()

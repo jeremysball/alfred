@@ -67,9 +67,7 @@ class CompletionManager:
         # Sort by trigger length descending (longest first)
         self._triggers.sort(key=lambda x: len(x[0]), reverse=True)
 
-    def _find_active_trigger(
-        self, text: str
-    ) -> tuple[str | None, Callable[[str], list[tuple[str, str | None]]] | None]:
+    def _find_active_trigger(self, text: str) -> tuple[str | None, Callable[[str], list[tuple[str, str | None]]] | None]:
         """Find the longest matching trigger for the given text.
 
         Returns:

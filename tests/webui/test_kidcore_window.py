@@ -101,7 +101,7 @@ async def test_kidcore_window_collapses_closes_and_restores() -> None:
             assert initial["hidden"] is False
             assert initial["bodyHidden"] is False
 
-            await page.click('#kidcore-homeboard-collapse')
+            await page.click("#kidcore-homeboard-collapse")
             await page.wait_for_timeout(100)
             collapsed = await page.evaluate(
                 """
@@ -120,7 +120,7 @@ async def test_kidcore_window_collapses_closes_and_restores() -> None:
             assert collapsed["bodyHidden"] is True
             assert collapsed["bodyCollapsed"] == "collapsed"
 
-            await page.click('#kidcore-homeboard-collapse')
+            await page.click("#kidcore-homeboard-collapse")
             await page.wait_for_timeout(100)
             reopened = await page.evaluate(
                 """
@@ -137,7 +137,7 @@ async def test_kidcore_window_collapses_closes_and_restores() -> None:
             assert reopened["state"] == "open"
             assert reopened["bodyHidden"] is False
 
-            await page.click('#kidcore-homeboard-close')
+            await page.click("#kidcore-homeboard-close")
             await page.wait_for_timeout(100)
             closed = await page.evaluate(
                 """
@@ -156,7 +156,7 @@ async def test_kidcore_window_collapses_closes_and_restores() -> None:
             assert closed["hidden"] is True
             assert closed["launcherHidden"] is False
 
-            await page.click('#kidcore-homeboard-launcher')
+            await page.click("#kidcore-homeboard-launcher")
             await page.wait_for_timeout(100)
             restored = await page.evaluate(
                 """
@@ -213,10 +213,10 @@ async def test_kidcore_window_drags_on_desktop() -> None:
             await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
             await page.goto(f"http://127.0.0.1:{port}/static/index.html", wait_until="networkidle")
 
-            before = await page.locator('#kidcore-homeboard-window').bounding_box()
+            before = await page.locator("#kidcore-homeboard-window").bounding_box()
             assert before is not None
 
-            handle = page.locator('#kidcore-homeboard-titlebar')
+            handle = page.locator("#kidcore-homeboard-titlebar")
             handle_box = await handle.bounding_box()
             assert handle_box is not None
 
@@ -226,7 +226,7 @@ async def test_kidcore_window_drags_on_desktop() -> None:
             await page.mouse.up()
             await page.wait_for_timeout(100)
 
-            after = await page.locator('#kidcore-homeboard-window').bounding_box()
+            after = await page.locator("#kidcore-homeboard-window").bounding_box()
             assert after is not None
             assert after["x"] != before["x"] or after["y"] != before["y"]
 
@@ -283,7 +283,7 @@ async def test_kidcore_window_starts_collapsed_on_mobile() -> None:
             assert state["bodyHidden"] is True
             assert state["launcherHidden"] is True
 
-            window_box = await page.locator('#kidcore-homeboard-window').bounding_box()
+            window_box = await page.locator("#kidcore-homeboard-window").bounding_box()
             assert window_box is not None
             assert window_box["height"] <= 84
 

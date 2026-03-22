@@ -104,7 +104,7 @@ class HealthCommand(Command):
 
             try:
                 memory_store = tui.alfred.core.memory_store
-                if hasattr(memory_store, 'count_memories'):
+                if hasattr(memory_store, "count_memories"):
                     count = await memory_store.count_memories()
                     if count > 0:
                         lines.append(_status_ok(f"Stored Memories: {count}"))
@@ -129,7 +129,7 @@ class HealthCommand(Command):
                     lines.append(_status_ok("Status: Ready"))
 
                     # Show in-flight count if available
-                    if hasattr(embedding_provider, 'in_flight_items'):
+                    if hasattr(embedding_provider, "in_flight_items"):
                         in_flight = len(embedding_provider.in_flight_items)
                         if in_flight > 0:
                             lines.append(_status_pending(f"In-flight: {in_flight} items"))

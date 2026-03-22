@@ -55,9 +55,7 @@ async def test_scrapbook_toolbar_filters_guestbook_entries_and_persists_updates(
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1440, "height": 900})
-            await page.add_init_script(
-                "localStorage.setItem('alfred-theme', 'spacejam-neocities');"
-            )
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'spacejam-neocities');")
             await page.goto(
                 f"http://127.0.0.1:{port}/static/index.html",
                 wait_until="networkidle",
@@ -79,12 +77,12 @@ async def test_scrapbook_toolbar_filters_guestbook_entries_and_persists_updates(
             assert controls["updatesTabExists"] is True
 
             await page.click('[data-kidcore-tab="guestbook"]')
-            await page.fill('#kidcore-guestbook-name', 'Moonbeam')
-            await page.fill('#kidcore-guestbook-message', 'hello from the glitter comet')
-            await page.click('#kidcore-guestbook-submit')
+            await page.fill("#kidcore-guestbook-name", "Moonbeam")
+            await page.fill("#kidcore-guestbook-message", "hello from the glitter comet")
+            await page.click("#kidcore-guestbook-submit")
             await page.wait_for_timeout(120)
 
-            await page.fill('#kidcore-homeboard-search', 'Moonbeam')
+            await page.fill("#kidcore-homeboard-search", "Moonbeam")
             await page.wait_for_timeout(120)
             filtered = await page.evaluate(
                 """
@@ -103,13 +101,13 @@ async def test_scrapbook_toolbar_filters_guestbook_entries_and_persists_updates(
             assert "Moonbeam" in filtered["text"]
             assert "match" in filtered["summary"].lower()
 
-            await page.click('#kidcore-homeboard-clear-search')
+            await page.click("#kidcore-homeboard-clear-search")
             await page.wait_for_timeout(80)
 
             await page.click('[data-kidcore-tab="updates"]')
-            await page.fill('#kidcore-update-title', 'retro tools')
-            await page.fill('#kidcore-update-message', 'search, nav, export, and notes are alive')
-            await page.click('#kidcore-update-submit')
+            await page.fill("#kidcore-update-title", "retro tools")
+            await page.fill("#kidcore-update-message", "search, nav, export, and notes are alive")
+            await page.click("#kidcore-update-submit")
             await page.wait_for_timeout(120)
 
             updates = await page.evaluate(
@@ -124,8 +122,8 @@ async def test_scrapbook_toolbar_filters_guestbook_entries_and_persists_updates(
                 """
             )
             assert updates["count"] >= 1
-            assert 'retro tools' in updates["text"]
-            assert 'search, nav, export, and notes are alive' in updates["storage"]
+            assert "retro tools" in updates["text"]
+            assert "search, nav, export, and notes are alive" in updates["storage"]
 
             await page.reload(wait_until="networkidle")
             await page.click('[data-kidcore-tab="updates"]')
@@ -139,7 +137,7 @@ async def test_scrapbook_toolbar_filters_guestbook_entries_and_persists_updates(
                 })
                 """
             )
-            assert 'retro tools' in persisted["text"]
+            assert "retro tools" in persisted["text"]
 
             await browser.close()
     finally:
