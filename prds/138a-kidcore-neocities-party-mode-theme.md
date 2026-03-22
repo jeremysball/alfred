@@ -1,6 +1,6 @@
 # Sub-PRD: Kidcore Neocities Full Chaos Theme for Web UI
 
-**Parent PRD**: [#138 Modernize Web UI Design](./138-modernize-web-ui-design.md)  
+**Parent PRD**: [#138 Modernize Web UI Design](./done/138-modernize-web-ui-design.md)  
 **Local ID**: 138A (sub-PRD, no GitHub issue)  
 **Status**: Complete  
 **Priority**: Medium  

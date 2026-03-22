@@ -1,9 +1,10 @@
 # PRD: Modernize Web UI Design
 
 **GitHub Issue**: [#138](https://github.com/jeremysball/alfred/issues/138)  
-**Status**: Draft  
+**Status**: Closed - Superseded by PRDs #138A, #142, #144, and #145  
 **Priority**: High  
-**Created**: 2026-03-20
+**Created**: 2026-03-20  
+**Last Updated**: 2026-03-22
 
 ---
 

@@ -235,7 +235,6 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 138 | Modernize Web UI Design | Redesign web UI with modern aesthetic, improved contrast, avatars, empty states, message actions (PRD #138) |
 | 83 | ✅ Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 89 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 91 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |
