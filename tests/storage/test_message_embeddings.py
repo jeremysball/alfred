@@ -53,9 +53,7 @@ class TestMessageEmbeddingsTable:
         await db.commit()
 
         # Verify
-        async with db.execute(
-            "SELECT COUNT(*) FROM message_embeddings WHERE message_embedding_id = ?", ("me_test",)
-        ) as cursor:
+        async with db.execute("SELECT COUNT(*) FROM message_embeddings WHERE message_embedding_id = ?", ("me_test",)) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 1
 
@@ -101,9 +99,7 @@ class TestMessageEmbeddingsTable:
         await db.commit()
 
         # Verify message embedding deleted
-        async with db.execute(
-            "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_cascade",)
-        ) as cursor:
+        async with db.execute("SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_cascade",)) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 0
 
@@ -138,9 +134,7 @@ class TestMessageEmbeddingsIndexing:
 
         async with (
             aiosqlite.connect(sqlite_store.db_path) as db,
-            db.execute(
-                "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_index",)
-            ) as cursor,
+            db.execute("SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_index",)) as cursor,
         ):
             row = await cursor.fetchone()
             assert row[0] == 2
@@ -170,9 +164,7 @@ class TestMessageEmbeddingsIndexing:
 
         async with (
             aiosqlite.connect(sqlite_store.db_path) as db,
-            db.execute(
-                "SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_partial",)
-            ) as cursor,
+            db.execute("SELECT COUNT(*) FROM message_embeddings WHERE session_id = ?", ("sess_partial",)) as cursor,
         ):
             row = await cursor.fetchone()
             assert row[0] == 1

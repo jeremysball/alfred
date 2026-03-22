@@ -45,9 +45,7 @@ class TestSessionSummarizerSQLite:
     """Tests for SessionSummarizer using real SQLiteStore."""
 
     @pytest.mark.asyncio
-    async def test_save_summary_to_sqlite(
-        self, sqlite_store, mock_llm_client, mock_embedder, tmp_path
-    ):
+    async def test_save_summary_to_sqlite(self, sqlite_store, mock_llm_client, mock_embedder, tmp_path):
         """Verify save_summary persists to SQLite."""
         summarizer = SessionSummarizer(mock_llm_client, mock_embedder, store=sqlite_store)
 
@@ -128,9 +126,7 @@ class TestSessionSummarizerSQLite:
         assert loaded is None
 
     @pytest.mark.asyncio
-    async def test_save_summary_embedding_serialization(
-        self, sqlite_store, mock_llm_client, mock_embedder
-    ):
+    async def test_save_summary_embedding_serialization(self, sqlite_store, mock_llm_client, mock_embedder):
         """Verify embedding is serialized to JSON in SQLite."""
         summarizer = SessionSummarizer(mock_llm_client, mock_embedder, store=sqlite_store)
 
@@ -156,9 +152,7 @@ class TestSessionSummarizerSQLite:
         # Verify embedding stored as JSON
         async with (
             aiosqlite.connect(sqlite_store.db_path) as db,
-            db.execute(
-                "SELECT embedding FROM session_summaries WHERE session_id = ?", ("sess_003",)
-            ) as cursor,
+            db.execute("SELECT embedding FROM session_summaries WHERE session_id = ?", ("sess_003",)) as cursor,
         ):
             row = await cursor.fetchone()
             stored = json.loads(row[0])

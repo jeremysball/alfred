@@ -117,9 +117,10 @@ async def test_create_memory_store_rebuilds_stale_vec0_schema_without_injecting_
     assert scores["mem-1"] == pytest.approx(1.0)
     assert "stale memory_embeddings" in caplog.text.lower()
 
-    async with aiosqlite.connect(seed_store.db_path) as db, db.execute(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_embeddings'"
-    ) as cursor:
+    async with (
+        aiosqlite.connect(seed_store.db_path) as db,
+        db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_embeddings'") as cursor,
+    ):
         schema_row = await cursor.fetchone()
 
     assert schema_row is not None

@@ -87,9 +87,7 @@ class ResolutionContext:
             True if current depth exceeds max_depth
         """
         if self._depth > self.max_depth:
-            logger.warning(
-                f"Max placeholder depth ({self.max_depth}) exceeded, stopping resolution"
-            )
+            logger.warning(f"Max placeholder depth ({self.max_depth}) exceeded, stopping resolution")
             return True
         return False
 
@@ -260,9 +258,7 @@ def resolve_placeholders(
 
     for resolver in resolvers:
         # Use partial to bind resolver immediately
-        result = resolver.pattern.sub(
-            partial(_resolve_match, resolver=resolver, context=context), result
-        )
+        result = resolver.pattern.sub(partial(_resolve_match, resolver=resolver, context=context), result)
 
     return result
 

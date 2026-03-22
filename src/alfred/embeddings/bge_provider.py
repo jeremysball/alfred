@@ -70,9 +70,7 @@ async def _load_model_async(model_name: str = "bge-base") -> Any:
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
-            raise ImportError(
-                "sentence-transformers not installed. Install with: uv add sentence-transformers"
-            ) from e
+            raise ImportError("sentence-transformers not installed. Install with: uv add sentence-transformers") from e
 
         config = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["bge-base"])
         model_id = config["model_id"]
@@ -106,9 +104,7 @@ def get_model(model_name: str = "bge-base") -> Any:
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
-            raise ImportError(
-                "sentence-transformers not installed. Install with: uv add sentence-transformers"
-            ) from e
+            raise ImportError("sentence-transformers not installed. Install with: uv add sentence-transformers") from e
 
         config = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["bge-base"])
         model_id = config["model_id"]
@@ -164,10 +160,7 @@ class BGEProvider(EmbeddingProvider):
             if _model_instance is not None and _model_name == self._model_name:
                 self._model = _model_instance
             else:
-                raise RuntimeError(
-                    "Model not loaded. Call initialize() first or use embed() "
-                    "which will load it automatically."
-                )
+                raise RuntimeError("Model not loaded. Call initialize() first or use embed() which will load it automatically.")
         return self._model
 
     async def initialize(self) -> None:

@@ -94,9 +94,7 @@ class TestXDGDirectoryInit:
         bundled_templates.mkdir()
         (bundled_templates / "SOUL.md").write_text("# Soul Template")
         (bundled_templates / "USER.md").write_text("# User Template")
-        (bundled_templates / "config.toml").write_text(
-            '[provider]\\ndefault = "kimi"\\n\\n[memory]\\nbudget = 32000\\n'
-        )
+        (bundled_templates / "config.toml").write_text('[provider]\\ndefault = "kimi"\\n\\n[memory]\\nbudget = 32000\\n')
 
         with patch("alfred.data_manager.BUNDLED_TEMPLATES", bundled_templates):
             yield bundled_templates

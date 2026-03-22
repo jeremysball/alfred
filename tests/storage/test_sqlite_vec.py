@@ -169,17 +169,11 @@ class TestVecTableCreationContract:
         import aiosqlite
 
         async with aiosqlite.connect(store.db_path) as db:
-            async with db.execute(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_embeddings'"
-            ) as cursor:
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_embeddings'") as cursor:
                 memory_schema = (await cursor.fetchone())[0]
-            async with db.execute(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name='session_summaries_vec'"
-            ) as cursor:
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='session_summaries_vec'") as cursor:
                 summary_schema = (await cursor.fetchone())[0]
-            async with db.execute(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name='message_embeddings_vec'"
-            ) as cursor:
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='message_embeddings_vec'") as cursor:
                 message_schema = (await cursor.fetchone())[0]
 
         assert "distance_metric=cosine" in memory_schema.lower()
@@ -189,6 +183,255 @@ class TestVecTableCreationContract:
 
 class TestInitSchemaGuardrails:
     """Tests for startup guardrails around vec0 schema drift."""
+
+    @pytest.mark.asyncio
+    async def test_store_init_automatically_rebuilds_metric_drift_when_embedder_available(
+        self,
+        tmp_path,
+        caplog,
+    ) -> None:
+        """Existing vec0 tables without cosine should be rebuilt on init."""
+        import json
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import SQLiteStore
+
+        class StaticEmbedder:
+            dimension = 3
+
+            async def embed(self, text: str) -> list[float]:
+                return [1.0, 0.0, 0.0]
+
+        embedder = StaticEmbedder()
+        store = SQLiteStore(tmp_path / "drift.db", embedding_dim=3, embedder=embedder)
+        await store._init()
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await store._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
+                ("session-1", "[]"),
+            )
+            await db.execute(
+                """
+                INSERT INTO memories (entry_id, role, content, tags, permanent)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "mem-1",
+                    "system",
+                    "hello cosine rebuild",
+                    "[]",
+                    0,
+                ),
+            )
+            await db.execute(
+                """
+                INSERT INTO session_summaries (
+                    summary_id, session_id, message_count,
+                    first_message_idx, last_message_idx, summary_text,
+                    embedding, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "sum-1",
+                    "session-1",
+                    1,
+                    0,
+                    0,
+                    "hello cosine rebuild",
+                    json.dumps([1.0, 0.0, 0.0]),
+                    1,
+                ),
+            )
+            await db.execute(
+                """
+                INSERT INTO message_embeddings (
+                    message_embedding_id, session_id, message_idx,
+                    role, content_snippet, embedding
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "session-1_0",
+                    "session-1",
+                    0,
+                    "user",
+                    "hello cosine rebuild",
+                    json.dumps([1.0, 0.0, 0.0]),
+                ),
+            )
+            await db.execute("DROP TABLE memory_embeddings")
+            await db.execute("DROP TABLE session_summaries_vec")
+            await db.execute("DROP TABLE message_embeddings_vec")
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE memory_embeddings USING vec0(
+                    entry_id TEXT PRIMARY KEY,
+                    embedding FLOAT[3]
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE session_summaries_vec USING vec0(
+                    summary_id TEXT PRIMARY KEY,
+                    embedding FLOAT[3]
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE message_embeddings_vec USING vec0(
+                    message_embedding_id TEXT PRIMARY KEY,
+                    embedding FLOAT[3]
+                )
+                """
+            )
+            await db.commit()
+
+        rebuilt_store = SQLiteStore(tmp_path / "drift.db", embedding_dim=3, embedder=embedder)
+
+        with caplog.at_level("WARNING"):
+            await rebuilt_store._init()
+
+        assert "automatic rebuild" in caplog.text.lower()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(rebuilt_store.db_path) as db:
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_embeddings'") as cursor:
+                memory_schema = (await cursor.fetchone())[0]
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='session_summaries_vec'") as cursor:
+                summary_schema = (await cursor.fetchone())[0]
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='message_embeddings_vec'") as cursor:
+                message_schema = (await cursor.fetchone())[0]
+
+        assert "distance_metric=cosine" in memory_schema.lower()
+        assert "distance_metric=cosine" in summary_schema.lower()
+        assert "distance_metric=cosine" in message_schema.lower()
+
+        memory_results = await rebuilt_store.search_memories([1.0, 0.0, 0.0], top_k=1)
+        summary_results = await rebuilt_store.search_summaries([1.0, 0.0, 0.0], top_k=1)
+        message_results = await rebuilt_store.search_session_messages(
+            "session-1",
+            [1.0, 0.0, 0.0],
+            top_k=1,
+        )
+
+        assert [row["entry_id"] for row in memory_results] == ["mem-1"]
+        assert memory_results[0]["similarity"] > 0.9
+        assert [row["summary_id"] for row in summary_results] == ["sum-1"]
+        assert summary_results[0]["similarity"] > 0.9
+        assert [row["message_idx"] for row in message_results] == [0]
+        assert message_results[0]["similarity"] > 0.9
+
+    @pytest.mark.asyncio
+    async def test_store_init_automatically_rebuilds_session_metric_drift_without_embedder(
+        self,
+        tmp_path,
+        caplog,
+    ) -> None:
+        """Session/message vec drift should auto-rebuild even without an embedder."""
+        import json
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(tmp_path / "drift-sessions.db", embedding_dim=3)
+        await store._init()
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await store._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
+                ("session-1", "[]"),
+            )
+            await db.execute(
+                """
+                INSERT INTO session_summaries (
+                    summary_id, session_id, message_count,
+                    first_message_idx, last_message_idx, summary_text,
+                    embedding, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "sum-1",
+                    "session-1",
+                    1,
+                    0,
+                    0,
+                    "hello cosine rebuild",
+                    json.dumps([1.0, 0.0, 0.0]),
+                    1,
+                ),
+            )
+            await db.execute(
+                """
+                INSERT INTO message_embeddings (
+                    message_embedding_id, session_id, message_idx,
+                    role, content_snippet, embedding
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "session-1_0",
+                    "session-1",
+                    0,
+                    "user",
+                    "hello cosine rebuild",
+                    json.dumps([1.0, 0.0, 0.0]),
+                ),
+            )
+            await db.execute("DROP TABLE session_summaries_vec")
+            await db.execute("DROP TABLE message_embeddings_vec")
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE session_summaries_vec USING vec0(
+                    summary_id TEXT PRIMARY KEY,
+                    embedding FLOAT[3]
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE message_embeddings_vec USING vec0(
+                    message_embedding_id TEXT PRIMARY KEY,
+                    embedding FLOAT[3]
+                )
+                """
+            )
+            await db.commit()
+
+        rebuilt_store = SQLiteStore(tmp_path / "drift-sessions.db", embedding_dim=3)
+
+        with caplog.at_level("WARNING"):
+            await rebuilt_store._init()
+
+        assert "automatic vec0 rebuild" in caplog.text.lower()
+
+        async with aiosqlite.connect(rebuilt_store.db_path) as db:
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='session_summaries_vec'") as cursor:
+                summary_schema = (await cursor.fetchone())[0]
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='message_embeddings_vec'") as cursor:
+                message_schema = (await cursor.fetchone())[0]
+
+        assert "distance_metric=cosine" in summary_schema.lower()
+        assert "distance_metric=cosine" in message_schema.lower()
+
+        summary_results = await rebuilt_store.search_summaries([1.0, 0.0, 0.0], top_k=1)
+        message_results = await rebuilt_store.search_session_messages(
+            "session-1",
+            [1.0, 0.0, 0.0],
+            top_k=1,
+        )
+
+        assert [row["summary_id"] for row in summary_results] == ["sum-1"]
+        assert summary_results[0]["similarity"] > 0.9
+        assert [row["message_idx"] for row in message_results] == [0]
+        assert message_results[0]["similarity"] > 0.9
 
     @pytest.mark.asyncio
     async def test_store_init_rejects_metric_mismatch_when_rebuild_is_unavailable(
@@ -375,3 +618,227 @@ class TestAllVec0Tables:
 
         finally:
             os.unlink(db_path)
+
+
+class TestVecTableRebuild:
+    """Tests for vec0 rebuild orchestration."""
+
+    @pytest.mark.asyncio
+    async def test_rebuild_vector_indexes_recreates_all_metric_drifted_vec_tables(
+        self,
+        tmp_path,
+    ) -> None:
+        """Rebuild should restore cosine metric on every vec0 table."""
+        from unittest.mock import AsyncMock
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import SQLiteStore
+
+        mock_embedder = AsyncMock()
+        mock_embedder.embed.return_value = [0.1] * 768
+
+        store = SQLiteStore(
+            tmp_path / "vec-rebuild.db",
+            embedding_dim=768,
+            embedder=mock_embedder,
+        )
+        await store._init()
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await store._load_extensions(db)
+            await db.execute("DROP TABLE memory_embeddings")
+            await db.execute("DROP TABLE session_summaries_vec")
+            await db.execute("DROP TABLE message_embeddings_vec")
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE memory_embeddings USING vec0(
+                    entry_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE session_summaries_vec USING vec0(
+                    summary_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE message_embeddings_vec USING vec0(
+                    message_embedding_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+                """
+            )
+            await db.commit()
+
+        await store.rebuild_vector_indexes()
+
+        async with aiosqlite.connect(store.db_path) as db:
+            for table_name in (
+                "memory_embeddings",
+                "session_summaries_vec",
+                "message_embeddings_vec",
+            ):
+                async with db.execute(
+                    "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+                    (table_name,),
+                ) as cursor:
+                    row = await cursor.fetchone()
+
+                assert row is not None
+                assert row[0] is not None
+                assert "distance_metric=cosine" in row[0].lower()
+
+    @pytest.mark.asyncio
+    async def test_rebuild_vector_indexes_repopulates_memory_embeddings(self, tmp_path) -> None:
+        """Rebuilt memory vectors should be searchable again."""
+        from unittest.mock import AsyncMock
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import SQLiteStore
+
+        query_embedding = [1.0] + [0.0] * 767
+        mock_embedder = AsyncMock()
+        mock_embedder.embed.return_value = query_embedding
+
+        store = SQLiteStore(
+            tmp_path / "vec-rebuild-memory.db",
+            embedding_dim=768,
+            embedder=mock_embedder,
+        )
+        await store._init()
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await store._load_extensions(db)
+            await db.execute(
+                """
+                INSERT INTO memories (entry_id, role, content, tags, permanent)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    "mem-1",
+                    "user",
+                    "hello cosine rebuild",
+                    '["migration"]',
+                    0,
+                ),
+            )
+            await db.execute("DROP TABLE memory_embeddings")
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE memory_embeddings USING vec0(
+                    entry_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+                """
+            )
+            await db.commit()
+
+        await store.rebuild_vector_indexes()
+
+        results = await store.search_memories(query_embedding, top_k=5)
+
+        assert [row["entry_id"] for row in results] == ["mem-1"]
+        assert results[0]["similarity"] > 0.9
+
+    @pytest.mark.asyncio
+    async def test_rebuild_vector_indexes_repopulates_session_summary_and_message_vec_tables(
+        self,
+        tmp_path,
+    ) -> None:
+        """Rebuilt summary and message vectors should still be searchable."""
+        import json
+
+        import aiosqlite
+
+        from alfred.storage.sqlite import SQLiteStore
+
+        query_embedding = [1.0] + [0.0] * 767
+        embedding_json = json.dumps(query_embedding)
+
+        store = SQLiteStore(tmp_path / "vec-rebuild-session.db", embedding_dim=768)
+        await store._init()
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await store._load_extensions(db)
+            await db.execute(
+                """
+                INSERT INTO sessions (session_id, messages, message_count, metadata)
+                VALUES (?, ?, ?, ?)
+                """,
+                ("session-1", "[]", 2, "{}"),
+            )
+            await db.execute(
+                """
+                INSERT INTO session_summaries (
+                    summary_id, session_id, message_count,
+                    first_message_idx, last_message_idx, summary_text,
+                    embedding, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "sum-1",
+                    "session-1",
+                    2,
+                    0,
+                    1,
+                    "cosine summary",
+                    embedding_json,
+                    1,
+                ),
+            )
+            await db.execute(
+                """
+                INSERT INTO message_embeddings (
+                    message_embedding_id, session_id, message_idx,
+                    role, content_snippet, embedding
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "msg-1",
+                    "session-1",
+                    0,
+                    "user",
+                    "cosine snippet",
+                    embedding_json,
+                ),
+            )
+            await db.execute("DROP TABLE session_summaries_vec")
+            await db.execute("DROP TABLE message_embeddings_vec")
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE session_summaries_vec USING vec0(
+                    summary_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+                """
+            )
+            await db.execute(
+                """
+                CREATE VIRTUAL TABLE message_embeddings_vec USING vec0(
+                    message_embedding_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+                """
+            )
+            await db.commit()
+
+        await store.rebuild_vector_indexes()
+
+        summary_results = await store.search_summaries(query_embedding, top_k=1)
+        message_results = await store.search_session_messages(
+            "session-1",
+            query_embedding,
+            top_k=1,
+        )
+
+        assert [row["summary_id"] for row in summary_results] == ["sum-1"]
+        assert summary_results[0]["similarity"] > 0.9
+        assert [row["message_idx"] for row in message_results] == [0]
+        assert message_results[0]["similarity"] > 0.9

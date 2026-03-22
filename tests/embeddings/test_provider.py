@@ -30,9 +30,7 @@ class TestEmbeddingProviderABC:
             EmbeddingProvider()  # type: ignore
 
 
-@pytest.mark.skipif(
-    not SENTENCE_TRANSFORMERS_AVAILABLE, reason="sentence-transformers not installed"
-)
+@pytest.mark.skipif(not SENTENCE_TRANSFORMERS_AVAILABLE, reason="sentence-transformers not installed")
 @pytest.mark.slow
 class TestBGEProvider:
     """Test BGE local embedding provider (requires sentence-transformers)."""
@@ -97,9 +95,7 @@ class TestBGEProvider:
         assert sim < 0.99
 
 
-@pytest.mark.skipif(
-    not SENTENCE_TRANSFORMERS_AVAILABLE, reason="sentence-transformers not installed"
-)
+@pytest.mark.skipif(not SENTENCE_TRANSFORMERS_AVAILABLE, reason="sentence-transformers not installed")
 class TestBGEProviderSingleton:
     """Test that BGE model is loaded as singleton."""
 

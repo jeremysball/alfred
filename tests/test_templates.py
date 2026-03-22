@@ -129,9 +129,7 @@ class TestVariableSubstitution:
         result = manager.substitute_variables(content, {"name": "Alice", "place": "Wonderland"})
         assert result == "Hello Alice, welcome to Wonderland"
 
-    def test_substitute_missing_variable_logs_warning(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_substitute_missing_variable_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Missing variables log warning and leave placeholder."""
         manager = TemplateManager(tmp_path)
         content = "Hello {undefined_var}"
@@ -207,9 +205,7 @@ class TestEnsureExists:
         assert target == existing
         assert target.read_text() == "custom"  # Unchanged
 
-    def test_ensure_exists_skips_unknown_templates(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_ensure_exists_skips_unknown_templates(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Don't auto-create templates not in AUTO_CREATE_TEMPLATES."""
         manager = TemplateManager(tmp_path)
         with caplog.at_level(logging.DEBUG):

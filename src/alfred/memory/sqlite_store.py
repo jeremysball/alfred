@@ -83,9 +83,7 @@ class SQLiteMemoryStore(MemoryStore):
                 if not self._is_memory_schema_mismatch(exc):
                     raise
 
-            logger.warning(
-                "SQLiteMemoryStore detected stale memory_embeddings vec0 schema; rebuilding automatically."
-            )
+            logger.warning("SQLiteMemoryStore detected stale memory_embeddings vec0 schema; rebuilding automatically.")
             await self._rebuild_memory_embeddings()
             await self._store._init()
 

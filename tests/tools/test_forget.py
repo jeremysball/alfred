@@ -160,9 +160,7 @@ class TestTwoCallConfirmation:
         mock_memory_store.delete_by_id.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_second_call_executes_deletion(
-        self, forget_tool, mock_memory_store, sample_memory
-    ):
+    async def test_second_call_executes_deletion(self, forget_tool, mock_memory_store, sample_memory):
         """Second call with same memory_id executes deletion."""
         mock_memory_store.get_by_id.return_value = sample_memory
         mock_memory_store.delete_by_id.return_value = (True, "Deleted successfully")
@@ -181,9 +179,7 @@ class TestTwoCallConfirmation:
         assert "abc123" not in forget_tool._pending_deletions
 
     @pytest.mark.asyncio
-    async def test_different_id_starts_new_pending(
-        self, forget_tool, mock_memory_store, sample_memory
-    ):
+    async def test_different_id_starts_new_pending(self, forget_tool, mock_memory_store, sample_memory):
         """Different memory_id on second call starts new pending."""
         other = MemoryEntry(
             entry_id="xyz789",
@@ -241,9 +237,7 @@ class TestExpiration:
     """Test suite for pending deletion expiration."""
 
     @pytest.mark.asyncio
-    async def test_pending_expires_after_5_minutes(
-        self, forget_tool, mock_memory_store, sample_memory
-    ):
+    async def test_pending_expires_after_5_minutes(self, forget_tool, mock_memory_store, sample_memory):
         """Pending deletion expires after 5 minutes."""
         mock_memory_store.get_by_id.return_value = sample_memory
 
@@ -264,9 +258,7 @@ class TestExpiration:
         mock_memory_store.delete_by_id.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_fresh_pending_executes_deletion(
-        self, forget_tool, mock_memory_store, sample_memory
-    ):
+    async def test_fresh_pending_executes_deletion(self, forget_tool, mock_memory_store, sample_memory):
         """Non-expired pending executes deletion on second call."""
         mock_memory_store.get_by_id.return_value = sample_memory
         mock_memory_store.delete_by_id.return_value = (True, "Deleted")
@@ -490,9 +482,7 @@ class TestIntegrationScenarios:
         mock_memory_store.delete_by_id.assert_called_once_with("sf-memory-id")
 
     @pytest.mark.asyncio
-    async def test_user_changes_mind_after_first_call(
-        self, forget_tool, mock_memory_store, sample_memory
-    ):
+    async def test_user_changes_mind_after_first_call(self, forget_tool, mock_memory_store, sample_memory):
         """User can change mind - different ID on second call starts new request."""
         other_memory = MemoryEntry(
             entry_id="xyz789",

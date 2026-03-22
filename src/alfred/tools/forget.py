@@ -29,17 +29,11 @@ class ForgetToolParams(BaseModel):
 
     memory_id: str | None = Field(
         None,
-        description=(
-            "The exact ID of the memory to delete. "
-            "Must be called twice with the same ID for deletion to occur."
-        ),
+        description=("The exact ID of the memory to delete. Must be called twice with the same ID for deletion to occur."),
     )
     query: str | None = Field(
         None,
-        description=(
-            "Search query to find memory candidates. Returns list with IDs. "
-            "Use this to find the memory_id before deleting."
-        ),
+        description=("Search query to find memory candidates. Returns list with IDs. Use this to find the memory_id before deleting."),
     )
 
     class Config:
