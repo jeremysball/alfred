@@ -70,7 +70,7 @@ A good first-pass payload shape is something like:
 
 ```json
 {
-  "type": "runtime.status",
+  "type": "daemon.status",
   "payload": {
     "daemon": {
       "state": "running",
@@ -123,7 +123,7 @@ That means:
 src/alfred/cli/webui_hotswap.py              # or shared startup helper for daemon bootstrap
 src/alfred/cli/main.py                       # webui entrypoint wiring, if needed
 src/alfred/interfaces/webui/server.py       # runtime status broadcast / startup hooks
-src/alfred/interfaces/webui/protocol.py      # runtime.status message types
+src/alfred/interfaces/webui/protocol.py      # daemon.status message types
 src/alfred/interfaces/webui/static/js/websocket-client.js
 src/alfred/interfaces/webui/static/js/main.js
 src/alfred/interfaces/webui/static/js/components/...   # popover component, if extracted
