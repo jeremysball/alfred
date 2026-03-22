@@ -43,7 +43,8 @@ class TestWebSocketConnection:
     def test_websocket_accepts_ping(self, client):
         """Test that server responds to ping with pong."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send ping
@@ -56,7 +57,8 @@ class TestWebSocketConnection:
     def test_websocket_rejects_invalid_json(self, client):
         """Test that server handles invalid JSON gracefully."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send invalid JSON
@@ -70,7 +72,8 @@ class TestWebSocketConnection:
     def test_websocket_unknown_message_type(self, client):
         """Test that server handles unknown message types gracefully."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send unknown message type
@@ -118,10 +121,12 @@ class TestWebSocketSessionRestore:
         with client.websocket_connect("/ws") as websocket:
             connected = websocket.receive_json()
             session_loaded = websocket.receive_json()
+            daemon_status = websocket.receive_json()
             status_update = websocket.receive_json()
 
             assert connected["type"] == "connected"
             assert session_loaded["type"] == "session.loaded"
+            assert daemon_status["type"] == "daemon.status"
             assert status_update["type"] == "status.update"
             assert session_loaded["payload"]["messages"][0]["id"] == "assistant-123"
             assert session_loaded["payload"]["messages"][0]["streaming"] is True
@@ -135,7 +140,8 @@ class TestWebSocketChatWithoutAlfred:
     def test_chat_send_without_alfred_returns_error(self, client):
         """Test that chat.send returns error when Alfred is not available."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send chat message
@@ -149,7 +155,8 @@ class TestWebSocketChatWithoutAlfred:
     def test_chat_send_empty_content_returns_error(self, client):
         """Test that chat.send with empty content returns error."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send empty chat message
@@ -420,7 +427,8 @@ class TestWebSocketCommandWithoutAlfred:
     def test_command_execute_without_alfred_returns_error(self, client):
         """Test that commands return error when Alfred is not available or unknown."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send /help command
@@ -435,7 +443,8 @@ class TestWebSocketCommandWithoutAlfred:
     def test_command_execute_empty_command_returns_error(self, client):
         """Test that empty command returns error."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send empty command
@@ -449,7 +458,8 @@ class TestWebSocketCommandWithoutAlfred:
     def test_command_unknown_command(self, client):
         """Test that unknown command returns error."""
         with client.websocket_connect("/ws") as websocket:
-            # Receive connected message
+            # Receive startup messages
+            websocket.receive_json()
             websocket.receive_json()
 
             # Send unknown command
@@ -461,13 +471,15 @@ class TestWebSocketCommandWithoutAlfred:
 
 
 def _connect_and_skip_initial_messages(websocket):
-    """Helper to connect and skip connected, session.loaded, and status.update."""
+    """Helper to connect and skip connected, session.loaded, daemon.status, and status.update."""
     connected = websocket.receive_json()
     session_loaded = websocket.receive_json()
+    daemon_status = websocket.receive_json()
     status_update = websocket.receive_json()
 
     assert connected["type"] == "connected"
     assert session_loaded["type"] == "session.loaded"
+    assert daemon_status["type"] == "daemon.status"
     assert status_update["type"] == "status.update"
 
 

@@ -40,17 +40,17 @@ def test_kidcore_source_exposes_fake_personal_site_panels() -> None:
     index_source = INDEX_HTML.read_text()
     theme_source = THEME_CSS.read_text()
 
-    assert 'kidcore-banner' not in index_source
-    assert 'kidcore-homeboard' in index_source
-    assert 'kidcore-guestbook-panel' in index_source
-    assert 'kidcore-webring-panel' in index_source
-    assert 'kidcore-links-panel' in index_source
-    assert 'kidcore-updates-panel' in index_source
-    assert 'kidcore-homeboard-search' in index_source
-    assert 'kidcore-homeboard-export' in index_source
-    assert 'kidcore-sfx-toggle' in index_source
-    assert 'kidcore-music-play' in index_source
-    assert 'kidcore-music-mute' in index_source
+    assert "kidcore-banner" not in index_source
+    assert "kidcore-homeboard" in index_source
+    assert "kidcore-guestbook-panel" in index_source
+    assert "kidcore-webring-panel" in index_source
+    assert "kidcore-links-panel" in index_source
+    assert "kidcore-updates-panel" in index_source
+    assert "kidcore-homeboard-search" in index_source
+    assert "kidcore-homeboard-export" in index_source
+    assert "kidcore-sfx-toggle" in index_source
+    assert "kidcore-music-play" in index_source
+    assert "kidcore-music-mute" in index_source
 
     for selector in [
         '[data-theme="kidcore-playground"] .kidcore-homeboard',
@@ -67,6 +67,7 @@ def test_kidcore_source_exposes_fake_personal_site_panels() -> None:
         assert selector in theme_source
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_homeboard_tabs_switch_between_fake_panels() -> None:
     port = _find_free_port()
@@ -163,6 +164,7 @@ async def test_kidcore_homeboard_tabs_switch_between_fake_panels() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
     port = _find_free_port()
@@ -197,9 +199,9 @@ async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
             )
             await page.reload(wait_until="networkidle")
             await page.click('[data-kidcore-tab="guestbook"]')
-            await page.fill('#kidcore-guestbook-name', 'Moonbeam')
-            await page.fill('#kidcore-guestbook-message', 'hello from the glitter pond')
-            await page.click('#kidcore-guestbook-submit')
+            await page.fill("#kidcore-guestbook-name", "Moonbeam")
+            await page.fill("#kidcore-guestbook-message", "hello from the glitter pond")
+            await page.click("#kidcore-guestbook-submit")
             await page.wait_for_timeout(120)
 
             signed = await page.evaluate(
@@ -212,9 +214,9 @@ async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
                 """
             )
 
-            assert any('hello from the glitter pond' in entry for entry in signed['entries'])
-            assert 'Moonbeam' in signed['storage']
-            assert 'hello from the glitter pond' in signed['storage']
+            assert any("hello from the glitter pond" in entry for entry in signed["entries"])
+            assert "Moonbeam" in signed["storage"]
+            assert "hello from the glitter pond" in signed["storage"]
 
             await page.reload(wait_until="networkidle")
             await page.click('[data-kidcore-tab="guestbook"]')
@@ -225,7 +227,7 @@ async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
                   .map((node) => node.textContent || '')
                 """
             )
-            assert any('hello from the glitter pond' in entry for entry in persisted)
+            assert any("hello from the glitter pond" in entry for entry in persisted)
 
             await browser.close()
     finally:
@@ -238,6 +240,7 @@ async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_music_and_sfx_controls_are_independent() -> None:
     port = _find_free_port()
@@ -262,7 +265,7 @@ async def test_kidcore_music_and_sfx_controls_are_independent() -> None:
             await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
             await page.goto(f"http://127.0.0.1:{port}/static/index.html", wait_until="networkidle")
 
-            await page.click('#kidcore-music-play')
+            await page.click("#kidcore-music-play")
             await page.wait_for_timeout(120)
             music_started = await page.evaluate(
                 """
@@ -275,13 +278,13 @@ async def test_kidcore_music_and_sfx_controls_are_independent() -> None:
                 })
                 """
             )
-            assert music_started['musicPlaying'] is True
-            assert music_started['musicMuted'] is False
-            assert music_started['sfxMuted'] is False
-            assert music_started['musicStatus']
-            assert music_started['sfxStatus']
+            assert music_started["musicPlaying"] is True
+            assert music_started["musicMuted"] is False
+            assert music_started["sfxMuted"] is False
+            assert music_started["musicStatus"]
+            assert music_started["sfxStatus"]
 
-            await page.click('#kidcore-sfx-toggle')
+            await page.click("#kidcore-sfx-toggle")
             await page.wait_for_timeout(120)
             muted_sfx = await page.evaluate(
                 """
@@ -294,13 +297,13 @@ async def test_kidcore_music_and_sfx_controls_are_independent() -> None:
                 })
                 """
             )
-            assert muted_sfx['musicPlaying'] is True
-            assert muted_sfx['musicMuted'] is False
-            assert muted_sfx['sfxMuted'] is True
-            assert muted_sfx['musicState'] == 'playing'
-            assert muted_sfx['sfxState'] == 'muted'
+            assert muted_sfx["musicPlaying"] is True
+            assert muted_sfx["musicMuted"] is False
+            assert muted_sfx["sfxMuted"] is True
+            assert muted_sfx["musicState"] == "playing"
+            assert muted_sfx["sfxState"] == "muted"
 
-            await page.click('#kidcore-music-mute')
+            await page.click("#kidcore-music-mute")
             await page.wait_for_timeout(120)
             music_muted = await page.evaluate(
                 """
@@ -313,11 +316,11 @@ async def test_kidcore_music_and_sfx_controls_are_independent() -> None:
                 })
                 """
             )
-            assert music_muted['musicPlaying'] is False
-            assert music_muted['musicMuted'] is True
-            assert music_muted['sfxMuted'] is True
-            assert music_muted['musicState'] == 'muted'
-            assert music_muted['sfxState'] == 'muted'
+            assert music_muted["musicPlaying"] is False
+            assert music_muted["musicMuted"] is True
+            assert music_muted["sfxMuted"] is True
+            assert music_muted["musicState"] == "muted"
+            assert music_muted["sfxState"] == "muted"
 
             await browser.close()
     finally:

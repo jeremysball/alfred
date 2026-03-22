@@ -165,6 +165,7 @@ async def test_reconnect_sees_partially_streamed_message_after_disconnect() -> N
     with client.websocket_connect("/ws") as websocket:
         websocket.receive_json()  # connected
         websocket.receive_json()  # session.loaded
+        websocket.receive_json()  # daemon.status
         websocket.receive_json()  # status.update
 
         websocket.send_json({"type": "chat.send", "payload": {"content": "resume the stream"}})
@@ -186,6 +187,7 @@ async def test_reconnect_sees_partially_streamed_message_after_disconnect() -> N
     with client.websocket_connect("/ws") as websocket:
         websocket.receive_json()  # connected
         session_loaded = websocket.receive_json()
+        websocket.receive_json()  # daemon.status
         websocket.receive_json()  # status.update
 
         assert session_loaded["type"] == "session.loaded"
@@ -198,6 +200,7 @@ async def test_reconnect_sees_partially_streamed_message_after_disconnect() -> N
         assert "partial" in assistant["content"] or assistant["content"] == "Hello "
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_retry_button_replays_last_user_prompt() -> None:
     port = _find_free_port()

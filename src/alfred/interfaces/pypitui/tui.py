@@ -107,7 +107,7 @@ class AlfredTUI:
             f.write(f"TUI children after setup: {len(self.tui.children)}\n")
             for i, child in enumerate(self.tui.children):
                 f.write(f"  {i}: {type(child).__name__} id={id(child)}\n")
-                if hasattr(child, 'children'):
+                if hasattr(child, "children"):
                     f.write(f"      has {len(child.children)} children\n")
 
         # Toast overlay (non-modal popup at bottom of screen)
@@ -169,9 +169,7 @@ class AlfredTUI:
         # Initialize status line with current values
         self._update_status()
 
-    def _get_terminal_size(
-        self, default_width: int = 80, default_height: int = 24
-    ) -> tuple[int, int]:
+    def _get_terminal_size(self, default_width: int = 80, default_height: int = 24) -> tuple[int, int]:
         """Safely read the terminal size from any terminal-like object."""
         getter = getattr(self.terminal, "get_size", None)
         if callable(getter):
@@ -834,9 +832,7 @@ class AlfredTUI:
 
         def _handle_sigwinch(_signum: int, _frame: object) -> None:
             """Handle terminal resize signal."""
-            term_width, term_height = self._get_terminal_size(
-                default_width=self._terminal_width
-            )
+            term_width, term_height = self._get_terminal_size(default_width=self._terminal_width)
             self._on_resize(term_width, term_height)
             self.tui.request_resize_check()
             self.tui.request_render(force=True)

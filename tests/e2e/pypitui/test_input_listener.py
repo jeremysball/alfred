@@ -65,7 +65,7 @@ class TestInputListenerControlKeys:
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
-        with patch.object(mock_terminal, 'write') as mock_write:
+        with patch.object(mock_terminal, "write") as mock_write:
             result = tui._handle_control_keys("\x0c")  # Ctrl+L
 
             assert result == {"consume": True}
@@ -335,7 +335,7 @@ class TestInputListenerIntegration:
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
-        with patch.object(tui, '_handle_control_keys', return_value={"consume": True}):
+        with patch.object(tui, "_handle_control_keys", return_value={"consume": True}):
             result = tui._input_listener("\x01")  # Ctrl+A
 
             assert result == {"consume": True}
@@ -348,9 +348,10 @@ class TestInputListenerIntegration:
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
-        with patch.object(tui, '_handle_control_keys', return_value=None), \
-             patch.object(tui, '_handle_escape_key', return_value={"consume": True}) as mock_escape:
-
+        with (
+            patch.object(tui, "_handle_control_keys", return_value=None),
+            patch.object(tui, "_handle_escape_key", return_value={"consume": True}) as mock_escape,
+        ):
             result = tui._input_listener("\x1b")  # Escape character
 
             assert result == {"consume": True}
@@ -365,11 +366,12 @@ class TestInputListenerIntegration:
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
         tui._message_queue = ["msg1"]
 
-        with patch.object(tui, '_handle_control_keys', return_value=None), \
-             patch.object(tui, '_handle_escape_key', return_value=None), \
-             patch.object(tui, '_get_input_cursor_line', return_value=0), \
-             patch.object(tui, '_handle_up_navigation', return_value={"consume": True}) as mock_up:
-
+        with (
+            patch.object(tui, "_handle_control_keys", return_value=None),
+            patch.object(tui, "_handle_escape_key", return_value=None),
+            patch.object(tui, "_get_input_cursor_line", return_value=0),
+            patch.object(tui, "_handle_up_navigation", return_value={"consume": True}) as mock_up,
+        ):
             result = tui._input_listener("\x1b[A")  # UP arrow sequence
 
             assert result == {"consume": True}
@@ -383,12 +385,13 @@ class TestInputListenerIntegration:
 
         tui = AlfredTUI(mock_alfred, terminal=mock_terminal)
 
-        with patch.object(tui, '_handle_control_keys', return_value=None), \
-             patch.object(tui, '_handle_escape_key', return_value=None), \
-             patch.object(tui, '_get_input_cursor_line', return_value=0), \
-             patch.object(tui, '_handle_up_navigation', return_value=None), \
-             patch.object(tui, '_handle_down_navigation', return_value={"consume": True}) as mock_down:
-
+        with (
+            patch.object(tui, "_handle_control_keys", return_value=None),
+            patch.object(tui, "_handle_escape_key", return_value=None),
+            patch.object(tui, "_get_input_cursor_line", return_value=0),
+            patch.object(tui, "_handle_up_navigation", return_value=None),
+            patch.object(tui, "_handle_down_navigation", return_value={"consume": True}) as mock_down,
+        ):
             result = tui._input_listener("\x1b[B")  # DOWN arrow sequence
 
             assert result == {"consume": True}
@@ -404,11 +407,13 @@ class TestInputListenerIntegration:
         tui._queue_nav_index = 1
         tui._queue_draft = "draft"
 
-        with patch.object(tui, '_handle_control_keys', return_value=None), \
-             patch.object(tui, '_handle_escape_key', return_value=None), \
-             patch.object(tui, '_get_input_cursor_line', return_value=0), \
-             patch.object(tui, '_handle_up_navigation', return_value=None), \
-             patch.object(tui, '_handle_down_navigation', return_value=None):
+        with (
+            patch.object(tui, "_handle_control_keys", return_value=None),
+            patch.object(tui, "_handle_escape_key", return_value=None),
+            patch.object(tui, "_get_input_cursor_line", return_value=0),
+            patch.object(tui, "_handle_up_navigation", return_value=None),
+            patch.object(tui, "_handle_down_navigation", return_value=None),
+        ):
             result = tui._input_listener("a")  # Regular key
 
             assert result is None

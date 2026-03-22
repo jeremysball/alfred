@@ -34,6 +34,7 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     raise RuntimeError(f"server did not start: {last_error}")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 @pytest.mark.parametrize("theme", THEMES)
 async def test_settings_menu_renders_into_a_body_level_portal(theme: str) -> None:

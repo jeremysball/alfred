@@ -45,9 +45,7 @@ class SearchSessionsToolParams(BaseModel):
 class SessionSummarizer:
     """Generates and manages LLM-based session summaries."""
 
-    def __init__(
-        self, llm_client: LLMProvider, embedder: EmbeddingProvider, store: SQLiteStore | None = None
-    ) -> None:
+    def __init__(self, llm_client: LLMProvider, embedder: EmbeddingProvider, store: SQLiteStore | None = None) -> None:
         self.llm_client = llm_client
         self.embedder = embedder
         self.store = store
@@ -207,9 +205,7 @@ class SearchSessionsTool(Tool):
         # Search summaries
         return await self.summarizer.store.search_summaries(query_embedding, top_k)
 
-    async def _search_session_messages(
-        self, session_id: str, query_embedding: list[float], top_k: int = 3
-    ) -> list[dict[str, Any]]:
+    async def _search_session_messages(self, session_id: str, query_embedding: list[float], top_k: int = 3) -> list[dict[str, Any]]:
         """Stage 2: Search messages within a session.
 
         Args:
@@ -223,9 +219,7 @@ class SearchSessionsTool(Tool):
         if not self.summarizer or not self.summarizer.store:
             return []
 
-        return await self.summarizer.store.search_session_messages(
-            session_id, query_embedding, top_k
-        )
+        return await self.summarizer.store.search_session_messages(session_id, query_embedding, top_k)
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute two-stage session search."""
@@ -248,9 +242,7 @@ class SearchSessionsTool(Tool):
         try:
             # Stage 1: Find relevant sessions via summary search
             query_embedding = await self.embedder.embed(query)
-            relevant_summaries = await self.summarizer.store.search_summaries(
-                query_embedding, top_k
-            )
+            relevant_summaries = await self.summarizer.store.search_summaries(query_embedding, top_k)
 
             if not relevant_summaries:
                 yield "No relevant sessions found."
@@ -261,19 +253,17 @@ class SearchSessionsTool(Tool):
                 session_id = summary["session_id"]
                 similarity = summary.get("similarity", 0)
 
-                # Only include if meets similarity threshold
+                # Only include if the normalized similarity meets the threshold
                 if similarity < self.min_similarity:
                     continue
 
-                # Format session header
+                # Format session header; relevance is already normalized similarity
                 yield f"\n## Session: {session_id}\n"
                 yield f"Summary: {summary['summary_text']}\n"
                 yield f"Relevance: {similarity:.2f}\n"
 
                 # Search messages within session
-                messages = await self.summarizer.store.search_session_messages(
-                    session_id, query_embedding, messages_per_session
-                )
+                messages = await self.summarizer.store.search_session_messages(session_id, query_embedding, messages_per_session)
 
                 if messages:
                     yield "Relevant messages:\n"
@@ -281,6 +271,7 @@ class SearchSessionsTool(Tool):
                         role = msg["role"]
                         content = msg["content_snippet"]
                         msg_sim = msg.get("similarity", 0)
+                        # Message relevance is also normalized similarity.
                         yield f"  [{role}]: {content} ({msg_sim:.2f})\n"
                 else:
                     yield "No specific messages found.\n"

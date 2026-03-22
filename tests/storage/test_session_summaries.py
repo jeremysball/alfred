@@ -34,9 +34,7 @@ class TestSessionSummariesTable:
         db = db_conn
 
         # Insert parent session first (FK constraint)
-        await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_abc456", "[]")
-        )
+        await db.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_abc456", "[]"))
         await db.commit()
 
         # Try to insert a test summary - should succeed if table exists
@@ -52,9 +50,7 @@ class TestSessionSummariesTable:
         await db.commit()
 
         # Verify insert worked
-        async with db.execute(
-            "SELECT COUNT(*) FROM session_summaries WHERE summary_id = ?", ("sum_test123",)
-        ) as cursor:
+        async with db.execute("SELECT COUNT(*) FROM session_summaries WHERE summary_id = ?", ("sum_test123",)) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 1
 
@@ -64,9 +60,7 @@ class TestSessionSummariesTable:
         db = db_conn
 
         # Insert a session first
-        await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_exists", "[]")
-        )
+        await db.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_exists", "[]"))
         await db.commit()
 
         # Insert summary for existing session - should succeed
@@ -87,9 +81,7 @@ class TestSessionSummariesTable:
         db = db_conn
 
         # Insert session and summary
-        await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_cascade", "[]")
-        )
+        await db.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_cascade", "[]"))
         await db.execute(
             """
             INSERT INTO session_summaries (
@@ -106,8 +98,6 @@ class TestSessionSummariesTable:
         await db.commit()
 
         # Verify summary was also deleted
-        async with db.execute(
-            "SELECT COUNT(*) FROM session_summaries WHERE session_id = ?", ("sess_cascade",)
-        ) as cursor:
+        async with db.execute("SELECT COUNT(*) FROM session_summaries WHERE session_id = ?", ("sess_cascade",)) as cursor:
             row = await cursor.fetchone()
             assert row[0] == 0

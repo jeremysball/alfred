@@ -60,9 +60,7 @@ class TestAgentsAtomicExtraction:
             assert len(content) > 100, f"{filename} should have substantial content"
 
             # Should not have unresolved placeholders (except for colors)
-            assert "{{prompts/agents/" not in content, (
-                f"{filename} should not reference other atomic files"
-            )
+            assert "{{prompts/agents/" not in content, f"{filename} should not reference other atomic files"
 
     def test_agents_md_uses_placeholders(self, tmp_path: Path) -> None:
         """AGENTS.md should use placeholders for all atomic sections."""
@@ -173,9 +171,7 @@ class TestAgentsAtomicExtraction:
             assert content.startswith("## "), f"{filename} should start with ## heading"
 
             # Should not reference other atomic files
-            assert "{{prompts/agents/" not in content, (
-                f"{filename} should not reference other atomic files"
-            )
+            assert "{{prompts/agents/" not in content, f"{filename} should not reference other atomic files"
 
             # Should have substantial content (not just a heading)
             assert len(content) > 100, f"{filename} should have substantial content"

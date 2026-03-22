@@ -1,6 +1,5 @@
 """Tests for tool call WebSocket protocol and integration."""
 
-
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
@@ -14,11 +13,8 @@ def test_tool_start_message_structure():
     message = ToolStartMessage(
         type="tool.start",
         payload=ToolStartPayload(
-            tool_call_id="call_abc123",
-            tool_name="read_file",
-            arguments={"path": "/tmp/test.txt"},
-            message_id="msg-123"
-        )
+            tool_call_id="call_abc123", tool_name="read_file", arguments={"path": "/tmp/test.txt"}, message_id="msg-123"
+        ),
     )
 
     assert message.type == "tool.start"
@@ -31,13 +27,7 @@ def test_tool_output_message_structure():
     """Verify tool.output message validation works."""
     from alfred.interfaces.webui.validation import ToolOutputMessage, ToolOutputPayload
 
-    message = ToolOutputMessage(
-        type="tool.output",
-        payload=ToolOutputPayload(
-            tool_call_id="call_abc123",
-            chunk="File contents here"
-        )
-    )
+    message = ToolOutputMessage(type="tool.output", payload=ToolOutputPayload(tool_call_id="call_abc123", chunk="File contents here"))
 
     assert message.type == "tool.output"
     assert message.payload.tool_call_id == "call_abc123"
@@ -48,14 +38,7 @@ def test_tool_end_message_success():
     """Verify tool.end message with success status."""
     from alfred.interfaces.webui.validation import ToolEndMessage, ToolEndPayload
 
-    message = ToolEndMessage(
-        type="tool.end",
-        payload=ToolEndPayload(
-            tool_call_id="call_abc123",
-            success=True,
-            output="Final result"
-        )
-    )
+    message = ToolEndMessage(type="tool.end", payload=ToolEndPayload(tool_call_id="call_abc123", success=True, output="Final result"))
 
     assert message.type == "tool.end"
     assert message.payload.success is True
@@ -66,14 +49,7 @@ def test_tool_end_message_error():
     """Verify tool.end message with error status."""
     from alfred.interfaces.webui.validation import ToolEndMessage, ToolEndPayload
 
-    message = ToolEndMessage(
-        type="tool.end",
-        payload=ToolEndPayload(
-            tool_call_id="call_abc123",
-            success=False,
-            output=None
-        )
-    )
+    message = ToolEndMessage(type="tool.end", payload=ToolEndPayload(tool_call_id="call_abc123", success=False, output=None))
 
     assert message.type == "tool.end"
     assert message.payload.success is False
@@ -96,10 +72,7 @@ def test_websocket_accepts_tool_messages():
         assert response["type"] == "connected"
 
         # Send a chat message (will be queued since no Alfred instance)
-        websocket.send_json({
-            "type": "chat.send",
-            "payload": {"content": "Read file /tmp/test.txt"}
-        })
+        websocket.send_json({"type": "chat.send", "payload": {"content": "Read file /tmp/test.txt"}})
 
         # In a real scenario with Alfred, would receive chat.started then tool.start
         # Here we just verify the connection handles the message without error
@@ -136,12 +109,10 @@ def test_tool_call_websocket_flow_emits_start_output_and_end():
     with client.websocket_connect("/ws") as websocket:
         assert websocket.receive_json()["type"] == "connected"
         assert websocket.receive_json()["type"] == "session.loaded"
+        assert websocket.receive_json()["type"] == "daemon.status"
         assert websocket.receive_json()["type"] == "status.update"
 
-        websocket.send_json({
-            "type": "chat.send",
-            "payload": {"content": "Read file /tmp/test.txt"}
-        })
+        websocket.send_json({"type": "chat.send", "payload": {"content": "Read file /tmp/test.txt"}})
 
         started = websocket.receive_json()
         assert started["type"] == "chat.started"
@@ -193,12 +164,7 @@ def test_tool_message_serialization():
 
     message = ToolStartMessage(
         type="tool.start",
-        payload=ToolStartPayload(
-            tool_call_id="call_abc123",
-            tool_name="bash",
-            arguments={"command": "ls -la"},
-            message_id="msg-123"
-        )
+        payload=ToolStartPayload(tool_call_id="call_abc123", tool_name="bash", arguments={"command": "ls -la"}, message_id="msg-123"),
     )
 
     # Serialize and verify camelCase
@@ -213,6 +179,7 @@ def test_tool_message_serialization():
 # =============================================================================
 # Tool Callback Integration Test
 # =============================================================================
+
 
 def test_tool_callback_sends_websocket_messages():
     """Verify tool callback sends correct WebSocket messages."""

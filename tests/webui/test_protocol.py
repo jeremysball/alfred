@@ -6,6 +6,7 @@ from alfred.interfaces.webui.protocol import (
     ChatErrorMessage,
     ChatSendMessage,
     ChatStartedMessage,
+    DaemonStatusMessage,
     StatusUpdateMessage,
     ToastMessage,
     ToolEndMessage,
@@ -151,6 +152,41 @@ def test_tool_end_message_without_output():
     assert "output" not in message["payload"]
 
 
+def test_daemon_status_message_structure():
+    """Verify daemon.status message has correct structure."""
+    message: DaemonStatusMessage = {
+        "type": "daemon.status",
+        "payload": {
+            "daemon": {
+                "state": "running",
+                "pid": 12345,
+                "socketPath": "/home/node/.cache/alfred/notify.sock",
+                "socketHealthy": True,
+                "startedAt": "2026-03-21T12:00:00Z",
+                "uptimeSeconds": 183,
+                "lastHeartbeatAt": "2026-03-21T12:03:00Z",
+                "lastReloadAt": "2026-03-21T12:02:41Z",
+                "lastError": None,
+            },
+        },
+    }
+    assert message["type"] == "daemon.status"
+    assert set(message["payload"]["daemon"].keys()) == {
+        "state",
+        "pid",
+        "socketPath",
+        "socketHealthy",
+        "startedAt",
+        "uptimeSeconds",
+        "lastHeartbeatAt",
+        "lastReloadAt",
+        "lastError",
+    }
+    assert message["payload"]["daemon"]["state"] == "running"
+    assert message["payload"]["daemon"]["pid"] == 12345
+    assert message["payload"]["daemon"]["socketHealthy"] is True
+
+
 def test_status_update_message_structure():
     """Verify status.update message has correct structure."""
     message: StatusUpdateMessage = {
@@ -167,9 +203,16 @@ def test_status_update_message_structure():
         },
     }
     assert message["type"] == "status.update"
-    assert message["payload"]["model"] == "kimi-latest"
-    assert message["payload"]["contextTokens"] == 2450
-    assert message["payload"]["isStreaming"] is True
+    assert message["payload"] == {
+        "model": "kimi-latest",
+        "contextTokens": 2450,
+        "inputTokens": 1200,
+        "outputTokens": 850,
+        "cacheReadTokens": 2000,
+        "reasoningTokens": 150,
+        "queueLength": 2,
+        "isStreaming": True,
+    }
 
 
 def test_toast_message_structure():

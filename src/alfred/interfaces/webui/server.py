@@ -17,10 +17,9 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
 
-import alfred
 from alfred.agent import ToolEvent
-from alfred.cron.daemon import DaemonManager
 from alfred.interfaces.webui.contracts import WebUIAlfred, WebUISessionManager
+from alfred.interfaces.webui.daemon_status import build_daemon_status_snapshot, build_health_payload
 from alfred.observability import event_message
 
 logger = logging.getLogger(__name__)
@@ -34,15 +33,6 @@ def _emit_webui_debug(event: str, **fields: object) -> None:
 StatusField = str | int | bool | None
 CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.05
 CHUNK_BATCH_MAX_CHARS = 256
-
-
-def _get_daemon_status_fields() -> dict[str, StatusField]:
-    daemon_manager = DaemonManager()
-    daemon_pid = daemon_manager.read_pid()
-    return {
-        "daemonStatus": "running" if daemon_pid is not None else "stopped",
-        "daemonPid": daemon_pid,
-    }
 
 
 @dataclass
@@ -305,6 +295,44 @@ async def _send_json(
         await websocket.send_json(message)
 
 
+async def _send_daemon_status(
+    websocket: WebSocket,
+    alfred_instance: WebUIAlfred | None,
+    *,
+    startup_error: str | None = None,
+    debug_stats: _WebSocketDebugStats | None = None,
+    phase: str | None = None,
+    send_lock: asyncio.Lock | None = None,
+) -> None:
+    """Send the daemon.status message to the client."""
+    await _send_json(
+        websocket,
+        {
+            "type": "daemon.status",
+            "payload": build_daemon_status_snapshot(
+                alfred_instance,
+                startup_error=startup_error,
+            ),
+        },
+        phase=phase or "daemon.status",
+        debug_stats=debug_stats,
+        send_lock=send_lock,
+    )
+
+
+def _get_bootstrap_startup_error(app_state: object | None) -> str | None:
+    """Return the Web UI bootstrap error if startup failed."""
+    if app_state is None:
+        return None
+
+    bootstrap_result = getattr(app_state, "webui_bootstrap_result", None)
+    if bootstrap_result is None:
+        return None
+
+    startup_error = getattr(bootstrap_result, "startup_error", None)
+    return str(startup_error) if startup_error is not None else None
+
+
 # Module-level set to track active WebSocket connections
 _active_connections: set[WebSocket] = set()
 
@@ -550,13 +578,7 @@ async def _send_status_update(
     phase: str | None = None,
     send_lock: asyncio.Lock | None = None,
 ) -> None:
-    """Send current status to the client.
-
-    Args:
-        websocket: The WebSocket connection
-        alfred_instance: The Alfred instance (optional)
-        extra_status: Additional status fields to include
-    """
+    """Send current status to the client."""
     status: dict[str, StatusField] = {
         "model": "",
         "contextTokens": 0,
@@ -567,7 +589,6 @@ async def _send_status_update(
         "queueLength": 0,
         "isStreaming": False,
     }
-    status.update(_get_daemon_status_fields())
 
     if alfred_instance is not None:
         token_tracker = getattr(alfred_instance, "token_tracker", None)
@@ -1152,6 +1173,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
     # Store Alfred instance in app state
     app.state.alfred = alfred_instance
     app.state.webui_debug = debug
+    app.state.webui_bootstrap_result = None
 
     @app.middleware("http")
     async def _no_store_static_assets(request: Any, call_next: Any) -> Response:
@@ -1187,13 +1209,12 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
         )
 
     @app.get("/health")
-    async def health_check() -> dict[str, StatusField]:
+    async def health_check() -> dict[str, object]:
         """Health check endpoint."""
-        return {
-            "status": "ok",
-            "version": alfred.__version__,
-            **_get_daemon_status_fields(),
-        }
+        return build_health_payload(
+            app.state.alfred,
+            startup_error=_get_bootstrap_startup_error(app.state),
+        )
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
@@ -1207,6 +1228,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
             enabled=bool(getattr(websocket.app.state, "webui_debug", False)),
         )
         connection_state = _WebSocketConnectionState()
+        bootstrap_startup_error = _get_bootstrap_startup_error(websocket.app.state)
 
         def _clear_chat_task(task: asyncio.Task[None]) -> None:
             if connection_state.active_chat_task is task:
@@ -1243,10 +1265,20 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     connection_debug_stats,
                     send_lock=connection_state.send_lock,
                 )
+
+            await _send_daemon_status(
+                websocket,
+                alfred_instance,
+                startup_error=bootstrap_startup_error,
+                debug_stats=connection_debug_stats,
+                phase="daemon.status.connected",
+                send_lock=connection_state.send_lock,
+            )
+
+            if alfred_instance is not None:
                 await _send_status_update(
                     websocket,
                     alfred_instance,
-                    extra_status=_get_daemon_status_fields(),
                     debug_stats=connection_debug_stats,
                     phase="status.update.connected",
                     send_lock=connection_state.send_lock,

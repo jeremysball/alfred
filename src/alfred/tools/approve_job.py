@@ -51,9 +51,7 @@ class ApproveJobTool(Tool):
     """
 
     name = "approve_job"
-    description = (
-        "Approve a pending cron job. The job will be activated and start running on its schedule."
-    )
+    description = "Approve a pending cron job. The job will be activated and start running on its schedule."
     param_model = ApproveJobParams
 
     def __init__(self, socket_client: "SocketClient") -> None:
@@ -95,10 +93,7 @@ class ApproveJobTool(Tool):
                 return
 
             if response.success:
-                yield (
-                    f"✓ {response.message}.\n\n"
-                    f"Job '{response.job_name}' is now active and will run on schedule."
-                )
+                yield (f"✓ {response.message}.\n\nJob '{response.job_name}' is now active and will run on schedule.")
             else:
                 yield f"Error: {response.message}"
 

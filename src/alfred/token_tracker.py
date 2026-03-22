@@ -65,11 +65,7 @@ class TokenTracker:
 
         # Reasoning tokens (optional - from completion_tokens_details)
         completion_details = usage.get("completion_tokens_details") or {}
-        reasoning = (
-            completion_details.get("reasoning_tokens", 0)
-            if isinstance(completion_details, dict)
-            else 0
-        )
+        reasoning = completion_details.get("reasoning_tokens", 0) if isinstance(completion_details, dict) else 0
         self._usage.reasoning_tokens += reasoning
 
     def set_context_tokens(self, count: int) -> None:

@@ -11,6 +11,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -36,6 +37,14 @@ DEFAULT_SESSION_USAGE: dict[str | None, dict[str, Any]] = {
     },
 }
 DEFAULT_CHAT_CHUNKS = ["Hello", "!", " How", " can", " I", " help", "?"]
+
+
+class FakeSocketClient:
+    """Socket client fake for runtime status tests."""
+
+    def __init__(self, *, socket_path: Path | None = None, is_connected: bool = False) -> None:
+        self.socket_path = socket_path or Path("/tmp/alfred/notify.sock")
+        self.is_connected = is_connected
 
 
 def make_tool_call(
@@ -260,6 +269,8 @@ class FakeAlfred:
     ) -> None:
         self.core = FakeCore(FakeSessionManager(sessions))
         self.token_tracker = TokenTracker()
+        self.socket_client = FakeSocketClient()
+        self._socket_client = self.socket_client
         self.model_name = model_name
         self.config = config or {"model": model_name}
         self._stream_parts = list(stream_parts or chunks or DEFAULT_CHAT_CHUNKS)

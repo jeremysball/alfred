@@ -59,11 +59,7 @@ class TestSearchSessionsLLMIntegration:
 
     def test_llm_can_call_with_all_params(self):
         """LLM should be able to override defaults."""
-        llm_arguments = {
-            "query": "find my python project session",
-            "top_k": 5,
-            "messages_per_session": 10
-        }
+        llm_arguments = {"query": "find my python project session", "top_k": 5, "messages_per_session": 10}
 
         params = SearchSessionsToolParams(**llm_arguments)
         assert params.query == "find my python project session"
@@ -79,22 +75,16 @@ class TestSearchSessionsLLMIntegration:
 
         # Create mock store with search results
         mock_store = MagicMock()
-        mock_store.search_summaries = AsyncMock(return_value=[
-            {
-                "summary_id": "sum-1",
-                "session_id": "sess-123",
-                "summary_text": "Python project discussion",
-                "similarity": 0.85
-            }
-        ])
-        mock_store.search_session_messages = AsyncMock(return_value=[
-            {
-                "message_idx": 0,
-                "role": "user",
-                "content_snippet": "How do I structure my Python project?",
-                "similarity": 0.90
-            }
-        ])
+        mock_store.search_summaries = AsyncMock(
+            return_value=[
+                {"summary_id": "sum-1", "session_id": "sess-123", "summary_text": "Python project discussion", "similarity": 0.85}
+            ]
+        )
+        mock_store.search_session_messages = AsyncMock(
+            return_value=[
+                {"message_idx": 0, "role": "user", "content_snippet": "How do I structure my Python project?", "similarity": 0.90}
+            ]
+        )
 
         # Create mock summarizer
         mock_summarizer = MagicMock()
@@ -180,14 +170,9 @@ class TestSearchSessionsLLMIntegration:
         mock_embedder.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
 
         mock_store = MagicMock()
-        mock_store.search_summaries = AsyncMock(return_value=[
-            {
-                "summary_id": "sum-1",
-                "session_id": "sess-123",
-                "summary_text": "Test session",
-                "similarity": 0.85
-            }
-        ])
+        mock_store.search_summaries = AsyncMock(
+            return_value=[{"summary_id": "sum-1", "session_id": "sess-123", "summary_text": "Test session", "similarity": 0.85}]
+        )
         mock_store.search_session_messages = AsyncMock(return_value=[])
 
         mock_summarizer = MagicMock()
@@ -286,8 +271,8 @@ class TestSearchSessionsViaAgent:
         tool = SearchSessionsTool()
 
         # Should have validate_and_run method
-        assert hasattr(tool, 'validate_and_run')
-        assert hasattr(tool, 'validate_and_run_stream')
+        assert hasattr(tool, "validate_and_run")
+        assert hasattr(tool, "validate_and_run_stream")
 
     @pytest.mark.asyncio
     async def test_tool_filters_summaries_using_normalized_similarity(self):

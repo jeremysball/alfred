@@ -26,12 +26,10 @@ def temp_templates_with_system(temp_workspace):
 
     # Create all required templates including SYSTEM.md
     (template_dir / "SYSTEM.md").write_text(
-        "# System\n\n## Memory Architecture\n\nThree storage mechanisms.\n\n"
-        "## Cron Job Capabilities\n\nWhen writing cron jobs...\n"
+        "# System\n\n## Memory Architecture\n\nThree storage mechanisms.\n\n## Cron Job Capabilities\n\nWhen writing cron jobs...\n"
     )
     (template_dir / "AGENTS.md").write_text(
-        "# Agent Behavior Rules\n\n1. Permission First\n"
-        "2. Conventional Commits\n3. Simple Correctness\n"
+        "# Agent Behavior Rules\n\n1. Permission First\n2. Conventional Commits\n3. Simple Correctness\n"
     )
     (template_dir / "SOUL.md").write_text("# Soul\n")
     (template_dir / "USER.md").write_text("# User Profile\n")

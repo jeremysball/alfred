@@ -245,9 +245,7 @@ class SocketClient:
             logger.debug(f"Query jobs failed: {e}")
             return None
 
-    async def submit_job(
-        self, name: str, expression: str, code: str, timeout: float = 10.0
-    ) -> SubmitJobResponse | None:
+    async def submit_job(self, name: str, expression: str, code: str, timeout: float = 10.0) -> SubmitJobResponse | None:
         """Submit a new job for approval via the daemon.
 
         Args:
@@ -267,9 +265,7 @@ class SocketClient:
             import uuid
 
             request_id = str(uuid.uuid4())
-            request = SubmitJobRequest(
-                request_id=request_id, name=name, expression=expression, code=code
-            )
+            request = SubmitJobRequest(request_id=request_id, name=name, expression=expression, code=code)
 
             # Send request
             self._writer.write(request.to_json().encode("utf-8"))
@@ -290,9 +286,7 @@ class SocketClient:
             logger.debug(f"Submit job failed: {e}")
             return None
 
-    async def approve_job(
-        self, job_identifier: str, timeout: float = 10.0
-    ) -> ApproveJobResponse | None:
+    async def approve_job(self, job_identifier: str, timeout: float = 10.0) -> ApproveJobResponse | None:
         """Approve a pending job via the daemon.
 
         Args:
@@ -331,9 +325,7 @@ class SocketClient:
             logger.debug(f"Approve job failed: {e}")
             return None
 
-    async def reject_job(
-        self, job_identifier: str, timeout: float = 10.0
-    ) -> RejectJobResponse | None:
+    async def reject_job(self, job_identifier: str, timeout: float = 10.0) -> RejectJobResponse | None:
         """Reject/delete a job via the daemon.
 
         Args:
@@ -374,9 +366,7 @@ class SocketClient:
 
     # Convenience methods for common message types
 
-    async def notify(
-        self, message: str, level: Literal["info", "warning", "error"] = "info"
-    ) -> bool:
+    async def notify(self, message: str, level: Literal["info", "warning", "error"] = "info") -> bool:
         """Send a toast notification.
 
         Args:

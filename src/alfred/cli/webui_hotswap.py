@@ -10,6 +10,8 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from alfred.interfaces.webui.daemon_bootstrap import bootstrap_daemon
+
 DEFAULT_WEBUI_STATIC_ROOT = Path(__file__).resolve().parents[1] / "interfaces" / "webui" / "static"
 WEBUI_HOTSWAP_EXTENSIONS = {".css", ".html", ".js"}
 WEBUI_HOTSWAP_DEBOUNCE_MS = 250
@@ -107,6 +109,7 @@ def _build_server_controller(host: str, port: int, debug: bool) -> _ServerContro
     init_xdg_directories()
     config = load_config()
     alfred = Alfred(config, telegram_mode=False)
+    bootstrap_result = bootstrap_daemon()
 
     async def _start_alfred() -> None:
         await alfred.start()
@@ -114,6 +117,8 @@ def _build_server_controller(host: str, port: int, debug: bool) -> _ServerContro
     asyncio.run(_start_alfred())
 
     app = create_app(alfred_instance=cast(Any, alfred), debug=debug)
+    app.state.webui_bootstrap_result = bootstrap_result
+
     server = uvicorn.Server(
         uvicorn.Config(
             app,

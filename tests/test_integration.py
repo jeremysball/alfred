@@ -64,9 +64,7 @@ class TestToolInteractions:
         write_tool.execute(path="config.txt", content="API_KEY=old_key\nDEBUG=false\n")
 
         # Edit the file
-        edit_result = edit_tool.execute(
-            path="config.txt", old_text="API_KEY=old_key", new_text="API_KEY=new_key_123"
-        )
+        edit_result = edit_tool.execute(path="config.txt", old_text="API_KEY=old_key", new_text="API_KEY=new_key_123")
         assert edit_result["success"] is True
 
         # Read and verify
@@ -241,9 +239,7 @@ class TestStreamingIntegration:
         bash_tool = BashTool()
 
         chunks = []
-        async for chunk in bash_tool.execute_stream(
-            command="echo 'Line 1' && echo 'Line 2' && echo 'Line 3'"
-        ):
+        async for chunk in bash_tool.execute_stream(command="echo 'Line 1' && echo 'Line 2' && echo 'Line 3'"):
             chunks.append(chunk)
 
         full_output = "".join(chunks)
@@ -278,12 +274,8 @@ class TestStreamingIntegration:
         write_tool.execute(path="to_edit.txt", content="old content here")
 
         chunks = []
-        async for chunk in edit_tool.execute_stream(
-            path="to_edit.txt", old_text="old", new_text="new"
-        ):
+        async for chunk in edit_tool.execute_stream(path="to_edit.txt", old_text="old", new_text="new"):
             chunks.append(chunk)
 
         result = "".join(chunks)
         assert "success" in result.lower() or "edited" in result.lower()
-
-

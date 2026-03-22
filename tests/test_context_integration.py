@@ -27,9 +27,7 @@ def temp_workspace():
         # Create template files in the right location
         # TemplateManager looks for workspace_dir/templates/
         templates_dir = workspace_dir / "templates"
-        (templates_dir / "SOUL.md").write_text(
-            "---\ntitle: SOUL\n---\n# Soul\nDate: {current_date}\n"
-        )
+        (templates_dir / "SOUL.md").write_text("---\ntitle: SOUL\n---\n# Soul\nDate: {current_date}\n")
         (templates_dir / "USER.md").write_text("---\ntitle: USER\n---\n# User\n")
         (templates_dir / "TOOLS.md").write_text("---\ntitle: TOOLS\n---\n# Tools\n")
         (templates_dir / "MEMORY.md").write_text("---\ntitle: MEMORY\n---\n# Memory\n")

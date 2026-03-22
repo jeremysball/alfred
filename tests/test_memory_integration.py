@@ -48,6 +48,7 @@ def config(temp_data_dir):
 @pytest.fixture
 def mock_store():
     """Create a mock store that simulates search results."""
+
     class MockStore:
         def __init__(self):
             self.results = []
@@ -105,9 +106,7 @@ async def test_memory_similarity_scoring_bug_fixed(config, mock_store):
 
     # Search
     query_embedding = [0.1] * 768
-    memories, similarities, scores = await context_builder.search_memories(
-        query_embedding, top_k=10
-    )
+    memories, similarities, scores = await context_builder.search_memories(query_embedding, top_k=10)
 
     # Verify we got the right memories
     assert len(memories) == 2, f"Expected 2 memories (above threshold), got {len(memories)}"
@@ -119,15 +118,12 @@ async def test_memory_similarity_scoring_bug_fixed(config, mock_store):
     assert "mem-3" not in similarities  # Filtered out by threshold
 
     # Critical assertions - these would fail with the bug
-    assert similarities["mem-1"] == 0.95, \
-        f"Bug! mem-1 has wrong similarity: {similarities['mem-1']} (expected 0.95)"
-    assert similarities["mem-2"] == 0.60, \
-        f"Bug! mem-2 has wrong similarity: {similarities['mem-2']} (expected 0.60)"
+    assert similarities["mem-1"] == 0.95, f"Bug! mem-1 has wrong similarity: {similarities['mem-1']} (expected 0.95)"
+    assert similarities["mem-2"] == 0.60, f"Bug! mem-2 has wrong similarity: {similarities['mem-2']} (expected 0.60)"
 
     # Verify scores are computed correctly
     # Score = similarity * 0.6 + recency * 0.4
-    assert scores["mem-1"] > scores["mem-2"], \
-        "Higher similarity should result in higher score"
+    assert scores["mem-1"] > scores["mem-2"], "Higher similarity should result in higher score"
 
     print("\n" + "=" * 60)
     print("SIMILARITY SCORING TEST PASSED")
@@ -272,9 +268,7 @@ async def test_memory_deduplication(config, mock_store):
     memory_entries[2].embedding = [0.1 if i == 0 else 0.9 for i in range(768)]
 
     query_embedding = [0.1] * 768
-    memories, similarities, scores = await context_builder.search_memories(
-        query_embedding, top_k=10
-    )
+    memories, similarities, scores = await context_builder.search_memories(query_embedding, top_k=10)
 
     # Should deduplicate mem-1 and mem-2 (very similar embeddings)
     # but keep mem-3 (different)

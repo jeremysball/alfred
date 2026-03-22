@@ -3,6 +3,7 @@
 import signal
 import subprocess
 import time
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -10,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import WebUIServer, create_app
+from alfred.interfaces.webui.daemon_bootstrap import DaemonBootstrapResult
 
 
 def test_webui_module_exists():
@@ -50,6 +52,85 @@ def test_health_endpoint_returns_ok():
     assert data["status"] == "ok"
     assert "version" in data
     assert data["version"] == "0.1.0"
+
+
+def test_health_endpoint_includes_daemon_snapshot(tmp_path):
+    """Verify /health includes the daemon snapshot while preserving legacy fields."""
+    pid_file = tmp_path / "cron-runner.pid"
+    socket_path = tmp_path / "notify.sock"
+    pid_file.write_text("4321")
+    socket_path.write_text("socket")
+
+    class FakeDaemonManager:
+        def __init__(self) -> None:
+            self.pid_file = pid_file
+
+        def read_pid(self) -> int | None:
+            return 4321
+
+    with patch("alfred.interfaces.webui.daemon_status.DaemonManager", FakeDaemonManager):
+        app = create_app()
+        client = TestClient(app)
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["version"] == "0.1.0"
+    assert data["daemonStatus"] == "running"
+    assert data["daemonPid"] == 4321
+    assert data["daemon"] == {
+        "state": "running",
+        "pid": 4321,
+        "socketPath": str(socket_path),
+        "socketHealthy": True,
+        "startedAt": data["daemon"]["startedAt"],
+        "uptimeSeconds": data["daemon"]["uptimeSeconds"],
+        "lastHeartbeatAt": data["daemon"]["lastHeartbeatAt"],
+        "lastReloadAt": None,
+        "lastError": None,
+    }
+
+
+def test_health_endpoint_exposes_bootstrap_failure(tmp_path):
+    """Verify /health surfaces bootstrap failure through the daemon snapshot."""
+
+    pid_file = tmp_path / "cron-runner.pid"
+    pid_file.write_text("4321")
+
+    class FakeDaemonManager:
+        def __init__(self) -> None:
+            self.pid_file = pid_file
+
+        def read_pid(self) -> int | None:
+            return None
+
+    app = create_app()
+    app.state.webui_bootstrap_result = DaemonBootstrapResult(
+        daemon_was_running=False,
+        daemon_started=False,
+        startup_error="daemon failed to start",
+    )
+
+    with patch("alfred.interfaces.webui.daemon_status.DaemonManager", FakeDaemonManager):
+        client = TestClient(app)
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["daemonStatus"] == "failed"
+    assert data["daemonPid"] is None
+    assert data["daemon"] == {
+        "state": "failed",
+        "pid": None,
+        "socketPath": str(tmp_path / "notify.sock"),
+        "socketHealthy": False,
+        "startedAt": None,
+        "uptimeSeconds": None,
+        "lastHeartbeatAt": None,
+        "lastReloadAt": None,
+        "lastError": "daemon failed to start",
+    }
 
 
 def test_server_shuts_down_on_sigint():

@@ -34,6 +34,7 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     raise RuntimeError(f"server did not start: {last_error}")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_playground_theme_activates_in_browser() -> None:
     port = _find_free_port()
@@ -159,6 +160,7 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_connection_status_tooltip_reports_daemon_and_websocket_state() -> None:
     port = _find_free_port()
@@ -261,6 +263,7 @@ async def test_kidcore_connection_status_tooltip_reports_daemon_and_websocket_st
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
     port = _find_free_port()

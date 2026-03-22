@@ -74,9 +74,7 @@ class Tool(ABC):
             fields[param_name] = (annotation, default)
 
         # Create the Pydantic model
-        self._param_model = create_model(
-            f"{self.__class__.__name__}Params", __base__=ToolParameter, **fields
-        )
+        self._param_model = create_model(f"{self.__class__.__name__}Params", __base__=ToolParameter, **fields)
 
     def execute(self, **kwargs: Any) -> str | dict[str, Any]:
         """Execute the tool with the given parameters (non-streaming).
@@ -91,9 +89,7 @@ class Tool(ABC):
         Returns:
             Either a string or a dict (will be JSON-serialized)
         """
-        return (
-            f"Error: {self.__class__.__name__} must be called via execute_stream in async context"
-        )
+        return f"Error: {self.__class__.__name__} must be called via execute_stream in async context"
 
     async def execute_stream(self, **kwargs: Any) -> AsyncIterator[str]:
         """Execute the tool with streaming output.

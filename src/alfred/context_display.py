@@ -53,11 +53,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
 
     # Get session messages for display
     session_messages = alfred.core.session_manager.get_messages_for_context(session_id)
-    full_messages = (
-        alfred.core.session_manager.get_session_messages(session_id)
-        if alfred.core.session_manager.has_active_session()
-        else []
-    )
+    full_messages = alfred.core.session_manager.get_session_messages(session_id) if alfred.core.session_manager.has_active_session() else []
 
     # Get recent tool calls from session
     recent_tool_calls: list[dict[str, Any]] = []

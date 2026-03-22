@@ -196,9 +196,7 @@ class TestToolCallbackIntegration:
         assistant_msg = MessagePanel(role="assistant", content="Failed")
         tui._current_assistant_msg = assistant_msg
         tui._tool_callback(ToolStart(tool_call_id="call-1", tool_name="bash"))
-        tui._tool_callback(
-            ToolEnd(tool_call_id="call-1", tool_name="bash", result="Failed", is_error=True)
-        )
+        tui._tool_callback(ToolEnd(tool_call_id="call-1", tool_name="bash", result="Failed", is_error=True))
 
         # Status should be error
         assert assistant_msg._tool_calls[0].status == "error"

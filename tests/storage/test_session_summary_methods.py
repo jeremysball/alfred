@@ -97,9 +97,7 @@ class TestGetLatestSummary:
         session_id = "sess_version_test"
 
         # Insert parent session
-        await db_conn.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)", (session_id, "[]")
-        )
+        await db_conn.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", (session_id, "[]"))
 
         # Insert two summaries for same session
         summaries = [

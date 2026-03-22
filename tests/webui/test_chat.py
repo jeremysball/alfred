@@ -32,7 +32,9 @@ def _consume_startup_messages(websocket) -> tuple[dict, dict, dict]:
 
     connected = websocket.receive_json()
     session_loaded = websocket.receive_json()
+    daemon_status = websocket.receive_json()
     status_update = websocket.receive_json()
+    assert daemon_status["type"] == "daemon.status"
     return connected, session_loaded, status_update
 
 
@@ -144,6 +146,7 @@ def test_websocket_without_alfred_instance() -> None:
     with client.websocket_connect("/ws") as websocket:
         response = websocket.receive_json()
         assert response["type"] == "connected"
+        assert websocket.receive_json()["type"] == "daemon.status"
 
         websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
 
