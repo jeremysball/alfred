@@ -29,7 +29,9 @@ def test_webui_help_includes_hotswap_flag() -> None:
     )
 
     assert result.returncode == 0
-    assert "--hotswap" in result.stdout
+    help_output = result.stdout + result.stderr
+    assert "--hotswap" in help_output
+
 
 def test_webui_hotswap_restarts_only_on_webui_assets(tmp_path: Path) -> None:
     static_root = tmp_path / "static"

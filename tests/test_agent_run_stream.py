@@ -48,7 +48,7 @@ class TestExecuteToolWithEvents:
     """Tests for _execute_tool_with_events method."""
 
     @pytest.mark.asyncio
-    async def test_execute_tool_success(self, mock_llm, mock_tool_registry):
+    async def test_execute_tool_success(self, mock_llm, mock_tool_registry, caplog: pytest.LogCaptureFixture):
         """Test successful tool execution with events."""
         agent = Agent(mock_llm, mock_tool_registry)
 
@@ -68,7 +68,8 @@ class TestExecuteToolWithEvents:
         def event_callback(event):
             events.append(event)
 
-        result = await agent._execute_tool_with_events(call, tool, event_callback)
+        with caplog.at_level("DEBUG", logger="alfred.agent"):
+            result = await agent._execute_tool_with_events(call, tool, event_callback)
 
         assert result == "output chunk 1output chunk 2"
         assert len(events) == 4  # ToolStart, ToolOutput (x2), ToolEnd
@@ -82,8 +83,13 @@ class TestExecuteToolWithEvents:
         assert events[3].result == "output chunk 1output chunk 2"
         assert not events[3].is_error
 
+        agent_messages = [record.message for record in caplog.records if record.name == "alfred.agent"]
+        assert any(message.startswith("event=tools.tool.start") for message in agent_messages)
+        assert any(message.startswith("event=tools.tool.completed") for message in agent_messages)
+        assert any("output_chars=28" in message for message in agent_messages)
+
     @pytest.mark.asyncio
-    async def test_execute_tool_error(self, mock_llm, mock_tool_registry):
+    async def test_execute_tool_error(self, mock_llm, mock_tool_registry, caplog: pytest.LogCaptureFixture):
         """Test tool execution with error."""
         agent = Agent(mock_llm, mock_tool_registry)
 
@@ -103,7 +109,8 @@ class TestExecuteToolWithEvents:
         def event_callback(event):
             events.append(event)
 
-        result = await agent._execute_tool_with_events(call, tool, event_callback)
+        with caplog.at_level("DEBUG", logger="alfred.agent"):
+            result = await agent._execute_tool_with_events(call, tool, event_callback)
 
         assert "Error executing error_tool" in result
         assert "Something went wrong" in result
@@ -114,9 +121,13 @@ class TestExecuteToolWithEvents:
         assert isinstance(events[2], ToolOutput)
         assert "Error executing" in events[2].chunk
         assert isinstance(events[3], ToolEnd)
-        # is_error is False because the output doesn't contain "Error:" (with colon)
-        # The _is_error method looks for specific error indicators
-        assert not events[3].is_error
+        assert events[3].is_error is True
+
+        agent_messages = [record.message for record in caplog.records if record.name == "alfred.agent"]
+        assert any(message.startswith("event=tools.tool.start") for message in agent_messages)
+        assert any(message.startswith("event=tools.tool.completed") for message in agent_messages)
+        assert any("is_error=true" in message for message in agent_messages)
+        assert any("error_type=ValueError" in message for message in agent_messages)
 
     @pytest.mark.asyncio
     async def test_execute_tool_no_callback(self, mock_llm, mock_tool_registry):
