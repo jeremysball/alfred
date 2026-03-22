@@ -50,6 +50,7 @@ class Message:
     idx: int
     role: Role
     content: str
+    id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     embedding: list[float] | None = None
     input_tokens: int = 0
@@ -58,6 +59,7 @@ class Message:
     reasoning_tokens: int = 0
     reasoning_content: str = ""  # Persisted reasoning/thinking content
     tool_calls: list[ToolCallRecord] | None = None
+    streaming: bool = False
 
 
 @dataclass
@@ -238,6 +240,7 @@ class SessionManager:
                     idx=msg_data.get("idx", 0),
                     role=Role(msg_data["role"]),
                     content=msg_data["content"],
+                    id=str(msg_data.get("id") or msg_data.get("idx", 0)),
                     timestamp=msg_timestamp,
                     embedding=msg_data.get("embedding"),
                     input_tokens=msg_data.get("input_tokens", 0),
@@ -246,6 +249,7 @@ class SessionManager:
                     reasoning_tokens=msg_data.get("reasoning_tokens", 0),
                     reasoning_content=msg_data.get("reasoning_content", ""),
                     tool_calls=tool_calls,
+                    streaming=bool(msg_data.get("streaming", False)),
                 )
                 messages.append(msg)
 
@@ -395,6 +399,7 @@ class SessionManager:
             idx=idx,
             role=role_enum,
             content=content,
+            id=str(uuid.uuid4()),
             timestamp=datetime.now(UTC),
         )
         session.messages.append(message)
@@ -460,6 +465,7 @@ class SessionManager:
             for msg in messages:
                 msg_dict: dict[str, Any] = {
                     "idx": msg.idx,
+                    "id": msg.id,
                     "role": msg.role.value,
                     "content": msg.content,
                     "timestamp": msg.timestamp.isoformat(),
@@ -468,6 +474,7 @@ class SessionManager:
                     "cached_tokens": msg.cached_tokens,
                     "reasoning_tokens": msg.reasoning_tokens,
                     "reasoning_content": msg.reasoning_content,
+                    "streaming": msg.streaming,
                 }
                 if msg.embedding:
                     msg_dict["embedding"] = msg.embedding

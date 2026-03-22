@@ -3,6 +3,82 @@
 import pytest
 
 
+class TestGetVec0Metric:
+    """Tests for _get_vec0_metric() method."""
+
+    @pytest.mark.asyncio
+    async def test_get_vec0_metric_returns_none_for_missing_table(self) -> None:
+        """Test that _get_vec0_metric returns None when table doesn't exist."""
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(":memory:", embedding_dim=768)
+
+        import aiosqlite
+
+        async with aiosqlite.connect(store.db_path) as db:
+            result = await store._get_vec0_metric(db, "nonexistent_table")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_vec0_metric_detects_cosine_configuration(self) -> None:
+        """Test extraction of distance_metric=cosine from vec0 table schema."""
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(":memory:", embedding_dim=768)
+
+        import aiosqlite
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await db.enable_load_extension(True)
+            import sqlite_vec
+
+            await db.load_extension(sqlite_vec.loadable_path())
+
+            await db.execute("""
+                CREATE VIRTUAL TABLE test_embeddings USING vec0(
+                    id TEXT PRIMARY KEY,
+                    embedding FLOAT[768] distance_metric=cosine
+                )
+            """)
+
+            result = await store._get_vec0_metric(db, "test_embeddings")
+
+        assert result == "cosine"
+
+
+class TestGetVec0SchemaMismatch:
+    """Tests for vec schema mismatch detection."""
+
+    @pytest.mark.asyncio
+    async def test_vec_schema_validation_detects_metric_drift_with_matching_dimension(
+        self,
+    ) -> None:
+        """A vec0 table with the right dimension but wrong metric is drifted."""
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(":memory:", embedding_dim=768)
+
+        import aiosqlite
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await db.enable_load_extension(True)
+            import sqlite_vec
+
+            await db.load_extension(sqlite_vec.loadable_path())
+
+            await db.execute("""
+                CREATE VIRTUAL TABLE test_embeddings USING vec0(
+                    id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+            """)
+
+            result = await store._check_vec0_schema_mismatch(db, "test_embeddings")
+
+        assert result == (768, "l2", 768, "cosine")
+
+
 class TestGetVec0Dimension:
     """Tests for _get_vec0_dimension() method."""
 
@@ -77,6 +153,70 @@ class TestGetVec0Dimension:
             result = await store._get_vec0_dimension(db, "test_embeddings")
 
         assert result == 1536
+
+
+class TestVecTableCreationContract:
+    """Tests for vec0 table creation contract."""
+
+    @pytest.mark.asyncio
+    async def test_all_vec_tables_are_created_with_cosine_metric_contract(self, tmp_path) -> None:
+        """All Alfred vec0 tables should be created with cosine semantics."""
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(tmp_path / "vec-contract.db", embedding_dim=768)
+        await store._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(store.db_path) as db:
+            async with db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_embeddings'"
+            ) as cursor:
+                memory_schema = (await cursor.fetchone())[0]
+            async with db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='session_summaries_vec'"
+            ) as cursor:
+                summary_schema = (await cursor.fetchone())[0]
+            async with db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='message_embeddings_vec'"
+            ) as cursor:
+                message_schema = (await cursor.fetchone())[0]
+
+        assert "distance_metric=cosine" in memory_schema.lower()
+        assert "distance_metric=cosine" in summary_schema.lower()
+        assert "distance_metric=cosine" in message_schema.lower()
+
+
+class TestInitSchemaGuardrails:
+    """Tests for startup guardrails around vec0 schema drift."""
+
+    @pytest.mark.asyncio
+    async def test_store_init_rejects_metric_mismatch_when_rebuild_is_unavailable(
+        self,
+        tmp_path,
+    ) -> None:
+        """Existing vec0 tables without cosine should fail clearly on init."""
+        from alfred.storage.sqlite import SQLiteStore
+
+        store = SQLiteStore(tmp_path / "drift.db", embedding_dim=768)
+
+        import aiosqlite
+
+        async with aiosqlite.connect(store.db_path) as db:
+            await db.enable_load_extension(True)
+            import sqlite_vec
+
+            await db.load_extension(sqlite_vec.loadable_path())
+            await db.execute("""
+                CREATE VIRTUAL TABLE memory_embeddings USING vec0(
+                    entry_id TEXT PRIMARY KEY,
+                    embedding FLOAT[768]
+                )
+            """)
+            await db.commit()
+
+        with pytest.raises(RuntimeError, match="vec0 schema mismatch.*memory_embeddings"):
+            await store._init()
 
 
 class TestCheckDimensionMismatch:

@@ -289,6 +289,49 @@ class TestSearchSessionsViaAgent:
         assert hasattr(tool, 'validate_and_run')
         assert hasattr(tool, 'validate_and_run_stream')
 
+    @pytest.mark.asyncio
+    async def test_tool_filters_summaries_using_normalized_similarity(self):
+        """The best semantic match should survive the similarity threshold."""
+        mock_embedder = MagicMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
+
+        mock_store = MagicMock()
+        mock_store.search_summaries = AsyncMock(
+            return_value=[
+                {
+                    "summary_id": "sum-close",
+                    "session_id": "sess-close",
+                    "summary_text": "Best semantic match",
+                    "similarity": 0.95,
+                },
+                {
+                    "summary_id": "sum-far",
+                    "session_id": "sess-far",
+                    "summary_text": "Worse semantic match",
+                    "similarity": 0.05,
+                },
+            ]
+        )
+        mock_store.search_session_messages = AsyncMock(return_value=[])
+
+        mock_summarizer = MagicMock()
+        mock_summarizer.store = mock_store
+
+        tool = SearchSessionsTool(
+            embedder=mock_embedder,
+            summarizer=mock_summarizer,
+        )
+
+        chunks = []
+        async for chunk in tool.execute_stream(query="semantic match"):
+            chunks.append(chunk)
+
+        result = "".join(chunks)
+
+        assert "Best semantic match" in result
+        assert "Worse semantic match" not in result
+        assert "Relevance: 0.95" in result
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

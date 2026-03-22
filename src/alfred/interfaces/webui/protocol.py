@@ -243,6 +243,9 @@ class SessionMessage(TypedDict):
     id: str
     role: Literal["user", "assistant", "system"]
     content: str
+    reasoningContent: NotRequired[str]
+    toolCalls: NotRequired[list[JsonObject]]
+    streaming: NotRequired[bool]
 
 
 class SessionLoadedPayload(TypedDict):

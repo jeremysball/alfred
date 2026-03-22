@@ -7,6 +7,7 @@ Do not add bare root-level MagicMock Alfred fixtures here.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -65,6 +66,7 @@ def make_message(
     content: str,
     *,
     idx: int = 0,
+    id: str | None = None,
     timestamp: datetime | None = None,
     input_tokens: int = 0,
     output_tokens: int = 0,
@@ -72,6 +74,7 @@ def make_message(
     reasoning_tokens: int = 0,
     reasoning_content: str = "",
     tool_calls: list[ToolCallRecord] | None = None,
+    streaming: bool = False,
 ) -> Message:
     """Create a real Message."""
 
@@ -80,6 +83,7 @@ def make_message(
         idx=idx,
         role=role_enum,
         content=content,
+        id=id,
         timestamp=timestamp or datetime.now(UTC),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -87,6 +91,7 @@ def make_message(
         reasoning_tokens=reasoning_tokens,
         reasoning_content=reasoning_content,
         tool_calls=tool_calls,
+        streaming=streaming,
     )
 
 
@@ -251,6 +256,7 @@ class FakeAlfred:
         context_tokens: int = DEFAULT_CONTEXT_TOKENS,
         session_usage: dict[str | None, dict[str, Any]] | None = None,
         config: dict[str, Any] | None = None,
+        chunk_delay: float = 0.0,
     ) -> None:
         self.core = FakeCore(FakeSessionManager(sessions))
         self.token_tracker = TokenTracker()
@@ -259,6 +265,7 @@ class FakeAlfred:
         self._stream_parts = list(stream_parts or chunks or DEFAULT_CHAT_CHUNKS)
         self._session_usage = session_usage or DEFAULT_SESSION_USAGE
         self._context_tokens = context_tokens
+        self._chunk_delay = chunk_delay
         self.synced_session_ids: list[str | None] = []
         self.chat_called = False
         self.chat_messages: list[str] = []
@@ -269,6 +276,8 @@ class FakeAlfred:
         message: str,
         tool_callback: Callable[[ToolEvent], None] | None = None,
         session_id: str | None = None,
+        persist_partial: bool = False,
+        assistant_message_id: str | None = None,
     ):
         """Yield the configured stream and emit configured tool events in order."""
 
@@ -277,14 +286,43 @@ class FakeAlfred:
         self.last_message = message
         self.token_tracker.add({"prompt_tokens": max(len(message) // 4, 1), "completion_tokens": 0})
 
+        session_manager = self.core.session_manager
+        session = session_manager.get_current_cli_session()
+        if session is None:
+            session = session_manager.start_session()
+
+        assistant_msg = None
+        if persist_partial:
+            user_message = make_message("user", message, idx=len(session.messages), id=f"user-{len(session.messages)}")
+            session.messages.append(user_message)
+            assistant_msg = make_message(
+                "assistant",
+                "",
+                idx=len(session.messages),
+                id=assistant_message_id or f"assistant-{len(session.messages)}",
+                streaming=True,
+            )
+            session.messages.append(assistant_msg)
+            session.meta.message_count = len(session.messages)
+            session.meta.last_active = datetime.now(UTC)
+
         completion_tokens = 0
         for part in self._stream_parts:
             if isinstance(part, str):
                 completion_tokens += len(part)
+                if assistant_msg is not None:
+                    assistant_msg.content += part
+                if self._chunk_delay:
+                    await asyncio.sleep(self._chunk_delay)
                 yield part
             else:
                 if tool_callback is not None:
                     tool_callback(part)
+
+        if assistant_msg is not None:
+            assistant_msg.streaming = False
+            session.meta.last_active = datetime.now(UTC)
+            session.meta.message_count = len(session.messages)
 
         self.token_tracker.add(
             {

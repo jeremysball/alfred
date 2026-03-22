@@ -50,6 +50,8 @@ class WebUIAlfred(Protocol):
         message: str,
         tool_callback: Callable[[ToolEvent], None] | None = None,
         session_id: str | None = None,
+        persist_partial: bool = False,
+        assistant_message_id: str | None = None,
     ) -> AsyncIterator[str]: ...
 
     async def stop(self) -> None: ...

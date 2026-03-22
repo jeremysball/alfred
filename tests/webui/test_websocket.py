@@ -99,6 +99,7 @@ class TestWebSocketSessionRestore:
             "assistant",
             "Here are the results",
             idx=1,
+            id="assistant-123",
             reasoning_content="thinking",
             tool_calls=[
                 make_tool_call(
@@ -111,6 +112,7 @@ class TestWebSocketSessionRestore:
                     sequence=1,
                 )
             ],
+            streaming=True,
         )
         mock_alfred = MockAlfred(sessions=[make_session("session-restore", messages=[assistant_message])])
         app = create_app(alfred_instance=mock_alfred)
@@ -124,6 +126,8 @@ class TestWebSocketSessionRestore:
             assert connected["type"] == "connected"
             assert session_loaded["type"] == "session.loaded"
             assert status_update["type"] == "status.update"
+            assert session_loaded["payload"]["messages"][0]["id"] == "assistant-123"
+            assert session_loaded["payload"]["messages"][0]["streaming"] is True
             assert session_loaded["payload"]["messages"][0]["toolCalls"][0]["toolCallId"] == "tool-1"
             assert session_loaded["payload"]["messages"][0]["toolCalls"][0]["status"] == "success"
 

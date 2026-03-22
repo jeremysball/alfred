@@ -1,8 +1,11 @@
 """Core Alfred engine - orchestrates memory, context, and LLM with agent loop."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from telegram import Bot
 
@@ -11,12 +14,14 @@ from alfred.config import Config
 from alfred.context import ContextLoader
 from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
-from alfred.session import Session, ToolCallRecord
+from alfred.session import Message, Role, Session, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
+PARTIAL_PERSIST_BATCH_MAX_CHARS = 256
+PARTIAL_PERSIST_FLUSH_INTERVAL_SECONDS = 0.05
 
 
 class ContextSummary:
@@ -184,6 +189,8 @@ class Alfred:
         message: str,
         tool_callback: Callable[[ToolEvent], None] | None = None,
         session_id: str | None = None,
+        persist_partial: bool = False,
+        assistant_message_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Process a message with streaming.
 
@@ -196,6 +203,8 @@ class Alfred:
             LLM response tokens
         """
         logger.info(f"Processing message: {message[:50]}...")
+
+        assistant_message_id = assistant_message_id or str(uuid4())
 
         # Handle session based on mode
         if session_id:
@@ -213,6 +222,17 @@ class Alfred:
         user_msg_idx = messages_list[-1].idx if messages_list else 0
         msg_count = len(messages_list)
         logger.debug(f"Added user message. Session now has {msg_count} messages")
+
+        session: Session
+        if session_id:
+            session = self.core.session_manager.get_or_create_session(session_id)
+        else:
+            maybe_session = self.core.session_manager.get_current_cli_session()
+            if maybe_session is None:
+                raise RuntimeError("No active session")
+            session = maybe_session
+
+        assistant_msg_obj: Message | None = None
 
         # Get query embedding for memory search
         logger.debug("Generating query embedding...")
@@ -249,12 +269,69 @@ class Alfred:
             session_messages=len(session_messages),
         )
 
+        if persist_partial:
+            assistant_msg_obj = Message(
+                idx=(messages_list[-1].idx + 1) if messages_list else 0,
+                role=Role.ASSISTANT,
+                content="",
+                id=assistant_message_id,
+                timestamp=datetime.now(UTC),
+                streaming=True,
+            )
+            session.messages.append(assistant_msg_obj)
+            session.meta.last_active = datetime.now(UTC)
+            session.meta.message_count = len(session.messages)
+            await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
+
         logger.debug("Starting agent loop...")
 
         # Accumulator for tool calls and reasoning during this turn
         tool_calls_accumulator: list[dict[str, Any]] = []
         full_response: list[str] = []
         reasoning_content: list[str] = []  # Accumulate reasoning separately
+        partial_persist_chars = 0
+        last_partial_persist_at = asyncio.get_running_loop().time()
+
+        def _build_tool_calls_snapshot() -> list[ToolCallRecord] | None:
+            if not tool_calls_accumulator:
+                return None
+
+            return [
+                ToolCallRecord(
+                    tool_call_id=tc["tool_call_id"],
+                    tool_name=tc["tool_name"],
+                    arguments=tc["arguments"],
+                    output="".join(tc["output_chunks"]),
+                    status="error" if tc["is_error"] else "success",
+                    insert_position=tc["insert_position"],
+                    sequence=tc["sequence"],
+                )
+                for tc in tool_calls_accumulator
+            ]
+
+        async def _flush_partial_state(force: bool = False) -> None:
+            nonlocal partial_persist_chars, last_partial_persist_at
+
+            if not persist_partial or assistant_msg_obj is None:
+                return
+
+            now = asyncio.get_running_loop().time()
+            if (
+                not force
+                and partial_persist_chars < PARTIAL_PERSIST_BATCH_MAX_CHARS
+                and (now - last_partial_persist_at) < PARTIAL_PERSIST_FLUSH_INTERVAL_SECONDS
+            ):
+                return
+
+            assistant_msg_obj.content = "".join(full_response)
+            assistant_msg_obj.reasoning_content = "".join(reasoning_content)
+            assistant_msg_obj.tool_calls = _build_tool_calls_snapshot()
+            assistant_msg_obj.streaming = True
+            session.meta.last_active = datetime.now(UTC)
+            session.meta.message_count = len(session.messages)
+            await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
+            partial_persist_chars = 0
+            last_partial_persist_at = now
 
         def _tool_callback_wrapper(event: ToolEvent) -> None:
             """Wrapper to capture tool calls while still calling external callback."""
@@ -287,20 +364,21 @@ class Alfred:
                         "is_error": False,
                     }
                 )
-
             elif isinstance(event, ToolOutput):
                 # Find matching tool call and append output
                 for tc in tool_calls_accumulator:
                     if tc["tool_call_id"] == event.tool_call_id:
                         tc["output_chunks"].append(event.chunk)
                         break
-
             elif isinstance(event, ToolEnd):
                 # Finalize tool call with status
                 for tc in tool_calls_accumulator:
                     if tc["tool_call_id"] == event.tool_call_id:
                         tc["is_error"] = event.is_error
                         break
+
+            if persist_partial and assistant_msg_obj is not None:
+                assistant_msg_obj.tool_calls = _build_tool_calls_snapshot()
 
         async for chunk in self.agent.run_stream(
             messages,
@@ -310,66 +388,56 @@ class Alfred:
         ):
             # Separate reasoning from content for storage
             if chunk.startswith("[REASONING]"):
-                reasoning_content.append(chunk[11:])  # Strip [REASONING] prefix
+                reasoning_chunk = chunk[11:]
+                reasoning_content.append(reasoning_chunk)  # Strip [REASONING] prefix
+                if assistant_msg_obj is not None:
+                    assistant_msg_obj.reasoning_content = "".join(reasoning_content)
+                    assistant_msg_obj.streaming = True
+                    partial_persist_chars += len(reasoning_chunk)
+                    await _flush_partial_state()
             elif chunk.startswith("[/REASONING]"):
                 pass  # Skip end marker
             else:
                 full_response.append(chunk)
+                if assistant_msg_obj is not None:
+                    assistant_msg_obj.content = "".join(full_response)
+                    assistant_msg_obj.streaming = True
+                    partial_persist_chars += len(chunk)
+                    await _flush_partial_state()
             yield chunk
 
         # Build ToolCallRecord objects from accumulated data
-        tool_calls: list[ToolCallRecord] | None = None
-        if tool_calls_accumulator:
-            tool_calls = [
-                ToolCallRecord(
-                    tool_call_id=tc["tool_call_id"],
-                    tool_name=tc["tool_name"],
-                    arguments=tc["arguments"],
-                    output="".join(tc["output_chunks"]),
-                    status="error" if tc["is_error"] else "success",
-                    insert_position=tc["insert_position"],
-                    sequence=tc["sequence"],
-                )
-                for tc in tool_calls_accumulator
-            ]
+        tool_calls = _build_tool_calls_snapshot()
 
         # Add assistant response to session with tool calls
         assistant_message = "".join(full_response)
         reasoning_text = "".join(reasoning_content)
 
-        # Create message manually to include tool_calls and reasoning
-        from datetime import UTC, datetime
-
-        from alfred.session import Message, Role
-
-        messages_list = self.core.session_manager.get_session_messages(session_id)
-        idx = messages_list[-1].idx + 1 if messages_list else 0
-
-        assistant_msg_obj = Message(
-            idx=idx,
-            role=Role.ASSISTANT,
-            content=assistant_message,
-            timestamp=datetime.now(UTC),
-            tool_calls=tool_calls,
-            reasoning_content=reasoning_text,
-        )
-
-        # Get session and append message
-        session: Session
-        if session_id:
-            session = self.core.session_manager.get_or_create_session(session_id)
+        if assistant_msg_obj is None:
+            assistant_msg_obj = Message(
+                idx=(session.messages[-1].idx + 1) if session.messages else 0,
+                role=Role.ASSISTANT,
+                content=assistant_message,
+                id=assistant_message_id,
+                timestamp=datetime.now(UTC),
+                tool_calls=tool_calls,
+                reasoning_content=reasoning_text,
+            )
+            session.messages.append(assistant_msg_obj)
         else:
-            maybe_session = self.core.session_manager.get_current_cli_session()
-            if maybe_session is None:
-                raise RuntimeError("No active session")
-            session = maybe_session
+            assistant_msg_obj.content = assistant_message
+            assistant_msg_obj.reasoning_content = reasoning_text
+            assistant_msg_obj.tool_calls = tool_calls
+            assistant_msg_obj.streaming = False
 
-        session.messages.append(assistant_msg_obj)
         session.meta.last_active = datetime.now(UTC)
         session.meta.message_count = len(session.messages)
 
         # Persist to storage
-        self.core.session_manager._spawn_persist_task(session.meta.session_id, session.messages)
+        if persist_partial:
+            await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
+        else:
+            self.core.session_manager._spawn_persist_task(session.meta.session_id, session.messages)
 
         assistant_msg_idx = assistant_msg_obj.idx
         msg_count = len(session.messages)

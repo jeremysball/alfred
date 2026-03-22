@@ -270,6 +270,11 @@ class SessionMessage(BaseModel):
     id: str = Field(..., description="Message ID")
     role: Literal["user", "assistant", "system"] = Field(..., description="Message role")
     content: str = Field(..., description="Message content")
+    reasoning_content: str = Field(default="", alias="reasoningContent")
+    tool_calls: list[dict[str, object]] = Field(default_factory=list, alias="toolCalls")
+    streaming: bool = Field(default=False)
+
+    model_config = {"populate_by_name": True}
 
 
 class SessionLoadedPayload(BaseModel):

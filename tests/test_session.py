@@ -237,9 +237,12 @@ class TestSessionManager:
         assert messages[0].role == Role.USER
         assert messages[0].content == "Hello"
         assert messages[0].idx == 0
+        assert messages[0].id is not None
         assert messages[1].role == Role.ASSISTANT
         assert messages[1].content == "Hi"
         assert messages[1].idx == 1
+        assert messages[1].id is not None
+        assert messages[0].id != messages[1].id
 
     def test_add_message_updates_meta(self, initialized_manager: SessionManager):
         """add_message updates session metadata."""
