@@ -543,6 +543,7 @@ class TestCheckDimensionMismatch:
 class TestInitDimensionDetection:
     """Tests for dimension detection during SQLiteStore initialization."""
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_init_detects_dimension_mismatch_on_startup(self, caplog):
         """Test that dimension mismatch is detected and logged during init."""
@@ -623,6 +624,7 @@ class TestAllVec0Tables:
 class TestVecTableRebuild:
     """Tests for vec0 rebuild orchestration."""
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_rebuild_vector_indexes_recreates_all_metric_drifted_vec_tables(
         self,
@@ -694,6 +696,7 @@ class TestVecTableRebuild:
                 assert row[0] is not None
                 assert "distance_metric=cosine" in row[0].lower()
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_rebuild_vector_indexes_repopulates_memory_embeddings(self, tmp_path) -> None:
         """Rebuilt memory vectors should be searchable again."""
@@ -747,6 +750,7 @@ class TestVecTableRebuild:
         assert [row["entry_id"] for row in results] == ["mem-1"]
         assert results[0]["similarity"] > 0.9
 
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_rebuild_vector_indexes_repopulates_session_summary_and_message_vec_tables(
         self,

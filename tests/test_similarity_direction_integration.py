@@ -68,6 +68,7 @@ async def _collect_stream(tool: SearchSessionsTool, **kwargs: Any) -> str:
     return "".join(chunks)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_memory_and_session_search_share_the_same_similarity_direction(
     config: Config,

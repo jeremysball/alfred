@@ -47,6 +47,7 @@ def _make_config(tmp_path: Path) -> Config:
     )
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_create_memory_store_rebuilds_stale_vec0_schema_without_injecting_embedder(
     tmp_path: Path,
