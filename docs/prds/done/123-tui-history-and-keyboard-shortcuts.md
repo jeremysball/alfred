@@ -1,8 +1,9 @@
 # PRD #123: TUI History and Keyboard Shortcuts
 
-**Status**: Ready  
+**Status**: ✅ COMPLETE  
 **Priority**: High  
 **Created**: March 11, 2025  
+**Last Updated**: 2026-03-22  
 **Author**: pi  
 **Issue**: #123
 
