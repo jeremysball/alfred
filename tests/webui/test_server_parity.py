@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
+from alfred.interfaces.webui.daemon_bootstrap import DaemonBootstrapResult
 from alfred.token_tracker import TokenTracker
 from tests.webui.fakes import FakeAlfred
 
@@ -125,6 +126,44 @@ def test_websocket_connect_emits_daemon_status_before_status_update(tmp_path) ->
     assert "daemonStatus" not in status_update["payload"]
     assert "daemonPid" not in status_update["payload"]
     assert fake_alfred.synced_session_ids == [None]
+
+
+@pytest.mark.timeout(5)
+def test_websocket_connect_emits_failed_daemon_status_when_bootstrap_error_is_present(tmp_path) -> None:
+    """Web UI should surface bootstrap failures in the initial daemon.status payload."""
+
+    pid_file = tmp_path / "cron-runner.pid"
+
+    class FakeDaemonManager:
+        def __init__(self) -> None:
+            self.pid_file = pid_file
+
+        def read_pid(self) -> int | None:
+            return None
+
+    fake_alfred = FakeAlfred()
+    app = create_app(alfred_instance=fake_alfred)
+    app.state.webui_bootstrap_result = DaemonBootstrapResult(
+        daemon_was_running=False,
+        daemon_started=False,
+        startup_error="daemon failed to start",
+    )
+    client = TestClient(app)
+
+    with patch("alfred.interfaces.webui.daemon_status.DaemonManager", FakeDaemonManager), client.websocket_connect("/ws") as websocket:
+        connected = websocket.receive_json()
+        session_loaded = websocket.receive_json()
+        daemon_status = websocket.receive_json()
+        status_update = websocket.receive_json()
+
+    assert connected["type"] == "connected"
+    assert session_loaded["type"] == "session.loaded"
+    assert daemon_status["type"] == "daemon.status"
+    assert daemon_status["payload"]["daemon"]["state"] == "failed"
+    assert daemon_status["payload"]["daemon"]["lastError"] == "daemon failed to start"
+    assert status_update["type"] == "status.update"
+    assert "daemonStatus" not in status_update["payload"]
+    assert "daemonPid" not in status_update["payload"]
 
 
 def test_websocket_connect_ignores_dict_config_when_contract_is_valid() -> None:

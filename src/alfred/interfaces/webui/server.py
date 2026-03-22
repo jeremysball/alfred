@@ -320,6 +320,19 @@ async def _send_daemon_status(
     )
 
 
+def _get_bootstrap_startup_error(app_state: object | None) -> str | None:
+    """Return the Web UI bootstrap error if startup failed."""
+    if app_state is None:
+        return None
+
+    bootstrap_result = getattr(app_state, "webui_bootstrap_result", None)
+    if bootstrap_result is None:
+        return None
+
+    startup_error = getattr(bootstrap_result, "startup_error", None)
+    return str(startup_error) if startup_error is not None else None
+
+
 # Module-level set to track active WebSocket connections
 _active_connections: set[WebSocket] = set()
 
@@ -1160,6 +1173,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
     # Store Alfred instance in app state
     app.state.alfred = alfred_instance
     app.state.webui_debug = debug
+    app.state.webui_bootstrap_result = None
 
     @app.middleware("http")
     async def _no_store_static_assets(request: Any, call_next: Any) -> Response:
@@ -1197,7 +1211,10 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
     @app.get("/health")
     async def health_check() -> dict[str, object]:
         """Health check endpoint."""
-        return build_health_payload(app.state.alfred)
+        return build_health_payload(
+            app.state.alfred,
+            startup_error=_get_bootstrap_startup_error(app.state),
+        )
 
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket) -> None:
@@ -1211,6 +1228,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
             enabled=bool(getattr(websocket.app.state, "webui_debug", False)),
         )
         connection_state = _WebSocketConnectionState()
+        bootstrap_startup_error = _get_bootstrap_startup_error(websocket.app.state)
 
         def _clear_chat_task(task: asyncio.Task[None]) -> None:
             if connection_state.active_chat_task is task:
@@ -1251,6 +1269,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
             await _send_daemon_status(
                 websocket,
                 alfred_instance,
+                startup_error=bootstrap_startup_error,
                 debug_stats=connection_debug_stats,
                 phase="daemon.status.connected",
                 send_lock=connection_state.send_lock,

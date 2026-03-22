@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 import socket
 import time
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -19,22 +22,80 @@ def _find_free_port() -> int:
         return cast(int, sock.getsockname()[1])
 
 
+def _build_launch_env(
+    tmp_path: Path,
+    *,
+    bootstrap_failure_message: str | None = None,
+) -> dict[str, str]:
+    env = os.environ.copy()
+    env.update(
+        {
+            "XDG_CACHE_HOME": str(tmp_path / "cache"),
+            "XDG_CONFIG_HOME": str(tmp_path / "config"),
+            "XDG_DATA_HOME": str(tmp_path / "data"),
+        }
+    )
+
+    if bootstrap_failure_message is not None:
+        sitecustomize_dir = tmp_path / "sitecustomize"
+        sitecustomize_dir.mkdir(parents=True, exist_ok=True)
+        sitecustomize_path = sitecustomize_dir / "sitecustomize.py"
+        sitecustomize_path.write_text(
+            f'''import os
+
+if os.environ.get("ALFRED_TEST_WEBUI_BOOTSTRAP_FAILURE"):
+    from alfred.interfaces.webui.daemon_bootstrap import DaemonBootstrapResult
+    import alfred.cli.webui_hotswap as webui_hotswap
+    import alfred.interfaces.webui.daemon_bootstrap as daemon_bootstrap
+
+    def _bootstrap_daemon() -> DaemonBootstrapResult:
+        return DaemonBootstrapResult(
+            daemon_was_running=False,
+            daemon_started=False,
+            startup_error={json.dumps(bootstrap_failure_message)},
+        )
+
+    webui_hotswap.bootstrap_daemon = _bootstrap_daemon
+    daemon_bootstrap.bootstrap_daemon = _bootstrap_daemon
+'''
+        )
+        pythonpath_parts = [str(sitecustomize_dir)]
+        if env.get("PYTHONPATH"):
+            pythonpath_parts.append(env["PYTHONPATH"])
+        env["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
+        env["ALFRED_TEST_WEBUI_BOOTSTRAP_FAILURE"] = bootstrap_failure_message
+
+    return env
+
+
 async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
+    await _wait_for_health(port, timeout=timeout)
+
+
+async def _wait_for_health(
+    port: int,
+    *,
+    timeout: float = 20.0,
+    predicate: Callable[[dict[str, object]], bool] | None = None,
+) -> dict[str, object]:
     deadline = time.time() + timeout
     url = f"http://127.0.0.1:{port}/health"
     last_error: Exception | None = None
     while time.time() < deadline:
         try:
             with urllib.request.urlopen(url, timeout=1) as response:
-                if response.status == 200:
-                    return
+                if response.status != 200:
+                    continue
+                data = json.loads(response.read().decode("utf-8"))
+                if predicate is None or predicate(data):
+                    return data
         except Exception as exc:  # noqa: BLE001
             last_error = exc
         await asyncio.sleep(0.25)
     raise RuntimeError(f"server did not start: {last_error}")
 
 
-async def _launch_webui(port: int) -> asyncio.subprocess.Process:
+async def _launch_webui(port: int, *, env: dict[str, str] | None = None) -> asyncio.subprocess.Process:
     process = await asyncio.create_subprocess_exec(
         "uv",
         "run",
@@ -43,11 +104,31 @@ async def _launch_webui(port: int) -> asyncio.subprocess.Process:
         "--port",
         str(port),
         cwd=PROJECT_ROOT,
+        env=env,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )
     await _wait_for_server(port)
     return process
+
+
+async def _stop_daemon(env: dict[str, str]) -> None:
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "daemon",
+        "stop",
+        cwd=PROJECT_ROOT,
+        env=env,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    try:
+        await asyncio.wait_for(process.wait(), timeout=10)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
 
 
 async def _stop_process(process: asyncio.subprocess.Process) -> None:
@@ -332,4 +413,58 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
 
             await browser.close()
     finally:
+        await _stop_process(process)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
+async def test_webui_launch_path_starts_daemon_from_cold_state(tmp_path: Path) -> None:
+    port = _find_free_port()
+    env = _build_launch_env(tmp_path)
+    process = await _launch_webui(port, env=env)
+    pid_file = Path(env["XDG_CACHE_HOME"]) / "alfred" / "cron-runner.pid"
+
+    try:
+        health = await _wait_for_health(
+            port,
+            timeout=30.0,
+            predicate=lambda data: data["daemonStatus"] == "running",
+        )
+
+        assert health["status"] == "ok"
+        assert health["daemonStatus"] == "running"
+        assert health["daemon"]["state"] == "running"
+        assert isinstance(health["daemonPid"], int)
+
+        daemon_pid = cast(int, health["daemonPid"])
+        assert pid_file.exists()
+        assert pid_file.read_text().strip() == str(daemon_pid)
+        os.kill(daemon_pid, 0)
+    finally:
+        await _stop_daemon(env)
+        await _stop_process(process)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
+async def test_webui_launch_path_still_serves_health_after_bootstrap_failure(tmp_path: Path) -> None:
+    port = _find_free_port()
+    failure_message = "daemon failed to start"
+    env = _build_launch_env(tmp_path, bootstrap_failure_message=failure_message)
+    process = await _launch_webui(port, env=env)
+
+    try:
+        health = await _wait_for_health(
+            port,
+            timeout=30.0,
+            predicate=lambda data: data["daemonStatus"] == "failed",
+        )
+
+        assert health["status"] == "ok"
+        assert health["daemonStatus"] == "failed"
+        assert health["daemonPid"] is None
+        assert health["daemon"]["state"] == "failed"
+        assert health["daemon"]["lastError"] == failure_message
+    finally:
+        await _stop_daemon(env)
         await _stop_process(process)

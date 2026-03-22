@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import WebUIServer, create_app
+from alfred.interfaces.webui.daemon_bootstrap import DaemonBootstrapResult
 
 
 def test_webui_module_exists():
@@ -88,6 +89,47 @@ def test_health_endpoint_includes_daemon_snapshot(tmp_path):
         "lastHeartbeatAt": data["daemon"]["lastHeartbeatAt"],
         "lastReloadAt": None,
         "lastError": None,
+    }
+
+
+def test_health_endpoint_exposes_bootstrap_failure(tmp_path):
+    """Verify /health surfaces bootstrap failure through the daemon snapshot."""
+
+    pid_file = tmp_path / "cron-runner.pid"
+    pid_file.write_text("4321")
+
+    class FakeDaemonManager:
+        def __init__(self) -> None:
+            self.pid_file = pid_file
+
+        def read_pid(self) -> int | None:
+            return None
+
+    app = create_app()
+    app.state.webui_bootstrap_result = DaemonBootstrapResult(
+        daemon_was_running=False,
+        daemon_started=False,
+        startup_error="daemon failed to start",
+    )
+
+    with patch("alfred.interfaces.webui.daemon_status.DaemonManager", FakeDaemonManager):
+        client = TestClient(app)
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["daemonStatus"] == "failed"
+    assert data["daemonPid"] is None
+    assert data["daemon"] == {
+        "state": "failed",
+        "pid": None,
+        "socketPath": str(tmp_path / "notify.sock"),
+        "socketHealthy": False,
+        "startedAt": None,
+        "uptimeSeconds": None,
+        "lastHeartbeatAt": None,
+        "lastReloadAt": None,
+        "lastError": "daemon failed to start",
     }
 
 
