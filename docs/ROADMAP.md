@@ -219,6 +219,8 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | M18 | Tool Call Persistence - Persist tool calls in session, include in context, `/context` command (PRDs #101, #103) |
 | M19 | Great Consolidation - Systematic cleanup: remove dead code, unify storage to SQLite, consolidate search logic (PRD #109) |
 | M20 | Unified SQLite Storage - All storage (sessions, memories, cron) in single SQLite database with ACID transactions (PRD #117) |
+| 143 | Cosine Similarity Migration for Memory and Session Search | Migrate vector search semantics to cosine similarity across memory and session retrieval, with safe rebuild support (PRD #143) |
+| 145 | Spacejam and Kidcore Theme Overhaul | Rework theme message surfaces, backgrounds, and subtle thinking blocks for the kidcore and spacejam themes (PRD #145) |
 
 ### In Progress / Next Up 🔨
 
@@ -250,7 +252,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 135 | Persistent Memory Context | Keep memories loaded across turns with LRU eviction when limits reached (PRD #135) |
 | 140 | PyPiTUI v2 Adoption + Alfred Runtime Rewrite | Make PyPiTUI usable as a real runtime dependency and rewrite Alfred to consume it directly end-to-end (PRD #140) |
 | 142 | Web UI Daemon Autostart + Runtime Status Popover | Auto-start the daemon from the Web UI and expose live websocket/daemon health in the header popover (PRD #142) |
-| 143 | Cosine Similarity Migration for Memory and Session Search | Migrate vector search semantics to cosine similarity across memory and session retrieval, with safe rebuild support (PRD #143) |
+| 144 | Core Observability + Differentiated Logging Surfaces | Add richer core instrumentation and visually distinct logging surfaces across Alfred and the Web UI (PRD #144) |
 
 ### Medium-term 📅
 
