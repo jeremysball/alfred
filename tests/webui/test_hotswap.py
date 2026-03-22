@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import subprocess
-import sys
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 
+import click
+from typer.main import get_command
+
+from alfred.cli import main as cli_main
 from alfred.cli.webui_hotswap import run_webui_hotswap
 
 
@@ -20,16 +22,16 @@ def _wait_for(predicate: Callable[[], bool], timeout: float = 5.0) -> bool:
 
 
 def test_webui_help_includes_hotswap_flag() -> None:
-    result = subprocess.run(
-        [sys.executable, "-m", "alfred.cli.main", "webui", "--help"],
-        capture_output=True,
-        text=True,
-        cwd=Path(__file__).resolve().parents[2],
-        check=False,
+    command = get_command(cli_main.webui_app)
+
+    hotswap_option = next(
+        option
+        for option in command.params
+        if isinstance(option, click.Option) and "--hotswap" in option.opts
     )
 
-    assert result.returncode == 0
-    assert "--hotswap" in result.stdout
+    assert hotswap_option.help == "Restart the Web UI server when static web assets change"
+
 
 def test_webui_hotswap_restarts_only_on_webui_assets(tmp_path: Path) -> None:
     static_root = tmp_path / "static"

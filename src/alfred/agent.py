@@ -4,9 +4,11 @@ import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import Any
 
 from alfred.llm import ChatMessage, LLMProvider
+from alfred.observability import Surface, log_event
 from alfred.tools import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -83,6 +85,21 @@ class Agent:
         Returns:
             Tool output as string
         """
+        tool_started_at = perf_counter()
+        chunk_count = 0
+        encountered_error = False
+        error_type: str | None = None
+        log_event(
+            logger,
+            logging.DEBUG,
+            "tools.tool.start",
+            surface=Surface.TOOLS,
+            tool_call_id=call.id,
+            tool_name=call.name,
+            argument_count=len(call.arguments),
+            argument_keys=sorted(call.arguments),
+        )
+
         # Emit tool start event
         if tool_callback:
             tool_callback(
@@ -96,6 +113,7 @@ class Agent:
         tool_output = ""
         try:
             async for chunk in tool.validate_and_run_stream(call.arguments):
+                chunk_count += 1
                 tool_output += chunk
                 # Emit output event
                 if tool_callback:
@@ -107,6 +125,8 @@ class Agent:
                         )
                     )
         except Exception as e:
+            encountered_error = True
+            error_type = type(e).__name__
             error_msg = f"Error executing {call.name}: {e}"
             tool_output += error_msg
             if tool_callback:
@@ -118,6 +138,8 @@ class Agent:
                     )
                 )
 
+        tool_failed = encountered_error or self._is_error(tool_output)
+
         # Emit tool end event
         if tool_callback:
             tool_callback(
@@ -125,9 +147,23 @@ class Agent:
                     tool_call_id=call.id,
                     tool_name=call.name,
                     result=tool_output,
-                    is_error=self._is_error(tool_output),
+                    is_error=tool_failed,
                 )
             )
+
+        log_event(
+            logger,
+            logging.DEBUG,
+            "tools.tool.completed",
+            surface=Surface.TOOLS,
+            tool_call_id=call.id,
+            tool_name=call.name,
+            chunks=chunk_count,
+            output_chars=len(tool_output),
+            error_type=error_type,
+            is_error=tool_failed,
+            duration_ms=round((perf_counter() - tool_started_at) * 1000, 2),
+        )
 
         return tool_output
 
@@ -278,9 +314,7 @@ class Agent:
                     continue
 
                 # Execute tool with event lifecycle
-                tool_output = await self._execute_tool_with_events(
-                    call, tool, tool_callback
-                )
+                tool_output = await self._execute_tool_with_events(call, tool, tool_callback)
 
                 # Add tool result to messages
                 messages.append(

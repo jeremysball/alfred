@@ -100,6 +100,13 @@ class AlfredWebSocketClient extends EventTarget {
     this.visibilityHandler = null;
     this.debugEnabled = WEBSOCKET_DEBUG_ENABLED;
     this.debugStats = this.debugEnabled ? new WebSocketDebugStats() : null;
+    this.lastPingAt = null;
+    this.lastPongAt = null;
+    this.lastPingLatencyMs = null;
+    this.lastCloseAt = null;
+    this.lastCloseCode = null;
+    this.lastCloseReason = '';
+    this.lastCloseWasClean = null;
   }
 
   connect() {
@@ -132,6 +139,10 @@ class AlfredWebSocketClient extends EventTarget {
         }
         // Handle pong responses
         if (message.type === 'pong') {
+          this.lastPongAt = Date.now();
+          if (this.lastPingAt !== null) {
+            this.lastPingLatencyMs = this.lastPongAt - this.lastPingAt;
+          }
           this._clearPingTimeout();
           return;
         }
@@ -152,6 +163,10 @@ class AlfredWebSocketClient extends EventTarget {
       }
       console.log('WebSocket closed:', event.code, event.reason);
       this.isConnected = false;
+      this.lastCloseAt = Date.now();
+      this.lastCloseCode = event.code;
+      this.lastCloseReason = event.reason || '';
+      this.lastCloseWasClean = event.wasClean;
       this._stopPing();
       this.dispatchEvent(new CustomEvent('disconnected', { detail: event }));
       
@@ -193,9 +208,11 @@ class AlfredWebSocketClient extends EventTarget {
     // Send ping every 15 seconds to keep connection alive
     this.pingInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'ping' }));
+        const pingMessage = JSON.stringify({ type: 'ping' });
+        this.lastPingAt = Date.now();
+        this.ws.send(pingMessage);
         if (this.debugStats) {
-          this.debugStats.recordOutgoing('ping', JSON.stringify({ type: 'ping' }));
+          this.debugStats.recordOutgoing('ping', pingMessage);
         }
         // Expect pong within 5 seconds
         this.pingTimeout = setTimeout(() => {
@@ -271,6 +288,39 @@ class AlfredWebSocketClient extends EventTarget {
       type: 'ack',
       ref_id: messageId
     });
+  }
+
+  getConnectionSnapshot() {
+    const readyState = this.ws?.readyState;
+    let connectionState = 'disconnected';
+
+    if (this.isConnected && readyState === WebSocket.OPEN) {
+      connectionState = 'connected';
+    } else if (readyState === WebSocket.CONNECTING) {
+      connectionState = 'connecting';
+    } else if (this.reconnectAttempts > 0) {
+      connectionState = 'reconnecting';
+    }
+
+    return {
+      url: this.url,
+      isConnected: this.isConnected,
+      readyState,
+      connectionState,
+      reconnectAttempts: this.reconnectAttempts,
+      maxReconnectAttempts: this.maxReconnectAttempts,
+      pingIntervalActive: this.pingInterval !== null,
+      pingTimeoutActive: this.pingTimeout !== null,
+      lastPingAt: this.lastPingAt,
+      lastPongAt: this.lastPongAt,
+      lastPingLatencyMs: this.lastPingLatencyMs,
+      lastCloseAt: this.lastCloseAt,
+      lastCloseCode: this.lastCloseCode,
+      lastCloseReason: this.lastCloseReason,
+      lastCloseWasClean: this.lastCloseWasClean,
+      debugEnabled: this.debugEnabled,
+      debugSummary: this.debugStats ? this.debugStats.summary() : null,
+    };
   }
 
   _getMessageType(messageStr, originalMessage = null) {

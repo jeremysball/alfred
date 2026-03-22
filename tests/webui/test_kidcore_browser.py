@@ -8,6 +8,8 @@ from typing import cast
 import pytest
 from playwright.async_api import async_playwright
 
+from alfred.cron.daemon import DaemonManager
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -53,9 +55,7 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1440, "height": 900})
-            await page.add_init_script(
-                "localStorage.setItem('alfred-theme', 'kidcore-playground');"
-            )
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
             await page.goto(
                 f"http://127.0.0.1:{port}/static/index.html",
                 wait_until="networkidle",
@@ -160,6 +160,108 @@ async def test_kidcore_playground_theme_activates_in_browser() -> None:
 
 
 @pytest.mark.asyncio
+async def test_kidcore_connection_status_tooltip_reports_daemon_and_websocket_state() -> None:
+    port = _find_free_port()
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "webui",
+        "--port",
+        str(port),
+        cwd=PROJECT_ROOT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+
+    try:
+        await _wait_for_server(port)
+
+        daemon_manager = DaemonManager()
+        expected_daemon_status = "running" if daemon_manager.is_running() else "stopped"
+        expected_daemon_pid = daemon_manager.read_pid()
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            anchor = page.locator("#connection-status-anchor")
+            tooltip = page.locator("#connection-status-tooltip")
+            pill = page.locator("#connection-pill")
+
+            initial = await pill.evaluate(
+                """
+                (element) => {
+                  const styles = getComputedStyle(element);
+                  return {
+                    cursor: styles.cursor,
+                    boxShadow: styles.boxShadow,
+                  };
+                }
+                """
+            )
+            assert initial["cursor"] == "help"
+
+            assert await tooltip.is_hidden()
+
+            anchor_box = await anchor.bounding_box()
+            assert anchor_box is not None
+            await page.mouse.move(
+                anchor_box["x"] + (anchor_box["width"] / 2),
+                anchor_box["y"] + (anchor_box["height"] / 2),
+            )
+
+            await page.wait_for_function(
+                """
+                () => {
+                  const tooltip = document.querySelector('#connection-status-tooltip');
+                  if (!tooltip) return false;
+                  return getComputedStyle(tooltip).visibility === 'visible';
+                }
+                """
+            )
+
+            tooltip_text = (await tooltip.text_content() or "").strip()
+            assert f"Daemon: {expected_daemon_status}" in tooltip_text
+            if expected_daemon_pid is not None:
+                assert f"PID: {expected_daemon_pid}" in tooltip_text
+            assert "WebSocket: connected" in tooltip_text
+            assert "Web UI:" in tooltip_text
+            assert "Reconnect attempts:" in tooltip_text
+            assert "Last close:" in tooltip_text
+            assert "Keepalive:" in tooltip_text
+            assert "Debug:" in tooltip_text
+
+            hovered = await pill.evaluate(
+                """
+                (element) => {
+                  const styles = getComputedStyle(element);
+                  return {
+                    boxShadow: styles.boxShadow,
+                    transform: styles.transform,
+                  };
+                }
+                """
+            )
+            assert hovered["boxShadow"] != initial["boxShadow"]
+
+            await browser.close()
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+
+
+@pytest.mark.asyncio
 async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
     port = _find_free_port()
     process = await asyncio.create_subprocess_exec(
@@ -180,9 +282,7 @@ async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 390, "height": 844})
-            await page.add_init_script(
-                "localStorage.setItem('alfred-theme', 'kidcore-playground');"
-            )
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
             await page.goto(
                 f"http://127.0.0.1:{port}/static/index.html",
                 wait_until="networkidle",
@@ -209,14 +309,16 @@ async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
             )
             await page.wait_for_timeout(100)
 
-            header = await page.locator('.app-header').bounding_box()
-            homeboard_window = await page.locator('#kidcore-homeboard-window').bounding_box()
-            homeboard_body = await page.locator('#kidcore-homeboard').bounding_box()
-            music_play = await page.locator('#kidcore-music-play').bounding_box()
-            music_mute = await page.locator('#kidcore-music-mute').bounding_box()
-            sfx_toggle = await page.locator('#kidcore-sfx-toggle').bounding_box()
-            composer = await page.locator('#message-input').bounding_box()
-            send_button = await page.locator('#send-button').bounding_box()
+            header = await page.locator(".app-header").bounding_box()
+            homeboard_window = await page.locator("#kidcore-homeboard-window").bounding_box()
+            homeboard_body = await page.locator("#kidcore-homeboard").bounding_box()
+            music_play = await page.locator("#kidcore-music-play").bounding_box()
+            music_mute = await page.locator("#kidcore-music-mute").bounding_box()
+            sfx_toggle = await page.locator("#kidcore-sfx-toggle").bounding_box()
+            composer = await page.locator("#message-input").bounding_box()
+            send_button = await page.locator("#send-button").bounding_box()
+            connection_pill = await page.locator("#connection-pill").bounding_box()
+            connection_text = (await page.locator("#connection-pill").text_content() or "").strip()
 
             assert header is not None
             assert homeboard_window is not None
@@ -241,12 +343,17 @@ async def test_kidcore_playground_theme_survives_narrow_viewport() -> None:
             assert composer["x"] + composer["width"] <= 390.5
             assert send_button["x"] >= 0
             assert send_button["x"] + send_button["width"] <= 390.5
+            assert connection_pill is not None
+            assert connection_text == "●"
+            assert abs(connection_pill["width"] - connection_pill["height"]) <= 1.0
 
             scroll_metrics = await page.evaluate(
                 """
                 () => {
                   const chat = document.querySelector('#chat-container');
                   if (!chat) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0 };
+                  // Disable smooth scrolling so the test can observe the final position immediately.
+                  chat.style.scrollBehavior = 'auto';
                   chat.scrollTop = chat.scrollHeight;
                   return {
                     scrollTop: chat.scrollTop,

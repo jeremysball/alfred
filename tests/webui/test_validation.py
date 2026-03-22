@@ -60,10 +60,7 @@ def test_chat_send_payload_empty_content_raises():
 
 def test_chat_send_message_valid():
     """Verify ChatSendMessage accepts valid data."""
-    message = ChatSendMessage(
-        type="chat.send",
-        payload=ChatSendPayload(content="Hello")
-    )
+    message = ChatSendMessage(type="chat.send", payload=ChatSendPayload(content="Hello"))
     assert message.type == "chat.send"
     assert message.payload.content == "Hello"
 
@@ -75,10 +72,7 @@ def test_chat_send_message_valid():
 
 def test_command_execute_message_valid():
     """Verify CommandExecuteMessage accepts valid data."""
-    message = CommandExecuteMessage(
-        type="command.execute",
-        payload=CommandExecutePayload(command="/new")
-    )
+    message = CommandExecuteMessage(type="command.execute", payload=CommandExecutePayload(command="/new"))
     assert message.type == "command.execute"
     assert message.payload.command == "/new"
 
@@ -96,10 +90,7 @@ def test_command_execute_empty_command_raises():
 
 def test_completion_request_valid():
     """Verify CompletionRequestMessage accepts valid data."""
-    message = CompletionRequestMessage(
-        type="completion.request",
-        payload=CompletionRequestPayload(text="Hello", cursor=5)
-    )
+    message = CompletionRequestMessage(type="completion.request", payload=CompletionRequestPayload(text="Hello", cursor=5))
     assert message.type == "completion.request"
     assert message.payload.text == "Hello"
     assert message.payload.cursor == 5
@@ -118,10 +109,7 @@ def test_completion_request_negative_cursor_raises():
 
 def test_ack_message_valid():
     """Verify AckMessage accepts valid data."""
-    message = AckMessage(
-        type="ack",
-        payload=AckPayload(message_id="msg-123")
-    )
+    message = AckMessage(type="ack", payload=AckPayload(message_id="msg-123"))
     assert message.type == "ack"
     assert message.payload.message_id == "msg-123"
 
@@ -141,10 +129,8 @@ def test_ack_message_from_dict():
 def test_chat_started_message():
     """Verify ChatStartedMessage structure."""
     from alfred.interfaces.webui.validation import ChatStartedMessage, ChatStartedPayload
-    message = ChatStartedMessage(
-        type="chat.started",
-        payload=ChatStartedPayload(message_id="msg-123", role="assistant")
-    )
+
+    message = ChatStartedMessage(type="chat.started", payload=ChatStartedPayload(message_id="msg-123", role="assistant"))
     assert message.type == "chat.started"
     assert message.payload.message_id == "msg-123"
     assert message.payload.role == "assistant"
@@ -152,29 +138,16 @@ def test_chat_started_message():
 
 def test_chat_chunk_message():
     """Verify ChatChunkMessage structure."""
-    message = ChatChunkMessage(
-        type="chat.chunk",
-        payload=ChatChunkPayload(message_id="msg-123", content="Hello")
-    )
+    message = ChatChunkMessage(type="chat.chunk", payload=ChatChunkPayload(message_id="msg-123", content="Hello"))
     assert message.type == "chat.chunk"
     assert message.payload.content == "Hello"
 
 
 def test_chat_complete_message():
     """Verify ChatCompleteMessage structure."""
-    usage = UsageInfo(
-        input_tokens=10,
-        output_tokens=20,
-        cache_read_tokens=0,
-        reasoning_tokens=5
-    )
+    usage = UsageInfo(input_tokens=10, output_tokens=20, cache_read_tokens=0, reasoning_tokens=5)
     message = ChatCompleteMessage(
-        type="chat.complete",
-        payload=ChatCompletePayload(
-            message_id="msg-123",
-            final_content="Complete response",
-            usage=usage
-        )
+        type="chat.complete", payload=ChatCompletePayload(message_id="msg-123", final_content="Complete response", usage=usage)
     )
     assert message.type == "chat.complete"
     assert message.payload.final_content == "Complete response"
@@ -183,10 +156,7 @@ def test_chat_complete_message():
 
 def test_chat_error_message():
     """Verify ChatErrorMessage structure."""
-    message = ChatErrorMessage(
-        type="chat.error",
-        payload=ChatErrorPayload(message_id="msg-123", error="Something went wrong")
-    )
+    message = ChatErrorMessage(type="chat.error", payload=ChatErrorPayload(message_id="msg-123", error="Something went wrong"))
     assert message.type == "chat.error"
     assert message.payload.error == "Something went wrong"
 
@@ -195,12 +165,7 @@ def test_tool_start_message():
     """Verify ToolStartMessage structure."""
     message = ToolStartMessage(
         type="tool.start",
-        payload=ToolStartPayload(
-            tool_call_id="tool-1",
-            tool_name="read",
-            arguments={"path": "/tmp/file.txt"},
-            message_id="msg-123"
-        )
+        payload=ToolStartPayload(tool_call_id="tool-1", tool_name="read", arguments={"path": "/tmp/file.txt"}, message_id="msg-123"),
     )
     assert message.type == "tool.start"
     assert message.payload.tool_name == "read"
@@ -209,10 +174,7 @@ def test_tool_start_message():
 
 def test_tool_end_message():
     """Verify ToolEndMessage structure."""
-    message = ToolEndMessage(
-        type="tool.end",
-        payload=ToolEndPayload(tool_call_id="tool-1", success=True, output="File contents")
-    )
+    message = ToolEndMessage(type="tool.end", payload=ToolEndPayload(tool_call_id="tool-1", success=True, output="File contents"))
     assert message.type == "tool.end"
     assert message.payload.success is True
     assert message.payload.output == "File contents"
@@ -230,8 +192,10 @@ def test_status_update_message():
             cache_read_tokens=100,
             reasoning_tokens=10,
             queue_length=0,
-            is_streaming=True
-        )
+            is_streaming=True,
+            daemon_status="running",
+            daemon_pid=12345,
+        ),
     )
     assert message.type == "status.update"
     assert message.payload.model == "claude-3-sonnet"
@@ -240,10 +204,7 @@ def test_status_update_message():
 
 def test_toast_message():
     """Verify ToastMessage structure."""
-    message = ToastMessage(
-        type="toast",
-        payload=ToastPayload(message="Hello", level="info")
-    )
+    message = ToastMessage(type="toast", payload=ToastPayload(message="Hello", level="info"))
     assert message.type == "toast"
     assert message.payload.message == "Hello"
     assert message.payload.level == "info"
@@ -251,14 +212,8 @@ def test_toast_message():
 
 def test_session_loaded_message():
     """Verify SessionLoadedMessage structure."""
-    messages = [
-        SessionMessage(id="msg-1", role="user", content="Hello"),
-        SessionMessage(id="msg-2", role="assistant", content="Hi there")
-    ]
-    message = SessionLoadedMessage(
-        type="session.loaded",
-        payload=SessionLoadedPayload(session_id="session-123", messages=messages)
-    )
+    messages = [SessionMessage(id="msg-1", role="user", content="Hello"), SessionMessage(id="msg-2", role="assistant", content="Hi there")]
+    message = SessionLoadedMessage(type="session.loaded", payload=SessionLoadedPayload(session_id="session-123", messages=messages))
     assert message.type == "session.loaded"
     assert message.payload.session_id == "session-123"
     assert len(message.payload.messages) == 2

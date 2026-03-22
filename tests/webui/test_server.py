@@ -103,8 +103,9 @@ def test_server_shuts_down_on_sigint():
         # Wait for clean shutdown (max 5 seconds)
         try:
             exit_code = proc.wait(timeout=5)
-            # Uvicorn exits with 0 on SIGINT when handled properly
-            assert exit_code == 0, f"Server exited with code {exit_code}"
+            # `uv run` can surface SIGINT as a negative return code even when the
+            # server tears down cleanly, so accept either the raw signal result or 0.
+            assert exit_code in {0, -signal.SIGINT}, f"Server exited with code {exit_code}"
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
