@@ -3,6 +3,10 @@
 Replaces JSONLMemoryStore and FAISSMemoryStore with a unified SQLite solution.
 """
 
+from __future__ import annotations
+
+import asyncio
+import json
 import logging
 from datetime import date, datetime
 from typing import Any
@@ -41,21 +45,92 @@ class SQLiteMemoryStore(MemoryStore):
         """
         self.config = config
         self.embedder = embedder
+        self._schema_rebuild_lock = asyncio.Lock()
 
-        # Use data_dir from config
+        # Use data_dir from config.
+        # Keep SQLiteStore generic: memory-specific rebuild logic lives here.
         db_path = config.data_dir / "memories.db"
-        # Pass embedding dimension to ensure vec0 tables match
-        self._store = SQLiteStore(db_path, embedding_dim=embedder.dimension)
+        self._store = SQLiteStore(
+            db_path,
+            embedding_dim=embedder.dimension,
+        )
 
-        logger.info(f"SQLite memory store initialized: {db_path} (dim={embedder.dimension})")
+        logger.info(
+            "SQLite memory store initialized: %s (dim=%s)",
+            db_path,
+            embedder.dimension,
+        )
 
-    async def add(self, entry: Any) -> None:
+    @staticmethod
+    def _is_memory_schema_mismatch(exc: RuntimeError) -> bool:
+        """Return True when SQLiteStore failed because memory_embeddings drifted."""
+        message = str(exc).lower()
+        return "memory_embeddings" in message and "schema mismatch" in message
+
+    async def _ensure_store_ready(self) -> None:
+        """Initialize the backing store, rebuilding stale memory vectors if needed."""
+        if self._store._initialized:
+            return
+
+        async with self._schema_rebuild_lock:
+            if self._store._initialized:
+                return
+
+            try:
+                await self._store._init()
+                return
+            except RuntimeError as exc:
+                if not self._is_memory_schema_mismatch(exc):
+                    raise
+
+            logger.warning(
+                "SQLiteMemoryStore detected stale memory_embeddings vec0 schema; rebuilding automatically."
+            )
+            await self._rebuild_memory_embeddings()
+            await self._store._init()
+
+    async def _rebuild_memory_embeddings(self) -> None:
+        """Rebuild the memory_embeddings vec0 table from canonical memory rows."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self._store.db_path) as db:
+            await self._store._load_extensions(db)
+            db.row_factory = aiosqlite.Row
+
+            await db.execute("DROP TABLE IF EXISTS memory_embeddings")
+            await db.execute(
+                f"""
+                CREATE VIRTUAL TABLE memory_embeddings USING vec0(
+                    entry_id TEXT PRIMARY KEY,
+                    embedding FLOAT[{self.embedder.dimension}] distance_metric=cosine
+                )
+                """
+            )
+
+            async with db.execute("SELECT entry_id, content FROM memories") as cursor:
+                memories = await cursor.fetchall()
+
+            for memory in memories:
+                embedding = await self.embedder.embed(memory["content"])
+                await db.execute(
+                    """
+                    INSERT INTO memory_embeddings (entry_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (memory["entry_id"], json.dumps(embedding)),
+                )
+
+            await db.commit()
+
+    async def add(self, entry: MemoryEntry) -> None:
         """Add a memory entry.
 
         Args:
             entry: MemoryEntry to add
         """
-        # Generate embedding if not provided
+        await self._ensure_store_ready()
+
+        # Generate embedding if not provided.
         if entry.embedding is None:
             entry.embedding = await self.embedder.embed(entry.content)
 
@@ -76,7 +151,7 @@ class SQLiteMemoryStore(MemoryStore):
         start_date: date | None = None,
         end_date: date | None = None,
         **kwargs: Any,
-    ) -> tuple[list[Any], dict[str, float], dict[str, float]]:
+    ) -> tuple[list[MemoryEntry], dict[str, float], dict[str, float]]:
         """Search memories by semantic similarity.
 
         Args:
@@ -88,21 +163,22 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Tuple of (results, similarities, scores)
         """
-        # Generate query embedding
+        await self._ensure_store_ready()
+
+        # Generate query embedding.
         query_embedding = await self.embedder.embed(query)
 
-        # Search via SQLite store
+        # Search via SQLite store.
         results = await self._store.search_memories(
             query_embedding=query_embedding,
             top_k=top_k,
         )
 
-        # Filter by date if specified
+        # Filter by date if specified.
         if start_date or end_date:
-            filtered = []
-            for r in results:
-                # Parse timestamp from string if needed
-                ts = r["timestamp"]
+            filtered: list[dict[str, Any]] = []
+            for row in results:
+                ts = row["timestamp"]
                 if isinstance(ts, str):
                     ts = datetime.fromisoformat(ts)
                 entry_date = ts.date() if isinstance(ts, datetime) else ts
@@ -110,31 +186,30 @@ class SQLiteMemoryStore(MemoryStore):
                     continue
                 if end_date and entry_date > end_date:
                     continue
-                filtered.append(r)
+                filtered.append(row)
             results = filtered
 
-        # Convert to MemoryEntry objects
-        entries = []
-        similarities = {}
-        scores = {}
+        entries: list[MemoryEntry] = []
+        similarities: dict[str, float] = {}
+        scores: dict[str, float] = {}
 
-        for r in results:
+        for row in results:
             entry = MemoryEntry(
-                entry_id=r["entry_id"],
-                timestamp=_parse_timestamp(r["timestamp"]),
-                role=r["role"],
-                content=r["content"],
-                tags=r["tags"],
-                permanent=r["permanent"],
+                entry_id=row["entry_id"],
+                timestamp=_parse_timestamp(row["timestamp"]),
+                role=row["role"],
+                content=row["content"],
+                tags=row["tags"],
+                permanent=row["permanent"],
             )
             entries.append(entry)
-            sim = r.get("similarity", 0.0)
-            similarities[r["entry_id"]] = sim
-            scores[r["entry_id"]] = sim
+            similarity = float(row.get("similarity", 0.0))
+            similarities[row["entry_id"]] = similarity
+            scores[row["entry_id"]] = similarity
 
         return entries, similarities, scores
 
-    async def get_by_id(self, entry_id: str) -> Any | None:
+    async def get_by_id(self, entry_id: str) -> MemoryEntry | None:
         """Get memory by ID.
 
         Args:
@@ -143,6 +218,8 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Memory entry or None
         """
+        await self._ensure_store_ready()
+
         data = await self._store.get_memory(entry_id)
         if data is None:
             return None
@@ -156,24 +233,26 @@ class SQLiteMemoryStore(MemoryStore):
             permanent=data["permanent"],
         )
 
-    async def get_all_entries(self) -> list[Any]:
+    async def get_all_entries(self) -> list[MemoryEntry]:
         """Get all memory entries.
 
         Returns:
             List of all entries
         """
+        await self._ensure_store_ready()
+
         results = await self._store.get_all_memories()
 
         return [
             MemoryEntry(
-                entry_id=r["entry_id"],
-                timestamp=_parse_timestamp(r["timestamp"]),
-                role=r["role"],
-                content=r["content"],
-                tags=r["tags"],
-                permanent=r["permanent"],
+                entry_id=row["entry_id"],
+                timestamp=_parse_timestamp(row["timestamp"]),
+                role=row["role"],
+                content=row["content"],
+                tags=row["tags"],
+                permanent=row["permanent"],
             )
-            for r in results
+            for row in results
         ]
 
     async def delete_by_id(self, entry_id: str) -> tuple[bool, str]:
@@ -185,25 +264,29 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Tuple of (success, message)
         """
+        await self._ensure_store_ready()
+
         deleted = await self._store.delete_memory(entry_id)
         if deleted:
             return True, f"Deleted memory {entry_id}"
         return False, f"Memory {entry_id} not found"
 
-    async def add_entries(self, entries: list[Any]) -> None:
+    async def add_entries(self, entries: list[MemoryEntry]) -> None:
         """Add multiple entries at once.
 
         Args:
             entries: List of MemoryEntry objects
         """
-        # Generate embeddings for entries that don't have them
-        entries_to_embed = [e for e in entries if e.embedding is None]
+        await self._ensure_store_ready()
+
+        # Generate embeddings for entries that don't have them.
+        entries_to_embed = [entry for entry in entries if entry.embedding is None]
         if entries_to_embed:
-            embeddings = await self.embedder.embed_batch([e.content for e in entries_to_embed])
+            embeddings = await self.embedder.embed_batch([entry.content for entry in entries_to_embed])
             for entry, embedding in zip(entries_to_embed, embeddings, strict=True):
                 entry.embedding = embedding
 
-        # Add all entries
+        # Add all entries.
         for entry in entries:
             await self.add(entry)
 
@@ -217,10 +300,13 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Number of memories pruned
         """
+        await self._ensure_store_ready()
         return await self._store.prune_memories(ttl_days=ttl_days, dry_run=dry_run)
 
     async def update_entry(
-        self, search_query: str, new_content: str | None = None
+        self,
+        search_query: str,
+        new_content: str | None = None,
     ) -> tuple[bool, str]:
         """Update an existing memory entry.
 
@@ -231,12 +317,13 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Tuple of (success, message)
         """
-        # Find best matching memory
+        await self._ensure_store_ready()
+
+        # Find best matching memory.
         entries = await self.get_all_entries()
         if not entries:
             return False, "No memories to update"
 
-        # Use simple text search for now
         best_match = None
         for entry in entries:
             if search_query.lower() in entry.content.lower():
@@ -246,7 +333,6 @@ class SQLiteMemoryStore(MemoryStore):
         if best_match is None:
             return False, f"No matching memory found for query: {search_query}"
 
-        # Update the entry
         updated = await self._store.update_memory(
             entry_id=best_match.entry_id,
             content=new_content,
@@ -265,18 +351,19 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Tuple of (count_deleted, message)
         """
-        # Find matching memories
+        await self._ensure_store_ready()
+
+        # Find matching memories.
         entries = await self.get_all_entries()
         if not entries:
             return 0, "No memories to delete"
 
-        # Use simple text search
-        to_delete = [e for e in entries if query.lower() in e.content.lower()]
+        # Use simple text search.
+        to_delete = [entry for entry in entries if query.lower() in entry.content.lower()]
 
         if not to_delete:
             return 0, f"No memories matching query: {query}"
 
-        # Delete them
         deleted_count = 0
         for entry in to_delete:
             if await self._store.delete_memory(entry.entry_id):
@@ -293,18 +380,19 @@ class SQLiteMemoryStore(MemoryStore):
         Returns:
             Tuple of (exceeded, count)
         """
-        # This is synchronous - run in executor or cache
+        # This is synchronous - run in executor or cache.
         import asyncio
 
         try:
             count = asyncio.get_event_loop().run_until_complete(self._get_memory_count())
         except Exception:
-            # Fallback: assume under threshold
+            # Fallback: assume under threshold.
             return False, 0
 
         return count > threshold, count
 
     async def _get_memory_count(self) -> int:
         """Get memory count asynchronously."""
+        await self._ensure_store_ready()
         entries = await self._store.get_all_memories()
         return len(entries)
