@@ -198,6 +198,7 @@ async def test_reconnect_sees_partially_streamed_message_after_disconnect() -> N
         assert "partial" in assistant["content"] or assistant["content"] == "Hello "
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_retry_button_replays_last_user_prompt() -> None:
     port = _find_free_port()
@@ -260,7 +261,9 @@ async def test_retry_button_replays_last_user_prompt() -> None:
                 """
             )
 
-            await page.click('chat-message[message-id="assistant-old"] [data-action="retry"]')
+            assistant_message = page.locator('chat-message[message-id="assistant-old"]')
+            await assistant_message.hover()
+            await page.locator('chat-message[message-id="assistant-old"] [data-action="retry"]').click()
             await page.wait_for_function(
                 """
                 () => window.__sentWebSocketMessages.some((message) =>

@@ -91,6 +91,7 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     raise RuntimeError(f"server did not start: {last_error}")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_audio_controls_toggle_music_and_sfx_independently() -> None:
     port = _find_free_port()
@@ -189,6 +190,7 @@ async def test_kidcore_audio_controls_toggle_music_and_sfx_independently() -> No
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_audio_controls_hide_outside_kidcore_theme() -> None:
     port = _find_free_port()
@@ -252,6 +254,7 @@ async def test_kidcore_audio_controls_hide_outside_kidcore_theme() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
     port = _find_free_port()

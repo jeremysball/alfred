@@ -62,6 +62,7 @@ async def _stop_process(process: asyncio.subprocess.Process) -> None:
         await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_status_bar_renders_live_updates_in_browser() -> None:
     port = _find_free_port()
@@ -150,6 +151,7 @@ async def test_status_bar_renders_live_updates_in_browser() -> None:
         await _stop_process(process)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_toast_container_shows_and_dismisses_toasts_in_browser() -> None:
     port = _find_free_port()
@@ -224,6 +226,7 @@ async def test_toast_container_shows_and_dismisses_toasts_in_browser() -> None:
         await _stop_process(process)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
     port = _find_free_port()

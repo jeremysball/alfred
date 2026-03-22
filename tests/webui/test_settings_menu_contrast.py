@@ -34,6 +34,7 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     raise RuntimeError(f"server did not start: {last_error}")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_settings_menu_text_has_usable_contrast_across_themes() -> None:
     port = _find_free_port()
@@ -115,6 +116,7 @@ async def test_settings_menu_text_has_usable_contrast_across_themes() -> None:
         thread.join(timeout=5)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_light_theme_rows_are_readable_on_dark_theme() -> None:
     port = _find_free_port()

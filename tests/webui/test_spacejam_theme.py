@@ -60,6 +60,7 @@ def test_spacejam_theme_is_registered_and_loaded() -> None:
         assert token in theme_source, f"Missing token: {token}"
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_spacejam_theme_activates_with_loud_retro_surface() -> None:
     port = _find_free_port()

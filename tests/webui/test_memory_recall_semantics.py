@@ -206,6 +206,7 @@ async def _send_message_and_wait_for_assistant(
         await expect(latest_assistant_content).to_contain_text(substring)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_webui_memory_recall_survives_reload_with_correct_similarity_semantics(
     tmp_path,

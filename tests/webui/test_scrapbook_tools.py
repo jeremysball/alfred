@@ -34,6 +34,7 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     raise RuntimeError(f"server did not start: {last_error}")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_scrapbook_toolbar_filters_guestbook_entries_and_persists_updates() -> None:
     port = _find_free_port()

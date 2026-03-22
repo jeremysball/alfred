@@ -67,6 +67,7 @@ def test_kidcore_source_exposes_fake_personal_site_panels() -> None:
         assert selector in theme_source
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_homeboard_tabs_switch_between_fake_panels() -> None:
     port = _find_free_port()
@@ -163,6 +164,7 @@ async def test_kidcore_homeboard_tabs_switch_between_fake_panels() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
     port = _find_free_port()
@@ -238,6 +240,7 @@ async def test_kidcore_guestbook_persists_entries_in_local_storage() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_music_and_sfx_controls_are_independent() -> None:
     port = _find_free_port()

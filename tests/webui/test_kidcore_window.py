@@ -60,6 +60,7 @@ def test_kidcore_window_markup_includes_xp_controls() -> None:
         assert selector in css
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_window_collapses_closes_and_restores() -> None:
     port = _find_free_port()
@@ -189,6 +190,7 @@ async def test_kidcore_window_collapses_closes_and_restores() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_window_drags_on_desktop() -> None:
     port = _find_free_port()
@@ -241,6 +243,7 @@ async def test_kidcore_window_drags_on_desktop() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_window_starts_collapsed_on_mobile() -> None:
     port = _find_free_port()
