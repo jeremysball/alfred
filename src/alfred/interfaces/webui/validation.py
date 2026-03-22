@@ -238,6 +238,8 @@ class StatusUpdatePayload(BaseModel):
     reasoning_tokens: int = Field(..., alias="reasoningTokens", ge=0)
     queue_length: int = Field(..., alias="queueLength", ge=0)
     is_streaming: bool = Field(..., alias="isStreaming")
+    daemon_status: str | None = Field(default=None, alias="daemonStatus")
+    daemon_pid: int | None = Field(default=None, alias="daemonPid")
 
     model_config = {"populate_by_name": True}
 
@@ -343,10 +345,7 @@ def validate_client_message(data: JsonObject) -> tuple[bool, ClientMessage | Non
             case _:
                 return False, None, f"Unknown message type: {message_type}"
     except ValidationError as e:
-        errors = "; ".join(
-            f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}"
-            for err in e.errors()
-        )
+        errors = "; ".join(f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors())
         return False, None, f"Validation error: {errors}"
 
 
@@ -360,10 +359,4 @@ def create_validation_error_response(message_id: str, error: str) -> JsonObject:
     Returns:
         Dict representing a chat.error message
     """
-    return {
-        "type": "chat.error",
-        "payload": {
-            "messageId": message_id,
-            "error": error
-        }
-    }
+    return {"type": "chat.error", "payload": {"messageId": message_id, "error": error}}

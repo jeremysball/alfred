@@ -24,9 +24,7 @@ def test_history_manager_initialization(history_manager: HistoryManager) -> None
     assert history_manager._saved_input == ""
 
 
-def test_add_increments_history_size(
-    history_manager: HistoryManager, assert_invariants: InvariantAssertions
-) -> None:
+def test_add_increments_history_size(history_manager: HistoryManager, assert_invariants: InvariantAssertions) -> None:
     """Test that add() increases history size by 1."""
     # Pre-condition
     assert len(history_manager._history) == 0
@@ -58,9 +56,7 @@ def test_add_strips_whitespace(history_manager: HistoryManager) -> None:
     assert history_manager._history[0].message == "hello world"
 
 
-def test_navigate_up_returns_most_recent(
-    populated_history: HistoryManager, assert_invariants: InvariantAssertions
-) -> None:
+def test_navigate_up_returns_most_recent(populated_history: HistoryManager, assert_invariants: InvariantAssertions) -> None:
     """Test that navigate_up returns most recent entry first."""
     result = populated_history.navigate_up("")
 
@@ -78,9 +74,7 @@ def test_navigate_up_saves_current_input(populated_history: HistoryManager) -> N
     assert populated_history._saved_input == current_input
 
 
-def test_navigate_up_multiple_times(
-    populated_history: HistoryManager, assert_invariants: InvariantAssertions
-) -> None:
+def test_navigate_up_multiple_times(populated_history: HistoryManager, assert_invariants: InvariantAssertions) -> None:
     """Test navigating up through multiple entries."""
     # First up - most recent
     result = populated_history.navigate_up("")
@@ -105,9 +99,7 @@ def test_navigate_up_multiple_times(
     assert_invariants.index_valid(populated_history)
 
 
-def test_navigate_down_returns_newer(
-    populated_history: HistoryManager, assert_invariants: InvariantAssertions
-) -> None:
+def test_navigate_down_returns_newer(populated_history: HistoryManager, assert_invariants: InvariantAssertions) -> None:
     """Test that navigate_down returns newer entries."""
     # First go up twice
     populated_history.navigate_up("")
@@ -143,9 +135,7 @@ def test_navigate_down_at_zero_returns_saved_input(history_manager: HistoryManag
     assert result == "saved"
 
 
-def test_deduplication_consecutive_duplicates(
-    history_with_duplicates: HistoryManager, assert_invariants: InvariantAssertions
-) -> None:
+def test_deduplication_consecutive_duplicates(history_with_duplicates: HistoryManager, assert_invariants: InvariantAssertions) -> None:
     """Test that consecutive duplicate messages are deduplicated."""
     # History should be: ["Duplicate", "Unique", "Duplicate"]
     # The consecutive "Duplicate" at start should be merged
@@ -167,9 +157,7 @@ def test_no_deduplication_non_consecutive(history_manager: HistoryManager) -> No
 
 
 @pytest.mark.slow
-def test_eviction_at_max_capacity(
-    history_at_max_capacity: HistoryManager, assert_invariants: InvariantAssertions
-) -> None:
+def test_eviction_at_max_capacity(history_at_max_capacity: HistoryManager, assert_invariants: InvariantAssertions) -> None:
     """Test that oldest entries are evicted when at capacity."""
     initial_first = history_at_max_capacity._history[0].message
 

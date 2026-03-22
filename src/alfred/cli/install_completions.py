@@ -22,9 +22,7 @@ def install(shell: str | None = None) -> None:
         shell = _detect_shell()
 
     if not shell:
-        print(
-            apply_ansi("{red}Could not detect shell. Currently supporting: bash, fish, zsh{reset}")
-        )
+        print(apply_ansi("{red}Could not detect shell. Currently supporting: bash, fish, zsh{reset}"))
         print(apply_ansi("{dim}Use: --install-completions bash|fish|zsh{reset}"))
         return
 
@@ -55,9 +53,7 @@ def install(shell: str | None = None) -> None:
 
     if success:
         print(apply_ansi(f"{{green}}✓ Static completions installed for {shell}.{{reset}}"))
-        print(
-            apply_ansi("{dim}Restart your shell or source the completion file to activate.{reset}")
-        )
+        print(apply_ansi("{dim}Restart your shell or source the completion file to activate.{reset}"))
 
 
 def _detect_shell() -> str | None:

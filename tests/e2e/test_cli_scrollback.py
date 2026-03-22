@@ -21,9 +21,7 @@ def alfred_session():
         s.sleep(0.3)
 
         # Start Alfred with environment
-        s.send(
-            "cd /workspace/alfred-prd && export $(grep -v '^#' .env | xargs) && .venv/bin/alfred"
-        )
+        s.send("cd /workspace/alfred-prd && export $(grep -v '^#' .env | xargs) && .venv/bin/alfred")
         s.send_key("Enter")
         s.sleep(3)  # Wait for Alfred to start
 

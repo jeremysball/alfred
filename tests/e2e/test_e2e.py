@@ -69,15 +69,9 @@ class TestE2EJobLifecycle:
         scheduler = running_scheduler
 
         # Create multiple jobs
-        job1 = await scheduler.submit_user_job(
-            name="Job 1", expression="0 8 * * *", code="async def run(): pass"
-        )
-        job2 = await scheduler.submit_user_job(
-            name="Job 2", expression="0 9 * * *", code="async def run(): pass"
-        )
-        job3 = await scheduler.submit_user_job(
-            name="Job 3", expression="0 10 * * *", code="async def run(): pass"
-        )
+        job1 = await scheduler.submit_user_job(name="Job 1", expression="0 8 * * *", code="async def run(): pass")
+        job2 = await scheduler.submit_user_job(name="Job 2", expression="0 9 * * *", code="async def run(): pass")
+        job3 = await scheduler.submit_user_job(name="Job 3", expression="0 10 * * *", code="async def run(): pass")
 
         # Approve only 2
         await scheduler.approve_job(job1, "test")
@@ -136,9 +130,7 @@ class TestE2EErrorHandling:
         scheduler = running_scheduler
 
         code = "async def run():\n    print('Persisted code')"
-        job_id = await scheduler.submit_user_job(
-            name="Code Test", expression="0 8 * * *", code=code
-        )
+        job_id = await scheduler.submit_user_job(name="Code Test", expression="0 8 * * *", code=code)
 
         # Load and verify code preserved
         jobs = await scheduler._store.load_jobs()

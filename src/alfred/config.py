@@ -25,14 +25,10 @@ class Config(BaseSettings):
     )
 
     # Telegram (required - no default)
-    telegram_bot_token: str = Field(
-        ..., validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "telegram_bot_token")
-    )
+    telegram_bot_token: str = Field(..., validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "telegram_bot_token"))
 
     # OpenAI (required - no default)
-    openai_api_key: str = Field(
-        ..., validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key")
-    )
+    openai_api_key: str = Field(..., validation_alias=AliasChoices("OPENAI_API_KEY", "openai_api_key"))
 
     # Kimi (required - no defaults)
     kimi_api_key: str = Field(..., validation_alias=AliasChoices("KIMI_API_KEY", "kimi_api_key"))

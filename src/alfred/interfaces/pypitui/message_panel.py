@@ -100,9 +100,7 @@ class MessagePanel(BorderedBox):
         Args:
             role_or_state: "user", "assistant", "system", or "error"
         """
-        color = {"user": CYAN, "assistant": GREEN, "system": DIM, "error": RED}.get(
-            role_or_state, GREEN
-        )
+        color = {"user": CYAN, "assistant": GREEN, "system": DIM, "error": RED}.get(role_or_state, GREEN)
         self._border_color = color
         # Override border characters with colored versions
         self.TOP_LEFT = f"{color}┌{RESET}"
@@ -277,9 +275,7 @@ class MessagePanel(BorderedBox):
             self._content_blocks.append(ContentBlock(type="text", content=text))
         else:
             # Mixed case: text with embedded tool calls
-            sorted_tools = sorted(
-                self._tool_calls, key=lambda t: (t.insert_position, t.sequence)
-            )
+            sorted_tools = sorted(self._tool_calls, key=lambda t: (t.insert_position, t.sequence))
 
             last_pos = 0
             for tc in sorted_tools:
@@ -291,14 +287,10 @@ class MessagePanel(BorderedBox):
                         if self._use_markdown and self._renderer:
                             with suppress(Exception):
                                 text = self._renderer.render_markdown(text)
-                        self._content_blocks.append(
-                            ContentBlock(type="text", content=text)
-                        )
+                        self._content_blocks.append(ContentBlock(type="text", content=text))
 
                 # Add tool call block
-                self._content_blocks.append(
-                    ContentBlock(type="tool", content="", tool_info=tc)
-                )
+                self._content_blocks.append(ContentBlock(type="tool", content="", tool_info=tc))
                 last_pos = tc.insert_position
 
             # Add remaining text after last tool
@@ -322,9 +314,7 @@ class MessagePanel(BorderedBox):
         from alfred.interfaces.pypitui.box_utils import build_bordered_box
         from alfred.interfaces.pypitui.constants import DIM_BLUE, DIM_GREEN, DIM_RED
 
-        color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(
-            tool_info.status, DIM_BLUE
-        )
+        color = {"running": DIM_BLUE, "success": DIM_GREEN, "error": DIM_RED}.get(tool_info.status, DIM_BLUE)
 
         # Tool box width: terminal width minus panel borders (2) and padding (2)
         box_width = max(20, self._terminal_width - 4)
@@ -339,9 +329,7 @@ class MessagePanel(BorderedBox):
 
         # Add output if any
         if tool_info.output:
-            display_output = (
-                tool_info.output[:200] if len(tool_info.output) > 200 else tool_info.output
-            )
+            display_output = tool_info.output[:200] if len(tool_info.output) > 200 else tool_info.output
             formatted = self._format_tool_output(display_output)
             content_lines.extend(formatted.split("\n"))
 
@@ -477,10 +465,7 @@ class MessagePanel(BorderedBox):
         lines.append(top_border)
 
         # Top padding
-        lines.extend(
-            self.VERTICAL + " " * (width - 2) + self.VERTICAL
-            for _ in range(getattr(self, "_padding_y", 0))
-        )
+        lines.extend(self.VERTICAL + " " * (width - 2) + self.VERTICAL for _ in range(getattr(self, "_padding_y", 0)))
 
         # Title if provided
         title_val: str | None = getattr(self, "_title", None)
@@ -501,10 +486,7 @@ class MessagePanel(BorderedBox):
             lines.append(self.VERTICAL + padding + content_line + right_padding + self.VERTICAL)
 
         # Bottom padding
-        lines.extend(
-            self.VERTICAL + " " * (width - 2) + self.VERTICAL
-            for _ in range(getattr(self, "_padding_y", 0))
-        )
+        lines.extend(self.VERTICAL + " " * (width - 2) + self.VERTICAL for _ in range(getattr(self, "_padding_y", 0)))
 
         # Bottom border
         bottom_border = self.BOTTOM_LEFT + self.HORIZONTAL * (width - 2) + self.BOTTOM_RIGHT

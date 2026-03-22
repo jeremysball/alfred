@@ -41,9 +41,7 @@ def setup_logging(log_file: Path | None = None, debug: bool = False) -> None:
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
-    console_handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s")
-    )
+    console_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s"))
     handlers.append(console_handler)
 
     # File handler
@@ -51,9 +49,7 @@ def setup_logging(log_file: Path | None = None, debug: bool = False) -> None:
         log_file.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(level)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s")
-        )
+        file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s"))
         handlers.append(file_handler)
 
     logging.basicConfig(level=level, handlers=handlers)

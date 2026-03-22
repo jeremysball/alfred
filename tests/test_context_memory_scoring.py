@@ -63,9 +63,7 @@ async def test_each_memory_gets_own_similarity(context_builder, mock_store):
 
     # Search with a query embedding
     query_embedding = [0.1] * 768
-    memories, similarities, scores = await context_builder.search_memories(
-        query_embedding, top_k=10
-    )
+    memories, similarities, scores = await context_builder.search_memories(query_embedding, top_k=10)
 
     # Verify each memory has its correct similarity
     assert "mem-1" in similarities
@@ -110,9 +108,7 @@ async def test_memory_order_preserved(context_builder, mock_store):
     mock_store.search_memories = AsyncMock(return_value=mock_results)
 
     query_embedding = [0.1] * 768
-    memories, similarities, scores = await context_builder.search_memories(
-        query_embedding, top_k=10
-    )
+    memories, similarities, scores = await context_builder.search_memories(query_embedding, top_k=10)
 
     # mem-high should have higher score due to better similarity + recency
     assert scores["mem-high"] > scores["mem-low"]
@@ -144,9 +140,7 @@ async def test_no_variable_leakage_bug(context_builder, mock_store):
     mock_store.search_memories = AsyncMock(return_value=mock_results)
 
     query_embedding = [0.1] * 768
-    memories, similarities, scores = await context_builder.search_memories(
-        query_embedding, top_k=10
-    )
+    memories, similarities, scores = await context_builder.search_memories(query_embedding, top_k=10)
 
     # Without the bug fix, all similarities would be 0.9 (the last value)
     # With the fix, each memory should have its own similarity

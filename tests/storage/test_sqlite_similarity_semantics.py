@@ -34,7 +34,7 @@ class TestMemorySimilaritySemantics:
 
     @pytest.mark.asyncio
     async def test_search_memories_returns_higher_is_better_similarity_contract(
-        self, sqlite_store
+        self, sqlite_store, caplog: pytest.LogCaptureFixture
     ) -> None:
         """The closest memory must have the highest returned similarity value."""
         async with aiosqlite.connect(sqlite_store.db_path) as db:
@@ -77,12 +77,19 @@ class TestMemorySimilaritySemantics:
             )
             await db.commit()
 
-        results = await sqlite_store.search_memories([1.0, 0.0, 0.0], top_k=2)
+        with caplog.at_level("DEBUG", logger="alfred.storage.sqlite"):
+            results = await sqlite_store.search_memories([1.0, 0.0, 0.0], top_k=2)
 
         assert [row["entry_id"] for row in results] == ["mem-close", "mem-far"]
         assert results[0]["similarity"] > results[1]["similarity"], (
             "Memory search must return higher-is-better similarity, not raw distance"
         )
+
+        storage_messages = [record.message for record in caplog.records if record.name == "alfred.storage.sqlite"]
+        assert any(message.startswith("event=storage.memory_search.start") for message in storage_messages)
+        assert any(message.startswith("event=storage.memory_search.completed") for message in storage_messages)
+        assert any("result_count=2" in message for message in storage_messages)
+        assert any("duration_ms=" in message for message in storage_messages)
 
 
 class TestSessionSimilaritySemantics:
@@ -90,7 +97,7 @@ class TestSessionSimilaritySemantics:
 
     @pytest.mark.asyncio
     async def test_search_summaries_returns_higher_is_better_similarity_contract(
-        self, sqlite_store, db_conn
+        self, sqlite_store, db_conn, caplog: pytest.LogCaptureFixture
     ) -> None:
         """The closest session summary must have the highest returned similarity."""
         await db_conn.execute(
@@ -147,16 +154,23 @@ class TestSessionSimilaritySemantics:
         )
         await db_conn.commit()
 
-        results = await sqlite_store.search_summaries([1.0, 0.0, 0.0], top_k=2)
+        with caplog.at_level("DEBUG", logger="alfred.storage.sqlite"):
+            results = await sqlite_store.search_summaries([1.0, 0.0, 0.0], top_k=2)
 
         assert [row["summary_id"] for row in results] == ["sum-close", "sum-far"]
         assert results[0]["similarity"] > results[1]["similarity"], (
             "Summary search must return higher-is-better similarity, not raw distance"
         )
 
+        storage_messages = [record.message for record in caplog.records if record.name == "alfred.storage.sqlite"]
+        assert any(message.startswith("event=storage.session_summary_search.start") for message in storage_messages)
+        assert any(message.startswith("event=storage.session_summary_search.completed") for message in storage_messages)
+        assert any("result_count=2" in message for message in storage_messages)
+        assert any("duration_ms=" in message for message in storage_messages)
+
     @pytest.mark.asyncio
     async def test_search_session_messages_returns_higher_is_better_similarity_contract(
-        self, sqlite_store
+        self, sqlite_store, caplog: pytest.LogCaptureFixture
     ) -> None:
         """The closest message must have the highest returned similarity."""
         async with aiosqlite.connect(sqlite_store.db_path) as db:
@@ -207,13 +221,20 @@ class TestSessionSimilaritySemantics:
             )
             await db.commit()
 
-        results = await sqlite_store.search_session_messages(
-            "sess-msg",
-            [1.0, 0.0, 0.0],
-            top_k=2,
-        )
+        with caplog.at_level("DEBUG", logger="alfred.storage.sqlite"):
+            results = await sqlite_store.search_session_messages(
+                "sess-msg",
+                [1.0, 0.0, 0.0],
+                top_k=2,
+            )
 
         assert [row["message_idx"] for row in results] == [0, 1]
         assert results[0]["similarity"] > results[1]["similarity"], (
             "Message search must return higher-is-better similarity, not raw distance"
         )
+
+        storage_messages = [record.message for record in caplog.records if record.name == "alfred.storage.sqlite"]
+        assert any(message.startswith("event=storage.session_message_search.start") for message in storage_messages)
+        assert any(message.startswith("event=storage.session_message_search.completed") for message in storage_messages)
+        assert any("result_count=2" in message for message in storage_messages)
+        assert any("duration_ms=" in message for message in storage_messages)

@@ -212,9 +212,7 @@ class TestRejectionWorkflow:
     async def test_reject_pending_job_deletes_it_via_scheduler(self, cron_system):
         """Should permanently delete rejected job via scheduler directly."""
         # Create job directly
-        await cron_system["scheduler"].submit_user_job(
-            name="To Reject", expression="0 8 * * *", code="async def run(): pass"
-        )
+        await cron_system["scheduler"].submit_user_job(name="To Reject", expression="0 8 * * *", code="async def run(): pass")
 
         # Verify job exists
         jobs = await cron_system["store"].load_jobs()

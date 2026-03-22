@@ -27,17 +27,9 @@ class BlockingCallVisitor(ast.NodeVisitor):
     """AST visitor to detect blocking calls in async functions."""
 
     BLOCKING_PATTERNS = {
-        "subprocess.run": (
-            "Use asyncio subprocess: 'asyncio.create_subprocess_exec' or "
-            "'asyncio.create_subprocess_shell'"
-        ),
-        "subprocess.call": (
-            "Use asyncio subprocess: 'asyncio.create_subprocess_exec' or "
-            "'asyncio.create_subprocess_shell'"
-        ),
-        "subprocess.check_output": (
-            "Use asyncio subprocess: 'asyncio.create_subprocess_exec' with asyncio streams"
-        ),
+        "subprocess.run": ("Use asyncio subprocess: 'asyncio.create_subprocess_exec' or 'asyncio.create_subprocess_shell'"),
+        "subprocess.call": ("Use asyncio subprocess: 'asyncio.create_subprocess_exec' or 'asyncio.create_subprocess_shell'"),
+        "subprocess.check_output": ("Use asyncio subprocess: 'asyncio.create_subprocess_exec' with asyncio streams"),
         "subprocess.check_call": "Use asyncio subprocess: 'asyncio.create_subprocess_exec'",
         "os.system": "Use asyncio subprocess: 'asyncio.create_subprocess_shell'",
         "os.popen": "Use asyncio subprocess: 'asyncio.create_subprocess_exec'",
@@ -179,8 +171,7 @@ class NotifyUsageVisitor(ast.NodeVisitor):
                     self.found_subprocess_notify = True
                     self.errors.append(
                         JobLinterError(
-                            "Using subprocess to call 'notify' - use the injected "
-                            "notify() function instead",
+                            "Using subprocess to call 'notify' - use the injected notify() function instead",
                             line=node.lineno,
                             suggestion="Use: await notify('your message')",
                         )

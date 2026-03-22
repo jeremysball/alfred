@@ -89,6 +89,7 @@ class TestReembedMethods:
         try:
             # Create store and tables
             from alfred.storage.sqlite import SQLiteStore
+
             store = SQLiteStore(db_path, embedding_dim=768)
             await store._init()
 
@@ -109,12 +110,12 @@ class TestReembedMethods:
                 await db.execute(
                     f"""INSERT INTO memories ({id_col}, role, content)
                        VALUES (?, ?, ?)""",
-                    ("mem-1", "user", "test content 1")
+                    ("mem-1", "user", "test content 1"),
                 )
                 await db.execute(
                     f"""INSERT INTO memories ({id_col}, role, content)
                        VALUES (?, ?, ?)""",
-                    ("mem-2", "assistant", "test content 2")
+                    ("mem-2", "assistant", "test content 2"),
                 )
                 await db.commit()
 
@@ -158,13 +159,13 @@ class TestReembedMethods:
                     """INSERT INTO session_summaries
                        (summary_id, session_id, message_count, first_message_idx, last_message_idx, summary_text)
                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    ("sum-1", "session-1", 5, 0, 4, "summary 1")
+                    ("sum-1", "session-1", 5, 0, 4, "summary 1"),
                 )
                 await db.execute(
                     """INSERT INTO session_summaries
                        (summary_id, session_id, message_count, first_message_idx, last_message_idx, summary_text)
                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    ("sum-2", "session-2", 3, 0, 2, "summary 2")
+                    ("sum-2", "session-2", 3, 0, 2, "summary 2"),
                 )
                 await db.commit()
 
@@ -204,13 +205,13 @@ class TestReembedMethods:
                     """INSERT INTO message_embeddings
                        (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    ("msg-1", "session-1", 0, "user", "snippet 1", "[0.1, 0.2]")
+                    ("msg-1", "session-1", 0, "user", "snippet 1", "[0.1, 0.2]"),
                 )
                 await db.execute(
                     """INSERT INTO message_embeddings
                        (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    ("msg-2", "session-1", 1, "assistant", "snippet 2", "[0.3, 0.4]")
+                    ("msg-2", "session-1", 1, "assistant", "snippet 2", "[0.3, 0.4]"),
                 )
                 await db.commit()
 

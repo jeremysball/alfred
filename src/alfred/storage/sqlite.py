@@ -2,6 +2,9 @@
 
 Replaces CASStore, JSONLMemoryStore, FAISSMemoryStore, SessionStorage, and CronStore
 with a single ACID-compliant SQLite solution.
+
+This storage layer owns the distance-to-similarity translation for vector search
+results exposed to Alfred callers.
 """
 
 import contextlib
@@ -9,15 +12,16 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any
+
+from alfred.observability import Surface, log_event
 
 # sqlite-vec is required for vector search
 try:
     import sqlite_vec  # type: ignore[import-untyped]  # noqa: F401
 except ImportError as e:
-    raise ImportError(
-        "sqlite-vec is required. Install with: uv add sqlite-vec"
-    ) from e
+    raise ImportError("sqlite-vec is required. Install with: uv add sqlite-vec") from e
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +29,12 @@ logger = logging.getLogger(__name__)
 class SQLiteStore:
     """Unified SQLite storage for sessions, cron jobs, and memories.
 
-    Uses sqlite-vec for vector similarity search on memories.
+    Uses sqlite-vec for vector search and normalizes raw backend distances to
+    Alfred-facing similarity scores before returning results.
     All operations are ACID-compliant via SQLite transactions.
     """
 
-    def __init__(
-        self,
-        db_path: Path | str,
-        embedding_dim: int = 768,
-        embedder: Any | None = None
-    ) -> None:
+    def __init__(self, db_path: Path | str, embedding_dim: int = 768, embedder: Any | None = None) -> None:
         """Initialize SQLite store.
 
         Args:
@@ -47,6 +47,8 @@ class SQLiteStore:
         self._embedding_dim = embedding_dim
         self._embedder = embedder
         self._initialized = False
+        self._pending_vec_rebuild = False
+        self._pending_vec_rebuild_tables: set[str] = set()
 
     async def _load_extensions(self, db: Any) -> None:
         """Load sqlite-vec extension for vector search.
@@ -55,21 +57,50 @@ class SQLiteStore:
         """
         await db.enable_load_extension(True)
         import sqlite_vec
+
         await db.load_extension(sqlite_vec.loadable_path())
+
+    def _log_storage_failure(self, event: str, started_at: float, **fields: object) -> None:
+        """Emit a storage failure event with duration metadata."""
+        log_event(
+            logger,
+            logging.ERROR,
+            event,
+            surface=Surface.STORAGE,
+            duration_ms=round((perf_counter() - started_at) * 1000, 2),
+            **fields,
+        )
+
+    def _queue_vec_rebuild(
+        self,
+        table_name: str,
+        actual_dim: int,
+        actual_metric: str,
+        expected_dim: int,
+        expected_metric: str,
+    ) -> None:
+        """Remember that a vec0 rebuild is required and log an app-visible warning."""
+        self._pending_vec_rebuild = True
+        self._pending_vec_rebuild_tables.add(table_name)
+        logger.warning(
+            "vec0 schema mismatch for %s: dimension=%s metric=%s; expected dimension=%s metric=%s. Automatic rebuild queued.",
+            table_name,
+            actual_dim,
+            actual_metric,
+            expected_dim,
+            expected_metric,
+        )
 
     @staticmethod
     def _distance_to_similarity(distance: float) -> float:
-        """Convert backend distance into Alfred-facing similarity."""
+        """Convert a backend cosine distance into Alfred-facing similarity."""
         return 1.0 - distance
 
     async def _get_vec0_metric(self, db: Any, table_name: str) -> str | None:
-        """Extract the vec0 distance metric from an existing table schema."""
+        """Extract the vec0 distance metric for schema-contract validation."""
         import re
 
-        async with db.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,)
-        ) as cursor:
+        async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table_name,)) as cursor:
             row = await cursor.fetchone()
             if not row or not row[0]:
                 return None
@@ -103,10 +134,7 @@ class SQLiteStore:
         """
         import re
 
-        async with db.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,)
-        ) as cursor:
+        async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table_name,)) as cursor:
             row = await cursor.fetchone()
             if not row or not row[0]:
                 return None
@@ -114,7 +142,7 @@ class SQLiteStore:
             schema = row[0]
             # Extract FLOAT[N] dimension from schema like:
             # CREATE VIRTUAL TABLE x USING vec0(..., embedding FLOAT[768])
-            match = re.search(r'FLOAT\[(\d+)\]', schema)
+            match = re.search(r"FLOAT\[(\d+)\]", schema)
             if match:
                 return int(match.group(1))
 
@@ -153,6 +181,9 @@ class SQLiteStore:
         except ImportError as e:
             raise ImportError("aiosqlite required. Install with: uv add aiosqlite") from e
 
+        pending_vec_rebuild = False
+        pending_vec_rebuild_tables: set[str] = set()
+
         async with aiosqlite.connect(self.db_path) as db:
             # Load sqlite-vec extension
             await self._load_extensions(db)
@@ -169,9 +200,165 @@ class SQLiteStore:
             await self._create_memories_table(db)
 
             await db.commit()
+            pending_vec_rebuild = self._pending_vec_rebuild
+            pending_vec_rebuild_tables = set(self._pending_vec_rebuild_tables)
+
+        if pending_vec_rebuild:
+            tables = ", ".join(sorted(pending_vec_rebuild_tables))
+            logger.warning(
+                "Automatic vec0 rebuild will run during startup for: %s",
+                tables,
+            )
+            self._pending_vec_rebuild = False
+            self._pending_vec_rebuild_tables.clear()
+            await self.rebuild_vector_indexes(pending_vec_rebuild_tables)
+            return
 
         self._initialized = True
         logger.info(f"SQLite store initialized: {self.db_path}")
+
+    async def rebuild_vector_indexes(self, tables: set[str] | None = None) -> None:
+        """Drop and recreate Alfred vec0 tables with the cosine contract.
+
+        Args:
+            tables: Optional subset of vec tables to rebuild. If omitted, all
+                Alfred vec tables are rebuilt.
+        """
+        import aiosqlite
+
+        vec_tables = tables or {
+            "memory_embeddings",
+            "session_summaries_vec",
+            "message_embeddings_vec",
+        }
+        allowed_tables = {
+            "memory_embeddings",
+            "session_summaries_vec",
+            "message_embeddings_vec",
+        }
+        unknown_tables = vec_tables - allowed_tables
+        if unknown_tables:
+            raise ValueError(f"Unknown vec tables requested for rebuild: {sorted(unknown_tables)}")
+
+        if "memory_embeddings" in vec_tables and self._embedder is None:
+            memory_count = 0
+            try:
+                async with aiosqlite.connect(self.db_path) as db, db.execute("SELECT COUNT(*) FROM memories") as cursor:
+                    row = await cursor.fetchone()
+                    memory_count = row[0] if row else 0
+            except Exception:
+                memory_count = 0
+
+            if memory_count > 0:
+                raise RuntimeError("Rebuilding memory vectors requires an embedder to repopulate existing memories")
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            for table_name in vec_tables:
+                await db.execute(f"DROP TABLE IF EXISTS {table_name}")
+            await db.commit()
+
+            if "memory_embeddings" in vec_tables:
+                await self._create_memories_table(db)
+            if "session_summaries_vec" in vec_tables:
+                await self._create_session_summaries_table(db)
+            if "message_embeddings_vec" in vec_tables:
+                await self._create_message_embeddings_table(db)
+            await db.commit()
+
+        if "memory_embeddings" in vec_tables:
+            await self._repopulate_memory_embeddings()
+        if "session_summaries_vec" in vec_tables:
+            await self._repopulate_session_summary_embeddings()
+        if "message_embeddings_vec" in vec_tables:
+            await self._repopulate_message_embeddings()
+
+        self._initialized = True
+
+    async def _repopulate_memory_embeddings(self) -> None:
+        """Rebuild memory vectors from canonical memory content."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute("SELECT entry_id, content FROM memories") as cursor:
+                memories = await cursor.fetchall()
+
+            if not memories:
+                return
+
+            if self._embedder is None:
+                raise RuntimeError("Rebuilding memory vectors requires an embedder to repopulate embeddings")
+
+            for memory in memories:
+                embedding = await self._embedder.embed(memory["content"])
+                await db.execute(
+                    """
+                    INSERT INTO memory_embeddings (entry_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (memory["entry_id"], json.dumps(embedding)),
+                )
+
+            await db.commit()
+
+    async def _repopulate_session_summary_embeddings(self) -> None:
+        """Rebuild session summary vectors from stored summaries."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute("SELECT summary_id, summary_text, embedding FROM session_summaries") as cursor:
+                summaries = await cursor.fetchall()
+
+            if not summaries:
+                return
+
+            for summary in summaries:
+                embedding = summary["embedding"]
+                if embedding is None:
+                    if self._embedder is None:
+                        raise RuntimeError("Rebuilding session summary vectors requires stored embeddings or an embedder")
+                    embedding = json.dumps(await self._embedder.embed(summary["summary_text"]))
+
+                await db.execute(
+                    """
+                    INSERT INTO session_summaries_vec (summary_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (summary["summary_id"], embedding),
+                )
+
+            await db.commit()
+
+    async def _repopulate_message_embeddings(self) -> None:
+        """Rebuild message vectors from stored message embeddings."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute("SELECT message_embedding_id, embedding FROM message_embeddings") as cursor:
+                messages = await cursor.fetchall()
+
+            if not messages:
+                return
+
+            for message in messages:
+                await db.execute(
+                    """
+                    INSERT INTO message_embeddings_vec (message_embedding_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (message["message_embedding_id"], message["embedding"]),
+                )
+
+            await db.commit()
 
     async def _create_sessions_table(self, db: Any) -> None:
         """Create sessions table."""
@@ -273,24 +460,18 @@ class SQLiteStore:
         dim = self._embedding_dim
 
         # Check if table exists
-        async with db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (table_name,)
-        ) as cursor:
+        async with db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)) as cursor:
             row = await cursor.fetchone()
             table_exists = row is not None
 
         if table_exists:
             # Get the table schema to check dimension
-            async with db.execute(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,)
-            ) as cursor:
+            async with db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table_name,)) as cursor:
                 row = await cursor.fetchone()
                 if row and row[0]:
                     schema = row[0]
                     # Extract dimension from FLOAT[N]
-                    match = re.search(r'FLOAT\[(\d+)\]', schema)
+                    match = re.search(r"FLOAT\[(\d+)\]", schema)
                     if match:
                         existing_dim = int(match.group(1))
                         if existing_dim != dim:
@@ -304,7 +485,8 @@ class SQLiteStore:
                                 await reembedder.reembed_all(existing_dim, dim)
                                 # Table was recreated by reembedder
                                 return
-                            else:
+
+                            if table_name == "memory_embeddings":
                                 # No embedder available, just drop and warn
                                 logger.warning(
                                     f"Embedding dimension mismatch: {table_name} has {existing_dim}, "
@@ -312,18 +494,48 @@ class SQLiteStore:
                                 )
                                 await db.execute(f"DROP TABLE {table_name}")
                                 table_exists = False
+                            else:
+                                actual_metric = await self._get_vec0_metric(db, table_name) or "l2"
+                                self._queue_vec_rebuild(
+                                    table_name,
+                                    existing_dim,
+                                    actual_metric,
+                                    dim,
+                                    "cosine",
+                                )
+                                return
 
         if table_exists:
             schema_mismatch = await self._check_vec0_schema_mismatch(db, table_name)
             if schema_mismatch is not None:
                 actual_dim, actual_metric, expected_dim, expected_metric = schema_mismatch
-                message = (
-                    f"vec0 schema mismatch for {table_name}: "
-                    f"dimension={actual_dim} metric={actual_metric}; "
-                    f"expected dimension={expected_dim} metric={expected_metric}. "
-                    "Rebuild required."
+                if self._embedder is not None:
+                    self._queue_vec_rebuild(
+                        table_name,
+                        actual_dim,
+                        actual_metric,
+                        expected_dim,
+                        expected_metric,
+                    )
+                    return
+
+                if table_name == "memory_embeddings":
+                    message = (
+                        f"vec0 schema mismatch for {table_name}: "
+                        f"dimension={actual_dim} metric={actual_metric}; "
+                        f"expected dimension={expected_dim} metric={expected_metric}. "
+                        "Rebuild required."
+                    )
+                    raise RuntimeError(message)
+
+                self._queue_vec_rebuild(
+                    table_name,
+                    actual_dim,
+                    actual_metric,
+                    expected_dim,
+                    expected_metric,
                 )
-                raise RuntimeError(message)
+                return
 
         # Create table with correct dimension
         if not table_exists:
@@ -426,30 +638,63 @@ class SQLiteStore:
         """
         await self._init()
 
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.session_save.start",
+            surface=Surface.STORAGE,
+            session_id=session_id,
+            message_count=len(messages),
+            has_metadata=bool(metadata),
+        )
+
         import aiosqlite
 
-        async with aiosqlite.connect(self.db_path) as db:
-            # Load sqlite-vec extension for vector search
-            await self._load_extensions(db)
-            await db.execute(
-                """
-                INSERT INTO sessions (session_id, messages, metadata, updated_at)
-                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(session_id) DO UPDATE SET
-                    messages = excluded.messages,
-                    metadata = excluded.metadata,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (session_id, json.dumps(messages), json.dumps(metadata or {})),
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                # Load sqlite-vec extension for vector search
+                await self._load_extensions(db)
+                await db.execute(
+                    """
+                    INSERT INTO sessions (session_id, messages, metadata, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(session_id) DO UPDATE SET
+                        messages = excluded.messages,
+                        metadata = excluded.metadata,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (session_id, json.dumps(messages), json.dumps(metadata or {})),
+                )
+                await db.commit()
+
+                # Index message embeddings for vector search (new sessions only)
+                await self._index_message_embeddings(db, session_id, messages)
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.session_save.completed",
+                surface=Surface.STORAGE,
+                session_id=session_id,
+                message_count=len(messages),
+                has_metadata=bool(metadata),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
             )
-            await db.commit()
+        except Exception as e:
+            self._log_storage_failure(
+                "storage.session_save.failed",
+                request_started_at,
+                session_id=session_id,
+                message_count=len(messages),
+                has_metadata=bool(metadata),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving session {session_id}: {e}")
+            raise
 
-            # Index message embeddings for vector search (new sessions only)
-            await self._index_message_embeddings(db, session_id, messages)
-
-    async def _index_message_embeddings(
-        self, db: Any, session_id: str, messages: list[dict[str, Any]]
-    ) -> None:
+    async def _index_message_embeddings(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
         """Index message embeddings for vector search using sqlite-vec.
 
         Only indexes messages with embeddings. Skips if already indexed.
@@ -482,18 +727,19 @@ class SQLiteStore:
 
                 # Insert into sqlite-vec virtual table
                 await db.execute(
+                    "DELETE FROM message_embeddings_vec WHERE message_embedding_id = ?",
+                    (me_id,),
+                )
+                await db.execute(
                     """
                     INSERT INTO message_embeddings_vec (message_embedding_id, embedding)
                     VALUES (?, ?)
-                    ON CONFLICT(message_embedding_id) DO NOTHING
                     """,
                     (me_id, json.dumps(embedding)),
                 )
 
             except Exception as e:
-                logger.warning(
-                    f"Failed to index message {message_idx} for session {session_id}: {e}"
-                )
+                logger.warning(f"Failed to index message {message_idx} for session {session_id}: {e}")
 
         await db.commit()
 
@@ -514,9 +760,7 @@ class SQLiteStore:
             # Load sqlite-vec extension for vector search
             await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM sessions WHERE session_id = ?", (session_id,)) as cursor:
                 row = await cursor.fetchone()
 
                 if row is None:
@@ -547,9 +791,7 @@ class SQLiteStore:
             # Load sqlite-vec extension for vector search
             await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)) as cursor:
                 rows = await cursor.fetchall()
                 return [
                     {
@@ -814,24 +1056,17 @@ class SQLiteStore:
 
             # Insert embedding if provided and sqlite-vec available
             if embedding:
-                try:
-                    await db.execute(
-                        """
-                        INSERT INTO memory_embeddings (entry_id, embedding)
-                        VALUES (?, ?)
-                        ON CONFLICT(entry_id) DO UPDATE SET
-                            embedding = excluded.embedding
-                        """,
-                        (entry_id, json.dumps(embedding)),
-                    )
-                except Exception:
-                    # sqlite-vec not available, store in main table
-                    await db.execute(
-                        """
-                        UPDATE memories SET embedding = ? WHERE entry_id = ?
-                        """,
-                        (json.dumps(embedding), entry_id),
-                    )
+                await db.execute(
+                    "DELETE FROM memory_embeddings WHERE entry_id = ?",
+                    (entry_id,),
+                )
+                await db.execute(
+                    """
+                    INSERT INTO memory_embeddings (entry_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (entry_id, json.dumps(embedding)),
+                )
 
             await db.commit()
 
@@ -855,49 +1090,88 @@ class SQLiteStore:
         """
         await self._init()
 
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.memory_search.start",
+            surface=Surface.STORAGE,
+            top_k=top_k,
+            role=role or "any",
+            tags=len(tags or []),
+            query_dim=len(query_embedding),
+        )
+
         import aiosqlite
 
-        async with aiosqlite.connect(self.db_path) as db:
-            # Load sqlite-vec extension for vector search
-            await self._load_extensions(db)
-            db.row_factory = aiosqlite.Row
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                # Load sqlite-vec extension for vector search
+                await self._load_extensions(db)
+                db.row_factory = aiosqlite.Row
 
-            # Use sqlite-vec for vector search
-            # Note: sqlite-vec requires k constraint for KNN queries
-            query = """
-                SELECT m.*, e.distance
-                FROM memory_embeddings e
-                JOIN memories m ON e.entry_id = m.entry_id
-                WHERE e.embedding MATCH ? AND k = ?
-            """
-            params: list[Any] = [json.dumps(query_embedding), top_k]
+                # Use sqlite-vec for vector search.
+                # Raw backend distance is converted to similarity before returning.
+                # Note: sqlite-vec requires k constraint for KNN queries.
+                query = """
+                    SELECT m.*, e.distance
+                    FROM memory_embeddings e
+                    JOIN memories m ON e.entry_id = m.entry_id
+                    WHERE e.embedding MATCH ? AND k = ?
+                """
+                params: list[Any] = [json.dumps(query_embedding), top_k]
 
-            if role:
-                query += " AND m.role = ?"
-                params.append(role)
+                if role:
+                    query += " AND m.role = ?"
+                    params.append(role)
 
-            if tags:
-                # Simple tag filtering - check if any tag matches
-                for tag in tags:
-                    query += " AND json_extract(m.tags, '$') LIKE ?"
-                    params.append(f'%"{tag}"%')
+                if tags:
+                    # Simple tag filtering - check if any tag matches
+                    for tag in tags:
+                        query += " AND json_extract(m.tags, '$') LIKE ?"
+                        params.append(f'%"{tag}"%')
 
-            async with db.execute(query, params) as cursor:
-                rows = await cursor.fetchall()
+                async with db.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
 
-            result = []
-            for row in rows:
-                entry = {
-                    "entry_id": row["entry_id"],
-                    "timestamp": row["timestamp"],
-                    "role": row["role"],
-                    "content": row["content"],
-                    "tags": json.loads(row["tags"]),
-                    "permanent": bool(row["permanent"]),
-                    "similarity": self._distance_to_similarity(float(row["distance"])),
-                }
-                result.append(entry)
-            return result
+                result = []
+                for row in rows:
+                    entry = {
+                        "entry_id": row["entry_id"],
+                        "timestamp": row["timestamp"],
+                        "role": row["role"],
+                        "content": row["content"],
+                        "tags": json.loads(row["tags"]),
+                        "permanent": bool(row["permanent"]),
+                        "similarity": self._distance_to_similarity(float(row["distance"])),
+                    }
+                    result.append(entry)
+
+                log_event(
+                    logger,
+                    logging.DEBUG,
+                    "storage.memory_search.completed",
+                    surface=Surface.STORAGE,
+                    top_k=top_k,
+                    role=role or "any",
+                    tags=len(tags or []),
+                    result_count=len(result),
+                    duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+                )
+                return result
+        except Exception as e:
+            self._log_storage_failure(
+                "storage.memory_search.failed",
+                request_started_at,
+                top_k=top_k,
+                role=role or "any",
+                tags=len(tags or []),
+                query_dim=len(query_embedding),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error searching memories: {e}")
+            raise
 
     async def get_memory(self, entry_id: str) -> dict[str, Any] | None:
         """Get a memory by ID.
@@ -916,9 +1190,7 @@ class SQLiteStore:
             # Load sqlite-vec extension for vector search
             await self._load_extensions(db)
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM memories WHERE entry_id = ?", (entry_id,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM memories WHERE entry_id = ?", (entry_id,)) as cursor:
                 row = await cursor.fetchone()
 
                 if row is None:
@@ -1063,9 +1335,7 @@ class SQLiteStore:
                 # Delete from embeddings
                 for entry_id in ids:
                     with contextlib.suppress(Exception):
-                        await db.execute(
-                            "DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,)
-                        )
+                        await db.execute("DELETE FROM memory_embeddings WHERE entry_id = ?", (entry_id,))
 
                 # Delete from memories
                 await db.execute(
@@ -1105,9 +1375,7 @@ class SQLiteStore:
             # Load sqlite-vec extension for vector search
             await self._load_extensions(db)
             # Check if exists
-            async with db.execute(
-                "SELECT 1 FROM memories WHERE entry_id = ?", (entry_id,)
-            ) as cursor:
+            async with db.execute("SELECT 1 FROM memories WHERE entry_id = ?", (entry_id,)) as cursor:
                 if await cursor.fetchone() is None:
                     return False
 
@@ -1126,28 +1394,21 @@ class SQLiteStore:
 
                 params.append(entry_id)
 
-                await db.execute(
-                    f"UPDATE memories SET {', '.join(updates)} WHERE entry_id = ?", params
-                )
+                await db.execute(f"UPDATE memories SET {', '.join(updates)} WHERE entry_id = ?", params)
 
             # Update embedding
             if embedding:
-                try:
-                    await db.execute(
-                        """
-                        INSERT INTO memory_embeddings (entry_id, embedding)
-                        VALUES (?, ?)
-                        ON CONFLICT(entry_id) DO UPDATE SET
-                            embedding = excluded.embedding
-                        """,
-                        (entry_id, json.dumps(embedding)),
-                    )
-                except Exception:
-                    # sqlite-vec not available
-                    await db.execute(
-                        "UPDATE memories SET embedding = ? WHERE entry_id = ?",
-                        (json.dumps(embedding), entry_id),
-                    )
+                await db.execute(
+                    "DELETE FROM memory_embeddings WHERE entry_id = ?",
+                    (entry_id,),
+                )
+                await db.execute(
+                    """
+                    INSERT INTO memory_embeddings (entry_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (entry_id, json.dumps(embedding)),
+                )
 
             await db.commit()
             return True
@@ -1163,35 +1424,73 @@ class SQLiteStore:
         """
         await self._init()
 
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.session_summary_save.start",
+            surface=Surface.STORAGE,
+            session_id=summary["session_id"],
+            summary_id=summary["summary_id"],
+            message_count=summary["message_count"],
+            has_embedding=summary.get("embedding") is not None,
+        )
+
         import aiosqlite
 
-        async with aiosqlite.connect(self.db_path) as db:
-            # Load sqlite-vec extension for vector search
-            await self._load_extensions(db)
-            # Serialize embedding to JSON if present
-            embedding = summary.get("embedding")
-            embedding_json = json.dumps(embedding) if embedding is not None else None
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                # Load sqlite-vec extension for vector search
+                await self._load_extensions(db)
+                # Serialize embedding to JSON if present
+                embedding = summary.get("embedding")
+                embedding_json = json.dumps(embedding) if embedding is not None else None
 
-            await db.execute(
-                """
-                INSERT INTO session_summaries (
-                    summary_id, session_id, message_count,
-                    first_message_idx, last_message_idx, summary_text,
-                    embedding, version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    summary["summary_id"],
-                    summary["session_id"],
-                    summary["message_count"],
-                    summary["first_message_idx"],
-                    summary["last_message_idx"],
-                    summary["summary_text"],
-                    embedding_json,
-                    summary.get("version", 1),
-                ),
+                await db.execute(
+                    """
+                    INSERT INTO session_summaries (
+                        summary_id, session_id, message_count,
+                        first_message_idx, last_message_idx, summary_text,
+                        embedding, version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        summary["summary_id"],
+                        summary["session_id"],
+                        summary["message_count"],
+                        summary["first_message_idx"],
+                        summary["last_message_idx"],
+                        summary["summary_text"],
+                        embedding_json,
+                        summary.get("version", 1),
+                    ),
+                )
+                await db.commit()
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.session_summary_save.completed",
+                surface=Surface.STORAGE,
+                session_id=summary["session_id"],
+                summary_id=summary["summary_id"],
+                message_count=summary["message_count"],
+                has_embedding=summary.get("embedding") is not None,
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
             )
-            await db.commit()
+        except Exception as e:
+            self._log_storage_failure(
+                "storage.session_summary_save.failed",
+                request_started_at,
+                session_id=summary["session_id"],
+                summary_id=summary["summary_id"],
+                message_count=summary["message_count"],
+                has_embedding=summary.get("embedding") is not None,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving summary {summary['summary_id']}: {e}")
+            raise
 
     async def get_latest_summary(self, session_id: str) -> dict[str, Any] | None:
         """Get the latest summary for a session.
@@ -1283,19 +1582,51 @@ class SQLiteStore:
         """
         await self._init()
 
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.session_summary_search.start",
+            surface=Surface.STORAGE,
+            top_k=top_k,
+            query_dim=len(query_embedding),
+        )
+
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
             # Load sqlite-vec extension for vector search
-            await self._load_extensions(db)
+            try:
+                await self._load_extensions(db)
+            except Exception as e:
+                self._log_storage_failure(
+                    "storage.session_summary_search.failed",
+                    request_started_at,
+                    top_k=top_k,
+                    query_dim=len(query_embedding),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                logger.error(f"Error loading extensions for summary search: {e}")
+                raise
             # Check if sqlite-vec is available
             try:
                 await db.execute("SELECT vec_version()")
             except Exception as e:
+                self._log_storage_failure(
+                    "storage.session_summary_search.failed",
+                    request_started_at,
+                    top_k=top_k,
+                    query_dim=len(query_embedding),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                logger.error(f"sqlite-vec unavailable for summary search: {e}")
                 raise RuntimeError("sqlite-vec required for summary search") from e
 
-            # Use sqlite-vec for vector similarity search
-            # Note: sqlite-vec requires k constraint for KNN queries
+            # Use sqlite-vec for vector search.
+            # Raw backend distance is converted to similarity before returning.
+            # Note: sqlite-vec requires k constraint for KNN queries.
             results = []
             try:
                 async with db.execute(
@@ -1304,7 +1635,7 @@ class SQLiteStore:
                         s.summary_id,
                         s.session_id,
                         s.summary_text,
-                        v.distance as similarity
+                        v.distance as distance
                     FROM session_summaries_vec v
                     JOIN session_summaries s ON v.summary_id = s.summary_id
                     WHERE v.embedding MATCH ? AND k = ?
@@ -1322,9 +1653,27 @@ class SQLiteStore:
                             }
                         )
             except Exception as e:
+                self._log_storage_failure(
+                    "storage.session_summary_search.failed",
+                    request_started_at,
+                    top_k=top_k,
+                    query_dim=len(query_embedding),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
                 logger.error(f"Error searching summaries: {e}")
                 raise RuntimeError("Failed to search summaries") from e
 
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.session_summary_search.completed",
+                surface=Surface.STORAGE,
+                top_k=top_k,
+                query_dim=len(query_embedding),
+                result_count=len(results),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
             return results
 
     async def search_session_messages(
@@ -1350,19 +1699,54 @@ class SQLiteStore:
         """
         await self._init()
 
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.session_message_search.start",
+            surface=Surface.STORAGE,
+            session_id=session_id,
+            top_k=top_k,
+            query_dim=len(query_embedding),
+        )
+
         import aiosqlite
 
         async with aiosqlite.connect(self.db_path) as db:
             # Load sqlite-vec extension for vector search
-            await self._load_extensions(db)
+            try:
+                await self._load_extensions(db)
+            except Exception as e:
+                self._log_storage_failure(
+                    "storage.session_message_search.failed",
+                    request_started_at,
+                    session_id=session_id,
+                    top_k=top_k,
+                    query_dim=len(query_embedding),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                logger.error(f"Error loading extensions for message search in session {session_id}: {e}")
+                raise
             # Check if sqlite-vec is available
             try:
                 await db.execute("SELECT vec_version()")
             except Exception as e:
+                self._log_storage_failure(
+                    "storage.session_message_search.failed",
+                    request_started_at,
+                    session_id=session_id,
+                    top_k=top_k,
+                    query_dim=len(query_embedding),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                logger.error(f"sqlite-vec unavailable for message search in session {session_id}: {e}")
                 raise RuntimeError("sqlite-vec required for message search") from e
 
-            # Use sqlite-vec for vector similarity search
-            # Note: sqlite-vec requires k constraint for KNN queries
+            # Use sqlite-vec for vector search.
+            # Raw backend distance is converted to similarity before returning.
+            # Note: sqlite-vec requires k constraint for KNN queries.
             results = []
             try:
                 async with db.execute(
@@ -1371,7 +1755,7 @@ class SQLiteStore:
                         m.message_idx,
                         m.role,
                         m.content_snippet,
-                        v.distance as similarity
+                        v.distance as distance
                     FROM message_embeddings_vec v
                     JOIN message_embeddings m ON v.message_embedding_id = m.message_embedding_id
                     WHERE v.embedding MATCH ? AND k = ?
@@ -1390,9 +1774,29 @@ class SQLiteStore:
                             }
                         )
             except Exception as e:
+                self._log_storage_failure(
+                    "storage.session_message_search.failed",
+                    request_started_at,
+                    session_id=session_id,
+                    top_k=top_k,
+                    query_dim=len(query_embedding),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
                 logger.error(f"Error searching messages for session {session_id}: {e}")
                 raise RuntimeError("Failed to search messages") from e
 
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.session_message_search.completed",
+                surface=Surface.STORAGE,
+                session_id=session_id,
+                top_k=top_k,
+                query_dim=len(query_embedding),
+                result_count=len(results),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
             return results
 
     async def count_sessions(self) -> int:
@@ -1498,11 +1902,7 @@ class EmbeddingReembedder:
 
         except Exception as e:
             logger.error(f"Re-embedding failed: {e}")
-            return ReembedResult(
-                success=False,
-                message=f"Re-embedding failed: {e}",
-                stats={"error": str(e)}
-            )
+            return ReembedResult(success=False, message=f"Re-embedding failed: {e}", stats={"error": str(e)})
 
     async def _reembed_memories(self) -> int:
         """Re-embed all memories with current embedder dimension.
@@ -1519,9 +1919,7 @@ class EmbeddingReembedder:
             await self._store._load_extensions(db)
 
             # Fetch all memories from base table
-            async with db.execute(
-                "SELECT entry_id, content FROM memories"
-            ) as cursor:
+            async with db.execute("SELECT entry_id, content FROM memories") as cursor:
                 memories = list(await cursor.fetchall())
 
             total = len(memories)
@@ -1538,7 +1936,7 @@ class EmbeddingReembedder:
                     SET embedding = ?
                     WHERE entry_id = ?
                     """,
-                    (json.dumps(embedding), entry_id)
+                    (json.dumps(embedding), entry_id),
                 )
 
                 count += 1
@@ -1564,9 +1962,7 @@ class EmbeddingReembedder:
             await self._store._load_extensions(db)
 
             # Fetch all summaries from base table
-            async with db.execute(
-                "SELECT summary_id, summary_text FROM session_summaries"
-            ) as cursor:
+            async with db.execute("SELECT summary_id, summary_text FROM session_summaries") as cursor:
                 summaries = list(await cursor.fetchall())
 
             total = len(summaries)
@@ -1583,7 +1979,7 @@ class EmbeddingReembedder:
                     SET embedding = ?
                     WHERE summary_id = ?
                     """,
-                    (json.dumps(embedding), summary_id)
+                    (json.dumps(embedding), summary_id),
                 )
 
                 count += 1
@@ -1609,9 +2005,7 @@ class EmbeddingReembedder:
             await self._store._load_extensions(db)
 
             # Fetch all message embeddings from base table
-            async with db.execute(
-                "SELECT message_embedding_id, content_snippet FROM message_embeddings"
-            ) as cursor:
+            async with db.execute("SELECT message_embedding_id, content_snippet FROM message_embeddings") as cursor:
                 messages = list(await cursor.fetchall())
 
             total = len(messages)
@@ -1628,7 +2022,7 @@ class EmbeddingReembedder:
                     SET embedding = ?
                     WHERE message_embedding_id = ?
                     """,
-                    (json.dumps(embedding), msg_id)
+                    (json.dumps(embedding), msg_id),
                 )
 
                 count += 1

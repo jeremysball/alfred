@@ -82,15 +82,9 @@ class StructuredLogger:
         }
         await self._write_log(entry)
         if is_success:
-            logger.info(
-                f"Job {job_name} ({job_id}) completed in "
-                f"{getattr(execution_record, 'duration_ms', 0)}ms"
-            )
+            logger.info(f"Job {job_name} ({job_id}) completed in {getattr(execution_record, 'duration_ms', 0)}ms")
         else:
-            logger.error(
-                f"Job {job_name} ({job_id}) failed: "
-                f"{getattr(execution_record, 'error_message', 'unknown')}"
-            )
+            logger.error(f"Job {job_name} ({job_id}) failed: {getattr(execution_record, 'error_message', 'unknown')}")
 
     async def log_scheduler_event(self, event: str, message: str) -> None:
         """Log scheduler-level events (start, stop, etc.)."""

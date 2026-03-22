@@ -4,9 +4,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_theme_selector_lists_kidcore_playground_theme() -> None:
-    source = (
-        PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/components/theme-selector.js"
-    ).read_text()
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/components/theme-selector.js").read_text()
 
     assert "kidcore-playground" in source
     assert "Kidcore Playground" in source
@@ -15,7 +13,7 @@ def test_theme_selector_lists_kidcore_playground_theme() -> None:
 def test_index_loads_kidcore_playground_stylesheet() -> None:
     source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/index.html").read_text()
 
-    assert "/static/css/themes/kidcore-playground.css?v=3" in source
+    assert "/static/css/themes/kidcore-playground.css?v=5" in source
 
 
 def test_kidcore_theme_file_defines_core_surface_tokens() -> None:
@@ -38,9 +36,7 @@ def test_kidcore_theme_file_defines_core_surface_tokens() -> None:
 
 
 def test_theme_selector_keeps_generic_activation_and_existing_themes() -> None:
-    source = (
-        PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/components/theme-selector.js"
-    ).read_text()
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/components/theme-selector.js").read_text()
 
     assert "document.documentElement.setAttribute('data-theme', themeId)" in source
     assert "localStorage.setItem('alfred-theme', themeId)" in source

@@ -7,11 +7,13 @@ import random
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable, Coroutine, Iterator
 from dataclasses import dataclass
+from time import perf_counter
 from typing import Any, ParamSpec, TypeVar, cast
 
 import tiktoken
 
 from alfred.config import Config
+from alfred.observability import Surface, log_event
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -93,7 +95,16 @@ async def _retry_async(
                 raise
 
             if attempt >= max_retries:
-                logger.error(f"Max retries ({max_retries}) exceeded for {operation_name}: {e}")
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "llm.request.failed",
+                    surface=Surface.LLM,
+                    operation=operation_name,
+                    attempts=max_retries + 1,
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
                 if last_exception:
                     raise last_exception from e
                 raise
@@ -105,9 +116,17 @@ async def _retry_async(
             if jitter:
                 delay = delay * (0.5 + random.random())
 
-            logger.warning(
-                f"Attempt {attempt + 1}/{max_retries + 1} failed for {operation_name}: {e}. "
-                f"Retrying in {delay:.2f}s..."
+            log_event(
+                logger,
+                logging.WARNING,
+                "llm.request.retry",
+                surface=Surface.LLM,
+                operation=operation_name,
+                attempt=attempt + 1,
+                max_retries=max_retries + 1,
+                delay_seconds=round(delay, 2),
+                error_type=type(e).__name__,
+                error=str(e),
             )
             await asyncio.sleep(delay)
 
@@ -198,6 +217,21 @@ class KimiProvider(LLMProvider):
         )
         self.model = config.chat_model
 
+    def _log_request_event(self, event: str, **fields: object) -> None:
+        """Emit a structured LLM lifecycle event."""
+        log_event(logger, logging.DEBUG, event, surface=Surface.LLM, model=self.model, **fields)
+
+    @staticmethod
+    def _usage_value(usage: Any | None, field: str) -> int:
+        """Extract a token usage field from dict-like or attribute-based payloads."""
+        if usage is None:
+            return 0
+        value = usage.get(field, 0) if isinstance(usage, dict) else getattr(usage, field, 0)
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
     async def _retry(self, name: str, fn: Callable[[], Coroutine[Any, Any, R]]) -> R:
         """Run fn with exponential-backoff retry. Single source of retry logic."""
         return await _retry_async(fn, max_retries=3, base_delay=1.0, operation_name=name)
@@ -207,6 +241,7 @@ class KimiProvider(LLMProvider):
         import openai
         from openai.types.chat import ChatCompletionMessageParam
 
+        request_started_at = perf_counter()
         api_messages = cast(
             list[ChatCompletionMessageParam],
             [{"role": m.role, "content": m.content} for m in messages],
@@ -240,7 +275,18 @@ class KimiProvider(LLMProvider):
                 else None,
             )
 
-        return await self._retry("chat", _impl)
+        self._log_request_event("llm.request.start", operation="chat", messages=len(messages))
+        response = await self._retry("chat", _impl)
+        self._log_request_event(
+            "llm.request.completed",
+            operation="chat",
+            messages=len(messages),
+            response_chars=len(response.content),
+            prompt_tokens=self._usage_value(response.usage, "prompt_tokens"),
+            completion_tokens=self._usage_value(response.usage, "completion_tokens"),
+            duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+        )
+        return response
 
     async def chat_with_tools(
         self,
@@ -251,6 +297,7 @@ class KimiProvider(LLMProvider):
         from openai import Omit
         from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolUnionParam
 
+        request_started_at = perf_counter()
         cast_messages = cast(
             list[ChatCompletionMessageParam],
             [{"role": m.role, "content": m.content} for m in messages],
@@ -301,13 +348,39 @@ class KimiProvider(LLMProvider):
                 reasoning_content=reasoning_content,
             )
 
-        return await self._retry("chat_with_tools", _impl)
+        self._log_request_event(
+            "llm.request.start",
+            operation="chat_with_tools",
+            messages=len(messages),
+            tools=len(tools or []),
+        )
+        response = await self._retry("chat_with_tools", _impl)
+        self._log_request_event(
+            "llm.request.completed",
+            operation="chat_with_tools",
+            messages=len(messages),
+            tools=len(tools or []),
+            response_chars=len(response.content),
+            prompt_tokens=self._usage_value(response.usage, "prompt_tokens"),
+            completion_tokens=self._usage_value(response.usage, "completion_tokens"),
+            tool_calls=len(response.tool_calls or []),
+            duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+        )
+        return response
 
     async def stream_chat(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         """Stream chat from Kimi with retry logic."""
         import openai
 
-        logger.debug(f"Starting stream chat with Kimi, {len(messages)} messages")
+        request_started_at = perf_counter()
+        first_token_logged = False
+        chunk_count = 0
+        response_chars = 0
+        self._log_request_event(
+            "llm.request.start",
+            operation="stream_chat",
+            messages=len(messages),
+        )
 
         async def _create_stream() -> Any:
             from openai.types.chat import ChatCompletionMessageParam
@@ -323,9 +396,7 @@ class KimiProvider(LLMProvider):
             )
 
         try:
-            stream = await _retry_async(
-                _create_stream, max_retries=3, base_delay=1.0, operation_name="stream_chat"
-            )
+            stream = await _retry_async(_create_stream, max_retries=3, base_delay=1.0, operation_name="stream_chat")
         except openai.RateLimitError as e:
             logger.error(f"Kimi rate limit exceeded: {e}")
             raise RateLimitError(f"Rate limit exceeded: {e}") from e
@@ -346,14 +417,39 @@ class KimiProvider(LLMProvider):
                     continue
                 content = chunk.choices[0].delta.content
                 if content:
+                    chunk_count += 1
+                    response_chars += len(content)
+                    if not first_token_logged:
+                        first_token_logged = True
+                        self._log_request_event(
+                            "llm.request.first_token",
+                            operation="stream_chat",
+                            latency_ms=round((perf_counter() - request_started_at) * 1000, 2),
+                            chunk_chars=len(content),
+                        )
                     yield content
         except Exception as e:
-            logger.error(f"Error during stream: {e}")
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.request.failed",
+                surface=Surface.LLM,
+                operation="stream_chat",
+                error_type=type(e).__name__,
+                error=str(e),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
             raise LLMError(f"Stream error: {e}") from e
+        else:
+            self._log_request_event(
+                "llm.request.completed",
+                operation="stream_chat",
+                chunks=chunk_count,
+                response_chars=response_chars,
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
 
-    def _convert_messages_to_api_format(
-        self, messages: list[ChatMessage]
-    ) -> list[dict[str, Any]]:
+    def _convert_messages_to_api_format(self, messages: list[ChatMessage]) -> list[dict[str, Any]]:
         """Convert ChatMessage objects to API format.
 
         Args:
@@ -467,9 +563,7 @@ class KimiProvider(LLMProvider):
         # Handle usage chunk (no choices)
         if not chunk.choices:
             if hasattr(chunk, "usage") and chunk.usage:
-                usage_data = self._extract_usage_data(
-                    chunk.usage, state["full_reasoning"], encoder
-                )
+                usage_data = self._extract_usage_data(chunk.usage, state["full_reasoning"], encoder)
                 yield f"[USAGE]{json.dumps(usage_data)}"
             return
 
@@ -517,9 +611,7 @@ class KimiProvider(LLMProvider):
         )
 
         async def _create_stream() -> Any:
-            tools_param = (
-                cast(list[ChatCompletionToolUnionParam], tools) if tools else Omit()
-            )
+            tools_param = cast(list[ChatCompletionToolUnionParam], tools) if tools else Omit()
             return await self.client.chat.completions.create(
                 model=self.model,
                 messages=cast(list[ChatCompletionMessageParam], api_messages),
@@ -559,6 +651,15 @@ class KimiProvider(LLMProvider):
         For non-streaming responses with tool calls, yields [TOOL_CALLS] marker
         followed by JSON array of tool calls.
         """
+        request_started_at = perf_counter()
+        first_token_logged = False
+        self._log_request_event(
+            "llm.request.start",
+            operation="stream_chat_with_tools",
+            messages=len(messages),
+            tools=len(tools or []),
+        )
+
         # Convert messages and create stream
         api_messages = self._convert_messages_to_api_format(messages)
         stream = await self._create_stream_with_retry(api_messages, tools)
@@ -571,19 +672,59 @@ class KimiProvider(LLMProvider):
             "full_reasoning": "",
         }
         encoder = tiktoken.get_encoding("cl100k_base")
+        streamed_chunks = 0
 
         try:
             async for chunk in stream:
                 for output in self._process_stream_chunk(chunk, state, encoder):
+                    if output.startswith("[USAGE]"):
+                        yield output
+                        continue
+                    streamed_chunks += 1
+                    if not first_token_logged:
+                        first_token_logged = True
+                        self._log_request_event(
+                            "llm.request.first_token",
+                            operation="stream_chat_with_tools",
+                            latency_ms=round((perf_counter() - request_started_at) * 1000, 2),
+                            chunk_chars=len(output),
+                        )
                     yield output
 
             # Yield collected tool calls
             if state["tool_calls_data"]:
+                if not first_token_logged:
+                    first_token_logged = True
+                    tool_call_payload = json.dumps(state["tool_calls_data"])
+                    self._log_request_event(
+                        "llm.request.first_token",
+                        operation="stream_chat_with_tools",
+                        latency_ms=round((perf_counter() - request_started_at) * 1000, 2),
+                        chunk_chars=len(tool_call_payload),
+                    )
                 yield f"[TOOL_CALLS]{json.dumps(state['tool_calls_data'])}"
 
         except Exception as e:
-            logger.error(f"Error in stream_chat_with_tools: {e}")
+            log_event(
+                logger,
+                logging.ERROR,
+                "llm.request.failed",
+                surface=Surface.LLM,
+                operation="stream_chat_with_tools",
+                error_type=type(e).__name__,
+                error=str(e),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
             raise
+        else:
+            self._log_request_event(
+                "llm.request.completed",
+                operation="stream_chat_with_tools",
+                chunks=streamed_chunks,
+                response_chars=len(state["full_content"]) + len(state["full_reasoning"]),
+                tool_calls=len(state["tool_calls_data"]),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
 
 
 class LLMFactory:

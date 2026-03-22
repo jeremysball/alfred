@@ -131,9 +131,7 @@ class CompatTUI(TUI):
         """
         self.children.append(component)
 
-    def add_input_listener(
-        self, listener: Callable[[str], dict[str, bool] | None]
-    ) -> Callable[[], None]:
+    def add_input_listener(self, listener: Callable[[str], dict[str, bool] | None]) -> Callable[[], None]:
         """Register a high-priority input listener.
 
         Returns:
@@ -244,9 +242,7 @@ class CompatTUI(TUI):
         else:
             overlay = Overlay(
                 content=overlay_or_content,
-                position=self._options_to_position(
-                    overlay_or_content, options
-                ),
+                position=self._options_to_position(overlay_or_content, options),
             )
 
         super().show_overlay(overlay)
@@ -271,9 +267,7 @@ class CompatTUI(TUI):
             return size
         return (80, 24)
 
-    def _normalize_rendered_lines(
-        self, lines: Iterable[str | RenderedLine]
-    ) -> list[RenderedLine]:
+    def _normalize_rendered_lines(self, lines: Iterable[str | RenderedLine]) -> list[RenderedLine]:
         normalized: list[RenderedLine] = []
         for line in lines:
             if isinstance(line, RenderedLine):
@@ -292,17 +286,13 @@ class CompatTUI(TUI):
         if not overlay.visible:
             return base_lines
 
-        row, col, overlay_width, overlay_height = self._resolve_position(
-            overlay.position, term_width, term_height
-        )
+        row, col, overlay_width, overlay_height = self._resolve_position(overlay.position, term_width, term_height)
 
         result = list(base_lines)
         while len(result) < row + overlay_height:
             result.append(RenderedLine(content=" " * term_width, styles=[]))
 
-        overlay_lines = self._normalize_rendered_lines(
-            overlay.content.render(overlay_width)
-        )
+        overlay_lines = self._normalize_rendered_lines(overlay.content.render(overlay_width))
 
         for index, overlay_line in enumerate(overlay_lines[:overlay_height]):
             target_row = row + index

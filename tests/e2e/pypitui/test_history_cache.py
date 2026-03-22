@@ -35,9 +35,7 @@ def test_cache_creates_table_schema(temp_cache_dir: Path, temp_work_dir: Path) -
 
     db_path = temp_cache_dir / "history.db"
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='history'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='history'")
         assert cursor.fetchone() is not None
 
 
@@ -99,9 +97,7 @@ def test_cache_loads_in_order(temp_cache_dir: Path, temp_work_dir: Path) -> None
     assert messages == ["First", "Second", "Third"]
 
 
-def test_cache_clear_deletes_from_database(
-    history_manager: HistoryManager, temp_cache_dir: Path
-) -> None:
+def test_cache_clear_deletes_from_database(history_manager: HistoryManager, temp_cache_dir: Path) -> None:
     """Test that clear() removes entries from SQLite."""
     history_manager.add("message to clear")
 
@@ -190,9 +186,7 @@ def test_cache_max_entries_per_directory(temp_cache_dir: Path, temp_work_dir: Pa
     assert len(new_manager2._history) == 50
 
 
-def test_cache_includes_working_dir_for_debugging(
-    history_manager: HistoryManager, temp_cache_dir: Path
-) -> None:
+def test_cache_includes_working_dir_for_debugging(history_manager: HistoryManager, temp_cache_dir: Path) -> None:
     """Test that cache stores working_dir for debugging."""
     history_manager.add("test")
 
@@ -213,9 +207,7 @@ def test_dir_hash_deterministic(history_manager: HistoryManager, temp_work_dir: 
     assert len(hash1) == 16  # Truncated SHA256
 
 
-def test_dir_hash_different_for_different_paths(
-    history_manager: HistoryManager, temp_work_dir: Path
-) -> None:
+def test_dir_hash_different_for_different_paths(history_manager: HistoryManager, temp_work_dir: Path) -> None:
     """Test that different paths produce different hashes."""
     path1 = temp_work_dir / "a"
     path2 = temp_work_dir / "b"

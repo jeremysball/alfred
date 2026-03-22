@@ -23,9 +23,7 @@ def alfred_session():
         s.sleep(0.3)
 
         # Start Alfred with environment
-        s.send(
-            "cd /workspace/alfred-prd && export $(grep -v '^#' .env | xargs) && .venv/bin/alfred"
-        )
+        s.send("cd /workspace/alfred-prd && export $(grep -v '^#' .env | xargs) && .venv/bin/alfred")
         s.send_key("Enter")
         s.sleep(3)  # Wait for Alfred to start
 
@@ -55,14 +53,10 @@ def test_status_line_not_overlapped_after_resize(alfred_session):
     text_before = s.capture_text()
 
     # Verify status line is present (contains model name or tokens)
-    assert "moonshot" in text_before or "kimi" in text_before or "ctx" in text_before, \
-        "Status line should be visible with model info"
+    assert "moonshot" in text_before or "kimi" in text_before or "ctx" in text_before, "Status line should be visible with model info"
 
     # Resize terminal to 40 columns (forces input to wrap)
-    subprocess.run(
-        ["tmux", "resize-window", "-t", s.name, "-x", "40", "-y", "20"],
-        capture_output=True
-    )
+    subprocess.run(["tmux", "resize-window", "-t", s.name, "-x", "40", "-y", "20"], capture_output=True)
     s.sleep(1)  # Wait for resize to take effect
 
     # Capture after resize
@@ -76,8 +70,7 @@ def test_status_line_not_overlapped_after_resize(alfred_session):
     # Also check for model name (may be truncated)
     model_found = "moonshot" in text_after or "kimi" in text_after
 
-    assert status_found or model_found, \
-        f"Status line should remain visible after resize. Content:\n{text_after}"
+    assert status_found or model_found, f"Status line should remain visible after resize. Content:\n{text_after}"
 
     # Verify no line contains both input text and status line content
     # (which would indicate overlap)
@@ -110,10 +103,7 @@ def test_input_wrapping_on_resize(alfred_session):
     assert "Testing resize" in text_wide, "Message should be visible at 80 columns"
 
     # Resize to 40 columns
-    subprocess.run(
-        ["tmux", "resize-window", "-t", s.name, "-x", "40", "-y", "20"],
-        capture_output=True
-    )
+    subprocess.run(["tmux", "resize-window", "-t", s.name, "-x", "40", "-y", "20"], capture_output=True)
     s.sleep(1)
 
     # Capture at 40 columns
@@ -124,14 +114,10 @@ def test_input_wrapping_on_resize(alfred_session):
 
     # Count lines with our test content - at 40 cols,
     # "Testing resize behavior with wrapping" (45 chars) should wrap to 2 lines
-    lines_with_content = [
-        line for line in text_narrow.split("\n")
-        if "Testing" in line or "resize" in line or "wrapping" in line
-    ]
+    lines_with_content = [line for line in text_narrow.split("\n") if "Testing" in line or "resize" in line or "wrapping" in line]
 
     # Should have at least 1 line, likely 2 due to wrapping
-    assert len(lines_with_content) >= 1, \
-        f"Message should be displayed on at least 1 line. Content:\n{text_narrow}"
+    assert len(lines_with_content) >= 1, f"Message should be displayed on at least 1 line. Content:\n{text_narrow}"
 
 
 @pytest.mark.e2e
@@ -145,10 +131,7 @@ def test_resize_larger_then_smaller(alfred_session):
     s.sleep(2)
 
     # Resize to 60 columns
-    subprocess.run(
-        ["tmux", "resize-window", "-t", s.name, "-x", "60", "-y", "20"],
-        capture_output=True
-    )
+    subprocess.run(["tmux", "resize-window", "-t", s.name, "-x", "60", "-y", "20"], capture_output=True)
     s.sleep(0.5)
 
     # Type more content
@@ -156,10 +139,7 @@ def test_resize_larger_then_smaller(alfred_session):
     s.sleep(0.5)
 
     # Resize to 40 columns
-    subprocess.run(
-        ["tmux", "resize-window", "-t", s.name, "-x", "40", "-y", "20"],
-        capture_output=True
-    )
+    subprocess.run(["tmux", "resize-window", "-t", s.name, "-x", "40", "-y", "20"], capture_output=True)
     s.sleep(0.5)
 
     # Capture state
@@ -167,8 +147,7 @@ def test_resize_larger_then_smaller(alfred_session):
 
     # Verify we can see both messages
     assert "Hello" in text, "First message should still be visible"
-    assert "resize stability" in text or "longer message" in text, \
-        "Second message should be visible after resize"
+    assert "resize stability" in text or "longer message" in text, "Second message should be visible after resize"
 
     # Verify status line integrity
     # After resize, status line should still show token counts or model info
@@ -186,10 +165,7 @@ def test_input_at_bottom_after_resize(alfred_session):
     s.sleep(0.5)
 
     # Resize narrower
-    subprocess.run(
-        ["tmux", "resize-window", "-t", s.name, "-x", "50", "-y", "20"],
-        capture_output=True
-    )
+    subprocess.run(["tmux", "resize-window", "-t", s.name, "-x", "50", "-y", "20"], capture_output=True)
     s.sleep(0.5)
 
     # Capture and check last few lines
@@ -204,8 +180,9 @@ def test_input_at_bottom_after_resize(alfred_session):
         last_content_line = non_empty_lines[-1]
         # Last line should either have our text, be the input prompt area,
         # or contain status indicators
-        assert ("Bottom" in last_content_line or
-                "test" in last_content_line or
-                any(x in last_content_line for x in ["ctx", "↑", "↓", "moonshot", "kimi"]) or
-                len(last_content_line) < 5), \
-            f"Input or status should be at bottom. Last line: {last_content_line}"
+        assert (
+            "Bottom" in last_content_line
+            or "test" in last_content_line
+            or any(x in last_content_line for x in ["ctx", "↑", "↓", "moonshot", "kimi"])
+            or len(last_content_line) < 5
+        ), f"Input or status should be at bottom. Last line: {last_content_line}"

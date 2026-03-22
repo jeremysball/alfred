@@ -31,9 +31,7 @@ class MemoryStoreMixin:
 class ErrorHandlingMixin:
     """Mixin for consistent error handling in tools."""
 
-    async def _handle_error(
-        self, message: str, exception: Exception | None = None
-    ) -> AsyncIterator[str]:
+    async def _handle_error(self, message: str, exception: Exception | None = None) -> AsyncIterator[str]:
         """Format and yield error message."""
         error_msg = f"{message}: {exception}" if exception else message
         yield error_msg
@@ -55,10 +53,7 @@ class SearchResultMixin:
         date_str = entry.timestamp.strftime("%Y-%m-%d")
         sim_pct = int(similarity * 100)
         scr_pct = int(score * 100)
-        return (
-            f"- [{date_str}] {entry.content} "
-            f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry.entry_id})"
-        )
+        return f"- [{date_str}] {entry.content} (sim: {sim_pct}%, score: {scr_pct}%, id: {entry.entry_id})"
 
     def _format_results(
         self,

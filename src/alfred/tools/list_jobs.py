@@ -41,10 +41,7 @@ class ListJobsTool(Tool):
     """
 
     name = "list_jobs"
-    description = (
-        "List cron jobs with optional filtering by status. "
-        "Use to show pending jobs awaiting approval or all active jobs."
-    )
+    description = "List cron jobs with optional filtering by status. Use to show pending jobs awaiting approval or all active jobs."
     param_model = ListJobsParams
 
     def __init__(self, socket_client: "SocketClient") -> None:
@@ -76,10 +73,7 @@ class ListJobsTool(Tool):
         valid_filters = ["all", "pending", "active", "paused"]
 
         if status_filter not in valid_filters:
-            yield (
-                f"Error: Invalid status filter '{status_filter}'. "
-                f"Use one of: {', '.join(valid_filters)}"
-            )
+            yield (f"Error: Invalid status filter '{status_filter}'. Use one of: {', '.join(valid_filters)}")
             return
 
         try:

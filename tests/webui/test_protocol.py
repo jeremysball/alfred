@@ -164,6 +164,8 @@ def test_status_update_message_structure():
             "reasoningTokens": 150,
             "queueLength": 2,
             "isStreaming": True,
+            "daemonStatus": "running",
+            "daemonPid": 12345,
         },
     }
     assert message["type"] == "status.update"

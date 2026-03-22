@@ -65,9 +65,7 @@ class TestWithCompletionFluentAPI:
     def test_chaining_with_other_methods(self) -> None:
         """with_completion_component can be chained with other methods."""
         menu = CompletionMenuComponent()
-        input_field = WrappedInput(placeholder="Type / for commands").with_completion_component(
-            lambda t: [("/cmd", "Command")], menu
-        )
+        input_field = WrappedInput(placeholder="Type / for commands").with_completion_component(lambda t: [("/cmd", "Command")], menu)
 
         assert input_field.get_value() == ""
 

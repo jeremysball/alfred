@@ -35,13 +35,13 @@ def test_audio_manager_exposes_separate_music_and_sfx_controls() -> None:
 def test_index_includes_kidcore_audio_controls_and_scripts() -> None:
     source = INDEX_HTML.read_text()
 
-    assert '/static/js/audio-manager.js?v=3' in source
-    assert '/static/js/kidcore-homeboard.js?v=3' in source
-    assert 'kidcore-audio-controls' in source
+    assert "/static/js/audio-manager.js?v=3" in source
+    assert "/static/js/kidcore-homeboard.js?v=3" in source
+    assert "kidcore-audio-controls" in source
     assert 'id="kidcore-music-play"' in source
     assert 'id="kidcore-music-mute"' in source
     assert 'id="kidcore-sfx-toggle"' in source
-    assert 'kidcore-homeboard' in source
+    assert "kidcore-homeboard" in source
 
 
 def test_main_wires_kidcore_audio_to_core_interactions() -> None:
@@ -91,6 +91,7 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     raise RuntimeError(f"server did not start: {last_error}")
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_audio_controls_toggle_music_and_sfx_independently() -> None:
     port = _find_free_port()
@@ -137,14 +138,14 @@ async def test_kidcore_audio_controls_toggle_music_and_sfx_independently() -> No
                 """
             )
 
-            await page.click('#kidcore-music-play')
+            await page.click("#kidcore-music-play")
             await page.wait_for_timeout(100)
-            await page.locator('#message-input').fill('glitter check')
-            await page.click('#send-button')
+            await page.locator("#message-input").fill("glitter check")
+            await page.click("#send-button")
             await page.wait_for_timeout(100)
-            await page.click('#kidcore-sfx-toggle')
+            await page.click("#kidcore-sfx-toggle")
             await page.wait_for_timeout(100)
-            await page.click('#kidcore-music-mute')
+            await page.click("#kidcore-music-mute")
             await page.wait_for_timeout(100)
 
             data = await page.evaluate(
@@ -189,6 +190,7 @@ async def test_kidcore_audio_controls_toggle_music_and_sfx_independently() -> No
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_audio_controls_hide_outside_kidcore_theme() -> None:
     port = _find_free_port()
@@ -210,9 +212,7 @@ async def test_kidcore_audio_controls_hide_outside_kidcore_theme() -> None:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1440, "height": 900})
-            await page.add_init_script(
-                "localStorage.setItem('alfred-theme', 'dark-academia');"
-            )
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'dark-academia');")
             await page.goto(
                 f"http://127.0.0.1:{port}/static/index.html",
                 wait_until="networkidle",
@@ -254,6 +254,7 @@ async def test_kidcore_audio_controls_hide_outside_kidcore_theme() -> None:
                 await process.wait()
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
     port = _find_free_port()
@@ -275,9 +276,7 @@ async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch()
             page = await browser.new_page(viewport={"width": 1440, "height": 900})
-            await page.add_init_script(
-                "localStorage.setItem('alfred-theme', 'kidcore-playground');"
-            )
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
             await page.goto(
                 f"http://127.0.0.1:{port}/static/index.html",
                 wait_until="networkidle",
@@ -304,8 +303,8 @@ async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
                 """
             )
 
-            await page.locator('#message-input').fill('glue shimmer')
-            await page.click('#send-button')
+            await page.locator("#message-input").fill("glue shimmer")
+            await page.click("#send-button")
             await page.wait_for_timeout(50)
 
             await page.evaluate(
@@ -386,10 +385,10 @@ async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
 def test_audio_manager_uses_web_audio_and_special_effect_files() -> None:
     source = AUDIO_MANAGER.read_text()
 
-    assert 'AudioContext' in source or 'webkitAudioContext' in source
-    assert 'playChunk' in source
-    assert 'playMessageComplete' in source
-    assert 'setMusicMuted' in source
-    assert 'setSfxMuted' in source
-    assert 'success.mp3' in source
-    assert 'error.mp3' in source
+    assert "AudioContext" in source or "webkitAudioContext" in source
+    assert "playChunk" in source
+    assert "playMessageComplete" in source
+    assert "setMusicMuted" in source
+    assert "setSfxMuted" in source
+    assert "success.mp3" in source
+    assert "error.mp3" in source

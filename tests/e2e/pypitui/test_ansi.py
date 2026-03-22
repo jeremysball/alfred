@@ -269,9 +269,7 @@ class TestAnsiRenderingBehavior:
 class TestAnsiEndToEnd:
     """End-to-end tests using full TUI rendering pipeline."""
 
-    def test_assistant_message_with_background_shows_color(
-        self, mock_alfred, mock_terminal
-    ) -> None:
+    def test_assistant_message_with_background_shows_color(self, mock_alfred, mock_terminal) -> None:
         """Verify assistant response with {on_green} renders with ANSI code."""
         from alfred.interfaces.pypitui.message_panel import MessagePanel
 

@@ -255,12 +255,8 @@ class SessionManager:
 
             meta = SessionMeta(
                 session_id=session_id,
-                created_at=datetime.fromisoformat(
-                    data.get("created_at", datetime.now(UTC).isoformat())
-                ),
-                last_active=datetime.fromisoformat(
-                    data.get("updated_at", datetime.now(UTC).isoformat())
-                ),
+                created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
+                last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
                 status="active",
                 message_count=len(messages),
             )
@@ -332,12 +328,8 @@ class SessionManager:
             for data in sessions_data:
                 meta = SessionMeta(
                     session_id=data["session_id"],
-                    created_at=datetime.fromisoformat(
-                        data.get("created_at", datetime.now(UTC).isoformat())
-                    ),
-                    last_active=datetime.fromisoformat(
-                        data.get("updated_at", datetime.now(UTC).isoformat())
-                    ),
+                    created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
+                    last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
                     status="active",
                     message_count=len(data.get("messages", [])),
                 )
@@ -360,12 +352,8 @@ class SessionManager:
             for data in sessions_data:
                 meta = SessionMeta(
                     session_id=data["session_id"],
-                    created_at=datetime.fromisoformat(
-                        data.get("created_at", datetime.now(UTC).isoformat())
-                    ),
-                    last_active=datetime.fromisoformat(
-                        data.get("updated_at", datetime.now(UTC).isoformat())
-                    ),
+                    created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
+                    last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
                     status="active",
                     message_count=len(data.get("messages", [])),
                 )

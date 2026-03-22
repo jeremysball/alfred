@@ -1,7 +1,6 @@
 """Tests for status bar Web Component"""
 
 
-
 def test_status_bar_renders_all_elements():
     """Verify status bar shows model, tokens, queue, and streaming indicator"""
     # This test validates the status bar HTML structure and attributes

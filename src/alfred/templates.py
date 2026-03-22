@@ -185,9 +185,7 @@ class TemplateManager:
 
         return content
 
-    def create_from_template(
-        self, name: str, variables: dict[str, str] | None = None, overwrite: bool = False
-    ) -> Path | None:
+    def create_from_template(self, name: str, variables: dict[str, str] | None = None, overwrite: bool = False) -> Path | None:
         """Create file from template, substituting variables.
 
         Args:

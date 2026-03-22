@@ -42,10 +42,7 @@ class ShowContextCommand(Command):
 
                 # Memories section
                 memories = context_data["memories"]
-                lines.append(
-                    f"MEMORIES ({memories['displayed']} of {memories['total']} memories, "
-                    f"{memories['tokens']:,} tokens)"
-                )
+                lines.append(f"MEMORIES ({memories['displayed']} of {memories['total']} memories, {memories['tokens']:,} tokens)")
                 lines.append("─" * 40)
                 for mem in memories["items"]:
                     role = "User" if mem["role"] == "user" else "Assistant"
@@ -56,9 +53,7 @@ class ShowContextCommand(Command):
 
                 # Session history section
                 history = context_data["session_history"]
-                lines.append(
-                    f"SESSION HISTORY ({history['count']} messages, {history['tokens']:,} tokens)"
-                )
+                lines.append(f"SESSION HISTORY ({history['count']} messages, {history['tokens']:,} tokens)")
                 lines.append("─" * 40)
                 for msg in history["messages"]:
                     role = msg["role"].capitalize()
@@ -68,10 +63,7 @@ class ShowContextCommand(Command):
                 # Tool calls section
                 tool_calls = context_data["tool_calls"]
                 if tool_calls["count"] > 0:
-                    lines.append(
-                        f"RECENT TOOL CALLS ({tool_calls['count']} calls, "
-                        f"{tool_calls['tokens']:,} tokens)"
-                    )
+                    lines.append(f"RECENT TOOL CALLS ({tool_calls['count']} calls, {tool_calls['tokens']:,} tokens)")
                     lines.append("─" * 40)
                     for i, tc in enumerate(tool_calls["items"], 1):
                         status_icon = "✓" if tc["status"] == "success" else "✗"

@@ -39,9 +39,7 @@ async def run():
         with patch.object(scheduler, "_store") as mock_store:
             mock_store.save_job = AsyncMock()
             # Should NOT raise ImportError about __import__
-            job_id = await scheduler.submit_user_job(
-                name="test-imports", expression="* * * * *", code=code
-            )
+            job_id = await scheduler.submit_user_job(name="test-imports", expression="* * * * *", code=code)
             assert job_id is not None
 
     @pytest.mark.asyncio
@@ -98,9 +96,7 @@ async def run():
             mock_store.save_job = AsyncMock()
 
             with pytest.raises(ValueError) as exc_info:
-                await scheduler.submit_user_job(
-                    name="test-blocking", expression="* * * * *", code=code
-                )
+                await scheduler.submit_user_job(name="test-blocking", expression="* * * * *", code=code)
 
             assert "time.sleep" in str(exc_info.value)
 
@@ -119,9 +115,7 @@ async def run():
             mock_store.save_job = AsyncMock()
 
             with pytest.raises(ValueError) as exc_info:
-                await scheduler.submit_user_job(
-                    name="test-blocking", expression="* * * * *", code=code
-                )
+                await scheduler.submit_user_job(name="test-blocking", expression="* * * * *", code=code)
 
             assert "subprocess.run" in str(exc_info.value)
 
@@ -139,9 +133,7 @@ async def run():
             mock_store.save_job = AsyncMock()
 
             with pytest.raises(ValueError) as exc_info:
-                await scheduler.submit_user_job(
-                    name="test-blocking", expression="* * * * *", code=code
-                )
+                await scheduler.submit_user_job(name="test-blocking", expression="* * * * *", code=code)
 
             assert "open" in str(exc_info.value)
 
@@ -168,9 +160,7 @@ async def run():
         with patch.object(scheduler, "_store") as mock_store:
             mock_store.save_job = AsyncMock()
 
-            job_id = await scheduler.submit_user_job(
-                name="test-async", expression="* * * * *", code=code
-            )
+            job_id = await scheduler.submit_user_job(name="test-async", expression="* * * * *", code=code)
             assert job_id is not None
 
     @pytest.mark.asyncio
@@ -190,7 +180,5 @@ async def run():
             mock_store.save_job = AsyncMock()
 
             # This should succeed - asyncio.sleep is the proper async pattern
-            job_id = await scheduler.submit_user_job(
-                name="test-async", expression="* * * * *", code=code
-            )
+            job_id = await scheduler.submit_user_job(name="test-async", expression="* * * * *", code=code)
             assert job_id is not None

@@ -135,9 +135,7 @@ class SocketServer:
 
         logger.info("Socket server stopped")
 
-    async def _handle_client(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ) -> None:
+    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Handle a connected client (cron runner).
 
         Reads messages line-by-line until the client disconnects.
@@ -192,9 +190,7 @@ class SocketServer:
             return self._on_runner_stopping
         return None
 
-    def _get_request_handler(
-        self, message: SocketMessage
-    ) -> Callable[[Any], SocketMessage | Awaitable[SocketMessage]] | None:
+    def _get_request_handler(self, message: SocketMessage) -> Callable[[Any], SocketMessage | Awaitable[SocketMessage]] | None:
         """Get the appropriate handler for request messages that need responses."""
         if isinstance(message, QueryJobsRequest):
             return self._on_query_jobs
@@ -206,9 +202,7 @@ class SocketServer:
             return self._on_reject_job
         return None
 
-    async def _send_response(
-        self, writer: asyncio.StreamWriter, response: SocketMessage
-    ) -> None:
+    async def _send_response(self, writer: asyncio.StreamWriter, response: SocketMessage) -> None:
         """Send a response message back to the client."""
         writer.write(response.to_json().encode("utf-8"))
         await writer.drain()
@@ -222,9 +216,7 @@ class SocketServer:
             return await raw
         return raw
 
-    async def _dispatch_message(
-        self, message: SocketMessage, writer: asyncio.StreamWriter
-    ) -> None:
+    async def _dispatch_message(self, message: SocketMessage, writer: asyncio.StreamWriter) -> None:
         """Dispatch a message to the appropriate callback."""
         try:
             # Handle ping/pong directly

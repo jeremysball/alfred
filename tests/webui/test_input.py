@@ -32,10 +32,7 @@ def test_command_completion_structure():
     from alfred.interfaces.webui.validation import CompletionSuggestion, CompletionSuggestionsMessage
 
     suggestion = CompletionSuggestion(value="/new", description="Start new session")
-    message = CompletionSuggestionsMessage(
-        type="completion.suggestions",
-        payload={"suggestions": [suggestion]}
-    )
+    message = CompletionSuggestionsMessage(type="completion.suggestions", payload={"suggestions": [suggestion]})
 
     assert message.type == "completion.suggestions"
     assert len(message.payload.suggestions) == 1
