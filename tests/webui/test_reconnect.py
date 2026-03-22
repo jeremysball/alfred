@@ -261,9 +261,7 @@ async def test_retry_button_replays_last_user_prompt() -> None:
                 """
             )
 
-            assistant_message = page.locator('chat-message[message-id="assistant-old"]')
-            await assistant_message.hover()
-            await page.locator('chat-message[message-id="assistant-old"] [data-action="retry"]').click()
+            await page.click('chat-message[message-id="assistant-old"] [data-action="retry"]')
             await page.wait_for_function(
                 """
                 () => window.__sentWebSocketMessages.some((message) =>
