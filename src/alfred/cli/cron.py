@@ -233,9 +233,7 @@ async def list_jobs(
 @async_command
 async def submit_job(
     name: str = typer.Argument(..., help="Job name"),
-    schedule: str = typer.Argument(
-        ..., help="Schedule expression (e.g., '0 9 * * *' for 9am daily)"
-    ),
+    schedule: str = typer.Argument(..., help="Schedule expression (e.g., '0 9 * * *' for 9am daily)"),
     code: str | None = typer.Option(None, "--code", "-c", help="Python code for the job"),
 ) -> None:
     """Submit a new cron job for approval."""
@@ -270,9 +268,7 @@ async def run():
         raise typer.Exit(1) from None
 
     async def _via_socket(client: SocketClient) -> str:
-        response = await client.submit_job(
-            name=name, expression=cron_expression, code=code, timeout=10.0
-        )
+        response = await client.submit_job(name=name, expression=cron_expression, code=code, timeout=10.0)
         if response is None:
             raise ConnectionError("Socket connected but submit failed")
         if not response.success:
@@ -339,15 +335,9 @@ async def review_job(job_id: str = typer.Argument(..., help="Job ID or name")) -
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "code": job.code,
             "resource_limits": {
-                "timeout_seconds": (
-                    job.resource_limits.timeout_seconds if job.resource_limits else 60
-                ),
-                "max_memory_mb": (
-                    job.resource_limits.max_memory_mb if job.resource_limits else 128
-                ),
-                "allow_network": (
-                    job.resource_limits.allow_network if job.resource_limits else False
-                ),
+                "timeout_seconds": (job.resource_limits.timeout_seconds if job.resource_limits else 60),
+                "max_memory_mb": (job.resource_limits.max_memory_mb if job.resource_limits else 128),
+                "allow_network": (job.resource_limits.allow_network if job.resource_limits else False),
             },
         }
 
@@ -409,9 +399,7 @@ async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) 
             raise ValueError(f"Cannot approve job with status '{job.get('status')}'")
 
         # Approve via socket
-        approve_response = await client.approve_job(
-            job_identifier=job.get("job_id", ""), timeout=10.0
-        )
+        approve_response = await client.approve_job(job_identifier=job.get("job_id", ""), timeout=10.0)
         if approve_response is None:
             raise ConnectionError("Failed to send approval")
         if not approve_response.success:
@@ -443,8 +431,7 @@ async def approve_job(job_id: str = typer.Argument(..., help="Job ID or name")) 
         else:
             console.print(
                 Panel(
-                    f"[green]✓[/green] Approved '[bold]{job_name}[/bold]'\n"
-                    f"The job is now active and will run on schedule.",
+                    f"[green]✓[/green] Approved '[bold]{job_name}[/bold]'\nThe job is now active and will run on schedule.",
                     title="Job Approved",
                     border_style="green",
                 )
@@ -517,10 +504,7 @@ async def show_history(
 
     try:
         if not client.is_connected:
-            console.print(
-                "[yellow]Warning: Not connected to TUI. "
-                "Execution history is only available when TUI is running.[/yellow]"
-            )
+            console.print("[yellow]Warning: Not connected to TUI. Execution history is only available when TUI is running.[/yellow]")
             return
 
         response = await client.query_jobs(timeout=5.0)
@@ -532,20 +516,14 @@ async def show_history(
         recent_failures = response.recent_failures
 
         if job_id:
-            recent_failures = [
-                r
-                for r in recent_failures
-                if r.get("job_id", "").startswith(job_id) or job_id in r.get("job_id", "")
-            ]
+            recent_failures = [r for r in recent_failures if r.get("job_id", "").startswith(job_id) or job_id in r.get("job_id", "")]
 
         # Sort by started_at (most recent first)
         recent_failures.sort(key=lambda r: r.get("started_at", ""), reverse=True)
         recent_failures = recent_failures[:limit]
 
         if not recent_failures:
-            console.print(
-                f"[yellow]No history found{' for job ' + job_id if job_id else ''}.[/yellow]"
-            )
+            console.print(f"[yellow]No history found{' for job ' + job_id if job_id else ''}.[/yellow]")
             return
 
         table = Table(title="Execution History")

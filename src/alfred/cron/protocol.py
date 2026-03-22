@@ -284,15 +284,7 @@ SocketMessage = (
 
 ClientMessage = Subscribe | ListJobs | SubmitJob | ApproveJob | RejectJob | Ping
 ServerMessage = (
-    JobsResponse
-    | SubmitJobResponse
-    | ApproveJobResponse
-    | RejectJobResponse
-    | Pong
-    | JobStarted
-    | JobCompleted
-    | JobFailed
-    | Notification
+    JobsResponse | SubmitJobResponse | ApproveJobResponse | RejectJobResponse | Pong | JobStarted | JobCompleted | JobFailed | Notification
 )
 Event = JobStarted | JobCompleted | JobFailed | Notification
 

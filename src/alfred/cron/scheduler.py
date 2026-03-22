@@ -437,9 +437,7 @@ class CronScheduler:
             if self._socket_client:
                 from alfred.cron.socket_protocol import JobStartedMessage
 
-                await self._socket_client.send(
-                    JobStartedMessage(job_id=job.job_id, job_name=job.name)
-                )
+                await self._socket_client.send(JobStartedMessage(job_id=job.job_id, job_name=job.name))
 
             # Execute with resource limits
             result = await executor.execute()

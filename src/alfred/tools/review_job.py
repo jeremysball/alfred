@@ -53,10 +53,7 @@ class ReviewJobTool(Tool):
     """
 
     name = "review_job"
-    description = (
-        "Review a cron job's details including its Python code. "
-        "Use before approving to see what code will be executed."
-    )
+    description = "Review a cron job's details including its Python code. Use before approving to see what code will be executed."
     param_model = ReviewJobParams
 
     def __init__(self, socket_client: "SocketClient") -> None:
@@ -90,11 +87,7 @@ class ReviewJobTool(Tool):
             response = await self.socket_client.query_jobs()
 
             if response is None:
-                yield (
-                    "Error: Failed to query jobs.\n\n"
-                    "The cron daemon may not be running. "
-                    "Use 'alfred daemon status' to check."
-                )
+                yield ("Error: Failed to query jobs.\n\nThe cron daemon may not be running. Use 'alfred daemon status' to check.")
                 return
 
             # Find job by ID or name

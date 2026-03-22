@@ -38,9 +38,7 @@ class ScheduleJobParams(BaseModel):
     )
     code: str | None = Field(
         default=None,
-        description=(
-            "Optional Python code. If not provided, code will be generated from description"
-        ),
+        description=("Optional Python code. If not provided, code will be generated from description"),
     )
 
     @field_validator("name")

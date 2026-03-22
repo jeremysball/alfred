@@ -52,9 +52,7 @@ class RejectJobTool(Tool):
     """
 
     name = "reject_job"
-    description = (
-        "Reject and delete a pending cron job. The job will be permanently removed from the system."
-    )
+    description = "Reject and delete a pending cron job. The job will be permanently removed from the system."
     param_model = RejectJobParams
 
     def __init__(self, socket_client: "SocketClient") -> None:

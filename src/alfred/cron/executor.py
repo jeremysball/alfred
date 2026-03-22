@@ -207,10 +207,7 @@ class JobExecutor:
 
         # Check if we exceeded memory limit (log warning, don't fail)
         if self._memory_peak_mb > self.limits.max_memory_mb:
-            logger.warning(
-                f"Job {self.job.job_id} exceeded memory limit: "
-                f"{self._memory_peak_mb}MB > {self.limits.max_memory_mb}MB"
-            )
+            logger.warning(f"Job {self.job.job_id} exceeded memory limit: {self._memory_peak_mb}MB > {self.limits.max_memory_mb}MB")
 
     def _get_duration_ms(self) -> int:
         """Calculate execution duration in milliseconds."""
