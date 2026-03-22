@@ -16,6 +16,7 @@ def _consume_startup_messages(websocket) -> None:
 
     assert websocket.receive_json()["type"] == "connected"
     assert websocket.receive_json()["type"] == "session.loaded"
+    assert websocket.receive_json()["type"] == "daemon.status"
     assert websocket.receive_json()["type"] == "status.update"
 
 

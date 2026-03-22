@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
@@ -20,7 +21,9 @@ def _connect_and_consume_startup(websocket) -> tuple[dict, dict, dict]:
 
     connected = websocket.receive_json()
     session_loaded = websocket.receive_json()
+    daemon_status = websocket.receive_json()
     status_update = websocket.receive_json()
+    assert daemon_status["type"] == "daemon.status"
     return connected, session_loaded, status_update
 
 
@@ -86,37 +89,41 @@ class LegacyContextAlfred(LegacyBaseAlfred):
         return {"cwd": "/tmp"}
 
 
-def test_websocket_connect_syncs_token_tracker_and_sends_status_update() -> None:
-    """Web UI should reuse Alfred token tracker for historical session totals."""
+@pytest.mark.timeout(5)
+def test_websocket_connect_emits_daemon_status_before_status_update(tmp_path) -> None:
+    """Web UI should emit daemon.status separately from status.update."""
+
+    pid_file = tmp_path / "cron-runner.pid"
+    socket_path = tmp_path / "notify.sock"
+    pid_file.write_text("4321")
+    socket_path.write_text("socket")
 
     class FakeDaemonManager:
-        def is_running(self) -> bool:
-            return True
+        def __init__(self) -> None:
+            self.pid_file = pid_file
 
         def read_pid(self) -> int | None:
             return 4321
 
     fake_alfred = FakeAlfred()
+    fake_alfred.socket_client.socket_path = socket_path
+    fake_alfred.socket_client.is_connected = True
     client = TestClient(create_app(alfred_instance=fake_alfred))
 
-    with patch("alfred.interfaces.webui.server.DaemonManager", FakeDaemonManager), client.websocket_connect("/ws") as websocket:
-        connected, session_loaded, status_update = _connect_and_consume_startup(websocket)
+    with patch("alfred.interfaces.webui.daemon_status.DaemonManager", FakeDaemonManager), client.websocket_connect("/ws") as websocket:
+        connected = websocket.receive_json()
+        session_loaded = websocket.receive_json()
+        daemon_status = websocket.receive_json()
+        status_update = websocket.receive_json()
 
     assert connected["type"] == "connected"
     assert session_loaded["type"] == "session.loaded"
+    assert daemon_status["type"] == "daemon.status"
+    assert daemon_status["payload"]["daemon"]["state"] == "running"
+    assert daemon_status["payload"]["daemon"]["pid"] == 4321
     assert status_update["type"] == "status.update"
-    assert status_update["payload"] == {
-        "model": "kimi/k2-test",
-        "contextTokens": 321,
-        "inputTokens": 11,
-        "outputTokens": 22,
-        "cacheReadTokens": 3,
-        "reasoningTokens": 4,
-        "queueLength": 0,
-        "isStreaming": False,
-        "daemonStatus": "running",
-        "daemonPid": 4321,
-    }
+    assert "daemonStatus" not in status_update["payload"]
+    assert "daemonPid" not in status_update["payload"]
     assert fake_alfred.synced_session_ids == [None]
 
 
@@ -190,8 +197,10 @@ def test_new_command_rejects_legacy_root_level_new_session_shape() -> None:
 
     with client.websocket_connect("/ws") as websocket:
         connected = websocket.receive_json()
+        daemon_status = websocket.receive_json()
         status_update = websocket.receive_json()
         assert connected["type"] == "connected"
+        assert daemon_status["type"] == "daemon.status"
         assert status_update["type"] == "status.update"
 
         websocket.send_json({"type": "command.execute", "payload": {"command": "/new"}})
@@ -232,8 +241,10 @@ def test_sessions_command_rejects_legacy_root_level_list_sessions_shape() -> Non
 
     with client.websocket_connect("/ws") as websocket:
         connected = websocket.receive_json()
+        daemon_status = websocket.receive_json()
         status_update = websocket.receive_json()
         assert connected["type"] == "connected"
+        assert daemon_status["type"] == "daemon.status"
         assert status_update["type"] == "status.update"
 
         websocket.send_json({"type": "command.execute", "payload": {"command": "/sessions"}})
@@ -252,8 +263,10 @@ def test_session_command_rejects_legacy_root_level_current_session_shape() -> No
 
     with client.websocket_connect("/ws") as websocket:
         connected = websocket.receive_json()
+        daemon_status = websocket.receive_json()
         status_update = websocket.receive_json()
         assert connected["type"] == "connected"
+        assert daemon_status["type"] == "daemon.status"
         assert status_update["type"] == "status.update"
 
         websocket.send_json({"type": "command.execute", "payload": {"command": "/session"}})
@@ -328,8 +341,10 @@ def test_context_command_rejects_legacy_get_context_shape() -> None:
         client.websocket_connect("/ws") as websocket,
     ):
         connected = websocket.receive_json()
+        daemon_status = websocket.receive_json()
         status_update = websocket.receive_json()
         assert connected["type"] == "connected"
+        assert daemon_status["type"] == "daemon.status"
         assert status_update["type"] == "status.update"
 
         websocket.send_json({"type": "command.execute", "payload": {"command": "/context"}})

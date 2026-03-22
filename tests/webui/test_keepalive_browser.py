@@ -94,6 +94,7 @@ async def test_browser_websocket_answers_ping_before_chat_complete() -> None:
 
                   await nextMessage(['connected']);
                   await nextMessage(['session.loaded']);
+                  await nextMessage(['daemon.status']);
                   await nextMessage(['status.update']);
 
                   ws.send(JSON.stringify({

@@ -227,6 +227,39 @@ class CompletionSuggestionsMessage(BaseModel):
     payload: CompletionSuggestionsPayload
 
 
+class DaemonStatusInfo(BaseModel):
+    """Details about the cron daemon runtime state."""
+
+    state: Literal["running", "stopped", "starting", "failed", "unknown"] = Field(...)
+    pid: int | None = Field(default=None)
+    socket_path: str | None = Field(default=None, alias="socketPath")
+    socket_healthy: bool | None = Field(default=None, alias="socketHealthy")
+    started_at: str | None = Field(default=None, alias="startedAt")
+    uptime_seconds: int | None = Field(default=None, alias="uptimeSeconds")
+    last_heartbeat_at: str | None = Field(default=None, alias="lastHeartbeatAt")
+    last_reload_at: str | None = Field(default=None, alias="lastReloadAt")
+    last_error: str | None = Field(default=None, alias="lastError")
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
+class DaemonStatusPayload(BaseModel):
+    """Payload for daemon.status message."""
+
+    daemon: DaemonStatusInfo = Field(...)
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
+class DaemonStatusMessage(BaseModel):
+    """Server sends daemon runtime status."""
+
+    type: Literal["daemon.status"]
+    payload: DaemonStatusPayload
+
+    model_config = {"extra": "forbid"}
+
+
 class StatusUpdatePayload(BaseModel):
     """Payload for status.update message."""
 
@@ -238,10 +271,8 @@ class StatusUpdatePayload(BaseModel):
     reasoning_tokens: int = Field(..., alias="reasoningTokens", ge=0)
     queue_length: int = Field(..., alias="queueLength", ge=0)
     is_streaming: bool = Field(..., alias="isStreaming")
-    daemon_status: str | None = Field(default=None, alias="daemonStatus")
-    daemon_pid: int | None = Field(default=None, alias="daemonPid")
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "extra": "forbid"}
 
 
 class StatusUpdateMessage(BaseModel):
@@ -249,6 +280,8 @@ class StatusUpdateMessage(BaseModel):
 
     type: Literal["status.update"]
     payload: StatusUpdatePayload
+
+    model_config = {"extra": "forbid"}
 
 
 class ToastPayload(BaseModel):
@@ -305,6 +338,7 @@ ServerMessage = (
     | ToolOutputMessage
     | ToolEndMessage
     | CompletionSuggestionsMessage
+    | DaemonStatusMessage
     | StatusUpdateMessage
     | ToastMessage
     | SessionLoadedMessage

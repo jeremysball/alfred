@@ -35,7 +35,9 @@ def _consume_startup_messages(websocket) -> tuple[dict, dict, dict]:
 
     connected = websocket.receive_json()
     session_loaded = websocket.receive_json()
+    daemon_status = websocket.receive_json()
     status_update = websocket.receive_json()
+    assert daemon_status["type"] == "daemon.status"
     return connected, session_loaded, status_update
 
 
@@ -109,6 +111,7 @@ class TestFullChatFlow:
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
+            websocket.receive_json()
 
             message_ids: list[str] = []
 
@@ -151,6 +154,7 @@ class TestFullChatFlow:
         test_client = TestClient(app)
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -201,6 +205,7 @@ class TestSessionManagementFlow:
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
+            websocket.receive_json()
 
             websocket.send_json({"type": "command.execute", "payload": {"command": "/new"}})
 
@@ -217,6 +222,7 @@ class TestSessionManagementFlow:
         test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -245,6 +251,7 @@ class TestSessionManagementFlow:
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
+            websocket.receive_json()
 
             websocket.send_json({"type": "command.execute", "payload": {"command": f"/resume {target_session_id}"}})
 
@@ -267,6 +274,7 @@ class TestSessionManagementFlow:
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
+            websocket.receive_json()
 
             websocket.send_json({"type": "command.execute", "payload": {"command": "/resume"}})
 
@@ -280,6 +288,7 @@ class TestSessionManagementFlow:
         test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -322,6 +331,7 @@ class TestErrorHandling:
 
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()
 
             websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
 
@@ -339,6 +349,7 @@ class TestErrorHandling:
         test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -362,6 +373,7 @@ class TestErrorHandling:
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
+            websocket.receive_json()
 
             websocket.send_json({"type": "command.execute", "payload": {"command": "/unknowncommand"}})
 
@@ -375,6 +387,7 @@ class TestErrorHandling:
         test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -398,6 +411,7 @@ class TestErrorHandling:
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
+            websocket.receive_json()
 
             websocket.send_json({"type": "command.execute", "payload": {"command": "/resume nonexistent-session"}})
 
@@ -412,6 +426,7 @@ class TestErrorHandling:
         test_client, fake_alfred = client
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -452,6 +467,7 @@ class TestConcurrentOperations:
         test_client, _ = client
 
         with test_client.websocket_connect("/ws") as websocket:
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
@@ -502,6 +518,7 @@ class TestConcurrentOperations:
             ),
             test_client.websocket_connect("/ws") as websocket,
         ):
+            websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()
             websocket.receive_json()

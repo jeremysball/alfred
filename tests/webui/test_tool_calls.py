@@ -109,6 +109,7 @@ def test_tool_call_websocket_flow_emits_start_output_and_end():
     with client.websocket_connect("/ws") as websocket:
         assert websocket.receive_json()["type"] == "connected"
         assert websocket.receive_json()["type"] == "session.loaded"
+        assert websocket.receive_json()["type"] == "daemon.status"
         assert websocket.receive_json()["type"] == "status.update"
 
         websocket.send_json({"type": "chat.send", "payload": {"content": "Read file /tmp/test.txt"}})

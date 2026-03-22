@@ -202,6 +202,33 @@ class CompletionSuggestionsMessage(TypedDict):
     payload: CompletionSuggestionsPayload
 
 
+class DaemonStatusInfo(TypedDict):
+    """Details about the cron daemon runtime state."""
+
+    state: Literal["running", "stopped", "starting", "failed", "unknown"]
+    pid: int | None
+    socketPath: str | None
+    socketHealthy: bool | None
+    startedAt: str | None
+    uptimeSeconds: int | None
+    lastHeartbeatAt: str | None
+    lastReloadAt: str | None
+    lastError: str | None
+
+
+class DaemonStatusPayload(TypedDict):
+    """Payload for daemon.status message."""
+
+    daemon: DaemonStatusInfo
+
+
+class DaemonStatusMessage(TypedDict):
+    """Server sends daemon runtime status."""
+
+    type: Literal["daemon.status"]
+    payload: DaemonStatusPayload
+
+
 class StatusUpdatePayload(TypedDict):
     """Payload for status.update message."""
 
@@ -213,8 +240,6 @@ class StatusUpdatePayload(TypedDict):
     reasoningTokens: int
     queueLength: int
     isStreaming: bool
-    daemonStatus: NotRequired[str]
-    daemonPid: NotRequired[int | None]
 
 
 class StatusUpdateMessage(TypedDict):
@@ -273,6 +298,7 @@ ServerMessage = (
     | ToolOutputMessage
     | ToolEndMessage
     | CompletionSuggestionsMessage
+    | DaemonStatusMessage
     | StatusUpdateMessage
     | ToastMessage
     | SessionLoadedMessage

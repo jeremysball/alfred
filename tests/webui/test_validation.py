@@ -18,6 +18,9 @@ from alfred.interfaces.webui.validation import (
     CommandExecutePayload,
     CompletionRequestMessage,
     CompletionRequestPayload,
+    DaemonStatusInfo,
+    DaemonStatusMessage,
+    DaemonStatusPayload,
     SessionLoadedMessage,
     SessionLoadedPayload,
     SessionMessage,
@@ -180,6 +183,46 @@ def test_tool_end_message():
     assert message.payload.output == "File contents"
 
 
+def test_daemon_status_message():
+    """Verify DaemonStatusMessage structure."""
+    message = DaemonStatusMessage(
+        type="daemon.status",
+        payload=DaemonStatusPayload(
+            daemon=DaemonStatusInfo(
+                state="running",
+                pid=12345,
+                socket_path="/home/node/.cache/alfred/notify.sock",
+                socket_healthy=True,
+                started_at="2026-03-21T12:00:00Z",
+                uptime_seconds=183,
+                last_heartbeat_at="2026-03-21T12:03:00Z",
+                last_reload_at="2026-03-21T12:02:41Z",
+                last_error=None,
+            ),
+        ),
+    )
+    assert message.type == "daemon.status"
+    assert message.payload.daemon.state == "running"
+    assert message.payload.daemon.pid == 12345
+    assert message.payload.daemon.socket_healthy is True
+    assert message.model_dump(by_alias=True) == {
+        "type": "daemon.status",
+        "payload": {
+            "daemon": {
+                "state": "running",
+                "pid": 12345,
+                "socketPath": "/home/node/.cache/alfred/notify.sock",
+                "socketHealthy": True,
+                "startedAt": "2026-03-21T12:00:00Z",
+                "uptimeSeconds": 183,
+                "lastHeartbeatAt": "2026-03-21T12:03:00Z",
+                "lastReloadAt": "2026-03-21T12:02:41Z",
+                "lastError": None,
+            }
+        },
+    }
+
+
 def test_status_update_message():
     """Verify StatusUpdateMessage structure."""
     message = StatusUpdateMessage(
@@ -193,13 +236,46 @@ def test_status_update_message():
             reasoning_tokens=10,
             queue_length=0,
             is_streaming=True,
-            daemon_status="running",
-            daemon_pid=12345,
         ),
     )
     assert message.type == "status.update"
     assert message.payload.model == "claude-3-sonnet"
     assert message.payload.is_streaming is True
+    assert message.model_dump(by_alias=True) == {
+        "type": "status.update",
+        "payload": {
+            "model": "claude-3-sonnet",
+            "contextTokens": 1000,
+            "inputTokens": 50,
+            "outputTokens": 25,
+            "cacheReadTokens": 100,
+            "reasoningTokens": 10,
+            "queueLength": 0,
+            "isStreaming": True,
+        },
+    }
+
+
+def test_status_update_message_rejects_daemon_fields():
+    """Verify StatusUpdateMessage rejects legacy daemon fields."""
+    with pytest.raises(ValidationError):
+        StatusUpdateMessage.model_validate(
+            {
+                "type": "status.update",
+                "payload": {
+                    "model": "claude-3-sonnet",
+                    "contextTokens": 1000,
+                    "inputTokens": 50,
+                    "outputTokens": 25,
+                    "cacheReadTokens": 100,
+                    "reasoningTokens": 10,
+                    "queueLength": 0,
+                    "isStreaming": True,
+                    "daemonStatus": "running",
+                    "daemonPid": 12345,
+                },
+            }
+        )
 
 
 def test_toast_message():
