@@ -16,6 +16,7 @@ from rich.console import Console
 
 # Import cron app directly (lightweight, no heavy deps at import time)
 from alfred.cli.cron import app as cron_app
+from alfred.observability import configure_logging
 
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
@@ -222,17 +223,25 @@ def webui_callback(
         "--hotswap",
         help="Restart the Web UI server when static web assets change",
     ),
+    log: str | None = typer.Option(
+        None,
+        "--log",
+        "-l",
+        help="Set Web UI log level: 'info' or 'debug'. Separate from the root --log option.",
+    ),
 ) -> None:
     """Launch Alfred Web UI server."""
     if ctx.invoked_subcommand is not None:
         return
 
-    # Setup logging FIRST before any other operations
-    _setup_logging()
+    debug = log == "debug"
+
+    # Configure core logging from the root --log option and keep the Web UI
+    # surface independently controllable via the webui --log flag.
+    _setup_logging(webui_debug=debug)
 
     from alfred.cli.webui_hotswap import run_webui_hotswap, run_webui_server
 
-    debug = _log_level == "debug"
     runner = run_webui_hotswap if hotswap else run_webui_server
     runner(host=host, port=port, open_browser=open_browser, debug=debug)
 
@@ -539,9 +548,7 @@ def _handle_job_failed(toast_manager: "ToastManager | None", msg: "JobFailedMess
         toast_manager.add(f"Cron job failed: {msg.job_name} - {msg.error}", "error")
 
 
-async def _handle_submit_job(
-    scheduler: "CronScheduler", msg: "SubmitJobRequest"
-) -> "SubmitJobResponse":
+async def _handle_submit_job(scheduler: "CronScheduler", msg: "SubmitJobRequest") -> "SubmitJobResponse":
     """Handle job submission request from tools.
 
     Args:
@@ -574,9 +581,7 @@ async def _handle_submit_job(
         )
 
 
-async def _handle_approve_job(
-    scheduler: "CronScheduler", msg: "ApproveJobRequest"
-) -> "ApproveJobResponse":
+async def _handle_approve_job(scheduler: "CronScheduler", msg: "ApproveJobRequest") -> "ApproveJobResponse":
     """Handle job approval request from tools.
 
     Args:
@@ -627,9 +632,7 @@ async def _handle_approve_job(
         )
 
 
-async def _handle_reject_job(
-    scheduler: "CronScheduler", msg: "RejectJobRequest"
-) -> "RejectJobResponse":
+async def _handle_reject_job(scheduler: "CronScheduler", msg: "RejectJobRequest") -> "RejectJobResponse":
     """Handle job rejection request from tools.
 
     Args:
@@ -681,9 +684,7 @@ async def _handle_reject_job(
         )
 
 
-async def _handle_query_jobs(
-    scheduler: "CronScheduler", msg: "QueryJobsRequest"
-) -> "QueryJobsResponse":
+async def _handle_query_jobs(scheduler: "CronScheduler", msg: "QueryJobsRequest") -> "QueryJobsResponse":
     """Handle job query request from tools.
 
     Args:
@@ -765,8 +766,11 @@ async def _run_telegram_bot(alfred: "Alfred") -> None:
     await interface.run()
 
 
-def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
-    """Configure logging to file."""
+def _setup_logging(
+    toast_manager: "ToastManager | None" = None,
+    webui_debug: bool = False,
+) -> None:
+    """Configure logging with surface-aware console and file handlers."""
     if _log_level == "debug":
         level = logging.DEBUG
     elif _log_level == "info":
@@ -776,29 +780,18 @@ def _setup_logging(toast_manager: "ToastManager | None" = None) -> None:
 
     from alfred.data_manager import get_log_file
 
-    log_file = get_log_file()
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-
-    file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
-    file_handler.setLevel(level)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s"))
-
-    handlers: list[logging.Handler] = [file_handler]
-
+    toast_handler: logging.Handler | None = None
     if toast_manager is not None:
         from alfred.interfaces.pypitui.toast import ToastHandler
 
         toast_handler = ToastHandler(toast_manager)
-        toast_handler.setLevel(logging.WARNING)
-        handlers.append(toast_handler)
 
-    logging.basicConfig(level=level, handlers=handlers)
-
-    # Capture Python warnings (e.g., RuntimeWarning) and route through logging
-    logging.captureWarnings(True)
-
-    for logger_name in ["markdown_it", "httpcore", "httpx", "urllib3", "asyncio"]:
-        logging.getLogger(logger_name).setLevel(logging.WARNING)
+    configure_logging(
+        level=level,
+        log_file=get_log_file(),
+        toast_handler=toast_handler,
+        webui_debug=webui_debug,
+    )
 
 
 def run_async(coro_factory: Callable[[], Coroutine[Any, Any, None]]) -> None:

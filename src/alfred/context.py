@@ -5,6 +5,7 @@ import logging
 import math
 from datetime import datetime, timedelta
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from pydantic import BaseModel
@@ -119,7 +120,7 @@ class ContextBuilder:
             top_k=top_k * 2,  # Get extra for deduplication
         )
 
-        # Build similarity lookup from results
+        # Build similarity lookup from Alfred-facing search results
         similarities_by_id = {r["entry_id"]: r.get("similarity", 0.0) for r in results}
 
         # Convert to MemoryEntry objects
@@ -142,8 +143,9 @@ class ContextBuilder:
         # Apply hybrid scoring
         scored = []
         for memory in memories:
-            # Get similarity from search results lookup
+            # Get normalized similarity from the search results lookup
             similarity = similarities_by_id.get(memory.entry_id, 0.0)
+            # min_similarity compares normalized similarity, not raw backend distance.
             if similarity < self.min_similarity:
                 continue
 
@@ -163,8 +165,9 @@ class ContextBuilder:
         return unique, similarities, scores
 
     def _hybrid_score(self, memory: MemoryEntry, similarity: float) -> float:
-        """Combine similarity and recency into a single score."""
-        age_days = (datetime.now() - memory.timestamp).days
+        """Combine normalized similarity and recency into a single score."""
+        now = datetime.now(memory.timestamp.tzinfo) if memory.timestamp.tzinfo else datetime.now()
+        age_days = (now - memory.timestamp).days
         recency = math.exp(-age_days / self.recency_half_life)
         return similarity * 0.6 + recency * 0.4
 
@@ -211,7 +214,16 @@ class ContextBuilder:
         tool_calls_include_arguments: bool = True,
     ) -> tuple[str, int]:
         """Build full context with relevant memories and session history injected."""
-        logger.debug(f"Building context with {len(memories)} memories available")
+        started_at = perf_counter()
+        session_message_count = len(session_messages or [])
+        tool_message_count = len(session_messages_with_tools or [])
+        logger.debug(
+            "core.context.start available_memories=%s session_messages=%s tool_messages=%s memory_budget=%s",
+            len(memories),
+            session_message_count,
+            tool_message_count,
+            self.memory_budget,
+        )
 
         # Search and deduplicate
         relevant, similarities, scores = await self.search_memories(query_embedding, top_k=10)
@@ -243,7 +255,6 @@ class ContextBuilder:
         # Verify token budget
         token_count = approximate_tokens(context)
         if token_count > self.memory_budget:
-            logger.warning(f"Context exceeds budget: {token_count} > {self.memory_budget}")
             truncated, truncated_count = self._truncate_to_budget(
                 system_prompt,
                 relevant,
@@ -252,8 +263,27 @@ class ContextBuilder:
                 similarities,
                 scores,
             )
+            logger.warning(
+                "core.context.truncated memory_budget=%s token_count=%s "
+                "truncated_count=%s available_memories=%s session_messages=%s "
+                "duration_ms=%.2f",
+                self.memory_budget,
+                token_count,
+                truncated_count,
+                len(memories),
+                session_message_count,
+                (perf_counter() - started_at) * 1000,
+            )
             return truncated, truncated_count
 
+        logger.debug(
+            "core.context.completed selected_memories=%s session_messages=%s token_count=%s context_chars=%s duration_ms=%.2f",
+            len(relevant),
+            session_message_count,
+            token_count,
+            len(context),
+            (perf_counter() - started_at) * 1000,
+        )
         return context, len(relevant)
 
     def _format_session_messages(self, messages: list[tuple[str, str]]) -> str:
@@ -282,9 +312,7 @@ class ContextBuilder:
         if not all_tool_calls:
             return ""
 
-        tool_calls = (
-            all_tool_calls[-max_calls:] if len(all_tool_calls) > max_calls else all_tool_calls
-        )
+        tool_calls = all_tool_calls[-max_calls:] if len(all_tool_calls) > max_calls else all_tool_calls
 
         lines = ["## RECENT TOOL CALLS\n"]
         for i, tc in enumerate(tool_calls, 1):
@@ -330,10 +358,7 @@ class ContextBuilder:
             scr = scores.get(memory.entry_id, 0.0)
             scr_pct = int(scr * 100)
             entry_id = memory.entry_id
-            line = (
-                f"- [{date}] {prefix}: {content} "
-                f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
-            )
+            line = f"- [{date}] {prefix}: {content} (sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
             lines.append(line)
 
         return "\n".join(lines)
@@ -382,10 +407,7 @@ class ContextBuilder:
             scr = scores.get(memory.entry_id, 0.0)
             scr_pct = int(scr * 100)
             entry_id = memory.entry_id
-            line = (
-                f"- [{date}] {prefix}: {content} "
-                f"(sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
-            )
+            line = f"- [{date}] {prefix}: {content} (sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
             line_tokens = approximate_tokens(line)
 
             if current_tokens + line_tokens > available_for_memories:
@@ -398,9 +420,7 @@ class ContextBuilder:
             memory_lines.append("_No memories fit in context window._")
 
         included_count = len(memory_lines) - 1
-        return "\n\n".join(
-            [system_prompt, "\n".join(memory_lines), session_section, "## CURRENT CONVERSATION\n"]
-        ), included_count
+        return "\n\n".join([system_prompt, "\n".join(memory_lines), session_section, "## CURRENT CONVERSATION\n"]), included_count
 
 
 class ContextLoader:
@@ -455,9 +475,7 @@ class ContextLoader:
 
     async def load_all(self) -> dict[str, ContextFile]:
         """Load all required context files concurrently."""
-        tasks = [
-            self.load_file(name, path) for name, path in (self.config.context_files or {}).items()
-        ]
+        tasks = [self.load_file(name, path) for name, path in (self.config.context_files or {}).items()]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
 
@@ -483,10 +501,7 @@ class ContextLoader:
     ) -> tuple[str, int]:
         """Assemble context with semantic memory search."""
         if not self._context_builder:
-            raise RuntimeError(
-                "SQLiteStore required for assemble_with_search. "
-                "Initialize ContextLoader with store parameter."
-            )
+            raise RuntimeError("SQLiteStore required for assemble_with_search. Initialize ContextLoader with store parameter.")
 
         system_prompt = self._build_system_prompt_sync()
         return await self._context_builder.build_context(

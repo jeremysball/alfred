@@ -213,6 +213,8 @@ class StatusUpdatePayload(TypedDict):
     reasoningTokens: int
     queueLength: int
     isStreaming: bool
+    daemonStatus: NotRequired[str]
+    daemonPid: NotRequired[int | None]
 
 
 class StatusUpdateMessage(TypedDict):

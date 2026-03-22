@@ -89,10 +89,17 @@ class LegacyContextAlfred(LegacyBaseAlfred):
 def test_websocket_connect_syncs_token_tracker_and_sends_status_update() -> None:
     """Web UI should reuse Alfred token tracker for historical session totals."""
 
+    class FakeDaemonManager:
+        def is_running(self) -> bool:
+            return True
+
+        def read_pid(self) -> int | None:
+            return 4321
+
     fake_alfred = FakeAlfred()
     client = TestClient(create_app(alfred_instance=fake_alfred))
 
-    with client.websocket_connect("/ws") as websocket:
+    with patch("alfred.interfaces.webui.server.DaemonManager", FakeDaemonManager), client.websocket_connect("/ws") as websocket:
         connected, session_loaded, status_update = _connect_and_consume_startup(websocket)
 
     assert connected["type"] == "connected"
@@ -107,6 +114,8 @@ def test_websocket_connect_syncs_token_tracker_and_sends_status_update() -> None
         "reasoningTokens": 4,
         "queueLength": 0,
         "isStreaming": False,
+        "daemonStatus": "running",
+        "daemonPid": 4321,
     }
     assert fake_alfred.synced_session_ids == [None]
 
@@ -284,10 +293,13 @@ def test_context_command_uses_shared_context_display() -> None:
         "total_tokens": 32,
     }
 
-    with patch(
-        "alfred.context_display.get_context_display",
-        AsyncMock(return_value=context_data),
-    ) as mock_get_context, client.websocket_connect("/ws") as websocket:
+    with (
+        patch(
+            "alfred.context_display.get_context_display",
+            AsyncMock(return_value=context_data),
+        ) as mock_get_context,
+        client.websocket_connect("/ws") as websocket,
+    ):
         _connect_and_consume_startup(websocket)
 
         websocket.send_json({"type": "command.execute", "payload": {"command": "/context"}})
@@ -308,10 +320,13 @@ def test_context_command_rejects_legacy_get_context_shape() -> None:
     legacy = LegacyContextAlfred()
     client = TestClient(create_app(alfred_instance=legacy))
 
-    with patch(
-        "alfred.context_display.get_context_display",
-        AsyncMock(side_effect=RuntimeError("boom")),
-    ), client.websocket_connect("/ws") as websocket:
+    with (
+        patch(
+            "alfred.context_display.get_context_display",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+        client.websocket_connect("/ws") as websocket,
+    ):
         connected = websocket.receive_json()
         status_update = websocket.receive_json()
         assert connected["type"] == "connected"

@@ -15,6 +15,8 @@ function initAlfredUI() {
   const messageInput = document.getElementById('message-input');
   const sendButton = document.getElementById('send-button');
   const connectionPill = document.getElementById('connection-pill');
+  const connectionStatusAnchor = document.getElementById('connection-status-anchor');
+  const connectionStatusTooltip = document.getElementById('connection-status-tooltip');
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
 
@@ -357,9 +359,388 @@ function initAlfredUI() {
   ];
 
   // Connection Status Handler
+  const connectionStatusState = {
+    daemonStatus: 'unknown',
+    daemonPid: null,
+    webUiStatus: 'ready',
+    webUiVersion: 'unknown',
+  };
+
+  const connectionStatusVisibility = {
+    hovered: false,
+    focused: false,
+    pinned: false,
+  };
+
+  let connectionStatusRefreshTimer = null;
+
+  function escapeConnectionStatusText(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+  }
+
+  function formatConnectionStatusAge(timestamp) {
+    if (!timestamp) {
+      return 'n/a';
+    }
+
+    const elapsedMs = Math.max(Date.now() - timestamp, 0);
+    if (elapsedMs < 1000) {
+      return `${elapsedMs}ms ago`;
+    }
+
+    const elapsedSeconds = Math.round(elapsedMs / 1000);
+    if (elapsedSeconds < 60) {
+      return `${elapsedSeconds}s ago`;
+    }
+
+    const elapsedMinutes = Math.round(elapsedSeconds / 60);
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes}m ago`;
+    }
+
+    const elapsedHours = Math.round(elapsedMinutes / 60);
+    return `${elapsedHours}h ago`;
+  }
+
+  function getConnectionSnapshot() {
+    if (typeof wsClient.getConnectionSnapshot === 'function') {
+      return wsClient.getConnectionSnapshot();
+    }
+
+    const readyState = wsClient.ws?.readyState;
+    return {
+      url: wsClient.url,
+      isConnected: wsClient.isConnected,
+      connectionState: wsClient.isConnected
+        ? 'connected'
+        : readyState === WebSocket.CONNECTING
+          ? 'connecting'
+          : wsClient.reconnectAttempts > 0
+            ? 'reconnecting'
+            : 'disconnected',
+      readyState,
+      reconnectAttempts: wsClient.reconnectAttempts,
+      pingIntervalActive: Boolean(wsClient.pingInterval),
+      lastPingAt: wsClient.lastPingAt ?? null,
+      lastPongAt: wsClient.lastPongAt ?? null,
+      lastPingLatencyMs: wsClient.lastPingLatencyMs ?? null,
+      lastCloseAt: wsClient.lastCloseAt ?? null,
+      lastCloseCode: wsClient.lastCloseCode ?? null,
+      lastCloseReason: wsClient.lastCloseReason ?? '',
+      lastCloseWasClean: wsClient.lastCloseWasClean ?? null,
+      debugEnabled: Boolean(wsClient.debugEnabled),
+      debugSummary: wsClient.debugStats?.summary?.() ?? null,
+    };
+  }
+
+  function getWebSocketStateLabel(snapshot) {
+    if (snapshot?.connectionState) {
+      return snapshot.connectionState;
+    }
+    if (snapshot?.isConnected) {
+      return 'connected';
+    }
+    if (snapshot?.readyState === WebSocket.CONNECTING) {
+      return 'connecting';
+    }
+    if (snapshot?.readyState === WebSocket.CLOSING) {
+      return 'closing';
+    }
+    if ((snapshot?.reconnectAttempts || 0) > 0) {
+      return 'reconnecting';
+    }
+    return 'disconnected';
+  }
+
+  function getLastCloseLabel(snapshot, debugSummary) {
+    const closeCode = snapshot?.lastCloseCode ?? debugSummary?.closeCode;
+    const closeReason = snapshot?.lastCloseReason ?? debugSummary?.closeReason;
+    const wasClean = snapshot?.lastCloseWasClean ?? debugSummary?.wasClean;
+
+    if (closeCode === null || closeCode === undefined) {
+      return 'none';
+    }
+
+    const parts = [`code ${closeCode}`];
+    if (closeReason) {
+      parts.push(closeReason);
+    }
+    if (wasClean !== null && wasClean !== undefined) {
+      parts.push(wasClean ? 'clean' : 'unclean');
+    }
+    return parts.join(' · ');
+  }
+
+  function getKeepaliveLabel(snapshot) {
+    if (!snapshot?.pingIntervalActive) {
+      return 'idle';
+    }
+
+    const pongAge = snapshot.lastPongAt ? formatConnectionStatusAge(snapshot.lastPongAt) : 'no pong yet';
+    return `active · last pong ${pongAge}`;
+  }
+
+  function isConnectionStatusOpen() {
+    return connectionStatusVisibility.hovered || connectionStatusVisibility.focused || connectionStatusVisibility.pinned;
+  }
+
+  function startConnectionStatusRefreshTimer() {
+    if (connectionStatusRefreshTimer !== null) {
+      return;
+    }
+
+    connectionStatusRefreshTimer = window.setInterval(() => {
+      if (isConnectionStatusOpen()) {
+        renderConnectionStatusTooltip();
+      } else {
+        stopConnectionStatusRefreshTimer();
+      }
+    }, 1000);
+  }
+
+  function stopConnectionStatusRefreshTimer() {
+    if (connectionStatusRefreshTimer === null) {
+      return;
+    }
+
+    window.clearInterval(connectionStatusRefreshTimer);
+    connectionStatusRefreshTimer = null;
+  }
+
+  function syncConnectionStatusPopoverVisibility() {
+    if (!connectionStatusAnchor || !connectionStatusTooltip || !connectionPill) {
+      return;
+    }
+
+    const isOpen = isConnectionStatusOpen();
+    connectionStatusAnchor.dataset.open = String(isOpen);
+    connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
+    connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
+    connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
+    connectionPill.setAttribute('aria-expanded', String(isOpen));
+
+    if (isOpen) {
+      startConnectionStatusRefreshTimer();
+    } else {
+      stopConnectionStatusRefreshTimer();
+    }
+
+    renderConnectionStatusTooltip();
+  }
+
+  function renderConnectionStatusTooltip() {
+    if (!connectionStatusTooltip) {
+      return;
+    }
+
+    const snapshot = getConnectionSnapshot();
+    const debugSummary = snapshot.debugSummary || null;
+    const websocketState = getWebSocketStateLabel(snapshot);
+    const websocketEndpoint = snapshot.url || 'n/a';
+    const reconnectAttempts = snapshot.reconnectAttempts ?? 0;
+    const lastClose = getLastCloseLabel(snapshot, debugSummary);
+    const keepalive = getKeepaliveLabel(snapshot);
+    const debugState = snapshot.debugEnabled ? 'enabled' : 'off';
+    const lastPing = snapshot.lastPingAt ? formatConnectionStatusAge(snapshot.lastPingAt) : 'n/a';
+    const lastPong = snapshot.lastPongAt ? formatConnectionStatusAge(snapshot.lastPongAt) : 'n/a';
+    const latency = snapshot.lastPingLatencyMs !== null && snapshot.lastPingLatencyMs !== undefined
+      ? `${snapshot.lastPingLatencyMs}ms`
+      : 'n/a';
+
+    connectionStatusTooltip.innerHTML = `
+      <div class="connection-status-tooltip-title">Connection details</div>
+      <div class="connection-status-tooltip-section">
+        <div class="connection-status-tooltip-section-title">WebSocket: ${escapeConnectionStatusText(websocketState)}</div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Endpoint</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(websocketEndpoint)}</span>
+        </div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Reconnect attempts</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(reconnectAttempts)}</span>
+        </div>
+        <div class="connection-status-tooltip-note">Reconnect attempts: ${escapeConnectionStatusText(reconnectAttempts)}</div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Last close</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(lastClose)}</span>
+        </div>
+        <div class="connection-status-tooltip-note">Last close: ${escapeConnectionStatusText(lastClose)}</div>
+      </div>
+      <div class="connection-status-tooltip-section">
+        <div class="connection-status-tooltip-section-title">Daemon: ${escapeConnectionStatusText(connectionStatusState.daemonStatus)}</div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">PID</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(connectionStatusState.daemonPid ?? 'n/a')}</span>
+        </div>
+        <div class="connection-status-tooltip-note">PID: ${escapeConnectionStatusText(connectionStatusState.daemonPid ?? 'n/a')}</div>
+      </div>
+      <div class="connection-status-tooltip-section">
+        <div class="connection-status-tooltip-section-title">Web UI: ${escapeConnectionStatusText(connectionStatusState.webUiStatus)}</div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Version</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(connectionStatusState.webUiVersion)}</span>
+        </div>
+      </div>
+      <div class="connection-status-tooltip-section">
+        <div class="connection-status-tooltip-section-title">Keepalive: ${escapeConnectionStatusText(keepalive)}</div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Last ping</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(lastPing)}</span>
+        </div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Last pong</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(lastPong)}</span>
+        </div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Latency</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(latency)}</span>
+        </div>
+      </div>
+      <div class="connection-status-tooltip-section">
+        <div class="connection-status-tooltip-section-title">Debug: ${escapeConnectionStatusText(debugState)}</div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Last incoming</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(debugSummary?.lastIncomingType || 'n/a')}</span>
+        </div>
+        <div class="connection-status-tooltip-row">
+          <span class="connection-status-tooltip-label">Last outgoing</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(debugSummary?.lastOutgoingType || 'n/a')}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function applyDaemonStatusPayload(payload) {
+    if (!payload) {
+      return;
+    }
+
+    if (payload.daemonStatus !== undefined) {
+      connectionStatusState.daemonStatus = String(payload.daemonStatus || 'unknown');
+    }
+    if (payload.daemonPid !== undefined) {
+      connectionStatusState.daemonPid = payload.daemonPid;
+    }
+    if (payload.status !== undefined) {
+      connectionStatusState.webUiStatus = payload.status === 'ok'
+        ? 'ready'
+        : String(payload.status || 'unknown');
+    }
+    if (payload.version !== undefined) {
+      connectionStatusState.webUiVersion = String(payload.version || 'unknown');
+    }
+
+    renderConnectionStatusTooltip();
+  }
+
+  async function hydrateConnectionStatusFromHealth() {
+    if (typeof fetch !== 'function') {
+      return;
+    }
+
+    try {
+      const response = await fetch('/health', { cache: 'no-store' });
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      applyDaemonStatusPayload(payload);
+    } catch (error) {
+      console.debug('Unable to hydrate connection status from /health:', error);
+    }
+  }
+
   function updateConnectionStatus(status) {
     connectionPill.className = `connection-pill ${status}`;
+    renderConnectionStatusTooltip();
   }
+
+  connectionStatusAnchor?.addEventListener('pointerenter', () => {
+    connectionStatusVisibility.hovered = true;
+    syncConnectionStatusPopoverVisibility();
+  });
+
+  connectionStatusAnchor?.addEventListener('pointerleave', () => {
+    connectionStatusVisibility.hovered = false;
+    if (!connectionStatusVisibility.pinned && !connectionStatusVisibility.focused) {
+      syncConnectionStatusPopoverVisibility();
+    }
+  });
+
+  connectionStatusAnchor?.addEventListener('focusin', () => {
+    connectionStatusVisibility.focused = true;
+    syncConnectionStatusPopoverVisibility();
+  });
+
+  connectionStatusAnchor?.addEventListener('focusout', (event) => {
+    if (connectionStatusAnchor && event.relatedTarget && connectionStatusAnchor.contains(event.relatedTarget)) {
+      return;
+    }
+
+    connectionStatusVisibility.focused = false;
+    if (!connectionStatusVisibility.pinned && !connectionStatusVisibility.hovered) {
+      syncConnectionStatusPopoverVisibility();
+    }
+  });
+
+  connectionStatusAnchor?.addEventListener('click', (event) => {
+    if (event.target !== connectionPill && event.target !== connectionStatusAnchor) {
+      return;
+    }
+
+    connectionStatusVisibility.pinned = !connectionStatusVisibility.pinned;
+    if (connectionStatusVisibility.pinned) {
+      connectionStatusVisibility.focused = true;
+    } else {
+      connectionStatusVisibility.focused = false;
+      if (!connectionStatusVisibility.hovered) {
+        connectionStatusAnchor.blur();
+      }
+    }
+    syncConnectionStatusPopoverVisibility();
+    event.preventDefault();
+  });
+
+  connectionStatusAnchor?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      connectionStatusVisibility.pinned = !connectionStatusVisibility.pinned;
+      if (connectionStatusVisibility.pinned) {
+        connectionStatusVisibility.focused = true;
+      } else {
+        connectionStatusVisibility.focused = false;
+        if (!connectionStatusVisibility.hovered) {
+          connectionStatusAnchor.blur();
+        }
+      }
+      syncConnectionStatusPopoverVisibility();
+    }
+
+    if (event.key === 'Escape') {
+      connectionStatusVisibility.pinned = false;
+      connectionStatusVisibility.focused = false;
+      syncConnectionStatusPopoverVisibility();
+      connectionStatusAnchor.blur();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!connectionStatusVisibility.pinned || !connectionStatusAnchor) {
+      return;
+    }
+
+    if (connectionStatusAnchor.contains(event.target)) {
+      return;
+    }
+
+    connectionStatusVisibility.pinned = false;
+    connectionStatusVisibility.hovered = false;
+    connectionStatusVisibility.focused = false;
+    syncConnectionStatusPopoverVisibility();
+  });
 
   wsClient.addEventListener('connected', () => {
     updateConnectionStatus('connected');
@@ -372,6 +753,8 @@ function initAlfredUI() {
   wsClient.addEventListener('error', () => {
     updateConnectionStatus('disconnected');
   });
+
+  void hydrateConnectionStatusFromHealth();
 
   // Streaming Indicator
   function showStreaming() {
@@ -759,6 +1142,40 @@ function initAlfredUI() {
     }
   }
 
+  function findPreviousUserPrompt(messageElement) {
+    let previousMessage = messageElement?.previousElementSibling ?? null;
+
+    while (previousMessage) {
+      if (
+        previousMessage.matches?.('chat-message') &&
+        previousMessage.getAttribute('role') === 'user'
+      ) {
+        return typeof previousMessage.getContent === 'function'
+          ? previousMessage.getContent()
+          : previousMessage.getAttribute('content') || '';
+      }
+
+      previousMessage = previousMessage.previousElementSibling ?? null;
+    }
+
+    return '';
+  }
+
+  function retryAssistantMessage(messageElement) {
+    if (currentAssistantMessage) {
+      showError('Wait for the current response to finish before regenerating.');
+      return;
+    }
+
+    const previousPrompt = findPreviousUserPrompt(messageElement);
+    if (!previousPrompt) {
+      showError('Could not find the previous user prompt to regenerate this reply.');
+      return;
+    }
+
+    sendMessageContent(previousPrompt);
+  }
+
   // Textarea Auto-Resize
   function autoResizeTextarea() {
     messageInput.style.height = 'auto';
@@ -880,6 +1297,8 @@ function initAlfredUI() {
     if (payload.isStreaming !== undefined) {
       statusBar.setAttribute('streaming', payload.isStreaming);
     }
+
+    applyDaemonStatusPayload(payload);
   }
 
   // Event Listeners
@@ -975,6 +1394,15 @@ function initAlfredUI() {
     if (e.key === 'Escape' && messageQueue.length > 0) {
       clearQueue();
     }
+  });
+
+  messageList.addEventListener('retry-message', (event) => {
+    const messageElement = event.target?.closest?.('chat-message');
+    if (!messageElement || messageElement.getAttribute('role') !== 'assistant') {
+      return;
+    }
+
+    retryAssistantMessage(messageElement);
   });
 
   // Completion menu selection

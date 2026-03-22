@@ -74,10 +74,7 @@ class TestWebSocketConnection:
             websocket.receive_json()
 
             # Send unknown message type
-            websocket.send_json({
-                "type": "unknown.type",
-                "payload": {}
-            })
+            websocket.send_json({"type": "unknown.type", "payload": {}})
 
             # Server echoes back unknown message types
             data = websocket.receive_json()
@@ -142,10 +139,7 @@ class TestWebSocketChatWithoutAlfred:
             websocket.receive_json()
 
             # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Hello"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
 
             # Should receive error
             data = websocket.receive_json()
@@ -159,17 +153,13 @@ class TestWebSocketChatWithoutAlfred:
             websocket.receive_json()
 
             # Send empty chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "   "}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "   "}})
 
             # Server checks Alfred instance first when content is whitespace
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
             # Server may return either error depending on validation order
-            assert "cannot be empty" in data["payload"]["error"] or \
-                   "Alfred instance not available" in data["payload"]["error"]
+            assert "cannot be empty" in data["payload"]["error"] or "Alfred instance not available" in data["payload"]["error"]
 
 
 @pytest.fixture
@@ -208,17 +198,14 @@ class TestWebUIDebugInstrumentation:
 
         with caplog.at_level("DEBUG", logger="alfred.interfaces.webui.server"), client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "instrument this"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "instrument this"}})
 
             while True:
                 data = websocket.receive_json()
                 if data["type"] == "chat.complete":
                     break
 
-        turn_logs = [record.message for record in caplog.records if "webui ws turn summary" in record.message]
+        turn_logs = [record.message for record in caplog.records if "webui.websocket.turn_summary" in record.message]
         assert turn_logs
         assert "chat.complete" in turn_logs[-1]
         assert "total_bytes_sent=" in turn_logs[-1]
@@ -243,10 +230,7 @@ class TestWebSocketChatWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Hello there"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello there"}})
 
             # Should receive chat.started
             data = websocket.receive_json()
@@ -283,12 +267,7 @@ class TestWebSocketChatWithMockedAlfred:
     def test_chat_with_reasoning(self, mock_client):
         """Test chat flow with reasoning chunks."""
         # Create app with reasoning chunks
-        reasoning_chunks = [
-            "[REASONING]Let me think",
-            " about this",
-            "[/REASONING]",
-            "The answer is 42"
-        ]
+        reasoning_chunks = ["[REASONING]Let me think", " about this", "[/REASONING]", "The answer is 42"]
         mock_alfred = MockAlfred(chunks=reasoning_chunks)
         app = create_app(alfred_instance=mock_alfred)
         client = TestClient(app)
@@ -297,10 +276,7 @@ class TestWebSocketChatWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "What is the answer?"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "What is the answer?"}})
 
             # Receive chat.started
             data = websocket.receive_json()
@@ -339,10 +315,7 @@ class TestWebSocketChatWithMockedAlfred:
 
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Batch this content"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Batch this content"}})
 
             data = websocket.receive_json()
             assert data["type"] == "chat.started"
@@ -371,10 +344,7 @@ class TestWebSocketChatWithMockedAlfred:
 
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Batch this reasoning"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Batch this reasoning"}})
 
             data = websocket.receive_json()
             assert data["type"] == "chat.started"
@@ -405,10 +375,7 @@ class TestWebSocketChatWithMockedAlfred:
         mock_alfred = MockAlfred(
             stream_parts=[
                 ToolStart(tool_call_id="tool-1", tool_name="bash", arguments={}),
-                *[
-                    ToolOutput(tool_call_id="tool-1", tool_name="bash", chunk="x")
-                    for _ in range(300)
-                ],
+                *[ToolOutput(tool_call_id="tool-1", tool_name="bash", chunk="x") for _ in range(300)],
                 ToolEnd(tool_call_id="tool-1", tool_name="bash", result="ok"),
                 "done",
             ]
@@ -418,10 +385,7 @@ class TestWebSocketChatWithMockedAlfred:
 
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Run tool"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Run tool"}})
 
             data = websocket.receive_json()
             assert data["type"] == "chat.started"
@@ -460,17 +424,13 @@ class TestWebSocketCommandWithoutAlfred:
             websocket.receive_json()
 
             # Send /help command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/help"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/help"}})
 
             # Should receive error (either about Alfred instance or unknown command)
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
             # Server may return either error depending on implementation order
-            assert "Alfred instance not available" in data["payload"]["error"] or \
-                   "Unknown command" in data["payload"]["error"]
+            assert "Alfred instance not available" in data["payload"]["error"] or "Unknown command" in data["payload"]["error"]
 
     def test_command_execute_empty_command_returns_error(self, client):
         """Test that empty command returns error."""
@@ -479,10 +439,7 @@ class TestWebSocketCommandWithoutAlfred:
             websocket.receive_json()
 
             # Send empty command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "   "}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "   "}})
 
             # Should receive error
             data = websocket.receive_json()
@@ -496,10 +453,7 @@ class TestWebSocketCommandWithoutAlfred:
             websocket.receive_json()
 
             # Send unknown command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/unknown"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/unknown"}})
 
             # Should receive error about Alfred instance first
             data = websocket.receive_json()
@@ -531,10 +485,7 @@ class TestWebSocketCommandsWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send /new command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/new"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/new"}})
 
             # Should receive session.new
             data = websocket.receive_json()
@@ -554,10 +505,7 @@ class TestWebSocketCommandsWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send /sessions command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/sessions"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/sessions"}})
 
             # Should receive session.list
             data = websocket.receive_json()
@@ -578,10 +526,7 @@ class TestWebSocketCommandsWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send /session command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/session"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/session"}})
 
             # Should receive session.info
             data = websocket.receive_json()
@@ -601,10 +546,7 @@ class TestWebSocketCommandsWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send /resume command
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/resume session-2"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/resume session-2"}})
 
             # Should receive session.loaded
             data = websocket.receive_json()
@@ -624,10 +566,7 @@ class TestWebSocketCommandsWithMockedAlfred:
             _connect_and_skip_initial_messages(websocket)
 
             # Send /resume command without args
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/resume"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/resume"}})
 
             # Should receive error
             data = websocket.receive_json()
@@ -654,10 +593,7 @@ class TestWebSocketCommandsWithMockedAlfred:
         ):
             _connect_and_skip_initial_messages(websocket)
 
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/context"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/context"}})
 
             data = websocket.receive_json()
             assert data["type"] == "context.info"
@@ -679,10 +615,7 @@ class TestWebSocketStatusUpdates:
             _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Hello"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
 
             # Collect messages
             status_updates = []
@@ -718,10 +651,7 @@ class TestWebSocketStatusUpdates:
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
 
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Test"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Test"}})
 
             while True:
                 data = websocket.receive_json()
@@ -742,10 +672,7 @@ class TestWebSocketStatusUpdates:
             _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Hello world test message"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello world test message"}})
 
             final_status = None
 
@@ -780,10 +707,7 @@ class TestWebSocketStatusUpdates:
             _connect_and_skip_initial_messages(websocket)
 
             # Send chat message
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Test"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Test"}})
 
             # Look for status with queueLength
             while True:
@@ -806,6 +730,7 @@ class TestWebSocketErrorHandling:
         # Override new_session_async to raise exception
         async def failing_new_session():
             raise RuntimeError("Database connection failed")
+
         mock_alfred.core.session_manager.new_session_async = failing_new_session
 
         app = create_app(alfred_instance=mock_alfred)
@@ -814,10 +739,7 @@ class TestWebSocketErrorHandling:
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
 
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/new"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/new"}})
 
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
@@ -830,6 +752,7 @@ class TestWebSocketErrorHandling:
 
         async def failing_resume_session(session_id):
             raise ValueError("Session not found in database")
+
         mock_alfred.core.session_manager.resume_session_async = failing_resume_session
 
         app = create_app(alfred_instance=mock_alfred)
@@ -838,10 +761,7 @@ class TestWebSocketErrorHandling:
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
 
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/resume nonexistent-session"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/resume nonexistent-session"}})
 
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
@@ -853,6 +773,7 @@ class TestWebSocketErrorHandling:
 
         async def failing_list_sessions():
             raise RuntimeError("Storage backend unavailable")
+
         mock_alfred.core.session_manager.list_sessions_async = failing_list_sessions
 
         app = create_app(alfred_instance=mock_alfred)
@@ -861,10 +782,7 @@ class TestWebSocketErrorHandling:
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
 
-            websocket.send_json({
-                "type": "command.execute",
-                "payload": {"command": "/sessions"}
-            })
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/sessions"}})
 
             data = websocket.receive_json()
             assert data["type"] == "chat.error"
@@ -892,10 +810,7 @@ class TestWebSocketErrorHandling:
         with client.websocket_connect("/ws") as websocket:
             _connect_and_skip_initial_messages(websocket)
 
-            websocket.send_json({
-                "type": "chat.send",
-                "payload": {"content": "Hello"}
-            })
+            websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
 
             # Should receive chat.started
             data = websocket.receive_json()
@@ -925,10 +840,7 @@ class TestWebSocketErrorHandling:
             _connect_and_skip_initial_messages(websocket)
 
             # Send unknown message type
-            websocket.send_json({
-                "type": "custom.unknown.type",
-                "payload": {"data": "test"}
-            })
+            websocket.send_json({"type": "custom.unknown.type", "payload": {"data": "test"}})
 
             data = websocket.receive_json()
             assert data["type"] == "echo"

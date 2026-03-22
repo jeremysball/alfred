@@ -23,5 +23,17 @@ def test_index_loads_app_config_before_websocket_client() -> None:
 
     assert '<script src="/app-config.js"></script>' in source
     assert source.index('<script src="/app-config.js"></script>') < source.index(
+        '<script src="/static/js/webui-client-logger.js?v=3"></script>'
+    )
+    assert source.index('<script src="/static/js/webui-client-logger.js?v=3"></script>') < source.index(
         '<script src="/static/js/websocket-client.js?v=3"></script>'
     )
+
+
+def test_webui_client_logger_prefixes_console_methods() -> None:
+    """The browser console should be wrapped with a stable webui-client prefix."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/webui-client-logger.js").read_text()
+
+    assert "[webui-client]" in source
+    assert "console[methodName] = (...args) =>" in source
+    assert "window[MARKER] = true;" in source

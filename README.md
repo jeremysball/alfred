@@ -72,14 +72,15 @@ All local. No cloud. Your data stays in files you control.
 ## CLI Commands
 
 ```bash
-alfred              # Start interactive chat
-alfred --telegram   # Run as Telegram bot
-alfred webui        # Start web interface
-alfred cron list    # List scheduled jobs
-alfred cron submit  # Submit a new job
-alfred memory migrate   # Convert JSONL memories to FAISS
-alfred memory status    # Show memory store info
-alfred --debug info # Run with info logging
+alfred                   # Start interactive chat
+alfred --telegram        # Run as Telegram bot
+alfred --log info        # Enable Alfred/core info logging
+alfred webui             # Start web interface
+alfred webui --log debug # Enable Web UI-specific debug logging
+alfred cron list         # List scheduled jobs
+alfred cron submit       # Submit a new job
+alfred memory migrate    # Convert JSONL memories to FAISS
+alfred memory status     # Show memory store info
 ```
 
 ## Web Interface
@@ -101,6 +102,25 @@ alfred webui --host 0.0.0.0 --port 8080
 # Auto-open browser
 alfred webui --open
 ```
+
+### Logging
+
+The root `--log` flag and the Web UI `--log` flag are separate.
+
+```bash
+# Alfred/core logging only
+alfred --log debug webui
+
+# Web UI logging only
+alfred webui --log debug
+
+# Enable both
+alfred --log debug webui --log debug
+```
+
+**Important:** root options go before the subcommand, and Web UI options go after `webui`.
+
+When logging is enabled, console output uses surface prefixes such as `[core]`, `[webui-server]`, `[webui-client]`, `[llm]`, `[tools]`, and `[storage]` so live streams are easy to scan. In a TTY those prefixes are colorized; in non-TTY output and log files they stay plain, and file logs include `surface=...` fields so they stay grep-friendly.
 
 ### Web UI Features
 
