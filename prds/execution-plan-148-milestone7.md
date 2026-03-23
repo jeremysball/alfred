@@ -17,9 +17,9 @@ This phase is intentionally test-first. Production behavior should already be in
 
 ### Component: Conflict recovery clears blocked state
 
-- [ ] **Test**: `test_load_file_reenables_manually_resolved_conflicted_template()` - verify a conflicted managed file becomes active again after the user resolves the file on disk and Alfred restarts
-- [ ] **Implement**: add a regression in `tests/test_context_integration.py` that seeds a conflicted template, rewrites the workspace file with a clean merged result, reloads with a fresh `ContextLoader`, and asserts the file returns as `ACTIVE` with no blocked-context entry
-- [ ] **Run**: `uv run pytest tests/test_context_integration.py::TestContextLoaderBlockedTemplates::test_load_file_reenables_manually_resolved_conflicted_template -v`
+- [x] **Test**: `test_load_file_reenables_manually_resolved_conflicted_template()` - verify a conflicted managed file becomes active again after the user resolves the file on disk and Alfred restarts
+- [x] **Implement**: add a regression in `tests/test_context_integration.py` that seeds a conflicted template, rewrites the workspace file with a clean merged result, reloads with a fresh `ContextLoader`, and asserts the file returns as `ACTIVE` with no blocked-context entry
+- [x] **Run**: `uv run pytest tests/test_context_integration.py::TestContextLoaderBlockedTemplates::test_load_file_reenables_manually_resolved_conflicted_template -v`
 
 ### Component: Workspace-scoped sync metadata stays isolated
 

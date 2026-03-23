@@ -237,6 +237,23 @@ class TestContextLoaderBlockedTemplates:
         assert restarted_loader.get_blocked_context_files() == ["soul"]
 
     @pytest.mark.asyncio
+    async def test_load_file_reenables_manually_resolved_conflicted_template(self, config: Config) -> None:
+        """A manually repaired conflicted managed file becomes active again after restart."""
+        loader, soul_path, cache_dir = await self._seed_conflicted_soul(config)
+
+        assert loader.get_blocked_context_files() == ["soul"]
+
+        soul_path.write_text("# Soul\n\nMerged resolution\n", encoding="utf-8")
+
+        restarted_loader = ContextLoader(config, cache_dir=cache_dir)
+        resolved = await restarted_loader.load_file("soul", soul_path)
+
+        assert resolved.state is ContextFileState.ACTIVE
+        assert resolved.blocked_reason is None
+        assert resolved.content == "# Soul\n\nMerged resolution\n"
+        assert restarted_loader.get_blocked_context_files() == []
+
+    @pytest.mark.asyncio
     async def test_assemble_excludes_blocked_context_files_and_records_blocked_context_files(
         self,
         config: Config,
