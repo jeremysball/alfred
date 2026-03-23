@@ -383,6 +383,132 @@ class TemplateManager:
 
         return target_prompts
 
+    def _read_file_text(self, path: Path, name: str) -> str | None:
+        """Read file content for reconciliation checks."""
+        try:
+            return path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.warning(f"Failed to read {name}: {exc}")
+            return None
+
+    def _should_skip_by_mtime(self, name: str, template_path: Path, target_path: Path) -> bool:
+        """Return True when a template file is not newer than the workspace copy."""
+        try:
+            template_mtime = template_path.stat().st_mtime
+            target_mtime = target_path.stat().st_mtime
+            return template_mtime <= target_mtime
+        except Exception as exc:
+            logger.warning(f"Could not compare mtimes for {name}: {exc}")
+            return False
+
+    def reconcile_template(
+        self,
+        name: str,
+        preserve: set[str] | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, str]:
+        """Reconcile one workspace file with its template."""
+        if self._template_dir is None:
+            return {
+                "status": "error",
+                "message": "No template directory available",
+            }
+
+        target_path = self.get_target_path(name)
+        template_path = self.get_template_path(name)
+
+        # Skip directories (like prompts/)
+        if template_path.is_dir():
+            return {
+                "status": "skipped",
+                "message": "Template is a directory",
+            }
+
+        if preserve is None:
+            preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
+
+        if name in preserve and target_path.exists():
+            return {
+                "status": "preserved",
+                "message": "Preserved (in preserve list)",
+            }
+
+        if not self.template_exists(name):
+            return {
+                "status": "error",
+                "message": "Template not found",
+            }
+
+        content = self.load_template(name)
+        if content is None:
+            return {
+                "status": "error",
+                "message": "Failed to load template",
+            }
+
+        content = self.substitute_variables(content)
+
+        if target_path.exists():
+            base_snapshot = self.get_base_snapshot(name)
+            workspace_content = self._read_file_text(target_path, name)
+
+            if workspace_content is not None:
+                if workspace_content == content:
+                    if base_snapshot is not None and base_snapshot.content == content:
+                        return {
+                            "status": "skipped",
+                            "message": "Already up to date",
+                        }
+                    if dry_run:
+                        return {
+                            "status": "dry_run",
+                            "message": f"Would update {name}",
+                        }
+                    self._record_base_snapshot(name, content, target_path)
+                    logger.info(f"Refreshed template snapshot: {name}")
+                    return {
+                        "status": "updated",
+                        "message": "Updated from template",
+                    }
+
+                if base_snapshot is not None:
+                    if workspace_content != base_snapshot.content:
+                        return {
+                            "status": "skipped",
+                            "message": "Workspace diverged from saved base",
+                        }
+                    # Workspace still matches the last saved base, so we can
+                    # fast-forward even if mtimes look stale.
+                elif self._should_skip_by_mtime(name, template_path, target_path):
+                    return {
+                        "status": "skipped",
+                        "message": "Already up to date",
+                    }
+            elif self._should_skip_by_mtime(name, template_path, target_path):
+                return {
+                    "status": "skipped",
+                    "message": "Already up to date",
+                }
+
+        if dry_run:
+            return {
+                "status": "dry_run",
+                "message": f"Would update {name}",
+            }
+
+        try:
+            self._write_template_content(name, content, target_path)
+            logger.info(f"Updated template: {name}")
+            return {
+                "status": "updated",
+                "message": "Updated from template",
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error: {e}",
+            }
+
     def update_templates(
         self,
         preserve: set[str] | None = None,
@@ -408,74 +534,10 @@ class TemplateManager:
             preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
 
         results: dict[str, dict[str, str]] = {}
-        templates = self.list_templates()
-
-        for name in templates:
-            target_path = self.get_target_path(name)
-            template_path = self.get_template_path(name)
-
-            # Skip directories (like prompts/)
-            if template_path.is_dir():
-                continue
-
-            # Check if file should be preserved
-            if name in preserve and target_path.exists():
-                results[name] = {
-                    "status": "preserved",
-                    "message": "Preserved (in preserve list)",
-                }
-                continue
-
-            # Check if template exists
-            if not self.template_exists(name):
-                results[name] = {
-                    "status": "error",
-                    "message": "Template not found",
-                }
-                continue
-
-            # Check if file needs updating
-            if target_path.exists():
-                try:
-                    template_mtime = template_path.stat().st_mtime
-                    target_mtime = target_path.stat().st_mtime
-                    if template_mtime <= target_mtime:
-                        results[name] = {
-                            "status": "skipped",
-                            "message": "Already up to date",
-                        }
-                        continue
-                except Exception as e:
-                    logger.warning(f"Could not compare mtimes for {name}: {e}")
-
-            # Update the file
-            if dry_run:
-                results[name] = {
-                    "status": "dry_run",
-                    "message": f"Would update {name}",
-                }
-            else:
-                try:
-                    content = self.load_template(name)
-                    if content is not None:
-                        content = self.substitute_variables(content)
-                        self._write_template_content(name, content, target_path)
-                        results[name] = {
-                            "status": "updated",
-                            "message": "Updated from template",
-                        }
-                        logger.info(f"Updated template: {name}")
-                    else:
-                        results[name] = {
-                            "status": "error",
-                            "message": "Failed to load template",
-                        }
-                except Exception as e:
-                    results[name] = {
-                        "status": "error",
-                        "message": f"Error: {e}",
-                    }
-                    logger.error(f"Failed to update {name}: {e}")
+        for name in self.list_templates():
+            result = self.reconcile_template(name, preserve=preserve, dry_run=dry_run)
+            if result:
+                results[name] = result
 
         # Also update prompts directory
         prompts_result = self._update_prompts(dry_run=dry_run)

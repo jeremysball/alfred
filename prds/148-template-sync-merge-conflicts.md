@@ -267,3 +267,4 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-22 | Keep the app running even if a template conflicts | Alfred should remain usable while the operator resolves the issue |
 | 2026-03-23 | Keep the sync store lazy-loaded behind `TemplateManager.get_base_snapshot()` | Avoid eager cache side effects on manager construction while still recovering snapshots after restart |
 | 2026-03-23 | Treat sync-store writes as best-effort during template updates | A cache write failure should not roll back a successful workspace update |
+| 2026-03-23 | Fast-forward clean template updates when the workspace still matches the saved base snapshot | Content identity is the authoritative signal for a clean fast-forward, even when mtimes are stale |

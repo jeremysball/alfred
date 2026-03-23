@@ -283,6 +283,44 @@ class TestCreateFromTemplate:
         assert target is None
 
 
+class TestUpdateTemplates:
+    """Test template update reconciliation."""
+
+    def test_update_templates_ignores_mtime_when_workspace_matches_saved_base(self, tmp_path: Path) -> None:
+        """A clean workspace should fast-forward even when mtimes look stale."""
+        workspace_templates = tmp_path / "templates"
+        workspace_templates.mkdir()
+        template_path = workspace_templates / "SYSTEM.md"
+        initial_content = "# System\n\nInitial template body"
+        updated_content = "# System\n\nUpdated template body"
+        template_path.write_text(initial_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+
+        target = manager.create_from_template("SYSTEM.md")
+        assert target is not None
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == initial_content
+
+        template_path.write_text(updated_content, encoding="utf-8")
+        target_mtime = template_path.stat().st_mtime + 10
+        os.utime(target, (target_mtime, target_mtime))
+
+        results = manager.update_templates()
+
+        assert results["SYSTEM.md"]["status"] == "updated"
+        assert target.read_text(encoding="utf-8") == updated_content
+
+        sync_path = cache_dir / "template-sync.json"
+        record = json.loads(sync_path.read_text(encoding="utf-8"))["records"]["SYSTEM.md"]
+        expected_hash = hashlib.sha256(updated_content.encode("utf-8")).hexdigest()
+        assert record["base_snapshot"]["content"] == updated_content
+        assert record["base_snapshot"]["hash"] == expected_hash
+        assert record["workspace_hash"] == expected_hash
+        assert record["template_hash"] == expected_hash
+
+
 class TestEnsureExists:
     """Test ensure_exists functionality."""
 
