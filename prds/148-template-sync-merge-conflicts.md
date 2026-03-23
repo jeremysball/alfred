@@ -273,3 +273,4 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-23 | Scope sync records to the current workspace path before trusting conflict state | Prevent stale cache entries from other workspaces from contaminating the current loader |
 | 2026-03-23 | Expose blocked context files and warning text through the shared context-display payload | `/context` and the WebUI should read the same source of truth for warning state |
 | 2026-03-23 | Mark WebUI context warnings with a `data-warning` system-message attribute | The browser can style persistent warnings without inventing a separate banner system |
+| 2026-03-23 | Verify conflict recovery by reloading a fresh `ContextLoader` after the workspace file is repaired | Recovery should depend on the repaired on-disk file and restart path, not on mutating blocked state in memory |
