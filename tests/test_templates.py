@@ -321,6 +321,48 @@ class TestUpdateTemplates:
         assert record["workspace_hash"] == expected_hash
         assert record["template_hash"] == expected_hash
 
+    def test_template_manager_fast_forwards_clean_update_after_restart(self, tmp_path: Path) -> None:
+        """A restarted manager still fast-forwards clean updates from the saved base snapshot."""
+        workspace_templates = tmp_path / "templates"
+        workspace_templates.mkdir()
+        template_path = workspace_templates / "SYSTEM.md"
+        initial_content = "# System\n\nInitial template body"
+        updated_content = "# System\n\nUpdated template body"
+        template_path.write_text(initial_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        first_manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+
+        target = first_manager.create_from_template("SYSTEM.md")
+        assert target is not None
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == initial_content
+
+        target_mtime = target.stat().st_mtime + 10
+        os.utime(target, (target_mtime, target_mtime))
+
+        restarted_manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+        recovered = restarted_manager.get_base_snapshot("SYSTEM.md")
+        assert recovered is not None
+        assert recovered.content == initial_content
+        assert recovered.hash == hashlib.sha256(initial_content.encode("utf-8")).hexdigest()
+
+        template_path.write_text(updated_content, encoding="utf-8")
+        results = restarted_manager.update_templates()
+
+        assert results["SYSTEM.md"]["status"] == "updated"
+        assert target.read_text(encoding="utf-8") == updated_content
+
+        sync_path = cache_dir / "template-sync.json"
+        record = json.loads(sync_path.read_text(encoding="utf-8"))["records"]["SYSTEM.md"]
+        expected_hash = hashlib.sha256(updated_content.encode("utf-8")).hexdigest()
+
+        assert record["state"] == TemplateSyncState.CLEAN.value
+        assert record["base_snapshot"]["content"] == updated_content
+        assert record["base_snapshot"]["hash"] == expected_hash
+        assert record["base_snapshot"]["captured_at"] is not None
+        assert record["workspace_hash"] == expected_hash
+        assert record["template_hash"] == expected_hash
 
     def test_update_templates_writes_standard_conflict_markers_when_template_and_workspace_both_diverge(
         self,
