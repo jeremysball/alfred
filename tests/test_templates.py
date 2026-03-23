@@ -413,6 +413,54 @@ class TestUpdateTemplates:
         assert record["workspace_hash"] == expected_written_hash
 
 
+class TestTemplateManagerIntegration:
+    """Integration-style tests for template sync behavior."""
+
+    def test_template_manager_ignores_sync_record_from_other_workspace(self, tmp_path: Path) -> None:
+        """A sync record from one workspace must not affect another workspace."""
+        shared_content = "# System\n\nShared template body"
+
+        workspace_a = tmp_path / "workspace-a"
+        workspace_a_templates = workspace_a / "templates"
+        workspace_a_templates.mkdir(parents=True)
+        (workspace_a_templates / "SYSTEM.md").write_text(shared_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        manager_a = TemplateManager(workspace_a, cache_dir=cache_dir)
+        created_a = manager_a.create_from_template("SYSTEM.md")
+        assert created_a is not None
+        assert created_a.read_text(encoding="utf-8") == shared_content
+
+        workspace_b = tmp_path / "workspace-b"
+        workspace_b_templates = workspace_b / "templates"
+        workspace_b_templates.mkdir(parents=True)
+        template_path = workspace_b_templates / "SYSTEM.md"
+        template_path.write_text(shared_content, encoding="utf-8")
+
+        target_path = workspace_b / "SYSTEM.md"
+        target_path.write_text(shared_content, encoding="utf-8")
+        target_mtime = target_path.stat().st_mtime
+        newer_mtime = target_mtime + 10
+        os.utime(template_path, (newer_mtime, newer_mtime))
+
+        manager_b = TemplateManager(workspace_b, cache_dir=cache_dir)
+        result = manager_b.reconcile_template("SYSTEM.md")
+
+        assert result["status"] == "updated"
+        assert target_path.read_text(encoding="utf-8") == shared_content
+
+        sync_path = cache_dir / "template-sync.json"
+        payload = json.loads(sync_path.read_text(encoding="utf-8"))
+        record = payload["records"]["SYSTEM.md"]
+        expected_hash = hashlib.sha256(shared_content.encode("utf-8")).hexdigest()
+
+        assert record["workspace_path"] == str(target_path)
+        assert record["base_snapshot"]["content"] == shared_content
+        assert record["base_snapshot"]["hash"] == expected_hash
+        assert record["base_hash"] == expected_hash
+        assert record["state"] == TemplateSyncState.CLEAN.value
+
+
 class TestEnsureExists:
     """Test ensure_exists functionality."""
 

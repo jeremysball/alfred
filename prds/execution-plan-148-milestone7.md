@@ -23,9 +23,9 @@ This phase is intentionally test-first. Production behavior should already be in
 
 ### Component: Workspace-scoped sync metadata stays isolated
 
-- [ ] **Test**: `test_template_manager_ignores_sync_record_from_other_workspace()` - verify a sync record from one workspace does not leak into a different workspace that happens to share the same cache directory
-- [ ] **Implement**: add a regression in `tests/test_templates.py` that seeds a sync record in workspace A, constructs a manager for workspace B with the same cache file, and asserts `get_sync_record()` returns `None` for the foreign record
-- [ ] **Run**: `uv run pytest tests/test_templates.py::TestTemplateManagerIntegration::test_template_manager_ignores_sync_record_from_other_workspace -v`
+- [x] **Test**: `test_template_manager_ignores_sync_record_from_other_workspace()` - verify a sync record from one workspace does not leak into a different workspace that happens to share the same cache directory, using a load/reconcile path instead of a direct metadata lookup
+- [x] **Implement**: add a regression in `tests/test_templates.py` that seeds a sync record in workspace A, constructs a manager for workspace B with the same cache file, exercises a workspace-B load/reconcile path, and asserts stale state from workspace A is not reused
+- [x] **Run**: `uv run pytest tests/test_templates.py::TestTemplateManagerIntegration::test_template_manager_ignores_sync_record_from_other_workspace -v`
 
 ---
 

@@ -337,8 +337,8 @@ class TemplateManager:
         return record
 
     def get_base_snapshot(self, name: str) -> TemplateBaseSnapshot | None:
-        """Return the last known clean snapshot for a template, if available."""
-        record = self._get_sync_store().get(name)
+        """Return the last known clean snapshot for this workspace, if available."""
+        record = self.get_sync_record(name)
         if record is None:
             return None
         return record.base_snapshot
