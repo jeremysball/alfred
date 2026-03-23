@@ -9,21 +9,21 @@ Define and persist the metadata Alfred needs to reason about template drift: bas
 
 ### Component: Sync record schema
 
-- [ ] **Test**: `test_template_sync_record_captures_template_workspace_and_base_hashes()` - verify a sync record stores template hash, workspace hash, base hash, and per-file status
-- [ ] **Implement**: add `src/alfred/template_sync.py` with a structured sync record model and explicit state enum
-- [ ] **Run**: `uv run pytest tests/test_template_sync.py::test_template_sync_record_captures_template_workspace_and_base_hashes -v`
+- [x] **Test**: `test_template_sync_record_captures_template_workspace_and_base_hashes()` - verify a sync record stores template hash, workspace hash, base hash, and per-file status
+- [x] **Implement**: add `src/alfred/template_sync.py` with a structured sync record model and explicit state enum
+- [x] **Run**: `uv run pytest tests/test_template_sync.py::test_template_sync_record_captures_template_workspace_and_base_hashes -v`
 
 ### Component: Sync store round-trip
 
-- [ ] **Test**: `test_template_sync_store_round_trips_records()` - verify records can be saved, loaded, and survive a restart without losing base snapshot data
-- [ ] **Implement**: add a small JSON-backed sync store with atomic writes and load-on-start behavior
-- [ ] **Run**: `uv run pytest tests/test_template_sync.py::test_template_sync_store_round_trips_records -v`
+- [x] **Test**: `test_template_sync_store_round_trips_records()` - verify records can be saved, loaded, and survive a restart without losing base snapshot data
+- [x] **Implement**: add a small JSON-backed sync store with atomic writes and load-on-start behavior
+- [x] **Run**: `uv run pytest tests/test_template_sync.py::test_template_sync_store_round_trips_records -v`
 
 ### Component: State classification helpers
 
-- [ ] **Test**: `test_template_sync_state_distinguishes_clean_merged_and_conflicted_records()` - verify helper methods classify clean, merged, pending, and conflicted states consistently
-- [ ] **Implement**: add helper methods for `is_clean()`, `needs_merge()`, and `is_conflicted()` so later phases can branch cleanly
-- [ ] **Run**: `uv run pytest tests/test_template_sync.py::test_template_sync_state_distinguishes_clean_merged_and_conflicted_records -v`
+- [x] **Test**: `test_template_sync_state_distinguishes_clean_merged_and_conflicted_records()` - verify helper methods classify clean, merged, pending, and conflicted states consistently
+- [x] **Implement**: add helper methods for `is_clean()`, `needs_merge()`, and `is_conflicted()` so later phases can branch cleanly
+- [x] **Run**: `uv run pytest tests/test_template_sync.py::test_template_sync_state_distinguishes_clean_merged_and_conflicted_records -v`
 
 ---
 
