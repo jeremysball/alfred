@@ -250,7 +250,6 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 132 | Dynamic Embedding Dimension Support | Auto-detect and re-embed when switching models (BGE↔OpenAI) (PRD #132) |
 | 135 | Persistent Memory Context | Keep memories loaded across turns with LRU eviction when limits reached (PRD #135) |
 | 140 | PyPiTUI v2 Adoption + Alfred Runtime Rewrite | Make PyPiTUI usable as a real runtime dependency and rewrite Alfred to consume it directly end-to-end (PRD #140) |
-| 148 | Auto-merge Template Updates and Conflict Warnings | Merge template changes on restart, block conflicted context files, and warn persistently in the Web UI (PRD #148) |
 
 ### Medium-term 📅
 

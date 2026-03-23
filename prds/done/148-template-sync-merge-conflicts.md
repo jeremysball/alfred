@@ -1,9 +1,10 @@
 # PRD: Auto-merge Template Updates and Warn on Conflicts
 
 **GitHub Issue**: [#148](https://github.com/jeremysball/alfred/issues/148)  
-**Status**: Draft  
+**Status**: ✅ Complete  
 **Priority**: High  
-**Created**: 2026-03-22
+**Created**: 2026-03-22  
+**Completed**: 2026-03-23
 
 ---
 

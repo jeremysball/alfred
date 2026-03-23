@@ -295,11 +295,7 @@ class TemplateManager:
 
     def _has_conflict_markers(self, content: str) -> bool:
         """Return True when content contains standard git conflict markers."""
-        return (
-            content.startswith("<<<<<<< ours\n")
-            and "\n=======\n" in content
-            and content.rstrip().endswith(">>>>>>> theirs")
-        )
+        return content.startswith("<<<<<<< ours\n") and "\n=======\n" in content and content.rstrip().endswith(">>>>>>> theirs")
 
     def _write_conflicted_template_content(
         self,

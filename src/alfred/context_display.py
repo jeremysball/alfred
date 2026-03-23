@@ -43,11 +43,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     # Load context files
     context_files = await alfred.context_loader.load_all()
 
-    blocked_context_files = [
-        _context_file_name(file)
-        for file in context_files.values()
-        if getattr(file, "is_blocked", lambda: False)()
-    ]
+    blocked_context_files = [_context_file_name(file) for file in context_files.values() if getattr(file, "is_blocked", lambda: False)()]
 
     warnings = [f"Blocked context files: {', '.join(blocked_context_files)}"] if blocked_context_files else []
 
