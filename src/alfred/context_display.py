@@ -4,6 +4,7 @@ Provides functionality to gather and format system context information
 for user inspection via the /context command.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,6 +14,15 @@ if TYPE_CHECKING:
 def _estimate_tokens(text: str) -> int:
     """Estimate token count from character count (4 chars ≈ 1 token)."""
     return len(text) // 4
+
+
+def _context_file_name(file: Any) -> str:
+    """Return a human-readable filename for a loaded context file."""
+    path = getattr(file, "path", None)
+    if path:
+        return Path(str(path)).name
+    name = getattr(file, "name", "")
+    return f"{name}.md" if name and not str(name).endswith(".md") else str(name)
 
 
 async def get_context_display(alfred: "Alfred", session_id: str | None = None) -> dict[str, Any]:
@@ -33,20 +43,27 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     # Load context files
     context_files = await alfred.context_loader.load_all()
 
+    blocked_context_files = [_context_file_name(file) for file in context_files.values() if getattr(file, "is_blocked", lambda: False)()]
+
+    warnings = [f"Blocked context files: {', '.join(blocked_context_files)}"] if blocked_context_files else []
+
     # Build system prompt sections with token counts
     system_sections = []
     total_system_tokens = 0
     for name in ["agents", "soul", "user", "tools"]:
-        if name in context_files:
-            content = context_files[name].content
-            tokens = _estimate_tokens(content)
-            system_sections.append(
-                {
-                    "name": name.upper() + ".md",
-                    "tokens": tokens,
-                }
-            )
-            total_system_tokens += tokens
+        file = context_files.get(name)
+        if file is None or getattr(file, "is_blocked", lambda: False)():
+            continue
+
+        content = file.content
+        tokens = _estimate_tokens(content)
+        system_sections.append(
+            {
+                "name": name.upper() + ".md",
+                "tokens": tokens,
+            }
+        )
+        total_system_tokens += tokens
 
     # Get all memories
     all_memories = await alfred.core.memory_store.get_all_entries()
@@ -101,6 +118,8 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             "sections": system_sections,
             "total_tokens": total_system_tokens,
         },
+        "blocked_context_files": blocked_context_files,
+        "warnings": warnings,
         "memories": {
             "displayed": len(memory_display),
             "total": len(all_memories),

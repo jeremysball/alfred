@@ -68,7 +68,9 @@ Loads and assembles context files for LLM prompts.
 
 ### Template System
 
-Alfred uses templates for initial context files. On first run, templates are copied from `templates/` to `data/` if they don't exist.
+Alfred uses templates for initial context files. On first run, missing files are copied from `templates/` to `data/`. Managed files are also reconciled through `TemplateManager.reconcile_template()` so restart-time template drift is handled consistently.
+
+See [Template Sync and Conflict Recovery](template-sync.md) for the operator workflow.
 
 ```
 templates/               # Built-in templates (read-only)
@@ -89,9 +91,12 @@ data/                    # User's runtime files
 ```
 
 **Behavior:**
-- Alfred checks for missing context files on startup
-- Missing files are auto-created from templates
-- User modifications persist; templates don't overwrite
+- Alfred checks for missing context files on startup.
+- Missing files are auto-created from templates.
+- Existing managed files are reconciled on restart against the saved base snapshot.
+- Sync records are workspace-scoped, so another checkout cannot reuse them.
+- Conflicted files are written with standard git markers, blocked from context loading, and surfaced in `/context` and the WebUI.
+- User modifications persist; Alfred only refreshes clean matches or writes conflict markers when it cannot merge cleanly.
 
 **Data Flow:**
 ```

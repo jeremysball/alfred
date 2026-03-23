@@ -1,9 +1,13 @@
 """Template management and auto-creation for Alfred context files."""
 
+import hashlib
 import logging
 import shutil
 from datetime import date
 from pathlib import Path
+
+from alfred.data_manager import get_cache_dir
+from alfred.template_sync import TemplateBaseSnapshot, TemplateSyncRecord, TemplateSyncState, TemplateSyncStore
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +18,17 @@ class TemplateManager:
     # Templates that should be auto-created if missing
     AUTO_CREATE_TEMPLATES = {"SYSTEM.md", "AGENTS.md", "SOUL.md", "USER.md"}
 
-    def __init__(self, workspace_dir: Path) -> None:
+    def __init__(self, workspace_dir: Path, cache_dir: Path | None = None) -> None:
         """Initialize template manager.
 
         Args:
             workspace_dir: Directory where context files will be created
+            cache_dir: Directory where sync metadata will be stored
         """
         self.workspace_dir = workspace_dir
+        self._cache_dir = cache_dir
         self._template_dir = self._resolve_template_dir()
+        self._sync_store: TemplateSyncStore | None = None
 
     def _resolve_template_dir(self) -> Path | None:
         """Resolve template directory with priority order.
@@ -185,6 +192,153 @@ class TemplateManager:
 
         return content
 
+    def _get_sync_store(self) -> TemplateSyncStore:
+        """Get or create the template sync store."""
+        if self._sync_store is None:
+            cache_dir = self._cache_dir or get_cache_dir()
+            self._sync_store = TemplateSyncStore(cache_dir / "template-sync.json")
+        return self._sync_store
+
+    def _hash_content(self, content: str) -> str:
+        """Hash template content for sync tracking."""
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    def _persist_sync_record(
+        self,
+        name: str,
+        template_content: str,
+        workspace_content: str,
+        workspace_path: Path,
+        state: TemplateSyncState,
+        base_snapshot: TemplateBaseSnapshot | None,
+    ) -> None:
+        """Persist template sync metadata, best-effort."""
+        template_hash = self._hash_content(template_content)
+        workspace_hash = self._hash_content(workspace_content)
+        base_hash = base_snapshot.hash if base_snapshot is not None else template_hash
+        record = TemplateSyncRecord(
+            name=name,
+            template_path=self.get_template_path(name),
+            workspace_path=workspace_path,
+            template_hash=template_hash,
+            workspace_hash=workspace_hash,
+            base_hash=base_hash,
+            base_snapshot=base_snapshot,
+            state=state,
+        )
+        try:
+            self._get_sync_store().save(record)
+        except Exception as exc:
+            logger.warning(f"Failed to save template sync snapshot for {name}: {exc}")
+
+    def _ensure_trailing_newline(self, text: str) -> str:
+        """Ensure marker sections stay on their own lines."""
+        return text if text.endswith("\n") else f"{text}\n"
+
+    def _build_conflict_markers(self, workspace_content: str, template_content: str) -> str:
+        """Wrap diverging content in standard git conflict markers."""
+        return (
+            "<<<<<<< ours\n"
+            f"{self._ensure_trailing_newline(workspace_content)}"
+            "=======\n"
+            f"{self._ensure_trailing_newline(template_content)}"
+            ">>>>>>> theirs\n"
+        )
+
+    def _record_base_snapshot(self, name: str, content: str, workspace_path: Path) -> None:
+        """Persist the clean template content as the merge base."""
+        snapshot = TemplateBaseSnapshot(content=content, hash=self._hash_content(content))
+        self._persist_sync_record(
+            name=name,
+            template_content=content,
+            workspace_content=content,
+            workspace_path=workspace_path,
+            state=TemplateSyncState.CLEAN,
+            base_snapshot=snapshot,
+        )
+
+    def _record_conflicted_snapshot(
+        self,
+        name: str,
+        template_content: str,
+        workspace_content: str,
+        workspace_path: Path,
+        base_snapshot: TemplateBaseSnapshot,
+    ) -> None:
+        """Persist a conflicted sync record without changing file content."""
+        self._persist_sync_record(
+            name=name,
+            template_content=template_content,
+            workspace_content=workspace_content,
+            workspace_path=workspace_path,
+            state=TemplateSyncState.CONFLICTED,
+            base_snapshot=base_snapshot,
+        )
+
+    def _record_merged_snapshot(
+        self,
+        name: str,
+        template_content: str,
+        workspace_content: str,
+        workspace_path: Path,
+    ) -> None:
+        """Persist a resolved merge result as the new clean base."""
+        snapshot = TemplateBaseSnapshot(content=workspace_content, hash=self._hash_content(workspace_content))
+        self._persist_sync_record(
+            name=name,
+            template_content=template_content,
+            workspace_content=workspace_content,
+            workspace_path=workspace_path,
+            state=TemplateSyncState.MERGED,
+            base_snapshot=snapshot,
+        )
+
+    def _has_conflict_markers(self, content: str) -> bool:
+        """Return True when content contains standard git conflict markers."""
+        return content.startswith("<<<<<<< ours\n") and "\n=======\n" in content and content.rstrip().endswith(">>>>>>> theirs")
+
+    def _write_conflicted_template_content(
+        self,
+        name: str,
+        workspace_content: str,
+        template_content: str,
+        target_path: Path,
+        base_snapshot: TemplateBaseSnapshot,
+    ) -> None:
+        """Write standard conflict markers and persist a conflicted snapshot."""
+        conflicted_content = self._build_conflict_markers(workspace_content, template_content)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(conflicted_content, encoding="utf-8")
+        self._record_conflicted_snapshot(
+            name=name,
+            template_content=template_content,
+            workspace_content=conflicted_content,
+            workspace_path=target_path,
+            base_snapshot=base_snapshot,
+        )
+
+    def _write_template_content(self, name: str, content: str, target_path: Path) -> None:
+        """Write final template content and record its clean snapshot."""
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(content, encoding="utf-8")
+        self._record_base_snapshot(name, content, target_path)
+
+    def get_sync_record(self, name: str) -> TemplateSyncRecord | None:
+        """Return the persisted sync record for a template, if it belongs to this workspace."""
+        record = self._get_sync_store().get(name)
+        if record is None:
+            return None
+        if record.workspace_path != self.get_target_path(name):
+            return None
+        return record
+
+    def get_base_snapshot(self, name: str) -> TemplateBaseSnapshot | None:
+        """Return the last known clean snapshot for this workspace, if available."""
+        record = self.get_sync_record(name)
+        if record is None:
+            return None
+        return record.base_snapshot
+
     def create_from_template(self, name: str, variables: dict[str, str] | None = None, overwrite: bool = False) -> Path | None:
         """Create file from template, substituting variables.
 
@@ -211,15 +365,16 @@ class TemplateManager:
         # Substitute variables
         content = self.substitute_variables(content, variables)
 
-        # Ensure parent directory exists
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-
         # Write file
         try:
-            target_path.write_text(content, encoding="utf-8")
+            self._write_template_content(name, content, target_path)
             logger.info(f"Created file from template: {name}")
             return target_path
         except Exception as e:
+            try:
+                target_path.unlink(missing_ok=True)
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to clean up {target_path}: {cleanup_error}")
             logger.error(f"Failed to create {name}: {e}")
             return None
 
@@ -333,6 +488,208 @@ class TemplateManager:
 
         return target_prompts
 
+    def _read_file_text(self, path: Path, name: str) -> str | None:
+        """Read file content for reconciliation checks."""
+        try:
+            return path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.warning(f"Failed to read {name}: {exc}")
+            return None
+
+    def _should_skip_by_mtime(self, name: str, template_path: Path, target_path: Path) -> bool:
+        """Return True when a template file is not newer than the workspace copy."""
+        try:
+            template_mtime = template_path.stat().st_mtime
+            target_mtime = target_path.stat().st_mtime
+            return template_mtime <= target_mtime
+        except Exception as exc:
+            logger.warning(f"Could not compare mtimes for {name}: {exc}")
+            return False
+
+    def reconcile_template(
+        self,
+        name: str,
+        preserve: set[str] | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, str]:
+        """Reconcile one workspace file with its template."""
+        if self._template_dir is None:
+            return {
+                "status": "error",
+                "message": "No template directory available",
+            }
+
+        target_path = self.get_target_path(name)
+        template_path = self.get_template_path(name)
+
+        # Skip directories (like prompts/)
+        if template_path.is_dir():
+            return {
+                "status": "skipped",
+                "message": "Template is a directory",
+            }
+
+        if preserve is None:
+            preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
+
+        if name in preserve and target_path.exists():
+            return {
+                "status": "preserved",
+                "message": "Preserved (in preserve list)",
+            }
+
+        if not self.template_exists(name):
+            return {
+                "status": "error",
+                "message": "Template not found",
+            }
+
+        content = self.load_template(name)
+        if content is None:
+            return {
+                "status": "error",
+                "message": "Failed to load template",
+            }
+
+        content = self.substitute_variables(content)
+
+        if target_path.exists():
+            base_snapshot = self.get_base_snapshot(name)
+            record = self.get_sync_record(name)
+            workspace_content = self._read_file_text(target_path, name)
+
+            if workspace_content is not None:
+                if workspace_content == content:
+                    if base_snapshot is not None and base_snapshot.content == content:
+                        if record is not None and not record.is_clean():
+                            if dry_run:
+                                return {
+                                    "status": "dry_run",
+                                    "message": f"Would refresh {name}",
+                                }
+                            self._record_base_snapshot(name, content, target_path)
+                            logger.info(f"Refreshed template snapshot: {name}")
+                            return {
+                                "status": "updated",
+                                "message": "Updated from template",
+                            }
+                        return {
+                            "status": "skipped",
+                            "message": "Already up to date",
+                        }
+                    if dry_run:
+                        return {
+                            "status": "dry_run",
+                            "message": f"Would update {name}",
+                        }
+                    self._record_base_snapshot(name, content, target_path)
+                    logger.info(f"Refreshed template snapshot: {name}")
+                    return {
+                        "status": "updated",
+                        "message": "Updated from template",
+                    }
+
+                if base_snapshot is not None:
+                    if workspace_content == base_snapshot.content:
+                        # Workspace still matches the last saved base, so we can
+                        # fast-forward even if mtimes look stale.
+                        if dry_run:
+                            return {
+                                "status": "dry_run",
+                                "message": f"Would update {name}",
+                            }
+                        try:
+                            self._write_template_content(name, content, target_path)
+                            logger.info(f"Updated template: {name}")
+                            return {
+                                "status": "updated",
+                                "message": "Updated from template",
+                            }
+                        except Exception as e:
+                            return {
+                                "status": "error",
+                                "message": f"Error: {e}",
+                            }
+
+                    if record is not None and record.is_conflicted() and not self._has_conflict_markers(workspace_content):
+                        if dry_run:
+                            return {
+                                "status": "dry_run",
+                                "message": f"Would record merged resolution for {name}",
+                            }
+                        self._record_merged_snapshot(name, content, workspace_content, target_path)
+                        logger.info(f"Recorded merged template resolution: {name}")
+                        return {
+                            "status": "merged",
+                            "message": "Recorded resolved merge",
+                        }
+
+                    if self._has_conflict_markers(workspace_content):
+                        if dry_run:
+                            return {
+                                "status": "dry_run",
+                                "message": f"Would record conflict markers for {name}",
+                            }
+                        self._record_conflicted_snapshot(name, content, workspace_content, target_path, base_snapshot)
+                        logger.warning(f"Template conflict markers preserved: {name}")
+                        return {
+                            "status": "conflicted",
+                            "message": "Conflict markers already present",
+                        }
+
+                    if content == base_snapshot.content:
+                        return {
+                            "status": "skipped",
+                            "message": "Workspace diverged from saved base",
+                        }
+
+                    if dry_run:
+                        return {
+                            "status": "dry_run",
+                            "message": f"Would write conflict markers for {name}",
+                        }
+                    try:
+                        self._write_conflicted_template_content(name, workspace_content, content, target_path, base_snapshot)
+                        logger.warning(f"Template conflict markers written: {name}")
+                        return {
+                            "status": "conflicted",
+                            "message": "Wrote conflict markers",
+                        }
+                    except Exception as e:
+                        return {
+                            "status": "error",
+                            "message": f"Error: {e}",
+                        }
+                elif self._should_skip_by_mtime(name, template_path, target_path):
+                    return {
+                        "status": "skipped",
+                        "message": "Already up to date",
+                    }
+            elif self._should_skip_by_mtime(name, template_path, target_path):
+                return {
+                    "status": "skipped",
+                    "message": "Already up to date",
+                }
+
+        if dry_run:
+            return {
+                "status": "dry_run",
+                "message": f"Would update {name}",
+            }
+
+        try:
+            self._write_template_content(name, content, target_path)
+            logger.info(f"Updated template: {name}")
+            return {
+                "status": "updated",
+                "message": "Updated from template",
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Error: {e}",
+            }
+
     def update_templates(
         self,
         preserve: set[str] | None = None,
@@ -349,7 +706,7 @@ class TemplateManager:
             Dict mapping template names to their update status:
             {
                 "filename": {
-                    "status": "updated" | "preserved" | "skipped" | "error",
+                    "status": "updated" | "merged" | "conflicted" | "preserved" | "skipped" | "dry_run" | "error",
                     "message": "..."
                 }
             }
@@ -358,75 +715,10 @@ class TemplateManager:
             preserve = {"USER.md", "SOUL.md", "CUSTOM.md"}
 
         results: dict[str, dict[str, str]] = {}
-        templates = self.list_templates()
-
-        for name in templates:
-            target_path = self.get_target_path(name)
-            template_path = self.get_template_path(name)
-
-            # Skip directories (like prompts/)
-            if template_path.is_dir():
-                continue
-
-            # Check if file should be preserved
-            if name in preserve and target_path.exists():
-                results[name] = {
-                    "status": "preserved",
-                    "message": "Preserved (in preserve list)",
-                }
-                continue
-
-            # Check if template exists
-            if not self.template_exists(name):
-                results[name] = {
-                    "status": "error",
-                    "message": "Template not found",
-                }
-                continue
-
-            # Check if file needs updating
-            if target_path.exists():
-                try:
-                    template_mtime = template_path.stat().st_mtime
-                    target_mtime = target_path.stat().st_mtime
-                    if template_mtime <= target_mtime:
-                        results[name] = {
-                            "status": "skipped",
-                            "message": "Already up to date",
-                        }
-                        continue
-                except Exception as e:
-                    logger.warning(f"Could not compare mtimes for {name}: {e}")
-
-            # Update the file
-            if dry_run:
-                results[name] = {
-                    "status": "dry_run",
-                    "message": f"Would update {name}",
-                }
-            else:
-                try:
-                    content = self.load_template(name)
-                    if content is not None:
-                        content = self.substitute_variables(content)
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text(content, encoding="utf-8")
-                        results[name] = {
-                            "status": "updated",
-                            "message": "Updated from template",
-                        }
-                        logger.info(f"Updated template: {name}")
-                    else:
-                        results[name] = {
-                            "status": "error",
-                            "message": "Failed to load template",
-                        }
-                except Exception as e:
-                    results[name] = {
-                        "status": "error",
-                        "message": f"Error: {e}",
-                    }
-                    logger.error(f"Failed to update {name}: {e}")
+        for name in self.list_templates():
+            result = self.reconcile_template(name, preserve=preserve, dry_run=dry_run)
+            if result:
+                results[name] = result
 
         # Also update prompts directory
         prompts_result = self._update_prompts(dry_run=dry_run)

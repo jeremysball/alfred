@@ -1,6 +1,8 @@
 """Tests for /context command functionality (PRD #101)."""
 
-from unittest.mock import MagicMock
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -147,3 +149,43 @@ class TestContextCommandIntegration:
 
         # Assert the method exists (will fail until we implement)
         assert hasattr(AlfredTUI, "_handle_session_command")
+
+
+@pytest.mark.asyncio
+async def test_show_context_command_reports_blocked_context_warning_and_omits_blocked_sections() -> None:
+    """The /context command should render blocked-context warnings before the summary."""
+    from alfred.interfaces.pypitui.commands.show_context import ShowContextCommand
+
+    rendered_messages: list[str] = []
+    fake_session_manager = SimpleNamespace(has_active_session=lambda: True)
+    fake_alfred = SimpleNamespace(core=SimpleNamespace(session_manager=fake_session_manager))
+    fake_tui = SimpleNamespace(
+        alfred=fake_alfred,
+        _add_system_message=rendered_messages.append,
+        _add_user_message=rendered_messages.append,
+    )
+    context_data = {
+        "system_prompt": {
+            "sections": [{"name": "AGENTS.md", "tokens": 12}],
+            "total_tokens": 12,
+        },
+        "blocked_context_files": ["SOUL.md"],
+        "warnings": ["Blocked context files: SOUL.md"],
+        "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "session_history": {"count": 1, "messages": [{"role": "user", "content": "hello"}], "tokens": 3},
+        "tool_calls": {"count": 0, "items": [], "tokens": 0},
+        "total_tokens": 15,
+    }
+
+    with patch("alfred.context_display.get_context_display", AsyncMock(return_value=context_data)):
+        command = ShowContextCommand()
+        assert command.execute(fake_tui, None) is True
+        await asyncio.sleep(0.01)
+
+    assert rendered_messages
+    rendered = rendered_messages[0]
+    assert rendered.startswith("WARNING:\n")
+    assert "Blocked context files: SOUL.md" in rendered
+    assert "SYSTEM PROMPT (12 tokens)" in rendered
+    assert "AGENTS.md" in rendered
+    assert "SOUL.md" not in rendered.split("SYSTEM PROMPT", 1)[1]

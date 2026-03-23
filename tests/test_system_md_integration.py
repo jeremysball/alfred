@@ -41,7 +41,7 @@ def temp_templates_with_system(temp_workspace):
 @pytest.fixture
 def manager(temp_templates_with_system):
     """Create a TemplateManager with temp templates."""
-    return TemplateManager(temp_templates_with_system)
+    return TemplateManager(temp_templates_with_system, cache_dir=temp_templates_with_system / "cache")
 
 
 class TestSystemMdInAutoCreateTemplates:

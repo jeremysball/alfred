@@ -62,6 +62,34 @@ This mocks the entire SQLite store! Tests aren't verifying actual persistence.
 - `tests/test_alfred.py` - Heavy mocking of core components
 - `tests/test_telegram.py` - All API calls mocked
 
+### 1.2.1 Prefer explicit fakes over monkeypatch
+
+If a dependency can be passed in, write a small fake and inject it directly. Reserve `monkeypatch` for module-level lookups, constants, or code that constructs its own dependency.
+
+**Use a fake when:**
+- the class or function accepts the collaborator in `__init__` or as a parameter
+- you want behavior, not call-count assertions
+- the fake can model the real object in a few methods
+
+**Use monkeypatch when:**
+- the code imports a symbol at module scope and instantiates it internally
+- you need to replace a constant or helper function
+- you patch the name where the code under test looks it up
+
+```python
+class FakeStore:
+    async def load_session(self, session_id: str) -> None:
+        return None
+
+manager = SessionManager(store=FakeStore(), data_dir=tmp_path)
+```
+
+```python
+monkeypatch.setattr(alfred.context, "TemplateManager", FakeTemplateManager)
+```
+
+Rule of thumb: prefer an explicit fake first. Use monkeypatch only when injection is awkward or invasive.
+
 ### 1.3 Test-to-Code Ratio Problems
 
 | File | Code Lines | Test Lines | Ratio | Verdict |

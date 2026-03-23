@@ -1,9 +1,10 @@
 # PRD: Auto-merge Template Updates and Warn on Conflicts
 
 **GitHub Issue**: [#148](https://github.com/jeremysball/alfred/issues/148)  
-**Status**: Draft  
+**Status**: ✅ Complete  
 **Priority**: High  
-**Created**: 2026-03-22
+**Created**: 2026-03-22  
+**Completed**: 2026-03-23
 
 ---
 
@@ -124,7 +125,12 @@ src/alfred/interfaces/webui/static/css/base.css
 tests/test_templates.py
 tests/test_context_integration.py
 tests/test_system_md_integration.py
+tests/test_template_sync_docs.py
 tests/webui/test_*.py
+
+docs/template-sync.md
+README.md
+docs/ARCHITECTURE.md
 ```
 
 ### Implementation notes
@@ -265,3 +271,15 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-22 | Fail closed on conflicted files | Broken template text must not enter the active context |
 | 2026-03-22 | Show a persistent WebUI warning while conflicts exist | The problem should be visible every time context is loaded |
 | 2026-03-22 | Keep the app running even if a template conflicts | Alfred should remain usable while the operator resolves the issue |
+| 2026-03-23 | Keep the sync store lazy-loaded behind `TemplateManager.get_base_snapshot()` | Avoid eager cache side effects on manager construction while still recovering snapshots after restart |
+| 2026-03-23 | Treat sync-store writes as best-effort during template updates | A cache write failure should not roll back a successful workspace update |
+| 2026-03-23 | Fast-forward clean template updates when the workspace still matches the saved base snapshot | Content identity is the authoritative signal for a clean fast-forward, even when mtimes are stale |
+| 2026-03-23 | Represent blocked managed context files as an explicit `ContextFile` state | The loader needs an observable blocked state to fail closed without leaking conflict text |
+| 2026-03-23 | Use the same loaded-context path for both `assemble()` and `assemble_with_search()` | The chat path should honor blocked files instead of bypassing the fail-closed gate |
+| 2026-03-23 | Scope sync records to the current workspace path before trusting conflict state | Prevent stale cache entries from other workspaces from contaminating the current loader |
+| 2026-03-23 | Expose blocked context files and warning text through the shared context-display payload | `/context` and the WebUI should read the same source of truth for warning state |
+| 2026-03-23 | Mark WebUI context warnings with a `data-warning` system-message attribute | The browser can style persistent warnings without inventing a separate banner system |
+| 2026-03-23 | Verify conflict recovery by reloading a fresh `ContextLoader` after the workspace file is repaired | Recovery should depend on the repaired on-disk file and restart path, not on mutating blocked state in memory |
+| 2026-03-23 | Verify workspace isolation through `reconcile_template()` with workspace-specific file content and a newer template timestamp | A leaked base snapshot should incorrectly skip a refresh, so the regression needs to prove workspace B still reconciles against its own state instead of relying on a direct metadata lookup |
+| 2026-03-23 | Scope base snapshot recovery through workspace-scoped sync records | The same workspace filter that protects conflict state must also prevent stale restart snapshots from other workspaces from being reused |
+| 2026-03-23 | Publish a dedicated template-sync operator guide as the canonical recovery reference | The recovery workflow belongs in one place, and README/architecture docs should point to it instead of duplicating instructions |

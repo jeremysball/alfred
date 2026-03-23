@@ -520,6 +520,8 @@ def _build_context_payload(context_data: dict[str, object]) -> dict[str, object]
             "sections": system_prompt["sections"],
             "totalTokens": system_prompt["total_tokens"],
         },
+        "blockedContextFiles": context_data.get("blocked_context_files", []),
+        "warnings": context_data.get("warnings", []),
         "memories": context_data["memories"],
         "sessionHistory": context_data["session_history"],
         "toolCalls": context_data["tool_calls"],

@@ -957,7 +957,26 @@ function initAlfredUI() {
   }
 
   function handleContextInfo(payload) {
-    const lines = ['System Context:', ''];
+    const warnings = Array.isArray(payload.warnings) ? payload.warnings.filter(Boolean) : [];
+    const blockedContextFiles = Array.isArray(payload.blockedContextFiles)
+      ? payload.blockedContextFiles.filter(Boolean)
+      : [];
+
+    if (!warnings.length && blockedContextFiles.length > 0) {
+      warnings.push(`Blocked context files: ${blockedContextFiles.join(', ')}`);
+    }
+
+    const lines = [];
+
+    if (warnings.length > 0) {
+      lines.push('WARNING:');
+      warnings.forEach(warning => {
+        lines.push(`  ! ${warning}`);
+      });
+      lines.push('');
+    }
+
+    lines.push('System Context:', '');
 
     if (payload.systemPrompt) {
       lines.push(`System Prompt: ${payload.systemPrompt.totalTokens || 0} tokens`);
@@ -989,14 +1008,19 @@ function initAlfredUI() {
 
     lines.push(`Total Tokens: ${payload.totalTokens || 0}`);
 
-    showSystemMessage(lines.join('\n'));
+    showSystemMessage(lines.join('\n'), { warning: warnings.length > 0 });
     enableInput();
   }
 
-  function showSystemMessage(content) {
+  function showSystemMessage(content, options = {}) {
     const systemMsg = document.createElement('chat-message');
     systemMsg.setAttribute('role', 'system');
     systemMsg.setAttribute('content', content);
+    if (options.warning) {
+      systemMsg.setAttribute('data-warning', 'true');
+    } else {
+      systemMsg.removeAttribute('data-warning');
+    }
     messageList.appendChild(systemMsg);
     scrollToBottom();
   }
