@@ -265,3 +265,5 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-22 | Fail closed on conflicted files | Broken template text must not enter the active context |
 | 2026-03-22 | Show a persistent WebUI warning while conflicts exist | The problem should be visible every time context is loaded |
 | 2026-03-22 | Keep the app running even if a template conflicts | Alfred should remain usable while the operator resolves the issue |
+| 2026-03-23 | Keep the sync store lazy-loaded behind `TemplateManager.get_base_snapshot()` | Avoid eager cache side effects on manager construction while still recovering snapshots after restart |
+| 2026-03-23 | Treat sync-store writes as best-effort during template updates | A cache write failure should not roll back a successful workspace update |

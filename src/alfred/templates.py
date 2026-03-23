@@ -1,9 +1,13 @@
 """Template management and auto-creation for Alfred context files."""
 
+import hashlib
 import logging
 import shutil
 from datetime import date
 from pathlib import Path
+
+from alfred.data_manager import get_cache_dir
+from alfred.template_sync import TemplateBaseSnapshot, TemplateSyncRecord, TemplateSyncState, TemplateSyncStore
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +18,17 @@ class TemplateManager:
     # Templates that should be auto-created if missing
     AUTO_CREATE_TEMPLATES = {"SYSTEM.md", "AGENTS.md", "SOUL.md", "USER.md"}
 
-    def __init__(self, workspace_dir: Path) -> None:
+    def __init__(self, workspace_dir: Path, cache_dir: Path | None = None) -> None:
         """Initialize template manager.
 
         Args:
             workspace_dir: Directory where context files will be created
+            cache_dir: Directory where sync metadata will be stored
         """
         self.workspace_dir = workspace_dir
+        self._cache_dir = cache_dir
         self._template_dir = self._resolve_template_dir()
+        self._sync_store: TemplateSyncStore | None = None
 
     def _resolve_template_dir(self) -> Path | None:
         """Resolve template directory with priority order.
@@ -185,6 +192,48 @@ class TemplateManager:
 
         return content
 
+    def _get_sync_store(self) -> TemplateSyncStore:
+        """Get or create the template sync store."""
+        if self._sync_store is None:
+            cache_dir = self._cache_dir or get_cache_dir()
+            self._sync_store = TemplateSyncStore(cache_dir / "template-sync.json")
+        return self._sync_store
+
+    def _hash_content(self, content: str) -> str:
+        """Hash template content for sync tracking."""
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    def _record_base_snapshot(self, name: str, content: str, workspace_path: Path) -> None:
+        """Persist the clean template content as the merge base."""
+        snapshot_hash = self._hash_content(content)
+        record = TemplateSyncRecord(
+            name=name,
+            template_path=self.get_template_path(name),
+            workspace_path=workspace_path,
+            template_hash=snapshot_hash,
+            workspace_hash=snapshot_hash,
+            base_hash=snapshot_hash,
+            base_snapshot=TemplateBaseSnapshot(content=content, hash=snapshot_hash),
+            state=TemplateSyncState.CLEAN,
+        )
+        try:
+            self._get_sync_store().save(record)
+        except Exception as exc:
+            logger.warning(f"Failed to save template sync snapshot for {name}: {exc}")
+
+    def _write_template_content(self, name: str, content: str, target_path: Path) -> None:
+        """Write final template content and record its clean snapshot."""
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(content, encoding="utf-8")
+        self._record_base_snapshot(name, content, target_path)
+
+    def get_base_snapshot(self, name: str) -> TemplateBaseSnapshot | None:
+        """Return the last known clean snapshot for a template, if available."""
+        record = self._get_sync_store().get(name)
+        if record is None:
+            return None
+        return record.base_snapshot
+
     def create_from_template(self, name: str, variables: dict[str, str] | None = None, overwrite: bool = False) -> Path | None:
         """Create file from template, substituting variables.
 
@@ -211,15 +260,16 @@ class TemplateManager:
         # Substitute variables
         content = self.substitute_variables(content, variables)
 
-        # Ensure parent directory exists
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-
         # Write file
         try:
-            target_path.write_text(content, encoding="utf-8")
+            self._write_template_content(name, content, target_path)
             logger.info(f"Created file from template: {name}")
             return target_path
         except Exception as e:
+            try:
+                target_path.unlink(missing_ok=True)
+            except Exception as cleanup_error:
+                logger.warning(f"Failed to clean up {target_path}: {cleanup_error}")
             logger.error(f"Failed to create {name}: {e}")
             return None
 
@@ -409,8 +459,7 @@ class TemplateManager:
                     content = self.load_template(name)
                     if content is not None:
                         content = self.substitute_variables(content)
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text(content, encoding="utf-8")
+                        self._write_template_content(name, content, target_path)
                         results[name] = {
                             "status": "updated",
                             "message": "Updated from template",

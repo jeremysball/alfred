@@ -1,6 +1,9 @@
 """Tests for template management and auto-creation."""
 
+import hashlib
+import json
 import logging
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -144,13 +147,108 @@ class TestCreateFromTemplate:
 
     def test_create_new_file(self, tmp_path: Path) -> None:
         """Create file from template when target doesn't exist."""
-        manager = TemplateManager(tmp_path)
+        manager = TemplateManager(tmp_path, cache_dir=tmp_path / "cache")
         target = manager.create_from_template("SYSTEM.md")
         assert target is not None
         assert target.exists()
         assert target.name == "SYSTEM.md"
         content = target.read_text()
         assert "# System" in content
+
+    def test_create_new_file_records_base_snapshot_in_cache(self, tmp_path: Path) -> None:
+        """Creating a file stores its initial base snapshot in the cache store."""
+        workspace_templates = tmp_path / "templates"
+        workspace_templates.mkdir()
+        template_content = "# System\n\nInitial template body"
+        (workspace_templates / "SYSTEM.md").write_text(template_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+
+        target = manager.create_from_template("SYSTEM.md")
+        assert target is not None
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == template_content
+
+        sync_path = cache_dir / "template-sync.json"
+        assert sync_path.exists()
+
+        payload = json.loads(sync_path.read_text(encoding="utf-8"))
+        record = payload["records"]["SYSTEM.md"]
+        expected_hash = hashlib.sha256(template_content.encode("utf-8")).hexdigest()
+
+        assert record["template_hash"] == expected_hash
+        assert record["workspace_hash"] == expected_hash
+        assert record["base_hash"] == expected_hash
+        assert record["base_snapshot"]["content"] == template_content
+        assert record["base_snapshot"]["hash"] == expected_hash
+        assert record["state"] == "clean"
+
+    def test_template_manager_refreshes_base_snapshot_after_clean_update(self, tmp_path: Path) -> None:
+        """A clean template update refreshes the stored base snapshot."""
+        workspace_templates = tmp_path / "templates"
+        workspace_templates.mkdir()
+        template_path = workspace_templates / "SYSTEM.md"
+        initial_content = "# System\n\nInitial template body"
+        updated_content = "# System\n\nUpdated template body"
+        template_path.write_text(initial_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+
+        target = manager.create_from_template("SYSTEM.md")
+        assert target is not None
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == initial_content
+
+        template_path.write_text(updated_content, encoding="utf-8")
+        target_mtime = target.stat().st_mtime
+        newer_mtime = target_mtime + 10
+        os.utime(template_path, (newer_mtime, newer_mtime))
+
+        results = manager.update_templates()
+        assert results["SYSTEM.md"]["status"] == "updated"
+        assert target.read_text(encoding="utf-8") == updated_content
+
+        sync_path = cache_dir / "template-sync.json"
+        payload = json.loads(sync_path.read_text(encoding="utf-8"))
+        record = payload["records"]["SYSTEM.md"]
+        expected_hash = hashlib.sha256(updated_content.encode("utf-8")).hexdigest()
+
+        assert record["template_hash"] == expected_hash
+        assert record["workspace_hash"] == expected_hash
+        assert record["base_hash"] == expected_hash
+        assert record["base_snapshot"]["content"] == updated_content
+        assert record["base_snapshot"]["hash"] == expected_hash
+        assert record["state"] == "clean"
+
+    def test_template_manager_recovers_base_snapshot_after_restart(self, tmp_path: Path) -> None:
+        """A fresh manager can recover the last clean snapshot from cache."""
+        workspace_templates = tmp_path / "templates"
+        workspace_templates.mkdir()
+        template_path = workspace_templates / "SYSTEM.md"
+        initial_content = "# System\n\nInitial template body"
+        workspace_content = "# System\n\nWorkspace changed after restart"
+        template_path.write_text(initial_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+
+        target = manager.create_from_template("SYSTEM.md")
+        assert target is not None
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == initial_content
+
+        target.write_text(workspace_content, encoding="utf-8")
+
+        restarted_manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+        recovered = restarted_manager.get_base_snapshot("SYSTEM.md")
+
+        assert recovered is not None
+        assert recovered.content == initial_content
+        assert recovered.content != target.read_text(encoding="utf-8")
+        assert recovered.hash == hashlib.sha256(initial_content.encode("utf-8")).hexdigest()
+        assert recovered.captured_at is not None
 
     def test_skip_existing_file(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Skip creation if file exists and overwrite=False."""
@@ -167,7 +265,7 @@ class TestCreateFromTemplate:
 
     def test_overwrite_existing_file(self, tmp_path: Path) -> None:
         """Overwrite existing file when overwrite=True."""
-        manager = TemplateManager(tmp_path)
+        manager = TemplateManager(tmp_path, cache_dir=tmp_path / "cache")
         existing = tmp_path / "SYSTEM.md"
         existing.write_text("old content")
 
@@ -190,7 +288,7 @@ class TestEnsureExists:
 
     def test_ensure_exists_creates_missing(self, tmp_path: Path) -> None:
         """Create file if it doesn't exist."""
-        manager = TemplateManager(tmp_path)
+        manager = TemplateManager(tmp_path, cache_dir=tmp_path / "cache")
         target = manager.ensure_exists("SYSTEM.md")
         assert target is not None
         assert target.exists()
@@ -228,7 +326,7 @@ class TestAutoCreateTemplates:
 
     def test_ensure_all_exist_creates_expected_files(self, tmp_path: Path) -> None:
         """ensure_all_exist creates only AUTO_CREATE_TEMPLATES files."""
-        manager = TemplateManager(tmp_path)
+        manager = TemplateManager(tmp_path, cache_dir=tmp_path / "cache")
         result = manager.ensure_all_exist()
 
         # Should create all expected files

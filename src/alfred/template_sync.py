@@ -9,7 +9,38 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-__all__ = ["TemplateSyncRecord", "TemplateSyncState", "TemplateSyncStore"]
+__all__ = ["TemplateBaseSnapshot", "TemplateSyncRecord", "TemplateSyncState", "TemplateSyncStore"]
+
+
+@dataclass(slots=True)
+class TemplateBaseSnapshot:
+    """Last known clean template content used as the merge base."""
+
+    content: str
+    hash: str
+    captured_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def __post_init__(self) -> None:
+        """Normalize incoming values into the expected concrete types."""
+        if not isinstance(self.captured_at, datetime):
+            self.captured_at = datetime.fromisoformat(str(self.captured_at))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the base snapshot into JSON-friendly data."""
+        return {
+            "content": self.content,
+            "hash": self.hash,
+            "captured_at": self.captured_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TemplateBaseSnapshot:
+        """Rehydrate a base snapshot from serialized JSON data."""
+        return cls(
+            content=data["content"],
+            hash=data["hash"],
+            captured_at=datetime.fromisoformat(data["captured_at"]) if data.get("captured_at") else datetime.now(UTC),
+        )
 
 
 class TemplateSyncState(StrEnum):
@@ -31,6 +62,7 @@ class TemplateSyncRecord:
     template_hash: str
     workspace_hash: str
     base_hash: str
+    base_snapshot: TemplateBaseSnapshot | None = None
     state: TemplateSyncState = TemplateSyncState.PENDING
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -42,6 +74,8 @@ class TemplateSyncRecord:
             self.state = TemplateSyncState(self.state)
         if not isinstance(self.updated_at, datetime):
             self.updated_at = datetime.fromisoformat(str(self.updated_at))
+        if self.base_snapshot is not None and self.base_snapshot.hash != self.base_hash:
+            raise ValueError("base_hash must match base_snapshot.hash")
 
     def is_clean(self) -> bool:
         """Return True when the workspace file is usable without intervention."""
@@ -57,7 +91,7 @@ class TemplateSyncRecord:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the record into JSON-friendly data."""
-        return {
+        data: dict[str, Any] = {
             "name": self.name,
             "template_path": str(self.template_path),
             "workspace_path": str(self.workspace_path),
@@ -67,10 +101,15 @@ class TemplateSyncRecord:
             "state": self.state.value,
             "updated_at": self.updated_at.isoformat(),
         }
+        if self.base_snapshot is not None:
+            data["base_snapshot"] = self.base_snapshot.to_dict()
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TemplateSyncRecord:
         """Rehydrate a record from serialized JSON data."""
+        base_snapshot_data = data.get("base_snapshot")
+        base_snapshot = TemplateBaseSnapshot.from_dict(base_snapshot_data) if base_snapshot_data else None
         return cls(
             name=data["name"],
             template_path=Path(data["template_path"]),
@@ -78,6 +117,7 @@ class TemplateSyncRecord:
             template_hash=data["template_hash"],
             workspace_hash=data["workspace_hash"],
             base_hash=data["base_hash"],
+            base_snapshot=base_snapshot,
             state=data.get("state", TemplateSyncState.PENDING),
             updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(UTC),
         )
