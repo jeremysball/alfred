@@ -19,3 +19,11 @@ def test_template_sync_guide_documents_sync_store_conflicts_and_recovery() -> No
     assert "WebUI" in guide
     assert "fail closed" in guide.lower()
     assert "manual recovery" in guide.lower()
+
+
+def test_readme_links_to_template_sync_guide() -> None:
+    """README should point readers to the canonical template-sync guide."""
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "[Template Sync and Conflict Recovery](docs/template-sync.md)" in readme
+    assert "conflict-recovery reference" in readme.lower()

@@ -17,9 +17,9 @@ This phase is documentation-first and test-first. The tests pin the expected wor
 
 ### Component: README entry point
 
-- [ ] **Test**: `test_readme_links_to_template_sync_guide()` - verify README links to the new guide from the documentation section and identifies it as the conflict-recovery reference
-- [ ] **Implement**: update `README.md` to surface the new template-sync guide for users who need setup or recovery instructions
-- [ ] **Run**: `uv run pytest tests/test_template_sync_docs.py::test_readme_links_to_template_sync_guide -v`
+- [x] **Test**: `test_readme_links_to_template_sync_guide()` - verify README links to the new guide from the documentation section and identifies it as the conflict-recovery reference
+- [x] **Implement**: update `README.md` to surface the new template-sync guide for users who need setup or recovery instructions
+- [x] **Run**: `uv run pytest tests/test_template_sync_docs.py::test_readme_links_to_template_sync_guide -v`
 
 ### Component: Architecture summary
 
