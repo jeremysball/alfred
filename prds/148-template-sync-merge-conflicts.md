@@ -124,7 +124,12 @@ src/alfred/interfaces/webui/static/css/base.css
 tests/test_templates.py
 tests/test_context_integration.py
 tests/test_system_md_integration.py
+tests/test_template_sync_docs.py
 tests/webui/test_*.py
+
+docs/template-sync.md
+README.md
+docs/ARCHITECTURE.md
 ```
 
 ### Implementation notes
@@ -276,3 +281,4 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-23 | Verify conflict recovery by reloading a fresh `ContextLoader` after the workspace file is repaired | Recovery should depend on the repaired on-disk file and restart path, not on mutating blocked state in memory |
 | 2026-03-23 | Verify workspace isolation through `reconcile_template()` with workspace-specific file content and a newer template timestamp | A leaked base snapshot should incorrectly skip a refresh, so the regression needs to prove workspace B still reconciles against its own state instead of relying on a direct metadata lookup |
 | 2026-03-23 | Scope base snapshot recovery through workspace-scoped sync records | The same workspace filter that protects conflict state must also prevent stale restart snapshots from other workspaces from being reused |
+| 2026-03-23 | Publish a dedicated template-sync operator guide as the canonical recovery reference | The recovery workflow belongs in one place, and README/architecture docs should point to it instead of duplicating instructions |
