@@ -15,17 +15,19 @@ Use the saved merge base to fast-forward clean template drift before any context
 
 ### Component: First-load reconciliation wiring
 
-- [ ] **Test**: `test_context_loader_reconciles_templates_before_first_load()` - verify a fresh `ContextLoader` with a shared cache dir reads the refreshed content on the first load after a template change.
-- [ ] **Implement**: add `cache_dir` injection to `ContextLoader`, call the merge-aware reconciliation helper before reading a context file, and keep the path idempotent.
-- [ ] **Run**: `uv run pytest tests/test_context_integration.py -k "context_loader_reconciles_templates_before_first_load" -v`
+- [x] **Test**: `test_context_loader_reconciles_templates_before_first_load()` - verify a fresh `ContextLoader` with a shared cache dir reads the refreshed content on the first load after a template change.
+- [x] **Implement**: add `cache_dir` injection to `ContextLoader`, call the merge-aware reconciliation helper before reading a context file, and keep the path idempotent.
+- [x] **Run**: `uv run pytest tests/test_context_integration.py::TestContextLoaderTemplateAutoCreation::test_context_loader_reconciles_templates_before_first_load -v`
 
 ---
 
 ## Progress Summary
 
-Phase 3 is in progress.
+Phase 3 is complete.
 - [x] Fast-forward clean restart state complete.
-- [ ] First-load reconciliation wiring remains.
+- [x] First-load reconciliation wiring complete.
+
+Continue with Milestone 4: Write standard conflict markers on merge failure in `prds/148-template-sync-merge-conflicts.md`.
 
 ## Files to Modify
 

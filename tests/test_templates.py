@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from alfred.template_sync import TemplateSyncState
 from alfred.templates import TemplateManager
 
 
@@ -319,6 +320,55 @@ class TestUpdateTemplates:
         assert record["base_snapshot"]["hash"] == expected_hash
         assert record["workspace_hash"] == expected_hash
         assert record["template_hash"] == expected_hash
+
+
+    def test_update_templates_writes_standard_conflict_markers_when_template_and_workspace_both_diverge(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """A conflicted template write should use standard git markers and keep the base snapshot."""
+        workspace_templates = tmp_path / "templates"
+        workspace_templates.mkdir()
+        template_path = workspace_templates / "SYSTEM.md"
+        initial_content = "# System\n\nInitial base"
+        workspace_content = "# System\n\nLocal edit"
+        upstream_content = "# System\n\nUpstream edit"
+        template_path.write_text(initial_content, encoding="utf-8")
+
+        cache_dir = tmp_path / "cache"
+        manager = TemplateManager(tmp_path, cache_dir=cache_dir)
+
+        target = manager.create_from_template("SYSTEM.md")
+        assert target is not None
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == initial_content
+
+        target.write_text(workspace_content, encoding="utf-8")
+        template_path.write_text(upstream_content, encoding="utf-8")
+
+        results = manager.update_templates()
+
+        assert results["SYSTEM.md"]["status"] == "conflicted"
+        written = target.read_text(encoding="utf-8")
+        assert written.startswith("<<<<<<< ours\n")
+        assert "\n=======\n" in written
+        assert written.rstrip().endswith(">>>>>>> theirs")
+        assert workspace_content in written
+        assert upstream_content in written
+
+        sync_path = cache_dir / "template-sync.json"
+        payload = json.loads(sync_path.read_text(encoding="utf-8"))
+        record = payload["records"]["SYSTEM.md"]
+        expected_initial_hash = hashlib.sha256(initial_content.encode("utf-8")).hexdigest()
+        expected_upstream_hash = hashlib.sha256(upstream_content.encode("utf-8")).hexdigest()
+        expected_written_hash = hashlib.sha256(written.encode("utf-8")).hexdigest()
+
+        assert record["state"] == TemplateSyncState.CONFLICTED.value
+        assert record["base_snapshot"]["content"] == initial_content
+        assert record["base_snapshot"]["hash"] == expected_initial_hash
+        assert record["base_hash"] == expected_initial_hash
+        assert record["template_hash"] == expected_upstream_hash
+        assert record["workspace_hash"] == expected_written_hash
 
 
 class TestEnsureExists:

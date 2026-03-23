@@ -268,3 +268,6 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-23 | Keep the sync store lazy-loaded behind `TemplateManager.get_base_snapshot()` | Avoid eager cache side effects on manager construction while still recovering snapshots after restart |
 | 2026-03-23 | Treat sync-store writes as best-effort during template updates | A cache write failure should not roll back a successful workspace update |
 | 2026-03-23 | Fast-forward clean template updates when the workspace still matches the saved base snapshot | Content identity is the authoritative signal for a clean fast-forward, even when mtimes are stale |
+| 2026-03-23 | Represent blocked managed context files as an explicit `ContextFile` state | The loader needs an observable blocked state to fail closed without leaking conflict text |
+| 2026-03-23 | Use the same loaded-context path for both `assemble()` and `assemble_with_search()` | The chat path should honor blocked files instead of bypassing the fail-closed gate |
+| 2026-03-23 | Scope sync records to the current workspace path before trusting conflict state | Prevent stale cache entries from other workspaces from contaminating the current loader |

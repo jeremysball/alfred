@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from alfred.config import Config
-from alfred.context import ContextLoader
+from alfred.context import ContextFileState, ContextLoader
 
 
 @pytest.fixture
@@ -105,6 +105,31 @@ class TestContextLoaderTemplateAutoCreation:
         assert today in content
 
     @pytest.mark.asyncio
+    async def test_context_loader_reconciles_templates_before_first_load(self, config):
+        """A fresh loader reconciles a changed template before the first read."""
+        soul_path = config.context_files["soul"]
+        template_path = config.workspace_dir / "templates" / "SOUL.md"
+        cache_dir = config.workspace_dir / "cache"
+        initial_template = "# Soul\n\nInitial template body\n"
+        updated_template = "# Soul\n\nUpdated template body\n"
+
+        template_path.write_text(initial_template, encoding="utf-8")
+
+        first_loader = ContextLoader(config, cache_dir=cache_dir)
+        initial_file = await first_loader.load_file("soul", soul_path)
+
+        assert "Initial template body" in initial_file.content
+        assert soul_path.read_text(encoding="utf-8") == initial_template
+
+        template_path.write_text(updated_template, encoding="utf-8")
+
+        restarted_loader = ContextLoader(config, cache_dir=cache_dir)
+        reconciled_file = await restarted_loader.load_file("soul", soul_path)
+
+        assert "Updated template body" in reconciled_file.content
+        assert soul_path.read_text(encoding="utf-8") == updated_template
+
+    @pytest.mark.asyncio
     async def test_existing_file_not_overwritten(self, loader, config):
         """ContextLoader doesn't overwrite user files."""
         soul_path = config.context_files["soul"]
@@ -163,6 +188,105 @@ class TestContextLoaderTemplateAutoCreation:
         # Verify all files exist
         assert soul_path.exists()
         assert user_path.exists()
+
+
+class TestContextLoaderBlockedTemplates:
+    """Integration tests for blocked conflicted managed templates."""
+
+    async def _seed_conflicted_soul(self, config: Config) -> tuple[ContextLoader, Path, Path]:
+        """Create a conflicted SOUL.md managed file and return the loader used."""
+        soul_path = config.context_files["soul"]
+        template_path = config.workspace_dir / "templates" / "SOUL.md"
+        cache_dir = config.workspace_dir / "cache"
+        initial_template = "# Soul\n\nInitial base\n"
+        local_edit = "# Soul\n\nLocal edit\n"
+        upstream_edit = "# Soul\n\nUpstream edit\n"
+
+        template_path.write_text(initial_template, encoding="utf-8")
+
+        first_loader = ContextLoader(config, cache_dir=cache_dir)
+        created = await first_loader.load_file("soul", soul_path)
+        assert created.state is ContextFileState.ACTIVE
+        assert soul_path.read_text(encoding="utf-8") == initial_template
+
+        soul_path.write_text(local_edit, encoding="utf-8")
+        template_path.write_text(upstream_edit, encoding="utf-8")
+
+        restarted_loader = ContextLoader(config, cache_dir=cache_dir)
+        blocked = await restarted_loader.load_file("soul", soul_path)
+        assert blocked.state is ContextFileState.BLOCKED
+        assert blocked.blocked_reason is not None
+        assert "conflicted" in blocked.blocked_reason.lower()
+
+        return restarted_loader, soul_path, cache_dir
+
+    @pytest.mark.asyncio
+    async def test_load_file_marks_conflicted_managed_template_as_blocked(self, config: Config) -> None:
+        """A conflicted managed file is blocked and is not auto-created after removal."""
+        loader, soul_path, cache_dir = await self._seed_conflicted_soul(config)
+
+        assert loader.get_blocked_context_files() == ["soul"]
+
+        soul_path.unlink()
+        restarted_loader = ContextLoader(config, cache_dir=cache_dir)
+        blocked = await restarted_loader.load_file("soul", soul_path)
+
+        assert blocked.state is ContextFileState.BLOCKED
+        assert blocked.content == ""
+        assert not soul_path.exists()
+        assert restarted_loader.get_blocked_context_files() == ["soul"]
+
+    @pytest.mark.asyncio
+    async def test_assemble_excludes_blocked_context_files_and_records_blocked_context_files(
+        self,
+        config: Config,
+    ) -> None:
+        """assemble() omits blocked template content and exposes the blocked names."""
+        config.context_files["agents"] = config.workspace_dir / "AGENTS.md"
+        (config.workspace_dir / "templates" / "AGENTS.md").write_text(
+            "# Agents\n\nActive agents body\n",
+            encoding="utf-8",
+        )
+
+        loader, _, _ = await self._seed_conflicted_soul(config)
+        assembled = await loader.assemble()
+
+        assert assembled.blocked_context_files == ["soul"]
+        assert assembled.soul == ""
+        assert "# SOUL" not in assembled.system_prompt
+        assert "Local edit" not in assembled.system_prompt
+        assert "Upstream edit" not in assembled.system_prompt
+        assert "# AGENTS" in assembled.system_prompt
+        assert "# USER" in assembled.system_prompt
+
+    @pytest.mark.asyncio
+    async def test_assemble_with_search_excludes_blocked_context_files(
+        self,
+        config: Config,
+    ) -> None:
+        """assemble_with_search() should use the same blocked-file filter as assemble()."""
+        config.context_files["agents"] = config.workspace_dir / "AGENTS.md"
+        (config.workspace_dir / "templates" / "AGENTS.md").write_text(
+            "# Agents\n\nActive agents body\n",
+            encoding="utf-8",
+        )
+
+        class FakeSearchStore:
+            async def search_memories(self, query_embedding: list[float], top_k: int = 10) -> list[dict[str, object]]:
+                return []
+
+        _, _, cache_dir = await self._seed_conflicted_soul(config)
+        loader_with_store = ContextLoader(config, cache_dir=cache_dir, store=FakeSearchStore())
+        system_prompt, memories_count = await loader_with_store.assemble_with_search(
+            query_embedding=[0.1, 0.2, 0.3],
+            memories=[],
+        )
+
+        assert memories_count == 0
+        assert "# SOUL" not in system_prompt
+        assert "Local edit" not in system_prompt
+        assert "Upstream edit" not in system_prompt
+        assert "# AGENTS" in system_prompt
 
 
 class TestTemplateManagerIntegration:

@@ -203,29 +203,138 @@ class TemplateManager:
         """Hash template content for sync tracking."""
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    def _record_base_snapshot(self, name: str, content: str, workspace_path: Path) -> None:
-        """Persist the clean template content as the merge base."""
-        snapshot_hash = self._hash_content(content)
+    def _persist_sync_record(
+        self,
+        name: str,
+        template_content: str,
+        workspace_content: str,
+        workspace_path: Path,
+        state: TemplateSyncState,
+        base_snapshot: TemplateBaseSnapshot | None,
+    ) -> None:
+        """Persist template sync metadata, best-effort."""
+        template_hash = self._hash_content(template_content)
+        workspace_hash = self._hash_content(workspace_content)
+        base_hash = base_snapshot.hash if base_snapshot is not None else template_hash
         record = TemplateSyncRecord(
             name=name,
             template_path=self.get_template_path(name),
             workspace_path=workspace_path,
-            template_hash=snapshot_hash,
-            workspace_hash=snapshot_hash,
-            base_hash=snapshot_hash,
-            base_snapshot=TemplateBaseSnapshot(content=content, hash=snapshot_hash),
-            state=TemplateSyncState.CLEAN,
+            template_hash=template_hash,
+            workspace_hash=workspace_hash,
+            base_hash=base_hash,
+            base_snapshot=base_snapshot,
+            state=state,
         )
         try:
             self._get_sync_store().save(record)
         except Exception as exc:
             logger.warning(f"Failed to save template sync snapshot for {name}: {exc}")
 
+    def _ensure_trailing_newline(self, text: str) -> str:
+        """Ensure marker sections stay on their own lines."""
+        return text if text.endswith("\n") else f"{text}\n"
+
+    def _build_conflict_markers(self, workspace_content: str, template_content: str) -> str:
+        """Wrap diverging content in standard git conflict markers."""
+        return (
+            "<<<<<<< ours\n"
+            f"{self._ensure_trailing_newline(workspace_content)}"
+            "=======\n"
+            f"{self._ensure_trailing_newline(template_content)}"
+            ">>>>>>> theirs\n"
+        )
+
+    def _record_base_snapshot(self, name: str, content: str, workspace_path: Path) -> None:
+        """Persist the clean template content as the merge base."""
+        snapshot = TemplateBaseSnapshot(content=content, hash=self._hash_content(content))
+        self._persist_sync_record(
+            name=name,
+            template_content=content,
+            workspace_content=content,
+            workspace_path=workspace_path,
+            state=TemplateSyncState.CLEAN,
+            base_snapshot=snapshot,
+        )
+
+    def _record_conflicted_snapshot(
+        self,
+        name: str,
+        template_content: str,
+        workspace_content: str,
+        workspace_path: Path,
+        base_snapshot: TemplateBaseSnapshot,
+    ) -> None:
+        """Persist a conflicted sync record without changing file content."""
+        self._persist_sync_record(
+            name=name,
+            template_content=template_content,
+            workspace_content=workspace_content,
+            workspace_path=workspace_path,
+            state=TemplateSyncState.CONFLICTED,
+            base_snapshot=base_snapshot,
+        )
+
+    def _record_merged_snapshot(
+        self,
+        name: str,
+        template_content: str,
+        workspace_content: str,
+        workspace_path: Path,
+    ) -> None:
+        """Persist a resolved merge result as the new clean base."""
+        snapshot = TemplateBaseSnapshot(content=workspace_content, hash=self._hash_content(workspace_content))
+        self._persist_sync_record(
+            name=name,
+            template_content=template_content,
+            workspace_content=workspace_content,
+            workspace_path=workspace_path,
+            state=TemplateSyncState.MERGED,
+            base_snapshot=snapshot,
+        )
+
+    def _has_conflict_markers(self, content: str) -> bool:
+        """Return True when content contains standard git conflict markers."""
+        return (
+            content.startswith("<<<<<<< ours\n")
+            and "\n=======\n" in content
+            and content.rstrip().endswith(">>>>>>> theirs")
+        )
+
+    def _write_conflicted_template_content(
+        self,
+        name: str,
+        workspace_content: str,
+        template_content: str,
+        target_path: Path,
+        base_snapshot: TemplateBaseSnapshot,
+    ) -> None:
+        """Write standard conflict markers and persist a conflicted snapshot."""
+        conflicted_content = self._build_conflict_markers(workspace_content, template_content)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(conflicted_content, encoding="utf-8")
+        self._record_conflicted_snapshot(
+            name=name,
+            template_content=template_content,
+            workspace_content=conflicted_content,
+            workspace_path=target_path,
+            base_snapshot=base_snapshot,
+        )
+
     def _write_template_content(self, name: str, content: str, target_path: Path) -> None:
         """Write final template content and record its clean snapshot."""
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(content, encoding="utf-8")
         self._record_base_snapshot(name, content, target_path)
+
+    def get_sync_record(self, name: str) -> TemplateSyncRecord | None:
+        """Return the persisted sync record for a template, if it belongs to this workspace."""
+        record = self._get_sync_store().get(name)
+        if record is None:
+            return None
+        if record.workspace_path != self.get_target_path(name):
+            return None
+        return record
 
     def get_base_snapshot(self, name: str) -> TemplateBaseSnapshot | None:
         """Return the last known clean snapshot for a template, if available."""
@@ -450,11 +559,24 @@ class TemplateManager:
 
         if target_path.exists():
             base_snapshot = self.get_base_snapshot(name)
+            record = self.get_sync_record(name)
             workspace_content = self._read_file_text(target_path, name)
 
             if workspace_content is not None:
                 if workspace_content == content:
                     if base_snapshot is not None and base_snapshot.content == content:
+                        if record is not None and not record.is_clean():
+                            if dry_run:
+                                return {
+                                    "status": "dry_run",
+                                    "message": f"Would refresh {name}",
+                                }
+                            self._record_base_snapshot(name, content, target_path)
+                            logger.info(f"Refreshed template snapshot: {name}")
+                            return {
+                                "status": "updated",
+                                "message": "Updated from template",
+                            }
                         return {
                             "status": "skipped",
                             "message": "Already up to date",
@@ -472,13 +594,76 @@ class TemplateManager:
                     }
 
                 if base_snapshot is not None:
-                    if workspace_content != base_snapshot.content:
+                    if workspace_content == base_snapshot.content:
+                        # Workspace still matches the last saved base, so we can
+                        # fast-forward even if mtimes look stale.
+                        if dry_run:
+                            return {
+                                "status": "dry_run",
+                                "message": f"Would update {name}",
+                            }
+                        try:
+                            self._write_template_content(name, content, target_path)
+                            logger.info(f"Updated template: {name}")
+                            return {
+                                "status": "updated",
+                                "message": "Updated from template",
+                            }
+                        except Exception as e:
+                            return {
+                                "status": "error",
+                                "message": f"Error: {e}",
+                            }
+
+                    if record is not None and record.is_conflicted() and not self._has_conflict_markers(workspace_content):
+                        if dry_run:
+                            return {
+                                "status": "dry_run",
+                                "message": f"Would record merged resolution for {name}",
+                            }
+                        self._record_merged_snapshot(name, content, workspace_content, target_path)
+                        logger.info(f"Recorded merged template resolution: {name}")
+                        return {
+                            "status": "merged",
+                            "message": "Recorded resolved merge",
+                        }
+
+                    if self._has_conflict_markers(workspace_content):
+                        if dry_run:
+                            return {
+                                "status": "dry_run",
+                                "message": f"Would record conflict markers for {name}",
+                            }
+                        self._record_conflicted_snapshot(name, content, workspace_content, target_path, base_snapshot)
+                        logger.warning(f"Template conflict markers preserved: {name}")
+                        return {
+                            "status": "conflicted",
+                            "message": "Conflict markers already present",
+                        }
+
+                    if content == base_snapshot.content:
                         return {
                             "status": "skipped",
                             "message": "Workspace diverged from saved base",
                         }
-                    # Workspace still matches the last saved base, so we can
-                    # fast-forward even if mtimes look stale.
+
+                    if dry_run:
+                        return {
+                            "status": "dry_run",
+                            "message": f"Would write conflict markers for {name}",
+                        }
+                    try:
+                        self._write_conflicted_template_content(name, workspace_content, content, target_path, base_snapshot)
+                        logger.warning(f"Template conflict markers written: {name}")
+                        return {
+                            "status": "conflicted",
+                            "message": "Wrote conflict markers",
+                        }
+                    except Exception as e:
+                        return {
+                            "status": "error",
+                            "message": f"Error: {e}",
+                        }
                 elif self._should_skip_by_mtime(name, template_path, target_path):
                     return {
                         "status": "skipped",
@@ -525,7 +710,7 @@ class TemplateManager:
             Dict mapping template names to their update status:
             {
                 "filename": {
-                    "status": "updated" | "preserved" | "skipped" | "error",
+                    "status": "updated" | "merged" | "conflicted" | "preserved" | "skipped" | "dry_run" | "error",
                     "message": "..."
                 }
             }

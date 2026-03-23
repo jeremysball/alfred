@@ -4,11 +4,12 @@ import asyncio
 import logging
 import math
 from datetime import datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alfred.config import Config
 from alfred.embeddings import cosine_similarity
@@ -20,6 +21,13 @@ from alfred.templates import TemplateManager
 logger = logging.getLogger(__name__)
 
 
+class ContextFileState(StrEnum):
+    """State of a loaded context file."""
+
+    ACTIVE = "active"
+    BLOCKED = "blocked"
+
+
 class ContextFile(BaseModel):
     """A loaded context file with metadata."""
 
@@ -27,6 +35,12 @@ class ContextFile(BaseModel):
     path: str
     content: str
     last_modified: datetime
+    state: ContextFileState = ContextFileState.ACTIVE
+    blocked_reason: str | None = None
+
+    def is_blocked(self) -> bool:
+        """Return True when the file is blocked from context assembly."""
+        return self.state is ContextFileState.BLOCKED
 
 
 class AssembledContext(BaseModel):
@@ -38,6 +52,7 @@ class AssembledContext(BaseModel):
     user: str
     memories: list[MemoryEntry]
     system_prompt: str  # Combined
+    blocked_context_files: list[str] = Field(default_factory=list)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -428,37 +443,112 @@ class ContextLoader:
         self,
         config: Config,
         cache_ttl: int = 60,
+        cache_dir: Path | None = None,
         store: SQLiteStore | None = None,
     ) -> None:
         self.config = config
         self._cache = ContextCache(ttl_seconds=cache_ttl)
-        self._template_manager = TemplateManager(config.workspace_dir)
+        self._template_manager = TemplateManager(config.workspace_dir, cache_dir=cache_dir)
         self._store = store
         self._context_builder: ContextBuilder | None = None
+        self._blocked_context_files: set[str] = set()
         if store:
             self._context_builder = ContextBuilder(
                 store,
                 memory_budget=config.memory_budget,
             )
 
+    def get_blocked_context_files(self) -> list[str]:
+        """Return blocked managed context files in stable order."""
+        return sorted(self._blocked_context_files)
+
+    def _record_blocked_context_file(self, name: str) -> None:
+        """Remember that a managed context file is blocked."""
+        self._blocked_context_files.add(name)
+
+    def _clear_blocked_context_file(self, name: str) -> None:
+        """Forget a blocked context file once it becomes usable again."""
+        self._blocked_context_files.discard(name)
+
+    def _make_blocked_context_file(
+        self,
+        name: str,
+        path: Path,
+        reason: str,
+        last_modified: datetime | None = None,
+    ) -> ContextFile:
+        """Build a blocked context file placeholder."""
+        return ContextFile(
+            name=name,
+            path=str(path),
+            content="",
+            last_modified=last_modified or datetime.now(),
+            state=ContextFileState.BLOCKED,
+            blocked_reason=reason,
+        )
+
+    def _reconcile_template(self, name: str) -> None:
+        """Reconcile a context file with its managed template if supported."""
+        template_name = CONTEXT_TO_TEMPLATE.get(name)
+        if template_name is None or template_name not in TemplateManager.AUTO_CREATE_TEMPLATES:
+            return
+
+        try:
+            self._template_manager.reconcile_template(template_name, preserve=set())
+        except Exception as exc:
+            logger.warning(f"Failed to reconcile template {template_name}: {exc}")
+
     async def load_file(self, name: str, path: Path) -> ContextFile:
         """Load a context file, auto-creating from template if missing."""
+        template_name = CONTEXT_TO_TEMPLATE.get(name)
+        is_managed_template = template_name in TemplateManager.AUTO_CREATE_TEMPLATES if template_name else False
+        sync_record = self._template_manager.get_sync_record(template_name) if is_managed_template and template_name is not None else None
+
+        if sync_record is not None and sync_record.is_conflicted() and not path.exists():
+            blocked = self._make_blocked_context_file(
+                name=name,
+                path=path,
+                reason=f"Conflicted managed template {template_name} is blocked",
+                last_modified=sync_record.updated_at,
+            )
+            self._record_blocked_context_file(name)
+            return blocked
+
         cached = self._cache.get(name)
-        if cached:
+        if cached and (not is_managed_template or sync_record is None or not sync_record.is_conflicted()):
             return cached
 
         self._template_manager.ensure_prompts_exist()
+        self._reconcile_template(name)
 
-        if not path.exists():
-            template_name = CONTEXT_TO_TEMPLATE.get(name)
-            if template_name and template_name in TemplateManager.AUTO_CREATE_TEMPLATES:
-                logger.info(f"Auto-creating missing context file from template: {name}")
-                self._template_manager.ensure_exists(template_name)
+        if is_managed_template and template_name is not None:
+            sync_record = self._template_manager.get_sync_record(template_name)
+            if sync_record is not None and sync_record.is_conflicted():
+                last_modified = sync_record.updated_at
+                if path.exists():
+                    loop = asyncio.get_running_loop()
+                    try:
+                        stat = await loop.run_in_executor(None, path.stat)
+                        last_modified = datetime.fromtimestamp(stat.st_mtime)
+                    except Exception:
+                        pass
+                blocked = self._make_blocked_context_file(
+                    name=name,
+                    path=path,
+                    reason=f"Conflicted managed template {template_name} is blocked",
+                    last_modified=last_modified,
+                )
+                self._record_blocked_context_file(name)
+                return blocked
+
+        if not path.exists() and is_managed_template and template_name:
+            logger.info(f"Auto-creating missing context file from template: {name}")
+            self._template_manager.ensure_exists(template_name)
 
         if not path.exists():
             raise FileNotFoundError(f"Required context file missing: {path}")
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         content = await loop.run_in_executor(None, path.read_text, "utf-8")
         stat = await loop.run_in_executor(None, path.stat)
         content = resolve_all(content, self.config.workspace_dir)
@@ -468,8 +558,10 @@ class ContextLoader:
             path=str(path),
             content=content,
             last_modified=datetime.fromtimestamp(stat.st_mtime),
+            state=ContextFileState.ACTIVE,
         )
 
+        self._clear_blocked_context_file(name)
         self._cache.set(name, file)
         return file
 
@@ -479,17 +571,30 @@ class ContextLoader:
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
 
+    def _blocked_context_files_for(self, files: dict[str, ContextFile]) -> list[str]:
+        """Return blocked context file names from a loaded file set."""
+        return sorted(name for name, file in files.items() if file.is_blocked())
+
+    def _context_file_content(self, files: dict[str, ContextFile], name: str) -> str:
+        """Return active content for a loaded context file or an empty string."""
+        file = files.get(name)
+        if file is None or file.is_blocked():
+            return ""
+        return file.content
+
     async def assemble(self, memories: list[MemoryEntry] | None = None) -> AssembledContext:
         """Assemble complete context for LLM prompt."""
         files = await self.load_all()
+        blocked_context_files = self._blocked_context_files_for(files)
 
         return AssembledContext(
-            agents=files["agents"].content,
-            tools=files["tools"].content if "tools" in files else "",
-            soul=files["soul"].content,
-            user=files["user"].content,
+            agents=self._context_file_content(files, "agents"),
+            tools=self._context_file_content(files, "tools"),
+            soul=self._context_file_content(files, "soul"),
+            user=self._context_file_content(files, "user"),
             memories=memories or [],
             system_prompt=self._build_system_prompt(files),
+            blocked_context_files=blocked_context_files,
         )
 
     async def assemble_with_search(
@@ -503,7 +608,8 @@ class ContextLoader:
         if not self._context_builder:
             raise RuntimeError("SQLiteStore required for assemble_with_search. Initialize ContextLoader with store parameter.")
 
-        system_prompt = self._build_system_prompt_sync()
+        files = await self.load_all()
+        system_prompt = self._build_system_prompt(files)
         return await self._context_builder.build_context(
             query_embedding=query_embedding,
             memories=memories,
@@ -516,28 +622,6 @@ class ContextLoader:
             tool_calls_include_output=getattr(self.config, "tool_calls_include_output", True),
             tool_calls_include_arguments=getattr(self.config, "tool_calls_include_arguments", True),
         )
-
-    def _build_system_prompt_sync(self) -> str:
-        """Build system prompt from cached files (synchronous version)."""
-        files: dict[str, ContextFile] = {}
-        for name, path in (self.config.context_files or {}).items():
-            cached = self._cache.get(name)
-            if cached:
-                files[name] = cached
-            elif path.exists():
-                try:
-                    content = path.read_text("utf-8")
-                    stat = path.stat()
-                    files[name] = ContextFile(
-                        name=name,
-                        path=str(path),
-                        content=content,
-                        last_modified=datetime.fromtimestamp(stat.st_mtime),
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to load context file {name}: {e}")
-
-        return self._build_system_prompt(files)
 
     def add_context_file(self, name: str, path: Path) -> None:
         """Dynamically add a custom context file."""
@@ -553,9 +637,11 @@ class ContextLoader:
         self._cache.invalidate(name)
 
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:
-        """Combine context files into system prompt."""
+        """Combine active context files into system prompt."""
         parts = []
         for name in ["system", "agents", "tools", "soul", "user"]:
-            if name in files:
-                parts.append(f"# {name.upper()}\n\n{files[name].content}")
+            file = files.get(name)
+            if file is None or file.is_blocked():
+                continue
+            parts.append(f"# {name.upper()}\n\n{file.content}")
         return "\n\n---\n\n".join(parts) if parts else ""
