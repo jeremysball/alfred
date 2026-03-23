@@ -19,9 +19,7 @@ class ShowContextCommand(Command):
         """Show current system context."""
         from alfred.context_display import get_context_display
 
-        if not tui.alfred.core.session_manager.has_active_session():
-            tui._add_system_message("No active session.")
-            return True
+        has_active_session = tui.alfred.core.session_manager.has_active_session()
 
         async def _fetch_and_display() -> None:
             """Async helper to fetch and display context."""
@@ -31,6 +29,23 @@ class ShowContextCommand(Command):
 
                 # Build display text
                 lines: list[str] = []
+
+                if not has_active_session:
+                    lines.append("No active session.")
+                    lines.append("")
+
+                warnings = [warning for warning in (context_data.get("warnings") or []) if warning]
+                if not warnings:
+                    blocked_context_files = context_data.get("blocked_context_files") or []
+                    if blocked_context_files:
+                        warnings = [f"Blocked context files: {', '.join(blocked_context_files)}"]
+
+                if warnings:
+                    lines.append("WARNING:")
+                    lines.append("─" * 40)
+                    for warning in warnings:
+                        lines.append(f"  ! {warning}")
+                    lines.append("")
 
                 # System prompt section
                 sys_prompt = context_data["system_prompt"]

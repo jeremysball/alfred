@@ -323,6 +323,8 @@ def test_context_command_uses_shared_context_display() -> None:
     client = TestClient(create_app(alfred_instance=fake_alfred))
     context_data = {
         "system_prompt": {"sections": [{"name": "AGENTS.md", "tokens": 12}], "total_tokens": 12},
+        "blocked_context_files": ["SOUL.md"],
+        "warnings": ["Blocked context files: SOUL.md"],
         "memories": {
             "displayed": 1,
             "total": 2,
@@ -359,6 +361,8 @@ def test_context_command_uses_shared_context_display() -> None:
 
     assert response["type"] == "context.info"
     assert response["payload"]["systemPrompt"]["totalTokens"] == 12
+    assert response["payload"]["blockedContextFiles"] == ["SOUL.md"]
+    assert response["payload"]["warnings"] == ["Blocked context files: SOUL.md"]
     assert response["payload"]["memories"]["displayed"] == 1
     assert response["payload"]["sessionHistory"]["count"] == 1
     assert response["payload"]["toolCalls"]["count"] == 1

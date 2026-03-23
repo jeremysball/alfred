@@ -339,6 +339,18 @@ chat-message.streaming .message-avatar {
     max-width: 95%;
 }
 
+chat-message[data-warning="true"] .message.system {
+    border-color: rgba(240, 178, 41, 0.7);
+    background: rgba(240, 178, 41, 0.08);
+    color: #ffd46b;
+    box-shadow: 0 0 0 1px rgba(240, 178, 41, 0.15), 0 0 18px rgba(240, 178, 41, 0.08);
+}
+
+chat-message[data-warning="true"] .message.system .message-content {
+    color: #ffe6a6;
+    font-weight: 600;
+}
+
 .message-header {
     display: flex;
     align-items: center;

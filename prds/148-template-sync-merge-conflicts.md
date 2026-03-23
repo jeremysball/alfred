@@ -271,3 +271,5 @@ Any later expansion should keep the same fail-closed behavior.
 | 2026-03-23 | Represent blocked managed context files as an explicit `ContextFile` state | The loader needs an observable blocked state to fail closed without leaking conflict text |
 | 2026-03-23 | Use the same loaded-context path for both `assemble()` and `assemble_with_search()` | The chat path should honor blocked files instead of bypassing the fail-closed gate |
 | 2026-03-23 | Scope sync records to the current workspace path before trusting conflict state | Prevent stale cache entries from other workspaces from contaminating the current loader |
+| 2026-03-23 | Expose blocked context files and warning text through the shared context-display payload | `/context` and the WebUI should read the same source of truth for warning state |
+| 2026-03-23 | Mark WebUI context warnings with a `data-warning` system-message attribute | The browser can style persistent warnings without inventing a separate banner system |
