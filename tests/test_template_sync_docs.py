@@ -27,3 +27,16 @@ def test_readme_links_to_template_sync_guide() -> None:
 
     assert "[Template Sync and Conflict Recovery](docs/template-sync.md)" in readme
     assert "conflict-recovery reference" in readme.lower()
+
+
+def test_architecture_doc_mentions_workspace_scoped_sync_records_and_blocked_files() -> None:
+    """Architecture docs should summarize the final template sync contract."""
+    architecture = (PROJECT_ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+
+    assert "TemplateManager.reconcile_template()" in architecture
+    assert "workspace-scoped" in architecture
+    assert "Template Sync and Conflict Recovery" in architecture
+    assert "template-sync.md" in architecture
+    assert "/context" in architecture
+    assert "WebUI" in architecture
+    assert "blocked" in architecture.lower()

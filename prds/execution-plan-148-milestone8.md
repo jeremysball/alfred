@@ -23,9 +23,9 @@ This phase is documentation-first and test-first. The tests pin the expected wor
 
 ### Component: Architecture summary
 
-- [ ] **Test**: `test_architecture_doc_mentions_workspace_scoped_sync_records_and_blocked_files()` - verify `docs/ARCHITECTURE.md` explains restart-time reconciliation, workspace-scoped sync records, blocked-file behavior, and the shared warning surfaces
-- [ ] **Implement**: update `docs/ARCHITECTURE.md` to reflect the final sync contract and link to the operator guide
-- [ ] **Run**: `uv run pytest tests/test_template_sync_docs.py::test_architecture_doc_mentions_workspace_scoped_sync_records_and_blocked_files -v`
+- [x] **Test**: `test_architecture_doc_mentions_workspace_scoped_sync_records_and_blocked_files()` - verify `docs/ARCHITECTURE.md` explains restart-time reconciliation, workspace-scoped sync records, blocked-file behavior, and the shared warning surfaces
+- [x] **Implement**: update `docs/ARCHITECTURE.md` to reflect the final sync contract and link to the operator guide
+- [x] **Run**: `uv run pytest tests/test_template_sync_docs.py::test_architecture_doc_mentions_workspace_scoped_sync_records_and_blocked_files -v`
 
 ---
 
