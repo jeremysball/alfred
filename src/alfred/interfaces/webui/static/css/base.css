@@ -720,8 +720,8 @@ chat-message[data-message-state="editing"] .message.user {
     padding: 0;
     border: none;
     border-radius: 0.375rem;
-    background: var(--stop-button-bg, #f57c00);
-    color: var(--contrast-stop-text, #1a1a1a);
+    background: var(--stop-button-bg, var(--contrast-accent, #f57c00));
+    color: var(--contrast-stop-text, var(--contrast-accent-text, #1a1a1a));
     cursor: pointer;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.2s;
     align-items: center;
@@ -730,11 +730,11 @@ chat-message[data-message-state="editing"] .message.user {
 }
 
 .stop-button:hover {
-    background: var(--stop-button-hover-bg, #ef6c00);
+    background: var(--stop-button-hover-bg, var(--contrast-accent-hover, var(--contrast-accent, #ef6c00)));
 }
 
 .stop-button:disabled {
-    background: var(--stop-button-disabled-bg, #8d6e63);
+    background: var(--stop-button-disabled-bg, var(--contrast-accent-disabled, #8d6e63));
     cursor: not-allowed;
     opacity: 0.7;
 }
