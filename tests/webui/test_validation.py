@@ -6,10 +6,15 @@ from pydantic import ValidationError
 from alfred.interfaces.webui.validation import (
     AckMessage,
     AckPayload,
+    ChatCancelMessage,
+    ChatCancelledMessage,
+    ChatCancelledPayload,
     ChatChunkMessage,
     ChatChunkPayload,
     ChatCompleteMessage,
     ChatCompletePayload,
+    ChatEditMessage,
+    ChatEditPayload,
     ChatErrorMessage,
     ChatErrorPayload,
     ChatSendMessage,
@@ -397,3 +402,77 @@ def test_create_validation_error_response():
     assert response["type"] == "chat.error"
     assert response["payload"]["messageId"] == "msg-123"
     assert response["payload"]["error"] == "Invalid message format"
+
+
+# =============================================================================
+# Streaming Control Tests
+# =============================================================================
+
+
+def test_validate_client_message_chat_cancel():
+    """Verify validate_client_message accepts chat.cancel."""
+    data = {"type": "chat.cancel"}
+    is_valid, message, error = validate_client_message(data)
+
+    assert is_valid is True
+    assert error == ""
+    assert isinstance(message, ChatCancelMessage)
+    assert message.model_dump() == {"type": "chat.cancel"}
+
+
+def test_validate_client_message_chat_cancel_rejects_payload():
+    """Verify chat.cancel rejects unexpected payload data."""
+    data = {"type": "chat.cancel", "payload": {}}
+    is_valid, message, error = validate_client_message(data)
+
+    assert is_valid is False
+    assert message is None
+    assert "Validation error" in error
+
+
+def test_validate_client_message_chat_edit():
+    """Verify validate_client_message accepts chat.edit."""
+    payload = ChatEditPayload(messageId="msg-123", content="Updated prompt")
+    data = {"type": "chat.edit", "payload": payload.model_dump(by_alias=True)}
+    is_valid, message, error = validate_client_message(data)
+
+    assert is_valid is True
+    assert error == ""
+    assert isinstance(message, ChatEditMessage)
+    assert message.payload.message_id == "msg-123"
+    assert message.payload.content == "Updated prompt"
+
+
+def test_validate_client_message_chat_edit_rejects_missing_message_id():
+    """Verify chat.edit rejects missing messageId."""
+    data = {"type": "chat.edit", "payload": {"content": "Updated prompt"}}
+    is_valid, message, error = validate_client_message(data)
+
+    assert is_valid is False
+    assert message is None
+    assert "Validation error" in error
+    assert "messageId" in error or "message_id" in error
+
+
+def test_validate_client_message_chat_edit_rejects_empty_content():
+    """Verify chat.edit rejects empty content."""
+    data = {"type": "chat.edit", "payload": {"messageId": "msg-123", "content": ""}}
+    is_valid, message, error = validate_client_message(data)
+
+    assert is_valid is False
+    assert message is None
+    assert "Validation error" in error
+    assert "content" in error
+
+
+def test_chat_cancelled_message():
+    """Verify chat.cancelled server message structure."""
+    payload = ChatCancelledPayload(message_id="msg-123")
+    message = ChatCancelledMessage(type="chat.cancelled", payload=payload)
+
+    assert message.type == "chat.cancelled"
+    assert message.payload.message_id == "msg-123"
+    assert message.model_dump(by_alias=True) == {
+        "type": "chat.cancelled",
+        "payload": {"messageId": "msg-123"},
+    }

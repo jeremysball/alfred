@@ -71,8 +71,34 @@ class AckMessage(BaseModel):
     payload: AckPayload
 
 
+class ChatCancelMessage(BaseModel):
+    """Client cancels the active assistant response."""
+
+    type: Literal["chat.cancel"]
+
+    model_config = {"extra": "forbid"}
+
+
+class ChatEditPayload(BaseModel):
+    """Payload for chat.edit message."""
+
+    message_id: str = Field(..., alias="messageId", description="ID of message being edited")
+    content: str = Field(..., min_length=1, description="Updated message content")
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
+class ChatEditMessage(BaseModel):
+    """Client edits the last completed user message."""
+
+    type: Literal["chat.edit"]
+    payload: ChatEditPayload
+
+    model_config = {"extra": "forbid"}
+
+
 # Union type for all client messages
-ClientMessage = ChatSendMessage | CommandExecuteMessage | CompletionRequestMessage | AckMessage
+ClientMessage = ChatSendMessage | CommandExecuteMessage | CompletionRequestMessage | AckMessage | ChatCancelMessage | ChatEditMessage
 
 
 # =============================================================================
@@ -154,6 +180,23 @@ class ChatErrorMessage(BaseModel):
 
     type: Literal["chat.error"]
     payload: ChatErrorPayload
+
+
+class ChatCancelledPayload(BaseModel):
+    """Payload for chat.cancelled message."""
+
+    message_id: str = Field(..., alias="messageId", description="Canceled assistant message ID")
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
+class ChatCancelledMessage(BaseModel):
+    """Server confirms that the active response was canceled."""
+
+    type: Literal["chat.cancelled"]
+    payload: ChatCancelledPayload
+
+    model_config = {"extra": "forbid"}
 
 
 class ToolStartPayload(BaseModel):
@@ -334,6 +377,7 @@ ServerMessage = (
     | ChatChunkMessage
     | ChatCompleteMessage
     | ChatErrorMessage
+    | ChatCancelledMessage
     | ToolStartMessage
     | ToolOutputMessage
     | ToolEndMessage
@@ -376,6 +420,10 @@ def validate_client_message(data: JsonObject) -> tuple[bool, ClientMessage | Non
                 return True, CompletionRequestMessage.model_validate(data), ""
             case "ack":
                 return True, AckMessage.model_validate(data), ""
+            case "chat.cancel":
+                return True, ChatCancelMessage.model_validate(data), ""
+            case "chat.edit":
+                return True, ChatEditMessage.model_validate(data), ""
             case _:
                 return False, None, f"Unknown message type: {message_type}"
     except ValidationError as e:

@@ -65,7 +65,27 @@ class AckMessage(TypedDict):
     payload: AckPayload
 
 
-ClientMessage = ChatSendMessage | CommandExecuteMessage | CompletionRequestMessage | AckMessage
+class ChatCancelMessage(TypedDict):
+    """Client cancels the active assistant response."""
+
+    type: Literal["chat.cancel"]
+
+
+class ChatEditPayload(TypedDict):
+    """Payload for chat.edit message."""
+
+    messageId: str
+    content: str
+
+
+class ChatEditMessage(TypedDict):
+    """Client edits the last completed user message."""
+
+    type: Literal["chat.edit"]
+    payload: ChatEditPayload
+
+
+ClientMessage = ChatSendMessage | CommandExecuteMessage | CompletionRequestMessage | AckMessage | ChatCancelMessage | ChatEditMessage
 
 
 # Server -> Client Messages
@@ -135,6 +155,19 @@ class ChatErrorMessage(TypedDict):
 
     type: Literal["chat.error"]
     payload: ChatErrorPayload
+
+
+class ChatCancelledPayload(TypedDict):
+    """Payload for chat.cancelled message."""
+
+    messageId: str
+
+
+class ChatCancelledMessage(TypedDict):
+    """Server confirms that the active response was canceled."""
+
+    type: Literal["chat.cancelled"]
+    payload: ChatCancelledPayload
 
 
 class ToolStartPayload(TypedDict):
@@ -294,6 +327,7 @@ ServerMessage = (
     | ChatChunkMessage
     | ChatCompleteMessage
     | ChatErrorMessage
+    | ChatCancelledMessage
     | ToolStartMessage
     | ToolOutputMessage
     | ToolEndMessage

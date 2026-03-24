@@ -18,6 +18,7 @@ Current problems:
 - Partial assistant output stays visible when a response needs to stop.
 - The last user message cannot be edited in place, so users must retype or send a new correction.
 - Markdown lists in assistant messages are not consistently contained inside the message bubble, especially on mobile.
+- The header and composer take up too much vertical space on mobile, leaving too little room for the transcript.
 - Mobile history controls do not provide a clear stop control while streaming.
 
 The result is a chat experience that feels slower and more brittle than it needs to be.
@@ -36,6 +37,7 @@ The result is a chat experience that feels slower and more brittle than it needs
 6. When a user edits the last user message, remove the trailing assistant response and continue the conversation from the edited text.
 7. Fix markdown list containment globally so bulleted and numbered items stay inside message bubbles on mobile and desktop.
 8. Provide a mobile stop button while streaming.
+9. Make the mobile header and composer compact, and collapse them while scrolling so the transcript stays visible.
 
 ---
 
@@ -71,6 +73,14 @@ The composer remains enabled while Alfred is responding.
 - This behavior is consistent across mobile and desktop widths.
 - The fix applies globally, not just to a single theme.
 
+### 3.5 Mobile chrome on scroll
+
+- On mobile, Alfred’s header and composer start in a much smaller, denser layout.
+- Scrolling down collapses the header and composer to maximize transcript space.
+- Scrolling up restores them.
+- Focusing the composer also restores the expanded view.
+- The collapse should not interfere with typing or the on-screen keyboard.
+
 ---
 
 ## 4. Proposed Solution
@@ -89,12 +99,12 @@ The composer should no longer be disabled just because the assistant is streamin
 
 Add explicit client actions for streaming control:
 
-- `chat.cancel` — cancel the active assistant response
-- `chat.edit` — update the last user message and restart the conversation from that message
+- `chat.cancel` — cancel the active assistant response. This message is payload-less because the connection already has a single active turn.
+- `chat.edit` — update the last user message and restart the conversation from that message. Payload: `{ messageId, content }`.
 
 Add server acknowledgements where needed:
 
-- `chat.cancelled` — confirm that the active response was canceled and cleaned up
+- `chat.cancelled` — confirm that the active response was canceled and cleaned up. Payload: `{ messageId }`.
 
 The existing `chat.send` path remains the normal path for fresh turns.
 
@@ -126,12 +136,14 @@ When the pencil action is used:
 4. Remove the trailing assistant response.
 5. Restart the assistant turn with the edited text.
 
-### 4.6 Mobile stop control
+### 4.6 Mobile chrome minimization and stop control
 
-While streaming on mobile:
+On mobile:
 
-- hide the history up/down buttons
-- show a square stop button instead
+- render Alfred’s header and composer in a much smaller, denser layout by default
+- collapse the header and composer while scrolling down to maximize transcript space
+- restore them when scrolling up or when the composer receives focus
+- hide the history up/down buttons while streaming and show a square stop button instead
 
 When streaming ends, restore the history buttons.
 
@@ -166,6 +178,7 @@ Update message bubble and markdown styles so list markers and list item text sta
 - Add a pencil action to the last user message.
 - Fix markdown list layout globally.
 - Add mobile stop controls during streaming.
+- Compact the mobile header and composer, and collapse them on scroll.
 
 ---
 
@@ -211,12 +224,13 @@ Validation:
 - The following assistant message is removed.
 - The new assistant response starts from the edited text.
 
-### Milestone 6: Add mobile streaming controls
-Swap mobile history arrows for a square stop button while streaming.
+### Milestone 6: Add mobile streaming controls and smaller chrome
+Swap mobile history arrows for a square stop button while streaming, and make the mobile header/composer collapse into a smaller chrome state as the user scrolls.
 
 Validation:
 - The stop button appears only during streaming.
 - History buttons return when streaming ends.
+- The header and composer collapse on downward scroll and restore on upward scroll or composer focus.
 - The control is usable on a small viewport.
 
 ### Milestone 7: Add browser and protocol regression coverage
@@ -247,6 +261,9 @@ Mitigation: keep the behavior explicit: Shift+Enter queues, Enter interrupts and
 ### Risk: Partial assistant cleanup could drift between UI and storage
 Mitigation: make the server own the cleanup and persist the session mutation before acknowledging cancel or edit completion.
 
+### Risk: Mobile chrome could hide controls at the wrong time
+Mitigation: collapse on downward scroll only, restore on upward scroll or composer focus, and keep the composer reachable when the keyboard opens.
+
 ### Risk: List indentation may vary across themes
 Mitigation: define the bubble content rules in the base stylesheet and only let themes override color, not layout.
 
@@ -259,6 +276,7 @@ Primary verification should use the browser and the real WebSocket flow.
 Recommended checks:
 
 - Mobile screenshot of ordered and unordered lists inside bubbles.
+- On mobile, scrolling down collapses the header and composer; scrolling up or focusing the composer restores them.
 - Typing in the composer while the assistant streams.
 - Esc cancel on desktop.
 - Stop button cancel on mobile.
@@ -278,3 +296,12 @@ This PRD subsumes the existing Web UI UX TODOs for:
 - ESC cancel behavior
 
 It also adds the last-message edit flow and the markdown containment fix that were reported alongside them.
+
+---
+
+## 10. Decision Log
+
+| Date | Decision | Rationale | Impact | Owner |
+|------|----------|-----------|--------|-------|
+| 2026-03-23 | `chat.cancel` stays payload-less; `chat.edit` carries `messageId` and `content`; `chat.cancelled` echoes `messageId` | Cancel is scoped to the single active stream on a connection, edit must target the specific user turn, and the acknowledgement must identify which assistant turn was removed. | Locks the protocol shape for validation, docs, and the later cancel/edit runtime work. | PRD discussion |
+| 2026-03-23 | Mobile chrome uses a hybrid pattern: much smaller by default, collapse on downward scroll, and restore on upward scroll or composer focus | The mobile header and composer take too much vertical space when left fully expanded. The hybrid pattern keeps the transcript visible without making controls hard to recover. | Adds mobile scroll-state handling and smaller layout rules for the header and composer. | PRD discussion |
