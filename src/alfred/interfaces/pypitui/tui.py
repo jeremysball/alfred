@@ -754,6 +754,29 @@ class AlfredTUI:
         self.conversation.add_child(msg)
         self.tui.request_render()
 
+    async def _check_blocked_context_files(self) -> None:
+        """Check for blocked/conflicted context files and show toast warning.
+
+        Called on startup to proactively notify user of template conflicts
+        that would otherwise only be visible when running /context.
+        """
+        if self._toast_manager is None:
+            return
+
+        try:
+            # Force load all context files to trigger conflict detection
+            await self.alfred.context_loader.load_all()
+            blocked = self.alfred.context_loader.get_blocked_context_files()
+            if blocked:
+                files = ", ".join(blocked)
+                self._toast_manager.add(
+                    f"⚠️ Conflict in: {files}. Run /context for details.",
+                    "warning",
+                )
+        except Exception:
+            # Don't let conflict checking break startup
+            pass
+
     async def _send_message(self, text: str) -> None:
         """Send message to Alfred and handle response.
 
@@ -847,6 +870,7 @@ class AlfredTUI:
 
         self.tui.start()
         await self._load_session_messages()
+        await self._check_blocked_context_files()
         self._update_status()
 
         try:
