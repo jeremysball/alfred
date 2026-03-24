@@ -91,6 +91,7 @@ class AlfredCore:
         self.session_manager = SessionManagerFactory.create(
             store=self.sqlite_store,
             data_dir=self.config.data_dir,
+            embedder=self.embedder,
         )
 
         logger.debug("Initializing summarizer...")

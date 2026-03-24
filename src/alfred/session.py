@@ -15,10 +15,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from alfred.storage.sqlite import SQLiteStore
 from alfred.utils import run_async
+
+if TYPE_CHECKING:
+    from alfred.embeddings.provider import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -98,15 +101,22 @@ class SessionManager:
         # Later: ServiceLocator.resolve(SessionManager)
     """
 
-    def __init__(self, store: SQLiteStore, data_dir: Path) -> None:
+    def __init__(
+        self,
+        store: SQLiteStore,
+        data_dir: Path,
+        embedder: EmbeddingProvider | None = None,
+    ) -> None:
         """Initialize session manager with explicit dependencies.
 
         Args:
             store: SQLiteStore instance for persistence
             data_dir: Data directory for current.json file
+            embedder: Optional embedding provider for generating message embeddings
         """
         self._store = store
         self._data_dir = data_dir
+        self._embedder = embedder
         self._sessions: dict[str, Session] = {}
         self._cli_session_id: str | None = None
 
@@ -450,7 +460,19 @@ class SessionManager:
         return messages_data
 
     async def _persist_messages_strict(self, session_id: str, messages: list[Message]) -> None:
-        """Persist messages and propagate storage errors to the caller."""
+        """Persist messages and propagate storage errors to the caller.
+
+        Generates embeddings for messages that don't have them if an embedder is configured.
+        """
+        # Generate embeddings for messages that don't have them
+        if self._embedder is not None:
+            for msg in messages:
+                if msg.embedding is None and msg.content:
+                    try:
+                        msg.embedding = await self._embedder.embed(msg.content)
+                    except Exception as e:
+                        logger.warning(f"Failed to generate embedding for message {msg.id}: {e}")
+
         await self.store.save_session(session_id, self._serialize_messages(messages))
 
     async def _mutate_session_messages_async(
