@@ -167,3 +167,99 @@ def test_esc_key_calls_stop_handler():
 
     assert "handleStopGenerating()" in content
     assert "composerState !== 'cancelling'" in content
+
+
+def test_esc_key_cancels_edit_mode():
+    """Verify Esc key cancels edit mode."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "composerState === 'editing'" in content
+    assert "clearComposerEditState()" in content
+
+
+def test_composer_placeholder_changes_for_edit_mode():
+    """Verify composer placeholder changes when editing."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "Editing message... (Esc to cancel)" in content
+    assert "Type your message... (Shift+Enter to queue)" in content
+
+
+def test_pencil_button_exists_in_chat_message():
+    """Verify pencil button exists in chat-message component."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/components/chat-message.js")
+    content = response.text
+
+    assert 'data-action="edit"' in content
+    assert 'aria-label="Edit message"' in content
+    assert '✎' in content
+
+
+def test_pencil_button_only_for_user_messages():
+    """Verify pencil button only appears for user messages."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/components/chat-message.js")
+    content = response.text
+
+    assert "_role === 'user' && this._editable" in content
+
+
+def test_edit_message_event_dispatched():
+    """Verify edit-message event is dispatched with correct detail."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/components/chat-message.js")
+    content = response.text
+
+    assert "edit-message" in content
+    assert "messageId: this._messageId" in content
+    assert "_editMessage()" in content
+
+
+def test_editing_state_css_exists():
+    """Verify CSS for editing state highlight exists."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/css/base.css")
+    content = response.text
+
+    assert 'chat-message[data-message-state="editing"] .message.user' in content
+    assert "box-shadow" in content
+
+
+def test_start_composer_edit_function_exists():
+    """Verify startComposerEdit function exists in main.js."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "function startComposerEdit(messageElement)" in content
+    assert "setComposerState('editing')" in content
+
+
+def test_clear_composer_edit_state_function_exists():
+    """Verify clearComposerEditState function exists."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "function clearComposerEditState()" in content

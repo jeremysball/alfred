@@ -961,6 +961,14 @@ function initAlfredUI() {
     if (inputArea) {
       inputArea.dataset.composerState = nextState;
     }
+    // Update placeholder based on state
+    if (messageInput) {
+      if (nextState === 'editing') {
+        messageInput.placeholder = 'Editing message... (Esc to cancel)';
+      } else {
+        messageInput.placeholder = 'Type your message... (Shift+Enter to queue)';
+      }
+    }
   }
 
   function createClientMessageId(prefix) {
@@ -1852,6 +1860,12 @@ function initAlfredUI() {
       return;
     }
 
+    if (e.key === 'Escape' && composerState === 'editing') {
+      e.preventDefault();
+      clearComposerEditState();
+      return;
+    }
+
     // Ctrl+U: Clear input
     if (e.ctrlKey && e.key === 'u') {
       e.preventDefault();
@@ -1870,10 +1884,16 @@ function initAlfredUI() {
       return;
     }
 
-    // Escape: cancel active response or clear queued messages
+    // Escape: cancel active response, edit mode, or clear queued messages
     if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
       e.preventDefault();
       handleStopGenerating();
+      return;
+    }
+
+    if (e.key === 'Escape' && composerState === 'editing') {
+      e.preventDefault();
+      clearComposerEditState();
       return;
     }
 

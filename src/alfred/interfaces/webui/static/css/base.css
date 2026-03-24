@@ -406,6 +406,12 @@ chat-message[data-warning="true"] .message.system .message-content {
     font-weight: 600;
 }
 
+/* Editing state highlight */
+chat-message[data-message-state="editing"] .message.user {
+    border: 2px solid var(--composer-focus-border, #4fc3f7);
+    box-shadow: 0 0 0 4px rgba(79, 195, 247, 0.15);
+}
+
 .message-header {
     display: flex;
     align-items: center;
