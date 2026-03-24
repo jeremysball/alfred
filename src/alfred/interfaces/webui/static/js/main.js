@@ -281,6 +281,7 @@ function initAlfredUI() {
       }
     });
 
+    // Remove messages that are no longer in the incoming set
     existingSessionMessages.forEach((messageEl) => {
       const messageId = messageEl.getAttribute('message-id');
       if (!messageId) {
@@ -295,23 +296,27 @@ function initAlfredUI() {
       }
     });
 
-    const fragment = document.createDocumentFragment();
     let nextCurrentAssistantMessage = null;
+    let lastElement = null;
 
     messages.forEach((msg, index) => {
       const messageId = getSessionMessageId(msg, index);
       let messageEl = existingById.get(messageId) || null;
 
       if (messageEl) {
+        // Update existing message without detaching it
         applySessionMessageState(messageEl, msg, {
           preserveExistingAssistantContent: messageEl === currentAssistantMessage,
         });
       } else {
+        // Create new message element
         messageEl = document.createElement('chat-message');
         applySessionMessageState(messageEl, msg);
+        // Append new messages at the end
+        messageList.appendChild(messageEl);
       }
 
-      fragment.appendChild(messageEl);
+      lastElement = messageEl;
 
       if (msg.role === 'user') {
         messageHistory.push(msg.content || '');
@@ -337,11 +342,10 @@ function initAlfredUI() {
       }, {
         preserveExistingAssistantContent: true,
       });
-      fragment.appendChild(currentAssistantMessage);
+      messageList.appendChild(currentAssistantMessage);
       nextCurrentAssistantMessage = currentAssistantMessage;
     }
 
-    messageList.appendChild(fragment);
     currentAssistantMessage = nextCurrentAssistantMessage;
     activeSessionId = incomingSessionId;
     historyIndex = messageHistory.length;
