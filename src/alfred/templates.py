@@ -605,6 +605,13 @@ class TemplateManager:
                     if workspace_content == base_snapshot.content:
                         # Workspace still matches the last saved base, so we can
                         # fast-forward even if mtimes look stale.
+                        # However, don't fast-forward if this was a merge - the user
+                        # explicitly resolved to something different from template.
+                        if record is not None and record.state is TemplateSyncState.MERGED:
+                            return {
+                                "status": "skipped",
+                                "message": "Merged content preserved",
+                            }
                         if dry_run:
                             return {
                                 "status": "dry_run",

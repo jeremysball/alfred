@@ -385,6 +385,12 @@ async def _send_json(
         # Client disconnected - don't raise, just return False
         # This allows background tasks to continue without crashing
         return False
+    except RuntimeError as e:
+        # WebSocket already closed (e.g., websocket.close() was called)
+        # ASGI raises RuntimeError: "Unexpected ASGI message 'websocket.send'..."
+        if "websocket.send" in str(e) or "websocket.close" in str(e):
+            return False
+        raise
 
 
 async def _broadcast_json(

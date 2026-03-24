@@ -899,6 +899,10 @@ chat-message[data-message-state="editing"] .message.user {
     display: none;
 }
 
+.settings-section + .settings-section {
+    border-top: var(--settings-section-border, 1px solid #333);
+}
+
 .settings-section-header {
     padding: 0.75rem 1rem;
     font-size: 0.6875rem;
@@ -965,6 +969,71 @@ chat-message[data-message-state="editing"] .message.user {
     margin-left: auto;
     color: var(--theme-option-accent, var(--contrast-settings-text, var(--theme-check-color, #4fc3f7))) !important;
     font-weight: 600;
+}
+
+/* Font options */
+.font-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    border-bottom: var(--font-option-border, none);
+    background: var(--font-option-bg, transparent);
+}
+
+.font-option:hover {
+    box-shadow: inset 0 0 0 1px var(--font-option-accent, var(--contrast-settings-accent, #4fc3f7));
+}
+
+.font-option.active {
+    border-left: var(--font-option-active-border, none);
+    box-shadow: inset 0 0 0 1px var(--font-option-accent, var(--contrast-settings-accent, #4fc3f7));
+}
+
+.font-option-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.font-option-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--font-option-text, var(--contrast-settings-text, var(--contrast-text, #e0e0e0))) !important;
+}
+
+.font-option.active .font-option-name {
+    color: var(--font-option-accent, var(--contrast-settings-accent, var(--font-name-active, #4fc3f7))) !important;
+}
+
+.font-option-description {
+    font-size: 0.75rem;
+    color: var(--font-option-muted, var(--contrast-settings-muted, var(--contrast-muted, var(--font-description-text, #888)))) !important;
+}
+
+.font-check {
+    margin-left: auto;
+    color: var(--font-option-accent, var(--contrast-settings-text, var(--font-check-color, #4fc3f7))) !important;
+    font-weight: 600;
+}
+
+/* Font family specific preview styles */
+.font-option[data-font-family="system"] .font-option-name {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-option[data-font-family="serif"] .font-option-name {
+    font-family: Georgia, 'Times New Roman', serif;
+}
+
+.font-option[data-font-family="mono"] .font-option-name {
+    font-family: 'JetBrains Mono', 'Fira Code', Monaco, monospace;
+}
+
+.font-option[data-font-family="sans"] .font-option-name {
+    font-family: Inter, Helvetica, Arial, sans-serif;
 }
 
 /* Auto-contrast utility classes
@@ -1811,6 +1880,91 @@ status-bar {
         gap: 0.75rem;
         font-size: 0.65rem;
     }
+
+    /* Floating settings button - visible when header is hidden */
+    .floating-settings-btn {
+        position: fixed;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 1000;
+        width: 2.5rem;
+        height: 2.5rem;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color, #444);
+        border-radius: 50%;
+        background: var(--surface-color, #1a1a1a);
+        color: var(--text-color, #e0e0e0);
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .floating-settings-btn:not([hidden]) {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .floating-settings-btn svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .floating-settings-btn:hover {
+        background: var(--accent-color, #2a2a2a);
+    }
+
+    /* Show floating button when header is hidden */
+    .app-header.hidden ~ .floating-settings-btn,
+    .app-header.hidden + * + * + .floating-settings-btn {
+        display: flex;
+    }
+}
+
+/* ============================================
+   FONT SIZE CLASSES
+   ============================================ */
+
+.font-size-small {
+    font-size: 90%;
+}
+
+.font-size-medium {
+    font-size: 100%;
+}
+
+.font-size-large {
+    font-size: 115%;
+}
+
+.font-size-xlarge {
+    font-size: 130%;
+}
+
+/* ============================================
+   FONT FAMILY CLASSES
+   ============================================ */
+
+.font-family-system {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.font-family-serif {
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.font-family-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.font-family-sans {
+    font-family: Inter, Helvetica, Arial, sans-serif;
 }
 
 

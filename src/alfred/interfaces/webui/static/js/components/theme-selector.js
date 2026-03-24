@@ -22,6 +22,8 @@ class SettingsMenu extends HTMLElement {
   constructor() {
     super();
     this._currentTheme = localStorage.getItem('alfred-theme') || 'dark-academia';
+    this._fontSize = localStorage.getItem('alfred-font-size') || '';
+    this._fontFamily = localStorage.getItem('alfred-font-family') || '';
     this._themes = [
       { id: 'dark-academia', name: 'Dark Academia', description: 'Classical library dark', previewColor: '#8b6914', surfaceColor: '#24201c' },
       { id: 'dark-academia-light', name: 'Dark Academia Light', description: 'Classical library light', previewColor: '#8b5a2b', surfaceColor: '#f4efe6' },
@@ -34,6 +36,20 @@ class SettingsMenu extends HTMLElement {
       { id: 'kidcore-playground', name: 'Kidcore Playground', description: 'Handmade scrapbook chaos', previewColor: '#ff4fd8', surfaceColor: '#26003d' },
       { id: 'spacejam-neocities', name: 'Space Jam Neocities', description: 'Gaudy 90s neon browser shrine', previewColor: '#00e5ff', surfaceColor: '#180022' }
     ];
+    this._fontSizes = [
+      { id: '', name: 'Default', description: 'Inherit from theme' },
+      { id: 'small', name: 'Small', description: '90% base size' },
+      { id: 'medium', name: 'Medium', description: '100% base size' },
+      { id: 'large', name: 'Large', description: '115% base size' },
+      { id: 'xlarge', name: 'Extra Large', description: '130% base size' }
+    ];
+    this._fontFamilies = [
+      { id: '', name: 'Default', description: 'Inherit from theme' },
+      { id: 'system', name: 'System', description: 'System UI fonts' },
+      { id: 'serif', name: 'Serif', description: 'Georgia, Times New Roman' },
+      { id: 'mono', name: 'Monospace', description: 'JetBrains Mono, Fira Code' },
+      { id: 'sans', name: 'Sans-serif', description: 'Inter, Helvetica, Arial' }
+    ];
     this._isOpen = false;
     this._portalRoot = null;
     this._portalClickHandler = null;
@@ -43,6 +59,8 @@ class SettingsMenu extends HTMLElement {
 
   connectedCallback() {
     this._applyTheme(this._currentTheme);
+    this._applyFontSize(this._fontSize);
+    this._applyFontFamily(this._fontFamily);
     this._ensurePortalRoot();
     this._render();
   }
@@ -58,6 +76,26 @@ class SettingsMenu extends HTMLElement {
     localStorage.setItem('alfred-theme', themeId);
     this._currentTheme = themeId;
     applyThemeContrast();
+  }
+
+  _applyFontSize(sizeId) {
+    const root = document.documentElement;
+    root.classList.remove('font-size-small', 'font-size-medium', 'font-size-large', 'font-size-xlarge');
+    if (sizeId && sizeId !== '') {
+      root.classList.add(`font-size-${sizeId}`);
+    }
+    localStorage.setItem('alfred-font-size', sizeId);
+    this._fontSize = sizeId;
+  }
+
+  _applyFontFamily(fontId) {
+    const root = document.documentElement;
+    root.classList.remove('font-family-system', 'font-family-serif', 'font-family-mono', 'font-family-sans');
+    if (fontId && fontId !== '') {
+      root.classList.add(`font-family-${fontId}`);
+    }
+    localStorage.setItem('alfred-font-family', fontId);
+    this._fontFamily = fontId;
   }
 
   _buildThemeOptionsMarkup() {
@@ -144,8 +182,26 @@ class SettingsMenu extends HTMLElement {
         if (themeId) {
           this._applyTheme(themeId);
         }
-        this._isOpen = false;
-        this._render();
+        this._syncPortal();
+        return;
+      }
+
+      const fontSizeOption = event.target.closest('[data-font-size]');
+      if (fontSizeOption && this._portalRoot?.contains(fontSizeOption)) {
+        event.stopPropagation();
+        const sizeId = fontSizeOption.dataset.fontSize;
+        this._applyFontSize(sizeId);
+        this._syncPortal();
+        return;
+      }
+
+      const fontFamilyOption = event.target.closest('[data-font-family]');
+      if (fontFamilyOption && this._portalRoot?.contains(fontFamilyOption)) {
+        event.stopPropagation();
+        const fontId = fontFamilyOption.dataset.fontFamily;
+        this._applyFontFamily(fontId);
+        this._syncPortal();
+        return;
       }
     };
 
@@ -163,6 +219,36 @@ class SettingsMenu extends HTMLElement {
     this._portalClickHandler = null;
   }
 
+  _buildFontSizeOptionsMarkup() {
+    return this._fontSizes.map(size => {
+      const isActive = size.id === this._fontSize;
+      return `
+        <div class="font-option ${isActive ? 'active' : ''}" data-font-size="${size.id}">
+          <div class="font-option-info">
+            <div class="font-option-name">${size.name}</div>
+            <div class="font-option-description">${size.description}</div>
+          </div>
+          ${isActive ? '<div class="font-check">✓</div>' : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  _buildFontFamilyOptionsMarkup() {
+    return this._fontFamilies.map(font => {
+      const isActive = font.id === this._fontFamily;
+      return `
+        <div class="font-option ${isActive ? 'active' : ''}" data-font-family="${font.id}">
+          <div class="font-option-info">
+            <div class="font-option-name">${font.name}</div>
+            <div class="font-option-description">${font.description}</div>
+          </div>
+          ${isActive ? '<div class="font-check">✓</div>' : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
   _syncPortal() {
     const portalRoot = this._ensurePortalRoot();
     portalRoot.setAttribute('aria-hidden', String(!this._isOpen));
@@ -174,9 +260,19 @@ class SettingsMenu extends HTMLElement {
 
     portalRoot.innerHTML = `
       <div class="settings-overlay"></div>
-      <div class="settings-content" role="dialog" aria-label="Theme settings">
-        <div class="settings-section-header">Theme</div>
-        ${this._buildThemeOptionsMarkup()}
+      <div class="settings-content" role="dialog" aria-label="Settings">
+        <div class="settings-section">
+          <div class="settings-section-header">Theme</div>
+          ${this._buildThemeOptionsMarkup()}
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-header">Font Size</div>
+          ${this._buildFontSizeOptionsMarkup()}
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-header">Font Family</div>
+          ${this._buildFontFamilyOptionsMarkup()}
+        </div>
       </div>
     `;
 
