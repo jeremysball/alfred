@@ -36,7 +36,7 @@ async def run():
     ),
     "session_summarizer": (
         "*/5 * * * *",
-        '''"""Summarize idle sessions with 30min idle or 20+ new messages."""
+        '''"""Summarize sessions: always do most recent 3 if changed, then threshold-based for rest."""
 
 from datetime import datetime, UTC
 
@@ -46,9 +46,10 @@ from alfred.tools.search_sessions import SessionSummarizer
 
 IDLE_THRESHOLD_MINUTES = 30
 MESSAGE_THRESHOLD = 20
+MAX_RECENT_SESSIONS = 3
 
 async def run():
-    """Find and summarize eligible sessions."""
+    """Summarize recent sessions always if changed, then threshold-based for rest."""
     print("Running session summarization job")
 
     try:
@@ -57,24 +58,36 @@ async def run():
         session_manager = ServiceLocator.resolve(SessionManager)
 
         sessions = session_manager.list_sessions()
+        if not sessions:
+            print("No sessions found")
+            return
+
+        # Sort by last_active (most recent first)
+        sorted_sessions = sorted(sessions, key=lambda m: m.last_active or datetime.min.replace(tzinfo=UTC), reverse=True)
 
         summarized = 0
-        for meta in sessions:
-            # Skip if not enough new messages and not idle enough
+        for idx, meta in enumerate(sorted_sessions):
             messages_since_summary = meta.message_count - meta.last_summarized_count
-            minutes_idle = (datetime.now(UTC) - meta.last_active).total_seconds() / 60
 
-            should_summarize = (
-                minutes_idle > IDLE_THRESHOLD_MINUTES or
-                messages_since_summary >= MESSAGE_THRESHOLD
-            )
+            # Skip if no changes since last summary
+            if messages_since_summary <= 0:
+                continue
+
+            # First 3 sessions: always summarize if changed
+            if idx < MAX_RECENT_SESSIONS:
+                should_summarize = True
+            else:
+                # Remaining sessions: use threshold-based logic
+                minutes_idle = (datetime.now(UTC) - meta.last_active).total_seconds() / 60
+                should_summarize = (
+                    minutes_idle > IDLE_THRESHOLD_MINUTES or
+                    messages_since_summary >= MESSAGE_THRESHOLD
+                )
 
             if should_summarize:
                 print(f"Summarizing session {meta.session_id}")
-                # Load session and generate summary
                 session = session_manager.load_session(meta.session_id)
                 if session and session.messages:
-                    # Generate and save summary
                     summary = await summarizer.generate_summary(session)
                     await summarizer.save_summary(summary)
                     print(f"Saved summary for session {meta.session_id}")

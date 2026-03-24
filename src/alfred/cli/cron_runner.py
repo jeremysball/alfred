@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from alfred.config import Config, load_config
+from alfred.core import AlfredCore
 from alfred.cron.daemon import DaemonManager, daemonize
 from alfred.cron.scheduler import CronScheduler
 from alfred.cron.socket_client import SocketClient
@@ -59,6 +60,7 @@ async def run_scheduler(
     socket_client: SocketClient,
     config: Config,
     daemon_manager: DaemonManager,
+    core: AlfredCore,
 ) -> None:
     """Run the cron scheduler with socket client.
 
@@ -66,6 +68,7 @@ async def run_scheduler(
         socket_client: Socket client for TUI communication
         config: Application configuration
         daemon_manager: Daemon manager for signal handling
+        core: AlfredCore with registered services for system jobs
     """
     data_dir = config.data_dir
     store = CronStore(data_dir)
@@ -204,8 +207,10 @@ def main() -> int:
         daemonize(stdout_log=log_file, stderr_log=log_file)
         # After daemonize, we're in the daemon process
 
-    # Load configuration
+    # Load configuration and initialize AlfredCore (registers services in ServiceLocator)
     config = load_config()
+    logger.info("Initializing AlfredCore for cron runner...")
+    core = AlfredCore(config)
 
     # Create components
     socket_client = SocketClient()
@@ -213,7 +218,7 @@ def main() -> int:
 
     # Run the scheduler
     try:
-        asyncio.run(run_scheduler(socket_client, config, daemon_mgr))
+        asyncio.run(run_scheduler(socket_client, config, daemon_mgr, core))
         return 0
     except KeyboardInterrupt:
         logger.info("Interrupted")
