@@ -49,8 +49,8 @@ async def test_stop_button_visible_during_streaming(
     await expect(send_button).to_be_hidden()
     await expect(input_area).to_have_attribute("data-composer-state", "streaming")
 
-    # Verify stop button has correct text and accessibility
-    await expect(stop_button).to_have_text("Stop")
+    # Verify stop button has media player icon and accessibility
+    await expect(stop_button).to_have_text("⏹")
     await expect(stop_button).to_have_attribute("aria-label", "Stop generating")
 
 
@@ -144,9 +144,9 @@ async def test_stop_button_disabled_while_cancelling(
 
     stop_button = page.locator("#stop-button")
 
-    # Verify button is disabled and shows correct text
+    # Verify button is disabled and shows stop icon (with reduced opacity)
     await expect(stop_button).to_be_disabled()
-    await expect(stop_button).to_have_text("Stopping...")
+    await expect(stop_button).to_have_text("⏹")
 
 
 async def test_esc_key_triggers_cancel(

@@ -895,6 +895,24 @@ function initAlfredUI() {
 
   wsClient.addEventListener('disconnected', () => {
     updateConnectionStatus('disconnected');
+    // Clean up streaming state to prevent ghost messages on reconnect
+    if (composerState === 'streaming' || composerState === 'cancelling') {
+      // Remove partial assistant message since we can't recover the stream
+      clearCurrentAssistantMessage({ remove: true });
+      // Reset composer state to idle
+      setComposerState('idle');
+      // Reset stop button
+      if (stopButton) {
+        stopButton.hidden = true;
+        stopButton.disabled = false;
+        stopButton.textContent = '⏹';
+      }
+      // Clear any queued messages since we can't send them
+      messageQueue.length = 0;
+      updateQueueBadge();
+      // Refresh editable state
+      refreshEditableMessageState();
+    }
   });
 
   wsClient.addEventListener('error', () => {
@@ -1694,7 +1712,8 @@ function initAlfredUI() {
   function setCancellingState() {
     if (stopButton) {
       stopButton.disabled = true;
-      stopButton.textContent = 'Stopping...';
+      stopButton.textContent = '⏹';
+      stopButton.style.opacity = '0.6';
     }
     setComposerState('cancelling');
   }
@@ -1714,7 +1733,8 @@ function initAlfredUI() {
     if (stopButton) {
       stopButton.hidden = true;
       stopButton.disabled = false;
-      stopButton.textContent = 'Stop';
+      stopButton.textContent = '⏹';
+      stopButton.style.opacity = '';
     }
     setComposerState('idle');
     refreshEditableMessageState();

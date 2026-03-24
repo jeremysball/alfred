@@ -715,18 +715,22 @@ chat-message[data-message-state="editing"] .message.user {
     cursor: not-allowed;
 }
 
-/* Stop Button - shown during streaming */
+/* Stop Button - shown during streaming (square media player style) */
 .stop-button {
-    padding: 0.75rem 1.5rem;
+    width: 2.5rem;
+    height: 2.75rem;
+    padding: 0;
     border: none;
-    border-radius: var(--composer-send-radius, 0.5rem);
+    border-radius: 0.25rem;
     background: var(--stop-button-bg, #f57c00);
     color: var(--contrast-stop-text, #1a1a1a);
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.25rem;
+    line-height: 1;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.2s;
-    height: fit-content;
+    display: none;
+    align-items: center;
+    justify-content: center;
     box-shadow: var(--stop-button-shadow, none);
 }
 
@@ -1726,10 +1730,20 @@ status-bar {
         display: none !important;
     }
 
-    /* Show stop button during streaming on mobile */
+    /* Show stop button during streaming on mobile - positioned where history controls were */
     #input-area[data-composer-state="streaming"] #stop-button,
     #input-area[data-composer-state="cancelling"] #stop-button {
-        display: inline-flex;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        width: 2.5rem;
+        height: auto;
+    }
+
+    /* When streaming, stop button replaces the history controls space */
+    #input-area[data-composer-state="streaming"],
+    #input-area[data-composer-state="cancelling"] {
+        gap: 0.5rem;
     }
 
     /* Compact message input */
