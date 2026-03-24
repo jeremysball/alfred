@@ -503,7 +503,10 @@ class ContextLoader:
             return
 
         try:
-            self._template_manager.reconcile_template(template_name, preserve=set())
+            # Preserve user-customized files to avoid overwriting their changes
+            self._template_manager.reconcile_template(
+                template_name, preserve={"USER.md", "SOUL.md", "CUSTOM.md"}
+            )
         except Exception as exc:
             logger.warning(f"Failed to reconcile template {template_name}: {exc}")
 
