@@ -210,8 +210,13 @@ class TestSearchSessionsErrorHandling:
 
     @pytest.mark.asyncio
     async def test_missing_embedder_error(self):
-        """Should error when embedder not configured."""
-        tool = SearchSessionsTool()
+        """Should error when embedder not configured for semantic search."""
+        mock_store = MagicMock()
+        mock_store.list_sessions = AsyncMock(return_value=[])
+
+        from alfred.tools.search_sessions import SessionSummarizer
+        summarizer = SessionSummarizer(llm_client=MagicMock(), embedder=MagicMock(), store=mock_store)
+        tool = SearchSessionsTool(summarizer=summarizer)
 
         chunks = []
         async for chunk in tool.execute_stream(query="test search"):
@@ -316,6 +321,125 @@ class TestSearchSessionsViaAgent:
         assert "Best semantic match" in result
         assert "Worse semantic match" not in result
         assert "Relevance: 0.95" in result
+
+
+class TestSearchSessionsWildcardMode:
+    """Test wildcard mode for listing all sessions."""
+
+    @pytest.mark.asyncio
+    async def test_wildcard_star_lists_all_sessions(self):
+        """Wildcard '*' should list all sessions without semantic search."""
+        mock_store = MagicMock()
+        mock_store.list_sessions = AsyncMock(
+            return_value=[
+                {
+                    "session_id": "sess-1",
+                    "created_at": "2024-03-20T10:00:00",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+                {
+                    "session_id": "sess-2",
+                    "created_at": "2024-03-21T11:00:00",
+                    "messages": [{"role": "user", "content": "World"}],
+                },
+            ]
+        )
+
+        from alfred.tools.search_sessions import SessionSummarizer
+        summarizer = SessionSummarizer(llm_client=MagicMock(), embedder=MagicMock(), store=mock_store)
+        tool = SearchSessionsTool(summarizer=summarizer)
+
+        chunks = []
+        async for chunk in tool.execute_stream(query="*"):
+            chunks.append(chunk)
+
+        result = "".join(chunks)
+
+        # Should list both sessions
+        assert "sess-1" in result
+        assert "sess-2" in result
+        assert "Hello" in result
+        assert "World" in result
+        # Should not perform semantic search
+        mock_store.list_sessions.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_wildcard_all_also_works(self):
+        """Wildcard 'all' should also list all sessions."""
+        mock_store = MagicMock()
+        mock_store.list_sessions = AsyncMock(return_value=[])
+
+        from alfred.tools.search_sessions import SessionSummarizer
+        summarizer = SessionSummarizer(llm_client=MagicMock(), embedder=MagicMock(), store=mock_store)
+        tool = SearchSessionsTool(summarizer=summarizer)
+
+        chunks = []
+        async for chunk in tool.execute_stream(query="all"):
+            chunks.append(chunk)
+
+        result = "".join(chunks)
+        assert "No sessions found" in result or "Found" in result
+        mock_store.list_sessions.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_wildcard_with_date_filter(self):
+        """Wildcard mode should respect date filters."""
+        mock_store = MagicMock()
+        mock_store.list_sessions = AsyncMock(
+            return_value=[
+                {
+                    "session_id": "old-session",
+                    "created_at": "2024-01-01T10:00:00",  # Before filter
+                    "messages": [{"role": "user", "content": "Old message"}],
+                },
+                {
+                    "session_id": "new-session",
+                    "created_at": "2024-03-20T10:00:00",  # After filter
+                    "messages": [{"role": "user", "content": "New message"}],
+                },
+            ]
+        )
+
+        from alfred.tools.search_sessions import SessionSummarizer
+        summarizer = SessionSummarizer(llm_client=MagicMock(), embedder=MagicMock(), store=mock_store)
+        tool = SearchSessionsTool(summarizer=summarizer)
+
+        chunks = []
+        async for chunk in tool.execute_stream(query="*", after="2024-03-15"):
+            chunks.append(chunk)
+
+        result = "".join(chunks)
+
+        # Should only include new-session (after filter date)
+        assert "new-session" in result
+        assert "New message" in result
+        assert "old-session" not in result
+        assert "Old message" not in result
+
+    @pytest.mark.asyncio
+    async def test_wildcard_respects_top_k(self):
+        """Wildcard mode should respect top_k limit."""
+        mock_store = MagicMock()
+        # Return more sessions than top_k
+        mock_store.list_sessions = AsyncMock(
+            return_value=[
+                {"session_id": f"sess-{i}", "created_at": f"2024-03-{i+10}T10:00:00", "messages": []}
+                for i in range(10)
+            ]
+        )
+
+        from alfred.tools.search_sessions import SessionSummarizer
+        summarizer = SessionSummarizer(llm_client=MagicMock(), embedder=MagicMock(), store=mock_store)
+        tool = SearchSessionsTool(summarizer=summarizer)
+
+        chunks = []
+        async for chunk in tool.execute_stream(query="*", top_k=3):
+            chunks.append(chunk)
+
+        result = "".join(chunks)
+
+        # Should only show top_k=3 sessions
+        assert result.count("sess-") == 3
 
 
 if __name__ == "__main__":

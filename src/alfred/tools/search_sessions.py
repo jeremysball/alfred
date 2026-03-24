@@ -241,12 +241,11 @@ class SearchSessionsTool(Tool):
         after_str = kwargs.get("after")
         before_str = kwargs.get("before")
 
+        # Check for wildcard query to list all sessions
+        is_wildcard = query in ("*", "*.*", "all", "ALL")
+
         if not query:
             yield "Error: Please provide a search query"
-            return
-
-        if not self.embedder:
-            yield "Error: Embedder not configured"
             return
 
         if not self.summarizer or not self.summarizer.store:
@@ -272,6 +271,57 @@ class SearchSessionsTool(Tool):
                 return
 
         try:
+            if is_wildcard:
+                # Wildcard mode: list all sessions (filtered by date if provided)
+                sessions = await self.summarizer.store.list_sessions(limit=top_k * 2)
+
+                # Apply date filters manually
+                filtered_sessions = []
+                for session in sessions:
+                    created_at_str = session.get("created_at")
+                    if not created_at_str:
+                        continue
+                    try:
+                        created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                    except ValueError:
+                        continue
+
+                    if after and created_at < after:
+                        continue
+                    if before and created_at > before:
+                        continue
+                    filtered_sessions.append(session)
+
+                # Limit results
+                filtered_sessions = filtered_sessions[:top_k]
+
+                if not filtered_sessions:
+                    yield "No sessions found."
+                    return
+
+                yield f"Found {len(filtered_sessions)} session(s):\n"
+                for session in filtered_sessions:
+                    session_id = session["session_id"]
+                    created_at = session.get("created_at", "unknown")
+                    messages = session.get("messages", [])
+                    yield f"\n## Session: {session_id}\n"
+                    yield f"Created: {created_at}\n"
+                    yield f"Messages: {len(messages)}\n"
+
+                    # Show first few messages
+                    if messages:
+                        yield "Preview:\n"
+                        for msg in messages[:messages_per_session]:
+                            role = msg.get("role", "unknown")
+                            content = msg.get("content", "")[:100]
+                            yield f"  [{role}]: {content}...\n"
+                return
+
+            # Semantic search mode
+            if not self.embedder:
+                yield "Error: Embedder not configured"
+                return
+
             # Stage 1: Find relevant sessions via summary search
             query_embedding = await self.embedder.embed(query)
             relevant_summaries = await self._find_relevant_sessions(

@@ -15,6 +15,7 @@ Search through past conversation sessions for context and information.
 - Recalling technical discussions
 - Locating previously written code or documentation
 - Narrowing results to a specific time period
+- Listing all recent sessions (use wildcard `*`)
 
 **Examples:**
 
@@ -46,7 +47,24 @@ search_sessions(
     query="critical bug fix",
     after="2024-03-20T10:00:00"
 )
+
+# List all recent sessions (wildcard mode)
+search_sessions(query="*")
+
+# List sessions from the last week
+search_sessions(
+    query="*",
+    after="2024-03-17",
+    top_k=10
+)
 ```
+
+**Wildcard Mode (`*`):**
+- Use `query="*"` to list all sessions without semantic search
+- Useful for browsing recent conversation history
+- Combine with `after`/`before` to list sessions from a specific time period
+- Combine with `top_k` to control how many sessions to return
+- Wildcards accepted: `*`, `*.*`, `all`, `ALL`
 
 **Date Filter Formats:**
 - Date only: `"2024-03-20"` (searches from midnight UTC)
@@ -61,3 +79,4 @@ search_sessions(
 - Use `after` to exclude old sessions and focus on recent work
 - Use `before` to find historical context before a specific point
 - Combine `after` and `before` to search within a specific period
+- Use wildcard `*` as the query to browse all sessions chronologically

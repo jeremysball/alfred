@@ -748,6 +748,15 @@ chat-message[data-message-state="editing"] .message.user {
     display: none;
 }
 
+/* Stop icon - CSS square */
+.stop-icon {
+    display: block;
+    width: 1rem;
+    height: 1rem;
+    background: currentColor;
+    border-radius: 0.125rem;
+}
+
 /* Show stop button when streaming */
 #input-area[data-composer-state="streaming"] .stop-button,
 #input-area[data-composer-state="cancelling"] .stop-button {
@@ -780,9 +789,16 @@ chat-message[data-message-state="editing"] .message.user {
 
 /* Mobile History Controls */
 .input-history-controls {
-    display: none;
+    display: flex;
     flex-direction: column;
     gap: 0.25rem;
+}
+
+/* Hide history controls on desktop */
+@media (min-width: 769px) {
+    .input-history-controls {
+        display: none;
+    }
 }
 
 .history-btn {

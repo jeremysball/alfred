@@ -905,7 +905,7 @@ function initAlfredUI() {
       if (stopButton) {
         stopButton.hidden = true;
         stopButton.disabled = false;
-        stopButton.textContent = '⏹';
+        stopButton.style.opacity = '';
       }
       // Clear any queued messages since we can't send them
       messageQueue.length = 0;
@@ -1712,7 +1712,6 @@ function initAlfredUI() {
   function setCancellingState() {
     if (stopButton) {
       stopButton.disabled = true;
-      stopButton.textContent = '⏹';
       stopButton.style.opacity = '0.6';
     }
     setComposerState('cancelling');
@@ -1733,7 +1732,6 @@ function initAlfredUI() {
     if (stopButton) {
       stopButton.hidden = true;
       stopButton.disabled = false;
-      stopButton.textContent = '⏹';
       stopButton.style.opacity = '';
     }
     setComposerState('idle');
