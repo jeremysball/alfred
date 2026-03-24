@@ -27,6 +27,7 @@ def temp_workspace():
         # Create template files in the right location
         # TemplateManager looks for workspace_dir/templates/
         templates_dir = workspace_dir / "templates"
+        (templates_dir / "SYSTEM.md").write_text("---\ntitle: SYSTEM\n---\n# System\n")
         (templates_dir / "SOUL.md").write_text("---\ntitle: SOUL\n---\n# Soul\nDate: {current_date}\n")
         (templates_dir / "USER.md").write_text("---\ntitle: USER\n---\n# User\n")
         (templates_dir / "TOOLS.md").write_text("---\ntitle: TOOLS\n---\n# Tools\n")
@@ -106,28 +107,33 @@ class TestContextLoaderTemplateAutoCreation:
 
     @pytest.mark.asyncio
     async def test_context_loader_reconciles_templates_before_first_load(self, config):
-        """A fresh loader reconciles a changed template before the first read."""
-        soul_path = config.context_files["soul"]
-        template_path = config.workspace_dir / "templates" / "SOUL.md"
+        """A fresh loader reconciles a changed template before the first read.
+
+        Uses SYSTEM.md because it's not in the preserve list (USER.md, SOUL.md, CUSTOM.md are preserved).
+        """
+        # Add SYSTEM.md to context files for testing
+        system_path = config.workspace_dir / "SYSTEM.md"
+        config.context_files["system"] = system_path
+        template_path = config.workspace_dir / "templates" / "SYSTEM.md"
         cache_dir = config.workspace_dir / "cache"
-        initial_template = "# Soul\n\nInitial template body\n"
-        updated_template = "# Soul\n\nUpdated template body\n"
+        initial_template = "# System\n\nInitial template body\n"
+        updated_template = "# System\n\nUpdated template body\n"
 
         template_path.write_text(initial_template, encoding="utf-8")
 
         first_loader = ContextLoader(config, cache_dir=cache_dir)
-        initial_file = await first_loader.load_file("soul", soul_path)
+        initial_file = await first_loader.load_file("system", system_path)
 
         assert "Initial template body" in initial_file.content
-        assert soul_path.read_text(encoding="utf-8") == initial_template
+        assert system_path.read_text(encoding="utf-8") == initial_template
 
         template_path.write_text(updated_template, encoding="utf-8")
 
         restarted_loader = ContextLoader(config, cache_dir=cache_dir)
-        reconciled_file = await restarted_loader.load_file("soul", soul_path)
+        reconciled_file = await restarted_loader.load_file("system", system_path)
 
         assert "Updated template body" in reconciled_file.content
-        assert soul_path.read_text(encoding="utf-8") == updated_template
+        assert system_path.read_text(encoding="utf-8") == updated_template
 
     @pytest.mark.asyncio
     async def test_existing_file_not_overwritten(self, loader, config):
@@ -193,64 +199,69 @@ class TestContextLoaderTemplateAutoCreation:
 class TestContextLoaderBlockedTemplates:
     """Integration tests for blocked conflicted managed templates."""
 
-    async def _seed_conflicted_soul(self, config: Config) -> tuple[ContextLoader, Path, Path]:
-        """Create a conflicted SOUL.md managed file and return the loader used."""
-        soul_path = config.context_files["soul"]
-        template_path = config.workspace_dir / "templates" / "SOUL.md"
+    async def _seed_conflicted_system(self, config: Config) -> tuple[ContextLoader, Path, Path]:
+        """Create a conflicted SYSTEM.md managed file and return the loader used.
+
+        Uses SYSTEM.md because it's not in the preserve list (USER.md, SOUL.md, CUSTOM.md are preserved).
+        """
+        # Add SYSTEM.md to context files for testing
+        system_path = config.workspace_dir / "SYSTEM.md"
+        config.context_files["system"] = system_path
+        template_path = config.workspace_dir / "templates" / "SYSTEM.md"
         cache_dir = config.workspace_dir / "cache"
-        initial_template = "# Soul\n\nInitial base\n"
-        local_edit = "# Soul\n\nLocal edit\n"
-        upstream_edit = "# Soul\n\nUpstream edit\n"
+        initial_template = "# System\n\nInitial base\n"
+        local_edit = "# System\n\nLocal edit\n"
+        upstream_edit = "# System\n\nUpstream edit\n"
 
         template_path.write_text(initial_template, encoding="utf-8")
 
         first_loader = ContextLoader(config, cache_dir=cache_dir)
-        created = await first_loader.load_file("soul", soul_path)
+        created = await first_loader.load_file("system", system_path)
         assert created.state is ContextFileState.ACTIVE
-        assert soul_path.read_text(encoding="utf-8") == initial_template
+        assert system_path.read_text(encoding="utf-8") == initial_template
 
-        soul_path.write_text(local_edit, encoding="utf-8")
+        system_path.write_text(local_edit, encoding="utf-8")
         template_path.write_text(upstream_edit, encoding="utf-8")
 
         restarted_loader = ContextLoader(config, cache_dir=cache_dir)
-        blocked = await restarted_loader.load_file("soul", soul_path)
+        blocked = await restarted_loader.load_file("system", system_path)
         assert blocked.state is ContextFileState.BLOCKED
         assert blocked.blocked_reason is not None
         assert "conflicted" in blocked.blocked_reason.lower()
 
-        return restarted_loader, soul_path, cache_dir
+        return restarted_loader, system_path, cache_dir
 
     @pytest.mark.asyncio
     async def test_load_file_marks_conflicted_managed_template_as_blocked(self, config: Config) -> None:
         """A conflicted managed file is blocked and is not auto-created after removal."""
-        loader, soul_path, cache_dir = await self._seed_conflicted_soul(config)
+        loader, system_path, cache_dir = await self._seed_conflicted_system(config)
 
-        assert loader.get_blocked_context_files() == ["soul"]
+        assert loader.get_blocked_context_files() == ["system"]
 
-        soul_path.unlink()
+        system_path.unlink()
         restarted_loader = ContextLoader(config, cache_dir=cache_dir)
-        blocked = await restarted_loader.load_file("soul", soul_path)
+        blocked = await restarted_loader.load_file("system", system_path)
 
         assert blocked.state is ContextFileState.BLOCKED
         assert blocked.content == ""
-        assert not soul_path.exists()
-        assert restarted_loader.get_blocked_context_files() == ["soul"]
+        assert not system_path.exists()
+        assert restarted_loader.get_blocked_context_files() == ["system"]
 
     @pytest.mark.asyncio
     async def test_load_file_reenables_manually_resolved_conflicted_template(self, config: Config) -> None:
         """A manually repaired conflicted managed file becomes active again after restart."""
-        loader, soul_path, cache_dir = await self._seed_conflicted_soul(config)
+        loader, system_path, cache_dir = await self._seed_conflicted_system(config)
 
-        assert loader.get_blocked_context_files() == ["soul"]
+        assert loader.get_blocked_context_files() == ["system"]
 
-        soul_path.write_text("# Soul\n\nMerged resolution\n", encoding="utf-8")
+        system_path.write_text("# System\n\nMerged resolution\n", encoding="utf-8")
 
         restarted_loader = ContextLoader(config, cache_dir=cache_dir)
-        resolved = await restarted_loader.load_file("soul", soul_path)
+        resolved = await restarted_loader.load_file("system", system_path)
 
         assert resolved.state is ContextFileState.ACTIVE
         assert resolved.blocked_reason is None
-        assert resolved.content == "# Soul\n\nMerged resolution\n"
+        assert resolved.content == "# System\n\nMerged resolution\n"
         assert restarted_loader.get_blocked_context_files() == []
 
     @pytest.mark.asyncio
@@ -265,12 +276,11 @@ class TestContextLoaderBlockedTemplates:
             encoding="utf-8",
         )
 
-        loader, _, _ = await self._seed_conflicted_soul(config)
+        loader, _, _ = await self._seed_conflicted_system(config)
         assembled = await loader.assemble()
 
-        assert assembled.blocked_context_files == ["soul"]
-        assert assembled.soul == ""
-        assert "# SOUL" not in assembled.system_prompt
+        assert assembled.blocked_context_files == ["system"]
+        assert "# SYSTEM" not in assembled.system_prompt
         assert "Local edit" not in assembled.system_prompt
         assert "Upstream edit" not in assembled.system_prompt
         assert "# AGENTS" in assembled.system_prompt
@@ -292,7 +302,7 @@ class TestContextLoaderBlockedTemplates:
             async def search_memories(self, query_embedding: list[float], top_k: int = 10) -> list[dict[str, object]]:
                 return []
 
-        _, _, cache_dir = await self._seed_conflicted_soul(config)
+        _, _, cache_dir = await self._seed_conflicted_system(config)
         loader_with_store = ContextLoader(config, cache_dir=cache_dir, store=FakeSearchStore())
         system_prompt, memories_count = await loader_with_store.assemble_with_search(
             query_embedding=[0.1, 0.2, 0.3],
@@ -300,7 +310,7 @@ class TestContextLoaderBlockedTemplates:
         )
 
         assert memories_count == 0
-        assert "# SOUL" not in system_prompt
+        assert "# SYSTEM" not in system_prompt
         assert "Local edit" not in system_prompt
         assert "Upstream edit" not in system_prompt
         assert "# AGENTS" in system_prompt
