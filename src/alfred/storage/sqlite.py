@@ -651,10 +651,12 @@ class SQLiteStore:
 
         import aiosqlite
 
+        db: Any | None = None
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 # Load sqlite-vec extension for vector search
                 await self._load_extensions(db)
+                await db.execute("BEGIN IMMEDIATE")
                 await db.execute(
                     """
                     INSERT INTO sessions (session_id, messages, metadata, updated_at)
@@ -666,10 +668,9 @@ class SQLiteStore:
                     """,
                     (session_id, json.dumps(messages), json.dumps(metadata or {})),
                 )
-                await db.commit()
-
-                # Index message embeddings for vector search (new sessions only)
+                await self._delete_session_message_embeddings(db, session_id)
                 await self._index_message_embeddings(db, session_id, messages)
+                await db.commit()
 
             log_event(
                 logger,
@@ -682,6 +683,9 @@ class SQLiteStore:
                 duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
             )
         except Exception as e:
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    await db.rollback()
             self._log_storage_failure(
                 "storage.session_save.failed",
                 request_started_at,
@@ -694,10 +698,15 @@ class SQLiteStore:
             logger.error(f"Error saving session {session_id}: {e}")
             raise
 
+    async def _delete_session_message_embeddings(self, db: Any, session_id: str) -> None:
+        """Delete all message embeddings for a session before rebuilding them."""
+        await db.execute("DELETE FROM message_embeddings_vec WHERE message_embedding_id GLOB ?", (f"{session_id}_*",))
+        await db.execute("DELETE FROM message_embeddings WHERE session_id = ?", (session_id,))
+
     async def _index_message_embeddings(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
         """Index message embeddings for vector search using sqlite-vec.
 
-        Only indexes messages with embeddings. Skips if already indexed.
+        Rebuilds the message embedding snapshot for the given session.
         """
         for msg in messages:
             embedding = msg.get("embedding")
@@ -740,8 +749,6 @@ class SQLiteStore:
 
             except Exception as e:
                 logger.warning(f"Failed to index message {message_idx} for session {session_id}: {e}")
-
-        await db.commit()
 
     async def load_session(self, session_id: str) -> dict[str, Any] | None:
         """Load a session by ID.

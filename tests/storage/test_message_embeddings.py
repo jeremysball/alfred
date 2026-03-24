@@ -13,7 +13,7 @@ from alfred.storage.sqlite import SQLiteStore
 async def sqlite_store(tmp_path):
     """Create temporary SQLiteStore for testing."""
     db_path = tmp_path / "test.db"
-    store = SQLiteStore(db_path)
+    store = SQLiteStore(db_path, embedding_dim=3)
     await store._init()
     return store
 
@@ -168,3 +168,76 @@ class TestMessageEmbeddingsIndexing:
         ):
             row = await cursor.fetchone()
             assert row[0] == 1
+
+    @pytest.mark.asyncio
+    async def test_save_session_rebuilds_message_embeddings_when_history_changes(self, sqlite_store):
+        """Verify save_session() replaces stale embeddings when a session changes."""
+        initial_messages = [
+            {
+                "idx": 0,
+                "role": "user",
+                "content": "Hello original",
+                "embedding": [0.1, 0.2, 0.3],
+            },
+            {
+                "idx": 1,
+                "role": "assistant",
+                "content": "Initial answer",
+                "embedding": [0.4, 0.5, 0.6],
+            },
+            {
+                "idx": 2,
+                "role": "assistant",
+                "content": "Stale tail",
+                "embedding": [0.7, 0.8, 0.9],
+            },
+        ]
+
+        await sqlite_store.save_session("sess_update", initial_messages)
+
+        updated_messages = [
+            {
+                "idx": 0,
+                "role": "user",
+                "content": "Hello edited",
+                "embedding": [0.9, 0.8, 0.7],
+            },
+            {
+                "idx": 1,
+                "role": "assistant",
+                "content": "Rewritten answer",
+                "embedding": [0.6, 0.5, 0.4],
+            },
+        ]
+
+        await sqlite_store.save_session("sess_update", updated_messages)
+
+        import aiosqlite
+
+        async with aiosqlite.connect(sqlite_store.db_path) as db:
+            await sqlite_store._load_extensions(db)
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                "SELECT message_embedding_id, message_idx, content_snippet FROM message_embeddings WHERE session_id = ? ORDER BY message_idx",
+                ("sess_update",),
+            ) as cursor:
+                message_rows = await cursor.fetchall()
+
+            async with db.execute(
+                "SELECT message_embedding_id FROM message_embeddings_vec ORDER BY message_embedding_id"
+            ) as cursor:
+                vec_rows = await cursor.fetchall()
+
+            async with db.execute("SELECT messages FROM sessions WHERE session_id = ?", ("sess_update",)) as cursor:
+                session_row = await cursor.fetchone()
+
+        assert [row["message_embedding_id"] for row in message_rows] == ["sess_update_0", "sess_update_1"]
+        assert [row["message_idx"] for row in message_rows] == [0, 1]
+        assert [row["content_snippet"] for row in message_rows] == ["Hello edited", "Rewritten answer"]
+        assert [row["message_embedding_id"] for row in vec_rows] == ["sess_update_0", "sess_update_1"]
+        assert session_row is not None
+        assert [message["content"] for message in json.loads(session_row["messages"])] == [
+            "Hello edited",
+            "Rewritten answer",
+        ]

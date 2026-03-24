@@ -15,9 +15,9 @@ Define the message vocabulary, session mutation primitives, and composer-state c
 
 ### Component: Session mutation primitives
 
-- [ ] **Test**: `test_session_manager_replaces_and_truncates_message_history_atomically()` - verify a session can update one message in place, truncate everything after it, and resave without stale embeddings or orphaned history rows
-- [ ] **Implement**: add narrow mutation helpers to `src/alfred/session.py`, replace stale message embeddings during `src/alfred/storage/sqlite.py::save_session()`, and keep the in-memory/session metadata in sync after a truncate or replacement
-- [ ] **Run**: `uv run pytest tests/test_session.py tests/storage/test_message_embeddings.py -v`
+- [x] **Test**: `test_session_manager_replaces_and_truncates_message_history_atomically()` - verify a session can update one message in place, truncate everything after it, and resave without stale embeddings or orphaned history rows
+- [x] **Implement**: add narrow mutation helpers to `src/alfred/session.py`, replace stale message embeddings during `src/alfred/storage/sqlite.py::save_session()`, and keep the in-memory/session metadata in sync after a truncate or replacement
+- [x] **Run**: `uv run pytest tests/test_session.py tests/storage/test_message_embeddings.py -v`
 
 ### Component: Web UI composer contract hooks
 

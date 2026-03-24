@@ -301,6 +301,68 @@ class TestSessionManager:
         initialized_manager.clear_session()
         assert not initialized_manager.has_active_session()
 
+    def test_replace_message_and_truncate_history_atomically(self, initialized_manager: SessionManager):
+        """Editing a message updates one turn and removes later turns in one persist."""
+        initialized_manager.start_session()
+        initialized_manager.add_message("user", "First draft")
+        initialized_manager.add_message("assistant", "First reply")
+        initialized_manager.add_message("user", "Second draft")
+        initialized_manager.add_message("assistant", "Second reply")
+
+        store = initialized_manager.store
+        store.save_session.reset_mock()
+
+        target_message_id = initialized_manager.get_messages()[2].id
+        assert target_message_id is not None
+
+        session = initialized_manager.replace_message_and_truncate_after(target_message_id, "Second draft, revised")
+        messages = initialized_manager.get_messages()
+
+        assert session.meta.message_count == 3
+        assert [message.content for message in messages] == ["First draft", "First reply", "Second draft, revised"]
+        assert messages[-1].id == target_message_id
+        assert store.save_session.await_count == 1
+
+        saved_session_id, saved_messages = store.save_session.await_args.args
+        assert saved_session_id == session.meta.session_id
+        assert [message["idx"] for message in saved_messages] == [0, 1, 2]
+        assert [message["content"] for message in saved_messages] == [
+            "First draft",
+            "First reply",
+            "Second draft, revised",
+        ]
+
+    def test_truncate_after_message_removes_later_turns(self, initialized_manager: SessionManager):
+        """Canceling a turn truncates the partial assistant response and persists once."""
+        initialized_manager.start_session()
+        initialized_manager.add_message("user", "First draft")
+        initialized_manager.add_message("assistant", "First reply")
+        initialized_manager.add_message("user", "Second draft")
+        initialized_manager.add_message("assistant", "Second reply")
+
+        store = initialized_manager.store
+        store.save_session.reset_mock()
+
+        target_message_id = initialized_manager.get_messages()[2].id
+        assert target_message_id is not None
+
+        session = initialized_manager.truncate_after_message(target_message_id)
+        messages = initialized_manager.get_messages()
+
+        assert session.meta.message_count == 3
+        assert [message.content for message in messages] == ["First draft", "First reply", "Second draft"]
+        assert messages[-1].id == target_message_id
+        assert store.save_session.await_count == 1
+
+        saved_session_id, saved_messages = store.save_session.await_args.args
+        assert saved_session_id == session.meta.session_id
+        assert [message["idx"] for message in saved_messages] == [0, 1, 2]
+        assert [message["content"] for message in saved_messages] == [
+            "First draft",
+            "First reply",
+            "Second draft",
+        ]
+
 
 class TestSessionManagerIsolation:
     """Tests for session isolation between instances."""
