@@ -199,21 +199,35 @@ Validation:
 - Mobile and desktop screenshots show list items contained inside the bubble.
 - The fix applies to both ordered and unordered lists.
 
-### Milestone 3: Keep the composer active during streaming
+### Milestone 3: Keep the composer active during streaming ✅
 Remove the input lockout and add the two streaming composer modes.
 
 Validation:
-- The composer accepts typing while Alfred is streaming.
-- Shift+Enter queues a follow-up.
-- Enter steers by canceling the active response and sending the new message.
+- [x] The composer accepts typing while Alfred is streaming.
+- [x] Shift+Enter queues a follow-up.
+- [x] Enter steers by canceling the active response and sending the new message.
 
-### Milestone 4: Add cancel support and clean partial-turn removal
+Completed 2026-03-24:
+- Composer remains enabled during streaming (disableInput() keeps input enabled)
+- Shift+Enter queues messages via addToQueue()
+- Enter steers by calling handleStopGenerating() then sending new message
+- Part of Milestone 1/4 implementation work
+
+### Milestone 4: Add cancel support and clean partial-turn removal ✅
 Cancel the active response from Esc and the mobile stop button, then remove the partial assistant message from both UI and session history.
 
 Validation:
-- Cancel leaves no partial assistant bubble visible.
-- The session history no longer contains the canceled partial response.
-- The next message starts from the last completed user turn.
+- [x] Cancel leaves no partial assistant bubble visible.
+- [x] The session history no longer contains the canceled partial response.
+- [x] The next message starts from the last completed user turn.
+
+Completed 2026-03-24:
+- Added stop button to composer (visible during streaming, hidden otherwise)
+- Implemented `handleStopGenerating()` and `setCancellingState()` in main.js
+- Wired Esc key to trigger cancel during streaming
+- Added CSS rules for stop button visibility based on `data-composer-state`
+- Created comprehensive browser tests in `tests/webui/test_streaming_cancel.py`
+- Updated unit tests in `tests/webui/test_input.py` for stop button contract
 
 ### Milestone 5: Add last-user-message editing
 Add the pencil action, prefill the composer, truncate the following assistant response, and continue from the edited text.
@@ -308,3 +322,4 @@ It also adds the last-message edit flow and the markdown containment fix that we
 | 2026-03-24 | Session mutation helpers now resolve existing sessions strictly and persist edit/truncate changes through a single session snapshot; message embeddings are rebuilt from the current snapshot on save | Cancel and edit need atomic history mutation plus stale-embedding cleanup, and both are now handled in the session manager and SQLite store. | Locks down the persistence primitive for later cancel/edit runtime wiring and prevents orphaned message embeddings after history changes. | Implementation |
 | 2026-03-24 | The browser contract uses `data-composer-state` on `#input-area`, `data-message-state` / `editable` on `chat-message`, and client-generated user message IDs for edits | A DOM-driven surface keeps streaming/editing state observable without a heavier store, and a local message ID is sufficient because `chat.edit` only requires a non-empty `messageId`. | Enables Playwright coverage for idle/streaming/editing, cancel, queue, and edit actions against the real DOM. | Implementation |
 | 2026-03-24 | Markdown list containment now lives in shared base CSS rules for `.message-content ul`, `ol`, and `li` | Theme-specific overrides were not the right place for layout containment; shared rules keep list markers and nested list items inside bubbles on every theme and viewport. | Locks in the bubble containment fix and supports the browser regression that checks mobile and desktop overflow. | Implementation |
+| 2026-03-24 | Stop button uses text label "Stop" (not icon) and appears during streaming state; Esc key triggers cancel; button shows "Stopping..." while cancelling | Text labels are clearer than icons for this action; Esc matches ChatGPT/Claude conventions; disabling button during cancelling prevents double-submit. | Provides clear cancel affordance in both desktop (Esc) and mobile (button) contexts. | Implementation |
