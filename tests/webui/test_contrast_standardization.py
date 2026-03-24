@@ -35,11 +35,22 @@ def test_base_css_standardizes_contrast_vars_and_composer_width() -> None:
     assert "var(--contrast-text" in source
 
 
+def test_base_css_contains_message_list_containment_rules() -> None:
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/css/base.css").read_text()
+
+    assert ".message-content ul" in source
+    assert ".message-content ol" in source
+    assert ".message-content li" in source
+    assert "padding-inline-start" in source
+    assert "list-style-position" in source
+    assert "overflow-wrap" in source
+
+
 def test_index_loads_theme_selector_and_main_as_modules() -> None:
     source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/index.html").read_text()
 
     assert '<script type="module" src="/static/js/components/theme-selector.js?v=3"></script>' in source
-    assert '<script type="module" src="/static/js/main.js?v=6"></script>' in source
+    assert '<script type="module" src="/static/js/main.js?v=9"></script>' in source
 
 
 def test_theme_css_does_not_hardcode_contrast_text_colors() -> None:

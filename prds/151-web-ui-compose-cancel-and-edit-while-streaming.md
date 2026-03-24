@@ -1,7 +1,7 @@
 # PRD: Web UI Compose, Cancel, and Edit While Streaming
 
 **GitHub Issue**: [#151](https://github.com/jeremysball/alfred/issues/151)  
-**Status**: Draft  
+**Status**: In Progress  
 **Priority**: High  
 **Created**: 2026-03-23
 
@@ -306,3 +306,5 @@ It also adds the last-message edit flow and the markdown containment fix that we
 | 2026-03-23 | `chat.cancel` stays payload-less; `chat.edit` carries `messageId` and `content`; `chat.cancelled` echoes `messageId` | Cancel is scoped to the single active stream on a connection, edit must target the specific user turn, and the acknowledgement must identify which assistant turn was removed. | Locks the protocol shape for validation, docs, and the later cancel/edit runtime work. | PRD discussion |
 | 2026-03-23 | Mobile chrome uses a hybrid pattern: much smaller by default, collapse on downward scroll, and restore on upward scroll or composer focus | The mobile header and composer take too much vertical space when left fully expanded. The hybrid pattern keeps the transcript visible without making controls hard to recover. | Adds mobile scroll-state handling and smaller layout rules for the header and composer. | PRD discussion |
 | 2026-03-24 | Session mutation helpers now resolve existing sessions strictly and persist edit/truncate changes through a single session snapshot; message embeddings are rebuilt from the current snapshot on save | Cancel and edit need atomic history mutation plus stale-embedding cleanup, and both are now handled in the session manager and SQLite store. | Locks down the persistence primitive for later cancel/edit runtime wiring and prevents orphaned message embeddings after history changes. | Implementation |
+| 2026-03-24 | The browser contract uses `data-composer-state` on `#input-area`, `data-message-state` / `editable` on `chat-message`, and client-generated user message IDs for edits | A DOM-driven surface keeps streaming/editing state observable without a heavier store, and a local message ID is sufficient because `chat.edit` only requires a non-empty `messageId`. | Enables Playwright coverage for idle/streaming/editing, cancel, queue, and edit actions against the real DOM. | Implementation |
+| 2026-03-24 | Markdown list containment now lives in shared base CSS rules for `.message-content ul`, `ol`, and `li` | Theme-specific overrides were not the right place for layout containment; shared rules keep list markers and nested list items inside bubbles on every theme and viewport. | Locks in the bubble containment fix and supports the browser regression that checks mobile and desktop overflow. | Implementation |

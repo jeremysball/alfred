@@ -19,6 +19,7 @@ function initAlfredUI() {
   const connectionStatusTooltip = document.getElementById('connection-status-tooltip');
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
+  const inputArea = document.getElementById('input-area');
 
   const completionMenu = document.getElementById('completion-menu');
   const kidcoreAudioControls = document.querySelector('.kidcore-audio-controls');
@@ -218,9 +219,9 @@ function initAlfredUI() {
     }
 
     if (role === 'assistant' && msg.streaming) {
-      messageEl.classList.add('streaming');
+      setMessageState(messageEl, 'streaming');
     } else {
-      messageEl.classList.remove('streaming');
+      setMessageState(messageEl, 'idle');
     }
 
     if (loadedReasoning || !preserveExistingAssistantContent) {
@@ -332,12 +333,17 @@ function initAlfredUI() {
     currentAssistantMessage = nextCurrentAssistantMessage;
     activeSessionId = incomingSessionId;
     historyIndex = messageHistory.length;
+    refreshEditableMessageState();
   }
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
   let currentAssistantMessage = null;
   let activeSessionId = null;
+  let pendingEditRequest = null;
+  let pendingChatSendRequest = null;
+  let composerState = 'idle';
+  let editingMessageElement = null;
   const activeToolCalls = new Map();
   let allToolsExpanded = false;
 
@@ -359,6 +365,11 @@ function initAlfredUI() {
   ];
 
   // Connection Status Handler
+  const CONNECTION_STATUS_MOBILE_BREAKPOINT = 769;
+  const CONNECTION_STATUS_PORTAL_ROOT_ID = 'connection-status-portal-root';
+  const CONNECTION_STATUS_VIEWPORT_PADDING = 12;
+  const CONNECTION_STATUS_TRIGGER_OVERLAP = 4;
+
   const connectionStatusState = {
     daemonStatus: 'unknown',
     daemonPid: null,
@@ -373,6 +384,45 @@ function initAlfredUI() {
   };
 
   let connectionStatusRefreshTimer = null;
+
+  function ensureConnectionStatusPortalRoot() {
+    let portalRoot = document.getElementById(CONNECTION_STATUS_PORTAL_ROOT_ID);
+    if (!portalRoot) {
+      portalRoot = document.createElement('div');
+      portalRoot.id = CONNECTION_STATUS_PORTAL_ROOT_ID;
+      portalRoot.className = 'connection-status-portal-root';
+      portalRoot.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(portalRoot);
+    }
+
+    let overlay = portalRoot.querySelector('.connection-status-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'connection-status-overlay';
+      overlay.setAttribute('aria-hidden', 'true');
+      portalRoot.appendChild(overlay);
+    }
+
+    if (connectionStatusTooltip && connectionStatusTooltip.parentElement !== portalRoot) {
+      portalRoot.appendChild(connectionStatusTooltip);
+    }
+
+    return portalRoot;
+  }
+
+  const connectionStatusPortalRoot = ensureConnectionStatusPortalRoot();
+  const connectionStatusOverlay = connectionStatusPortalRoot?.querySelector('.connection-status-overlay');
+
+  function isConnectionStatusHoverTarget(target) {
+    if (!target) {
+      return false;
+    }
+
+    return Boolean(
+      (connectionStatusAnchor && connectionStatusAnchor.contains(target)) ||
+      (connectionStatusTooltip && connectionStatusTooltip.contains(target))
+    );
+  }
 
   function escapeConnectionStatusText(value) {
     const div = document.createElement('div');
@@ -486,6 +536,11 @@ function initAlfredUI() {
     return connectionStatusVisibility.hovered || connectionStatusVisibility.focused || connectionStatusVisibility.pinned;
   }
 
+  function refreshConnectionStatusTooltip() {
+    renderConnectionStatusTooltip();
+    positionConnectionStatusTooltip();
+  }
+
   function startConnectionStatusRefreshTimer() {
     if (connectionStatusRefreshTimer !== null) {
       return;
@@ -493,7 +548,7 @@ function initAlfredUI() {
 
     connectionStatusRefreshTimer = window.setInterval(() => {
       if (isConnectionStatusOpen()) {
-        renderConnectionStatusTooltip();
+        refreshConnectionStatusTooltip();
       } else {
         stopConnectionStatusRefreshTimer();
       }
@@ -509,25 +564,80 @@ function initAlfredUI() {
     connectionStatusRefreshTimer = null;
   }
 
-  function syncConnectionStatusPopoverVisibility() {
-    if (!connectionStatusAnchor || !connectionStatusTooltip || !connectionPill) {
+  function positionConnectionStatusTooltip() {
+    if (!connectionStatusPortalRoot || !connectionStatusTooltip || !connectionStatusAnchor || !connectionPill) {
       return;
     }
 
     const isOpen = isConnectionStatusOpen();
+    const isMobileLayout = window.innerWidth < CONNECTION_STATUS_MOBILE_BREAKPOINT;
+
+    connectionStatusPortalRoot.dataset.layout = isMobileLayout ? 'sheet' : 'popover';
+    connectionStatusPortalRoot.dataset.open = String(isOpen);
+    connectionStatusPortalRoot.setAttribute('aria-hidden', String(!isOpen));
+    connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
+    connectionStatusAnchor.dataset.open = String(isOpen);
+    connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
+    connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
+    connectionPill.setAttribute('aria-expanded', String(isOpen));
+
+    if (!isOpen) {
+      return;
+    }
+
+    if (isMobileLayout) {
+      connectionStatusTooltip.style.top = 'auto';
+      connectionStatusTooltip.style.right = '0';
+      connectionStatusTooltip.style.bottom = '0';
+      connectionStatusTooltip.style.left = '0';
+      return;
+    }
+
+    connectionStatusTooltip.style.top = '0px';
+    connectionStatusTooltip.style.right = 'auto';
+    connectionStatusTooltip.style.bottom = 'auto';
+    connectionStatusTooltip.style.left = '0px';
+
+    const anchorRect = connectionStatusAnchor.getBoundingClientRect();
+    const tooltipRect = connectionStatusTooltip.getBoundingClientRect();
+    const maxLeft = Math.max(
+      CONNECTION_STATUS_VIEWPORT_PADDING,
+      window.innerWidth - tooltipRect.width - CONNECTION_STATUS_VIEWPORT_PADDING,
+    );
+    const left = Math.min(Math.max(anchorRect.left, CONNECTION_STATUS_VIEWPORT_PADDING), maxLeft);
+    const maxTop = Math.max(
+      CONNECTION_STATUS_VIEWPORT_PADDING,
+      window.innerHeight - tooltipRect.height - CONNECTION_STATUS_VIEWPORT_PADDING,
+    );
+    const top = Math.min(
+      Math.max(anchorRect.bottom - CONNECTION_STATUS_TRIGGER_OVERLAP, CONNECTION_STATUS_VIEWPORT_PADDING),
+      maxTop,
+    );
+
+    connectionStatusTooltip.style.left = `${Math.round(left)}px`;
+    connectionStatusTooltip.style.top = `${Math.round(top)}px`;
+  }
+
+  function syncConnectionStatusPopoverVisibility() {
+    if (!connectionStatusPortalRoot || !connectionStatusTooltip || !connectionPill) {
+      return;
+    }
+
+    const isOpen = isConnectionStatusOpen();
+    connectionStatusPortalRoot.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
     connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
     connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
     connectionPill.setAttribute('aria-expanded', String(isOpen));
 
+    refreshConnectionStatusTooltip();
+
     if (isOpen) {
       startConnectionStatusRefreshTimer();
     } else {
       stopConnectionStatusRefreshTimer();
     }
-
-    renderConnectionStatusTooltip();
   }
 
   function renderConnectionStatusTooltip() {
@@ -632,7 +742,7 @@ function initAlfredUI() {
       connectionStatusState.webUiVersion = String(payload.version || 'unknown');
     }
 
-    renderConnectionStatusTooltip();
+    syncConnectionStatusPopoverVisibility();
   }
 
   async function hydrateConnectionStatusFromHealth() {
@@ -655,7 +765,7 @@ function initAlfredUI() {
 
   function updateConnectionStatus(status) {
     connectionPill.className = `connection-pill ${status}`;
-    renderConnectionStatusTooltip();
+    syncConnectionStatusPopoverVisibility();
   }
 
   connectionStatusAnchor?.addEventListener('pointerenter', () => {
@@ -663,7 +773,27 @@ function initAlfredUI() {
     syncConnectionStatusPopoverVisibility();
   });
 
-  connectionStatusAnchor?.addEventListener('pointerleave', () => {
+  connectionStatusAnchor?.addEventListener('pointerleave', (event) => {
+    if (isConnectionStatusHoverTarget(event.relatedTarget)) {
+      return;
+    }
+
+    connectionStatusVisibility.hovered = false;
+    if (!connectionStatusVisibility.pinned && !connectionStatusVisibility.focused) {
+      syncConnectionStatusPopoverVisibility();
+    }
+  });
+
+  connectionStatusTooltip?.addEventListener('pointerenter', () => {
+    connectionStatusVisibility.hovered = true;
+    syncConnectionStatusPopoverVisibility();
+  });
+
+  connectionStatusTooltip?.addEventListener('pointerleave', (event) => {
+    if (isConnectionStatusHoverTarget(event.relatedTarget)) {
+      return;
+    }
+
     connectionStatusVisibility.hovered = false;
     if (!connectionStatusVisibility.pinned && !connectionStatusVisibility.focused) {
       syncConnectionStatusPopoverVisibility();
@@ -687,7 +817,7 @@ function initAlfredUI() {
   });
 
   connectionStatusAnchor?.addEventListener('click', (event) => {
-    if (event.target !== connectionPill && event.target !== connectionStatusAnchor) {
+    if (!connectionStatusAnchor.contains(event.target)) {
       return;
     }
 
@@ -727,12 +857,20 @@ function initAlfredUI() {
     }
   });
 
+  connectionStatusOverlay?.addEventListener('click', () => {
+    connectionStatusVisibility.pinned = false;
+    connectionStatusVisibility.hovered = false;
+    connectionStatusVisibility.focused = false;
+    syncConnectionStatusPopoverVisibility();
+    connectionStatusAnchor?.blur();
+  });
+
   document.addEventListener('click', (event) => {
-    if (!connectionStatusVisibility.pinned || !connectionStatusAnchor) {
+    if (!connectionStatusVisibility.pinned || !connectionStatusAnchor || !connectionStatusPortalRoot) {
       return;
     }
 
-    if (connectionStatusAnchor.contains(event.target)) {
+    if (connectionStatusAnchor.contains(event.target) || connectionStatusPortalRoot.contains(event.target)) {
       return;
     }
 
@@ -741,6 +879,14 @@ function initAlfredUI() {
     connectionStatusVisibility.focused = false;
     syncConnectionStatusPopoverVisibility();
   });
+
+  window.addEventListener('resize', () => {
+    if (!connectionStatusPortalRoot) {
+      return;
+    }
+
+    positionConnectionStatusTooltip();
+  }, { passive: true });
 
   wsClient.addEventListener('connected', () => {
     updateConnectionStatus('connected');
@@ -769,6 +915,198 @@ function initAlfredUI() {
     }
   }
 
+  function clearCurrentAssistantMessage({ remove = false } = {}) {
+    const assistantMessage = currentAssistantMessage;
+    if (!assistantMessage) {
+      return null;
+    }
+
+    hideStreaming();
+    assistantMessage.classList.remove('cancelling');
+    clearGlueShimmerEffect(assistantMessage);
+    if (remove) {
+      assistantMessage.remove();
+    } else if (typeof assistantMessage.setMessageState === 'function') {
+      assistantMessage.setMessageState('idle');
+    } else {
+      assistantMessage.classList.remove('streaming', 'editing');
+      assistantMessage.dataset.messageState = 'idle';
+    }
+
+    currentAssistantMessage = null;
+    activeToolCalls.clear();
+    return assistantMessage;
+  }
+
+  function setMessageState(messageElement, state) {
+    if (!messageElement) {
+      return;
+    }
+
+    if (typeof messageElement.setMessageState === 'function') {
+      messageElement.setMessageState(state);
+      return;
+    }
+
+    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    messageElement.dataset.messageState = nextState;
+    messageElement.classList.toggle('streaming', nextState === 'streaming');
+    messageElement.classList.toggle('editing', nextState === 'editing');
+  }
+
+  function setComposerState(state) {
+    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    composerState = nextState;
+    if (inputArea) {
+      inputArea.dataset.composerState = nextState;
+    }
+  }
+
+  function createClientMessageId(prefix) {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function refreshEditableMessageState() {
+    const userMessages = Array.from(
+      messageList.querySelectorAll('chat-message[data-session-message="true"]')
+    ).filter((messageElement) => messageElement.getAttribute('role') === 'user');
+    const lastUserMessage = userMessages[userMessages.length - 1] || null;
+    const hasActiveStreamingTurn = composerState === 'streaming' || Boolean(currentAssistantMessage?.classList.contains('streaming'));
+
+    if (currentAssistantMessage) {
+      setMessageState(currentAssistantMessage, currentAssistantMessage.classList.contains('streaming') ? 'streaming' : 'idle');
+    }
+
+    userMessages.forEach((messageElement) => {
+      const shouldBeEditable = !hasActiveStreamingTurn && messageElement === lastUserMessage;
+      const nextState = messageElement === editingMessageElement ? 'editing' : 'idle';
+      if (typeof messageElement.setEditable === 'function') {
+        if (messageElement.getEditable?.() !== shouldBeEditable) {
+          messageElement.setEditable(shouldBeEditable);
+        }
+      } else if (shouldBeEditable) {
+        messageElement.setAttribute('editable', 'true');
+      } else {
+        messageElement.removeAttribute('editable');
+      }
+      setMessageState(messageElement, nextState);
+    });
+
+    if (editingMessageElement && !userMessages.includes(editingMessageElement)) {
+      setMessageState(editingMessageElement, 'editing');
+    }
+  }
+
+  function clearComposerEditState() {
+    const previousEditingMessage = editingMessageElement;
+    const wasEditing = previousEditingMessage !== null;
+    if (previousEditingMessage) {
+      setMessageState(previousEditingMessage, 'idle');
+    }
+    editingMessageElement = null;
+    if (inputArea) {
+      inputArea.removeAttribute('data-edit-message-id');
+    }
+    if (wasEditing) {
+      messageInput.value = '';
+      autoResizeTextarea();
+    }
+    refreshEditableMessageState();
+  }
+
+  function removeSessionMessagesAfter(messageElement) {
+    let sibling = messageElement?.nextElementSibling ?? null;
+    while (sibling) {
+      const nextSibling = sibling.nextElementSibling;
+      if (sibling.matches?.('chat-message[data-session-message="true"]')) {
+        if (sibling === currentAssistantMessage) {
+          currentAssistantMessage = null;
+        }
+        sibling.remove();
+      }
+      sibling = nextSibling;
+    }
+    activeToolCalls.clear();
+  }
+
+  function startComposerEdit(messageElement) {
+    if (!messageElement || messageElement.getAttribute('role') !== 'user') {
+      return;
+    }
+
+    const messageId = messageElement.getAttribute('message-id') || '';
+    if (!messageId) {
+      return;
+    }
+
+    const content = typeof messageElement.getContent === 'function'
+      ? messageElement.getContent()
+      : messageElement.getAttribute('content') || '';
+
+    pendingEditRequest = null;
+    clearComposerEditState();
+    editingMessageElement = messageElement;
+    setMessageState(messageElement, 'editing');
+    if (inputArea) {
+      inputArea.dataset.editMessageId = messageId;
+    }
+
+    messageInput.value = content;
+    autoResizeTextarea();
+    enableInput();
+    setComposerState('editing');
+    refreshEditableMessageState();
+    messageInput.focus();
+    messageInput.setSelectionRange(content.length, content.length);
+  }
+
+  function getRetryRequest(messageElement) {
+    const previousPrompt = findPreviousUserPrompt(messageElement);
+    const messageId = messageElement?.getAttribute?.('message-id') || '';
+
+    if (!previousPrompt || !messageId) {
+      return null;
+    }
+
+    return {
+      messageId,
+      content: previousPrompt,
+    };
+  }
+
+  function sendChatEditRequest(messageId, content, { playSound = true } = {}) {
+    const cleanContent = content.trim();
+    if (!messageId || !cleanContent) {
+      return;
+    }
+
+    pendingEditRequest = null;
+    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    if (playSound) {
+      playKidcoreSend();
+    }
+    disableInput();
+    wsClient.sendChatEdit(messageId, cleanContent);
+  }
+
+  function sendPendingChatRequest() {
+    if (!pendingChatSendRequest) {
+      return;
+    }
+
+    const { content } = pendingChatSendRequest;
+    pendingChatSendRequest = null;
+    pendingKidcoreStreamingFx = content.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    wsClient.sendChat(content);
+  }
+
+  setComposerState('idle');
+  refreshEditableMessageState();
+
   // Message Handler
   function handleWebSocketMessage(msg) {
     switch (msg.type) {
@@ -781,7 +1119,9 @@ function initAlfredUI() {
         currentAssistantMessage.setAttribute('data-session-message', 'true');
         currentAssistantMessage.classList.add('streaming');
         messageList.appendChild(currentAssistantMessage);
+        setMessageState(currentAssistantMessage, 'streaming');
         applyGlueShimmerEffect(currentAssistantMessage);
+        disableInput();
         showStreaming();
         scrollToBottom();
         break;
@@ -805,25 +1145,45 @@ function initAlfredUI() {
         break;
 
       case 'chat.complete':
-        hideStreaming();
+        clearCurrentAssistantMessage();
+        clearComposerEditState();
         playKidcoreMessageComplete();
-        clearGlueShimmerEffect(currentAssistantMessage);
-        currentAssistantMessage = null;
-        activeToolCalls.clear();
-        enableInput();
         // Add copy buttons to any new code blocks
         addCopyButtons();
-        // Send next queued message if any
-        processQueue();
+        if (pendingEditRequest) {
+          const { messageId, content } = pendingEditRequest;
+          sendChatEditRequest(messageId, content);
+        } else if (pendingChatSendRequest) {
+          sendPendingChatRequest();
+        } else {
+          enableInput();
+          // Send next queued message if any
+          processQueue();
+        }
+        break;
+
+      case 'chat.cancelled':
+        clearCurrentAssistantMessage({ remove: true });
+        clearComposerEditState();
+        scrollToBottom();
+        if (pendingEditRequest) {
+          const { messageId, content } = pendingEditRequest;
+          sendChatEditRequest(messageId, content);
+        } else if (pendingChatSendRequest) {
+          sendPendingChatRequest();
+        } else {
+          enableInput();
+          processQueue();
+        }
         break;
 
       case 'chat.error':
-        hideStreaming();
+        clearCurrentAssistantMessage();
+        pendingEditRequest = null;
+        pendingChatSendRequest = null;
+        clearComposerEditState();
         playKidcoreError();
         showError(msg.payload?.error || 'An error occurred');
-        clearGlueShimmerEffect(currentAssistantMessage);
-        currentAssistantMessage = null;
-        activeToolCalls.clear();
         enableInput();
         break;
 
@@ -885,6 +1245,9 @@ function initAlfredUI() {
       emitMessage: handleWebSocketMessage,
       syncKidcoreAudioControls,
       getCurrentAssistantMessage: () => currentAssistantMessage,
+      getCurrentAssistantMessageState: () => currentAssistantMessage?.getMessageState?.() || currentAssistantMessage?.getAttribute('data-message-state') || null,
+      getComposerState: () => composerState,
+      getEditingMessageId: () => editingMessageElement?.getAttribute('message-id') || null,
     };
   }
 
@@ -895,6 +1258,9 @@ function initAlfredUI() {
     messageHistory.length = 0;
     historyIndex = -1;
     currentAssistantMessage = null;
+    pendingEditRequest = null;
+    pendingChatSendRequest = null;
+    clearComposerEditState();
     activeToolCalls.clear();
     activeSessionId = payload.sessionId || null;
     showSystemMessage(`New session created: ${payload.sessionId}`);
@@ -902,16 +1268,24 @@ function initAlfredUI() {
   }
 
   function handleSessionLoaded(payload) {
+    pendingEditRequest = null;
+    pendingChatSendRequest = null;
+    clearComposerEditState();
     reconcileSessionLoaded(payload);
     showSystemMessage(`Session resumed: ${payload.sessionId}`);
     addCopyButtons();
-    enableInput();
+    if (currentAssistantMessage?.classList.contains('streaming')) {
+      disableInput();
+    } else {
+      enableInput();
+    }
   }
 
   function handleSessionList(payload) {
     const sessions = payload.sessions || [];
 
     if (sessions.length === 0) {
+      clearComposerEditState();
       showSystemMessage('No recent sessions found.');
       enableInput();
       return;
@@ -937,6 +1311,7 @@ function initAlfredUI() {
     messageList.appendChild(container);
 
     scrollToBottom();
+    clearComposerEditState();
     enableInput();
   }
 
@@ -952,6 +1327,7 @@ function initAlfredUI() {
       content += `Last Active: ${new Date(payload.lastActive).toLocaleString()}\n`;
     }
 
+    clearComposerEditState();
     showSystemMessage(content);
     enableInput();
   }
@@ -1008,6 +1384,7 @@ function initAlfredUI() {
 
     lines.push(`Total Tokens: ${payload.totalTokens || 0}`);
 
+    clearComposerEditState();
     showSystemMessage(lines.join('\n'), { warning: warnings.length > 0 });
     enableInput();
   }
@@ -1130,40 +1507,84 @@ function initAlfredUI() {
   }
 
   function sendMessageContent(content) {
+    const cleanContent = content.trim();
+    if (!cleanContent) {
+      return;
+    }
+
+    if (editingMessageElement) {
+      const editedMessage = editingMessageElement;
+      const messageId = editedMessage.getAttribute('message-id') || '';
+
+      if (!messageId) {
+        showError('Could not edit the selected message.');
+        clearComposerEditState();
+        enableInput();
+        return;
+      }
+
+      removeSessionMessagesAfter(editedMessage);
+      editedMessage.setContent(cleanContent);
+      if (messageHistory.length === 0) {
+        addToHistory(cleanContent);
+      } else {
+        messageHistory[messageHistory.length - 1] = cleanContent;
+        historyIndex = messageHistory.length;
+      }
+      clearComposerEditState();
+      pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+      playKidcoreSend();
+      scrollToBottom();
+      sendChatEditRequest(messageId, cleanContent, { playSound: false });
+      return;
+    }
+
     // Add to history
-    addToHistory(content);
+    addToHistory(cleanContent);
     playKidcoreSend();
 
     // Send via WebSocket - commands use command.execute, chat uses chat.send
-    if (content.startsWith('/')) {
+    if (cleanContent.startsWith('/')) {
       pendingKidcoreStreamingFx = null;
 
       // Commands: show as system message, don't disable input
       const cmdMsg = document.createElement('chat-message');
       cmdMsg.setAttribute('role', 'system');
-      cmdMsg.setAttribute('content', `Command: ${content}`);
+      cmdMsg.setAttribute('content', `Command: ${cleanContent}`);
       cmdMsg.setAttribute('timestamp', new Date().toISOString());
       messageList.appendChild(cmdMsg);
       scrollToBottom();
 
-      wsClient.sendCommand(content);
+      wsClient.sendCommand(cleanContent);
       // Don't disable input - commands are instant
-    } else {
-      pendingKidcoreStreamingFx = content.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+      return;
+    }
 
-      // Chat messages: show as user message, disable input during streaming
-      const userMessage = document.createElement('chat-message');
-      userMessage.setAttribute('role', 'user');
-      userMessage.setAttribute('content', content);
-      userMessage.setAttribute('timestamp', new Date().toISOString());
-      userMessage.setAttribute('data-session-message', 'true');
-      messageList.appendChild(userMessage);
+    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
 
+    const userMessage = document.createElement('chat-message');
+    userMessage.setAttribute('role', 'user');
+    userMessage.setAttribute('content', cleanContent);
+    userMessage.setAttribute('timestamp', new Date().toISOString());
+    userMessage.setAttribute('message-id', createClientMessageId('user'));
+    userMessage.setAttribute('data-session-message', 'true');
+    messageList.appendChild(userMessage);
+
+    if (currentAssistantMessage) {
+      pendingChatSendRequest = { content: cleanContent };
       disableInput();
       scrollToBottom();
 
-      wsClient.sendChat(content);
+      if (!currentAssistantMessage.classList.contains('cancelling')) {
+        currentAssistantMessage.classList.add('cancelling');
+        wsClient.sendCancel();
+      }
+      return;
     }
+
+    disableInput();
+    scrollToBottom();
+    wsClient.sendChat(cleanContent);
   }
 
   function findPreviousUserPrompt(messageElement) {
@@ -1186,18 +1607,22 @@ function initAlfredUI() {
   }
 
   function retryAssistantMessage(messageElement) {
-    if (currentAssistantMessage) {
-      showError('Wait for the current response to finish before regenerating.');
-      return;
-    }
-
-    const previousPrompt = findPreviousUserPrompt(messageElement);
-    if (!previousPrompt) {
+    const retryRequest = getRetryRequest(messageElement);
+    if (!retryRequest) {
       showError('Could not find the previous user prompt to regenerate this reply.');
       return;
     }
 
-    sendMessageContent(previousPrompt);
+    if (currentAssistantMessage) {
+      pendingEditRequest = retryRequest;
+      if (!currentAssistantMessage.classList.contains('cancelling')) {
+        currentAssistantMessage.classList.add('cancelling');
+        wsClient.sendCancel();
+      }
+      return;
+    }
+
+    sendChatEditRequest(retryRequest.messageId, retryRequest.content);
   }
 
   // Textarea Auto-Resize
@@ -1254,13 +1679,17 @@ function initAlfredUI() {
 
   // UI Helpers
   function disableInput() {
-    messageInput.disabled = true;
-    sendButton.disabled = true;
+    messageInput.disabled = false;
+    sendButton.disabled = false;
+    setComposerState('streaming');
+    refreshEditableMessageState();
   }
 
   function enableInput() {
     messageInput.disabled = false;
     sendButton.disabled = false;
+    setComposerState('idle');
+    refreshEditableMessageState();
     messageInput.focus();
   }
 
@@ -1365,8 +1794,8 @@ function initAlfredUI() {
       }
     }
 
-    // Shift+Enter: Queue message
-    if (e.key === 'Enter' && e.shiftKey) {
+    // Shift+Enter: Queue message while streaming
+    if (e.key === 'Enter' && e.shiftKey && composerState !== 'editing') {
       e.preventDefault();
       const content = messageInput.value.trim();
       if (content) {
@@ -1396,6 +1825,15 @@ function initAlfredUI() {
       return;
     }
 
+    if (e.key === 'Escape' && currentAssistantMessage) {
+      e.preventDefault();
+      if (!currentAssistantMessage.classList.contains('cancelling')) {
+        currentAssistantMessage.classList.add('cancelling');
+        wsClient.sendCancel();
+      }
+      return;
+    }
+
     // Ctrl+U: Clear input
     if (e.ctrlKey && e.key === 'u') {
       e.preventDefault();
@@ -1414,7 +1852,16 @@ function initAlfredUI() {
       return;
     }
 
-    // Escape: Clear queue
+    // Escape: cancel active response or clear queued messages
+    if (e.key === 'Escape' && currentAssistantMessage) {
+      e.preventDefault();
+      if (!currentAssistantMessage.classList.contains('cancelling')) {
+        currentAssistantMessage.classList.add('cancelling');
+        wsClient.sendCancel();
+      }
+      return;
+    }
+
     if (e.key === 'Escape' && messageQueue.length > 0) {
       clearQueue();
     }
@@ -1427,6 +1874,15 @@ function initAlfredUI() {
     }
 
     retryAssistantMessage(messageElement);
+  });
+
+  messageList.addEventListener('edit-message', (event) => {
+    const messageElement = event.target?.closest?.('chat-message');
+    if (!messageElement || messageElement.getAttribute('role') !== 'user') {
+      return;
+    }
+
+    startComposerEdit(messageElement);
   });
 
   // Completion menu selection

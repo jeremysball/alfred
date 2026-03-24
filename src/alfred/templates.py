@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from alfred.data_manager import get_cache_dir
+from alfred.placeholders import CURRENT_TIME_PLACEHOLDER, SINGLE_BRACE_VOLATILE_PLACEHOLDER_PATTERN
 from alfred.template_sync import TemplateBaseSnapshot, TemplateSyncRecord, TemplateSyncState, TemplateSyncStore
 
 logger = logging.getLogger(__name__)
@@ -180,13 +181,24 @@ class TemplateManager:
             sentinel_map[sentinel] = ph
             content = content.replace(ph, sentinel, 1)
 
+        # Keep runtime placeholders intact for later resolution in the prompt loader.
+        runtime_placeholders = [match.group(0) for match in re.finditer(re.escape(CURRENT_TIME_PLACEHOLDER), content)]
+        runtime_placeholders.extend(
+            match.group(0)
+            for match in SINGLE_BRACE_VOLATILE_PLACEHOLDER_PATTERN.finditer(content)
+        )
+        for i, ph in enumerate(runtime_placeholders, start=len(sentinel_map)):
+            sentinel = f"___RUNTIME_PLACEHOLDER_{i}___"
+            sentinel_map[sentinel] = ph
+            content = content.replace(ph, sentinel, 1)
+
         try:
             content = content.format(**defaults)
         except KeyError as e:
             # If a variable is missing, leave it as-is rather than crashing
             logger.warning(f"Missing template variable: {e}")
 
-        # Restore {{placeholders}}
+        # Restore {{placeholders}} and runtime placeholders
         for sentinel, ph in sentinel_map.items():
             content = content.replace(sentinel, ph)
 

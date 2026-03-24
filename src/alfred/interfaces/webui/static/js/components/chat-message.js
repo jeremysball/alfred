@@ -8,6 +8,8 @@
  *   - content: The message content
  *   - timestamp: Optional ISO timestamp
  *   - message-id: Optional message ID for actions
+ *   - editable: Boolean flag that shows the edit action for user messages
+ *   - data-message-state: UI state for the message surface ('idle' | 'streaming' | 'editing')
  */
 class ChatMessage extends HTMLElement {
   constructor() {
@@ -18,11 +20,13 @@ class ChatMessage extends HTMLElement {
     this._reasoning = '';
     this._reasoningExpanded = false;
     this._messageId = null;
+    this._messageState = 'idle';
+    this._editable = false;
     this._copied = false;
   }
 
   static get observedAttributes() {
-    return ['role', 'content', 'timestamp', 'message-id'];
+    return ['role', 'content', 'timestamp', 'message-id', 'editable', 'data-message-state'];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -41,11 +45,20 @@ class ChatMessage extends HTMLElement {
       case 'message-id':
         this._messageId = newValue;
         break;
+      case 'editable':
+        this._editable = newValue !== null && newValue !== 'false';
+        break;
+      case 'data-message-state':
+        this._messageState = newValue || 'idle';
+        break;
     }
     this._render();
   }
 
   connectedCallback() {
+    if (!this.hasAttribute('data-message-state')) {
+      this.setAttribute('data-message-state', this._messageState);
+    }
     this._render();
     this._applySyntaxHighlighting();
     this._setupEventListeners();
@@ -87,8 +100,17 @@ class ChatMessage extends HTMLElement {
     return this.querySelector('.tool-calls');
   }
 
+  _syncStateClasses() {
+    this.classList.toggle('streaming', this._messageState === 'streaming');
+    this.classList.toggle('editing', this._messageState === 'editing');
+  }
+
   _render() {
+    this._syncStateClasses();
     const roleClass = this._role.toLowerCase();
+    const messageStateClass = this._messageState && this._messageState !== 'idle'
+      ? ` ${this._messageState}`
+      : '';
     const avatar = this._getAvatar();
     const displayName = this._getDisplayName();
     const timeDisplay = this._formatTime();
@@ -97,7 +119,7 @@ class ChatMessage extends HTMLElement {
     // System messages are simpler
     if (this._role === 'system') {
       this.innerHTML = `
-        <div class="message ${roleClass}">
+        <div class="message ${roleClass}${messageStateClass}">
           <div class="message-bubble">
             <span class="message-avatar-small">${avatar}</span>
             <span class="message-content">${this._escapeHtml(this._content)}</span>
@@ -124,12 +146,19 @@ class ChatMessage extends HTMLElement {
     // Build action buttons for all non-system messages - minimal icon-only design
     const actionButtons = this._role !== 'system'
       ? `<div class="message-actions">
-          <button class="message-action icon-only" data-action="copy" title="Copy">
+          <button class="message-action icon-only" data-action="copy" title="Copy" aria-label="Copy message">
             ⧉
           </button>
-          ${this._role === 'assistant' ? `<button class="message-action icon-only" data-action="retry" title="Regenerate">
+          ${this._role === 'assistant'
+            ? `<button class="message-action icon-only" data-action="retry" title="Regenerate" aria-label="Regenerate response">
             ↻
-          </button>` : ''}
+          </button>`
+            : ''}
+          ${this._role === 'user' && this._editable
+            ? `<button class="message-action icon-only" data-action="edit" title="Edit" aria-label="Edit message">
+            ✎
+          </button>`
+            : ''}
         </div>`
       : '';
 
@@ -139,7 +168,7 @@ class ChatMessage extends HTMLElement {
       : this._escapeHtml(this._content);
 
     this.innerHTML = `
-      <div class="message ${roleClass}">
+      <div class="message ${roleClass}${messageStateClass}">
         <div class="message-header">
           <span class="message-avatar" aria-hidden="true">${avatar}</span>
           <span class="message-role">${displayName}</span>
@@ -221,6 +250,9 @@ class ChatMessage extends HTMLElement {
         case 'retry':
           this._retryMessage();
           break;
+        case 'edit':
+          this._editMessage();
+          break;
       }
     });
   }
@@ -278,6 +310,16 @@ class ChatMessage extends HTMLElement {
     // Dispatch event for parent to handle
     this.dispatchEvent(new CustomEvent('retry-message', {
       bubbles: true,
+      composed: true,
+      detail: { messageId: this._messageId, content: this._content }
+    }));
+  }
+
+  _editMessage() {
+    // Dispatch event for parent to handle
+    this.dispatchEvent(new CustomEvent('edit-message', {
+      bubbles: true,
+      composed: true,
       detail: { messageId: this._messageId, content: this._content }
     }));
   }
@@ -325,6 +367,39 @@ class ChatMessage extends HTMLElement {
 
   getRole() {
     return this._role;
+  }
+
+  setMessageState(state) {
+    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    if (this._messageState === nextState && this.getAttribute('data-message-state') === nextState) {
+      return;
+    }
+
+    this._messageState = nextState;
+    this._syncStateClasses();
+    this.setAttribute('data-message-state', nextState);
+  }
+
+  getMessageState() {
+    return this._messageState;
+  }
+
+  setEditable(editable) {
+    const nextEditable = Boolean(editable);
+    if (this._editable === nextEditable) {
+      return;
+    }
+
+    this._editable = nextEditable;
+    if (this._editable) {
+      this.setAttribute('editable', 'true');
+    } else {
+      this.removeAttribute('editable');
+    }
+  }
+
+  getEditable() {
+    return this._editable;
   }
 
   setReasoning(reasoning) {

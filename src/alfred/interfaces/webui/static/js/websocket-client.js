@@ -273,6 +273,22 @@ class AlfredWebSocketClient extends EventTarget {
     this.send(payload);
   }
 
+  sendCancel() {
+    this.send({
+      type: 'chat.cancel'
+    });
+  }
+
+  sendChatEdit(messageId, content) {
+    this.send({
+      type: 'chat.edit',
+      payload: {
+        messageId,
+        content,
+      }
+    });
+  }
+
   sendCommand(command) {
     console.log('[WebSocket] Sending command:', command);
     this.send({

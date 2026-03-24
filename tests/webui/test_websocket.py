@@ -421,6 +421,83 @@ class TestWebSocketChatWithMockedAlfred:
             assert len(tool_outputs) < 50
 
 
+def test_chat_cancel_and_edit_restarts_without_duplicate_user_messages() -> None:
+    mock_alfred = MockAlfred(chunks=["Retry ", "response"], chunk_delay=0.05, sessions=[make_session("session-1", messages=[])])
+    app = create_app(alfred_instance=mock_alfred)
+    client = TestClient(app)
+
+    with client.websocket_connect("/ws") as websocket:
+        _connect_and_skip_initial_messages(websocket)
+
+        websocket.send_json({"type": "chat.send", "payload": {"content": "Hello"}})
+
+        started = websocket.receive_json()
+        assert started["type"] == "chat.started"
+        assistant_id = started["payload"]["messageId"]
+
+        websocket.send_json({"type": "chat.cancel"})
+
+
+        while True:
+            data = websocket.receive_json()
+            if data["type"] == "chat.cancelled":
+                assert data["payload"]["messageId"] == assistant_id
+                break
+            if data["type"] in {
+                "status.update",
+                "chat.chunk",
+                "reasoning.chunk",
+                "tool.start",
+                "tool.output",
+                "tool.end",
+            }:
+                continue
+            pytest.fail(f"Unexpected message type after cancel: {data['type']}")
+
+        session = mock_alfred.core.session_manager.get_current_cli_session()
+        assert session is not None
+        assert len(session.messages) == 1
+        assert session.messages[0].role.value == "user"
+        assert session.messages[0].content == "Hello"
+
+        websocket.send_json(
+            {
+                "type": "chat.edit",
+                "payload": {
+                    "messageId": assistant_id,
+                    "content": "Hello",
+                },
+            }
+        )
+
+        restarted = websocket.receive_json()
+        assert restarted["type"] == "chat.started"
+        restarted_id = restarted["payload"]["messageId"]
+        assert restarted_id != assistant_id
+
+        while True:
+            data = websocket.receive_json()
+            if data["type"] == "chat.complete":
+                break
+            if data["type"] in {
+                "status.update",
+                "chat.chunk",
+                "reasoning.chunk",
+                "tool.start",
+                "tool.output",
+                "tool.end",
+            }:
+                continue
+            pytest.fail(f"Unexpected message type after edit: {data['type']}")
+
+        session = mock_alfred.core.session_manager.get_current_cli_session()
+        assert session is not None
+        assert [message.role.value for message in session.messages] == ["user", "assistant"]
+        assert session.messages[0].content == "Hello"
+        assert session.messages[1].content == "Retry response"
+        assert mock_alfred.chat_messages == ["Hello", "Hello"]
+
+
 class TestWebSocketCommandWithoutAlfred:
     """Test command functionality when Alfred instance is not available."""
 

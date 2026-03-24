@@ -105,10 +105,32 @@ body {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28), 0 0 14px rgba(255, 255, 255, 0.22) !important;
 }
 
+.connection-status-portal-root {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    pointer-events: none;
+}
+
+.connection-status-overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    background: var(--connection-popover-overlay, var(--settings-overlay-bg, rgba(0, 0, 0, 0.5)));
+    pointer-events: auto;
+    z-index: 1;
+}
+
+.connection-status-portal-root[data-layout="popover"] .connection-status-overlay {
+    display: none;
+}
+
+.connection-status-portal-root[data-open="true"][data-layout="sheet"] .connection-status-overlay {
+    display: block;
+}
+
 .connection-status-tooltip {
-    position: absolute;
-    top: calc(100% + 0.65rem);
-    right: 0;
+    position: fixed;
     min-width: 18rem;
     max-width: min(24rem, calc(100vw - 1.5rem));
     padding: 0.9rem 1rem;
@@ -124,19 +146,52 @@ body {
     visibility: hidden;
     opacity: 0;
     transform: translateY(-0.25rem) scale(0.985);
-    transform-origin: top right;
+    transform-origin: top left;
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
     pointer-events: none;
-    z-index: 12000;
+    z-index: 2;
 }
 
-.connection-status-anchor:hover .connection-status-tooltip,
-.connection-status-anchor:focus-within .connection-status-tooltip,
-.connection-status-anchor[data-open="true"] .connection-status-tooltip {
+.connection-status-portal-root[data-open="true"] .connection-status-tooltip {
     visibility: visible;
     opacity: 1;
-    transform: translateY(0) scale(1);
     pointer-events: auto;
+}
+
+.connection-status-portal-root[data-layout="popover"] .connection-status-tooltip {
+    top: 0;
+    left: 0;
+    right: auto;
+    bottom: auto;
+    max-height: calc(100vh - 5rem);
+    overflow-y: auto;
+    transform-origin: top left;
+}
+
+.connection-status-portal-root[data-open="true"][data-layout="popover"] .connection-status-tooltip {
+    transform: translateY(0) scale(1);
+}
+
+.connection-status-portal-root[data-layout="sheet"] .connection-status-tooltip {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-width: 0;
+    max-width: none;
+    max-height: calc(70vh - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--settings-radius, 1rem 1rem 0 0);
+    border-bottom: none;
+    box-shadow: var(--connection-popover-shadow, 0 -8px 32px rgba(0, 0, 0, 0.8));
+    transform-origin: bottom center;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.connection-status-portal-root[data-open="true"][data-layout="sheet"] .connection-status-tooltip {
+    transform: translateY(0);
 }
 
 .connection-status-tooltip-title {
@@ -401,6 +456,38 @@ chat-message[data-warning="true"] .message.system .message-content {
     overflow-wrap: break-word;
     line-height: 1.6;
     min-height: 1rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.message-content ul,
+.message-content ol {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    margin: 0.75rem 0;
+    padding-inline-start: 1.5rem;
+    list-style-position: outside;
+    overflow-wrap: break-word;
+}
+
+.message-content li {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.message-content li + li {
+    margin-top: 0.35rem;
+}
+
+.message-content li > p {
+    margin: 0;
+}
+
+.message-content li > ul,
+.message-content li > ol {
+    margin: 0.35rem 0;
 }
 
 /* Reasoning Section */

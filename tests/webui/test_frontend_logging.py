@@ -26,7 +26,7 @@ def test_index_loads_app_config_before_websocket_client() -> None:
         '<script src="/static/js/webui-client-logger.js?v=3"></script>'
     )
     assert source.index('<script src="/static/js/webui-client-logger.js?v=3"></script>') < source.index(
-        '<script src="/static/js/websocket-client.js?v=3"></script>'
+        '<script src="/static/js/websocket-client.js?v=4"></script>'
     )
 
 

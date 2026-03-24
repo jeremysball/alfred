@@ -239,6 +239,27 @@ async def test_kidcore_connection_status_tooltip_reports_daemon_and_websocket_st
             assert "Keepalive:" in tooltip_text
             assert "Debug:" in tooltip_text
 
+            portal_data = await page.evaluate(
+                """
+                () => {
+                  const root = document.getElementById('connection-status-portal-root');
+                  const tooltip = document.querySelector('#connection-status-tooltip');
+                  return {
+                    rootParent: root?.parentElement?.tagName || '',
+                    rootChildren: root?.children.length || 0,
+                    tooltipParent: tooltip?.parentElement?.id || '',
+                    layout: root?.dataset.layout || '',
+                    open: root?.dataset.open || '',
+                  };
+                }
+                """
+            )
+            assert portal_data["rootParent"] == "BODY"
+            assert portal_data["rootChildren"] == 2
+            assert portal_data["tooltipParent"] == "connection-status-portal-root"
+            assert portal_data["layout"] == "popover"
+            assert portal_data["open"] == "true"
+
             hovered = await pill.evaluate(
                 """
                 (element) => {
@@ -251,6 +272,107 @@ async def test_kidcore_connection_status_tooltip_reports_daemon_and_websocket_st
                 """
             )
             assert hovered["boxShadow"] != initial["boxShadow"]
+
+            await browser.close()
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except TimeoutError:
+                process.kill()
+                await process.wait()
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
+async def test_kidcore_connection_status_uses_bottom_sheet_on_mobile() -> None:
+    port = _find_free_port()
+    process = await asyncio.create_subprocess_exec(
+        "uv",
+        "run",
+        "alfred",
+        "webui",
+        "--port",
+        str(port),
+        cwd=PROJECT_ROOT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+
+    try:
+        await _wait_for_server(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 390, "height": 844})
+            await page.add_init_script("localStorage.setItem('alfred-theme', 'kidcore-playground');")
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            anchor = page.locator("#connection-status-anchor")
+            overlay = page.locator("#connection-status-portal-root .connection-status-overlay")
+
+            await anchor.focus()
+            await page.keyboard.press('Enter')
+            await page.wait_for_function(
+                """
+                () => {
+                  const root = document.getElementById('connection-status-portal-root');
+                  const tooltip = document.querySelector('#connection-status-tooltip');
+                  return root?.dataset.open === 'true'
+                    && root?.dataset.layout === 'sheet'
+                    && tooltip
+                    && getComputedStyle(tooltip).visibility === 'visible';
+                }
+                """
+            )
+            await page.wait_for_timeout(100)
+
+            data = await page.evaluate(
+                """
+                () => {
+                  const root = document.getElementById('connection-status-portal-root');
+                  const tooltip = document.querySelector('#connection-status-tooltip');
+                  const overlay = root?.querySelector('.connection-status-overlay');
+                  const rect = tooltip?.getBoundingClientRect();
+                  return {
+                    rootParent: root?.parentElement?.tagName || '',
+                    rootChildren: root?.children.length || 0,
+                    tooltipParent: tooltip?.parentElement?.id || '',
+                    layout: root?.dataset.layout || '',
+                    open: root?.dataset.open || '',
+                    overlayVisible: overlay ? getComputedStyle(overlay).display !== 'none' : false,
+                    tooltipLeft: rect ? Math.round(rect.left) : null,
+                    tooltipRight: rect ? Math.round(window.innerWidth - rect.right) : null,
+                    tooltipBottom: rect ? Math.round(window.innerHeight - rect.bottom) : null,
+                  };
+                }
+                """
+            )
+
+            assert data["rootParent"] == "BODY"
+            assert data["rootChildren"] == 2
+            assert data["tooltipParent"] == "connection-status-portal-root"
+            assert data["layout"] == "sheet"
+            assert data["open"] == "true"
+            assert data["overlayVisible"] is True
+            assert 0 <= data["tooltipLeft"] <= 4
+            assert 0 <= data["tooltipRight"] <= 4
+            assert 0 <= data["tooltipBottom"] <= 4
+
+            await overlay.click(position={"x": 10, "y": 10})
+            await page.wait_for_function(
+                """
+                () => {
+                  const root = document.getElementById('connection-status-portal-root');
+                  return root?.dataset.open === 'false';
+                }
+                """
+            )
+            assert await overlay.is_hidden()
 
             await browser.close()
     finally:

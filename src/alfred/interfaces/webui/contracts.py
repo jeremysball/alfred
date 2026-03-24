@@ -52,6 +52,7 @@ class WebUIAlfred(Protocol):
         session_id: str | None = None,
         persist_partial: bool = False,
         assistant_message_id: str | None = None,
+        reuse_user_message: bool = False,
     ) -> AsyncIterator[str]: ...
 
     async def stop(self) -> None: ...

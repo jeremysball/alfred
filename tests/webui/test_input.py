@@ -27,6 +27,20 @@ def test_completion_menu_component_exists():
     assert "javascript" in response.headers["content-type"]
 
 
+def test_composer_state_surface_exists():
+    """Verify the input area exposes a DOM state surface for streaming and editing."""
+    app = create_app()
+    client = TestClient(app)
+
+    index_html = client.get("/static/index.html").text
+    main_js = client.get("/static/js/main.js").text
+
+    assert 'data-composer-state="idle"' in index_html
+    assert "getComposerState" in main_js
+    assert "setComposerState('editing')" in main_js
+    assert "edit-message" in main_js
+
+
 def test_command_completion_structure():
     """Verify command completion data structure."""
     from alfred.interfaces.webui.validation import CompletionSuggestion, CompletionSuggestionsMessage

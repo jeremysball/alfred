@@ -46,6 +46,9 @@ def test_webui_contract_protocols_are_runtime_checkable() -> None:
             message: str,
             tool_callback=None,
             session_id: str | None = None,
+            persist_partial: bool = False,
+            assistant_message_id: str | None = None,
+            reuse_user_message: bool = False,
         ):
             if False:
                 yield message

@@ -1,7 +1,7 @@
 # Execution Plan: PRD #151 - Milestone 1: Streaming Interaction Contract
 
 ## Overview
-Define the message vocabulary, session mutation primitives, and composer-state contract that later milestones will use for streaming, cancel, and edit behavior. This phase locks down the names, payloads, and local UI state transitions for Enter, Shift+Enter, Esc, and edit mode. It stops before the later milestones that add runtime cancel/edit plumbing, mobile stop controls, and markdown layout fixes.
+Define the message vocabulary, session mutation primitives, and composer-state contract that later milestones will use for streaming, cancel, and edit behavior. The protocol and session mutation pieces are already in place; the remaining work is the browser contract, mobile stop controls, and markdown layout fixes.
 
 ---
 
@@ -21,15 +21,15 @@ Define the message vocabulary, session mutation primitives, and composer-state c
 
 ### Component: Web UI composer contract hooks
 
-- [ ] **Test**: `test_chat_message_component_exposes_edit_state_and_websocket_client_helpers()` - verify `chat-message.js`, `websocket-client.js`, `main.js`, and `index.html` expose the new edit/cancel contract surface and versioned assets
-- [ ] **Implement**: add the `editable` / composer-state hooks to `src/alfred/interfaces/webui/static/js/components/chat-message.js`, `src/alfred/interfaces/webui/static/js/websocket-client.js`, `src/alfred/interfaces/webui/static/js/main.js`, and bump the cache-buster references in `src/alfred/interfaces/webui/static/index.html`
-- [ ] **Run**: `uv run pytest tests/webui/test_frontend.py tests/webui/test_input.py tests/webui/test_frontend_logging.py tests/webui/test_contrast_standardization.py -v`
+- [x] **Test**: `test_chat_message_component_exposes_edit_state_and_websocket_client_helpers()` - verify `chat-message.js`, `websocket-client.js`, `main.js`, and `index.html` expose the new edit/cancel contract surface and versioned assets
+- [x] **Implement**: add the `editable` / composer-state hooks to `src/alfred/interfaces/webui/static/js/components/chat-message.js`, `src/alfred/interfaces/webui/static/js/websocket-client.js`, `src/alfred/interfaces/webui/static/js/main.js`, and bump the cache-buster references in `src/alfred/interfaces/webui/static/index.html`
+- [x] **Run**: `uv run pytest tests/webui/test_frontend.py tests/webui/test_input.py tests/webui/test_frontend_logging.py tests/webui/test_contrast_standardization.py -v`
 
 ### Component: Browser contract coverage
 
-- [ ] **Test**: `test_streaming_composer_keyboard_contract()` - verify the browser-level contract for idle/streaming/editing state, Enter / Shift+Enter / Esc routing, and the pencil action on the last completed user message
-- [ ] **Implement**: finish the minimal browser-state plumbing in `main.js` and `chat-message.js` so the Playwright test can drive the contract against the real DOM and WebSocket client stub
-- [ ] **Run**: `uv run pytest tests/webui/test_streaming_composer.py -v`
+- [x] **Test**: `test_streaming_composer_keyboard_contract()` - verify the browser-level contract for idle/streaming/editing state, Enter / Shift+Enter / Esc routing, and the pencil action on the last completed user message
+- [x] **Implement**: finish the minimal browser-state plumbing in `main.js` and `chat-message.js` so the Playwright test can drive the contract against the real DOM and WebSocket client stub
+- [x] **Run**: `uv run pytest tests/webui/test_streaming_composer.py -v`
 
 ---
 
@@ -66,4 +66,4 @@ Define the message vocabulary, session mutation primitives, and composer-state c
 - The cancel/edit message vocabulary is documented and validated
 - Session history mutations are atomic and do not leave stale embeddings behind
 - The web UI exposes explicit idle/streaming/editing composer hooks
-- Later milestones can wire in runtime cancel/edit behavior without changing the contract again
+- Later milestones can finish the browser-facing idle/streaming/editing UX without changing the contract again
