@@ -709,6 +709,46 @@ chat-message[data-warning="true"] .message.system .message-content {
     cursor: not-allowed;
 }
 
+/* Stop Button - shown during streaming */
+.stop-button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: var(--composer-send-radius, 0.5rem);
+    background: var(--stop-button-bg, #f57c00);
+    color: var(--contrast-stop-text, #1a1a1a);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.2s;
+    height: fit-content;
+    box-shadow: var(--stop-button-shadow, none);
+}
+
+.stop-button:hover {
+    background: var(--stop-button-hover-bg, #ef6c00);
+}
+
+.stop-button:disabled {
+    background: var(--stop-button-disabled-bg, #8d6e63);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.stop-button[hidden] {
+    display: none;
+}
+
+/* Show stop button when streaming */
+#input-area[data-composer-state="streaming"] .stop-button,
+#input-area[data-composer-state="cancelling"] .stop-button {
+    display: inline-flex;
+}
+
+#input-area[data-composer-state="streaming"] .send-button,
+#input-area[data-composer-state="cancelling"] .send-button {
+    display: none;
+}
+
 /* Input Hints */
 .input-hints {
     display: flex;

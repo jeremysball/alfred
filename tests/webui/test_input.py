@@ -99,3 +99,71 @@ def test_queue_counter_in_status():
 
     # Should have queue indicator somewhere
     assert "queue" in content.lower() or "badge" in content.lower()
+
+
+# =============================================================================
+# Stop Button Tests
+# =============================================================================
+
+
+def test_stop_button_exists():
+    """Verify stop button exists in index.html."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/index.html")
+    content = response.text
+
+    assert 'id="stop-button"' in content
+    assert 'class="stop-button"' in content
+    assert 'aria-label="Stop generating"' in content
+
+
+def test_stop_button_hidden_by_default():
+    """Verify stop button is hidden by default."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/index.html")
+    content = response.text
+
+    assert 'id="stop-button"' in content
+    assert 'hidden' in content.split('id="stop-button"')[1].split('>')[0]
+
+
+def test_stop_button_css_rules_exist():
+    """Verify stop button CSS rules exist."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/css/base.css")
+    content = response.text
+
+    assert ".stop-button" in content
+    assert "#input-area[data-composer-state=\"streaming\"] .stop-button" in content
+    assert "#input-area[data-composer-state=\"cancelling\"] .stop-button" in content
+
+
+def test_stop_button_js_handler_exists():
+    """Verify stop button JavaScript handler exists."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "handleStopGenerating" in content
+    assert "stopButton?.addEventListener('click', handleStopGenerating)" in content
+    assert "setCancellingState" in content
+
+
+def test_esc_key_calls_stop_handler():
+    """Verify Esc key triggers stop generation handler."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "handleStopGenerating()" in content
+    assert "composerState !== 'cancelling'" in content

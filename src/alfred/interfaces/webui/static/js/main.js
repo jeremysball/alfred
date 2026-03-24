@@ -14,6 +14,7 @@ function initAlfredUI() {
   const messageList = document.getElementById('message-list');
   const messageInput = document.getElementById('message-input');
   const sendButton = document.getElementById('send-button');
+  const stopButton = document.getElementById('stop-button');
   const connectionPill = document.getElementById('connection-pill');
   const connectionStatusAnchor = document.getElementById('connection-status-anchor');
   const connectionStatusTooltip = document.getElementById('connection-status-tooltip');
@@ -1574,11 +1575,7 @@ function initAlfredUI() {
       pendingChatSendRequest = { content: cleanContent };
       disableInput();
       scrollToBottom();
-
-      if (!currentAssistantMessage.classList.contains('cancelling')) {
-        currentAssistantMessage.classList.add('cancelling');
-        wsClient.sendCancel();
-      }
+      handleStopGenerating();
       return;
     }
 
@@ -1615,10 +1612,7 @@ function initAlfredUI() {
 
     if (currentAssistantMessage) {
       pendingEditRequest = retryRequest;
-      if (!currentAssistantMessage.classList.contains('cancelling')) {
-        currentAssistantMessage.classList.add('cancelling');
-        wsClient.sendCancel();
-      }
+      handleStopGenerating();
       return;
     }
 
@@ -1681,13 +1675,39 @@ function initAlfredUI() {
   function disableInput() {
     messageInput.disabled = false;
     sendButton.disabled = false;
+    if (stopButton) {
+      stopButton.disabled = false;
+      stopButton.hidden = false;
+    }
     setComposerState('streaming');
     refreshEditableMessageState();
+  }
+
+  function setCancellingState() {
+    if (stopButton) {
+      stopButton.disabled = true;
+      stopButton.textContent = 'Stopping...';
+    }
+    setComposerState('cancelling');
+  }
+
+  function handleStopGenerating() {
+    if (!currentAssistantMessage || composerState === 'cancelling') {
+      return;
+    }
+
+    setCancellingState();
+    wsClient.sendCancel();
   }
 
   function enableInput() {
     messageInput.disabled = false;
     sendButton.disabled = false;
+    if (stopButton) {
+      stopButton.hidden = true;
+      stopButton.disabled = false;
+      stopButton.textContent = 'Stop';
+    }
     setComposerState('idle');
     refreshEditableMessageState();
     messageInput.focus();
@@ -1756,6 +1776,7 @@ function initAlfredUI() {
 
   // Event Listeners
   sendButton.addEventListener('click', sendMessage);
+  stopButton?.addEventListener('click', handleStopGenerating);
 
   // History navigation buttons (mobile)
   const historyUpBtn = document.getElementById('history-up');
@@ -1825,12 +1846,9 @@ function initAlfredUI() {
       return;
     }
 
-    if (e.key === 'Escape' && currentAssistantMessage) {
+    if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
       e.preventDefault();
-      if (!currentAssistantMessage.classList.contains('cancelling')) {
-        currentAssistantMessage.classList.add('cancelling');
-        wsClient.sendCancel();
-      }
+      handleStopGenerating();
       return;
     }
 
@@ -1853,12 +1871,9 @@ function initAlfredUI() {
     }
 
     // Escape: cancel active response or clear queued messages
-    if (e.key === 'Escape' && currentAssistantMessage) {
+    if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
       e.preventDefault();
-      if (!currentAssistantMessage.classList.contains('cancelling')) {
-        currentAssistantMessage.classList.add('cancelling');
-        wsClient.sendCancel();
-      }
+      handleStopGenerating();
       return;
     }
 
