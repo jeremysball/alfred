@@ -263,3 +263,71 @@ def test_clear_composer_edit_state_function_exists():
     content = response.text
 
     assert "function clearComposerEditState()" in content
+
+
+# =============================================================================
+# Mobile Chrome Collapse Tests
+# =============================================================================
+
+
+def test_mobile_chrome_collapse_css_exists():
+    """Verify CSS for mobile chrome collapse exists."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/css/base.css")
+    content = response.text
+
+    assert ".app-header.compact" in content
+    assert ".input-area.compact" in content
+    assert "transition: padding 0.2s ease" in content
+
+
+def test_mobile_scroll_handler_exists():
+    """Verify scroll handler for mobile chrome collapse exists."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "function handleScroll()" in content
+    assert "function collapseChrome()" in content
+    assert "function restoreChrome()" in content
+    assert "MOBILE_BREAKPOINT = 768" in content
+
+
+def test_mobile_collapse_restores_on_focus():
+    """Verify chrome restores when composer is focused."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/js/main.js")
+    content = response.text
+
+    assert "messageInput.addEventListener('focus'" in content
+    assert "restoreChrome()" in content
+
+
+def test_mobile_stop_button_visible_during_streaming():
+    """Verify stop button CSS rules exist for mobile streaming."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/css/base.css")
+    content = response.text
+
+    assert '[data-composer-state="streaming"] #stop-button' in content
+    assert 'display: inline-flex' in content
+
+
+def test_mobile_history_buttons_hidden_during_streaming():
+    """Verify history buttons are hidden during streaming on mobile."""
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/static/css/base.css")
+    content = response.text
+
+    assert '[data-composer-state="streaming"] .input-history-controls' in content
+    assert 'display: none !important' in content

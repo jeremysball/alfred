@@ -1946,8 +1946,77 @@ function initAlfredUI() {
     completionMenu.hide();
   });
 
-  // Auto-scroll on window resize
-  window.addEventListener('resize', scrollToBottom);
+  // Mobile Chrome Collapse/Restore
+  // Scroll down to collapse header and composer, scroll up or focus to restore
+  let lastScrollTop = 0;
+  let scrollThreshold = 50;
+  let isHeaderCompact = false;
+  const MOBILE_BREAKPOINT = 768;
+
+  function handleScroll() {
+    // Only apply on mobile
+    if (window.innerWidth > MOBILE_BREAKPOINT) {
+      if (isHeaderCompact) {
+        restoreChrome();
+      }
+      return;
+    }
+
+    const scrollTop = chatContainer.scrollTop;
+    const scrollDelta = scrollTop - lastScrollTop;
+
+    // Scrolling down past threshold - collapse
+    if (scrollDelta > scrollThreshold && !isHeaderCompact) {
+      collapseChrome();
+    }
+
+    // Scrolling up - restore
+    if (scrollDelta < -10 && isHeaderCompact) {
+      restoreChrome();
+    }
+
+    lastScrollTop = scrollTop;
+  }
+
+  function collapseChrome() {
+    const header = document.querySelector('.app-header');
+    if (header) {
+      header.classList.add('compact');
+    }
+    if (inputArea) {
+      inputArea.classList.add('compact');
+    }
+    isHeaderCompact = true;
+  }
+
+  function restoreChrome() {
+    const header = document.querySelector('.app-header');
+    if (header) {
+      header.classList.remove('compact');
+    }
+    if (inputArea) {
+      inputArea.classList.remove('compact');
+    }
+    isHeaderCompact = false;
+  }
+
+  // Attach scroll listener
+  chatContainer.addEventListener('scroll', handleScroll, { passive: true });
+
+  // Restore chrome when focusing the composer
+  messageInput.addEventListener('focus', () => {
+    if (isHeaderCompact && window.innerWidth <= MOBILE_BREAKPOINT) {
+      restoreChrome();
+    }
+  });
+
+  // Handle window resize to reset compact state on desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > MOBILE_BREAKPOINT && isHeaderCompact) {
+      restoreChrome();
+    }
+    scrollToBottom();
+  });
 
   // Connect WebSocket
   wsClient.connect();
