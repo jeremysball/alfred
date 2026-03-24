@@ -1,9 +1,10 @@
 # PRD: Web UI Compose, Cancel, and Edit While Streaming
 
 **GitHub Issue**: [#151](https://github.com/jeremysball/alfred/issues/151)  
-**Status**: In Progress  
+**Status**: ✅ Complete  
 **Priority**: High  
-**Created**: 2026-03-23
+**Created**: 2026-03-23  
+**Completed**: 2026-03-24
 
 ---
 
@@ -248,29 +249,57 @@ Completed 2026-03-24:
 - Created comprehensive tests in `tests/webui/test_streaming_edit.py`
 - Added 9 unit tests for pencil button, edit mode, and Esc cancel
 
-### Milestone 6: Add mobile streaming controls and smaller chrome
+### Milestone 6: Add mobile streaming controls and smaller chrome ✅
 Swap mobile history arrows for a square stop button while streaming, and make the mobile header/composer collapse into a smaller chrome state as the user scrolls.
 
 Validation:
-- The stop button appears only during streaming.
-- History buttons return when streaming ends.
-- The header and composer collapse on downward scroll and restore on upward scroll or composer focus.
-- The control is usable on a small viewport.
+- [x] The stop button appears only during streaming.
+- [x] History buttons return when streaming ends.
+- [x] The header and composer collapse on downward scroll and restore on upward scroll or composer focus.
+- [x] The control is usable on a small viewport.
 
-### Milestone 7: Add browser and protocol regression coverage
+Completed 2026-03-24:
+- Added CSS for compact mobile layout with `.app-header.compact` and `.input-area.compact` classes
+- Implemented `handleScroll()`, `collapseChrome()`, and `restoreChrome()` in main.js
+- Scroll down >50px collapses header/composer (mobile only, <=768px)
+- Scroll up restores expanded view
+- Focusing composer restores expanded view
+- Compact mode hides non-essential elements (header status, send button, history controls)
+- Stop button remains visible during streaming even in compact mode
+- Desktop viewport (>768px) disables compact mode entirely
+- Created comprehensive tests in `tests/webui/test_mobile_chrome.py`
+
+### Milestone 7: Add browser and protocol regression coverage ✅
 Cover the new chat flow with tests that exercise the real browser and WebSocket behavior.
 
 Validation:
-- Desktop and mobile browser tests pass.
-- WebSocket tests cover cancel and edit flows.
-- Session truncation and message updates are verified.
+- [x] Desktop and mobile browser tests pass.
+- [x] WebSocket tests cover cancel and edit flows.
+- [x] Session truncation and message updates are verified.
 
-### Milestone 8: Update docs and roadmap
+Completed 2026-03-24:
+- Created comprehensive browser tests in `tests/webui/test_streaming_cancel.py` (6 tests)
+- Created edit flow tests in `tests/webui/test_streaming_edit.py` (9 tests)
+- Created mobile chrome tests in `tests/webui/test_mobile_chrome.py` (9 tests)
+- Added 25+ unit tests across `test_input.py` for composer state, stop button, edit mode
+- Protocol validation tests in `test_protocol.py` and `test_validation.py`
+- All browser tests use Playwright to exercise real DOM and WebSocket behavior
+
+### Milestone 8: Update docs and roadmap ✅
 Document the new behavior and keep the roadmap aligned with the PRD.
 
 Validation:
-- `docs/ROADMAP.md` includes this PRD in the short-term section.
-- WebSocket protocol docs mention the new cancel/edit messages.
+- [x] `docs/ROADMAP.md` includes this PRD in the short-term section.
+- [x] WebSocket protocol docs mention the new cancel/edit messages.
+
+Completed 2026-03-24:
+- `docs/ROADMAP.md` lists PRD #151 in Short-term roadmap section
+- `docs/websocket-protocol.md` documents:
+  - `chat.cancel` client message (payload-less)
+  - `chat.edit` client message with `messageId` and `content` fields
+  - `chat.cancelled` server response with `messageId`
+  - Streaming control flow examples
+  - Protocol version history updated to 0.1.1
 
 ---
 
@@ -334,3 +363,4 @@ It also adds the last-message edit flow and the markdown containment fix that we
 | 2026-03-24 | Markdown list containment now lives in shared base CSS rules for `.message-content ul`, `ol`, and `li` | Theme-specific overrides were not the right place for layout containment; shared rules keep list markers and nested list items inside bubbles on every theme and viewport. | Locks in the bubble containment fix and supports the browser regression that checks mobile and desktop overflow. | Implementation |
 | 2026-03-24 | Stop button uses text label "Stop" (not icon) and appears during streaming state; Esc key triggers cancel; button shows "Stopping..." while cancelling | Text labels are clearer than icons for this action; Esc matches ChatGPT/Claude conventions; disabling button during cancelling prevents double-submit. | Provides clear cancel affordance in both desktop (Esc) and mobile (button) contexts. | Implementation |
 | 2026-03-24 | Message editing uses existing `editable` attribute on `chat-message`; visual highlight via `data-message-state="editing"`; Esc cancels edit mode | The pencil infrastructure was already in place in `chat-message.js`; adding visual feedback and Esc-to-cancel completes the UX. | Reuses existing patterns (DOM attributes, state machine) and provides clear edit/cancel affordances. | Implementation |
+| 2026-03-24 | Mobile chrome collapse uses CSS transitions (200ms ease) and scroll threshold of 50px; only applies on mobile viewport (<=768px); restore on scroll up or composer focus | The hybrid pattern (compact by default, collapse on scroll) maximizes transcript space while keeping controls accessible; 50px threshold prevents accidental triggers; focus restore ensures keyboard users can always see input. | Provides responsive mobile layout that adapts to user scroll behavior without interfering with typing. | Implementation |

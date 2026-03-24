@@ -55,7 +55,7 @@ async def test_header_collapses_on_scroll_down(
     await page.wait_for_timeout(150)
 
     # Verify header has compact class
-    await expect(header).to_have_class(/compact/)
+    await expect(header).to_have_class("compact")
 
 
 async def test_header_restores_on_scroll_up(
@@ -101,7 +101,7 @@ async def test_header_restores_on_scroll_up(
 
     # Verify compact
     header = page.locator(".app-header")
-    await expect(header).to_have_class(/compact/)
+    await expect(header).to_have_class("compact")
 
     # Scroll up
     await page.evaluate("""
@@ -113,7 +113,7 @@ async def test_header_restores_on_scroll_up(
     await page.wait_for_timeout(150)
 
     # Verify restored
-    await expect(header).not_to_have_class(/compact/)
+    await expect(header).not_to_have_class("compact")
 
 
 async def test_header_restores_on_composer_focus(
@@ -159,14 +159,14 @@ async def test_header_restores_on_composer_focus(
 
     # Verify compact
     header = page.locator(".app-header")
-    await expect(header).to_have_class(/compact/)
+    await expect(header).to_have_class("compact")
 
     # Focus the composer
     await page.focus("#message-input")
     await page.wait_for_timeout(150)
 
     # Verify restored
-    await expect(header).not_to_have_class(/compact/)
+    await expect(header).not_to_have_class("compact")
 
 
 async def test_compact_mode_hides_non_essential_header_elements(
@@ -212,7 +212,7 @@ async def test_compact_mode_hides_non_essential_header_elements(
 
     # Verify header is compact
     header = page.locator(".app-header")
-    await expect(header).to_have_class(/compact/)
+    await expect(header).to_have_class("compact")
 
     # Verify header status is hidden in compact mode
     header_status = header.locator(".header-status")
@@ -262,7 +262,7 @@ async def test_compact_input_area_hides_buttons(
 
     # Verify input area is compact
     input_area = page.locator("#input-area")
-    await expect(input_area).to_have_class(/compact/)
+    await expect(input_area).to_have_class("compact")
 
     # Verify send button is hidden in compact mode
     send_button = input_area.locator("#send-button")
@@ -322,7 +322,7 @@ async def test_stop_button_visible_during_streaming_in_compact_mode(
 
     # Verify input area is compact
     input_area = page.locator("#input-area")
-    await expect(input_area).to_have_class(/compact/)
+    await expect(input_area).to_have_class("compact")
     await expect(input_area).to_have_attribute("data-composer-state", "streaming")
 
     # Verify stop button is still visible
@@ -403,8 +403,8 @@ async def test_compact_mode_not_applied_on_desktop(
 
     # Verify header is NOT compact on desktop
     header = page.locator(".app-header")
-    await expect(header).not_to_have_class(/compact/)
+    await expect(header).not_to_have_class("compact")
 
     # Verify input area is NOT compact
     input_area = page.locator("#input-area")
-    await expect(input_area).not_to_have_class(/compact/)
+    await expect(input_area).not_to_have_class("compact")
