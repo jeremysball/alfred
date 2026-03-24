@@ -1472,6 +1472,17 @@ class SQLiteStore:
                         summary.get("version", 1),
                     ),
                 )
+
+                # Also insert into vec table for similarity search
+                if embedding_json:
+                    await db.execute(
+                        """
+                        INSERT INTO session_summaries_vec (summary_id, embedding)
+                        VALUES (?, ?)
+                        """,
+                        (summary["summary_id"], embedding_json),
+                    )
+
                 await db.commit()
 
             log_event(

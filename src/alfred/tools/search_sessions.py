@@ -1,5 +1,6 @@
 """Tool for searching sessions with two-stage contextual retrieval."""
 
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -89,23 +90,61 @@ class SessionSummarizer:
         )
 
     async def _call_llm_for_summary(self, conversation_preview: str) -> str:
-        """Call LLM to generate session summary."""
-        # Simple implementation - in production this would use the actual LLM client
-        # For now, use the injected llm_client
-        if hasattr(self.llm_client, "generate_summary"):
-            result = await self.llm_client.generate_summary(conversation_preview)
-            return str(result)
+        """Call LLM to generate session summary.
 
-        # Fallback: extract key topics from first user message
-        lines = conversation_preview.strip().split("\n")
-        for line in lines:
-            if line.lower().startswith("user:"):
-                user_msg = line[5:].strip()
-                if len(user_msg) > 50:
-                    return f"Discussion about: {user_msg[:100]}..."
-                return f"Discussion about: {user_msg}"
+        Uses the injected LLM client to generate a concise summary
+        of the conversation topics and outcomes.
+        """
+        if not self.llm_client:
+            # Fallback if no LLM available
+            lines = conversation_preview.strip().split("\n")
+            for line in lines:
+                if line.lower().startswith("user:"):
+                    user_msg = line[5:].strip()
+                    if len(user_msg) > 50:
+                        return f"Discussion about: {user_msg[:100]}..."
+                    return f"Discussion about: {user_msg}"
+            return "Session with general conversation"
 
-        return "Session with general conversation"
+        # Import here to avoid circular imports
+        from alfred.llm import ChatMessage
+
+        messages = [
+            ChatMessage(
+                role="system",
+                content=(
+                    "You are a helpful assistant that summarizes conversations. "
+                    "Create a concise 1-2 sentence summary of the main topic(s) discussed. "
+                    "Focus on what was accomplished or decided, not every detail. "
+                    "Be specific about the subject matter (e.g., 'Fixed Python import error in search module' "
+                    "rather than just 'Worked on code')."
+                ),
+            ),
+            ChatMessage(
+                role="user",
+                content=f"Summarize this conversation:\n\n{conversation_preview}",
+            ),
+        ]
+
+        try:
+            response = await self.llm_client.chat(messages)
+            summary = response.content.strip()
+            # Limit length for embedding efficiency
+            if len(summary) > 200:
+                summary = summary[:197] + "..."
+            return summary
+        except Exception as e:
+            # Fallback on LLM error
+            logger = logging.getLogger(__name__)
+            logger.warning(f"LLM summary generation failed: {e}, using fallback")
+            lines = conversation_preview.strip().split("\n")
+            for line in lines:
+                if line.lower().startswith("user:"):
+                    user_msg = line[5:].strip()
+                    if len(user_msg) > 50:
+                        return f"Discussion about: {user_msg[:100]}..."
+                    return f"Discussion about: {user_msg}"
+            return "Session with general conversation"
 
     async def save_summary(self, summary: SessionSummary) -> None:
         """Save summary to SQLite.

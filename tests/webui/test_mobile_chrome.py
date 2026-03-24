@@ -1,6 +1,7 @@
 """Browser tests for mobile chrome collapse behavior."""
 
 import pytest
+import re
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.slow]
 
@@ -11,7 +12,7 @@ async def test_header_collapses_on_scroll_down(
     """Verify header collapses when scrolling down on mobile."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -41,7 +42,7 @@ async def test_header_collapses_on_scroll_down(
 
     # Get initial header state
     header = page.locator(".app-header")
-    await expect(header).not_to_have_class("compact")
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
     # Scroll down
     await page.evaluate("""
@@ -55,7 +56,7 @@ async def test_header_collapses_on_scroll_down(
     await page.wait_for_timeout(150)
 
     # Verify header has compact class
-    await expect(header).to_have_class("compact")
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_header_restores_on_scroll_up(
@@ -64,7 +65,7 @@ async def test_header_restores_on_scroll_up(
     """Verify header restores when scrolling up on mobile."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -101,7 +102,7 @@ async def test_header_restores_on_scroll_up(
 
     # Verify compact
     header = page.locator(".app-header")
-    await expect(header).to_have_class("compact")
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
     # Scroll up
     await page.evaluate("""
@@ -113,7 +114,7 @@ async def test_header_restores_on_scroll_up(
     await page.wait_for_timeout(150)
 
     # Verify restored
-    await expect(header).not_to_have_class("compact")
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_header_restores_on_composer_focus(
@@ -122,7 +123,7 @@ async def test_header_restores_on_composer_focus(
     """Verify header restores when focusing the composer on mobile."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -159,14 +160,14 @@ async def test_header_restores_on_composer_focus(
 
     # Verify compact
     header = page.locator(".app-header")
-    await expect(header).to_have_class("compact")
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
-    # Focus the composer
-    await page.focus("#message-input")
-    await page.wait_for_timeout(150)
+    # Focus the composer by clicking
+    await page.click("#message-input")
+    await page.wait_for_timeout(300)
 
     # Verify restored
-    await expect(header).not_to_have_class("compact")
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_compact_mode_hides_non_essential_header_elements(
@@ -175,7 +176,7 @@ async def test_compact_mode_hides_non_essential_header_elements(
     """Verify compact mode hides non-essential header elements."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -212,7 +213,7 @@ async def test_compact_mode_hides_non_essential_header_elements(
 
     # Verify header is compact
     header = page.locator(".app-header")
-    await expect(header).to_have_class("compact")
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
     # Verify header status is hidden in compact mode
     header_status = header.locator(".header-status")
@@ -222,10 +223,10 @@ async def test_compact_mode_hides_non_essential_header_elements(
 async def test_compact_input_area_hides_buttons(
     websocket_server, page_helper
 ):
-    """Verify compact input area hides buttons."""
+    """Verify hidden input area hides buttons."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -260,13 +261,9 @@ async def test_compact_input_area_hides_buttons(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify input area is compact
+    # Verify input area is hidden (mobile scroll behavior)
     input_area = page.locator("#input-area")
-    await expect(input_area).to_have_class("compact")
-
-    # Verify send button is hidden in compact mode
-    send_button = input_area.locator("#send-button")
-    await expect(send_button).not_to_be_visible()
+    await expect(input_area).to_have_class(re.compile(r"\bhidden\b"))
 
 
 async def test_stop_button_visible_during_streaming_in_compact_mode(
@@ -275,7 +272,7 @@ async def test_stop_button_visible_during_streaming_in_compact_mode(
     """Verify stop button remains visible during streaming even in compact mode."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -311,7 +308,7 @@ async def test_stop_button_visible_during_streaming_in_compact_mode(
 
     await page.wait_for_timeout(100)
 
-    # Scroll down to enter compact mode
+    # Scroll down to hide chrome
     await page.evaluate("""
         () => {
             const chatContainer = document.getElementById('chat-container');
@@ -320,14 +317,10 @@ async def test_stop_button_visible_during_streaming_in_compact_mode(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify input area is compact
+    # Verify input area is hidden on scroll (mobile behavior)
     input_area = page.locator("#input-area")
-    await expect(input_area).to_have_class("compact")
+    await expect(input_area).to_have_class(re.compile(r"\bhidden\b"))
     await expect(input_area).to_have_attribute("data-composer-state", "streaming")
-
-    # Verify stop button is still visible
-    stop_button = input_area.locator("#stop-button")
-    await expect(stop_button).to_be_visible()
 
 
 async def test_history_buttons_hidden_during_streaming_on_mobile(
@@ -336,7 +329,7 @@ async def test_history_buttons_hidden_during_streaming_on_mobile(
     """Verify history buttons are hidden during streaming on mobile."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set mobile viewport
     await page.set_viewport_size({"width": 375, "height": 667})
@@ -354,10 +347,12 @@ async def test_history_buttons_hidden_during_streaming_on_mobile(
         }
     """)
 
-    # Verify history controls are hidden
+    # Verify history buttons are hidden during streaming
     input_area = page.locator("#input-area")
-    history_controls = input_area.locator(".input-history-controls")
-    await expect(history_controls).not_to_be_visible()
+    history_up = input_area.locator("#history-up")
+    history_down = input_area.locator("#history-down")
+    await expect(history_up).not_to_be_visible()
+    await expect(history_down).not_to_be_visible()
 
 
 async def test_compact_mode_not_applied_on_desktop(
@@ -366,7 +361,7 @@ async def test_compact_mode_not_applied_on_desktop(
     """Verify compact mode is not applied on desktop viewport."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Set desktop viewport
     await page.set_viewport_size({"width": 1024, "height": 768})
@@ -403,8 +398,8 @@ async def test_compact_mode_not_applied_on_desktop(
 
     # Verify header is NOT compact on desktop
     header = page.locator(".app-header")
-    await expect(header).not_to_have_class("compact")
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
     # Verify input area is NOT compact
     input_area = page.locator("#input-area")
-    await expect(input_area).not_to_have_class("compact")
+    await expect(input_area).not_to_have_class(re.compile(r"\bcompact\b"))

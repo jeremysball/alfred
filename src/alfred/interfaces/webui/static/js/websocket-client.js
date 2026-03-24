@@ -198,14 +198,69 @@ class AlfredWebSocketClient extends EventTarget {
           this.reconnectAttempts = 0; // Reset for user-initiated reconnect
           this.connect();
         }
+      } else {
+        // Page hidden - send immediate ping to keep connection alive longer
+        // Mobile OS gives us a small window before throttling
+        this._sendKeepalive();
       }
     };
     
     document.addEventListener('visibilitychange', this.visibilityHandler);
+    
+    // Page Lifecycle API for more granular control (Chrome/Android)
+    if ('onfreeze' in document) {
+      document.addEventListener('freeze', () => {
+        console.log('Page frozen by OS');
+        this._stopPing();
+      });
+      document.addEventListener('resume', () => {
+        console.log('Page resumed from frozen state');
+        this.reconnectAttempts = 0;
+        this.connect();
+      });
+    }
+    
+    // Handle pagehide/pageshow for iOS Safari
+    window.addEventListener('pagehide', (e) => {
+      if (e.persisted) {
+        // Page is going into bfcache - connection will be suspended
+        console.log('Page entering bfcache');
+        this._stopPing();
+      }
+    });
+    
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) {
+        // Page restored from bfcache - connection is dead, reconnect
+        console.log('Page restored from bfcache, reconnecting');
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    });
+  }
+
+  _sendKeepalive() {
+    // Send immediate ping when page is being hidden
+    // This may keep the connection alive a bit longer on some mobile browsers
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      try {
+        const pingMessage = JSON.stringify({ type: 'ping', ts: Date.now() });
+        this.ws.send(pingMessage);
+        if (this.debugStats) {
+          this.debugStats.recordOutgoing('ping', pingMessage);
+        }
+      } catch (e) {
+        // Ignore errors on hidden page
+      }
+    }
   }
 
   _startPing() {
-    // Send ping every 15 seconds to keep connection alive
+    // Use shorter interval on mobile (5s vs 15s) for faster disconnect detection
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const pingIntervalMs = isMobile ? 5000 : 15000;
+    const pongTimeoutMs = isMobile ? 3000 : 5000;
+    
     this.pingInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         const pingMessage = JSON.stringify({ type: 'ping' });
@@ -214,13 +269,28 @@ class AlfredWebSocketClient extends EventTarget {
         if (this.debugStats) {
           this.debugStats.recordOutgoing('ping', pingMessage);
         }
-        // Expect pong within 5 seconds
+        // Expect pong within timeout window
         this.pingTimeout = setTimeout(() => {
           console.log('Ping timeout, closing connection');
           this.ws?.close();
-        }, 5000);
+        }, pongTimeoutMs);
       }
-    }, 15000);
+    }, pingIntervalMs);
+    
+    // Listen for online/offline events
+    this._onlineHandler = () => {
+      console.log('Network online');
+      if (!this.isConnected) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    };
+    this._offlineHandler = () => {
+      console.log('Network offline');
+      this._stopPing();
+    };
+    window.addEventListener('online', this._onlineHandler);
+    window.addEventListener('offline', this._offlineHandler);
   }
 
   _clearPingTimeout() {
@@ -236,9 +306,23 @@ class AlfredWebSocketClient extends EventTarget {
       this.pingInterval = null;
     }
     this._clearPingTimeout();
+    if (this._onlineHandler) {
+      window.removeEventListener('online', this._onlineHandler);
+      this._onlineHandler = null;
+    }
+    if (this._offlineHandler) {
+      window.removeEventListener('offline', this._offlineHandler);
+      this._offlineHandler = null;
+    }
   }
 
   disconnect() {
+    // Clean up all event listeners
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+    this._stopPing();
     if (this.ws) {
       this.ws.close();
       this.ws = null;

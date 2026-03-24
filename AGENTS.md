@@ -105,6 +105,8 @@ Favor code that is:
 - easy to test
 - hard to misuse
 
+When implementing changes, prefer the **smallest code change** that produces the correct behavior the user intends. Do not over-engineer or expand scope beyond what is requested.
+
 ### Defensive Programming
 
 - Validate inputs at boundaries.

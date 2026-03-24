@@ -86,7 +86,7 @@ async def run():
 
             if should_summarize:
                 print(f"Summarizing session {meta.session_id}")
-                session = session_manager.load_session(meta.session_id)
+                session = await session_manager.get_or_create_session_async(meta.session_id)
                 if session and session.messages:
                     summary = await summarizer.generate_summary(session)
                     await summarizer.save_summary(summary)

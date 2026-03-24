@@ -13,7 +13,9 @@ from typing import Any, Protocol, cast
 from alfred.interfaces.webui.daemon_bootstrap import bootstrap_daemon
 
 DEFAULT_WEBUI_STATIC_ROOT = Path(__file__).resolve().parents[1] / "interfaces" / "webui" / "static"
+DEFAULT_WEBUI_SRC_ROOT = Path(__file__).resolve().parents[2] / "alfred"
 WEBUI_HOTSWAP_EXTENSIONS = {".css", ".html", ".js"}
+WEBUI_HOTSWAP_PYTHON_EXTENSIONS = {".py"}
 WEBUI_HOTSWAP_DEBOUNCE_MS = 250
 WEBUI_STARTUP_TIMEOUT_SECONDS = 15.0
 WEBUI_BROWSER_OPEN_DELAY_SECONDS = 1.0
@@ -92,9 +94,24 @@ def _is_relevant_webui_asset(path: object) -> bool:
     return Path(str(path)).suffix.lower() in WEBUI_HOTSWAP_EXTENSIONS
 
 
+def _is_relevant_python_file(path: object) -> bool:
+    """Return True when a Python file change should trigger a server restart."""
+    path_obj = Path(str(path))
+    return (
+        path_obj.suffix.lower() in WEBUI_HOTSWAP_PYTHON_EXTENSIONS
+        and "test" not in path_obj.name.lower()
+        and "__pycache__" not in str(path_obj)
+    )
+
+
 def _has_relevant_webui_change(changes: Iterable[tuple[object, str]]) -> bool:
     """Return True if a batch of file changes includes a WebUI asset."""
     return any(_is_relevant_webui_asset(path) for _change, path in changes)
+
+
+def _has_relevant_python_change(changes: Iterable[tuple[object, str]]) -> bool:
+    """Return True if a batch of file changes includes a relevant Python file."""
+    return any(_is_relevant_python_file(path) for _change, path in changes)
 
 
 def _build_server_controller(host: str, port: int, debug: bool) -> _ServerController:
@@ -156,10 +173,11 @@ def run_webui_hotswap(
     stop_event: threading.Event | None = None,
     server_factory: Callable[[], _ServerController] | None = None,
 ) -> None:
-    """Run the Web UI server and restart it when static assets change."""
+    """Run the Web UI server and restart it when static assets or Python files change."""
     from watchfiles import watch
 
     watch_path = watch_root or DEFAULT_WEBUI_STATIC_ROOT
+    python_watch_path = DEFAULT_WEBUI_SRC_ROOT
     local_stop_event = stop_event or threading.Event()
     create_server = server_factory or (lambda: _build_server_controller(host=host, port=port, debug=debug))
     browser_opened = False
@@ -175,8 +193,10 @@ def run_webui_hotswap(
 
         restart_requested = False
         try:
+            # Watch both static assets and Python source files
             for changes in watch(
                 watch_path,
+                python_watch_path,
                 stop_event=local_stop_event,
                 debounce=WEBUI_HOTSWAP_DEBOUNCE_MS,
                 step=100,
@@ -188,12 +208,17 @@ def run_webui_hotswap(
                 if not changes:
                     continue
 
-                if not _has_relevant_webui_change(changes):
-                    continue
+                # Check for static asset changes (trigger restart)
+                if _has_relevant_webui_change(changes):
+                    restart_requested = True
+                    controller.stop()
+                    break
 
-                restart_requested = True
-                controller.stop()
-                break
+                # Check for Python file changes (trigger restart)
+                if _has_relevant_python_change(changes):
+                    restart_requested = True
+                    controller.stop()
+                    break
         except KeyboardInterrupt:
             controller.stop()
         finally:

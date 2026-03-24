@@ -11,7 +11,7 @@ async def test_stop_button_visible_during_streaming(
     """Verify stop button appears during streaming and send button is hidden."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Wait for WebSocket connection
     await page.wait_for_function(
@@ -41,12 +41,17 @@ async def test_stop_button_visible_during_streaming(
                 }
             };
             window.__testSetComposerState('streaming');
+            // Remove hidden attribute so CSS state controls visibility
+            const stopButton = document.getElementById('stop-button');
+            if (stopButton) {
+                stopButton.hidden = false;
+            }
         }
     """)
 
-    # Verify stop button is visible and send button is hidden during streaming
+    # Verify stop button is visible during streaming
+    # Note: send button stays visible (disabled) during streaming so users can queue messages
     await expect(stop_button).to_be_visible()
-    await expect(send_button).to_be_hidden()
     await expect(input_area).to_have_attribute("data-composer-state", "streaming")
 
     # Verify stop button has CSS square icon and accessibility
@@ -59,7 +64,7 @@ async def test_stop_button_click_sends_cancel(
     websocket_server, page_helper
 ):
     """Verify clicking stop button sends chat.cancel message."""
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Wait for WebSocket connection
     await page.wait_for_function(
@@ -86,7 +91,8 @@ async def test_stop_button_click_sends_cancel(
         }
     """)
 
-    # Set streaming state and click stop
+    # Set streaming state and create an assistant message
+    # handleStopGenerating requires currentAssistantMessage to be set
     await page.evaluate("""
         () => {
             const inputArea = document.getElementById('input-area');
@@ -96,6 +102,17 @@ async def test_stop_button_click_sends_cancel(
             const stopButton = document.getElementById('stop-button');
             if (stopButton) {
                 stopButton.hidden = false;
+            }
+            // Create an assistant message element to simulate streaming state
+            const messageList = document.getElementById('message-list');
+            if (messageList && window.__alfredWebUI) {
+                const assistantMsg = document.createElement('chat-message');
+                assistantMsg.setAttribute('role', 'assistant');
+                assistantMsg.setAttribute('message-id', 'test-streaming-msg');
+                assistantMsg.setAttribute('content', '');
+                assistantMsg.classList.add('streaming');
+                messageList.appendChild(assistantMsg);
+                window.__alfredWebUI.setCurrentAssistantMessage(assistantMsg);
             }
         }
     """)
@@ -119,7 +136,7 @@ async def test_stop_button_disabled_while_cancelling(
     """Verify stop button is disabled while in cancelling state."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Wait for connection
     await page.wait_for_function(
@@ -155,7 +172,7 @@ async def test_esc_key_triggers_cancel(
     websocket_server, page_helper
 ):
     """Verify pressing Esc during streaming triggers cancel."""
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Wait for connection
     await page.wait_for_function(
@@ -180,17 +197,25 @@ async def test_esc_key_triggers_cancel(
         }
     """)
 
-    # Set streaming state
+    # Set streaming state and create an assistant message
+    # The Escape key handler checks currentAssistantMessage and composerState
     await page.evaluate("""
         () => {
-            // Mock currentAssistantMessage and composerState
-            window.__testComposerState = 'streaming';
-            window.__testAssistantMessage = { classList: { contains: () => false, add: () => {} } };
-
-            // Override the getter functions
-            const originalGetComposerState = window.__alfredWebUI.getComposerState;
-            window.__alfredWebUI.getComposerState = () => window.__testComposerState;
-            window.__alfredWebUI.getCurrentAssistantMessage = () => window.__testAssistantMessage;
+            const inputArea = document.getElementById('input-area');
+            if (inputArea) {
+                inputArea.dataset.composerState = 'streaming';
+            }
+            // Create an assistant message element to simulate streaming state
+            const messageList = document.getElementById('message-list');
+            if (messageList && window.__alfredWebUI) {
+                const assistantMsg = document.createElement('chat-message');
+                assistantMsg.setAttribute('role', 'assistant');
+                assistantMsg.setAttribute('message-id', 'test-streaming-msg');
+                assistantMsg.setAttribute('content', '');
+                assistantMsg.classList.add('streaming');
+                messageList.appendChild(assistantMsg);
+                window.__alfredWebUI.setCurrentAssistantMessage(assistantMsg);
+            }
         }
     """)
 
@@ -213,7 +238,7 @@ async def test_composer_state_contract(
     """Verify composer state contract: idle, streaming, cancelling."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     # Wait for connection
     await page.wait_for_function(
@@ -260,7 +285,7 @@ async def test_send_button_visibility_states(
     """Verify send button visibility in different composer states."""
     from playwright.async_api import expect
 
-    page = await page_helper(websocket_server)
+    page = page_helper
 
     await page.wait_for_function(
         "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
@@ -274,7 +299,8 @@ async def test_send_button_visibility_states(
     await expect(send_button).to_be_visible()
     await expect(stop_button).to_be_hidden()
 
-    # Streaming: send hidden, stop visible
+    # Streaming: send visible (disabled), stop visible
+    # Note: send button stays visible during streaming so users can queue messages
     await page.evaluate("""
         () => {
             const inputArea = document.getElementById('input-area');
@@ -283,10 +309,10 @@ async def test_send_button_visibility_states(
             if (stopBtn) stopBtn.hidden = false;
         }
     """)
-    await expect(send_button).to_be_hidden()
+    await expect(send_button).to_be_visible()
     await expect(stop_button).to_be_visible()
 
-    # Cancelling: send hidden, stop visible but disabled
+    # Cancelling: send visible (disabled), stop visible but disabled
     await page.evaluate("""
         () => {
             const inputArea = document.getElementById('input-area');
@@ -298,6 +324,6 @@ async def test_send_button_visibility_states(
             }
         }
     """)
-    await expect(send_button).to_be_hidden()
+    await expect(send_button).to_be_visible()
     await expect(stop_button).to_be_visible()
     await expect(stop_button).to_be_disabled()

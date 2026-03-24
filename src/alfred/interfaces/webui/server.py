@@ -297,6 +297,69 @@ class _ChunkBatcher:
         )
 
 
+class _BroadcastChunkBatcher:
+    """Batch websocket stream chunks and broadcast to all active connections."""
+
+    def __init__(
+        self,
+        message_type: str,
+        payload_key: str,
+        extra_payload: dict[str, object] | None = None,
+        debug_stats: _WebSocketDebugStats | None = None,
+    ) -> None:
+        self._message_type = message_type
+        self._payload_key = payload_key
+        self._extra_payload = extra_payload or {}
+        self._debug_stats = debug_stats
+        self._buffer = ""
+        self._buffer_started_at: float | None = None
+        self._lock = asyncio.Lock()
+
+    async def add(self, content: str) -> None:
+        """Append content and flush immediately if the size threshold is hit."""
+        async with self._lock:
+            if not self._buffer:
+                self._buffer_started_at = asyncio.get_running_loop().time()
+            self._buffer += content
+            should_flush = len(self._buffer) >= CHUNK_BATCH_MAX_CHARS
+
+        if should_flush:
+            await self.flush(force=True)
+
+    async def flush_if_due(self) -> None:
+        """Flush buffered content once the time threshold has elapsed."""
+        async with self._lock:
+            if not self._buffer or self._buffer_started_at is None:
+                return
+            if asyncio.get_running_loop().time() - self._buffer_started_at < CHUNK_BATCH_FLUSH_INTERVAL_SECONDS:
+                return
+
+        await self.flush(force=True)
+
+    async def flush(self, force: bool = False) -> None:
+        """Flush the current buffer to all active websockets."""
+        async with self._lock:
+            if not self._buffer:
+                return
+            if not force and len(self._buffer) < CHUNK_BATCH_MAX_CHARS:
+                return
+            content = self._buffer
+            self._buffer = ""
+            self._buffer_started_at = None
+
+        payload = dict(self._extra_payload)
+        payload[self._payload_key] = content
+
+        await _broadcast_json(
+            {
+                "type": self._message_type,
+                "payload": payload,
+            },
+            phase=f"batch:{self._message_type}",
+            debug_stats=self._debug_stats,
+        )
+
+
 async def _send_json(
     websocket: WebSocket,
     message: dict[str, object],
@@ -304,15 +367,52 @@ async def _send_json(
     phase: str | None = None,
     debug_stats: _WebSocketDebugStats | None = None,
     send_lock: asyncio.Lock | None = None,
-) -> None:
-    """Send a websocket JSON message with optional debug instrumentation."""
+) -> bool:
+    """Send a websocket JSON message with optional debug instrumentation.
+
+    Returns True if sent successfully, False if client disconnected.
+    """
     if debug_stats is not None:
         debug_stats.record_outgoing(message, phase=phase)
-    if send_lock is None:
-        await websocket.send_json(message)
+    try:
+        if send_lock is None:
+            await websocket.send_json(message)
+        else:
+            async with send_lock:
+                await websocket.send_json(message)
+        return True
+    except WebSocketDisconnect:
+        # Client disconnected - don't raise, just return False
+        # This allows background tasks to continue without crashing
+        return False
+
+
+async def _broadcast_json(
+    message: dict[str, object],
+    *,
+    phase: str | None = None,
+    debug_stats: _WebSocketDebugStats | None = None,
+) -> None:
+    """Broadcast a message to all active WebSocket connections.
+
+    Used for streaming chunks so new clients can receive ongoing streams.
+    """
+    if not _active_connections:
         return
-    async with send_lock:
-        await websocket.send_json(message)
+
+    # Send to all active connections
+    disconnected: list[WebSocket] = []
+    for ws in list(_active_connections):
+        try:
+            await ws.send_json(message)
+        except WebSocketDisconnect:
+            disconnected.append(ws)
+        except Exception:
+            disconnected.append(ws)
+
+    # Clean up disconnected clients
+    for ws in disconnected:
+        _active_connections.discard(ws)
 
 
 async def _send_daemon_status(
@@ -419,6 +519,7 @@ def _serialize_session_messages(session: object) -> list[dict[str, object]]:
     messages = getattr(session, "messages", [])
     if not isinstance(messages, (list, tuple)):
         return []
+
     return [_serialize_message(message) for message in messages]
 
 
@@ -825,21 +926,18 @@ async def _handle_chat_message(
         full_content = ""
         full_reasoning = ""
         in_reasoning = False
-        content_batcher = _ChunkBatcher(
-            websocket,
+        # Use broadcast batchers so new clients can receive ongoing streams
+        content_batcher = _BroadcastChunkBatcher(
             "chat.chunk",
             "content",
             {"messageId": message_id},
             debug_stats=debug_stats,
-            send_lock=connection_state.send_lock,
         )
-        reasoning_batcher = _ChunkBatcher(
-            websocket,
+        reasoning_batcher = _BroadcastChunkBatcher(
             "reasoning.chunk",
             "content",
             {"messageId": message_id},
             debug_stats=debug_stats,
-            send_lock=connection_state.send_lock,
         )
         stop_flush_loop = asyncio.Event()
 
@@ -959,7 +1057,10 @@ async def _handle_chat_message(
         raise
     except WebSocketDisconnect:
         turn_phase = "chat.disconnect"
-        raise
+        # Client disconnected but we DON'T stop the stream
+        # The stream continues in background and broadcasts to any new connections
+        # Just swallow the exception and continue streaming
+        pass
     except Exception as exc:
         turn_phase = "chat.error"
         with suppress(Exception):
@@ -1705,8 +1806,15 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     connection_debug_stats.summary(),
                 )
         finally:
+            # Don't cancel active chat task on disconnect - let it complete in background
+            # The task will handle WebSocket errors gracefully and finish streaming to session
             active_chat_task = connection_state.active_chat_task
-            if active_chat_task is not None and not active_chat_task.done():
+            # Only cancel if explicitly requested (user clicked stop), not on disconnect
+            if (
+                active_chat_task is not None
+                and not active_chat_task.done()
+                and connection_state.cancel_requested_message_id is not None
+            ):
                 active_chat_task.cancel()
                 with suppress(asyncio.CancelledError, WebSocketDisconnect):
                     await active_chat_task

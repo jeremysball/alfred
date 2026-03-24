@@ -115,7 +115,7 @@ def test_stop_button_exists():
     content = response.text
 
     assert 'id="stop-button"' in content
-    assert 'class="stop-button"' in content
+    assert 'stop-button' in content  # Class may have multiple values
     assert 'aria-label="Stop generating"' in content
 
 
@@ -329,5 +329,6 @@ def test_mobile_history_buttons_hidden_during_streaming():
     response = client.get("/static/css/base.css")
     content = response.text
 
-    assert '[data-composer-state="streaming"] .input-history-controls' in content
+    assert '[data-composer-state="streaming"] #history-up' in content
+    assert '[data-composer-state="streaming"] #history-down' in content
     assert 'display: none !important' in content

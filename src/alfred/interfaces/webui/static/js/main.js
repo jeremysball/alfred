@@ -23,6 +23,17 @@ function initAlfredUI() {
   const inputArea = document.getElementById('input-area');
 
   const completionMenu = document.getElementById('completion-menu');
+
+  // Reset composer state on load to prevent stale streaming UI
+  if (inputArea) {
+    inputArea.dataset.composerState = 'idle';
+  }
+  if (stopButton) {
+    stopButton.hidden = true;
+    stopButton.disabled = false;
+    stopButton.style.opacity = '';
+  }
+
   const kidcoreAudioControls = document.querySelector('.kidcore-audio-controls');
   const kidcoreAudioManager = window.kidcoreAudioManager ?? null;
   const kidcoreMusicPlayButton = document.getElementById('kidcore-music-play');
@@ -895,23 +906,30 @@ function initAlfredUI() {
 
   wsClient.addEventListener('disconnected', () => {
     updateConnectionStatus('disconnected');
-    // Clean up streaming state to prevent ghost messages on reconnect
-    if (composerState === 'streaming' || composerState === 'cancelling') {
-      // Remove partial assistant message since we can't recover the stream
+    // Always clean up on disconnect to ensure consistent state
+    // Remove partial assistant message since we can't recover the stream
+    if (currentAssistantMessage) {
       clearCurrentAssistantMessage({ remove: true });
-      // Reset composer state to idle
-      setComposerState('idle');
-      // Reset stop button
-      if (stopButton) {
-        stopButton.hidden = true;
-        stopButton.disabled = false;
-        stopButton.style.opacity = '';
-      }
-      // Clear any queued messages since we can't send them
-      messageQueue.length = 0;
-      updateQueueBadge();
-      // Refresh editable state
-      refreshEditableMessageState();
+    }
+    // Reset composer state to idle
+    setComposerState('idle');
+    // Reset stop button
+    if (stopButton) {
+      stopButton.hidden = true;
+      stopButton.disabled = false;
+      stopButton.style.opacity = '';
+    }
+    // Clear any queued messages since we can't send them
+    messageQueue.length = 0;
+    updateQueueBadge();
+    // Refresh editable state
+    refreshEditableMessageState();
+    // Ensure input is enabled
+    if (messageInput) {
+      messageInput.disabled = false;
+    }
+    if (sendButton) {
+      sendButton.disabled = false;
     }
   });
 
@@ -1272,6 +1290,7 @@ function initAlfredUI() {
       emitMessage: handleWebSocketMessage,
       syncKidcoreAudioControls,
       getCurrentAssistantMessage: () => currentAssistantMessage,
+      setCurrentAssistantMessage: (msg) => { currentAssistantMessage = msg; },
       getCurrentAssistantMessageState: () => currentAssistantMessage?.getMessageState?.() || currentAssistantMessage?.getAttribute('data-message-state') || null,
       getComposerState: () => composerState,
       getEditingMessageId: () => editingMessageElement?.getAttribute('message-id') || null,
@@ -1299,8 +1318,10 @@ function initAlfredUI() {
     pendingChatSendRequest = null;
     clearComposerEditState();
     reconcileSessionLoaded(payload);
+
     showSystemMessage(`Session resumed: ${payload.sessionId}`);
     addCopyButtons();
+    // Ensure clean UI state after loading session
     if (currentAssistantMessage?.classList.contains('streaming')) {
       disableInput();
     } else {
@@ -1964,74 +1985,146 @@ function initAlfredUI() {
     completionMenu.hide();
   });
 
-  // Mobile Chrome Collapse/Restore
-  // Scroll down to collapse header and composer, scroll up or focus to restore
-  let lastScrollTop = 0;
-  let scrollThreshold = 50;
-  let isHeaderCompact = false;
+  // Mobile Chrome Hide/Show
+  // Only header hides on scroll - footer (composer) stays visible
   const MOBILE_BREAKPOINT = 768;
+  let isHeaderHidden = false;
+  let lastScrollTop = chatContainer?.scrollTop || 0;
+  let scrollDirection = 'none';
+  let scrollDistance = 0;
+  let scrollTimeout = null;
+
+  // Guard states for top/bottom bounce handling
+  let hasTopLeft = false;     // Must scroll down from top before header can hide
+  let hasBottomLeft = false;  // Must scroll up from bottom before header can show (when hidden)
+
+  function getScrollInfo() {
+    const scrollTop = chatContainer.scrollTop;
+    const scrollHeight = chatContainer.scrollHeight;
+    const clientHeight = chatContainer.clientHeight;
+    const maxScroll = Math.max(0, scrollHeight - clientHeight);
+    const distanceFromBottom = maxScroll - scrollTop;
+    // Dynamic thresholds based on viewport size
+    const minThreshold = Math.min(30, clientHeight * 0.05); // At least 5% of viewport or 30px
+    const hideThreshold = Math.max(minThreshold, clientHeight * 0.08); // 8% to hide
+    const showThreshold = Math.max(minThreshold * 0.5, clientHeight * 0.04); // 4% to show
+    const edgeTolerance = Math.min(80, clientHeight * 0.12); // 12% tolerance for top/bottom
+    return { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance, clientHeight };
+  }
 
   function handleScroll() {
     // Only apply on mobile
     if (window.innerWidth > MOBILE_BREAKPOINT) {
-      if (isHeaderCompact) {
-        restoreChrome();
+      if (isHeaderHidden) {
+        showHeader();
       }
       return;
     }
 
-    const scrollTop = chatContainer.scrollTop;
-    const scrollDelta = scrollTop - lastScrollTop;
+    const { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance } = getScrollInfo();
 
-    // Scrolling down past threshold - collapse
-    if (scrollDelta > scrollThreshold && !isHeaderCompact) {
-      collapseChrome();
+    // If chat area is too small to scroll meaningfully, don't hide header
+    if (maxScroll < hideThreshold) {
+      if (isHeaderHidden) {
+        showHeader();
+      }
+      return;
     }
 
-    // Scrolling up - restore
-    if (scrollDelta < -10 && isHeaderCompact) {
-      restoreChrome();
-    }
-
+    const delta = scrollTop - lastScrollTop;
     lastScrollTop = scrollTop;
+
+    // Update guard states based on position
+    // At top: reset hasTopLeft, allow hasBottomLeft
+    if (scrollTop <= edgeTolerance) {
+      hasTopLeft = false;
+      hasBottomLeft = true; // Can always show header when near top
+    }
+    // Past top tolerance: can now hide header
+    else if (scrollTop > edgeTolerance) {
+      hasTopLeft = true;
+    }
+
+    // At bottom: reset hasBottomLeft, keep hasTopLeft
+    if (distanceFromBottom <= edgeTolerance) {
+      hasBottomLeft = false;
+      hasTopLeft = true; // Can always hide header when past top
+    }
+    // Past bottom tolerance: can now show header (if it was hidden)
+    else if (distanceFromBottom > edgeTolerance) {
+      hasBottomLeft = true;
+    }
+
+    // Clear any pending timeout
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+
+    // Detect direction
+    const newDirection = delta > 0 ? 'down' : 'up';
+
+    // Reset distance on direction change
+    if (newDirection !== scrollDirection) {
+      scrollDirection = newDirection;
+      scrollDistance = 0;
+    }
+
+    // Accumulate distance in current direction
+    scrollDistance += Math.abs(delta);
+
+    // Handle scroll down - hide header after threshold (only if we've left the top)
+    if (scrollDirection === 'down' && !isHeaderHidden && hasTopLeft) {
+      if (scrollDistance > hideThreshold) {
+        hideHeader();
+        scrollDistance = 0;
+      }
+    }
+
+    // Handle scroll up - show header after threshold (only if we've left the bottom)
+    if (scrollDirection === 'up' && isHeaderHidden && hasBottomLeft) {
+      if (scrollDistance > showThreshold) {
+        showHeader();
+        scrollDistance = 0;
+      }
+    }
+
+    // Reset scroll tracking after inactivity
+    scrollTimeout = setTimeout(() => {
+      scrollDirection = 'none';
+      scrollDistance = 0;
+    }, 200);
   }
 
-  function collapseChrome() {
+  function hideHeader() {
     const header = document.querySelector('.app-header');
     if (header) {
-      header.classList.add('compact');
+      header.classList.add('hidden');
     }
-    if (inputArea) {
-      inputArea.classList.add('compact');
-    }
-    isHeaderCompact = true;
+    isHeaderHidden = true;
   }
 
-  function restoreChrome() {
+  function showHeader() {
     const header = document.querySelector('.app-header');
     if (header) {
-      header.classList.remove('compact');
+      header.classList.remove('hidden');
     }
-    if (inputArea) {
-      inputArea.classList.remove('compact');
-    }
-    isHeaderCompact = false;
+    isHeaderHidden = false;
   }
 
   // Attach scroll listener
   chatContainer.addEventListener('scroll', handleScroll, { passive: true });
 
-  // Restore chrome when focusing the composer
+  // Restore header when focusing the composer
   messageInput.addEventListener('focus', () => {
-    if (isHeaderCompact && window.innerWidth <= MOBILE_BREAKPOINT) {
-      restoreChrome();
+    if (isHeaderHidden && window.innerWidth <= MOBILE_BREAKPOINT) {
+      showHeader();
     }
   });
 
-  // Handle window resize to reset compact state on desktop
+  // Handle window resize to reset hidden state on desktop
   window.addEventListener('resize', () => {
-    if (window.innerWidth > MOBILE_BREAKPOINT && isHeaderCompact) {
-      restoreChrome();
+    if (window.innerWidth > MOBILE_BREAKPOINT && isHeaderHidden) {
+      showHeader();
     }
     scrollToBottom();
   });
