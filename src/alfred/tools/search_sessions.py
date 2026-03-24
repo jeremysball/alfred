@@ -40,6 +40,14 @@ class SearchSessionsToolParams(BaseModel):
     query: str = Field("", description="Search query to find relevant sessions")
     top_k: int = Field(3, description="Maximum number of sessions to search")
     messages_per_session: int = Field(3, description="Maximum messages to return per session")
+    after: str | None = Field(
+        None,
+        description="Filter sessions after this date/time (ISO 8601 format)"
+    )
+    before: str | None = Field(
+        None,
+        description="Filter sessions before this date/time (ISO 8601 format)"
+    )
 
 
 class SessionSummarizer:
@@ -183,27 +191,31 @@ class SearchSessionsTool(Tool):
         self.min_similarity = min_similarity
         self.summarizer = summarizer
 
-    async def _find_relevant_sessions(self, query: str, top_k: int = 3) -> list[dict[str, Any]]:
+    async def _find_relevant_sessions(
+        self,
+        query_embedding: list[float],
+        top_k: int = 3,
+        after: datetime | None = None,
+        before: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """Stage 1: Find relevant sessions via summary search.
 
         Args:
-            query: Search query
+            query_embedding: Pre-computed query embedding vector
             top_k: Maximum sessions to return
+            after: Only return sessions created after this datetime
+            before: Only return sessions created before this datetime
 
         Returns:
             List of {summary_id, session_id, summary_text, similarity}
         """
-        if not self.embedder:
-            raise RuntimeError("Embedder not configured")
-
         if not self.summarizer or not self.summarizer.store:
             raise RuntimeError("SQLiteStore not configured for search")
 
-        # Embed query
-        query_embedding = await self.embedder.embed(query)
-
-        # Search summaries
-        return await self.summarizer.store.search_summaries(query_embedding, top_k)
+        # Search summaries with optional date filtering
+        return await self.summarizer.store.search_summaries(
+            query_embedding, top_k, after=after, before=before
+        )
 
     async def _search_session_messages(self, session_id: str, query_embedding: list[float], top_k: int = 3) -> list[dict[str, Any]]:
         """Stage 2: Search messages within a session.
@@ -226,6 +238,8 @@ class SearchSessionsTool(Tool):
         query = kwargs.get("query", "")
         top_k = kwargs.get("top_k", 3)
         messages_per_session = kwargs.get("messages_per_session", 3)
+        after_str = kwargs.get("after")
+        before_str = kwargs.get("before")
 
         if not query:
             yield "Error: Please provide a search query"
@@ -239,10 +253,30 @@ class SearchSessionsTool(Tool):
             yield "Error: Session search not configured"
             return
 
+        # Parse date filters
+        after: datetime | None = None
+        before: datetime | None = None
+
+        if after_str:
+            try:
+                after = datetime.fromisoformat(after_str.replace("Z", "+00:00"))
+            except ValueError as e:
+                yield f"Error: Invalid 'after' date format. Use ISO 8601 (e.g., '2024-01-01' or '2024-01-01T10:00:00'): {e}"
+                return
+
+        if before_str:
+            try:
+                before = datetime.fromisoformat(before_str.replace("Z", "+00:00"))
+            except ValueError as e:
+                yield f"Error: Invalid 'before' date format. Use ISO 8601 (e.g., '2024-12-31' or '2024-12-31T23:59:59'): {e}"
+                return
+
         try:
             # Stage 1: Find relevant sessions via summary search
             query_embedding = await self.embedder.embed(query)
-            relevant_summaries = await self.summarizer.store.search_summaries(query_embedding, top_k)
+            relevant_summaries = await self._find_relevant_sessions(
+                query_embedding, top_k, after=after, before=before
+            )
 
             if not relevant_summaries:
                 yield "No relevant sessions found."

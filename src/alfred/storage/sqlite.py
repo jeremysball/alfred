@@ -1572,6 +1572,8 @@ class SQLiteStore:
         self,
         query_embedding: list[float],
         top_k: int = 3,
+        after: datetime | None = None,
+        before: datetime | None = None,
     ) -> list[dict[str, Any]]:
         """Search session summaries by vector similarity.
 
@@ -1580,6 +1582,8 @@ class SQLiteStore:
         Args:
             query_embedding: Query vector
             top_k: Maximum results to return
+            after: Only return sessions created after this datetime
+            before: Only return sessions created before this datetime
 
         Returns:
             List of {summary_id, session_id, summary_text, similarity}
@@ -1635,9 +1639,24 @@ class SQLiteStore:
             # Raw backend distance is converted to similarity before returning.
             # Note: sqlite-vec requires k constraint for KNN queries.
             results = []
+
+            # Build query with optional date filtering
+            # Note: sqlite-vec MATCH must be in WHERE, additional filters use AND
+            where_clauses = ["v.embedding MATCH ? AND k = ?"]
+            query_params: list[Any] = [json.dumps(query_embedding), top_k]
+
+            if after is not None:
+                where_clauses.append("s.created_at >= ?")
+                query_params.append(after.isoformat())
+            if before is not None:
+                where_clauses.append("s.created_at <= ?")
+                query_params.append(before.isoformat())
+
+            where_sql = " AND ".join(where_clauses)
+
             try:
                 async with db.execute(
-                    """
+                    f"""
                     SELECT
                         s.summary_id,
                         s.session_id,
@@ -1645,10 +1664,10 @@ class SQLiteStore:
                         v.distance as distance
                     FROM session_summaries_vec v
                     JOIN session_summaries s ON v.summary_id = s.summary_id
-                    WHERE v.embedding MATCH ? AND k = ?
+                    WHERE {where_sql}
                     ORDER BY v.distance
                     """,
-                    (json.dumps(query_embedding), top_k),
+                    tuple(query_params),
                 ) as cursor:
                     async for row in cursor:
                         results.append(
