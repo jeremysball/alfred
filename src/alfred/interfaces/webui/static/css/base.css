@@ -1813,13 +1813,4 @@ status-bar {
     }
 }
 
-/* Desktop: disable compact mode */
-@media (min-width: 769px) {
-    .app-header.compact {
-        padding: 1rem 1.5rem;
-    }
 
-    .input-area.compact {
-        padding: 1rem 1.5rem;
-    }
-}

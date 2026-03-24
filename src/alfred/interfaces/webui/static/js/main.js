@@ -1997,6 +1997,7 @@ function initAlfredUI() {
   // Guard states for top/bottom bounce handling
   let hasTopLeft = false;     // Must scroll down from top before header can hide
   let hasBottomLeft = false;  // Must scroll up from bottom before header can show (when hidden)
+  let scrollHandlerInitialized = false;  // First scroll event just initializes state
 
   function getScrollInfo() {
     const scrollTop = chatContainer.scrollTop;
@@ -2022,6 +2023,13 @@ function initAlfredUI() {
     }
 
     const { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance } = getScrollInfo();
+    
+    // Always reset lastScrollTop on first real scroll to prevent jumpiness
+    if (!scrollHandlerInitialized) {
+      lastScrollTop = scrollTop;
+      scrollHandlerInitialized = true;
+      return;
+    }
 
     // If chat area is too small to scroll meaningfully, don't hide header
     if (maxScroll < hideThreshold) {
