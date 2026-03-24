@@ -6,13 +6,14 @@ import asyncio
 import socket
 import time
 import urllib.request
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from threading import Thread
-from typing import AsyncIterator, cast
+from typing import cast
 
 import pytest
 import uvicorn
-from playwright.async_api import Browser, Page, Playwright, async_playwright
+from playwright.async_api import Page, async_playwright
 
 from alfred.interfaces.webui.server import create_app
 from tests.webui.fakes import FakeAlfred, make_session
@@ -61,7 +62,7 @@ async def websocket_server() -> AsyncIterator[WebSocketServer]:
     )
 
     config = uvicorn.Config(
-        create_app(alfred_instance=fake_alfred),
+        create_app(alfred_instance=fake_alfred),  # type: ignore[arg-type]
         host="127.0.0.1",
         port=port,
         log_level="warning",
