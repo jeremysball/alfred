@@ -229,14 +229,24 @@ Completed 2026-03-24:
 - Created comprehensive browser tests in `tests/webui/test_streaming_cancel.py`
 - Updated unit tests in `tests/webui/test_input.py` for stop button contract
 
-### Milestone 5: Add last-user-message editing
+### Milestone 5: Add last-user-message editing ✅
 Add the pencil action, prefill the composer, truncate the following assistant response, and continue from the edited text.
 
 Validation:
-- The pencil is visible only on the last completed user turn.
-- Editing updates the stored user message.
-- The following assistant message is removed.
-- The new assistant response starts from the edited text.
+- [x] The pencil is visible only on the last completed user turn.
+- [x] Editing updates the stored user message.
+- [x] The following assistant message is removed.
+- [x] The new assistant response starts from the edited text.
+
+Completed 2026-03-24:
+- Pencil button already existed in `chat-message.js` (shown when `editable` attribute set)
+- Added visual highlight for message being edited (blue border/shadow in base.css)
+- Updated composer placeholder to "Editing message... (Esc to cancel)" when in edit mode
+- Added Esc key handler to cancel edit mode and return to idle
+- Edit event dispatched with `messageId` and `content` to parent
+- `startComposerEdit()` prefills composer and sets `data-composer-state="editing"`
+- Created comprehensive tests in `tests/webui/test_streaming_edit.py`
+- Added 9 unit tests for pencil button, edit mode, and Esc cancel
 
 ### Milestone 6: Add mobile streaming controls and smaller chrome
 Swap mobile history arrows for a square stop button while streaming, and make the mobile header/composer collapse into a smaller chrome state as the user scrolls.
@@ -323,3 +333,4 @@ It also adds the last-message edit flow and the markdown containment fix that we
 | 2026-03-24 | The browser contract uses `data-composer-state` on `#input-area`, `data-message-state` / `editable` on `chat-message`, and client-generated user message IDs for edits | A DOM-driven surface keeps streaming/editing state observable without a heavier store, and a local message ID is sufficient because `chat.edit` only requires a non-empty `messageId`. | Enables Playwright coverage for idle/streaming/editing, cancel, queue, and edit actions against the real DOM. | Implementation |
 | 2026-03-24 | Markdown list containment now lives in shared base CSS rules for `.message-content ul`, `ol`, and `li` | Theme-specific overrides were not the right place for layout containment; shared rules keep list markers and nested list items inside bubbles on every theme and viewport. | Locks in the bubble containment fix and supports the browser regression that checks mobile and desktop overflow. | Implementation |
 | 2026-03-24 | Stop button uses text label "Stop" (not icon) and appears during streaming state; Esc key triggers cancel; button shows "Stopping..." while cancelling | Text labels are clearer than icons for this action; Esc matches ChatGPT/Claude conventions; disabling button during cancelling prevents double-submit. | Provides clear cancel affordance in both desktop (Esc) and mobile (button) contexts. | Implementation |
+| 2026-03-24 | Message editing uses existing `editable` attribute on `chat-message`; visual highlight via `data-message-state="editing"`; Esc cancels edit mode | The pencil infrastructure was already in place in `chat-message.js`; adding visual feedback and Esc-to-cancel completes the UX. | Reuses existing patterns (DOM attributes, state machine) and provides clear edit/cancel affordances. | Implementation |
