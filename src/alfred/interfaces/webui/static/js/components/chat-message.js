@@ -45,27 +45,98 @@ class ChatMessage extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return;
-    
+
     switch (name) {
       case 'role':
         this._role = newValue || 'user';
+        this._render();
         break;
       case 'content':
+        // Update content without wiping other blocks - just update the text block
         this._content = newValue || '';
+        this._textAccumulator = this._content;
+        this._updateTextBlock(this._content);
         break;
       case 'timestamp':
         this._timestamp = newValue;
+        this._renderHeader();
         break;
       case 'message-id':
         this._messageId = newValue;
         break;
       case 'editable':
         this._editable = newValue !== null && newValue !== 'false';
+        this._renderActions();
         break;
       case 'data-message-state':
         this._messageState = newValue || 'idle';
+        this._syncStateClasses();
         break;
     }
+  }
+
+  /**
+   * Update just the text content block without full re-render
+   */
+  _updateTextBlock(content) {
+    let textBlock = this._contentBlocks.find(b => b.type === 'text' && b.metadata?.isMainText);
+
+    if (!textBlock) {
+      // Create new text block if none exists
+      if (content) {
+        textBlock = {
+          type: 'text',
+          sequence: this._nextSequence(),
+          content: content,
+          metadata: { isMainText: true }
+        };
+        this._contentBlocks.push(textBlock);
+        this._renderContentBlocks();
+      }
+    } else {
+      // Update existing text block
+      textBlock.content = content;
+      // Find and update the DOM element directly for performance
+      const container = this._getContentBlocksContainer();
+      if (container) {
+        const textElement = container.querySelector('.text-block[data-sequence="' + textBlock.sequence + '"]');
+        if (textElement) {
+          if (this._role === 'assistant') {
+            textElement.innerHTML = this._renderMarkdown(content);
+            this._applySyntaxHighlighting();
+          } else {
+            textElement.textContent = content;
+          }
+        } else {
+          // Element not found, re-render all blocks
+          this._renderContentBlocks();
+        }
+      }
+    }
+  }
+
+  /**
+   * Render just the header section
+   */
+  _renderHeader() {
+    const header = this.querySelector('.message-header');
+    if (header) {
+      const avatar = this._getAvatar();
+      const displayName = this._getDisplayName();
+      const timeDisplay = this._formatTime();
+      header.innerHTML = `
+        <span class="message-avatar" aria-hidden="true">${avatar}</span>
+        <span class="message-role">${displayName}</span>
+        ${timeDisplay ? `<span class="message-time">${timeDisplay}</span>` : ''}
+      `;
+    }
+  }
+
+  /**
+   * Render just the actions section
+   */
+  _renderActions() {
+    // Actions are part of the main render, full re-render needed for now
     this._render();
   }
 

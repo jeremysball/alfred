@@ -83,13 +83,13 @@ class ToolCall extends HTMLElement {
   _getStatusIcon() {
     switch (this._status) {
       case 'running':
-        return '▶';
+        return '>';
       case 'success':
-        return '✓';
+        return 'ok';
       case 'error':
-        return '✗';
+        return 'err';
       default:
-        return '▶';
+        return '>';
     }
   }
 
