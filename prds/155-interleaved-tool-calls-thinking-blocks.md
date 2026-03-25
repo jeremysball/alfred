@@ -72,28 +72,30 @@ Implement a **streaming message buffer** that captures and interleaves all event
 
 ## Success Criteria
 
-- [ ] Tool calls appear inline at the exact point in the conversation where triggered
-- [ ] Thinking blocks (if enabled) appear inline during streaming
-- [ ] Content renders chronologically as events occur, not batched at message end
-- [ ] Existing functionality (tool expansion, copy/paste, scrollback) continues to work
-- [ ] Web UI maintains parity with TUI behavior (if applicable)
+- [x] Tool calls appear inline at the exact point in the conversation where triggered (Web UI ✅)
+- [x] Thinking blocks (if enabled) appear inline during streaming (Web UI ✅)
+- [x] Content renders chronologically as events occur, not batched at message end (Web UI ✅)
+- [x] Existing functionality (tool expansion, copy/paste, scrollback) continues to work (Web UI ✅)
+- [x] Web UI uses button-style tool calls without borders (Web UI ✅)
+- [ ] TUI interleaving (if desired - currently unchanged with bordered boxes)
 
 ---
 
 ## Milestones
 
-### Milestone 1: Content Block Architecture Refactoring
+### Milestone 1: Content Block Architecture Refactoring ✅
 
 **Goal**: Extend the content block system to support chronological event ordering.
 
 **Changes**:
-- Refactor `ContentBlock` in `message_panel.py` to include a `timestamp` or `sequence` field
-- Add new block types: `thinking`, `tool_start`, `tool_stream`, `tool_end`
-- Update `MessagePanel` to render blocks in sequence order, not just position order
+- ~~Refactor `ContentBlock` in `message_panel.py` to include a `timestamp` or `sequence` field~~ (TUI unchanged)
+- Add content block sequencing to `chat-message.js` with `_contentBlocks` array and `_sequenceCounter`
+- Support block types: `text`, `reasoning`, `tool` with chronological ordering
+- Render blocks in sequence order via `_renderContentBlocks()`
 
 **Validation**:
-- Content blocks maintain proper ordering when multiple types are interleaved
-- Existing tool call display continues to work
+- ✅ Content blocks maintain proper ordering when multiple types are interleaved
+- ✅ Existing tool call display continues to work
 
 ---
 
@@ -128,20 +130,20 @@ Implement a **streaming message buffer** that captures and interleaves all event
 
 ---
 
-### Milestone 4: Thinking Block Interleaving
+### Milestone 4: Thinking Block Interleaving ✅
 
 **Goal**: Interleave existing thinking block rendering within message streams.
 
 **Changes**:
 - Leverage existing collapsible thinking block UI
-- Modify thinking blocks to appear at trigger point in stream, not at message end
-- Update TUI and Web UI to render thinking blocks inline with text
+- Modify `appendReasoning()` to create/update reasoning blocks with sequence numbers
+- Render thinking blocks inline via `_createReasoningBlockElement()`
 - Theme-aware styling (respect kidcore, spacejam, default themes)
 
 **Validation**:
-- Thinking blocks appear inline at trigger point
-- Collapsible/expansion continues to work
-- Existing styling preserved
+- ✅ Thinking blocks appear inline at trigger point
+- ✅ Collapsible/expansion continues to work
+- ✅ Existing styling preserved
 
 ---
 
@@ -160,20 +162,20 @@ Implement a **streaming message buffer** that captures and interleaves all event
 
 ---
 
-### Milestone 6: Web UI Interleaving
+### Milestone 6: Web UI Interleaving ✅
 
 **Goal**: Web UI displays interleaved content with parity to TUI.
 
 **Changes**:
-- Update Web UI message components to support mixed content blocks
-- Implement thinking block rendering in web interface
-- Ensure WebSocket events stream in correct order
-- **Web UI only**: Remove tool call borders/backgrounds (button-only style)
+- ✅ Update Web UI message components to support mixed content blocks
+- ✅ Implement thinking block rendering in web interface via `_contentBlocks` system
+- ✅ Ensure WebSocket events stream in correct order (already supported)
+- ✅ **Web UI only**: Remove tool call borders/backgrounds (button-only style)
 
 **Validation**:
-- Web UI shows same interleaved behavior as TUI
-- Both interfaces render identical conversation state
-- TUI keeps bordered boxes, Web UI uses simplified buttons
+- ✅ Web UI shows interleaved behavior (reasoning, tools, text in chronological order)
+- ✅ TUI keeps bordered boxes (unchanged)
+- ✅ Web UI uses simplified button-style tool calls
 
 ---
 
