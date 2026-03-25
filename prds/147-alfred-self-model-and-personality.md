@@ -212,6 +212,14 @@ Document what Alfred now knows about himself and how to inspect that state.
 
 Validation: docs explain the personality shift and the self-model boundary.
 
+**Status**: ✅ Complete
+- [x] Created `docs/self-model.md` with comprehensive documentation
+- [x] Document what Alfred knows (identity, runtime, capabilities, context)
+- [x] Document `/context` command usage with example output
+- [x] Document personality traits from SOUL.md
+- [x] Document privacy & boundaries (internal-only nature)
+- [x] Add link in README.md Documentation section
+
 ---
 
 ## 6. Validation Strategy
