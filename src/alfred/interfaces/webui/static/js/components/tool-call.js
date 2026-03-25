@@ -119,7 +119,7 @@ class ToolCall extends HTMLElement {
           <span class="tool-status-icon">${statusIcon}</span>
           <span class="tool-name">${this._escapeHtml(this._toolName)}</span>
           ${argsSummary ? `<span class="tool-args">${this._escapeHtml(argsSummary)}</span>` : ''}
-          <span class="tool-toggle">${this._expanded ? '▼' : '▶'}</span>
+          <span class="tool-toggle">${this._expanded ? 'v' : '>'}</span>
         </button>
         <div class="tool-content" style="display: ${this._expanded ? 'block' : 'none'}">
           <div class="tool-arguments">
