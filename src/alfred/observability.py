@@ -109,6 +109,10 @@ class SurfaceFormatter(logging.Formatter):
             surface,
             color=self.kind == "console" and self._stream_is_tty(),
         )
+        # Truncate giant messages (e.g., embeddings) to prevent log spam
+        MAX_MSG_LEN = 500
+        if len(record.msg) > MAX_MSG_LEN:
+            record.msg = record.msg[:MAX_MSG_LEN] + f"...({len(record.msg) - MAX_MSG_LEN} chars truncated)"
         return super().format(record)
 
     def _stream_is_tty(self) -> bool:
