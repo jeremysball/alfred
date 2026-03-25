@@ -67,7 +67,7 @@ async def test_sqlite_store_logs_search_and_persistence_boundaries(
             metadata={"source": "observability-test"},
         )
         await sqlite_store.save_summary(summary)
-        await _seed_summary_vector(sqlite_store, summary_id, summary_embedding)
+        # Note: save_summary now handles vec table insertion automatically
         summary_results = await sqlite_store.search_summaries(summary_embedding, top_k=1)
         message_results = await sqlite_store.search_session_messages(
             session_id,

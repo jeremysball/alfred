@@ -157,6 +157,11 @@ class FakeCore:
 
     session_manager: WebUISessionManager
 
+    @property
+    def summarizer(self) -> Any | None:
+        """Return None for tests that don't need summarizer."""
+        return None
+
 
 class FakeSessionManager:
     """Session manager fake for Web UI tests."""
@@ -251,6 +256,40 @@ class FakeSessionManager:
             metas.append(session.meta)
         return metas
 
+    def _find_message_index(self, session: Session, message_id: str) -> int:
+        for index, message in enumerate(session.messages):
+            if message.id == message_id:
+                return index
+        raise ValueError(f"Message {message_id} not found")
+
+    async def truncate_after_message_async(self, message_id: str, session_id: str | None = None) -> Session:
+        session = self._current_session() if session_id is None else self._sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session {session_id or self._current_session_id} not found")
+
+        message_index = self._find_message_index(session, message_id)
+        del session.messages[message_index + 1 :]
+        session.meta.message_count = len(session.messages)
+        session.meta.last_active = datetime.now(UTC)
+        return session
+
+    async def replace_message_and_truncate_after_async(
+        self,
+        message_id: str,
+        content: str,
+        session_id: str | None = None,
+    ) -> Session:
+        session = self._current_session() if session_id is None else self._sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session {session_id or self._current_session_id} not found")
+
+        message_index = self._find_message_index(session, message_id)
+        session.messages[message_index].content = content
+        del session.messages[message_index + 1 :]
+        session.meta.message_count = len(session.messages)
+        session.meta.last_active = datetime.now(UTC)
+        return session
+
 
 class FakeAlfred:
     """Top-level Alfred fake for Web UI tests."""
@@ -289,6 +328,7 @@ class FakeAlfred:
         session_id: str | None = None,
         persist_partial: bool = False,
         assistant_message_id: str | None = None,
+        reuse_user_message: bool = False,
     ):
         """Yield the configured stream and emit configured tool events in order."""
 
@@ -304,8 +344,8 @@ class FakeAlfred:
 
         assistant_msg = None
         if persist_partial:
-            user_message = make_message("user", message, idx=len(session.messages), id=f"user-{len(session.messages)}")
-            session.messages.append(user_message)
+            if not (reuse_user_message and session.messages and session.messages[-1].role is Role.USER):
+                session.messages.append(make_message("user", message, idx=len(session.messages), id=f"user-{len(session.messages)}"))
             assistant_msg = make_message(
                 "assistant",
                 "",

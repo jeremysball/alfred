@@ -165,7 +165,13 @@ def _render_field_value(value: object) -> str:
         if value == "" or any(ch.isspace() for ch in value) or "=" in value or '"' in value:
             return json.dumps(value, ensure_ascii=False)
         return value
-    if isinstance(value, (list, tuple, dict)):
+    if isinstance(value, (list, tuple)):
+        # Truncate long lists (e.g., embeddings) to prevent console spam
+        if len(value) > 20:
+            truncated = list(value[:10]) + [f"...({len(value) - 20} items)..."] + list(value[-10:])
+            return json.dumps(truncated, ensure_ascii=False, separators=(",", ":"), default=str)
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
+    if isinstance(value, dict):
         return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
 
     rendered = str(value)

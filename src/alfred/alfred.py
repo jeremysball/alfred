@@ -277,6 +277,7 @@ class Alfred:
         session_id: str | None = None,
         persist_partial: bool = False,
         assistant_message_id: str | None = None,
+        reuse_user_message: bool = False,
     ) -> AsyncIterator[str]:
         """Process a message with streaming.
 
@@ -314,13 +315,6 @@ class Alfred:
                     logger.debug("Starting new session...")
                     self.core.session_manager.start_session()
 
-            # Add user message to session and get its index
-            self.core.session_manager.add_message("user", message, session_id=session_id)
-            messages_list = self.core.session_manager.get_session_messages(session_id)
-            user_msg_idx = messages_list[-1].idx if messages_list else 0
-            msg_count = len(messages_list)
-            logger.debug(f"Added user message. Session now has {msg_count} messages")
-
             session: Session
             if session_id:
                 session = self.core.session_manager.get_or_create_session(session_id)
@@ -329,6 +323,26 @@ class Alfred:
                 if maybe_session is None:
                     raise RuntimeError("No active session")
                 session = maybe_session
+
+            messages_list = self.core.session_manager.get_session_messages(session_id)
+            if reuse_user_message and messages_list:
+                last_message = messages_list[-1]
+                if last_message.role is Role.USER:
+                    user_msg_idx = last_message.idx
+                    msg_count = len(messages_list)
+                    logger.debug(f"Reusing user message. Session has {msg_count} messages")
+                else:
+                    self.core.session_manager.add_message("user", message, session_id=session_id)
+                    messages_list = self.core.session_manager.get_session_messages(session_id)
+                    user_msg_idx = messages_list[-1].idx if messages_list else 0
+                    msg_count = len(messages_list)
+                    logger.debug(f"Added user message. Session now has {msg_count} messages")
+            else:
+                self.core.session_manager.add_message("user", message, session_id=session_id)
+                messages_list = self.core.session_manager.get_session_messages(session_id)
+                user_msg_idx = messages_list[-1].idx if messages_list else 0
+                msg_count = len(messages_list)
+                logger.debug(f"Added user message. Session now has {msg_count} messages")
 
             assistant_msg_obj: Message | None = None
 

@@ -97,17 +97,22 @@ class SessionManagerFactory:
     """Factory for creating SessionManager instances."""
 
     @staticmethod
-    def create(store: SQLiteStore, data_dir: Path) -> SessionManager:
+    def create(
+        store: SQLiteStore,
+        data_dir: Path,
+        embedder: EmbeddingProvider | None = None,
+    ) -> SessionManager:
         """Create SessionManager from store and config.
 
         Args:
             store: SQLiteStore for persistence
             data_dir: Data directory for current.json
+            embedder: Optional embedding provider for generating message embeddings
 
         Returns:
             Configured SessionManager instance
         """
-        return SessionManager(store=store, data_dir=data_dir)
+        return SessionManager(store=store, data_dir=data_dir, embedder=embedder)
 
     @classmethod
     def create_from_config(cls, config: Config, embedder: EmbeddingProvider | None = None) -> SessionManager:
@@ -115,13 +120,13 @@ class SessionManagerFactory:
 
         Args:
             config: Application configuration
-            embedder: Optional embedding provider for dimension detection
+            embedder: Optional embedding provider for dimension detection and message embedding
 
         Returns:
             Configured SessionManager instance
         """
         store = SQLiteStoreFactory.create(config, embedder=embedder)
-        return cls.create(store=store, data_dir=config.data_dir)
+        return cls.create(store=store, data_dir=config.data_dir, embedder=embedder)
 
 
 class SessionSummarizerFactory:

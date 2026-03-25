@@ -250,6 +250,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 132 | Dynamic Embedding Dimension Support | Auto-detect and re-embed when switching models (BGE↔OpenAI) (PRD #132) |
 | 135 | Persistent Memory Context | Keep memories loaded across turns with LRU eviction when limits reached (PRD #135) |
 | 140 | PyPiTUI v2 Adoption + Alfred Runtime Rewrite | Make PyPiTUI usable as a real runtime dependency and rewrite Alfred to consume it directly end-to-end (PRD #140) |
+| 151 | Web UI Compose, Cancel, and Edit While Streaming | Add cancel/edit streaming UX in the Web UI (PRD #151) |
 
 ### Medium-term 📅
 
@@ -276,11 +277,11 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 ## Development TODOs
 
 ### UI/UX Improvements
-- [ ] **Add Shift+Enter to queue message** - Allow queuing messages while LLM is running
-- [ ] **Normal Enter is steering mode** - Interject with it instead of waiting for completion
+- [x] **Add Shift+Enter to queue message** - Allow queuing messages while LLM is running (implemented in PRD #151)
+- [x] **Normal Enter is steering mode** - Interject with it instead of waiting for completion (implemented in PRD #151)
 - [ ] **Add background color to tool call output** - Better visual distinction for tool calls
 - [x] **Keybind to toggle tool call output** - Ctrl-T expands all tool calls to show full output (PRD #131)
-- [ ] **Create PRD for ESC keybinding** - Add keyboard shortcut to cancel the current LLM call
+- [x] **Create PRD for ESC keybinding** - Superseded by PRD #151, which implements Esc cancel behavior
 
 ### Reasoning & Agent Behavior
 - [ ] **Remove max iterations limit** - Agent should run until completion or user cancellation

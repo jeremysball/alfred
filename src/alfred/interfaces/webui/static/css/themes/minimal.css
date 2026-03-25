@@ -332,6 +332,17 @@
   --tool-error-text: #ffffff;
 }
 
+[data-theme="minimal"] .tool-arguments pre,
+[data-theme="minimal"] .tool-output pre {
+  background: var(--min-bg-tertiary);
+  color: var(--min-text-primary);
+}
+
+[data-theme="minimal"] .tool-arguments code,
+[data-theme="minimal"] .tool-output code {
+  color: var(--min-text-primary);
+}
+
 
 
 /* Settings Menu - CSS Variables */

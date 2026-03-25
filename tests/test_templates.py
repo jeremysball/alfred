@@ -133,6 +133,14 @@ class TestVariableSubstitution:
         result = manager.substitute_variables(content, {"name": "Alice", "place": "Wonderland"})
         assert result == "Hello Alice, welcome to Wonderland"
 
+    def test_substitute_preserves_current_time_placeholder(self, tmp_path: Path) -> None:
+        """Keep runtime current_time placeholders intact for later resolution."""
+        manager = TemplateManager(tmp_path)
+        content = "Date: {current_date}, Current local time: {current_time:*}"
+        result = manager.substitute_variables(content)
+        assert "{current_date}" not in result
+        assert "{current_time:*}" in result
+
     def test_substitute_missing_variable_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Missing variables log warning and leave placeholder."""
         manager = TemplateManager(tmp_path)
@@ -582,6 +590,7 @@ class TestTemplateContentValidation:
         assert "Memories (remember tool)" in content
         assert "Session Archive (search_sessions)" in content
         assert "Decision Framework" in content
+        assert "{current_time:*}" in content
 
     def test_system_md_is_valid(self, tmp_path: Path) -> None:
         """SYSTEM.md exists and has valid structure."""

@@ -6,7 +6,7 @@ These types define the small Alfred surface the Web UI server depends on.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from alfred.agent import ToolEvent
 from alfred.session import Session, SessionMeta
@@ -34,6 +34,9 @@ class WebUICore(Protocol):
 
     session_manager: WebUISessionManager
 
+    @property
+    def summarizer(self) -> Any | None: ...
+
 
 @runtime_checkable
 class WebUIAlfred(Protocol):
@@ -52,6 +55,7 @@ class WebUIAlfred(Protocol):
         session_id: str | None = None,
         persist_partial: bool = False,
         assistant_message_id: str | None = None,
+        reuse_user_message: bool = False,
     ) -> AsyncIterator[str]: ...
 
     async def stop(self) -> None: ...

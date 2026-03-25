@@ -1,8 +1,11 @@
 """Tests for WebSocket protocol definitions."""
 
 from alfred.interfaces.webui.protocol import (
+    ChatCancelMessage,
+    ChatCancelledMessage,
     ChatChunkMessage,
     ChatCompleteMessage,
+    ChatEditMessage,
     ChatErrorMessage,
     ChatSendMessage,
     ChatStartedMessage,
@@ -243,3 +246,41 @@ def test_toast_message_without_duration():
     assert message["type"] == "toast"
     assert message["payload"]["level"] == "info"
     assert "duration" not in message["payload"]
+
+
+def test_chat_cancel_message_structure():
+    """Verify chat.cancel message has no payload."""
+    message: ChatCancelMessage = {
+        "type": "chat.cancel",
+    }
+
+    assert message["type"] == "chat.cancel"
+    assert "payload" not in message
+
+
+def test_chat_edit_message_structure():
+    """Verify chat.edit message has the expected payload."""
+    message: ChatEditMessage = {
+        "type": "chat.edit",
+        "payload": {
+            "messageId": "msg_123",
+            "content": "Updated prompt",
+        },
+    }
+
+    assert message["type"] == "chat.edit"
+    assert message["payload"]["messageId"] == "msg_123"
+    assert message["payload"]["content"] == "Updated prompt"
+
+
+def test_chat_cancelled_message_structure():
+    """Verify chat.cancelled server message structure."""
+    message: ChatCancelledMessage = {
+        "type": "chat.cancelled",
+        "payload": {
+            "messageId": "msg_123",
+        },
+    }
+
+    assert message["type"] == "chat.cancelled"
+    assert message["payload"]["messageId"] == "msg_123"

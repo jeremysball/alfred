@@ -22,12 +22,11 @@ def test_index_loads_app_config_before_websocket_client() -> None:
     source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/index.html").read_text()
 
     assert '<script src="/app-config.js"></script>' in source
-    assert source.index('<script src="/app-config.js"></script>') < source.index(
-        '<script src="/static/js/webui-client-logger.js?v=3"></script>'
-    )
-    assert source.index('<script src="/static/js/webui-client-logger.js?v=3"></script>') < source.index(
-        '<script src="/static/js/websocket-client.js?v=3"></script>'
-    )
+    assert 'webui-client-logger.js?v=' in source
+    assert 'websocket-client.js?v=' in source
+    # Verify load order: app-config before logger before websocket client
+    assert source.index('/app-config.js') < source.index('webui-client-logger.js')
+    assert source.index('webui-client-logger.js') < source.index('websocket-client.js')
 
 
 def test_webui_client_logger_prefixes_console_methods() -> None:

@@ -7,8 +7,10 @@ import pytest
 
 from alfred.placeholders import (
     ColorResolver,
+    CurrentTimeResolver,
     FileIncludeResolver,
     ResolutionContext,
+    has_volatile_placeholder,
     resolve_all,
     resolve_colors,
     resolve_file_includes,
@@ -51,6 +53,7 @@ class TestResolutionContext:
 
         assert ctx.base_dir == temp_workspace
         assert ctx.max_depth == 5
+        assert ctx.resolve_volatile is True
         assert ctx._depth == 0
         assert len(ctx._loaded) == 0
 
@@ -76,6 +79,18 @@ class TestResolutionContext:
         assert ctx1._depth == 1
         assert ctx2._depth == 2
 
+    def test_with_resolution_mode(self, temp_workspace):
+        """with_resolution_mode updates volatile resolution without changing recursion state."""
+        ctx = ResolutionContext(base_dir=temp_workspace)
+        ctx = ctx.with_incremented_depth().with_loaded(Path("child.md"))
+
+        new_ctx = ctx.with_resolution_mode(False)
+
+        assert ctx.resolve_volatile is True
+        assert new_ctx.resolve_volatile is False
+        assert new_ctx._depth == ctx._depth
+        assert new_ctx._loaded == ctx._loaded
+
     def test_is_circular_detects_cycle(self, temp_workspace):
         """is_circular returns True for already-loaded paths."""
         ctx = ResolutionContext(base_dir=temp_workspace)
@@ -100,6 +115,15 @@ class TestResolutionContext:
 
         ctx3 = ctx2.with_incremented_depth()
         assert ctx3.is_depth_exceeded() is True  # depth 3 > max_depth 2
+
+
+class TestVolatilePlaceholderHelpers:
+    """Test volatile placeholder detection helpers."""
+
+    def test_has_volatile_placeholder_detects_marker(self):
+        assert has_volatile_placeholder("{current_time:*}") is True
+        assert has_volatile_placeholder("{{simple.md:*}}") is True
+        assert has_volatile_placeholder("{current_time}") is False
 
 
 # Tests for FileIncludeResolver
@@ -191,12 +215,13 @@ class TestColorResolver:
         resolver = ColorResolver()
         ctx = ResolutionContext(base_dir=Path("."))
 
-        text = "{cyan}hello{reset}"
+        text = "{cyan:*}hello{reset:*}"
         result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         assert "\033[36m" in result  # cyan
         assert "\033[0m" in result  # reset
         assert "hello" in result
+        assert ":*" not in result
 
     def test_resolve_bold(self):
         """{bold} resolves to bold ANSI code."""
@@ -214,11 +239,12 @@ class TestColorResolver:
         resolver = ColorResolver()
         ctx = ResolutionContext(base_dir=Path("."))
 
-        text = "{unknown_color}text{reset}"
+        text = "{unknown_color:*}text{reset:*}"
         result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), text)
 
         # Unknown should be unchanged, reset should resolve
         assert "{unknown_color}" in result
+        assert ":*" not in result
         assert "\033[0m" in result
 
     def test_multiple_colors(self):
@@ -234,36 +260,83 @@ class TestColorResolver:
         assert result.count("\033[0m") == 2  # two resets
 
 
+class TestCurrentTimeResolver:
+    """Test {current_time} placeholder resolution."""
+
+    def test_resolve_current_time(self, monkeypatch):
+        """{current_time} resolves to the current local time helper output."""
+        monkeypatch.setattr(
+            "alfred.placeholders.get_local_time_string",
+            lambda: "2026-03-24T09:00:00-04:00",
+        )
+
+        resolver = CurrentTimeResolver()
+        ctx = ResolutionContext(base_dir=Path("."))
+        result = resolver.pattern.sub(lambda m: resolver.resolve(m, ctx), "Now {current_time:*}")
+
+        assert result == "Now 2026-03-24T09:00:00-04:00"
+        assert ":*" not in result
+
+
 # Tests for main API functions
 class TestResolvePlaceholdersAPI:
     """Test convenience functions."""
 
     def test_resolve_file_includes_only(self, temp_workspace):
         """resolve_file_includes only resolves {{path}}."""
-        text = "{{simple.md}} {cyan}color{reset}"
+        text = "{{simple.md:*}} {cyan}color{reset}"
         result = resolve_file_includes(text, base_dir=temp_workspace)
 
         assert "# Simple" in result
         assert "{cyan}color{reset}" in result  # Colors unchanged
+        assert ":*" not in result
 
     def test_resolve_colors_only(self):
         """resolve_colors only resolves {color}."""
-        text = "{cyan}colored{reset}"
+        text = "{cyan:*}colored{reset:*}"
         result = resolve_colors(text)
 
         assert "\033[36m" in result
         assert "\033[0m" in result
+        assert ":*" not in result
 
-    def test_resolve_all(self, temp_workspace):
-        """resolve_all resolves both file includes and colors."""
+    def test_resolve_all(self, temp_workspace, monkeypatch):
+        """resolve_all resolves file includes, colors, and current time."""
         (temp_workspace / "test.md").write_text("Content")
+        monkeypatch.setattr(
+            "alfred.placeholders.get_local_time_string",
+            lambda: "2026-03-24T09:00:00-04:00",
+        )
 
-        text = "{{test.md}} {cyan}colored{reset}"
+        text = "{{test.md:*}} {cyan:*}colored{reset:*} {current_time:*}"
         result = resolve_all(text, base_dir=temp_workspace)
 
         assert "Content" in result
         assert "\033[36m" in result
         assert "\033[0m" in result
+        assert "2026-03-24T09:00:00-04:00" in result
+        assert ":*" not in result
+
+    def test_resolve_all_can_preserve_volatile_placeholders(self, temp_workspace, monkeypatch):
+        """resolve_all can preserve volatile placeholders when requested."""
+        (temp_workspace / "test.md").write_text("Content")
+        monkeypatch.setattr(
+            "alfred.placeholders.get_local_time_string",
+            lambda: "2026-03-24T09:00:00-04:00",
+        )
+
+        text = "{{test.md:*}} {current_time:*}"
+        static = resolve_all(text, base_dir=temp_workspace, resolve_volatile=False)
+
+        assert "{{test.md:*}}" in static
+        assert "{current_time:*}" in static
+        assert "Content" not in static
+
+        final = resolve_all(static, base_dir=temp_workspace)
+        assert "Content" in final
+        assert "2026-03-24T09:00:00-04:00" in final
+        assert "{{test.md:*}}" not in final
+        assert "{current_time:*}" not in final
 
     def test_resolve_placeholders_with_custom_resolvers(self, temp_workspace):
         """Can use custom resolver list."""

@@ -162,7 +162,13 @@ async def test_chat_stream_integration() -> None:
     mock_websocket = AsyncMock()
     mock_alfred = FakeAlfred(stream_parts=["Test", " response"])
 
-    await _handle_chat_message(mock_websocket, mock_alfred, "Hello")
+    # Add mock to active connections so broadcast batcher can send chunks
+    from alfred.interfaces.webui.server import _active_connections
+    _active_connections.add(mock_websocket)
+    try:
+        await _handle_chat_message(mock_websocket, mock_alfred, "Hello")
+    finally:
+        _active_connections.discard(mock_websocket)
 
     calls = mock_websocket.send_json.call_args_list
     assert calls[0][0][0]["type"] == "chat.started"

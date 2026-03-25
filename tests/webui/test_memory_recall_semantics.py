@@ -99,6 +99,7 @@ class MemoryRecallFakeAlfred(FakeAlfred):
         session_id: str | None = None,
         persist_partial: bool = False,
         assistant_message_id: str | None = None,
+        reuse_user_message: bool = False,
     ) -> AsyncIterator[str]:
         """Yield a memory-aware assistant response while preserving session state."""
 
@@ -116,13 +117,15 @@ class MemoryRecallFakeAlfred(FakeAlfred):
 
         assistant_msg = None
         if persist_partial:
-            user_message = make_message(
-                "user",
-                message,
-                idx=len(session.messages),
-                id=f"user-{len(session.messages)}",
-            )
-            session.messages.append(user_message)
+            if not (reuse_user_message and session.messages and session.messages[-1].role.value == "user"):
+                session.messages.append(
+                    make_message(
+                        "user",
+                        message,
+                        idx=len(session.messages),
+                        id=f"user-{len(session.messages)}",
+                    )
+                )
             assistant_msg = make_message(
                 "assistant",
                 "",

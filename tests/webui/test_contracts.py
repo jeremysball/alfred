@@ -35,6 +35,10 @@ def test_webui_contract_protocols_are_runtime_checkable() -> None:
         def __init__(self) -> None:
             self.session_manager = _SessionManager()
 
+        @property
+        def summarizer(self):
+            return None
+
     class _Alfred:
         def __init__(self) -> None:
             self.core = _Core()
@@ -46,6 +50,9 @@ def test_webui_contract_protocols_are_runtime_checkable() -> None:
             message: str,
             tool_callback=None,
             session_id: str | None = None,
+            persist_partial: bool = False,
+            assistant_message_id: str | None = None,
+            reuse_user_message: bool = False,
         ):
             if False:
                 yield message

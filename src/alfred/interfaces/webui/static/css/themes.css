@@ -17,18 +17,20 @@ settings-menu {
 /* Settings Toggle Button */
 .settings-toggle {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
   padding: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s ease;
-  opacity: 0.7;
+  transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  opacity: 0.85;
 }
 
 .settings-toggle:hover {
   opacity: 1;
+  background: var(--settings-toggle-hover-bg, rgba(128, 128, 128, 0.15));
 }
 
 .settings-icon {

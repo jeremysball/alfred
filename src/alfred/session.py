@@ -10,14 +10,18 @@ import asyncio
 import json
 import logging
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from alfred.storage.sqlite import SQLiteStore
 from alfred.utils import run_async
+
+if TYPE_CHECKING:
+    from alfred.embeddings.provider import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -97,15 +101,22 @@ class SessionManager:
         # Later: ServiceLocator.resolve(SessionManager)
     """
 
-    def __init__(self, store: SQLiteStore, data_dir: Path) -> None:
+    def __init__(
+        self,
+        store: SQLiteStore,
+        data_dir: Path,
+        embedder: EmbeddingProvider | None = None,
+    ) -> None:
         """Initialize session manager with explicit dependencies.
 
         Args:
             store: SQLiteStore instance for persistence
             data_dir: Data directory for current.json file
+            embedder: Optional embedding provider for generating message embeddings
         """
         self._store = store
         self._data_dir = data_dir
+        self._embedder = embedder
         self._sessions: dict[str, Session] = {}
         self._cli_session_id: str | None = None
 
@@ -253,12 +264,24 @@ class SessionManager:
                 )
                 messages.append(msg)
 
+            # Parse metadata from session data
+            metadata = data.get("metadata", {}) or {}
+            first_message_time = metadata.get("first_message_time")
+            if first_message_time:
+                try:
+                    first_message_time = datetime.fromisoformat(first_message_time)
+                except (ValueError, TypeError):
+                    first_message_time = None
+
             meta = SessionMeta(
                 session_id=session_id,
                 created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
                 last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
                 status="active",
                 message_count=len(messages),
+                first_message_time=first_message_time,
+                last_summarized_count=metadata.get("last_summarized_count", 0),
+                summary_version=metadata.get("summary_version", 0),
             )
             session = Session(meta=meta, messages=messages)
         else:
@@ -371,6 +394,172 @@ class SessionManager:
         """Create new CLI session (backwards-compatible)."""
         return self.new_session()
 
+    def _resolve_session_for_mutation(self, session_id: str | None = None) -> Session:
+        """Resolve an existing session for a mutating operation."""
+        if session_id is None:
+            if self._cli_session_id is None:
+                raise RuntimeError("No active session")
+            session_id = self._cli_session_id
+
+        session = self._sessions.get(session_id)
+        if session is not None:
+            return session
+
+        data = run_async(self.store.load_session(session_id))
+        if data is None:
+            raise ValueError(f"Session {session_id} not found")
+        return self._create_session_from_data(session_id, data)
+
+    async def _resolve_session_for_mutation_async(self, session_id: str | None = None) -> Session:
+        """Resolve an existing session for a mutating operation (async version)."""
+        if session_id is None:
+            if self._cli_session_id is None:
+                raise RuntimeError("No active session")
+            session_id = self._cli_session_id
+
+        session = self._sessions.get(session_id)
+        if session is not None:
+            return session
+
+        data = await self.store.load_session(session_id)
+        if data is None:
+            raise ValueError(f"Session {session_id} not found")
+        return self._create_session_from_data(session_id, data)
+
+    @staticmethod
+    def _find_message_index(session: Session, message_id: str) -> int:
+        """Locate a message by ID within a session."""
+        for idx, message in enumerate(session.messages):
+            if message.id == message_id:
+                return idx
+        raise ValueError(f"Message {message_id} not found in session {session.meta.session_id}")
+
+    @staticmethod
+    def _serialize_messages(messages: list[Message]) -> list[dict[str, Any]]:
+        """Convert in-memory messages to the persisted JSON shape."""
+        messages_data: list[dict[str, Any]] = []
+        for msg in messages:
+            msg_dict: dict[str, Any] = {
+                "idx": msg.idx,
+                "id": msg.id,
+                "role": msg.role.value,
+                "content": msg.content,
+                "timestamp": msg.timestamp.isoformat(),
+                "input_tokens": msg.input_tokens,
+                "output_tokens": msg.output_tokens,
+                "cached_tokens": msg.cached_tokens,
+                "reasoning_tokens": msg.reasoning_tokens,
+                "reasoning_content": msg.reasoning_content,
+                "streaming": msg.streaming,
+            }
+            if msg.embedding is not None:
+                msg_dict["embedding"] = msg.embedding
+            if msg.tool_calls:
+                # tool_calls are always ToolCallRecord objects (converted at load edge)
+                msg_dict["tool_calls"] = [
+                    {
+                        "tool_call_id": tc.tool_call_id,
+                        "tool_name": tc.tool_name,
+                        "arguments": tc.arguments,
+                        "output": tc.output,
+                        "status": tc.status,
+                        "insert_position": tc.insert_position,
+                        "sequence": tc.sequence,
+                    }
+                    for tc in msg.tool_calls
+                ]
+            messages_data.append(msg_dict)
+        return messages_data
+
+    async def _persist_messages_strict(self, session_id: str, messages: list[Message], meta: SessionMeta | None = None) -> None:
+        """Persist messages and propagate storage errors to the caller.
+
+        Generates embeddings for messages that don't have them if an embedder is configured.
+        """
+        # Generate embeddings for messages that don't have them
+        if self._embedder is not None:
+            for msg in messages:
+                if msg.embedding is None and msg.content:
+                    try:
+                        msg.embedding = await self._embedder.embed(msg.content)
+                    except Exception as e:
+                        logger.warning(f"Failed to generate embedding for message {msg.id}: {e}")
+
+        # Build metadata if session meta provided
+        metadata: dict[str, Any] | None = None
+        if meta is not None:
+            metadata = {
+                "last_summarized_count": meta.last_summarized_count,
+                "first_message_time": meta.first_message_time.isoformat() if meta.first_message_time else None,
+                "summary_version": meta.summary_version,
+            }
+
+        await self.store.save_session(session_id, self._serialize_messages(messages), metadata)
+
+    async def _mutate_session_messages_async(
+        self,
+        session: Session,
+        message_id: str,
+        *,
+        new_content: str | None = None,
+        truncate_after: bool = False,
+    ) -> Session:
+        """Apply an in-place history mutation and persist it atomically."""
+        if new_content is None and not truncate_after:
+            raise ValueError("No mutation requested")
+
+        original_messages = deepcopy(session.messages)
+        original_last_active = session.meta.last_active
+        original_message_count = session.meta.message_count
+
+        try:
+            message_idx = self._find_message_index(session, message_id)
+            if new_content is not None:
+                session.messages[message_idx].content = new_content
+            if truncate_after:
+                del session.messages[message_idx + 1 :]
+
+            session.meta.last_active = datetime.now(UTC)
+            session.meta.message_count = len(session.messages)
+            await self._persist_messages_strict(session.meta.session_id, session.messages)
+            return session
+        except Exception:
+            session.messages[:] = deepcopy(original_messages)
+            session.meta.last_active = original_last_active
+            session.meta.message_count = original_message_count
+            raise
+
+    def truncate_after_message(self, message_id: str, session_id: str | None = None) -> Session:
+        """Remove all messages after the target message."""
+        return cast(Session, run_async(self.truncate_after_message_async(message_id, session_id=session_id)))
+
+    async def truncate_after_message_async(self, message_id: str, session_id: str | None = None) -> Session:
+        """Remove all messages after the target message (async version)."""
+        session = await self._resolve_session_for_mutation_async(session_id)
+        return await self._mutate_session_messages_async(session, message_id, truncate_after=True)
+
+    def replace_message_and_truncate_after(self, message_id: str, content: str, session_id: str | None = None) -> Session:
+        """Replace one message in place and remove all later messages."""
+        return cast(
+            Session,
+            run_async(self.replace_message_and_truncate_after_async(message_id, content, session_id=session_id)),
+        )
+
+    async def replace_message_and_truncate_after_async(
+        self,
+        message_id: str,
+        content: str,
+        session_id: str | None = None,
+    ) -> Session:
+        """Replace one message in place and remove all later messages (async version)."""
+        session = await self._resolve_session_for_mutation_async(session_id)
+        return await self._mutate_session_messages_async(
+            session,
+            message_id,
+            new_content=content,
+            truncate_after=True,
+        )
+
     def add_message(self, role: str, content: str, session_id: str | None = None) -> None:
         """Append message to session."""
         session: Session | None
@@ -449,40 +638,7 @@ class SessionManager:
     async def _persist_messages(self, session_id: str, messages: list[Message]) -> None:
         """Persist messages to SQLiteStore."""
         try:
-            messages_data: list[dict[str, Any]] = []
-            for msg in messages:
-                msg_dict: dict[str, Any] = {
-                    "idx": msg.idx,
-                    "id": msg.id,
-                    "role": msg.role.value,
-                    "content": msg.content,
-                    "timestamp": msg.timestamp.isoformat(),
-                    "input_tokens": msg.input_tokens,
-                    "output_tokens": msg.output_tokens,
-                    "cached_tokens": msg.cached_tokens,
-                    "reasoning_tokens": msg.reasoning_tokens,
-                    "reasoning_content": msg.reasoning_content,
-                    "streaming": msg.streaming,
-                }
-                if msg.embedding:
-                    msg_dict["embedding"] = msg.embedding
-                if msg.tool_calls:
-                    # tool_calls are always ToolCallRecord objects (converted at load edge)
-                    msg_dict["tool_calls"] = [
-                        {
-                            "tool_call_id": tc.tool_call_id,
-                            "tool_name": tc.tool_name,
-                            "arguments": tc.arguments,
-                            "output": tc.output,
-                            "status": tc.status,
-                            "insert_position": tc.insert_position,
-                            "sequence": tc.sequence,
-                        }
-                        for tc in msg.tool_calls
-                    ]
-                messages_data.append(msg_dict)
-
-            await self.store.save_session(session_id, messages_data)
+            await self._persist_messages_strict(session_id, messages)
         except Exception as e:
             logger.error(f"Error persisting session {session_id}: {e}")
 

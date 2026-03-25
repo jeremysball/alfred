@@ -409,7 +409,7 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
 
             assert expanded["expanded"] == "true"
             assert "expanded" in expanded["expandedClass"]
-            assert expanded["toggle"] == "▼"
+            assert expanded["toggle"] == "v"
 
             await browser.close()
     finally:

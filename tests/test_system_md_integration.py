@@ -26,7 +26,11 @@ def temp_templates_with_system(temp_workspace):
 
     # Create all required templates including SYSTEM.md
     (template_dir / "SYSTEM.md").write_text(
-        "# System\n\n## Memory Architecture\n\nThree storage mechanisms.\n\n## Cron Job Capabilities\n\nWhen writing cron jobs...\n"
+        "# System\n\n## Memory Architecture\n\nThree storage mechanisms.\n\n"
+        "### Current local time\n\n"
+        "- Current local time: {current_time:*}\n"
+        "- Use this for time-sensitive reasoning, scheduling, and recency checks.\n\n"
+        "## Cron Job Capabilities\n\nWhen writing cron jobs...\n"
     )
     (template_dir / "AGENTS.md").write_text(
         "# Agent Behavior Rules\n\n1. Permission First\n2. Conventional Commits\n3. Simple Correctness\n"
@@ -87,6 +91,7 @@ class TestSystemMdCreation:
         content = path.read_text()
         assert "# System" in content
         assert "Memory Architecture" in content
+        assert "{current_time:*}" in content
 
     def test_creates_agents_md(self, manager):
         """Test creating AGENTS.md from template."""
@@ -150,6 +155,27 @@ class TestContextLoaderWithSystemMd:
         assert context_file is not None
         assert "# System" in context_file.content
         assert "Memory Architecture" in context_file.content
+        assert "Current local time" in context_file.content
+        assert "{current_time:*}" not in context_file.content
+
+    @pytest.mark.asyncio
+    async def test_load_system_file_refreshes_current_time_each_load(
+        self,
+        loader_with_system,
+        config_with_system,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """ContextLoader should not cache the current time placeholder."""
+        system_path = config_with_system.context_files["system"]
+        values = iter(["LOCAL-TIME-ONE", "LOCAL-TIME-TWO"])
+        monkeypatch.setattr("alfred.placeholders.get_local_time_string", lambda: next(values))
+
+        first = await loader_with_system.load_file("system", system_path)
+        second = await loader_with_system.load_file("system", system_path)
+
+        assert "LOCAL-TIME-ONE" in first.content
+        assert "LOCAL-TIME-TWO" in second.content
+        assert first.content != second.content
 
     @pytest.mark.asyncio
     async def test_load_agents_file(self, loader_with_system, config_with_system):

@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from alfred.config import Config
 from alfred.embeddings import cosine_similarity
 from alfred.memory import MemoryEntry
-from alfred.placeholders import resolve_all
+from alfred.placeholders import has_volatile_placeholder, resolve_all
 from alfred.storage.sqlite import SQLiteStore
 from alfred.templates import TemplateManager
 
@@ -37,6 +37,7 @@ class ContextFile(BaseModel):
     last_modified: datetime
     state: ContextFileState = ContextFileState.ACTIVE
     blocked_reason: str | None = None
+    refresh_on_load: bool = False
 
     def is_blocked(self) -> bool:
         """Return True when the file is blocked from context assembly."""
@@ -487,6 +488,14 @@ class ContextLoader:
             blocked_reason=reason,
         )
 
+    def _refresh_context_file(self, file: ContextFile) -> ContextFile:
+        """Render volatile placeholders for a cached context file."""
+        if not file.refresh_on_load:
+            return file
+
+        content = resolve_all(file.content, self.config.workspace_dir)
+        return file.model_copy(update={"content": content})
+
     def _reconcile_template(self, name: str) -> None:
         """Reconcile a context file with its managed template if supported."""
         template_name = CONTEXT_TO_TEMPLATE.get(name)
@@ -494,7 +503,10 @@ class ContextLoader:
             return
 
         try:
-            self._template_manager.reconcile_template(template_name, preserve=set())
+            # Preserve user-customized files to avoid overwriting their changes
+            self._template_manager.reconcile_template(
+                template_name, preserve={"USER.md", "SOUL.md", "CUSTOM.md"}
+            )
         except Exception as exc:
             logger.warning(f"Failed to reconcile template {template_name}: {exc}")
 
@@ -515,8 +527,10 @@ class ContextLoader:
             return blocked
 
         cached = self._cache.get(name)
-        if cached and (not is_managed_template or sync_record is None or not sync_record.is_conflicted()):
-            return cached
+        if cached is not None and (
+            not is_managed_template or sync_record is None or not sync_record.is_conflicted()
+        ):
+            return self._refresh_context_file(cached)
 
         self._template_manager.ensure_prompts_exist()
         self._reconcile_template(name)
@@ -549,21 +563,23 @@ class ContextLoader:
             raise FileNotFoundError(f"Required context file missing: {path}")
 
         loop = asyncio.get_running_loop()
-        content = await loop.run_in_executor(None, path.read_text, "utf-8")
+        raw_content = await loop.run_in_executor(None, path.read_text, "utf-8")
         stat = await loop.run_in_executor(None, path.stat)
-        content = resolve_all(content, self.config.workspace_dir)
+        static_content = resolve_all(raw_content, self.config.workspace_dir, resolve_volatile=False)
+        refresh_on_load = has_volatile_placeholder(static_content)
 
-        file = ContextFile(
+        cached_file = ContextFile(
             name=name,
             path=str(path),
-            content=content,
+            content=static_content,
             last_modified=datetime.fromtimestamp(stat.st_mtime),
             state=ContextFileState.ACTIVE,
+            refresh_on_load=refresh_on_load,
         )
 
         self._clear_blocked_context_file(name)
-        self._cache.set(name, file)
-        return file
+        self._cache.set(name, cached_file)
+        return self._refresh_context_file(cached_file)
 
     async def load_all(self) -> dict[str, ContextFile]:
         """Load all required context files concurrently."""

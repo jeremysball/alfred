@@ -244,11 +244,11 @@ class CronScheduler:
         """Register built-in system jobs.
 
         System jobs are pre-approved and run without human review.
-        Currently includes session_ttl check every 5 minutes.
+        Currently includes session_ttl and session_summarizer jobs every 5 minutes.
         """
         from alfred.cron.system_jobs import get_system_job_code
 
-        system_jobs = ["session_ttl"]
+        system_jobs = ["session_ttl", "session_summarizer"]
 
         for job_id in system_jobs:
             job_info = get_system_job_code(job_id)

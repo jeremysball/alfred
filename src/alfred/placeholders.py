@@ -2,6 +2,8 @@
 
 Supports multiple placeholder types:
 - File includes: {{path/to/file.md}}
+- Volatile markers: {current_time:*}, {{path:*}}, etc.
+- Local time: {current_time}
 - ANSI colors: {cyan}, {reset}, etc.
 - Extensible for future placeholder types
 """
@@ -10,10 +12,31 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
 logger = logging.getLogger(__name__)
+
+CURRENT_TIME_PLACEHOLDER = "{current_time}"
+CURRENT_TIME_VOLATILE_PLACEHOLDER = "{current_time:*}"
+SINGLE_BRACE_VOLATILE_PLACEHOLDER_PATTERN = re.compile(r"\{[a-z_][a-z0-9_]*:\*\}")
+VOLATILE_PLACEHOLDER_PATTERN = re.compile(r"\{\{[^}]+:\*\}\}|\{[a-z_][a-z0-9_]*:\*\}")
+
+
+def get_local_time_string() -> str:
+    """Return the current local time as an ISO 8601 string."""
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def has_volatile_placeholder(text: str) -> bool:
+    """Return True when text contains a volatile placeholder marker."""
+    return VOLATILE_PLACEHOLDER_PATTERN.search(text) is not None
+
+
+def has_current_time_placeholder(text: str) -> bool:
+    """Return True when text contains the runtime current-time placeholder."""
+    return CURRENT_TIME_PLACEHOLDER in text or CURRENT_TIME_VOLATILE_PLACEHOLDER in text
 
 
 class CircularReferenceError(Exception):
@@ -32,15 +55,18 @@ class ResolutionContext:
         self,
         base_dir: Path,
         max_depth: int = 5,
+        resolve_volatile: bool = True,
     ):
         """Initialize resolution context.
 
         Args:
             base_dir: Base directory for relative file paths
             max_depth: Maximum nesting depth for placeholders
+            resolve_volatile: Whether volatile placeholders should be resolved now
         """
         self.base_dir = base_dir
         self.max_depth = max_depth
+        self.resolve_volatile = resolve_volatile
         self._loaded: set[Path] = set()
         self._depth: int = 0
 
@@ -53,7 +79,7 @@ class ResolutionContext:
         Returns:
             New ResolutionContext with updated loaded set
         """
-        ctx = ResolutionContext(self.base_dir, self.max_depth)
+        ctx = ResolutionContext(self.base_dir, self.max_depth, self.resolve_volatile)
         ctx._loaded = self._loaded | {path}
         ctx._depth = self._depth
         return ctx
@@ -64,9 +90,16 @@ class ResolutionContext:
         Returns:
             New ResolutionContext with incremented depth
         """
-        ctx = ResolutionContext(self.base_dir, self.max_depth)
+        ctx = ResolutionContext(self.base_dir, self.max_depth, self.resolve_volatile)
         ctx._loaded = self._loaded.copy()
         ctx._depth = self._depth + 1
+        return ctx
+
+    def with_resolution_mode(self, resolve_volatile: bool) -> ResolutionContext:
+        """Create new context with the same recursion state but different runtime mode."""
+        ctx = ResolutionContext(self.base_dir, self.max_depth, resolve_volatile)
+        ctx._loaded = self._loaded.copy()
+        ctx._depth = self._depth
         return ctx
 
     def is_circular(self, path: Path) -> bool:
@@ -113,7 +146,7 @@ class PlaceholderResolver(Protocol):
 class FileIncludeResolver:
     """Resolves {{path}} file include placeholders."""
 
-    pattern = re.compile(r"\{\{([^}]+)\}\}")
+    pattern = re.compile(r"\{\{([^}]+?)(?P<volatile>:\*)?\}\}")
 
     def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
         """Resolve file include placeholder.
@@ -155,10 +188,20 @@ class FileIncludeResolver:
         return f"<!-- included: {include_path} -->\n{resolved}\n<!-- end: {include_path} -->"
 
 
+class CurrentTimeResolver:
+    """Resolves {current_time} placeholders to the local clock."""
+
+    pattern = re.compile(r"\{current_time(?P<volatile>:\*)?\}")
+
+    def resolve(self, match: re.Match[str], context: ResolutionContext) -> str:
+        """Resolve current_time placeholder."""
+        return get_local_time_string()
+
+
 class ColorResolver:
     """Resolves {color} ANSI placeholder syntax."""
 
-    pattern = re.compile(r"\{([a-z_]+)\}")
+    pattern = re.compile(r"\{([a-z_]+)(?P<volatile>:\*)?\}")
 
     # ANSI escape codes
     CODES = {
@@ -221,12 +264,17 @@ class ColorResolver:
             ANSI escape code or original if not found
         """
         placeholder = match.group(1)
-        return self.CODES.get(placeholder, match.group(0))
+        if placeholder in self.CODES:
+            return self.CODES[placeholder]
+        if match.groupdict().get("volatile"):
+            return f"{{{placeholder}}}"
+        return match.group(0)
 
 
 # Default resolvers
 DEFAULT_RESOLVERS: list[PlaceholderResolver] = [
     FileIncludeResolver(),
+    CurrentTimeResolver(),
     ColorResolver(),
 ]
 
@@ -235,6 +283,8 @@ def resolve_placeholders(
     text: str,
     context: ResolutionContext,
     resolvers: list[PlaceholderResolver] | None = None,
+    *,
+    resolve_volatile: bool | None = None,
 ) -> str:
     """Resolve all placeholders in text.
 
@@ -242,6 +292,7 @@ def resolve_placeholders(
         text: Text with placeholders to resolve
         context: Resolution context (base_dir, depth tracking, etc.)
         resolvers: List of resolvers to use (defaults to all)
+        resolve_volatile: Override the context's volatile-resolution mode
 
     Returns:
         Text with placeholders resolved
@@ -252,6 +303,9 @@ def resolve_placeholders(
         '<!-- included: README.md -->\\n...content...\\n<!-- end: README.md -->'
     """
     from functools import partial
+
+    if resolve_volatile is not None and resolve_volatile != context.resolve_volatile:
+        context = context.with_resolution_mode(resolve_volatile)
 
     resolvers = resolvers or DEFAULT_RESOLVERS
     result = text
@@ -278,6 +332,8 @@ def _resolve_match(
     Returns:
         Resolved text
     """
+    if not context.resolve_volatile and match.groupdict().get("volatile"):
+        return match.group(0)
     return resolver.resolve(match, context)
 
 
@@ -288,6 +344,8 @@ def resolve_file_includes(
     text: str,
     base_dir: Path,
     max_depth: int = 5,
+    *,
+    resolve_volatile: bool = True,
 ) -> str:
     """Resolve only file includes ({{path}}).
 
@@ -295,37 +353,40 @@ def resolve_file_includes(
         text: Text with file include placeholders
         base_dir: Base directory for relative paths
         max_depth: Maximum nesting depth
+        resolve_volatile: Whether volatile include placeholders should resolve now
 
     Returns:
         Text with file includes resolved
     """
-    context = ResolutionContext(base_dir=base_dir, max_depth=max_depth)
+    context = ResolutionContext(base_dir=base_dir, max_depth=max_depth, resolve_volatile=resolve_volatile)
     return resolve_placeholders(text, context, resolvers=[FileIncludeResolver()])
 
 
-def resolve_colors(text: str) -> str:
+def resolve_colors(text: str, *, resolve_volatile: bool = True) -> str:
     """Resolve only color placeholders ({color}).
 
     Args:
         text: Text with color placeholders
+        resolve_volatile: Whether volatile color placeholders should resolve now
 
     Returns:
         Text with ANSI escape codes
     """
-    context = ResolutionContext(base_dir=Path("."))  # Base dir not needed
+    context = ResolutionContext(base_dir=Path("."), resolve_volatile=resolve_volatile)  # Base dir not needed
     return resolve_placeholders(text, context, resolvers=[ColorResolver()])
 
 
-def resolve_all(text: str, base_dir: Path, max_depth: int = 5) -> str:
+def resolve_all(text: str, base_dir: Path, max_depth: int = 5, *, resolve_volatile: bool = True) -> str:
     """Resolve all placeholder types.
 
     Args:
         text: Text with placeholders
         base_dir: Base directory for file includes
         max_depth: Maximum nesting depth for includes
+        resolve_volatile: Whether volatile placeholders should resolve now
 
     Returns:
         Text with all placeholders resolved
     """
-    context = ResolutionContext(base_dir=base_dir, max_depth=max_depth)
+    context = ResolutionContext(base_dir=base_dir, max_depth=max_depth, resolve_volatile=resolve_volatile)
     return resolve_placeholders(text, context)

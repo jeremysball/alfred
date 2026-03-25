@@ -4,6 +4,11 @@
 
 You have three storage mechanisms. Understanding how they work helps you use them effectively.
 
+### Current local time
+
+- Current local time: {current_time:*}
+- Use this for time-sensitive reasoning, scheduling, and recency checks.
+
 ### Files (USER.md, SOUL.md, SYSTEM.md, AGENTS.md)
 
 - Always loaded in full every time you respond

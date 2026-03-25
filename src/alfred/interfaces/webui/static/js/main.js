@@ -1,6 +1,37 @@
 // Alfred Web UI - Main JavaScript
 import { applyThemeContrast } from './utils/contrast.js';
 
+// Mobile Chrome Collapse
+const MOBILE_BREAKPOINT = 768;
+let isChromeCollapsed = false;
+
+function handleScroll() {
+  if (window.innerWidth <= MOBILE_BREAKPOINT) {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    if (scrollTop > 50 && !isChromeCollapsed) {
+      collapseChrome();
+    } else if (scrollTop <= 50 && isChromeCollapsed) {
+      restoreChrome();
+    }
+  }
+}
+
+function collapseChrome() {
+  isChromeCollapsed = true;
+  const header = document.querySelector('.app-header');
+  const inputArea = document.querySelector('.input-area');
+  if (header) header.classList.add('compact');
+  if (inputArea) inputArea.classList.add('compact');
+}
+
+function restoreChrome() {
+  isChromeCollapsed = false;
+  const header = document.querySelector('.app-header');
+  const inputArea = document.querySelector('.input-area');
+  if (header) header.classList.remove('compact');
+  if (inputArea) inputArea.classList.remove('compact');
+}
+
 /**
  * Initialize the Alfred Web UI
  */
@@ -14,13 +45,26 @@ function initAlfredUI() {
   const messageList = document.getElementById('message-list');
   const messageInput = document.getElementById('message-input');
   const sendButton = document.getElementById('send-button');
+  const stopButton = document.getElementById('stop-button');
   const connectionPill = document.getElementById('connection-pill');
   const connectionStatusAnchor = document.getElementById('connection-status-anchor');
   const connectionStatusTooltip = document.getElementById('connection-status-tooltip');
   const chatContainer = document.getElementById('chat-container');
   const queueBadge = document.getElementById('queue-badge');
+  const inputArea = document.getElementById('input-area');
 
   const completionMenu = document.getElementById('completion-menu');
+
+  // Reset composer state on load to prevent stale streaming UI
+  if (inputArea) {
+    inputArea.dataset.composerState = 'idle';
+  }
+  if (stopButton) {
+    stopButton.hidden = true;
+    stopButton.disabled = false;
+    stopButton.style.opacity = '';
+  }
+
   const kidcoreAudioControls = document.querySelector('.kidcore-audio-controls');
   const kidcoreAudioManager = window.kidcoreAudioManager ?? null;
   const kidcoreMusicPlayButton = document.getElementById('kidcore-music-play');
@@ -218,9 +262,9 @@ function initAlfredUI() {
     }
 
     if (role === 'assistant' && msg.streaming) {
-      messageEl.classList.add('streaming');
+      setMessageState(messageEl, 'streaming');
     } else {
-      messageEl.classList.remove('streaming');
+      setMessageState(messageEl, 'idle');
     }
 
     if (loadedReasoning || !preserveExistingAssistantContent) {
@@ -268,6 +312,7 @@ function initAlfredUI() {
       }
     });
 
+    // Remove messages that are no longer in the incoming set
     existingSessionMessages.forEach((messageEl) => {
       const messageId = messageEl.getAttribute('message-id');
       if (!messageId) {
@@ -282,23 +327,27 @@ function initAlfredUI() {
       }
     });
 
-    const fragment = document.createDocumentFragment();
     let nextCurrentAssistantMessage = null;
+    let lastElement = null;
 
     messages.forEach((msg, index) => {
       const messageId = getSessionMessageId(msg, index);
       let messageEl = existingById.get(messageId) || null;
 
       if (messageEl) {
+        // Update existing message and move it to the correct position
         applySessionMessageState(messageEl, msg, {
           preserveExistingAssistantContent: messageEl === currentAssistantMessage,
         });
       } else {
+        // Create new message element
         messageEl = document.createElement('chat-message');
         applySessionMessageState(messageEl, msg);
       }
 
-      fragment.appendChild(messageEl);
+      // Always append to ensure correct order (moves existing, appends new)
+      messageList.appendChild(messageEl);
+      lastElement = messageEl;
 
       if (msg.role === 'user') {
         messageHistory.push(msg.content || '');
@@ -324,20 +373,24 @@ function initAlfredUI() {
       }, {
         preserveExistingAssistantContent: true,
       });
-      fragment.appendChild(currentAssistantMessage);
+      messageList.appendChild(currentAssistantMessage);
       nextCurrentAssistantMessage = currentAssistantMessage;
     }
 
-    messageList.appendChild(fragment);
     currentAssistantMessage = nextCurrentAssistantMessage;
     activeSessionId = incomingSessionId;
     historyIndex = messageHistory.length;
+    refreshEditableMessageState();
   }
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
   let currentAssistantMessage = null;
   let activeSessionId = null;
+  let pendingEditRequest = null;
+  let pendingChatSendRequest = null;
+  let composerState = 'idle';
+  let editingMessageElement = null;
   const activeToolCalls = new Map();
   let allToolsExpanded = false;
 
@@ -359,6 +412,11 @@ function initAlfredUI() {
   ];
 
   // Connection Status Handler
+  const CONNECTION_STATUS_MOBILE_BREAKPOINT = 769;
+  const CONNECTION_STATUS_PORTAL_ROOT_ID = 'connection-status-portal-root';
+  const CONNECTION_STATUS_VIEWPORT_PADDING = 12;
+  const CONNECTION_STATUS_TRIGGER_OVERLAP = 4;
+
   const connectionStatusState = {
     daemonStatus: 'unknown',
     daemonPid: null,
@@ -373,6 +431,45 @@ function initAlfredUI() {
   };
 
   let connectionStatusRefreshTimer = null;
+
+  function ensureConnectionStatusPortalRoot() {
+    let portalRoot = document.getElementById(CONNECTION_STATUS_PORTAL_ROOT_ID);
+    if (!portalRoot) {
+      portalRoot = document.createElement('div');
+      portalRoot.id = CONNECTION_STATUS_PORTAL_ROOT_ID;
+      portalRoot.className = 'connection-status-portal-root';
+      portalRoot.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(portalRoot);
+    }
+
+    let overlay = portalRoot.querySelector('.connection-status-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'connection-status-overlay';
+      overlay.setAttribute('aria-hidden', 'true');
+      portalRoot.appendChild(overlay);
+    }
+
+    if (connectionStatusTooltip && connectionStatusTooltip.parentElement !== portalRoot) {
+      portalRoot.appendChild(connectionStatusTooltip);
+    }
+
+    return portalRoot;
+  }
+
+  const connectionStatusPortalRoot = ensureConnectionStatusPortalRoot();
+  const connectionStatusOverlay = connectionStatusPortalRoot?.querySelector('.connection-status-overlay');
+
+  function isConnectionStatusHoverTarget(target) {
+    if (!target) {
+      return false;
+    }
+
+    return Boolean(
+      (connectionStatusAnchor && connectionStatusAnchor.contains(target)) ||
+      (connectionStatusTooltip && connectionStatusTooltip.contains(target))
+    );
+  }
 
   function escapeConnectionStatusText(value) {
     const div = document.createElement('div');
@@ -486,6 +583,11 @@ function initAlfredUI() {
     return connectionStatusVisibility.hovered || connectionStatusVisibility.focused || connectionStatusVisibility.pinned;
   }
 
+  function refreshConnectionStatusTooltip() {
+    renderConnectionStatusTooltip();
+    positionConnectionStatusTooltip();
+  }
+
   function startConnectionStatusRefreshTimer() {
     if (connectionStatusRefreshTimer !== null) {
       return;
@@ -493,7 +595,7 @@ function initAlfredUI() {
 
     connectionStatusRefreshTimer = window.setInterval(() => {
       if (isConnectionStatusOpen()) {
-        renderConnectionStatusTooltip();
+        refreshConnectionStatusTooltip();
       } else {
         stopConnectionStatusRefreshTimer();
       }
@@ -509,25 +611,80 @@ function initAlfredUI() {
     connectionStatusRefreshTimer = null;
   }
 
-  function syncConnectionStatusPopoverVisibility() {
-    if (!connectionStatusAnchor || !connectionStatusTooltip || !connectionPill) {
+  function positionConnectionStatusTooltip() {
+    if (!connectionStatusPortalRoot || !connectionStatusTooltip || !connectionStatusAnchor || !connectionPill) {
       return;
     }
 
     const isOpen = isConnectionStatusOpen();
+    const isMobileLayout = window.innerWidth < CONNECTION_STATUS_MOBILE_BREAKPOINT;
+
+    connectionStatusPortalRoot.dataset.layout = isMobileLayout ? 'sheet' : 'popover';
+    connectionStatusPortalRoot.dataset.open = String(isOpen);
+    connectionStatusPortalRoot.setAttribute('aria-hidden', String(!isOpen));
+    connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
+    connectionStatusAnchor.dataset.open = String(isOpen);
+    connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
+    connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
+    connectionPill.setAttribute('aria-expanded', String(isOpen));
+
+    if (!isOpen) {
+      return;
+    }
+
+    if (isMobileLayout) {
+      connectionStatusTooltip.style.top = 'auto';
+      connectionStatusTooltip.style.right = '0';
+      connectionStatusTooltip.style.bottom = '0';
+      connectionStatusTooltip.style.left = '0';
+      return;
+    }
+
+    connectionStatusTooltip.style.top = '0px';
+    connectionStatusTooltip.style.right = 'auto';
+    connectionStatusTooltip.style.bottom = 'auto';
+    connectionStatusTooltip.style.left = '0px';
+
+    const anchorRect = connectionStatusAnchor.getBoundingClientRect();
+    const tooltipRect = connectionStatusTooltip.getBoundingClientRect();
+    const maxLeft = Math.max(
+      CONNECTION_STATUS_VIEWPORT_PADDING,
+      window.innerWidth - tooltipRect.width - CONNECTION_STATUS_VIEWPORT_PADDING,
+    );
+    const left = Math.min(Math.max(anchorRect.left, CONNECTION_STATUS_VIEWPORT_PADDING), maxLeft);
+    const maxTop = Math.max(
+      CONNECTION_STATUS_VIEWPORT_PADDING,
+      window.innerHeight - tooltipRect.height - CONNECTION_STATUS_VIEWPORT_PADDING,
+    );
+    const top = Math.min(
+      Math.max(anchorRect.bottom - CONNECTION_STATUS_TRIGGER_OVERLAP, CONNECTION_STATUS_VIEWPORT_PADDING),
+      maxTop,
+    );
+
+    connectionStatusTooltip.style.left = `${Math.round(left)}px`;
+    connectionStatusTooltip.style.top = `${Math.round(top)}px`;
+  }
+
+  function syncConnectionStatusPopoverVisibility() {
+    if (!connectionStatusPortalRoot || !connectionStatusTooltip || !connectionPill) {
+      return;
+    }
+
+    const isOpen = isConnectionStatusOpen();
+    connectionStatusPortalRoot.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
     connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
     connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
     connectionPill.setAttribute('aria-expanded', String(isOpen));
 
+    refreshConnectionStatusTooltip();
+
     if (isOpen) {
       startConnectionStatusRefreshTimer();
     } else {
       stopConnectionStatusRefreshTimer();
     }
-
-    renderConnectionStatusTooltip();
   }
 
   function renderConnectionStatusTooltip() {
@@ -632,7 +789,7 @@ function initAlfredUI() {
       connectionStatusState.webUiVersion = String(payload.version || 'unknown');
     }
 
-    renderConnectionStatusTooltip();
+    syncConnectionStatusPopoverVisibility();
   }
 
   async function hydrateConnectionStatusFromHealth() {
@@ -655,7 +812,7 @@ function initAlfredUI() {
 
   function updateConnectionStatus(status) {
     connectionPill.className = `connection-pill ${status}`;
-    renderConnectionStatusTooltip();
+    syncConnectionStatusPopoverVisibility();
   }
 
   connectionStatusAnchor?.addEventListener('pointerenter', () => {
@@ -663,7 +820,27 @@ function initAlfredUI() {
     syncConnectionStatusPopoverVisibility();
   });
 
-  connectionStatusAnchor?.addEventListener('pointerleave', () => {
+  connectionStatusAnchor?.addEventListener('pointerleave', (event) => {
+    if (isConnectionStatusHoverTarget(event.relatedTarget)) {
+      return;
+    }
+
+    connectionStatusVisibility.hovered = false;
+    if (!connectionStatusVisibility.pinned && !connectionStatusVisibility.focused) {
+      syncConnectionStatusPopoverVisibility();
+    }
+  });
+
+  connectionStatusTooltip?.addEventListener('pointerenter', () => {
+    connectionStatusVisibility.hovered = true;
+    syncConnectionStatusPopoverVisibility();
+  });
+
+  connectionStatusTooltip?.addEventListener('pointerleave', (event) => {
+    if (isConnectionStatusHoverTarget(event.relatedTarget)) {
+      return;
+    }
+
     connectionStatusVisibility.hovered = false;
     if (!connectionStatusVisibility.pinned && !connectionStatusVisibility.focused) {
       syncConnectionStatusPopoverVisibility();
@@ -687,7 +864,7 @@ function initAlfredUI() {
   });
 
   connectionStatusAnchor?.addEventListener('click', (event) => {
-    if (event.target !== connectionPill && event.target !== connectionStatusAnchor) {
+    if (!connectionStatusAnchor.contains(event.target)) {
       return;
     }
 
@@ -727,12 +904,20 @@ function initAlfredUI() {
     }
   });
 
+  connectionStatusOverlay?.addEventListener('click', () => {
+    connectionStatusVisibility.pinned = false;
+    connectionStatusVisibility.hovered = false;
+    connectionStatusVisibility.focused = false;
+    syncConnectionStatusPopoverVisibility();
+    connectionStatusAnchor?.blur();
+  });
+
   document.addEventListener('click', (event) => {
-    if (!connectionStatusVisibility.pinned || !connectionStatusAnchor) {
+    if (!connectionStatusVisibility.pinned || !connectionStatusAnchor || !connectionStatusPortalRoot) {
       return;
     }
 
-    if (connectionStatusAnchor.contains(event.target)) {
+    if (connectionStatusAnchor.contains(event.target) || connectionStatusPortalRoot.contains(event.target)) {
       return;
     }
 
@@ -742,12 +927,45 @@ function initAlfredUI() {
     syncConnectionStatusPopoverVisibility();
   });
 
+  window.addEventListener('resize', () => {
+    if (!connectionStatusPortalRoot) {
+      return;
+    }
+
+    positionConnectionStatusTooltip();
+  }, { passive: true });
+
   wsClient.addEventListener('connected', () => {
     updateConnectionStatus('connected');
   });
 
   wsClient.addEventListener('disconnected', () => {
     updateConnectionStatus('disconnected');
+    // Always clean up on disconnect to ensure consistent state
+    // Remove partial assistant message since we can't recover the stream
+    if (currentAssistantMessage) {
+      clearCurrentAssistantMessage({ remove: true });
+    }
+    // Reset composer state to idle
+    setComposerState('idle');
+    // Reset stop button
+    if (stopButton) {
+      stopButton.hidden = true;
+      stopButton.disabled = false;
+      stopButton.style.opacity = '';
+    }
+    // Clear any queued messages since we can't send them
+    messageQueue.length = 0;
+    updateQueueBadge();
+    // Refresh editable state
+    refreshEditableMessageState();
+    // Ensure input is enabled
+    if (messageInput) {
+      messageInput.disabled = false;
+    }
+    if (sendButton) {
+      sendButton.disabled = false;
+    }
   });
 
   wsClient.addEventListener('error', () => {
@@ -769,6 +987,206 @@ function initAlfredUI() {
     }
   }
 
+  function clearCurrentAssistantMessage({ remove = false } = {}) {
+    const assistantMessage = currentAssistantMessage;
+    if (!assistantMessage) {
+      return null;
+    }
+
+    hideStreaming();
+    assistantMessage.classList.remove('cancelling');
+    clearGlueShimmerEffect(assistantMessage);
+    if (remove) {
+      assistantMessage.remove();
+    } else if (typeof assistantMessage.setMessageState === 'function') {
+      assistantMessage.setMessageState('idle');
+    } else {
+      assistantMessage.classList.remove('streaming', 'editing');
+      assistantMessage.dataset.messageState = 'idle';
+    }
+
+    currentAssistantMessage = null;
+    activeToolCalls.clear();
+    return assistantMessage;
+  }
+
+  function setMessageState(messageElement, state) {
+    if (!messageElement) {
+      return;
+    }
+
+    if (typeof messageElement.setMessageState === 'function') {
+      messageElement.setMessageState(state);
+      return;
+    }
+
+    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    messageElement.dataset.messageState = nextState;
+    messageElement.classList.toggle('streaming', nextState === 'streaming');
+    messageElement.classList.toggle('editing', nextState === 'editing');
+  }
+
+  function setComposerState(state) {
+    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    composerState = nextState;
+    if (inputArea) {
+      inputArea.dataset.composerState = nextState;
+    }
+    // Update placeholder based on state
+    if (messageInput) {
+      if (nextState === 'editing') {
+        messageInput.placeholder = 'Editing message... (Esc to cancel)';
+      } else {
+        messageInput.placeholder = 'Type your message... (Shift+Enter to queue)';
+      }
+    }
+  }
+
+  function createClientMessageId(prefix) {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}-${crypto.randomUUID()}`;
+    }
+
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function refreshEditableMessageState() {
+    const userMessages = Array.from(
+      messageList.querySelectorAll('chat-message[data-session-message="true"]')
+    ).filter((messageElement) => messageElement.getAttribute('role') === 'user');
+    const lastUserMessage = userMessages[userMessages.length - 1] || null;
+    const hasActiveStreamingTurn = composerState === 'streaming' || Boolean(currentAssistantMessage?.classList.contains('streaming'));
+
+    if (currentAssistantMessage) {
+      setMessageState(currentAssistantMessage, currentAssistantMessage.classList.contains('streaming') ? 'streaming' : 'idle');
+    }
+
+    userMessages.forEach((messageElement) => {
+      const shouldBeEditable = !hasActiveStreamingTurn && messageElement === lastUserMessage;
+      const nextState = messageElement === editingMessageElement ? 'editing' : 'idle';
+      if (typeof messageElement.setEditable === 'function') {
+        if (messageElement.getEditable?.() !== shouldBeEditable) {
+          messageElement.setEditable(shouldBeEditable);
+        }
+      } else if (shouldBeEditable) {
+        messageElement.setAttribute('editable', 'true');
+      } else {
+        messageElement.removeAttribute('editable');
+      }
+      setMessageState(messageElement, nextState);
+    });
+
+    if (editingMessageElement && !userMessages.includes(editingMessageElement)) {
+      setMessageState(editingMessageElement, 'editing');
+    }
+  }
+
+  function clearComposerEditState() {
+    const previousEditingMessage = editingMessageElement;
+    const wasEditing = previousEditingMessage !== null;
+    if (previousEditingMessage) {
+      setMessageState(previousEditingMessage, 'idle');
+    }
+    editingMessageElement = null;
+    if (inputArea) {
+      inputArea.removeAttribute('data-edit-message-id');
+    }
+    if (wasEditing) {
+      messageInput.value = '';
+      autoResizeTextarea();
+    }
+    refreshEditableMessageState();
+  }
+
+  function removeSessionMessagesAfter(messageElement) {
+    let sibling = messageElement?.nextElementSibling ?? null;
+    while (sibling) {
+      const nextSibling = sibling.nextElementSibling;
+      if (sibling.matches?.('chat-message[data-session-message="true"]')) {
+        if (sibling === currentAssistantMessage) {
+          currentAssistantMessage = null;
+        }
+        sibling.remove();
+      }
+      sibling = nextSibling;
+    }
+    activeToolCalls.clear();
+  }
+
+  function startComposerEdit(messageElement) {
+    if (!messageElement || messageElement.getAttribute('role') !== 'user') {
+      return;
+    }
+
+    const messageId = messageElement.getAttribute('message-id') || '';
+    if (!messageId) {
+      return;
+    }
+
+    const content = typeof messageElement.getContent === 'function'
+      ? messageElement.getContent()
+      : messageElement.getAttribute('content') || '';
+
+    pendingEditRequest = null;
+    clearComposerEditState();
+    editingMessageElement = messageElement;
+    setMessageState(messageElement, 'editing');
+    if (inputArea) {
+      inputArea.dataset.editMessageId = messageId;
+    }
+
+    messageInput.value = content;
+    autoResizeTextarea();
+    enableInput();
+    setComposerState('editing');
+    refreshEditableMessageState();
+    messageInput.focus();
+    messageInput.setSelectionRange(content.length, content.length);
+  }
+
+  function getRetryRequest(messageElement) {
+    const previousPrompt = findPreviousUserPrompt(messageElement);
+    const messageId = messageElement?.getAttribute?.('message-id') || '';
+
+    if (!previousPrompt || !messageId) {
+      return null;
+    }
+
+    return {
+      messageId,
+      content: previousPrompt,
+    };
+  }
+
+  function sendChatEditRequest(messageId, content, { playSound = true } = {}) {
+    const cleanContent = content.trim();
+    if (!messageId || !cleanContent) {
+      return;
+    }
+
+    pendingEditRequest = null;
+    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    if (playSound) {
+      playKidcoreSend();
+    }
+    disableInput();
+    wsClient.sendChatEdit(messageId, cleanContent);
+  }
+
+  function sendPendingChatRequest() {
+    if (!pendingChatSendRequest) {
+      return;
+    }
+
+    const { content } = pendingChatSendRequest;
+    pendingChatSendRequest = null;
+    pendingKidcoreStreamingFx = content.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    wsClient.sendChat(content);
+  }
+
+  setComposerState('idle');
+  refreshEditableMessageState();
+
   // Message Handler
   function handleWebSocketMessage(msg) {
     switch (msg.type) {
@@ -781,7 +1199,9 @@ function initAlfredUI() {
         currentAssistantMessage.setAttribute('data-session-message', 'true');
         currentAssistantMessage.classList.add('streaming');
         messageList.appendChild(currentAssistantMessage);
+        setMessageState(currentAssistantMessage, 'streaming');
         applyGlueShimmerEffect(currentAssistantMessage);
+        disableInput();
         showStreaming();
         scrollToBottom();
         break;
@@ -805,25 +1225,45 @@ function initAlfredUI() {
         break;
 
       case 'chat.complete':
-        hideStreaming();
+        clearCurrentAssistantMessage();
+        clearComposerEditState();
         playKidcoreMessageComplete();
-        clearGlueShimmerEffect(currentAssistantMessage);
-        currentAssistantMessage = null;
-        activeToolCalls.clear();
-        enableInput();
         // Add copy buttons to any new code blocks
         addCopyButtons();
-        // Send next queued message if any
-        processQueue();
+        if (pendingEditRequest) {
+          const { messageId, content } = pendingEditRequest;
+          sendChatEditRequest(messageId, content);
+        } else if (pendingChatSendRequest) {
+          sendPendingChatRequest();
+        } else {
+          enableInput();
+          // Send next queued message if any
+          processQueue();
+        }
+        break;
+
+      case 'chat.cancelled':
+        clearCurrentAssistantMessage({ remove: true });
+        clearComposerEditState();
+        scrollToBottom();
+        if (pendingEditRequest) {
+          const { messageId, content } = pendingEditRequest;
+          sendChatEditRequest(messageId, content);
+        } else if (pendingChatSendRequest) {
+          sendPendingChatRequest();
+        } else {
+          enableInput();
+          processQueue();
+        }
         break;
 
       case 'chat.error':
-        hideStreaming();
+        clearCurrentAssistantMessage();
+        pendingEditRequest = null;
+        pendingChatSendRequest = null;
+        clearComposerEditState();
         playKidcoreError();
         showError(msg.payload?.error || 'An error occurred');
-        clearGlueShimmerEffect(currentAssistantMessage);
-        currentAssistantMessage = null;
-        activeToolCalls.clear();
         enableInput();
         break;
 
@@ -885,6 +1325,10 @@ function initAlfredUI() {
       emitMessage: handleWebSocketMessage,
       syncKidcoreAudioControls,
       getCurrentAssistantMessage: () => currentAssistantMessage,
+      setCurrentAssistantMessage: (msg) => { currentAssistantMessage = msg; },
+      getCurrentAssistantMessageState: () => currentAssistantMessage?.getMessageState?.() || currentAssistantMessage?.getAttribute('data-message-state') || null,
+      getComposerState: () => composerState,
+      getEditingMessageId: () => editingMessageElement?.getAttribute('message-id') || null,
     };
   }
 
@@ -895,6 +1339,9 @@ function initAlfredUI() {
     messageHistory.length = 0;
     historyIndex = -1;
     currentAssistantMessage = null;
+    pendingEditRequest = null;
+    pendingChatSendRequest = null;
+    clearComposerEditState();
     activeToolCalls.clear();
     activeSessionId = payload.sessionId || null;
     showSystemMessage(`New session created: ${payload.sessionId}`);
@@ -902,16 +1349,26 @@ function initAlfredUI() {
   }
 
   function handleSessionLoaded(payload) {
+    pendingEditRequest = null;
+    pendingChatSendRequest = null;
+    clearComposerEditState();
     reconcileSessionLoaded(payload);
+
     showSystemMessage(`Session resumed: ${payload.sessionId}`);
     addCopyButtons();
-    enableInput();
+    // Ensure clean UI state after loading session
+    if (currentAssistantMessage?.classList.contains('streaming')) {
+      disableInput();
+    } else {
+      enableInput();
+    }
   }
 
   function handleSessionList(payload) {
     const sessions = payload.sessions || [];
 
     if (sessions.length === 0) {
+      clearComposerEditState();
       showSystemMessage('No recent sessions found.');
       enableInput();
       return;
@@ -937,6 +1394,7 @@ function initAlfredUI() {
     messageList.appendChild(container);
 
     scrollToBottom();
+    clearComposerEditState();
     enableInput();
   }
 
@@ -951,7 +1409,11 @@ function initAlfredUI() {
     if (payload.lastActive) {
       content += `Last Active: ${new Date(payload.lastActive).toLocaleString()}\n`;
     }
+    if (payload.summary) {
+      content += `\nSummary: ${payload.summary}\n`;
+    }
 
+    clearComposerEditState();
     showSystemMessage(content);
     enableInput();
   }
@@ -1008,6 +1470,7 @@ function initAlfredUI() {
 
     lines.push(`Total Tokens: ${payload.totalTokens || 0}`);
 
+    clearComposerEditState();
     showSystemMessage(lines.join('\n'), { warning: warnings.length > 0 });
     enableInput();
   }
@@ -1130,40 +1593,80 @@ function initAlfredUI() {
   }
 
   function sendMessageContent(content) {
+    const cleanContent = content.trim();
+    if (!cleanContent) {
+      return;
+    }
+
+    if (editingMessageElement) {
+      const editedMessage = editingMessageElement;
+      const messageId = editedMessage.getAttribute('message-id') || '';
+
+      if (!messageId) {
+        showError('Could not edit the selected message.');
+        clearComposerEditState();
+        enableInput();
+        return;
+      }
+
+      removeSessionMessagesAfter(editedMessage);
+      editedMessage.setContent(cleanContent);
+      if (messageHistory.length === 0) {
+        addToHistory(cleanContent);
+      } else {
+        messageHistory[messageHistory.length - 1] = cleanContent;
+        historyIndex = messageHistory.length;
+      }
+      clearComposerEditState();
+      pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+      playKidcoreSend();
+      scrollToBottom();
+      sendChatEditRequest(messageId, cleanContent, { playSound: false });
+      return;
+    }
+
     // Add to history
-    addToHistory(content);
+    addToHistory(cleanContent);
     playKidcoreSend();
 
     // Send via WebSocket - commands use command.execute, chat uses chat.send
-    if (content.startsWith('/')) {
+    if (cleanContent.startsWith('/')) {
       pendingKidcoreStreamingFx = null;
 
       // Commands: show as system message, don't disable input
       const cmdMsg = document.createElement('chat-message');
       cmdMsg.setAttribute('role', 'system');
-      cmdMsg.setAttribute('content', `Command: ${content}`);
+      cmdMsg.setAttribute('content', `Command: ${cleanContent}`);
       cmdMsg.setAttribute('timestamp', new Date().toISOString());
       messageList.appendChild(cmdMsg);
       scrollToBottom();
 
-      wsClient.sendCommand(content);
+      wsClient.sendCommand(cleanContent);
       // Don't disable input - commands are instant
-    } else {
-      pendingKidcoreStreamingFx = content.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+      return;
+    }
 
-      // Chat messages: show as user message, disable input during streaming
-      const userMessage = document.createElement('chat-message');
-      userMessage.setAttribute('role', 'user');
-      userMessage.setAttribute('content', content);
-      userMessage.setAttribute('timestamp', new Date().toISOString());
-      userMessage.setAttribute('data-session-message', 'true');
-      messageList.appendChild(userMessage);
+    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
 
+    const userMessage = document.createElement('chat-message');
+    userMessage.setAttribute('role', 'user');
+    userMessage.setAttribute('content', cleanContent);
+    userMessage.setAttribute('timestamp', new Date().toISOString());
+    userMessage.setAttribute('message-id', createClientMessageId('user'));
+    userMessage.setAttribute('data-session-message', 'true');
+    messageList.appendChild(userMessage);
+
+    if (currentAssistantMessage) {
+      pendingChatSendRequest = { content: cleanContent };
       disableInput();
       scrollToBottom();
-
-      wsClient.sendChat(content);
+      handleStopGenerating();
+      return;
     }
+
+    disableInput();
+    scrollToBottom();
+    wsClient.sendChat(cleanContent);
   }
 
   function findPreviousUserPrompt(messageElement) {
@@ -1186,18 +1689,19 @@ function initAlfredUI() {
   }
 
   function retryAssistantMessage(messageElement) {
-    if (currentAssistantMessage) {
-      showError('Wait for the current response to finish before regenerating.');
-      return;
-    }
-
-    const previousPrompt = findPreviousUserPrompt(messageElement);
-    if (!previousPrompt) {
+    const retryRequest = getRetryRequest(messageElement);
+    if (!retryRequest) {
       showError('Could not find the previous user prompt to regenerate this reply.');
       return;
     }
 
-    sendMessageContent(previousPrompt);
+    if (currentAssistantMessage) {
+      pendingEditRequest = retryRequest;
+      handleStopGenerating();
+      return;
+    }
+
+    sendChatEditRequest(retryRequest.messageId, retryRequest.content);
   }
 
   // Textarea Auto-Resize
@@ -1254,13 +1758,43 @@ function initAlfredUI() {
 
   // UI Helpers
   function disableInput() {
-    messageInput.disabled = true;
-    sendButton.disabled = true;
+    messageInput.disabled = false;
+    sendButton.disabled = false;
+    if (stopButton) {
+      stopButton.disabled = false;
+      stopButton.hidden = false;
+    }
+    setComposerState('streaming');
+    refreshEditableMessageState();
+  }
+
+  function setCancellingState() {
+    if (stopButton) {
+      stopButton.disabled = true;
+      stopButton.style.opacity = '0.6';
+    }
+    setComposerState('cancelling');
+  }
+
+  function handleStopGenerating() {
+    if (!currentAssistantMessage || composerState === 'cancelling') {
+      return;
+    }
+
+    setCancellingState();
+    wsClient.sendCancel();
   }
 
   function enableInput() {
     messageInput.disabled = false;
     sendButton.disabled = false;
+    if (stopButton) {
+      stopButton.hidden = true;
+      stopButton.disabled = false;
+      stopButton.style.opacity = '';
+    }
+    setComposerState('idle');
+    refreshEditableMessageState();
     messageInput.focus();
   }
 
@@ -1327,6 +1861,7 @@ function initAlfredUI() {
 
   // Event Listeners
   sendButton.addEventListener('click', sendMessage);
+  stopButton?.addEventListener('click', handleStopGenerating);
 
   // History navigation buttons (mobile)
   const historyUpBtn = document.getElementById('history-up');
@@ -1365,8 +1900,8 @@ function initAlfredUI() {
       }
     }
 
-    // Shift+Enter: Queue message
-    if (e.key === 'Enter' && e.shiftKey) {
+    // Shift+Enter: Queue message while streaming
+    if (e.key === 'Enter' && e.shiftKey && composerState !== 'editing') {
       e.preventDefault();
       const content = messageInput.value.trim();
       if (content) {
@@ -1396,6 +1931,18 @@ function initAlfredUI() {
       return;
     }
 
+    if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
+      e.preventDefault();
+      handleStopGenerating();
+      return;
+    }
+
+    if (e.key === 'Escape' && composerState === 'editing') {
+      e.preventDefault();
+      clearComposerEditState();
+      return;
+    }
+
     // Ctrl+U: Clear input
     if (e.ctrlKey && e.key === 'u') {
       e.preventDefault();
@@ -1414,7 +1961,19 @@ function initAlfredUI() {
       return;
     }
 
-    // Escape: Clear queue
+    // Escape: cancel active response, edit mode, or clear queued messages
+    if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
+      e.preventDefault();
+      handleStopGenerating();
+      return;
+    }
+
+    if (e.key === 'Escape' && composerState === 'editing') {
+      e.preventDefault();
+      clearComposerEditState();
+      return;
+    }
+
     if (e.key === 'Escape' && messageQueue.length > 0) {
       clearQueue();
     }
@@ -1427,6 +1986,15 @@ function initAlfredUI() {
     }
 
     retryAssistantMessage(messageElement);
+  });
+
+  messageList.addEventListener('edit-message', (event) => {
+    const messageElement = event.target?.closest?.('chat-message');
+    if (!messageElement || messageElement.getAttribute('role') !== 'user') {
+      return;
+    }
+
+    startComposerEdit(messageElement);
   });
 
   // Completion menu selection
@@ -1455,8 +2023,161 @@ function initAlfredUI() {
     completionMenu.hide();
   });
 
-  // Auto-scroll on window resize
-  window.addEventListener('resize', scrollToBottom);
+  // Mobile Chrome Hide/Show
+  // Only header hides on scroll - footer (composer) stays visible
+  const MOBILE_BREAKPOINT = 768;
+  let isHeaderHidden = false;
+  let lastScrollTop = chatContainer?.scrollTop || 0;
+  let scrollDirection = 'none';
+  let scrollDistance = 0;
+  let scrollTimeout = null;
+
+  // Guard states for top/bottom bounce handling
+  let hasTopLeft = false;     // Must scroll down from top before header can hide
+  let hasBottomLeft = false;  // Must scroll up from bottom before header can show (when hidden)
+  let scrollHandlerInitialized = false;  // First scroll event just initializes state
+
+  function getScrollInfo() {
+    const scrollTop = chatContainer.scrollTop;
+    const scrollHeight = chatContainer.scrollHeight;
+    const clientHeight = chatContainer.clientHeight;
+    const maxScroll = Math.max(0, scrollHeight - clientHeight);
+    const distanceFromBottom = maxScroll - scrollTop;
+    // Dynamic thresholds based on viewport size
+    const minThreshold = Math.min(30, clientHeight * 0.05); // At least 5% of viewport or 30px
+    const hideThreshold = Math.max(minThreshold, clientHeight * 0.08); // 8% to hide
+    const showThreshold = Math.max(minThreshold * 0.5, clientHeight * 0.04); // 4% to show
+    const edgeTolerance = Math.min(80, clientHeight * 0.12); // 12% tolerance for top/bottom
+    return { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance, clientHeight };
+  }
+
+  function handleScroll() {
+    // Only apply on mobile
+    if (window.innerWidth > MOBILE_BREAKPOINT) {
+      if (isHeaderHidden) {
+        showHeader();
+      }
+      return;
+    }
+
+    const { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance } = getScrollInfo();
+    
+    // Always reset lastScrollTop on first real scroll to prevent jumpiness
+    if (!scrollHandlerInitialized) {
+      lastScrollTop = scrollTop;
+      scrollHandlerInitialized = true;
+      return;
+    }
+
+    // If chat area is too small to scroll meaningfully, don't hide header
+    if (maxScroll < hideThreshold) {
+      if (isHeaderHidden) {
+        showHeader();
+      }
+      return;
+    }
+
+    const delta = scrollTop - lastScrollTop;
+    lastScrollTop = scrollTop;
+
+    // Update guard states based on position
+    // At top: reset hasTopLeft, allow hasBottomLeft
+    if (scrollTop <= edgeTolerance) {
+      hasTopLeft = false;
+      hasBottomLeft = true; // Can always show header when near top
+    }
+    // Past top tolerance: can now hide header
+    else if (scrollTop > edgeTolerance) {
+      hasTopLeft = true;
+    }
+
+    // At bottom: reset hasBottomLeft, keep hasTopLeft
+    if (distanceFromBottom <= edgeTolerance) {
+      hasBottomLeft = false;
+      hasTopLeft = true; // Can always hide header when past top
+    }
+    // Past bottom tolerance: can now show header (if it was hidden)
+    else if (distanceFromBottom > edgeTolerance) {
+      hasBottomLeft = true;
+    }
+
+    // Clear any pending timeout
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+
+    // Detect direction
+    const newDirection = delta > 0 ? 'down' : 'up';
+
+    // Reset distance on direction change
+    if (newDirection !== scrollDirection) {
+      scrollDirection = newDirection;
+      scrollDistance = 0;
+    }
+
+    // Accumulate distance in current direction
+    scrollDistance += Math.abs(delta);
+
+    // Handle scroll down - hide header after threshold (only if we've left the top)
+    if (scrollDirection === 'down' && !isHeaderHidden && hasTopLeft) {
+      if (scrollDistance > hideThreshold) {
+        hideHeader();
+        scrollDistance = 0;
+      }
+    }
+
+    // Handle scroll up - show header after threshold (only if we've left the bottom)
+    if (scrollDirection === 'up' && isHeaderHidden && hasBottomLeft) {
+      if (scrollDistance > showThreshold) {
+        showHeader();
+        scrollDistance = 0;
+      }
+    }
+
+    // Reset scroll tracking after inactivity
+    scrollTimeout = setTimeout(() => {
+      scrollDirection = 'none';
+      scrollDistance = 0;
+    }, 200);
+  }
+
+  function hideHeader() {
+    const header = document.querySelector('.app-header');
+    if (header) {
+      header.classList.add('hidden');
+    }
+    isHeaderHidden = true;
+  }
+
+  function showHeader() {
+    const header = document.querySelector('.app-header');
+    if (header) {
+      header.classList.remove('hidden');
+    }
+    isHeaderHidden = false;
+  }
+
+  // Attach scroll listener
+  chatContainer.addEventListener('scroll', handleScroll, { passive: true });
+
+  // Restore header when focusing the composer
+  messageInput.addEventListener('focus', () => {
+    if (isHeaderHidden && window.innerWidth <= MOBILE_BREAKPOINT) {
+      showHeader();
+    }
+    restoreChrome();
+  });
+
+  // Handle scroll for mobile chrome collapse
+  window.addEventListener('scroll', handleScroll);
+
+  // Handle window resize to reset hidden state on desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > MOBILE_BREAKPOINT && isHeaderHidden) {
+      showHeader();
+    }
+    scrollToBottom();
+  });
 
   // Connect WebSocket
   wsClient.connect();
@@ -1530,6 +2251,37 @@ function addCopyButtons() {
     wrapper.appendChild(copyBtn);
     wrapper.appendChild(pre);
   });
+
+  // Floating settings button (mobile) - triggers the settings-menu
+  const floatingSettingsBtn = document.getElementById('floating-settings-btn');
+  if (floatingSettingsBtn) {
+    // Show floating button on mobile (remove hidden attribute)
+    if (window.innerWidth <= 768) {
+      floatingSettingsBtn.removeAttribute('hidden');
+    }
+
+    // Update visibility on resize
+    window.addEventListener('resize', () => {
+      if (window.innerWidth <= 768) {
+        floatingSettingsBtn.removeAttribute('hidden');
+      } else {
+        floatingSettingsBtn.setAttribute('hidden', '');
+      }
+    });
+
+    // Click handler - open settings menu
+    floatingSettingsBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const settingsMenu = document.querySelector('settings-menu');
+      if (settingsMenu) {
+        // Toggle settings menu by clicking its toggle button
+        const toggleBtn = settingsMenu.querySelector('.settings-toggle');
+        if (toggleBtn) {
+          toggleBtn.click();
+        }
+      }
+    });
+  }
 }
 
 function showCopyFeedback(btn) {

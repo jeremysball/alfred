@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from playwright.async_api import async_playwright
 
 from alfred.interfaces.webui.server import create_app
-from tests.webui.fakes import FakeAlfred, make_session
+from tests.webui.fakes import FakeAlfred, make_message, make_session
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -206,7 +206,7 @@ async def test_retry_button_replays_last_user_prompt() -> None:
     port = _find_free_port()
     fake_alfred = FakeAlfred(
         chunks=["Retry ", "response"],
-        sessions=[make_session("session-1", messages=[])],
+        sessions=[make_session("session-1", messages=[make_message("user", "Please regenerate this", id="user-old")])],
     )
     config = uvicorn.Config(
         create_app(alfred_instance=fake_alfred),
@@ -245,13 +245,6 @@ async def test_retry_button_replays_last_user_prompt() -> None:
                   const list = document.getElementById('message-list');
                   if (!list) return;
 
-                  const user = document.createElement('chat-message');
-                  user.setAttribute('role', 'user');
-                  user.setAttribute('content', 'Please regenerate this');
-                  user.setAttribute('timestamp', new Date().toISOString());
-                  user.setAttribute('data-session-message', 'true');
-                  list.appendChild(user);
-
                   const assistant = document.createElement('chat-message');
                   assistant.setAttribute('role', 'assistant');
                   assistant.setAttribute('content', 'Old answer');
@@ -267,7 +260,7 @@ async def test_retry_button_replays_last_user_prompt() -> None:
             await page.wait_for_function(
                 """
                 () => window.__sentWebSocketMessages.some((message) =>
-                  message.includes('"type":"chat.send"') &&
+                  message.includes('"type":"chat.edit"') &&
                   message.includes('"content":"Please regenerate this"')
                 )
                 """
@@ -280,7 +273,7 @@ async def test_retry_button_replays_last_user_prompt() -> None:
             )
 
             sent_messages = await page.evaluate("window.__sentWebSocketMessages")
-            assert any('"type":"chat.send"' in message and '"content":"Please regenerate this"' in message for message in sent_messages)
+            assert any('"type":"chat.edit"' in message and '"content":"Please regenerate this"' in message for message in sent_messages)
 
             user_messages = await page.evaluate(
                 """
@@ -288,7 +281,7 @@ async def test_retry_button_replays_last_user_prompt() -> None:
                   .map((element) => element.getAttribute('content'))
                 """
             )
-            assert user_messages == ["Please regenerate this", "Please regenerate this"]
+            assert user_messages == ["Please regenerate this"]
 
             assistant_messages = await page.evaluate(
                 """
@@ -303,6 +296,125 @@ async def test_retry_button_replays_last_user_prompt() -> None:
             )
             assert assistant_messages[0] == "Old answer"
             assert assistant_messages[-1] == "Retry response"
+
+            await browser.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
+async def test_retry_button_cancels_stream_and_restarts_without_duplicate_user_prompt() -> None:
+    port = _find_free_port()
+    fake_alfred = FakeAlfred(
+        chunks=["Retry ", "response"],
+        chunk_delay=0.5,
+        sessions=[make_session("session-1", messages=[])],
+    )
+    config = uvicorn.Config(
+        create_app(alfred_instance=fake_alfred),
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+    )
+    server = uvicorn.Server(config)
+    thread = Thread(target=server.run, daemon=True)
+    thread.start()
+
+    try:
+        await _wait_for_server(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.add_init_script(
+                """
+                window.__sentWebSocketMessages = [];
+                const originalSend = WebSocket.prototype.send;
+                WebSocket.prototype.send = function(data) {
+                  window.__sentWebSocketMessages.push(data);
+                  return originalSend.call(this, data);
+                };
+                """
+            )
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            await page.fill("#message-input", "Please regenerate this")
+            await page.click("#send-button")
+
+            await page.wait_for_function(
+                """
+                () => Boolean(document.querySelector('chat-message.streaming'))
+                """
+            )
+
+            await page.click('chat-message.streaming [data-action="retry"]')
+
+            await page.wait_for_function(
+                """
+                () => window.__sentWebSocketMessages.some((message) =>
+                  message.includes('"type":"chat.cancel"')
+                )
+                """
+            )
+            await page.wait_for_function(
+                """
+                () => window.__sentWebSocketMessages.some((message) =>
+                  message.includes('"type":"chat.edit"') &&
+                  message.includes('"content":"Please regenerate this"')
+                )
+                """
+            )
+            await page.wait_for_function(
+                """
+                () => Array.from(document.querySelectorAll('#message-list chat-message[role="user"]'))
+                  .map((element) => element.getAttribute('content'))
+                  .length === 1
+                """
+            )
+            await page.wait_for_function(
+                """
+                () => Array.from(
+                  document.querySelectorAll('#message-list chat-message[role="assistant"]')
+                ).length === 1
+                """
+            )
+            await page.wait_for_function(
+                """
+                () => Array.from(
+                  document.querySelectorAll('#message-list chat-message[role="assistant"]')
+                ).at(-1)?.getContent?.() === 'Retry response'
+                """
+            )
+
+            sent_messages = await page.evaluate("window.__sentWebSocketMessages")
+            assert any('"type":"chat.cancel"' in message for message in sent_messages)
+            assert any('"type":"chat.edit"' in message and '"content":"Please regenerate this"' in message for message in sent_messages)
+
+            user_messages = await page.evaluate(
+                """
+                () => Array.from(document.querySelectorAll('#message-list chat-message[role="user"]'))
+                  .map((element) => element.getAttribute('content'))
+                """
+            )
+            assert user_messages == ["Please regenerate this"]
+
+            assistant_messages = await page.evaluate(
+                """
+                () => Array.from(
+                  document.querySelectorAll('#message-list chat-message[role="assistant"]')
+                ).map((element) => (
+                  typeof element.getContent === 'function'
+                    ? element.getContent()
+                    : element.getAttribute('content') || ''
+                ))
+                """
+            )
+            assert assistant_messages == ["Retry response"]
 
             await browser.close()
     finally:

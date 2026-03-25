@@ -120,6 +120,47 @@ Send a chat message to Alfred. The server responds with a streaming sequence of 
 
 ---
 
+### `chat.cancel`
+
+Cancel the active assistant response for the current connection.
+
+```json
+{
+  "type": "chat.cancel"
+}
+```
+
+**Payload Fields:** None. This message has no payload.
+
+**Server Response:** `chat.cancelled`
+
+---
+
+### `chat.edit`
+
+Update the last completed user message and restart the conversation from that edited text.
+
+```json
+{
+  "type": "chat.edit",
+  "payload": {
+    "messageId": "msg-123",
+    "content": "Please rewrite this."
+  }
+}
+```
+
+**Payload Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messageId` | `string` | Yes | ID of the user message to update |
+| `content` | `string` | Yes | Replacement message content |
+
+**Server Response:** The server updates the session, removes the trailing assistant turn, and starts a new `chat.started` streaming sequence.
+
+---
+
 ### `command.execute`
 
 Execute a slash command. Commands are prefixed with `/` and control session management.
@@ -483,6 +524,27 @@ Common error messages:
 
 ---
 
+### `chat.cancelled`
+
+Sent when the active assistant response has been canceled and the partial turn has been cleaned up.
+
+```json
+{
+  "type": "chat.cancelled",
+  "payload": {
+    "messageId": "msg-550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+**Payload Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `messageId` | `string` | The assistant message that was canceled |
+
+---
+
 ### `status.update`
 
 Sent periodically during streaming to report current status.
@@ -641,6 +703,22 @@ Client                                      Server
   |<-- chat.complete {finalContent: "..."} ---|
 ```
 
+### Streaming Control Flow
+
+```
+Client                                      Server
+  |                                           |
+  |--- chat.send {content: "Draft this"} --->|
+  |<-- chat.started {messageId: "msg-1"} ----|
+  |<-- chat.chunk {content: "Draft"} --------|
+  |--- chat.cancel -------------------------->|
+  |<-- chat.cancelled {messageId: "msg-1"} --|
+  |                                           |
+  |--- chat.edit {messageId: "msg-0",        |
+  |              content: "Rewrite this"} --->|
+  |<-- chat.started {messageId: "msg-2"} ----|
+```
+
 ### Chat with Tool Execution
 
 ```
@@ -720,6 +798,7 @@ Token counts in `status.update` are approximate (4 characters ≈ 1 token for En
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 0.1.1 | 2026-03-23 | Added `chat.cancel`, `chat.edit`, `chat.cancelled`, and streaming control flow examples |
 | 0.1.0 | 2026-03-20 | Initial protocol specification |
 
 ## See Also
