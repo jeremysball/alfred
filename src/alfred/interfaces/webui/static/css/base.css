@@ -506,15 +506,10 @@ chat-message[data-message-state="editing"] .message.user {
 }
 
 .tool-calls {
-    margin: 0.75rem 0;
-    border-left: 3px solid var(--tool-accent, #7c4dff);
-    background: rgba(124, 77, 255, 0.08);
-    border-radius: 0 0.5rem 0.5rem 0;
-    overflow: hidden;
-    padding: 0.75rem;
+    margin: 0.5rem 0;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.25rem;
 }
 
 .tool-calls:empty {
@@ -585,6 +580,49 @@ chat-message.streaming .reasoning-icon {
 
 .reasoning-section + .message-bubble {
     margin-top: 0.75rem;
+}
+
+/* ============================================
+   INTERLEAVED CONTENT BLOCKS
+   ============================================ */
+
+.content-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.content-block {
+    margin: 0;
+}
+
+/* Text block styling */
+.text-block {
+    line-height: 1.6;
+}
+
+.text-block p:first-child {
+    margin-top: 0;
+}
+
+.text-block p:last-child {
+    margin-bottom: 0;
+}
+
+/* Reasoning block styling */
+.reasoning-block {
+    margin: 0.25rem 0;
+}
+
+.reasoning-block .reasoning-section {
+    border: 1px solid rgba(201, 169, 89, 0.15);
+    border-radius: 0.5rem;
+    background: rgba(201, 169, 89, 0.03);
+}
+
+/* Tool block within content blocks */
+.content-block tool-call {
+    display: block;
 }
 
 /* Message Actions */
@@ -1054,95 +1092,98 @@ chat-message.streaming .reasoning-icon {
 }
 
 /* ============================================
-   TOOL CALLS
+   TOOL CALLS - Button-only style
    ============================================ */
 
 .tool-call {
-    margin: 0.75rem 0;
-    border: 1px solid var(--tool-border, #444);
-    border-radius: 0.85rem 1.15rem 0.9rem 1.25rem;
-    background: var(--tool-bg, #1e1e1e);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
-    overflow: hidden;
-}
-
-.tool-call.running {
-    border-color: var(--tool-running-border, #f57c00);
-}
-
-.tool-call.success {
-    border-color: var(--tool-success-border, #2e7d32);
-}
-
-.tool-call.error {
-    border-color: var(--tool-error-border, #c62828);
-}
-
-.tool-header {
+    margin: 0.5rem 0;
     display: flex;
+    flex-direction: column;
+}
+
+/* Button-style header - no borders, minimal background */
+.tool-button {
+    display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--tool-header-bg, #252525);
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
     cursor: pointer;
     user-select: none;
-    transition: background 0.2s;
+    transition: all 0.15s ease;
+    color: var(--contrast-text, #e0e0e0);
+    width: fit-content;
+    max-width: 100%;
 }
 
-.tool-header:hover {
-    background: var(--tool-header-hover, #333);
+.tool-button:hover {
+    background: var(--hover-bg, rgba(255, 255, 255, 0.05));
+    border-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
 }
 
-.tool-icon {
-    font-size: 1rem;
-    width: 1.5rem;
+.tool-button:focus {
+    outline: 2px solid var(--focus-ring, #7c4dff);
+    outline-offset: 2px;
+}
+
+/* Status colors on the icon */
+.tool-status-icon {
+    font-size: 0.75rem;
+    width: 1rem;
     text-align: center;
-    color: var(--contrast-tool-accent, var(--tool-icon, #e0e0e0));
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.tool-call.running .tool-status-icon {
+    color: var(--tool-running, #f57c00);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.tool-call.success .tool-status-icon {
+    color: var(--tool-success, #2e7d32);
+}
+
+.tool-call.error .tool-status-icon {
+    color: var(--tool-error, #c62828);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
 .tool-name {
-    font-weight: 600;
-    flex: 1;
-    color: var(--contrast-tool-text, var(--tool-name, #e0e0e0)) !important;
+    font-weight: 500;
+    color: inherit;
 }
 
-.tool-status {
+.tool-args {
     font-size: 0.75rem;
-    text-transform: uppercase;
-    padding: 0.125rem 0.5rem;
-    border-radius: 0.25rem;
-    background: var(--tool-status-bg, #444);
-    color: var(--contrast-tool-muted, var(--tool-status-text, #e0e0e0));
-}
-
-.tool-call.running .tool-status {
-    background: var(--tool-running-bg, #f57c00);
-    color: var(--contrast-tool-running-text, var(--tool-running-text, #1a1a1a));
-}
-
-.tool-call.success .tool-status {
-    background: var(--tool-success-bg, #2e7d32);
-    color: var(--contrast-tool-success-text, var(--tool-success-text, #fff));
-}
-
-.tool-call.error .tool-status {
-    background: var(--tool-error-bg, #c62828);
-    color: var(--contrast-tool-error-text, var(--tool-error-text, #fff));
+    color: var(--text-muted, #888);
+    opacity: 0.8;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tool-toggle {
-    font-size: 0.75rem;
-    color: var(--contrast-tool-muted, var(--tool-toggle, #888));
+    font-size: 0.625rem;
+    color: var(--text-muted, #888);
+    margin-left: 0.25rem;
 }
 
+/* Content area - minimal styling */
 .tool-content {
-    padding: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 0.5rem;
+    margin-left: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--code-bg, rgba(0, 0, 0, 0.2));
+    border-radius: 0.5rem;
+    border-left: 2px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
 }
 
 .tool-call.collapsed .tool-content {

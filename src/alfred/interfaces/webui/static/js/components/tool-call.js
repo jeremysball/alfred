@@ -1,5 +1,5 @@
 /**
- * Tool Call Web Component
+ * Tool Call Web Component - Button-only style
  *
  * Usage:
  * <tool-call
@@ -74,24 +74,54 @@ class ToolCall extends HTMLElement {
   }
 
   _handleClick = (e) => {
-    // Only toggle if clicking the header
-    if (e.target.closest('.tool-header')) {
+    // Only toggle if clicking the button header
+    if (e.target.closest('.tool-button')) {
       this.toggle();
     }
   };
 
+  _getStatusIcon() {
+    switch (this._status) {
+      case 'running':
+        return '▶';
+      case 'success':
+        return '✓';
+      case 'error':
+        return '✗';
+      default:
+        return '▶';
+    }
+  }
+
   _render() {
     const statusClass = this._status.toLowerCase();
     const expandedClass = this._expanded ? 'expanded' : 'collapsed';
+    const statusIcon = this._getStatusIcon();
+
+    // Build arguments summary (first key=value pair, or count)
+    let argsSummary = '';
+    const argKeys = Object.keys(this._arguments);
+    if (argKeys.length > 0) {
+      const firstKey = argKeys[0];
+      const firstValue = this._arguments[firstKey];
+      const valueStr = typeof firstValue === 'string' 
+        ? (firstValue.length > 20 ? firstValue.substring(0, 20) + '...' : firstValue)
+        : JSON.stringify(firstValue).substring(0, 20);
+      argsSummary = `${firstKey}=${valueStr}`;
+      if (argKeys.length > 1) {
+        argsSummary += ` +${argKeys.length - 1}`;
+      }
+    }
 
     this.innerHTML = `
       <div class="tool-call ${statusClass} ${expandedClass}">
-        <div class="tool-header">
+        <button class="tool-button" type="button" aria-expanded="${this._expanded}">
+          <span class="tool-status-icon">${statusIcon}</span>
           <span class="tool-name">${this._escapeHtml(this._toolName)}</span>
-          <span class="tool-status">${this._status}</span>
-          <span class="tool-toggle">${this._expanded ? 'v' : '>'}</span>
-        </div>
-        <div class="tool-content">
+          ${argsSummary ? `<span class="tool-args">${this._escapeHtml(argsSummary)}</span>` : ''}
+          <span class="tool-toggle">${this._expanded ? '▼' : '▶'}</span>
+        </button>
+        <div class="tool-content" style="display: ${this._expanded ? 'block' : 'none'}">
           <div class="tool-arguments">
             <strong>Arguments:</strong>
             <pre><code>${this._escapeHtml(JSON.stringify(this._arguments, null, 2))}</code></pre>

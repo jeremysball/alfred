@@ -1,5 +1,5 @@
 /**
- * Chat Message Web Component
+ * Chat Message Web Component with Interleaved Content Support
  * 
  * Usage: <chat-message role="user" content="Hello"></chat-message>
  * 
@@ -10,6 +10,10 @@
  *   - message-id: Optional message ID for actions
  *   - editable: Boolean flag that shows the edit action for user messages
  *   - data-message-state: UI state for the message surface ('idle' | 'streaming' | 'editing')
+ * 
+ * Interleaved Content:
+ *   This component supports interleaved content blocks (text, reasoning, tool calls)
+ *   that appear in chronological order. Each block has a sequence number for ordering.
  */
 // Global reasoning expanded state - shared across all reasoning blocks
 // null = no global preference set yet, true/false = expand/collapse all
@@ -27,6 +31,12 @@ class ChatMessage extends HTMLElement {
     this._messageState = 'idle';
     this._editable = false;
     this._copied = false;
+    
+    // Interleaved content blocks
+    this._contentBlocks = []; // Array of {type, sequence, content, metadata, element}
+    this._sequenceCounter = 0;
+    this._textAccumulator = ''; // Accumulates text content
+    this._reasoningAccumulator = ''; // Accumulates reasoning content
   }
 
   static get observedAttributes() {
@@ -100,15 +110,28 @@ class ChatMessage extends HTMLElement {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  _getToolCallsContainer() {
-    return this.querySelector('.tool-calls');
-  }
-
   _syncStateClasses() {
     this.classList.toggle('streaming', this._messageState === 'streaming');
     this.classList.toggle('editing', this._messageState === 'editing');
   }
 
+  /**
+   * Get the next sequence number for content blocks
+   */
+  _nextSequence() {
+    return ++this._sequenceCounter;
+  }
+
+  /**
+   * Find the content block container for interleaved rendering
+   */
+  _getContentBlocksContainer() {
+    return this.querySelector('.content-blocks');
+  }
+
+  /**
+   * Render the message with interleaved content blocks
+   */
   _render() {
     this._syncStateClasses();
     const roleClass = this._role.toLowerCase();
@@ -118,7 +141,6 @@ class ChatMessage extends HTMLElement {
     const avatar = this._getAvatar();
     const displayName = this._getDisplayName();
     const timeDisplay = this._formatTime();
-    const existingToolCalls = Array.from(this.querySelectorAll('.tool-calls > tool-call'));
 
     // System messages are simpler
     if (this._role === 'system') {
@@ -132,23 +154,6 @@ class ChatMessage extends HTMLElement {
       `;
       return;
     }
-
-    // Use global reasoning state if set, otherwise use local state
-    const isReasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : this._reasoningExpanded;
-
-    // Build reasoning section if present
-    const reasoningSection = this._reasoning
-      ? `<div class="reasoning-section">
-          <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
-            <span class="reasoning-icon">◈</span>
-            <span class="reasoning-label">Thinking</span>
-            <span class="reasoning-toggle">${isReasoningExpanded ? '−' : '+'}</span>
-          </div>
-          <div class="reasoning-content" style="display: ${isReasoningExpanded ? 'block' : 'none'}">
-            ${this._escapeHtml(this._reasoning)}
-          </div>
-        </div>`
-      : '';
 
     // Build action buttons for all non-system messages - minimal icon-only design
     const actionButtons = this._role !== 'system'
@@ -169,11 +174,7 @@ class ChatMessage extends HTMLElement {
         </div>`
       : '';
 
-    // Render content: markdown for assistant, plain text for user
-    const renderedContent = this._role === 'assistant'
-      ? this._renderMarkdown(this._content)
-      : this._escapeHtml(this._content);
-
+    // Render with content blocks container for interleaved content
     this.innerHTML = `
       <div class="message ${roleClass}${messageStateClass}">
         <div class="message-header">
@@ -181,21 +182,92 @@ class ChatMessage extends HTMLElement {
           <span class="message-role">${displayName}</span>
           ${timeDisplay ? `<span class="message-time">${timeDisplay}</span>` : ''}
         </div>
-        ${reasoningSection}
-        <div class="tool-calls"></div>
-        <div class="message-bubble">
-          <div class="message-content">${renderedContent}</div>
-        </div>
+        <div class="content-blocks"></div>
         ${actionButtons}
       </div>
     `;
 
-    const toolCallsContainer = this._getToolCallsContainer();
-    if (toolCallsContainer && existingToolCalls.length > 0) {
-      existingToolCalls.forEach((toolCall) => {
-        toolCallsContainer.appendChild(toolCall);
-      });
+    // Re-render all content blocks in sequence order
+    this._renderContentBlocks();
+  }
+
+  /**
+   * Render all content blocks in sequence order
+   */
+  _renderContentBlocks() {
+    const container = this._getContentBlocksContainer();
+    if (!container) return;
+
+    // Sort blocks by sequence
+    const sortedBlocks = [...this._contentBlocks].sort((a, b) => a.sequence - b.sequence);
+    
+    container.innerHTML = '';
+    
+    for (const block of sortedBlocks) {
+      const blockElement = this._createBlockElement(block);
+      if (blockElement) {
+        container.appendChild(blockElement);
+      }
     }
+  }
+
+  /**
+   * Create a DOM element for a content block
+   */
+  _createBlockElement(block) {
+    switch (block.type) {
+      case 'text':
+        return this._createTextBlockElement(block);
+      case 'reasoning':
+        return this._createReasoningBlockElement(block);
+      case 'tool':
+        return block.element; // Tool element is already created
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Create a text block element
+   */
+  _createTextBlockElement(block) {
+    const div = document.createElement('div');
+    div.className = 'content-block text-block';
+    div.dataset.sequence = block.sequence;
+    
+    if (this._role === 'assistant') {
+      div.innerHTML = this._renderMarkdown(block.content);
+    } else {
+      div.textContent = block.content;
+    }
+    
+    return div;
+  }
+
+  /**
+   * Create a reasoning block element
+   */
+  _createReasoningBlockElement(block) {
+    const isExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : this._reasoningExpanded;
+    
+    const div = document.createElement('div');
+    div.className = 'content-block reasoning-block';
+    div.dataset.sequence = block.sequence;
+    
+    div.innerHTML = `
+      <div class="reasoning-section">
+        <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
+          <span class="reasoning-icon">◈</span>
+          <span class="reasoning-label">Thinking</span>
+          <span class="reasoning-toggle">${isExpanded ? '−' : '+'}</span>
+        </div>
+        <div class="reasoning-content" style="display: ${isExpanded ? 'block' : 'none'}">
+          ${this._escapeHtml(block.content)}
+        </div>
+      </div>
+    `;
+    
+    return div;
   }
 
   _renderMarkdown(content) {
@@ -370,10 +442,131 @@ class ChatMessage extends HTMLElement {
     }
   }
 
-  // Public API
+  // ============ Interleaved Content API ============
+
+  /**
+   * Append text content (interleaved)
+   * Creates or updates a text block at the current sequence position
+   */
+  appendContent(chunk) {
+    this._textAccumulator += chunk;
+    this._content = this._textAccumulator;
+    
+    // Find or create text block
+    let textBlock = this._contentBlocks.find(b => b.type === 'text' && b.metadata?.isMainText);
+    
+    if (!textBlock) {
+      textBlock = {
+        type: 'text',
+        sequence: this._nextSequence(),
+        content: this._textAccumulator,
+        metadata: { isMainText: true }
+      };
+      this._contentBlocks.push(textBlock);
+    } else {
+      textBlock.content = this._textAccumulator;
+    }
+    
+    // Re-render content blocks
+    this._renderContentBlocks();
+    this._applySyntaxHighlighting();
+  }
+
+  /**
+   * Append reasoning content (interleaved)
+   * Creates or updates a reasoning block at the current sequence position
+   */
+  appendReasoning(chunk) {
+    this._reasoningAccumulator += chunk;
+    this._reasoning = this._reasoningAccumulator;
+    
+    // Find or create reasoning block
+    let reasoningBlock = this._contentBlocks.find(b => b.type === 'reasoning');
+    
+    if (!reasoningBlock) {
+      reasoningBlock = {
+        type: 'reasoning',
+        sequence: this._nextSequence(),
+        content: this._reasoningAccumulator,
+        metadata: {}
+      };
+      this._contentBlocks.push(reasoningBlock);
+      
+      // Use global state if set, otherwise default to expanded for new reasoning
+      this._reasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : true;
+    } else {
+      reasoningBlock.content = this._reasoningAccumulator;
+    }
+    
+    // Re-render content blocks
+    this._renderContentBlocks();
+  }
+
+  /**
+   * Add a tool call block (interleaved)
+   * Tool calls are added at the current sequence position
+   */
+  appendToolCall(toolCallElement) {
+    // Add as new block at current sequence
+    const toolBlock = {
+      type: 'tool',
+      sequence: this._nextSequence(),
+      content: '',
+      metadata: { toolCallId: toolCallElement.getAttribute('tool-call-id') },
+      element: toolCallElement
+    };
+    
+    this._contentBlocks.push(toolBlock);
+    
+    // Re-render content blocks
+    this._renderContentBlocks();
+  }
+
+  /**
+   * Insert content at a specific position (for precise interleaving)
+   * This allows inserting content between existing blocks
+   */
+  insertContentAt(type, content, position, metadata = {}) {
+    const block = {
+      type,
+      sequence: position,
+      content,
+      metadata
+    };
+    
+    this._contentBlocks.push(block);
+    
+    // Re-sort and render
+    this._renderContentBlocks();
+    
+    if (type === 'text') {
+      this._applySyntaxHighlighting();
+    }
+  }
+
+  // ============ Legacy API (for backward compatibility) ============
+
   setContent(content) {
     this._content = content;
+    this._textAccumulator = content;
     this.setAttribute('content', content);
+    
+    // Update or create main text block
+    let textBlock = this._contentBlocks.find(b => b.type === 'text' && b.metadata?.isMainText);
+    if (!textBlock) {
+      textBlock = {
+        type: 'text',
+        sequence: this._nextSequence(),
+        content: content,
+        metadata: { isMainText: true }
+      };
+      this._contentBlocks.push(textBlock);
+    } else {
+      textBlock.content = content;
+    }
+    
+    this._renderContentBlocks();
+    this._applySyntaxHighlighting();
   }
 
   getContent() {
@@ -424,46 +617,41 @@ class ChatMessage extends HTMLElement {
 
   setReasoning(reasoning) {
     this._reasoning = reasoning;
-    // Use global state if set, otherwise keep current local state
-    if (globalReasoningExpanded !== null) {
-      this._reasoningExpanded = globalReasoningExpanded;
+    this._reasoningAccumulator = reasoning;
+    
+    // Update or create reasoning block
+    let reasoningBlock = this._contentBlocks.find(b => b.type === 'reasoning');
+    if (!reasoningBlock) {
+      reasoningBlock = {
+        type: 'reasoning',
+        sequence: this._nextSequence(),
+        content: reasoning,
+        metadata: {}
+      };
+      this._contentBlocks.push(reasoningBlock);
+      
+      if (globalReasoningExpanded !== null) {
+        this._reasoningExpanded = globalReasoningExpanded;
+      }
+    } else {
+      reasoningBlock.content = reasoning;
     }
-    this._render();
+    
+    this._renderContentBlocks();
     this._applySyntaxHighlighting();
     this._setupEventListeners();
+    this._updateReasoningVisibility();
   }
 
   getReasoning() {
     return this._reasoning;
   }
 
-  appendToolCall(toolCallElement) {
-    const container = this._getToolCallsContainer();
-    if (container) {
-      container.appendChild(toolCallElement);
-    } else {
-      this._render();
-      this._applySyntaxHighlighting();
-      this._setupEventListeners();
-      const toolCallsContainer = this._getToolCallsContainer();
-      if (toolCallsContainer) {
-        toolCallsContainer.appendChild(toolCallElement);
-      }
-    }
-  }
-
   setToolCalls(toolCalls) {
-    const container = this._getToolCallsContainer();
-    if (!container) {
-      this._render();
-      this._applySyntaxHighlighting();
-      this._setupEventListeners();
-    }
-
-    const toolCallsContainer = this._getToolCallsContainer();
-    if (!toolCallsContainer) return;
-
-    toolCallsContainer.innerHTML = '';
+    // Clear existing tool blocks
+    this._contentBlocks = this._contentBlocks.filter(b => b.type !== 'tool');
+    
+    // Add new tool blocks
     toolCalls.forEach((toolCallData) => {
       const toolCall = document.createElement('tool-call');
       toolCall.setAttribute('tool-call-id', toolCallData.toolCallId || toolCallData.tool_call_id || '');
@@ -472,41 +660,17 @@ class ChatMessage extends HTMLElement {
       toolCall.setAttribute('status', toolCallData.status || 'success');
       toolCall.setAttribute('output', toolCallData.output || '');
       toolCall.setAttribute('expanded', (toolCallData.status || '') === 'running' ? 'true' : 'false');
-      toolCallsContainer.appendChild(toolCall);
+      
+      this._contentBlocks.push({
+        type: 'tool',
+        sequence: this._nextSequence(),
+        content: '',
+        metadata: { toolCallId: toolCall.getAttribute('tool-call-id') },
+        element: toolCall
+      });
     });
-  }
-
-  appendContent(chunk) {
-    this._content += chunk;
-    const contentDiv = this.querySelector('.message-content');
-    if (contentDiv && this._role !== 'assistant') {
-      // For user messages, append plain text
-      contentDiv.textContent += chunk;
-    } else if (contentDiv && this._role === 'assistant') {
-      // For assistant messages, re-render full markdown (context-sensitive)
-      contentDiv.innerHTML = this._renderMarkdown(this._content);
-      // Re-apply syntax highlighting to new code blocks
-      this._applySyntaxHighlighting();
-    } else {
-      this._render();
-      this._applySyntaxHighlighting();
-      this._setupEventListeners();
-    }
-  }
-
-  appendReasoning(chunk) {
-    this._reasoning += chunk;
-    const reasoningContent = this.querySelector('.reasoning-content');
-    if (reasoningContent) {
-      reasoningContent.textContent += chunk;
-    } else {
-      // Use global state if set, otherwise default to expanded for new reasoning
-      this._reasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : true;
-      this._render();
-      this._applySyntaxHighlighting();
-      this._setupEventListeners();
-      this._updateReasoningVisibility();
-    }
+    
+    this._renderContentBlocks();
   }
 }
 
