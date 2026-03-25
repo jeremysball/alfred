@@ -21,9 +21,9 @@ Define Alfred’s runtime self-model as a small, internal-only contract. This ph
 
 ### Component: Fail-closed unknown state handling
 
-- [ ] **Test**: `test_runtime_self_model_omits_unknown_fields_instead_of_fabricating_them()` - verify missing runtime facts become unknown/omitted and never get invented
-- [ ] **Implement**: add defensive defaults and serialization rules so the model degrades cleanly when a subsystem is unavailable
-- [ ] **Run**: `uv run pytest tests/test_self_model.py::test_runtime_self_model_omits_unknown_fields_instead_of_fabricating_them -v`
+- [x] **Test**: `test_runtime_self_model_omits_unknown_fields_instead_of_fabricating_them()` - verify missing runtime facts become unknown/omitted and never get invented
+- [x] **Implement**: add defensive defaults and serialization rules so the model degrades cleanly when a subsystem is unavailable
+- [x] **Run**: `uv run pytest tests/test_self_model.py::test_runtime_self_model_omits_unknown_fields_instead_of_fabricating_them -v`
 
 ---
 

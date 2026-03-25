@@ -140,3 +140,57 @@ def test_build_runtime_self_model_uses_current_alfred_state():
     # Verify identity is present
     assert model.identity.name == "Alfred"
     assert model.visibility == Visibility.INTERNAL
+
+
+class MinimalAlfred:
+    """Test double with minimal attributes to verify fail-closed behavior."""
+
+    def __init__(self) -> None:
+        # Intentionally empty - simulates degraded Alfred runtime
+        pass
+
+
+def test_runtime_self_model_omits_unknown_fields_instead_of_fabricating_them():
+    """Verify missing runtime facts become unknown/omitted and never get invented.
+
+    When Alfred subsystems are unavailable, the builder should:
+    - Not crash
+    - Use safe defaults (empty lists, False flags, 0 counts)
+    - Not fabricate data (None stays None)
+    """
+    # Create a minimal Alfred with almost no attributes
+    minimal_alfred = MinimalAlfred()
+
+    # Build self-model - should not crash
+    model = build_runtime_self_model(
+        minimal_alfred,
+        interface=InterfaceType.CLI,
+        session_id="test-session",
+    )
+
+    # Verify safe defaults for capabilities
+    assert model.capabilities.tools_available == []
+    assert model.capabilities.memory_enabled is False
+    assert model.capabilities.search_enabled is False
+
+    # Verify safe defaults for context pressure
+    assert model.context_pressure.message_count == 0
+    assert model.context_pressure.memory_count == 0
+    assert model.context_pressure.approximate_tokens is None
+
+    # Verify world state is still populated (from os/platform, not Alfred)
+    assert model.world.working_directory is not None
+    assert model.world.python_version is not None
+    assert model.world.platform is not None
+
+    # Verify runtime uses provided overrides
+    assert model.runtime.interface == InterfaceType.CLI
+    assert model.runtime.session_id == "test-session"
+
+    # Verify model serializes cleanly without fabricated data
+    data = model.model_dump(exclude_none=True)
+    assert "identity" in data
+    assert "runtime" in data
+    assert "capabilities" in data
+    # approximate_tokens should be excluded since it's None
+    assert "approximate_tokens" not in data.get("context_pressure", {})
