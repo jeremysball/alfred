@@ -351,7 +351,7 @@ class ChatMessage extends HTMLElement {
         <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
           <span class="reasoning-icon">◈</span>
           <span class="reasoning-label">Thinking</span>
-          <span class="reasoning-toggle">${isExpanded ? '−' : '+'}</span>
+          <span class="reasoning-toggle">${isExpanded ? '-' : '+'}</span>
         </div>
         <div class="reasoning-content" style="display: ${isExpanded ? 'block' : 'none'}">
           ${this._escapeHtml(block.content)}
@@ -570,6 +570,10 @@ class ChatMessage extends HTMLElement {
    * Creates a new reasoning block each time (allows multiple reasoning blocks)
    */
   appendReasoning(chunk) {
+    // Don't add reasoning to user messages
+    if (this._role === 'user') {
+      return;
+    }
     // Get the last block
     const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
     
@@ -711,6 +715,10 @@ class ChatMessage extends HTMLElement {
   }
 
   setReasoning(reasoning) {
+    // Don't add reasoning to user messages
+    if (this._role === 'user') {
+      return;
+    }
     this._reasoning = reasoning;
     this._reasoningAccumulator = reasoning;
     

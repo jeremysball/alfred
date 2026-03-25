@@ -98,20 +98,8 @@ class ToolCall extends HTMLElement {
     const expandedClass = this._expanded ? 'expanded' : 'collapsed';
     const statusIcon = this._getStatusIcon();
 
-    // Build arguments summary (first key=value pair, or count)
-    let argsSummary = '';
-    const argKeys = Object.keys(this._arguments);
-    if (argKeys.length > 0) {
-      const firstKey = argKeys[0];
-      const firstValue = this._arguments[firstKey];
-      const valueStr = typeof firstValue === 'string' 
-        ? (firstValue.length > 20 ? firstValue.substring(0, 20) + '...' : firstValue)
-        : JSON.stringify(firstValue).substring(0, 20);
-      argsSummary = `${firstKey}=${valueStr}`;
-      if (argKeys.length > 1) {
-        argsSummary += ` +${argKeys.length - 1}`;
-      }
-    }
+    // Build arguments summary for the button
+    const argsSummary = this._buildArgsSummary();
 
     this.innerHTML = `
       <div class="tool-call ${statusClass} ${expandedClass}">
@@ -119,12 +107,11 @@ class ToolCall extends HTMLElement {
           <span class="tool-status-icon">${statusIcon}</span>
           <span class="tool-name">${this._escapeHtml(this._toolName)}</span>
           ${argsSummary ? `<span class="tool-args">${this._escapeHtml(argsSummary)}</span>` : ''}
-          <span class="tool-toggle">${this._expanded ? 'v' : '>'}</span>
+          <span class="tool-toggle">${this._expanded ? '-' : '+'}</span>
         </button>
         <div class="tool-content" style="display: ${this._expanded ? 'block' : 'none'}">
           <div class="tool-arguments">
-            <strong>Arguments:</strong>
-            <pre><code>${this._escapeHtml(JSON.stringify(this._arguments, null, 2))}</code></pre>
+            ${this._renderArguments()}
           </div>
           ${this._output ? `
             <div class="tool-output">
@@ -135,6 +122,172 @@ class ToolCall extends HTMLElement {
         </div>
       </div>
     `;
+  }
+
+  _buildArgsSummary() {
+    const argKeys = Object.keys(this._arguments);
+    if (argKeys.length === 0) return '';
+
+    // Special handling for common tools
+    switch (this._toolName) {
+      case 'read':
+        return this._arguments.path || '';
+      case 'write':
+        return this._arguments.path || '';
+      case 'edit':
+        return this._arguments.path || '';
+      case 'bash':
+        const cmd = this._arguments.command || '';
+        return cmd.length > 30 ? cmd.substring(0, 30) + '...' : cmd;
+      case 'remember':
+        return this._arguments.fact || '';
+      case 'search_memories':
+        return this._arguments.query || '';
+      default:
+        // Generic: first key=value
+        const firstKey = argKeys[0];
+        const firstValue = this._arguments[firstKey];
+        const valueStr = typeof firstValue === 'string'
+          ? (firstValue.length > 20 ? firstValue.substring(0, 20) + '...' : firstValue)
+          : JSON.stringify(firstValue).substring(0, 20);
+        return `${firstKey}=${valueStr}${argKeys.length > 1 ? ` +${argKeys.length - 1}` : ''}`;
+    }
+  }
+
+  _renderArguments() {
+    switch (this._toolName) {
+      case 'read':
+        return this._renderReadArgs();
+      case 'write':
+        return this._renderWriteArgs();
+      case 'edit':
+        return this._renderEditArgs();
+      case 'bash':
+        return this._renderBashArgs();
+      case 'remember':
+        return this._renderRememberArgs();
+      case 'search_memories':
+        return this._renderSearchMemoriesArgs();
+      case 'forget':
+        return this._renderForgetArgs();
+      case 'update_memory':
+        return this._renderUpdateMemoryArgs();
+      default:
+        // Fallback to JSON for unknown tools
+        return `<strong>Arguments:</strong><pre><code>${this._escapeHtml(JSON.stringify(this._arguments, null, 2))}</code></pre>`;
+    }
+  }
+
+  _renderReadArgs() {
+    const path = this._arguments.path || '';
+    const limit = this._arguments.limit;
+    const offset = this._arguments.offset;
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
+    if (limit !== undefined) {
+      html += `<div class="tool-arg-row"><span class="tool-arg-label">Limit:</span><span class="tool-arg-value">${limit}</span></div>`;
+    }
+    if (offset !== undefined) {
+      html += `<div class="tool-arg-row"><span class="tool-arg-label">Offset:</span><span class="tool-arg-value">${offset}</span></div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  _renderWriteArgs() {
+    const path = this._arguments.path || '';
+    const content = this._arguments.content || '';
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Content:</span></div>`;
+    html += `<pre class="tool-content-preview"><code>${this._escapeHtml(content.length > 500 ? content.substring(0, 500) + '\n...' : content)}</code></pre>`;
+    html += '</div>';
+    return html;
+  }
+
+  _renderEditArgs() {
+    const path = this._arguments.path || '';
+    const oldText = this._arguments.oldText || '';
+    const newText = this._arguments.newText || '';
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Replace:</span></div>`;
+    html += `<div class="tool-edit-diff">`;
+    html += `<div class="tool-edit-old"><span class="tool-edit-label">Old:</span><pre><code>${this._escapeHtml(oldText.length > 200 ? oldText.substring(0, 200) + '...' : oldText)}</code></pre></div>`;
+    html += `<div class="tool-edit-arrow">→</div>`;
+    html += `<div class="tool-edit-new"><span class="tool-edit-label">New:</span><pre><code>${this._escapeHtml(newText.length > 200 ? newText.substring(0, 200) + '...' : newText)}</code></pre></div>`;
+    html += `</div>`;
+    html += '</div>';
+    return html;
+  }
+
+  _renderBashArgs() {
+    const command = this._arguments.command || '';
+    const timeout = this._arguments.timeout;
+    const workingDir = this._arguments.workingDir;
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Command:</span></div>`;
+    html += `<pre class="tool-bash-command"><code>${this._escapeHtml(command)}</code></pre>`;
+    if (workingDir) {
+      html += `<div class="tool-arg-row"><span class="tool-arg-label">Working Dir:</span><span class="tool-arg-value tool-path">${this._escapeHtml(workingDir)}</span></div>`;
+    }
+    if (timeout !== undefined) {
+      html += `<div class="tool-arg-row"><span class="tool-arg-label">Timeout:</span><span class="tool-arg-value">${timeout}s</span></div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  _renderRememberArgs() {
+    const fact = this._arguments.fact || '';
+    const permanent = this._arguments.permanent;
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Fact:</span></div>`;
+    html += `<div class="tool-fact-box">${this._escapeHtml(fact)}</div>`;
+    if (permanent) {
+      html += `<div class="tool-arg-row"><span class="tool-arg-value tool-badge tool-badge-permanent">Permanent</span></div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  _renderSearchMemoriesArgs() {
+    const query = this._arguments.query || '';
+    const limit = this._arguments.limit;
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Query:</span><span class="tool-arg-value tool-query">"${this._escapeHtml(query)}"</span></div>`;
+    if (limit !== undefined) {
+      html += `<div class="tool-arg-row"><span class="tool-arg-label">Limit:</span><span class="tool-arg-value">${limit}</span></div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  _renderForgetArgs() {
+    const memoryId = this._arguments.memoryId || '';
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Memory ID:</span><span class="tool-arg-value tool-id">${this._escapeHtml(memoryId)}</span></div>`;
+    html += '</div>';
+    return html;
+  }
+
+  _renderUpdateMemoryArgs() {
+    const memoryId = this._arguments.memoryId || '';
+    const newContent = this._arguments.newContent || '';
+
+    let html = '<div class="tool-args-ui">';
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Memory ID:</span><span class="tool-arg-value tool-id">${this._escapeHtml(memoryId)}</span></div>`;
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">New Content:</span></div>`;
+    html += `<div class="tool-fact-box">${this._escapeHtml(newContent)}</div>`;
+    html += '</div>';
+    return html;
   }
 
   _escapeHtml(text) {
