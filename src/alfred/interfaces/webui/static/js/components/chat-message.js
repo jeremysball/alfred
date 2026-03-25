@@ -81,25 +81,24 @@ class ChatMessage extends HTMLElement {
    * Update just the text content block without full re-render
    */
   _updateTextBlock(content) {
-    let textBlock = this._contentBlocks.find(b => b.type === 'text' && b.metadata?.isMainText);
+    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
 
-    if (!textBlock) {
-      // Always create text block, even if empty, so it can be updated later
-      textBlock = {
+    if (!lastBlock || lastBlock.type !== 'text') {
+      // Create new text block
+      this._contentBlocks.push({
         type: 'text',
         sequence: this._nextSequence(),
         content: content,
-        metadata: { isMainText: true }
-      };
-      this._contentBlocks.push(textBlock);
+        metadata: { isStreaming: false }
+      });
       this._renderContentBlocks();
     } else {
       // Update existing text block
-      textBlock.content = content;
+      lastBlock.content = content;
       // Find and update the DOM element directly for performance
       const container = this._getContentBlocksContainer();
       if (container) {
-        const textElement = container.querySelector('.text-block[data-sequence="' + textBlock.sequence + '"]');
+        const textElement = container.querySelector('.text-block[data-sequence="' + lastBlock.sequence + '"]');
         if (textElement) {
           if (this._role === 'assistant') {
             textElement.innerHTML = this._renderMarkdown(content);
@@ -262,8 +261,26 @@ class ChatMessage extends HTMLElement {
       </div>
     `;
 
+    // Ensure we have a text block for the main content
+    this._ensureTextBlock();
+    
     // Re-render all content blocks in sequence order
     this._renderContentBlocks();
+  }
+
+  /**
+   * Ensure a text block exists for the main content
+   */
+  _ensureTextBlock() {
+    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
+    if (!lastBlock || lastBlock.type !== 'text') {
+      this._contentBlocks.push({
+        type: 'text',
+        sequence: this._nextSequence(),
+        content: this._content,
+        metadata: { isStreaming: false }
+      });
+    }
   }
 
   /**
@@ -521,25 +538,26 @@ class ChatMessage extends HTMLElement {
 
   /**
    * Append text content (interleaved)
-   * Creates or updates a text block at the current sequence position
+   * Creates a new text block or updates the current one
    */
   appendContent(chunk) {
     this._textAccumulator += chunk;
     this._content = this._textAccumulator;
     
-    // Find or create text block
-    let textBlock = this._contentBlocks.find(b => b.type === 'text' && b.metadata?.isMainText);
+    // Get the last block
+    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
     
-    if (!textBlock) {
-      textBlock = {
+    if (lastBlock && lastBlock.type === 'text' && lastBlock.metadata?.isStreaming) {
+      // Continue appending to existing text block
+      lastBlock.content = this._textAccumulator;
+    } else {
+      // Create new text block
+      this._contentBlocks.push({
         type: 'text',
         sequence: this._nextSequence(),
-        content: this._textAccumulator,
-        metadata: { isMainText: true }
-      };
-      this._contentBlocks.push(textBlock);
-    } else {
-      textBlock.content = this._textAccumulator;
+        content: chunk,
+        metadata: { isStreaming: true }
+      });
     }
     
     // Re-render content blocks
@@ -549,29 +567,31 @@ class ChatMessage extends HTMLElement {
 
   /**
    * Append reasoning content (interleaved)
-   * Creates or updates a reasoning block at the current sequence position
+   * Creates a new reasoning block each time (allows multiple reasoning blocks)
    */
   appendReasoning(chunk) {
-    this._reasoningAccumulator += chunk;
-    this._reasoning = this._reasoningAccumulator;
+    // Get the last block
+    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
     
-    // Find or create reasoning block
-    let reasoningBlock = this._contentBlocks.find(b => b.type === 'reasoning');
-    
-    if (!reasoningBlock) {
-      reasoningBlock = {
+    if (lastBlock && lastBlock.type === 'reasoning') {
+      // Continue appending to existing reasoning block
+      lastBlock.content += chunk;
+    } else {
+      // Create new reasoning block
+      this._contentBlocks.push({
         type: 'reasoning',
         sequence: this._nextSequence(),
-        content: this._reasoningAccumulator,
+        content: chunk,
         metadata: {}
-      };
-      this._contentBlocks.push(reasoningBlock);
+      });
       
       // Use global state if set, otherwise default to expanded for new reasoning
       this._reasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : true;
-    } else {
-      reasoningBlock.content = this._reasoningAccumulator;
     }
+    
+    // Update total reasoning
+    this._reasoning = (this._reasoning || '') + chunk;
+    this._reasoningAccumulator = this._reasoning;
     
     // Re-render content blocks
     this._renderContentBlocks();
@@ -579,7 +599,7 @@ class ChatMessage extends HTMLElement {
 
   /**
    * Add a tool call block (interleaved)
-   * Tool calls are added at the current sequence position
+   * Tool calls are always added as new blocks
    */
   appendToolCall(toolCallElement) {
     // Add as new block at current sequence
