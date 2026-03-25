@@ -11,6 +11,10 @@
  *   - editable: Boolean flag that shows the edit action for user messages
  *   - data-message-state: UI state for the message surface ('idle' | 'streaming' | 'editing')
  */
+// Global reasoning expanded state - shared across all reasoning blocks
+// null = no global preference set yet, true/false = expand/collapse all
+let globalReasoningExpanded = null;
+
 class ChatMessage extends HTMLElement {
   constructor() {
     super();
@@ -129,15 +133,18 @@ class ChatMessage extends HTMLElement {
       return;
     }
 
+    // Use global reasoning state if set, otherwise use local state
+    const isReasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : this._reasoningExpanded;
+
     // Build reasoning section if present
     const reasoningSection = this._reasoning
       ? `<div class="reasoning-section">
           <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
             <span class="reasoning-icon">◈</span>
             <span class="reasoning-label">Thinking</span>
-            <span class="reasoning-toggle">${this._reasoningExpanded ? '−' : '+'}</span>
+            <span class="reasoning-toggle">${isReasoningExpanded ? '−' : '+'}</span>
           </div>
-          <div class="reasoning-content" style="display: ${this._reasoningExpanded ? 'block' : 'none'}">
+          <div class="reasoning-content" style="display: ${isReasoningExpanded ? 'block' : 'none'}">
             ${this._escapeHtml(this._reasoning)}
           </div>
         </div>`
@@ -340,6 +347,19 @@ class ChatMessage extends HTMLElement {
 
   _toggleReasoning() {
     this._reasoningExpanded = !this._reasoningExpanded;
+    // Update global state so all reasoning blocks (past, present, future) follow this preference
+    globalReasoningExpanded = this._reasoningExpanded;
+    // Apply the change to all existing reasoning sections
+    document.querySelectorAll('chat-message').forEach((msg) => {
+      if (msg._reasoning && msg !== this) {
+        msg._reasoningExpanded = globalReasoningExpanded;
+        msg._updateReasoningVisibility();
+      }
+    });
+    this._updateReasoningVisibility();
+  }
+
+  _updateReasoningVisibility() {
     const content = this.querySelector('.reasoning-content');
     const toggle = this.querySelector('.reasoning-toggle');
     if (content) {
@@ -404,6 +424,10 @@ class ChatMessage extends HTMLElement {
 
   setReasoning(reasoning) {
     this._reasoning = reasoning;
+    // Use global state if set, otherwise keep current local state
+    if (globalReasoningExpanded !== null) {
+      this._reasoningExpanded = globalReasoningExpanded;
+    }
     this._render();
     this._applySyntaxHighlighting();
     this._setupEventListeners();
@@ -476,14 +500,12 @@ class ChatMessage extends HTMLElement {
     if (reasoningContent) {
       reasoningContent.textContent += chunk;
     } else {
+      // Use global state if set, otherwise default to expanded for new reasoning
+      this._reasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : true;
       this._render();
       this._applySyntaxHighlighting();
       this._setupEventListeners();
-      this._reasoningExpanded = true;
-      const content = this.querySelector('.reasoning-content');
-      const toggle = this.querySelector('.reasoning-toggle');
-      if (content) content.style.display = 'block';
-      if (toggle) toggle.textContent = '−';
+      this._updateReasoningVisibility();
     }
   }
 }

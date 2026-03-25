@@ -265,6 +265,12 @@
 [data-theme="swiss-international"] .tool-output pre {
   background: var(--swiss-bg-primary);
   border: 1px solid var(--swiss-border-subtle);
+  color: var(--swiss-text-primary);
+}
+
+[data-theme="swiss-international"] .tool-arguments code,
+[data-theme="swiss-international"] .tool-output code {
+  color: var(--swiss-text-primary);
 }
 
 /* Mobile-first responsive for Swiss */

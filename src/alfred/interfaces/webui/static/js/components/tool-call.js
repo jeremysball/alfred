@@ -81,17 +81,15 @@ class ToolCall extends HTMLElement {
   };
 
   _render() {
-    const statusIcon = this._getStatusIcon();
     const statusClass = this._status.toLowerCase();
     const expandedClass = this._expanded ? 'expanded' : 'collapsed';
 
     this.innerHTML = `
       <div class="tool-call ${statusClass} ${expandedClass}">
         <div class="tool-header">
-          <span class="tool-icon">${statusIcon}</span>
           <span class="tool-name">${this._escapeHtml(this._toolName)}</span>
           <span class="tool-status">${this._status}</span>
-          <span class="tool-toggle">${this._expanded ? '▼' : '▶'}</span>
+          <span class="tool-toggle">${this._expanded ? 'v' : '>'}</span>
         </div>
         <div class="tool-content">
           <div class="tool-arguments">
@@ -107,19 +105,6 @@ class ToolCall extends HTMLElement {
         </div>
       </div>
     `;
-  }
-
-  _getStatusIcon() {
-    switch (this._status) {
-      case 'running':
-        return '⟳';
-      case 'success':
-        return '✓';
-      case 'error':
-        return '✗';
-      default:
-        return '?';
-    }
   }
 
   _escapeHtml(text) {

@@ -304,7 +304,7 @@ function initAlfredUI() {
       let messageEl = existingById.get(messageId) || null;
 
       if (messageEl) {
-        // Update existing message without detaching it
+        // Update existing message and move it to the correct position
         applySessionMessageState(messageEl, msg, {
           preserveExistingAssistantContent: messageEl === currentAssistantMessage,
         });
@@ -312,10 +312,10 @@ function initAlfredUI() {
         // Create new message element
         messageEl = document.createElement('chat-message');
         applySessionMessageState(messageEl, msg);
-        // Append new messages at the end
-        messageList.appendChild(messageEl);
       }
 
+      // Always append to ensure correct order (moves existing, appends new)
+      messageList.appendChild(messageEl);
       lastElement = messageEl;
 
       if (msg.role === 'user') {
@@ -1377,6 +1377,9 @@ function initAlfredUI() {
     }
     if (payload.lastActive) {
       content += `Last Active: ${new Date(payload.lastActive).toLocaleString()}\n`;
+    }
+    if (payload.summary) {
+      content += `\nSummary: ${payload.summary}\n`;
     }
 
     clearComposerEditState();

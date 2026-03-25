@@ -276,8 +276,14 @@
 [data-theme="neumorphism"] .tool-arguments pre,
 [data-theme="neumorphism"] .tool-output pre {
   background: rgba(255, 255, 255, 0.3);
+  color: var(--neo-text-primary);
   box-shadow: var(--neo-shadow-concave);
   border-radius: 8px;
+}
+
+[data-theme="neumorphism"] .tool-arguments code,
+[data-theme="neumorphism"] .tool-output code {
+  color: var(--neo-text-primary);
 }
 
 
