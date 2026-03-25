@@ -199,6 +199,14 @@ Verify personality tone, internal-only behavior, and fail-closed self-model hand
 
 Validation: tests cover the prompt behavior and the inspection output.
 
+**Status**: ✅ Complete
+- [x] Added test verifying self-model visibility is always INTERNAL
+- [x] Added test for fail-closed behavior with None Alfred
+- [x] Added test for partial Alfred state handling
+- [x] Added test for internal context injection formatting
+- [x] Added test verifying self-model rebuilds fresh each time
+- [x] Added comprehensive debug logging to all touched surfaces
+
 ### Milestone 7: Update documentation and examples
 Document what Alfred now knows about himself and how to inspect that state.
 
