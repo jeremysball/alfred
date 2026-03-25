@@ -36,7 +36,7 @@ def mock_embedder():
 
     class MockEmbedder:
         async def embed(self, text: str) -> list[float]:
-            return [0.1, 0.2, 0.3, 0.4, 0.5]
+            return [0.1] * 768
 
     return MockEmbedder()
 
@@ -64,7 +64,7 @@ class TestSessionSummarizerSQLite:
         summary = SessionSummary(
             session_id="sess_001",
             text="Test conversation summary",
-            embedding=[0.1, 0.2, 0.3],
+            embedding=[0.1] * 768,
             message_count=5,
             created_at=datetime(2026, 3, 7, 10, 0, 0, tzinfo=UTC),
         )
@@ -104,7 +104,7 @@ class TestSessionSummarizerSQLite:
                  summary_text, embedding, version)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("sum_002", "sess_002", 3, 0, 2, "Loaded summary", json.dumps([0.4, 0.5]), 1),
+                ("sum_002", "sess_002", 3, 0, 2, "Loaded summary", json.dumps([0.4] * 768), 1),
             )
             await db.commit()
 
@@ -114,7 +114,7 @@ class TestSessionSummarizerSQLite:
         assert loaded is not None
         assert loaded.text == "Loaded summary"
         assert loaded.session_id == "sess_002"
-        assert loaded.embedding == [0.4, 0.5]
+        assert loaded.embedding == [0.4] * 768
 
     @pytest.mark.asyncio
     async def test_load_summary_none_exists(self, sqlite_store, mock_llm_client, mock_embedder):
@@ -143,7 +143,7 @@ class TestSessionSummarizerSQLite:
         summary = SessionSummary(
             session_id="sess_003",
             text="Embedding test",
-            embedding=[0.9, 0.8, 0.7],
+            embedding=[0.9] * 768,
             message_count=2,
         )
 
@@ -156,7 +156,7 @@ class TestSessionSummarizerSQLite:
         ):
             row = await cursor.fetchone()
             stored = json.loads(row[0])
-            assert stored == [0.9, 0.8, 0.7]
+            assert stored == [0.9] * 768
 
     @pytest.mark.asyncio
     async def test_save_summary_without_store_raises(self, mock_llm_client, mock_embedder):

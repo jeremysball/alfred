@@ -121,6 +121,7 @@ class TestSearchSessionsLLMIntegration:
 
         mock_store = MagicMock()
         mock_store.search_summaries = AsyncMock(return_value=[])
+        mock_store.search_all_session_messages = AsyncMock(return_value=[])
 
         mock_summarizer = MagicMock()
         mock_summarizer.store = mock_store

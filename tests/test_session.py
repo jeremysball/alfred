@@ -323,7 +323,9 @@ class TestSessionManager:
         assert messages[-1].id == target_message_id
         assert store.save_session.await_count == 1
 
-        saved_session_id, saved_messages = store.save_session.await_args.args
+        saved_args = store.save_session.await_args.args
+        saved_session_id = saved_args[0]
+        saved_messages = saved_args[1]
         assert saved_session_id == session.meta.session_id
         assert [message["idx"] for message in saved_messages] == [0, 1, 2]
         assert [message["content"] for message in saved_messages] == [
@@ -354,7 +356,9 @@ class TestSessionManager:
         assert messages[-1].id == target_message_id
         assert store.save_session.await_count == 1
 
-        saved_session_id, saved_messages = store.save_session.await_args.args
+        saved_args = store.save_session.await_args.args
+        saved_session_id = saved_args[0]
+        saved_messages = saved_args[1]
         assert saved_session_id == session.meta.session_id
         assert [message["idx"] for message in saved_messages] == [0, 1, 2]
         assert [message["content"] for message in saved_messages] == [
