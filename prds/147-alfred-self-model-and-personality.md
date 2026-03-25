@@ -1,8 +1,8 @@
 # PRD: Alfred Self-Model and Personality
 
-**GitHub Issue**: [#147](https://github.com/jeremysball/alfred/issues/147)  
-**Status**: Draft  
-**Priority**: Medium  
+**GitHub Issue**: [#147](https://github.com/jeremysball/alfred/issues/147)
+**Status**: Draft
+**Priority**: Medium
 **Created**: 2026-03-22
 
 ---
@@ -18,8 +18,8 @@ He knows how to assemble context, call tools, and stream responses, but he does 
 - how he should speak when he is being himself
 
 That leaves two gaps:
-1. **Personality gap** — Alfred sounds helpful, but not distinctly Alfred. He needs a sharper voice: more opinionated, more witty, more playful, without becoming noisy or fake.
-2. **Self-model gap** — Alfred should understand his own runtime shape well enough to reason about himself as a system and describe his own constraints, tools, and environment accurately.
+1. **Personality gap** - Alfred sounds helpful, but not distinctly Alfred. He needs a sharper voice: more opinionated, more witty, more playful, without becoming noisy or fake.
+2. **Self-model gap** - Alfred should understand his own runtime shape well enough to reason about himself as a system and describe his own constraints, tools, and environment accurately.
 
 The goal is not to make Alfred theatrical. The goal is to make him feel like a coherent agent with an identity, a point of view, and a current state.
 
@@ -32,8 +32,8 @@ The goal is not to make Alfred theatrical. The goal is to make him feel like a c
 1. Give Alfred a stronger personality that is opinionated, witty, playful, and direct.
 2. Teach Alfred a clearer internal self-model covering identity, capabilities, runtime mode, and environment.
 3. Keep the self-model internal for now so it informs reasoning without becoming a separate user-facing surface.
-4. Make `/context` able to show a compact note about Alfred’s current self state when asked.
-5. Keep the model grounded in facts about Alfred’s actual runtime and architecture.
+4. Make `/context` able to show a compact note about Alfred's current self state when asked.
+5. Keep the model grounded in facts about Alfred's actual runtime and architecture.
 
 ### Success Criteria
 
@@ -51,7 +51,7 @@ The goal is not to make Alfred theatrical. The goal is to make him feel like a c
 
 ### 3.1 Strengthen the personality layer
 
-Update Alfred’s personality guidance so the model is expected to sound more like a real character and less like a neutral assistant.
+Update Alfred's personality guidance so the model is expected to sound more like a real character and less like a neutral assistant.
 
 Desired traits:
 - opinionated, but not contrarian for sport
@@ -64,10 +64,10 @@ This should reshape how Alfred speaks, but not replace the existing behavioral r
 
 ### 3.2 Add an internal runtime self-model
 
-Introduce a runtime self-model that describes Alfred’s current state and operating world.
+Introduce a runtime self-model that describes Alfred's current state and operating world.
 
 The self-model should include facts such as:
-- Alfred’s identity and role
+- Alfred's identity and role
 - active interface or surface
 - runtime mode and daemon state
 - available tools and capabilities
@@ -183,9 +183,16 @@ Validation: Alfred has access to the self-model every turn without exposing a no
 - [x] Added tests for prompt section serialization, daemon mode display, and tool list truncation
 
 ### Milestone 5: Surface a compact `/context` summary
-Add a terse self-status note to the context inspection path so the user can inspect Alfred’s internal state when needed.
+Add a terse self-status note to the context inspection path so the user can inspect Alfred's internal state when needed.
 
 Validation: `/context` shows the self-model summary clearly and concisely.
+
+**Status**: ✅ Complete
+- [x] Added self-model section to `get_context_display()` output
+- [x] Display ALFRED SELF-MODEL section in `/context` TUI command
+- [x] Shows identity, runtime state, capabilities, and context pressure
+- [x] Added test for self-model inclusion in context display
+- [x] Fixed existing test to include `build_self_model` method
 
 ### Milestone 6: Add safety and regression tests
 Verify personality tone, internal-only behavior, and fail-closed self-model handling.
@@ -267,7 +274,7 @@ That future work should build on a stable internal contract rather than re-litig
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-03-22 | Make Alfred’s voice more opinionated, witty, and playful | The current voice is too generic for a system that is meant to feel distinct |
+| 2026-03-22 | Make Alfred's voice more opinionated, witty, and playful | The current voice is too generic for a system that is meant to feel distinct |
 | 2026-03-22 | Add an internal runtime self-model | Alfred should know more about himself as a system and about his world |
 | 2026-03-22 | Keep the self-model internal for now | Preserve a clean boundary between internal reasoning and user-facing output |
 | 2026-03-22 | Surface only a compact note in `/context` | Introspection should be available without creating a new UI surface |
