@@ -1,12 +1,15 @@
 """/context command - Show system context."""
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.pypitui.commands.base import Command
 
 if TYPE_CHECKING:
     from alfred.interfaces.pypitui.tui import AlfredTUI
+
+logger = logging.getLogger(__name__)
 
 
 class ShowContextCommand(Command):
@@ -19,13 +22,25 @@ class ShowContextCommand(Command):
         """Show current system context."""
         from alfred.context_display import get_context_display
 
+        logger.debug("ShowContextCommand: executing /context command")
+
         has_active_session = tui.alfred.core.session_manager.has_active_session()
+        logger.debug("ShowContextCommand: has_active_session=%s", has_active_session)
 
         async def _fetch_and_display() -> None:
             """Async helper to fetch and display context."""
             try:
                 # Get context data
+                logger.debug("ShowContextCommand: fetching context data from Alfred")
                 context_data = await get_context_display(tui.alfred)
+                logger.debug(
+                    "ShowContextCommand: context data fetched - total_tokens=%d, memories=%d, "
+                    "session_messages=%d, tool_calls=%d",
+                    context_data.get("total_tokens", 0),
+                    context_data.get("memories", {}).get("total", 0),
+                    context_data.get("session_history", {}).get("count", 0),
+                    context_data.get("tool_calls", {}).get("count", 0),
+                )
 
                 # Build display text
                 lines: list[str] = []
@@ -113,10 +128,18 @@ class ShowContextCommand(Command):
                 # Total
                 lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
 
+                logger.debug(
+                    "ShowContextCommand: display built - %d lines, ~%d tokens total",
+                    len(lines),
+                    context_data['total_tokens'],
+                )
+
                 # Add as system message (no markdown to preserve formatting)
                 tui._add_system_message("\n".join(lines))
+                logger.debug("ShowContextCommand: context display added to TUI")
 
             except Exception as e:
+                logger.exception("ShowContextCommand: error displaying context")
                 tui._add_system_message(f"Error displaying context: {e}")
 
         # Schedule async work on event loop (we're already in async context)

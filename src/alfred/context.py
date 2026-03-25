@@ -637,16 +637,31 @@ class ContextLoader:
         """
         from alfred.self_model import build_runtime_self_model
 
+        logger.debug("assemble_with_self_model: starting context assembly with self-model")
+
         files = await self.load_all()
         blocked_context_files = self._blocked_context_files_for(files)
 
         # Build self-model from current Alfred state
+        logger.debug("assemble_with_self_model: building self-model from Alfred state")
         self_model = build_runtime_self_model(alfred)
+        logger.debug(
+            "assemble_with_self_model: self-model built - interface=%s, tools=%d, memories=%d",
+            self_model.runtime.interface.value if self_model.runtime.interface else None,
+            len(self_model.capabilities.tools_available),
+            self_model.context_pressure.memory_count,
+        )
 
         # Build system prompt with self-model appended
         base_prompt = self._build_system_prompt(files)
         self_model_section = self_model.to_prompt_section()
         system_prompt = f"{base_prompt}\n\n---\n\n{self_model_section}"
+        logger.debug(
+            "assemble_with_self_model: system prompt assembled, length=%d chars, "
+            "self_model_section_length=%d chars",
+            len(system_prompt),
+            len(self_model_section),
+        )
 
         return AssembledContext(
             agents=self._context_file_content(files, "agents"),
@@ -684,14 +699,25 @@ class ContextLoader:
 
         files = await self.load_all()
         system_prompt = self._build_system_prompt(files)
+        logger.debug("assemble_with_search: base system prompt built, length=%d chars", len(system_prompt))
 
         # Include self-model if Alfred instance provided
         if alfred is not None:
             from alfred.self_model import build_runtime_self_model
 
+            logger.debug("assemble_with_search: building self-model for search context")
             self_model = build_runtime_self_model(alfred)
             self_model_section = self_model.to_prompt_section()
             system_prompt = f"{system_prompt}\n\n---\n\n{self_model_section}"
+            logger.debug(
+                "assemble_with_search: self-model appended - interface=%s, tools=%d, "
+                "prompt_length=%d chars",
+                self_model.runtime.interface.value if self_model.runtime.interface else None,
+                len(self_model.capabilities.tools_available),
+                len(system_prompt),
+            )
+        else:
+            logger.debug("assemble_with_search: no Alfred instance provided, self-model skipped")
 
         return await self._context_builder.build_context(
             query_embedding=query_embedding,

@@ -722,7 +722,18 @@ You can then continue the conversation with the tool results.
         Returns:
             RuntimeSelfModel populated with current runtime facts
         """
-        return build_runtime_self_model(self)
+        logger.debug("Alfred.build_self_model: building self-model snapshot")
+        model = build_runtime_self_model(self)
+        logger.debug(
+            "Alfred.build_self_model: self-model ready - interface=%s, tools=%d, "
+            "memory=%s, search=%s, messages=%d",
+            model.runtime.interface.value if model.runtime.interface else None,
+            len(model.capabilities.tools_available),
+            model.capabilities.memory_enabled,
+            model.capabilities.search_enabled,
+            model.context_pressure.message_count,
+        )
+        return model
 
     async def stop(self) -> None:
         """Graceful shutdown.

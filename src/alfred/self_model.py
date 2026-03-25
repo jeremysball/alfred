@@ -4,10 +4,13 @@ An internal-only snapshot describing Alfred's current state, identity,
 capabilities, and environment. Used for self-awareness in prompt assembly.
 """
 
+import logging
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
@@ -102,6 +105,15 @@ class RuntimeSelfModel(BaseModel):
         Returns a human-readable summary of Alfred's current state,
         suitable for inclusion in system prompts.
         """
+        logger.debug(
+            "Serializing self-model to prompt section: interface=%s, session=%s, "
+            "tools=%d, memory=%s, search=%s",
+            self.runtime.interface.value if self.runtime.interface else None,
+            self.runtime.session_id,
+            len(self.capabilities.tools_available),
+            self.capabilities.memory_enabled,
+            self.capabilities.search_enabled,
+        )
         lines = ["## Alfred Self-Model", ""]
 
         # Identity
@@ -171,6 +183,8 @@ def build_runtime_self_model(
     import os
     import platform
 
+    logger.debug("Building runtime self-model for Alfred instance: %s", alfred)
+
     # Auto-detect interface from Alfred state
     detected_interface = interface
     if detected_interface is None:
@@ -180,6 +194,7 @@ def build_runtime_self_model(
             if getattr(alfred, "_telegram_bot", None) is not None
             else InterfaceType.CLI
         )
+        logger.debug("Auto-detected interface: %s", detected_interface.value)
 
     # Get session ID
     current_session_id = session_id or "cli"
@@ -189,6 +204,9 @@ def build_runtime_self_model(
     tools_registry = getattr(alfred, "tools", None)
     if tools_registry is not None:
         tools_available = tools_registry.list_tools()
+        logger.debug("Found %d tools in registry", len(tools_available))
+    else:
+        logger.debug("No tools registry found on Alfred instance")
 
     # Get context pressure from context_summary
     context_summary = getattr(alfred, "context_summary", None)
@@ -197,12 +215,20 @@ def build_runtime_self_model(
     if context_summary is not None:
         message_count = getattr(context_summary, "session_messages", 0)
         memory_count = getattr(context_summary, "memories_count", 0)
+        logger.debug(
+            "Context pressure from summary: messages=%d, memories=%d", message_count, memory_count
+        )
+    else:
+        logger.debug("No context_summary found on Alfred instance")
 
     # Get approximate tokens from token_tracker
     approximate_tokens: int | None = None
     token_tracker = getattr(alfred, "token_tracker", None)
     if token_tracker is not None:
         approximate_tokens = getattr(token_tracker, "total_tokens", None)
+        logger.debug("Token tracker found: %s tokens", approximate_tokens)
+    else:
+        logger.debug("No token_tracker found on Alfred instance")
 
     # Check if memory/search is enabled via core
     memory_enabled = False
@@ -212,8 +238,11 @@ def build_runtime_self_model(
         memory_store = getattr(core, "memory_store", None)
         memory_enabled = memory_store is not None
         search_enabled = memory_store is not None
+        logger.debug("Core found: memory_enabled=%s, search_enabled=%s", memory_enabled, search_enabled)
+    else:
+        logger.debug("No core found on Alfred instance, memory/search disabled")
 
-    return RuntimeSelfModel(
+    model = RuntimeSelfModel(
         identity=Identity(),
         runtime=Runtime(
             interface=detected_interface,
@@ -236,3 +265,18 @@ def build_runtime_self_model(
             approximate_tokens=approximate_tokens,
         ),
     )
+
+    logger.debug(
+        "Self-model built: interface=%s, session=%s, tools=%d, memory=%s, search=%s, "
+        "messages=%d, memories=%d, tokens=%s",
+        detected_interface.value if detected_interface else None,
+        current_session_id,
+        len(tools_available),
+        memory_enabled,
+        search_enabled,
+        message_count,
+        memory_count,
+        approximate_tokens,
+    )
+
+    return model
