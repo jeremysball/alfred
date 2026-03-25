@@ -111,6 +111,31 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
 
     memory_tokens = sum(_estimate_tokens(m.content) for m in all_memories[:5])
 
+    # Get self-model for display
+    self_model = alfred.build_self_model()
+    self_model_display = {
+        "identity": {
+            "name": self_model.identity.name,
+            "role": self_model.identity.role,
+        },
+        "runtime": {
+            "interface": self_model.runtime.interface.value if self_model.runtime.interface else "unknown",
+            "session_id": self_model.runtime.session_id,
+            "daemon_mode": self_model.runtime.daemon_mode,
+        },
+        "capabilities": {
+            "memory_enabled": self_model.capabilities.memory_enabled,
+            "search_enabled": self_model.capabilities.search_enabled,
+            "tools_count": len(self_model.capabilities.tools_available),
+            "tools": self_model.capabilities.tools_available[:5],  # First 5 tools
+        },
+        "context_pressure": {
+            "message_count": self_model.context_pressure.message_count,
+            "memory_count": self_model.context_pressure.memory_count,
+            "approximate_tokens": self_model.context_pressure.approximate_tokens,
+        },
+    }
+
     total_tokens = total_system_tokens + memory_tokens + session_tokens + tool_call_tokens
 
     return {
@@ -136,5 +161,6 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             "items": recent_tool_calls,
             "tokens": tool_call_tokens,
         },
+        "self_model": self_model_display,
         "total_tokens": total_tokens,
     }

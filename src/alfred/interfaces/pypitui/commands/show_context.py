@@ -93,6 +93,23 @@ class ShowContextCommand(Command):
                             lines.append(f"     → {output}")
                     lines.append("")
 
+                # Self-model section
+                self_model = context_data["self_model"]
+                lines.append("ALFRED SELF-MODEL")
+                lines.append("─" * 40)
+                lines.append(f"  Identity: {self_model['identity']['name']} ({self_model['identity']['role']})")
+                runtime = self_model['runtime']
+                mode_str = "daemon" if runtime['daemon_mode'] else "interactive"
+                lines.append(f"  Interface: {runtime['interface']} | Mode: {mode_str}")
+                caps = self_model['capabilities']
+                mem_status = "✓" if caps['memory_enabled'] else "✗"
+                search_status = "✓" if caps['search_enabled'] else "✗"
+                lines.append(f"  Capabilities: Memory {mem_status} | Search {search_status} | {caps['tools_count']} tools")
+                pressure = self_model['context_pressure']
+                tokens_str = f"~{pressure['approximate_tokens']:,} tokens" if pressure['approximate_tokens'] else "unknown tokens"
+                lines.append(f"  Context: {pressure['message_count']} messages | {pressure['memory_count']} memories | {tokens_str}")
+                lines.append("")
+
                 # Total
                 lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
 
