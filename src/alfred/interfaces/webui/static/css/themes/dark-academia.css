@@ -413,6 +413,9 @@
   --settings-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   --settings-header-bg: var(--da-bg-secondary);
   --settings-header-border: 1px solid var(--da-border-color);
+  --settings-toggle: var(--da-text-secondary);
+  --settings-toggle-hover: var(--da-accent-gold);
+  --settings-toggle-hover-bg: var(--da-bg-tertiary);
   --theme-option-border: 1px solid var(--da-border-subtle);
   --theme-option-hover: var(--da-bg-tertiary);
   --theme-option-active: var(--da-bg-tertiary);
