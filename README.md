@@ -203,6 +203,7 @@ For TOML-based configuration (`~/.config/alfred/config.toml`), see [docs/EMBEDDI
 - [Cron Jobs](docs/cron-jobs.md) — Scheduled tasks
 - [Embeddings and FAISS](docs/EMBEDDINGS.md) — Local embeddings, migration, performance tuning
 - [Memory System](docs/MEMORY.md) — Three-layer memory architecture
+- [Self-Model & Introspection](docs/self-model.md) — Alfred's internal self-awareness and `/context` command
 - [Template Sync and Conflict Recovery](docs/template-sync.md) — Conflict-recovery reference for template drift and manual repair
 - [WebSocket Protocol](docs/websocket-protocol.md) — Web UI real-time communication spec
 - [Roadmap](docs/ROADMAP.md) — Development progress
