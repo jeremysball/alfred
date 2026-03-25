@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,10 @@ from alfred.memory import MemoryEntry
 from alfred.placeholders import has_volatile_placeholder, resolve_all
 from alfred.storage.sqlite import SQLiteStore
 from alfred.templates import TemplateManager
+
+if TYPE_CHECKING:
+    from alfred.alfred import Alfred
+    from alfred.self_model import RuntimeSelfModel
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,7 @@ class AssembledContext(BaseModel):
     memories: list[MemoryEntry]
     system_prompt: str  # Combined
     blocked_context_files: list[str] = Field(default_factory=list)
+    self_model: "RuntimeSelfModel | None" = None  # Runtime self-awareness
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -613,19 +618,107 @@ class ContextLoader:
             blocked_context_files=blocked_context_files,
         )
 
+    async def assemble_with_self_model(
+        self,
+        alfred: "Alfred",
+        memories: list[MemoryEntry] | None = None,
+    ) -> AssembledContext:
+        """Assemble context with runtime self-model included.
+
+        Builds a fresh self-model snapshot from Alfred's current state
+        and includes it in the assembled context.
+
+        Args:
+            alfred: The Alfred instance to build self-model from
+            memories: Optional pre-loaded memories to include
+
+        Returns:
+            AssembledContext with self_model populated
+        """
+        from alfred.self_model import build_runtime_self_model
+
+        logger.debug("assemble_with_self_model: starting context assembly with self-model")
+
+        files = await self.load_all()
+        blocked_context_files = self._blocked_context_files_for(files)
+
+        # Build self-model from current Alfred state
+        logger.debug("assemble_with_self_model: building self-model from Alfred state")
+        self_model = build_runtime_self_model(alfred)
+        logger.debug(
+            "assemble_with_self_model: self-model built - interface=%s, tools=%d, memories=%d",
+            self_model.runtime.interface.value if self_model.runtime.interface else None,
+            len(self_model.capabilities.tools_available),
+            self_model.context_pressure.memory_count,
+        )
+
+        # Build system prompt with self-model appended
+        base_prompt = self._build_system_prompt(files)
+        self_model_section = self_model.to_prompt_section()
+        system_prompt = f"{base_prompt}\n\n---\n\n{self_model_section}"
+        logger.debug(
+            "assemble_with_self_model: system prompt assembled, length=%d chars, "
+            "self_model_section_length=%d chars",
+            len(system_prompt),
+            len(self_model_section),
+        )
+
+        return AssembledContext(
+            agents=self._context_file_content(files, "agents"),
+            tools=self._context_file_content(files, "tools"),
+            soul=self._context_file_content(files, "soul"),
+            user=self._context_file_content(files, "user"),
+            memories=memories or [],
+            system_prompt=system_prompt,
+            blocked_context_files=blocked_context_files,
+            self_model=self_model,
+        )
+
     async def assemble_with_search(
         self,
         query_embedding: list[float],
         memories: list[Any],
         session_messages: list[tuple[str, str]] | None = None,
         session_messages_with_tools: list[Any] | None = None,
+        alfred: "Alfred | None" = None,
     ) -> tuple[str, int]:
-        """Assemble context with semantic memory search."""
+        """Assemble context with semantic memory search.
+
+        Args:
+            query_embedding: Embedding vector for semantic search
+            memories: Available memories to include
+            session_messages: Current session message history
+            session_messages_with_tools: Session messages with tool calls
+            alfred: Optional Alfred instance to include self-model
+
+        Returns:
+            Tuple of (system_prompt, memories_count)
+        """
         if not self._context_builder:
             raise RuntimeError("SQLiteStore required for assemble_with_search. Initialize ContextLoader with store parameter.")
 
         files = await self.load_all()
         system_prompt = self._build_system_prompt(files)
+        logger.debug("assemble_with_search: base system prompt built, length=%d chars", len(system_prompt))
+
+        # Include self-model if Alfred instance provided
+        if alfred is not None:
+            from alfred.self_model import build_runtime_self_model
+
+            logger.debug("assemble_with_search: building self-model for search context")
+            self_model = build_runtime_self_model(alfred)
+            self_model_section = self_model.to_prompt_section()
+            system_prompt = f"{system_prompt}\n\n---\n\n{self_model_section}"
+            logger.debug(
+                "assemble_with_search: self-model appended - interface=%s, tools=%d, "
+                "prompt_length=%d chars",
+                self_model.runtime.interface.value if self_model.runtime.interface else None,
+                len(self_model.capabilities.tools_available),
+                len(system_prompt),
+            )
+        else:
+            logger.debug("assemble_with_search: no Alfred instance provided, self-model skipped")
+
         return await self._context_builder.build_context(
             query_embedding=query_embedding,
             memories=memories,

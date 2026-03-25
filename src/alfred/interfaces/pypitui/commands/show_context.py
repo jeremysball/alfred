@@ -1,12 +1,15 @@
 """/context command - Show system context."""
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING
 
 from alfred.interfaces.pypitui.commands.base import Command
 
 if TYPE_CHECKING:
     from alfred.interfaces.pypitui.tui import AlfredTUI
+
+logger = logging.getLogger(__name__)
 
 
 class ShowContextCommand(Command):
@@ -19,13 +22,25 @@ class ShowContextCommand(Command):
         """Show current system context."""
         from alfred.context_display import get_context_display
 
+        logger.debug("ShowContextCommand: executing /context command")
+
         has_active_session = tui.alfred.core.session_manager.has_active_session()
+        logger.debug("ShowContextCommand: has_active_session=%s", has_active_session)
 
         async def _fetch_and_display() -> None:
             """Async helper to fetch and display context."""
             try:
                 # Get context data
+                logger.debug("ShowContextCommand: fetching context data from Alfred")
                 context_data = await get_context_display(tui.alfred)
+                logger.debug(
+                    "ShowContextCommand: context data fetched - total_tokens=%d, memories=%d, "
+                    "session_messages=%d, tool_calls=%d",
+                    context_data.get("total_tokens", 0),
+                    context_data.get("memories", {}).get("total", 0),
+                    context_data.get("session_history", {}).get("count", 0),
+                    context_data.get("tool_calls", {}).get("count", 0),
+                )
 
                 # Build display text
                 lines: list[str] = []
@@ -93,13 +108,38 @@ class ShowContextCommand(Command):
                             lines.append(f"     → {output}")
                     lines.append("")
 
+                # Self-model section
+                self_model = context_data["self_model"]
+                lines.append("ALFRED SELF-MODEL")
+                lines.append("─" * 40)
+                lines.append(f"  Identity: {self_model['identity']['name']} ({self_model['identity']['role']})")
+                runtime = self_model['runtime']
+                mode_str = "daemon" if runtime['daemon_mode'] else "interactive"
+                lines.append(f"  Interface: {runtime['interface']} | Mode: {mode_str}")
+                caps = self_model['capabilities']
+                mem_status = "✓" if caps['memory_enabled'] else "✗"
+                search_status = "✓" if caps['search_enabled'] else "✗"
+                lines.append(f"  Capabilities: Memory {mem_status} | Search {search_status} | {caps['tools_count']} tools")
+                pressure = self_model['context_pressure']
+                tokens_str = f"~{pressure['approximate_tokens']:,} tokens" if pressure['approximate_tokens'] else "unknown tokens"
+                lines.append(f"  Context: {pressure['message_count']} messages | {pressure['memory_count']} memories | {tokens_str}")
+                lines.append("")
+
                 # Total
                 lines.append(f"TOTAL CONTEXT: ~{context_data['total_tokens']:,} tokens")
 
+                logger.debug(
+                    "ShowContextCommand: display built - %d lines, ~%d tokens total",
+                    len(lines),
+                    context_data['total_tokens'],
+                )
+
                 # Add as system message (no markdown to preserve formatting)
                 tui._add_system_message("\n".join(lines))
+                logger.debug("ShowContextCommand: context display added to TUI")
 
             except Exception as e:
+                logger.exception("ShowContextCommand: error displaying context")
                 tui._add_system_message(f"Error displaying context: {e}")
 
         # Schedule async work on event loop (we're already in async context)

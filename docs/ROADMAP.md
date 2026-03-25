@@ -261,7 +261,6 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
 | 26 | HTTP API + Cron | Local API for scheduled actions |
 | 139 | Web UI Test Fixture Realism | Replace bare MagicMock fixtures with explicit fakes and remove mock-aware Web UI shims (PRD #139) |
-| 147 | Alfred Self-Model and Personality | Deepen Alfred's internal self-model and make the voice more opinionated, witty, and playful (PRD #147) |
 
 ### Long-term 🔮
 

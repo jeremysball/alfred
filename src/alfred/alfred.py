@@ -15,6 +15,7 @@ from alfred.config import Config
 from alfred.context import ContextLoader
 from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
+from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
 from alfred.session import Message, Role, Session, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
@@ -200,7 +201,7 @@ class Alfred:
                 session_id="cli",
             )
             context_started_at = perf_counter()
-            context = await self.context_loader.assemble()
+            context = await self.context_loader.assemble_with_self_model(self)
             system_prompt = self._build_system_prompt(context.system_prompt)
             memories_count = len(getattr(context, "memories", []) or [])
             self._log_turn_event(
@@ -373,6 +374,7 @@ class Alfred:
                 memories=all_memories,
                 session_messages=session_messages,
                 session_messages_with_tools=session_messages_with_tools,
+                alfred=self,
             )
             system_prompt = self._build_system_prompt(system_prompt)
             self._log_turn_event(
@@ -710,6 +712,28 @@ You can then continue the conversation with the tool results.
             logger.debug("Socket client started for cron job tools")
         except Exception as e:
             logger.warning(f"Failed to start socket client: {e}")
+
+    def build_self_model(self) -> RuntimeSelfModel:
+        """Build a self-model snapshot from current runtime state.
+
+        This creates a runtime snapshot describing Alfred's current state,
+        capabilities, and environment. Used for self-awareness in prompts.
+
+        Returns:
+            RuntimeSelfModel populated with current runtime facts
+        """
+        logger.debug("Alfred.build_self_model: building self-model snapshot")
+        model = build_runtime_self_model(self)
+        logger.debug(
+            "Alfred.build_self_model: self-model ready - interface=%s, tools=%d, "
+            "memory=%s, search=%s, messages=%d",
+            model.runtime.interface.value if model.runtime.interface else None,
+            len(model.capabilities.tools_available),
+            model.capabilities.memory_enabled,
+            model.capabilities.search_enabled,
+            model.context_pressure.message_count,
+        )
+        return model
 
     async def stop(self) -> None:
         """Graceful shutdown.
