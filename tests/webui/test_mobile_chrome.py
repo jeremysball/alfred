@@ -55,8 +55,8 @@ async def test_header_collapses_on_scroll_down(
     # Wait for scroll handler
     await page.wait_for_timeout(150)
 
-    # Verify header has compact class
-    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
+    # Verify header has hidden class
+    await expect(header).to_have_class(re.compile(r"\bhidden\b"))
 
 
 async def test_header_restores_on_scroll_up(
@@ -100,9 +100,9 @@ async def test_header_restores_on_scroll_up(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify compact
+    # Verify hidden
     header = page.locator(".app-header")
-    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
+    await expect(header).to_have_class(re.compile(r"\bhidden\b"))
 
     # Scroll up
     await page.evaluate("""
@@ -113,8 +113,8 @@ async def test_header_restores_on_scroll_up(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify restored
-    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
+    # Verify restored (not hidden)
+    await expect(header).not_to_have_class(re.compile(r"\bhidden\b"))
 
 
 async def test_header_restores_on_composer_focus(
@@ -166,8 +166,8 @@ async def test_header_restores_on_composer_focus(
     await page.click("#message-input")
     await page.wait_for_timeout(300)
 
-    # Verify restored
-    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
+    # Verify restored (not hidden)
+    await expect(header).not_to_have_class(re.compile(r"\bhidden\b"))
 
 
 async def test_compact_mode_hides_non_essential_header_elements(
@@ -211,9 +211,9 @@ async def test_compact_mode_hides_non_essential_header_elements(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify header is compact
+    # Verify header is hidden
     header = page.locator(".app-header")
-    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
+    await expect(header).to_have_class(re.compile(r"\bhidden\b"))
 
     # Verify header status is hidden in compact mode
     header_status = header.locator(".header-status")
@@ -396,10 +396,10 @@ async def test_compact_mode_not_applied_on_desktop(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify header is NOT compact on desktop
+    # Verify header is NOT hidden on desktop
     header = page.locator(".app-header")
-    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
+    await expect(header).not_to_have_class(re.compile(r"\bhidden\b"))
 
-    # Verify input area is NOT compact
+    # Verify input area is NOT hidden
     input_area = page.locator("#input-area")
-    await expect(input_area).not_to_have_class(re.compile(r"\bcompact\b"))
+    await expect(input_area).not_to_have_class(re.compile(r"\bhidden\b"))
