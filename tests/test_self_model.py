@@ -13,6 +13,7 @@ from alfred.self_model import (
     RuntimeSelfModel,
     Visibility,
     World,
+    build_runtime_self_model,
 )
 
 
@@ -44,3 +45,98 @@ def test_runtime_self_model_includes_identity_runtime_and_world_sections():
     assert "visibility" in data
     assert data["identity"]["name"] == "Alfred"
     assert data["runtime"]["interface"] == "cli"
+
+
+class FakeAlfred:
+    """Test double for Alfred that exposes runtime state for self-model building."""
+
+    def __init__(
+        self,
+        tools: list[str] | None = None,
+        session_messages: int = 0,
+        memories_count: int = 0,
+        total_tokens: int | None = None,
+        has_memory_store: bool = True,
+    ) -> None:
+        self.tools = FakeTools(tools or [])
+        self.context_summary = FakeContextSummary(session_messages, memories_count)
+        self.token_tracker = FakeTokenTracker(total_tokens)
+        self.core = FakeCore(has_memory_store)
+        self._telegram_bot = None  # CLI mode by default
+
+
+class FakeTools:
+    """Fake tools registry."""
+
+    def __init__(self, tool_names: list[str]) -> None:
+        self._tool_names = tool_names
+
+    def list_tools(self) -> list[str]:
+        return self._tool_names
+
+
+class FakeContextSummary:
+    """Fake context summary."""
+
+    def __init__(self, session_messages: int, memories_count: int) -> None:
+        self.session_messages = session_messages
+        self.memories_count = memories_count
+
+
+class FakeTokenTracker:
+    """Fake token tracker."""
+
+    def __init__(self, total_tokens: int | None) -> None:
+        self.total_tokens = total_tokens
+
+
+class FakeCore:
+    """Fake AlfredCore."""
+
+    def __init__(self, has_memory_store: bool) -> None:
+        self.memory_store = object() if has_memory_store else None
+
+
+def test_build_runtime_self_model_uses_current_alfred_state():
+    """Verify builder extracts live facts from Alfred runtime."""
+    # Create a fake Alfred with known state
+    fake_alfred = FakeAlfred(
+        tools=["read", "write", "bash"],
+        session_messages=10,
+        memories_count=5,
+        total_tokens=1500,
+        has_memory_store=True,
+    )
+
+    # Build self-model
+    model = build_runtime_self_model(
+        fake_alfred,
+        interface=InterfaceType.CLI,
+        session_id="test-session-123",
+    )
+
+    # Verify runtime facts
+    assert model.runtime.interface == InterfaceType.CLI
+    assert model.runtime.session_id == "test-session-123"
+    assert model.runtime.daemon_mode is False
+
+    # Verify capabilities
+    assert "read" in model.capabilities.tools_available
+    assert "write" in model.capabilities.tools_available
+    assert "bash" in model.capabilities.tools_available
+    assert model.capabilities.memory_enabled is True
+    assert model.capabilities.search_enabled is True
+
+    # Verify context pressure
+    assert model.context_pressure.message_count == 10
+    assert model.context_pressure.memory_count == 5
+    assert model.context_pressure.approximate_tokens == 1500
+
+    # Verify world state is populated
+    assert model.world.working_directory is not None
+    assert model.world.python_version is not None
+    assert model.world.platform is not None
+
+    # Verify identity is present
+    assert model.identity.name == "Alfred"
+    assert model.visibility == Visibility.INTERNAL
