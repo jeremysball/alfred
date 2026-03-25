@@ -142,15 +142,32 @@ Lock down the runtime facts Alfred should know about himself and the shape of th
 
 Validation: the contract is documented and stable enough to drive prompt assembly.
 
+**Status**: ✅ Complete
+- [x] Created `src/alfred/self_model.py` with Pydantic models
+- [x] Implemented `build_runtime_self_model()` builder function
+- [x] Added fail-closed handling with safe defaults
+- [x] Added tests for schema, builder, and fallback behavior
+
 ### Milestone 2: Rewrite SOUL.md for a stronger voice
 Update the personality guidance so Alfred reads as more opinionated, witty, playful, and self-possessed.
 
 Validation: the new voice guidance is present in the template and reflected in behavior tests.
 
+**Status**: ✅ Complete
+- [x] Rewrote `templates/SOUL.md` with lean, essential personality guidance (~80 lines)
+- [x] Sections: Who I Am, How I Speak, What I Do, My Self-Model, Personality Rules
+- [x] Added `TestSOULmdPersonality` test validating structure
+
 ### Milestone 3: Build runtime self-state assembly
 Collect runtime facts from the app, interface, session, tool, and context layers into a single self-model snapshot.
 
 Validation: the snapshot is populated from actual runtime state and updates as state changes.
+
+**Status**: ✅ Complete
+- [x] Added `build_self_model()` method to Alfred class
+- [x] Method imports and uses `build_runtime_self_model()` from self_model module
+- [x] Added tests verifying method exists and returns correct type
+- [x] Added test simulating build_self_model() usage with fake Alfred
 
 ### Milestone 4: Inject the self-model into context assembly
 Feed the self-model into the prompt pipeline as an internal-only block.
