@@ -2213,6 +2213,37 @@ function addCopyButtons() {
     wrapper.appendChild(copyBtn);
     wrapper.appendChild(pre);
   });
+
+  // Floating settings button (mobile) - triggers the settings-menu
+  const floatingSettingsBtn = document.getElementById('floating-settings-btn');
+  if (floatingSettingsBtn) {
+    // Show floating button on mobile (remove hidden attribute)
+    if (window.innerWidth <= 768) {
+      floatingSettingsBtn.removeAttribute('hidden');
+    }
+
+    // Update visibility on resize
+    window.addEventListener('resize', () => {
+      if (window.innerWidth <= 768) {
+        floatingSettingsBtn.removeAttribute('hidden');
+      } else {
+        floatingSettingsBtn.setAttribute('hidden', '');
+      }
+    });
+
+    // Click handler - open settings menu
+    floatingSettingsBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const settingsMenu = document.querySelector('settings-menu');
+      if (settingsMenu) {
+        // Toggle settings menu by clicking its toggle button
+        const toggleBtn = settingsMenu.querySelector('.settings-toggle');
+        if (toggleBtn) {
+          toggleBtn.click();
+        }
+      }
+    });
+  }
 }
 
 function showCopyFeedback(btn) {

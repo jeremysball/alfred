@@ -1881,7 +1881,7 @@ status-bar {
         font-size: 0.65rem;
     }
 
-    /* Floating settings button - visible when header is hidden */
+    /* Floating settings button - always visible on mobile since header settings are hidden */
     .floating-settings-btn {
         position: fixed;
         top: 0.75rem;
@@ -1895,9 +1895,9 @@ status-bar {
         background: var(--surface-color, #1a1a1a);
         color: var(--text-color, #e0e0e0);
         cursor: pointer;
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(-10px);
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
         transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         display: flex;
@@ -1905,10 +1905,10 @@ status-bar {
         justify-content: center;
     }
 
-    .floating-settings-btn:not([hidden]) {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
+    .floating-settings-btn[hidden] {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
     }
 
     .floating-settings-btn svg {
