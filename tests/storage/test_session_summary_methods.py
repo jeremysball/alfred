@@ -21,6 +21,7 @@ async def sqlite_store(tmp_path):
 @pytest.fixture
 async def sample_summary():
     """Create sample session summary."""
+    # Use 768-dim embedding to match default sqlite-vec schema
     return {
         "summary_id": "sum_test_001",
         "session_id": "sess_test_001",
@@ -29,7 +30,7 @@ async def sample_summary():
         "first_message_idx": 0,
         "last_message_idx": 4,
         "summary_text": "Test conversation about database design",
-        "embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
+        "embedding": [0.1] * 768,
         "version": 1,
     }
 
