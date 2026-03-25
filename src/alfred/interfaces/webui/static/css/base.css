@@ -1984,4 +1984,28 @@ status-bar {
     font-family: Inter, Helvetica, Arial, sans-serif;
 }
 
+/* ============================================
+   MOBILE CHROME COLLAPSE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .app-header.compact {
+        padding: 0.5rem 1rem;
+        transition: padding 0.2s ease;
+    }
+
+    .app-header.hidden {
+        display: none;
+    }
+
+    .input-area.compact {
+        padding: 0.5rem;
+        transition: padding 0.2s ease;
+    }
+
+    .input-area.hidden {
+        display: none;
+    }
+}
+
 

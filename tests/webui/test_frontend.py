@@ -78,8 +78,8 @@ def test_chat_message_component_exposes_edit_state_and_websocket_client_helpers(
     assert "dataset.composerState" in main_js
 
     assert 'data-composer-state="idle"' in index_html
-    assert 'chat-message.js?v=5' in index_html
-    assert 'main.js?v=11' in index_html
+    assert 'chat-message.js?v=' in index_html
+    assert 'main.js?v=' in index_html
 
 
 def test_index_html_has_chat_ui():

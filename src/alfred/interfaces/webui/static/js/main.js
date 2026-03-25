@@ -1,6 +1,37 @@
 // Alfred Web UI - Main JavaScript
 import { applyThemeContrast } from './utils/contrast.js';
 
+// Mobile Chrome Collapse
+const MOBILE_BREAKPOINT = 768;
+let isChromeCollapsed = false;
+
+function handleScroll() {
+  if (window.innerWidth <= MOBILE_BREAKPOINT) {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    if (scrollTop > 50 && !isChromeCollapsed) {
+      collapseChrome();
+    } else if (scrollTop <= 50 && isChromeCollapsed) {
+      restoreChrome();
+    }
+  }
+}
+
+function collapseChrome() {
+  isChromeCollapsed = true;
+  const header = document.querySelector('.app-header');
+  const inputArea = document.querySelector('.input-area');
+  if (header) header.classList.add('compact');
+  if (inputArea) inputArea.classList.add('compact');
+}
+
+function restoreChrome() {
+  isChromeCollapsed = false;
+  const header = document.querySelector('.app-header');
+  const inputArea = document.querySelector('.input-area');
+  if (header) header.classList.remove('compact');
+  if (inputArea) inputArea.classList.remove('compact');
+}
+
 /**
  * Initialize the Alfred Web UI
  */
@@ -2134,7 +2165,11 @@ function initAlfredUI() {
     if (isHeaderHidden && window.innerWidth <= MOBILE_BREAKPOINT) {
       showHeader();
     }
+    restoreChrome();
   });
+
+  // Handle scroll for mobile chrome collapse
+  window.addEventListener('scroll', handleScroll);
 
   // Handle window resize to reset hidden state on desktop
   window.addEventListener('resize', () => {
