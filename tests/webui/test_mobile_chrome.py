@@ -47,8 +47,7 @@ async def test_header_collapses_on_scroll_down(
     # Scroll down
     await page.evaluate("""
         () => {
-            const chatContainer = document.getElementById('chat-container');
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            window.scrollTo(0, 100);
         }
     """)
 
@@ -56,7 +55,7 @@ async def test_header_collapses_on_scroll_down(
     await page.wait_for_timeout(150)
 
     # Verify header has hidden class
-    await expect(header).to_have_class(re.compile(r"\bhidden\b"))
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_header_restores_on_scroll_up(
@@ -102,19 +101,18 @@ async def test_header_restores_on_scroll_up(
 
     # Verify hidden
     header = page.locator(".app-header")
-    await expect(header).to_have_class(re.compile(r"\bhidden\b"))
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
     # Scroll up
     await page.evaluate("""
         () => {
-            const chatContainer = document.getElementById('chat-container');
-            chatContainer.scrollTop = 0;
+            window.scrollTo(0, 0);
         }
     """)
     await page.wait_for_timeout(150)
 
     # Verify restored (not hidden)
-    await expect(header).not_to_have_class(re.compile(r"\bhidden\b"))
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_header_restores_on_composer_focus(
@@ -158,7 +156,7 @@ async def test_header_restores_on_composer_focus(
     """)
     await page.wait_for_timeout(150)
 
-    # Verify compact
+    # Verify hidden
     header = page.locator(".app-header")
     await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
@@ -167,7 +165,7 @@ async def test_header_restores_on_composer_focus(
     await page.wait_for_timeout(300)
 
     # Verify restored (not hidden)
-    await expect(header).not_to_have_class(re.compile(r"\bhidden\b"))
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_compact_mode_hides_non_essential_header_elements(
@@ -205,15 +203,14 @@ async def test_compact_mode_hides_non_essential_header_elements(
     # Scroll down
     await page.evaluate("""
         () => {
-            const chatContainer = document.getElementById('chat-container');
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            window.scrollTo(0, 100);
         }
     """)
     await page.wait_for_timeout(150)
 
     # Verify header is hidden
     header = page.locator(".app-header")
-    await expect(header).to_have_class(re.compile(r"\bhidden\b"))
+    await expect(header).to_have_class(re.compile(r"\bcompact\b"))
 
     # Verify header status is hidden in compact mode
     header_status = header.locator(".header-status")
@@ -255,15 +252,14 @@ async def test_compact_input_area_hides_buttons(
     # Scroll down
     await page.evaluate("""
         () => {
-            const chatContainer = document.getElementById('chat-container');
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            window.scrollTo(0, 100);
         }
     """)
     await page.wait_for_timeout(150)
 
     # Verify input area is hidden (mobile scroll behavior)
     input_area = page.locator("#input-area")
-    await expect(input_area).to_have_class(re.compile(r"\bhidden\b"))
+    await expect(input_area).to_have_class(re.compile(r"\bcompact\b"))
 
 
 async def test_stop_button_visible_during_streaming_in_compact_mode(
@@ -319,7 +315,7 @@ async def test_stop_button_visible_during_streaming_in_compact_mode(
 
     # Verify input area is hidden on scroll (mobile behavior)
     input_area = page.locator("#input-area")
-    await expect(input_area).to_have_class(re.compile(r"\bhidden\b"))
+    await expect(input_area).to_have_class(re.compile(r"\bcompact\b"))
     await expect(input_area).to_have_attribute("data-composer-state", "streaming")
 
 
@@ -390,16 +386,15 @@ async def test_compact_mode_not_applied_on_desktop(
     # Scroll down
     await page.evaluate("""
         () => {
-            const chatContainer = document.getElementById('chat-container');
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            window.scrollTo(0, 100);
         }
     """)
     await page.wait_for_timeout(150)
 
     # Verify header is NOT hidden on desktop
     header = page.locator(".app-header")
-    await expect(header).not_to_have_class(re.compile(r"\bhidden\b"))
+    await expect(header).not_to_have_class(re.compile(r"\bcompact\b"))
 
     # Verify input area is NOT hidden
     input_area = page.locator("#input-area")
-    await expect(input_area).not_to_have_class(re.compile(r"\bhidden\b"))
+    await expect(input_area).not_to_have_class(re.compile(r"\bcompact\b"))
