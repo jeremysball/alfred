@@ -9,9 +9,9 @@ Define Alfred’s runtime self-model as a small, internal-only contract. This ph
 
 ### Component: Runtime self-model schema
 
-- [ ] **Test**: `test_runtime_self_model_includes_identity_runtime_and_world_sections()` - verify the contract contains identity, runtime, world, capability, and visibility fields
-- [ ] **Implement**: add `src/alfred/self_model.py` with Pydantic models for the runtime snapshot and an explicit internal-only visibility flag
-- [ ] **Run**: `uv run pytest tests/test_self_model.py::test_runtime_self_model_includes_identity_runtime_and_world_sections -v`
+- [x] **Test**: `test_runtime_self_model_includes_identity_runtime_and_world_sections()` - verify the contract contains identity, runtime, world, capability, and visibility fields
+- [x] **Implement**: add `src/alfred/self_model.py` with Pydantic models for the runtime snapshot and an explicit internal-only visibility flag
+- [x] **Run**: `uv run pytest tests/test_self_model.py::test_runtime_self_model_includes_identity_runtime_and_world_sections -v`
 
 ### Component: Runtime snapshot builder
 
