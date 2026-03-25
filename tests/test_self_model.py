@@ -232,3 +232,77 @@ def test_fake_alfred_with_build_self_model_method():
     assert model.visibility == Visibility.INTERNAL
     assert "read" in model.capabilities.tools_available
     assert model.context_pressure.message_count == 5
+
+
+def test_runtime_self_model_to_prompt_section():
+    """Verify self-model serializes to a well-formatted prompt section."""
+    model = RuntimeSelfModel(
+        identity=Identity(name="Alfred", role="assistant"),
+        runtime=Runtime(interface=InterfaceType.CLI, session_id="test-123"),
+        world=World(working_directory="/workspace", python_version="3.12.0", platform="Linux-5.15.0"),
+        capabilities=Capabilities(
+            tools_available=["read", "write", "bash"],
+            memory_enabled=True,
+            search_enabled=True,
+        ),
+        context_pressure=ContextPressure(
+            message_count=10,
+            memory_count=5,
+            approximate_tokens=1500,
+        ),
+    )
+
+    prompt_section = model.to_prompt_section()
+
+    # Verify markdown structure
+    assert "## Alfred Self-Model" in prompt_section
+    assert "**Identity**: Alfred" in prompt_section
+    assert "**Role**: assistant" in prompt_section
+
+    # Verify runtime state
+    assert "Interface: cli" in prompt_section
+    assert "Session: test-123" in prompt_section
+    assert "Mode: interactive" in prompt_section
+
+    # Verify capabilities
+    assert "Memory: enabled" in prompt_section
+    assert "Search: enabled" in prompt_section
+    assert "Tools: read, write, bash" in prompt_section
+
+    # Verify context pressure
+    assert "Messages: 10" in prompt_section
+    assert "Memories: 5" in prompt_section
+    assert "Approximate tokens: 1,500" in prompt_section
+
+    # Verify environment
+    assert "Working directory: /workspace" in prompt_section
+    assert "Platform:" in prompt_section
+
+
+def test_runtime_self_model_to_prompt_section_daemon_mode():
+    """Verify daemon mode is reflected in prompt section."""
+    model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(interface=InterfaceType.CLI, daemon_mode=True),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+    )
+
+    prompt_section = model.to_prompt_section()
+    assert "Mode: daemon/background" in prompt_section
+
+
+def test_runtime_self_model_to_prompt_section_limits_tools():
+    """Verify long tool lists are truncated in prompt section."""
+    many_tools = [f"tool_{i}" for i in range(15)]
+    model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(),
+        world=World(),
+        capabilities=Capabilities(tools_available=many_tools),
+        context_pressure=ContextPressure(),
+    )
+
+    prompt_section = model.to_prompt_section()
+    assert "(+5 more)" in prompt_section

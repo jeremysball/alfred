@@ -96,6 +96,61 @@ class RuntimeSelfModel(BaseModel):
     capabilities: Capabilities
     context_pressure: ContextPressure
 
+    def to_prompt_section(self) -> str:
+        """Serialize self-model to a compact markdown section for prompts.
+
+        Returns a human-readable summary of Alfred's current state,
+        suitable for inclusion in system prompts.
+        """
+        lines = ["## Alfred Self-Model", ""]
+
+        # Identity
+        lines.append(f"**Identity**: {self.identity.name}")
+        lines.append(f"**Role**: {self.identity.role}")
+        if self.identity.version:
+            lines.append(f"**Version**: {self.identity.version}")
+        lines.append("")
+
+        # Runtime
+        lines.append("**Current State**:")
+        if self.runtime.interface:
+            lines.append(f"- Interface: {self.runtime.interface.value}")
+        if self.runtime.session_id:
+            lines.append(f"- Session: {self.runtime.session_id}")
+        if self.runtime.daemon_mode:
+            lines.append("- Mode: daemon/background")
+        else:
+            lines.append("- Mode: interactive")
+        lines.append("")
+
+        # Capabilities
+        lines.append("**Capabilities**:")
+        lines.append(f"- Memory: {'enabled' if self.capabilities.memory_enabled else 'disabled'}")
+        lines.append(f"- Search: {'enabled' if self.capabilities.search_enabled else 'disabled'}")
+        if self.capabilities.tools_available:
+            tools_str = ", ".join(self.capabilities.tools_available[:10])
+            if len(self.capabilities.tools_available) > 10:
+                tools_str += f" (+{len(self.capabilities.tools_available) - 10} more)"
+            lines.append(f"- Tools: {tools_str}")
+        lines.append("")
+
+        # Context pressure
+        lines.append("**Context Pressure**:")
+        lines.append(f"- Messages: {self.context_pressure.message_count}")
+        lines.append(f"- Memories: {self.context_pressure.memory_count}")
+        if self.context_pressure.approximate_tokens:
+            lines.append(f"- Approximate tokens: {self.context_pressure.approximate_tokens:,}")
+        lines.append("")
+
+        # World
+        lines.append("**Environment**:")
+        if self.world.working_directory:
+            lines.append(f"- Working directory: {self.world.working_directory}")
+        if self.world.platform:
+            lines.append(f"- Platform: {self.world.platform}")
+
+        return "\n".join(lines)
+
 
 def build_runtime_self_model(
     alfred: "Alfred",

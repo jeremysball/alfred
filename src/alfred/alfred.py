@@ -201,7 +201,7 @@ class Alfred:
                 session_id="cli",
             )
             context_started_at = perf_counter()
-            context = await self.context_loader.assemble()
+            context = await self.context_loader.assemble_with_self_model(self)
             system_prompt = self._build_system_prompt(context.system_prompt)
             memories_count = len(getattr(context, "memories", []) or [])
             self._log_turn_event(
@@ -374,6 +374,7 @@ class Alfred:
                 memories=all_memories,
                 session_messages=session_messages,
                 session_messages_with_tools=session_messages_with_tools,
+                alfred=self,
             )
             system_prompt = self._build_system_prompt(system_prompt)
             self._log_turn_event(
