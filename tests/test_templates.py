@@ -670,3 +670,45 @@ class TestIntegrationWithPlaceholders:
             resolved = resolve_file_includes(content, tmp_path)
             # Should either resolve or have HTML comments for missing includes
             assert "{{" not in resolved or "<!-- missing:" in resolved
+
+
+class TestSOULmdPersonality:
+    """Test SOUL.md template has the expected personality guidance for PRD #147."""
+
+    def test_soul_md_has_essential_personality(self, tmp_path: Path) -> None:
+        """Verify SOUL.md contains essential personality structure."""
+        from alfred.templates import TemplateManager
+
+        manager = TemplateManager(tmp_path)
+        content = manager.load_template("SOUL.md")
+
+        assert content is not None, "SOUL.md should exist"
+
+        # Essential personality elements
+        assert "Who I Am" in content, "SOUL.md should have identity section"
+        assert "How I Speak" in content, "SOUL.md should have voice/tone section"
+        assert "Direct" in content, "SOUL.md should emphasize directness"
+        assert "Witty" in content, "SOUL.md should mention wit"
+        assert "not your assistant" in content.lower(), "SOUL.md should reject assistant framing"
+
+    def test_soul_md_has_self_model_section(self, tmp_path: Path) -> None:
+        """Verify SOUL.md references the runtime self-model."""
+        from alfred.templates import TemplateManager
+
+        manager = TemplateManager(tmp_path)
+        content = manager.load_template("SOUL.md")
+
+        assert content is not None, "SOUL.md should exist"
+        assert "My Self-Model" in content, "SOUL.md should have self-model section"
+        assert "runtime state" in content.lower(), "SOUL.md should mention runtime state"
+
+    def test_soul_md_has_personality_rules(self, tmp_path: Path) -> None:
+        """Verify SOUL.md defines personality boundaries."""
+        from alfred.templates import TemplateManager
+
+        manager = TemplateManager(tmp_path)
+        content = manager.load_template("SOUL.md")
+
+        assert content is not None, "SOUL.md should exist"
+        assert "Personality Rules" in content or "When serious" in content, "SOUL.md should have boundaries"
+        assert "Never" in content, "SOUL.md should list anti-patterns"
