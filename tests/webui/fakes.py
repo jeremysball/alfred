@@ -157,6 +157,11 @@ class FakeCore:
 
     session_manager: WebUISessionManager
 
+    @property
+    def summarizer(self) -> Any | None:
+        """Return None for tests that don't need summarizer."""
+        return None
+
 
 class FakeSessionManager:
     """Session manager fake for Web UI tests."""
