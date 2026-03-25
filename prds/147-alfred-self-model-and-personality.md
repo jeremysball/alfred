@@ -174,6 +174,14 @@ Feed the self-model into the prompt pipeline as an internal-only block.
 
 Validation: Alfred has access to the self-model every turn without exposing a noisy block to the user.
 
+**Status**: ✅ Complete
+- [x] Extended `AssembledContext` model with `self_model: RuntimeSelfModel | None` field
+- [x] Added `to_prompt_section()` method to `RuntimeSelfModel` for markdown serialization
+- [x] Added `assemble_with_self_model(alfred)` method to `ContextLoader`
+- [x] Updated `assemble_with_search()` to accept optional `alfred` parameter for self-model inclusion
+- [x] Updated Alfred to use new assembly methods in both message processing paths
+- [x] Added tests for prompt section serialization, daemon mode display, and tool list truncation
+
 ### Milestone 5: Surface a compact `/context` summary
 Add a terse self-status note to the context inspection path so the user can inspect Alfred’s internal state when needed.
 
