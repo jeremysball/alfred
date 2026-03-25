@@ -136,7 +136,7 @@ class TestSearchSessionsLLMIntegration:
             chunks.append(chunk)
 
         result = "".join(chunks)
-        assert "No relevant sessions found" in result
+        assert "No relevant sessions or messages found" in result
 
     @pytest.mark.asyncio
     async def test_tool_respects_top_k_parameter(self):
