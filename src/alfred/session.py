@@ -264,12 +264,24 @@ class SessionManager:
                 )
                 messages.append(msg)
 
+            # Parse metadata from session data
+            metadata = data.get("metadata", {}) or {}
+            first_message_time = metadata.get("first_message_time")
+            if first_message_time:
+                try:
+                    first_message_time = datetime.fromisoformat(first_message_time)
+                except (ValueError, TypeError):
+                    first_message_time = None
+
             meta = SessionMeta(
                 session_id=session_id,
                 created_at=datetime.fromisoformat(data.get("created_at", datetime.now(UTC).isoformat())),
                 last_active=datetime.fromisoformat(data.get("updated_at", datetime.now(UTC).isoformat())),
                 status="active",
                 message_count=len(messages),
+                first_message_time=first_message_time,
+                last_summarized_count=metadata.get("last_summarized_count", 0),
+                summary_version=metadata.get("summary_version", 0),
             )
             session = Session(meta=meta, messages=messages)
         else:
@@ -459,7 +471,7 @@ class SessionManager:
             messages_data.append(msg_dict)
         return messages_data
 
-    async def _persist_messages_strict(self, session_id: str, messages: list[Message]) -> None:
+    async def _persist_messages_strict(self, session_id: str, messages: list[Message], meta: SessionMeta | None = None) -> None:
         """Persist messages and propagate storage errors to the caller.
 
         Generates embeddings for messages that don't have them if an embedder is configured.
@@ -473,7 +485,16 @@ class SessionManager:
                     except Exception as e:
                         logger.warning(f"Failed to generate embedding for message {msg.id}: {e}")
 
-        await self.store.save_session(session_id, self._serialize_messages(messages))
+        # Build metadata if session meta provided
+        metadata: dict[str, Any] | None = None
+        if meta is not None:
+            metadata = {
+                "last_summarized_count": meta.last_summarized_count,
+                "first_message_time": meta.first_message_time.isoformat() if meta.first_message_time else None,
+                "summary_version": meta.summary_version,
+            }
+
+        await self.store.save_session(session_id, self._serialize_messages(messages), metadata)
 
     async def _mutate_session_messages_async(
         self,

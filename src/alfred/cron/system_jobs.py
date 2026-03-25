@@ -90,6 +90,8 @@ async def run():
                 if session and session.messages:
                     summary = await summarizer.generate_summary(session)
                     await summarizer.save_summary(summary)
+                    # Update session metadata to track what was summarized
+                    meta.last_summarized_count = meta.message_count
                     print(f"Saved summary for session {meta.session_id}")
                     summarized += 1
 

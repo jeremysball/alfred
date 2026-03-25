@@ -1317,17 +1317,34 @@ async def _handle_session_command(
         messages = getattr(current_session, "messages", [])
         message_count = getattr(current_session, "message_count", getattr(meta, "message_count", len(messages)))
         status = getattr(current_session, "status", getattr(meta, "status", "active"))
+        session_id = _session_identifier(current_session)
+
+        # Try to get session summary if available
+        summary_text = None
+        summarizer = getattr(alfred_instance.core, "summarizer", None)
+        if summarizer is not None:
+            try:
+                summary = await summarizer.load_summary(session_id)
+                if summary is not None:
+                    summary_text = summary.text
+            except Exception:
+                # Summary not available, continue without it
+                pass
+
+        payload = {
+            "sessionId": session_id,
+            "messageCount": message_count,
+            "created": created_at.isoformat() if isinstance(created_at, datetime) else datetime.now(UTC).isoformat(),
+            "lastActive": last_active.isoformat() if isinstance(last_active, datetime) else datetime.now(UTC).isoformat(),
+            "status": status,
+        }
+        if summary_text is not None:
+            payload["summary"] = summary_text
 
         await websocket.send_json(
             {
                 "type": "session.info",
-                "payload": {
-                    "sessionId": _session_identifier(current_session),
-                    "messageCount": message_count,
-                    "created": created_at.isoformat() if isinstance(created_at, datetime) else datetime.now(UTC).isoformat(),
-                    "lastActive": last_active.isoformat() if isinstance(last_active, datetime) else datetime.now(UTC).isoformat(),
-                    "status": status,
-                },
+                "payload": payload,
             }
         )
     except Exception as e:
