@@ -23,9 +23,11 @@ async def test_header_collapses_on_scroll_down(
         timeout=5000
     )
 
-    # Add some messages to make the chat scrollable
+    # Make body scrollable and add messages
     await page.evaluate("""
         () => {
+            // Ensure body is scrollable
+            document.body.style.minHeight = '2000px';
             const messageList = document.getElementById('message-list');
             for (let i = 0; i < 20; i++) {
                 const msg = document.createElement('chat-message');
