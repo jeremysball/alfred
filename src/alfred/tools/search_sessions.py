@@ -15,6 +15,8 @@ from alfred.storage.sqlite import SQLiteStore
 
 from .base import Tool
 
+logger = logging.getLogger(__name__)
+
 
 class SessionSummary(BaseModel):
     """Summary of a session for semantic search."""
@@ -221,7 +223,7 @@ class SearchSessionsTool(Tool):
         embedder: Any | None = None,
         llm_client: Any | None = None,
         summarizer: SessionSummarizer | None = None,
-        min_similarity: float = 0.6,
+        min_similarity: float = 0.5,
     ) -> None:
         super().__init__()
         self.session_manager = session_manager
@@ -310,6 +312,8 @@ class SearchSessionsTool(Tool):
                 return
 
         try:
+            logger.debug(f"Session search: query='{query}', top_k={top_k}, min_similarity={self.min_similarity}")
+
             if is_wildcard:
                 # Wildcard mode: list all sessions (filtered by date if provided)
                 sessions = await self.summarizer.store.list_sessions(limit=top_k * 2)
@@ -363,22 +367,96 @@ class SearchSessionsTool(Tool):
 
             # Stage 1: Find relevant sessions via summary search
             query_embedding = await self.embedder.embed(query)
+            logger.debug(f"Query embedded, dim={len(query_embedding)}")
+
             relevant_summaries = await self._find_relevant_sessions(
                 query_embedding, top_k, after=after, before=before
             )
+            logger.debug(f"Found {len(relevant_summaries)} summaries")
+            for s in relevant_summaries:
+                sid = s.get('session_id', '')
+                sim = s.get('similarity', 0)
+                logger.debug(f"  Summary: {sid[:8]}... sim={sim:.3f}")
 
+            # If no summaries found, fall back to direct message search
             if not relevant_summaries:
-                yield "No relevant sessions found."
+                # Fallback: search messages directly across all sessions
+                all_messages = await self.summarizer.store.search_all_session_messages(
+                    query_embedding, top_k=top_k * 2, after=after, before=before
+                )
+                logger.debug(f"Fallback message search found {len(all_messages) if all_messages else 0} messages")
+
+                if not all_messages:
+                    yield "No relevant sessions or messages found."
+                    return
+
+                # Group messages by session_id
+                sessions_by_id: dict[str, list[dict[str, Any]]] = {}
+                for msg in all_messages:
+                    if msg["similarity"] < self.min_similarity:
+                        continue
+                    sid = msg["session_id"]
+                    if sid not in sessions_by_id:
+                        sessions_by_id[sid] = []
+                    sessions_by_id[sid].append(msg)
+
+                if not sessions_by_id:
+                    yield "No relevant messages found above similarity threshold."
+                    return
+
+                # Yield results grouped by session
+                for session_id, messages in list(sessions_by_id.items())[:top_k]:
+                    yield f"\n## Session: {session_id}\n"
+                    yield "Found relevant messages (no summary available):\n"
+
+                    for msg in messages[:messages_per_session]:
+                        role = msg["role"]
+                        content = msg["content_snippet"]
+                        msg_sim = msg.get("similarity", 0)
+                        yield f"  [{role}]: {content} ({msg_sim:.2f})\n"
+                return
+
+            # Filter summaries by similarity threshold
+            filtered_summaries = [
+                s for s in relevant_summaries
+                if s.get("similarity", 0) >= self.min_similarity
+            ]
+
+            # If summaries found but all below threshold, fall back to message search
+            if not filtered_summaries:
+                all_messages = await self.summarizer.store.search_all_session_messages(
+                    query_embedding, top_k=top_k * 2, after=after, before=before
+                )
+
+                if all_messages:
+                    # Group messages by session_id
+                    fallback_sessions: dict[str, list[dict[str, Any]]] = {}
+                    for msg in all_messages:
+                        if msg["similarity"] < self.min_similarity:
+                            continue
+                        sid = msg["session_id"]
+                        if sid not in fallback_sessions:
+                            fallback_sessions[sid] = []
+                        fallback_sessions[sid].append(msg)
+
+                    if fallback_sessions:
+                        yield "\n(Found summaries but below threshold; showing message matches instead)\n"
+                        for session_id, messages in list(fallback_sessions.items())[:top_k]:
+                            yield f"\n## Session: {session_id}\n"
+                            for msg in messages[:messages_per_session]:
+                                role = msg["role"]
+                                content = msg["content_snippet"]
+                                msg_sim = msg.get("similarity", 0)
+                                yield f"  [{role}]: {content} ({msg_sim:.2f})\n"
+                        return
+
+                yield "No relevant sessions found above similarity threshold."
                 return
 
             # Stage 2: For each relevant session, search messages
-            for summary in relevant_summaries:
+            for summary in filtered_summaries:
                 session_id = summary["session_id"]
-                similarity = summary.get("similarity", 0)
-
-                # Only include if the normalized similarity meets the threshold
-                if similarity < self.min_similarity:
-                    continue
+                similarity = summary["similarity"]
 
                 # Format session header; relevance is already normalized similarity
                 yield f"\n## Session: {session_id}\n"
