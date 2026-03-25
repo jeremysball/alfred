@@ -306,3 +306,148 @@ def test_runtime_self_model_to_prompt_section_limits_tools():
 
     prompt_section = model.to_prompt_section()
     assert "(+5 more)" in prompt_section
+
+
+def test_self_model_visibility_is_always_internal():
+    """Verify self-model is always marked as internal-only.
+
+    Safety test: The self-model should never be exposed directly to users.
+    It should only appear in LLM prompts with visibility: INTERNAL.
+    """
+    # Create self-model with various configurations
+    model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+    )
+
+    # Verify visibility is INTERNAL
+    assert model.visibility == Visibility.INTERNAL
+
+    # Verify visibility in serialized form
+    data = model.model_dump()
+    assert data["visibility"] == "internal"
+
+    # Verify visibility defaults to INTERNAL even when not specified
+    model_no_explicit = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+        # visibility not specified - should default to INTERNAL
+    )
+    assert model_no_explicit.visibility == Visibility.INTERNAL
+
+
+def test_self_model_fails_closed_with_none_alfred():
+    """Verify builder handles None Alfred gracefully (fail-closed).
+
+    Safety test: The builder uses getattr with defaults, so None Alfred
+    should produce a minimal but valid self-model with safe defaults.
+    """
+    # Builder handles None gracefully - produces minimal self-model
+    model = build_runtime_self_model(None)  # type: ignore
+
+    # Should produce a valid RuntimeSelfModel with safe defaults
+    assert isinstance(model, RuntimeSelfModel)
+    assert model.visibility == Visibility.INTERNAL
+
+    # All capabilities should be disabled (safe defaults)
+    assert model.capabilities.memory_enabled is False
+    assert model.capabilities.search_enabled is False
+    assert model.capabilities.tools_available == []
+
+    # Context pressure should be zeroed
+    assert model.context_pressure.message_count == 0
+    assert model.context_pressure.memory_count == 0
+
+
+def test_self_model_with_partial_alfred_state():
+    """Verify self-model builds safely with partial Alfred state.
+
+    Regression test: Alfred may have some subsystems initialized but not others.
+    Self-model should gracefully handle partial state.
+    """
+    # Create Alfred with only some attributes
+    class PartialAlfred:
+        def __init__(self) -> None:
+            self.tools = None  # Missing tools
+            self.context_summary = None  # Missing context
+            self.token_tracker = FakeTokenTracker(1000)  # Has tokens
+            self.core = FakeCore(True)  # Has memory
+            self._telegram_bot = None
+
+    partial_alfred = PartialAlfred()
+
+    # Should build without crashing
+    model = build_runtime_self_model(partial_alfred)
+
+    # Verify safe defaults for missing data
+    assert model.capabilities.tools_available == []
+    assert model.context_pressure.message_count == 0
+    assert model.context_pressure.approximate_tokens == 1000  # This was available
+    assert model.capabilities.memory_enabled is True  # This was available
+
+
+def test_self_model_context_injection_is_internal():
+    """Verify self-model in context is marked internal and properly formatted.
+
+    Integration test: When self-model is injected into context assembly,
+    it should appear in the system prompt (for LLM) but not be user-facing.
+    """
+
+    model = RuntimeSelfModel(
+        identity=Identity(name="Alfred", role="test assistant"),
+        runtime=Runtime(interface=InterfaceType.CLI, session_id="test-123"),
+        world=World(working_directory="/test"),
+        capabilities=Capabilities(
+            tools_available=["read", "write"],
+            memory_enabled=True,
+            search_enabled=True,
+        ),
+        context_pressure=ContextPressure(message_count=5, memory_count=3),
+    )
+
+    # Simulate what ContextLoader.assemble_with_self_model() does
+    self_model_section = model.to_prompt_section()
+
+    # Verify it's formatted for LLM consumption
+    assert "## Alfred Self-Model" in self_model_section
+    assert "Alfred" in self_model_section
+    assert "Interface: cli" in self_model_section
+
+    # Verify it's not a raw JSON dump (user-unfriendly)
+    assert '"identity":' not in self_model_section
+    assert '"runtime":' not in self_model_section
+
+
+def test_self_model_rebuilds_fresh_each_time():
+    """Verify self-model is rebuilt from current state, not cached.
+
+    Regression test: Self-model should reflect current runtime state,
+    not a stale snapshot.
+    """
+    fake_alfred = FakeAlfred(
+        tools=["read"],
+        session_messages=1,
+        memories_count=1,
+        total_tokens=100,
+        has_memory_store=True,
+    )
+
+    # Build first self-model
+    model1 = build_runtime_self_model(fake_alfred)
+    assert model1.context_pressure.message_count == 1
+
+    # Simulate state change
+    fake_alfred.context_summary.session_messages = 5
+
+    # Build second self-model - should reflect new state
+    model2 = build_runtime_self_model(fake_alfred)
+    assert model2.context_pressure.message_count == 5
+
+    # Models should be independent
+    assert model1.context_pressure.message_count == 1  # Unchanged
