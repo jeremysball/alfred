@@ -31,7 +31,8 @@ class ChatMessage extends HTMLElement {
     this._messageState = 'idle';
     this._editable = false;
     this._copied = false;
-    
+    this._isConnected = false;
+
     // Interleaved content blocks
     this._contentBlocks = []; // Array of {type, sequence, content, metadata, element}
     this._sequenceCounter = 0;
@@ -49,24 +50,25 @@ class ChatMessage extends HTMLElement {
     switch (name) {
       case 'role':
         this._role = newValue || 'user';
-        this._render();
+        if (this._isConnected) this._render();
         break;
       case 'content':
-        // Update content without wiping other blocks - just update the text block
         this._content = newValue || '';
         this._textAccumulator = this._content;
-        this._updateTextBlock(this._content);
+        if (this._isConnected) {
+          this._updateTextBlock(this._content);
+        }
         break;
       case 'timestamp':
         this._timestamp = newValue;
-        this._renderHeader();
+        if (this._isConnected) this._renderHeader();
         break;
       case 'message-id':
         this._messageId = newValue;
         break;
       case 'editable':
         this._editable = newValue !== null && newValue !== 'false';
-        this._renderActions();
+        if (this._isConnected) this._renderActions();
         break;
       case 'data-message-state':
         this._messageState = newValue || 'idle';
@@ -82,17 +84,15 @@ class ChatMessage extends HTMLElement {
     let textBlock = this._contentBlocks.find(b => b.type === 'text' && b.metadata?.isMainText);
 
     if (!textBlock) {
-      // Create new text block if none exists
-      if (content) {
-        textBlock = {
-          type: 'text',
-          sequence: this._nextSequence(),
-          content: content,
-          metadata: { isMainText: true }
-        };
-        this._contentBlocks.push(textBlock);
-        this._renderContentBlocks();
-      }
+      // Always create text block, even if empty, so it can be updated later
+      textBlock = {
+        type: 'text',
+        sequence: this._nextSequence(),
+        content: content,
+        metadata: { isMainText: true }
+      };
+      this._contentBlocks.push(textBlock);
+      this._renderContentBlocks();
     } else {
       // Update existing text block
       textBlock.content = content;
@@ -137,16 +137,20 @@ class ChatMessage extends HTMLElement {
    */
   _renderActions() {
     // Actions are part of the main render, full re-render needed for now
-    this._render();
+    if (this._isConnected) this._render();
   }
 
   connectedCallback() {
+    this._isConnected = true;
     if (!this.hasAttribute('data-message-state')) {
       this.setAttribute('data-message-state', this._messageState);
     }
     this._render();
     this._applySyntaxHighlighting();
     this._setupEventListeners();
+    
+    // Ensure text block is created for initial content (even if empty)
+    this._updateTextBlock(this._content);
   }
 
   _getAvatar() {
