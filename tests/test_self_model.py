@@ -194,3 +194,41 @@ def test_runtime_self_model_omits_unknown_fields_instead_of_fabricating_them():
     assert "capabilities" in data
     # approximate_tokens should be excluded since it's None
     assert "approximate_tokens" not in data.get("context_pressure", {})
+
+
+def test_alfred_class_has_build_self_model_method():
+    """Verify Alfred class has build_self_model method with correct signature."""
+    import inspect
+
+    from alfred.alfred import Alfred
+
+    # Verify the method exists and has correct return type annotation
+    method = getattr(Alfred, "build_self_model", None)
+    assert method is not None, "Alfred should have build_self_model method"
+
+    # Check signature
+    sig = inspect.signature(method)
+    return_annotation = sig.return_annotation
+    assert "RuntimeSelfModel" in str(return_annotation), "Method should return RuntimeSelfModel"
+
+
+def test_fake_alfred_with_build_self_model_method():
+    """Verify FakeAlfred can use build_self_model pattern."""
+    # Create a fake Alfred that mimics the real Alfred's structure
+    fake_alfred = FakeAlfred(
+        tools=["read", "write"],
+        session_messages=5,
+        memories_count=3,
+        total_tokens=1000,
+        has_memory_store=True,
+    )
+
+    # Simulate calling build_self_model (like the real Alfred would)
+    model = build_runtime_self_model(fake_alfred)
+
+    # Verify it produces a valid self-model
+    assert isinstance(model, RuntimeSelfModel)
+    assert model.identity.name == "Alfred"
+    assert model.visibility == Visibility.INTERNAL
+    assert "read" in model.capabilities.tools_available
+    assert model.context_pressure.message_count == 5

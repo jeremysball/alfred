@@ -15,6 +15,7 @@ from alfred.config import Config
 from alfred.context import ContextLoader
 from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
+from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
 from alfred.session import Message, Role, Session, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
@@ -710,6 +711,17 @@ You can then continue the conversation with the tool results.
             logger.debug("Socket client started for cron job tools")
         except Exception as e:
             logger.warning(f"Failed to start socket client: {e}")
+
+    def build_self_model(self) -> RuntimeSelfModel:
+        """Build a self-model snapshot from current runtime state.
+
+        This creates a runtime snapshot describing Alfred's current state,
+        capabilities, and environment. Used for self-awareness in prompts.
+
+        Returns:
+            RuntimeSelfModel populated with current runtime facts
+        """
+        return build_runtime_self_model(self)
 
     async def stop(self) -> None:
         """Graceful shutdown.
