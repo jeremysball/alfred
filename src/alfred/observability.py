@@ -109,10 +109,31 @@ class SurfaceFormatter(logging.Formatter):
             surface,
             color=self.kind == "console" and self._stream_is_tty(),
         )
-        # Truncate giant messages (e.g., embeddings) to prevent log spam
-        MAX_MSG_LEN = 500
-        if len(record.msg) > MAX_MSG_LEN:
-            record.msg = record.msg[:MAX_MSG_LEN] + f"...({len(record.msg) - MAX_MSG_LEN} chars truncated)"
+        # Get the full formatted message
+        msg = record.getMessage()
+
+        # Truncate embedding arrays (detect by pattern of many floats in brackets)
+        import re
+        # Pattern: [-0.123, 0.456, ...] with 10+ floats = likely embedding
+        embedding_pattern = r'\[(\s*-?\d+\.\d+(?:[eE][+-]?\d+)?\s*,){10,}'
+        if re.search(embedding_pattern, msg):
+            # Replace full embedding with truncated version
+            msg = re.sub(
+                r'(\[\s*-?\d+\.\d+(?:[eE][+-]?\d+)?\s*,\s*){5}[^\]]*(\])',
+                r'[... 20 of ~1536 embeddings truncated ...]',
+                msg
+            )
+            record.msg = msg
+            record.args = ()
+
+        # Also truncate giant messages generally
+        max_msg_len = 500
+        if len(record.getMessage()) > max_msg_len:
+            msg = record.getMessage()
+            msg = msg[:max_msg_len] + f"...({len(msg) - max_msg_len} chars truncated)"
+            record.msg = msg
+            record.args = ()
+
         return super().format(record)
 
     def _stream_is_tty(self) -> bool:
