@@ -107,6 +107,12 @@ class DebugPanel extends HTMLElement {
             <button class="debug-tab ${this._activeTab === 'messages' ? 'active' : ''}" data-tab="messages">
               💬 Messages (${this._data.messages?.length || 0})
             </button>
+            <button class="debug-tab ${this._activeTab === 'traffic' ? 'active' : ''}" data-tab="traffic">
+              📡 Traffic (${this._data.websocket?.traffic_log?.length || 0})
+            </button>
+            <button class="debug-tab ${this._activeTab === 'daemon' ? 'active' : ''}" data-tab="daemon">
+              👹 Daemon
+            </button>
             <button class="debug-tab ${this._activeTab === 'websocket' ? 'active' : ''}" data-tab="websocket">
               🔌 WebSocket
             </button>
@@ -137,6 +143,10 @@ class DebugPanel extends HTMLElement {
     switch (this._activeTab) {
       case 'messages':
         return this._renderMessagesTab();
+      case 'traffic':
+        return this._renderTrafficTab();
+      case 'daemon':
+        return this._renderDaemonTab();
       case 'websocket':
         return this._renderWebSocketTab();
       case 'session':
@@ -300,6 +310,91 @@ class DebugPanel extends HTMLElement {
     `;
   }
 
+  _renderTrafficTab() {
+    const traffic = this._data.websocket?.traffic_log || [];
+    
+    if (traffic.length === 0) {
+      return '<div class="debug-empty">No WebSocket traffic recorded</div>';
+    }
+    
+    return `
+      <div class="debug-traffic">
+        <div class="debug-toolbar">
+          <label class="debug-filter">
+            <input type="checkbox" id="filter-out" checked /> Show outgoing
+          </label>
+          <label class="debug-filter">
+            <input type="checkbox" id="filter-in" checked /> Show incoming
+          </label>
+        </div>
+        
+        <div class="debug-traffic-list">
+          ${traffic.slice().reverse().map((entry, idx) => `
+            <div class="debug-traffic-entry ${entry.direction}" data-direction="${entry.direction}">
+              <div class="debug-traffic-header">
+                <span class="debug-traffic-direction">${entry.direction === 'out' ? '⬆️ OUT' : '⬇️ IN'}</span>
+                <span class="debug-traffic-type">${entry.type}</span>
+                <span class="debug-traffic-time">${new Date(entry.timestamp).toLocaleTimeString()}</span>
+              </div>
+              <div class="debug-traffic-payload">
+                ${entry.payload_preview ? this._renderJSONTree(entry.payload_preview) : '<em>No payload</em>'}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderDaemonTab() {
+    const daemon = this._data.daemon || {};
+    
+    if (!daemon.available) {
+      return '<div class="debug-empty">Daemon not available</div>';
+    }
+    
+    return `
+      <div class="debug-daemon">
+        <div class="debug-stats-grid">
+          <div class="debug-stat">
+            <span class="debug-stat-label">Model</span>
+            <span class="debug-stat-value">${daemon.model || 'unknown'}</span>
+          </div>
+          ${daemon.tokens ? `
+            <div class="debug-stat">
+              <span class="debug-stat-label">Context Tokens</span>
+              <span class="debug-stat-value">${daemon.tokens.context_tokens || 0}</span>
+            </div>
+          ` : ''}
+          ${daemon.session_manager ? `
+            <div class="debug-stat">
+              <span class="debug-stat-label">Cached Sessions</span>
+              <span class="debug-stat-value">${daemon.session_manager.cached_sessions || 0}</span>
+            </div>
+            <div class="debug-stat">
+              <span class="debug-stat-label">Active Session</span>
+              <span class="debug-stat-value ${daemon.session_manager.has_active_session ? 'success' : ''}">
+                ${daemon.session_manager.has_active_session ? 'Yes' : 'No'}
+              </span>
+            </div>
+          ` : ''}
+        </div>
+        
+        ${daemon.tokens?.usage ? `
+          <div class="debug-section">
+            <h3>Token Usage</h3>
+            ${this._renderJSONTree(daemon.tokens.usage)}
+          </div>
+        ` : ''}
+        
+        <div class="debug-section">
+          <h3>Full Daemon State</h3>
+          ${this._renderJSONTree(daemon)}
+        </div>
+      </div>
+    `;
+  }
+
   _renderJSONTree(obj, key = '', level = 0) {
     if (obj === null) return '<span class="json-null">null</span>';
     if (typeof obj === 'undefined') return '<span class="json-undefined">undefined</span>';
@@ -376,6 +471,26 @@ class DebugPanel extends HTMLElement {
         toggle.textContent = isOpen ? '▶' : '▼';
       });
     });
+    
+    // Traffic filter checkboxes
+    const filterOut = this.querySelector('#filter-out');
+    const filterIn = this.querySelector('#filter-in');
+    
+    if (filterOut) {
+      filterOut.addEventListener('change', () => {
+        this.querySelectorAll('.debug-traffic-entry.out').forEach(el => {
+          el.style.display = filterOut.checked ? 'block' : 'none';
+        });
+      });
+    }
+    
+    if (filterIn) {
+      filterIn.addEventListener('change', () => {
+        this.querySelectorAll('.debug-traffic-entry.in').forEach(el => {
+          el.style.display = filterIn.checked ? 'block' : 'none';
+        });
+      });
+    }
     
     // Refresh button
     this.querySelector('.debug-refresh')?.addEventListener('click', () => {

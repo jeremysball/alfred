@@ -789,10 +789,42 @@ class AlfredTUI:
         # Don't create assistant message panel yet - wait for first chunk or tool call
         first_chunk = True
         next_to_process: str | None = None
+        # Performance timing instrumentation
+        import time
+        chunk_times: list[float] = []
+        last_chunk_time = time.perf_counter()
+        chunks_count = 0
+        stream_start_time = time.perf_counter()
+        render_times: list[float] = []
+        
         try:
             # Stream response from Alfred
             accumulated = ""
             async for chunk in self.alfred.chat_stream(text, tool_callback=self._tool_callback):
+                now = time.perf_counter()
+                chunk_latency = now - last_chunk_time
+                chunk_times.append(chunk_latency)
+                last_chunk_time = now
+                chunks_count += 1
+                
+                # Log slow chunks (potential bottleneck indicator)
+                if chunk_latency > 0.1:  # 100ms threshold
+                    logger.warning(
+                        f"[TUI_STREAM_PERF] Slow chunk detected: {chunk_latency:.3f}s, "
+                        f"chunk_size={len(chunk)} chars, total_chunks={chunks_count}"
+                    )
+                
+                # Periodic performance report every 100 chunks
+                if chunks_count % 100 == 0:
+                    avg_chunk_time = sum(chunk_times[-100:]) / min(100, len(chunk_times))
+                    total_time = now - stream_start_time
+                    logger.info(
+                        f"[TUI_STREAM_PERF] Chunk {chunks_count}: "
+                        f"avg_latency={avg_chunk_time:.3f}s, "
+                        f"total_time={total_time:.1f}s, "
+                        f"content_len={len(accumulated)} chars"
+                    )
+                
                 # Create message panel on first chunk
                 if first_chunk:
                     self._is_sending = False
@@ -803,7 +835,18 @@ class AlfredTUI:
                 # Panel is guaranteed to exist now (either created above or by tool callback)
                 assert self._current_assistant_msg is not None
                 accumulated += chunk
+                
+                # Time the render operation
+                render_start = time.perf_counter()
                 self._current_assistant_msg.set_content(accumulated)
+                render_elapsed = time.perf_counter() - render_start
+                render_times.append(render_elapsed)
+                
+                if render_elapsed > 0.016:  # 16ms = 60fps threshold
+                    logger.warning(
+                        f"[TUI_RENDER_PERF] Slow render: {render_elapsed:.3f}s "
+                        f"(content_len={len(accumulated)} chars)"
+                    )
 
                 # Estimate output tokens during streaming (chars / 4)
                 estimated_out = len(accumulated) // 4
@@ -822,6 +865,24 @@ class AlfredTUI:
             self._update_status()
             self.tui.request_render()
         finally:
+            # Log final performance summary
+            total_stream_time = time.perf_counter() - stream_start_time
+            avg_chunk_latency = sum(chunk_times) / len(chunk_times) if chunk_times else 0
+            avg_render_time = sum(render_times) / len(render_times) if render_times else 0
+            max_chunk_latency = max(chunk_times) if chunk_times else 0
+            max_render_time = max(render_times) if render_times else 0
+            
+            logger.info(
+                f"[TUI_STREAM_PERF_SUMMARY] "
+                f"total_chunks={chunks_count}, "
+                f"total_time={total_stream_time:.2f}s, "
+                f"avg_chunk_latency={avg_chunk_latency:.3f}s, "
+                f"max_chunk_latency={max_chunk_latency:.3f}s, "
+                f"avg_render_time={avg_render_time:.3f}s, "
+                f"max_render_time={max_render_time:.3f}s, "
+                f"content_chars={len(accumulated)}"
+            )
+            
             self._current_assistant_msg = None
             self._is_streaming = False
             self._is_sending = False

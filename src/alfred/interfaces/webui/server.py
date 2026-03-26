@@ -24,10 +24,46 @@ from alfred.observability import event_message
 
 logger = logging.getLogger(__name__)
 
+# WebSocket traffic log for debug introspection (circular buffer, max 100 messages)
+_WEBSOCKET_TRAFFIC_LOG: list[dict[str, Any]] = []
+_MAX_TRAFFIC_LOG_SIZE = 100
+
 
 def _emit_webui_debug(event: str, **fields: object) -> None:
     """Emit a debug-only diagnostic line through the Web UI server surface."""
     logger.debug(event_message(event, **fields))
+
+
+def _log_websocket_traffic(
+    direction: str,
+    message_type: str,
+    payload: dict[str, Any] | None = None,
+    connection_id: str | None = None,
+) -> None:
+    """Log WebSocket message to traffic log for debug introspection."""
+    global _WEBSOCKET_TRAFFIC_LOG
+    entry = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "direction": direction,  # "in" or "out"
+        "type": message_type,
+        "connection_id": connection_id,
+        "payload_preview": _truncate_payload(payload) if payload else None,
+    }
+    _WEBSOCKET_TRAFFIC_LOG.append(entry)
+    # Keep only last N messages
+    if len(_WEBSOCKET_TRAFFIC_LOG) > _MAX_TRAFFIC_LOG_SIZE:
+        _WEBSOCKET_TRAFFIC_LOG = _WEBSOCKET_TRAFFIC_LOG[-_MAX_TRAFFIC_LOG_SIZE:]
+
+
+def _truncate_payload(payload: dict[str, Any], max_chars: int = 200) -> dict[str, Any] | str:
+    """Truncate payload for display, handling embeddings specially."""
+    payload_str = json.dumps(payload, default=str)
+    if len(payload_str) > max_chars:
+        # Check for embedding arrays
+        if "embedding" in payload_str or ("[" in payload_str and "," in payload_str[:100]):
+            return "[embedding array truncated]"
+        return payload_str[:max_chars] + "..."
+    return payload
 
 
 StatusField = str | int | bool | None
@@ -350,6 +386,8 @@ class _BroadcastChunkBatcher:
         payload = dict(self._extra_payload)
         payload[self._payload_key] = content
 
+        import time
+        flush_start = time.perf_counter()
         await _broadcast_json(
             {
                 "type": self._message_type,
@@ -358,6 +396,12 @@ class _BroadcastChunkBatcher:
             phase=f"batch:{self._message_type}",
             debug_stats=self._debug_stats,
         )
+        flush_elapsed = time.perf_counter() - flush_start
+        if flush_elapsed > 0.05:  # 50ms threshold
+            logger.warning(
+                f"[BATCHER_PERF] Slow broadcast flush: {flush_elapsed:.3f}s "
+                f"for {self._message_type}, content_size={len(content)} chars"
+            )
 
 
 async def _send_json(
@@ -367,6 +411,7 @@ async def _send_json(
     phase: str | None = None,
     debug_stats: _WebSocketDebugStats | None = None,
     send_lock: asyncio.Lock | None = None,
+    connection_id: str | None = None,
 ) -> bool:
     """Send a websocket JSON message with optional debug instrumentation.
 
@@ -374,6 +419,10 @@ async def _send_json(
     """
     if debug_stats is not None:
         debug_stats.record_outgoing(message, phase=phase)
+    # Log to traffic introspection log
+    msg_type = str(message.get("type", "unknown"))
+    payload = message.get("payload") if isinstance(message.get("payload"), dict) else None
+    _log_websocket_traffic("out", msg_type, payload, connection_id)
     try:
         if send_lock is None:
             await websocket.send_json(message)
@@ -960,6 +1009,13 @@ async def _handle_chat_message(
 
         flush_task = asyncio.create_task(_flush_loop())
 
+        # Performance timing instrumentation
+        import time
+        chunk_times = []
+        last_chunk_time = time.perf_counter()
+        chunks_count = 0
+        stream_start_time = time.perf_counter()
+
         try:
             try:
                 stream = alfred_instance.chat_stream(
@@ -981,6 +1037,30 @@ async def _handle_chat_message(
                     stream = alfred_instance.chat_stream(content, tool_callback=_tool_callback)
 
             async for chunk in stream:
+                now = time.perf_counter()
+                chunk_latency = now - last_chunk_time
+                chunk_times.append(chunk_latency)
+                last_chunk_time = now
+                chunks_count += 1
+
+                # Log slow chunks (potential bottleneck indicator)
+                if chunk_latency > 0.1:  # 100ms threshold
+                    logger.warning(
+                        f"[STREAM_PERF] Slow chunk detected: {chunk_latency:.3f}s, "
+                        f"chunk_size={len(chunk)} chars, total_chunks={chunks_count}"
+                    )
+
+                # Periodic performance report every 100 chunks
+                if chunks_count % 100 == 0:
+                    avg_chunk_time = sum(chunk_times[-100:]) / min(100, len(chunk_times))
+                    total_time = now - stream_start_time
+                    logger.info(
+                        f"[STREAM_PERF] Chunk {chunks_count}: "
+                        f"avg_latency={avg_chunk_time:.3f}s, "
+                        f"total_time={total_time:.1f}s, "
+                        f"content_len={len(full_content)} chars"
+                    )
+
                 if chunk.startswith("[REASONING]"):
                     in_reasoning = True
                     reasoning_content = chunk[11:]
@@ -1008,6 +1088,23 @@ async def _handle_chat_message(
             await content_batcher.flush(force=True)
             for batcher in tool_output_batchers.values():
                 await batcher.flush(force=True)
+
+            # Log final performance summary
+            total_stream_time = time.perf_counter() - stream_start_time
+            avg_chunk_latency = sum(chunk_times) / len(chunk_times) if chunk_times else 0
+            max_chunk_latency = max(chunk_times) if chunk_times else 0
+            min_chunk_latency = min(chunk_times) if chunk_times else 0
+
+            logger.info(
+                f"[STREAM_PERF_SUMMARY] "
+                f"total_chunks={chunks_count}, "
+                f"total_time={total_stream_time:.2f}s, "
+                f"avg_chunk_latency={avg_chunk_latency:.3f}s, "
+                f"min_chunk_latency={min_chunk_latency:.3f}s, "
+                f"max_chunk_latency={max_chunk_latency:.3f}s, "
+                f"content_chars={len(full_content)}, "
+                f"reasoning_chars={len(full_reasoning)}"
+            )
 
         token_usage["outputTokens"] = len(full_content) // 4
         token_usage["reasoningTokens"] = len(full_reasoning) // 4
@@ -1399,7 +1496,7 @@ async def _handle_debug_command(
     alfred_instance: WebUIAlfred | None,
     args: list[str],
 ) -> None:
-    """Handle /debug command to dump diagnostics."""
+    """Handle /debug command to dump diagnostics with daemon introspection."""
     debug_type = args[0] if args else "all"
 
     payload: dict[str, object] = {"debug_type": debug_type}
@@ -1429,10 +1526,35 @@ async def _handle_debug_command(
         ]
 
     if debug_type in ("all", "websocket"):
-        # WebSocket connection stats
+        # WebSocket connection stats + traffic log
         payload["websocket"] = {
             "active_connections": len(_active_connections),
+            "traffic_log": _WEBSOCKET_TRAFFIC_LOG[-50:],  # Last 50 messages
         }
+
+    if debug_type in ("all", "daemon"):
+        # Daemon introspection
+        daemon_info: dict[str, object] = {
+            "available": alfred_instance is not None,
+        }
+        if alfred_instance is not None:
+            # Token tracking
+            token_tracker = getattr(alfred_instance, "token_tracker", None)
+            if token_tracker:
+                daemon_info["tokens"] = {
+                    "context_tokens": getattr(token_tracker, "context_tokens", 0),
+                    "usage": getattr(token_tracker, "usage", {}),
+                }
+            # Session manager info
+            session_manager = _get_session_manager(alfred_instance)
+            if session_manager:
+                daemon_info["session_manager"] = {
+                    "has_active_session": getattr(session_manager, "_cli_session_id", None) is not None,
+                    "cached_sessions": len(getattr(session_manager, "_sessions", {})),
+                }
+            # Model info
+            daemon_info["model"] = getattr(alfred_instance, "model_name", "unknown")
+        payload["daemon"] = daemon_info
 
     await websocket.send_json(
         {
@@ -1607,6 +1729,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     message = json.loads(data)
                 except json.JSONDecodeError:
                     connection_debug_stats.record_incoming("invalid.json", data)
+                    _log_websocket_traffic("in", "invalid.json", {"raw": data[:100]}, connection_debug_stats.connection_id)
                     await _send_json(
                         websocket,
                         {
@@ -1616,14 +1739,16 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                         phase="error.invalid_json",
                         debug_stats=connection_debug_stats,
                         send_lock=connection_state.send_lock,
+                        connection_id=connection_debug_stats.connection_id,
                     )
                     continue
 
                 msg_type = str(message.get("type", "unknown"))
+                payload = message.get("payload", {})
                 connection_debug_stats.record_incoming(msg_type, data)
+                _log_websocket_traffic("in", msg_type, payload if isinstance(payload, dict) else None, connection_debug_stats.connection_id)
                 if connection_state.has_active_chat():
                     connection_state.record_control_message_during_stream(msg_type)
-                payload = message.get("payload", {})
 
                 if msg_type == "ping":
                     await _send_json(

@@ -1546,8 +1546,10 @@ function initAlfredUI() {
         reconnect_attempts: wsClient.reconnectAttempts,
         message_queue_length: wsClient.messageQueue?.length || 0,
         active_connections: payload.websocket?.active_connections || 0,
+        traffic_log: payload.websocket?.traffic_log || [],
         snapshot: wsSnapshot
       },
+      daemon: payload.daemon || { available: false },
       dom: {
         chat_message_count: domMessages.length,
         has_current_assistant: !!currentAssistantMessage,

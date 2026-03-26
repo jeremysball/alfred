@@ -38,6 +38,17 @@ class ChatMessage extends HTMLElement {
     this._sequenceCounter = 0;
     this._textAccumulator = ''; // Accumulates text content
     this._reasoningAccumulator = ''; // Accumulates reasoning content
+
+    // Performance timing instrumentation
+    this._perfStats = {
+      appendContentCalls: 0,
+      totalAppendTime: 0,
+      markdownParseTime: 0,
+      highlightTime: 0,
+      domRebuildTime: 0,
+      lastChunkSize: 0,
+      totalContentLength: 0,
+    };
   }
 
   static get observedAttributes() {
@@ -294,6 +305,7 @@ class ChatMessage extends HTMLElement {
    * Render all content blocks in sequence order
    */
   _renderContentBlocks() {
+    const startTime = performance.now();
     const container = this._getContentBlocksContainer();
     if (!container) return;
 
@@ -308,6 +320,9 @@ class ChatMessage extends HTMLElement {
         container.appendChild(blockElement);
       }
     }
+    
+    const elapsed = performance.now() - startTime;
+    this._perfStats.domRebuildTime += elapsed;
   }
 
   /**
@@ -383,6 +398,8 @@ class ChatMessage extends HTMLElement {
   }
 
   _renderMarkdown(content) {
+    const startTime = performance.now();
+    
     // Check if marked is available
     if (typeof marked === 'undefined') {
       console.warn('marked.js not loaded, falling back to plain text');
@@ -408,11 +425,16 @@ class ChatMessage extends HTMLElement {
 
     // Parse markdown
     const html = marked.parse(content);
-
+    
+    const elapsed = performance.now() - startTime;
+    this._perfStats.markdownParseTime += elapsed;
+    
     return html;
   }
 
   _applySyntaxHighlighting() {
+    const startTime = performance.now();
+    
     // Check if highlight.js is available
     if (typeof hljs === 'undefined') {
       console.warn('highlight.js not loaded, skipping syntax highlighting');
@@ -424,6 +446,9 @@ class ChatMessage extends HTMLElement {
     codeBlocks.forEach((block) => {
       hljs.highlightElement(block);
     });
+    
+    const elapsed = performance.now() - startTime;
+    this._perfStats.highlightTime += elapsed;
   }
 
   _setupEventListeners() {
@@ -561,8 +586,13 @@ class ChatMessage extends HTMLElement {
    * Creates a new text block or updates the current one
    */
   appendContent(chunk) {
+    const startTime = performance.now();
+    this._perfStats.appendContentCalls++;
+    this._perfStats.lastChunkSize = chunk.length;
+    
     this._textAccumulator += chunk;
     this._content = this._textAccumulator;
+    this._perfStats.totalContentLength = this._textAccumulator.length;
     
     // Get the last block
     const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
@@ -583,6 +613,16 @@ class ChatMessage extends HTMLElement {
     // Re-render content blocks
     this._renderContentBlocks();
     this._applySyntaxHighlighting();
+    
+    const elapsed = performance.now() - startTime;
+    this._perfStats.totalAppendTime += elapsed;
+    
+    // Log performance warning if render takes too long
+    if (elapsed > 16) { // 16ms = 60fps threshold
+      console.warn(`[ChatMessage Perf] appendContent took ${elapsed.toFixed(2)}ms ` +
+        `(chunk: ${chunk.length} chars, total: ${this._textAccumulator.length} chars, ` +
+        `call #${this._perfStats.appendContentCalls})`);
+    }
   }
 
   /**
@@ -795,7 +835,40 @@ class ChatMessage extends HTMLElement {
     
     this._renderContentBlocks();
   }
+
+  /**
+   * Print performance statistics to console
+   */
+  printPerfStats() {
+    const stats = this._perfStats;
+    const avgAppendTime = stats.appendContentCalls > 0 
+      ? (stats.totalAppendTime / stats.appendContentCalls).toFixed(2) 
+      : 0;
+    
+    console.log('=== ChatMessage Performance Stats ===');
+    console.log(`Append content calls: ${stats.appendContentCalls}`);
+    console.log(`Total content length: ${stats.totalContentLength} chars`);
+    console.log(`Avg append time: ${avgAppendTime}ms`);
+    console.log(`Total markdown parse time: ${stats.markdownParseTime.toFixed(2)}ms`);
+    console.log(`Total highlight time: ${stats.highlightTime.toFixed(2)}ms`);
+    console.log(`Total DOM rebuild time: ${stats.domRebuildTime.toFixed(2)}ms`);
+    console.log(`Total render time: ${(stats.markdownParseTime + stats.highlightTime + stats.domRebuildTime).toFixed(2)}ms`);
+    console.log('=====================================');
+    
+    return stats;
+  }
 }
 
 // Register the custom element
 customElements.define('chat-message', ChatMessage);
+
+// Global helper to get stats for the last assistant message
+window.getLastMessagePerfStats = function() {
+  const messages = document.querySelectorAll('chat-message[role="assistant"]');
+  if (messages.length === 0) {
+    console.log('No assistant messages found');
+    return null;
+  }
+  const lastMessage = messages[messages.length - 1];
+  return lastMessage.printPerfStats();
+};

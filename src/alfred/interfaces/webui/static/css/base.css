@@ -2779,3 +2779,108 @@ debug-panel:not([open]) {
     color: #666;
     font-style: italic;
 }
+
+/* Debug Traffic */
+.debug-traffic {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.debug-traffic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.debug-traffic-entry {
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.debug-traffic-entry.out {
+    border-left: 3px solid #4fc3f7;
+}
+
+.debug-traffic-entry.in {
+    border-left: 3px solid #81c784;
+}
+
+.debug-traffic-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #252525;
+    font-size: 0.8125rem;
+}
+
+.debug-traffic-direction {
+    font-weight: 500;
+    min-width: 70px;
+}
+
+.debug-traffic-entry.out .debug-traffic-direction {
+    color: #4fc3f7;
+}
+
+.debug-traffic-entry.in .debug-traffic-direction {
+    color: #81c784;
+}
+
+.debug-traffic-type {
+    flex: 1;
+    color: #ccc;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.debug-traffic-time {
+    color: #666;
+    font-size: 0.75rem;
+}
+
+.debug-traffic-payload {
+    padding: 0.5rem 0.75rem;
+    background: #1a1a1a;
+    font-size: 0.75rem;
+    max-height: 150px;
+    overflow: auto;
+}
+
+/* Debug Daemon */
+.debug-daemon {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Debug Toolbar */
+.debug-toolbar {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+    background: #252525;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.debug-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: #ccc;
+    cursor: pointer;
+}
+
+.debug-filter input {
+    accent-color: #4fc3f7;
+}
+
+/* Debug Success State */
+.debug-stat-value.success {
+    color: #81c784;
+}
