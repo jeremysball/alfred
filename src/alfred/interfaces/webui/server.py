@@ -398,9 +398,11 @@ class _BroadcastChunkBatcher:
         )
         flush_elapsed = time.perf_counter() - flush_start
         if flush_elapsed > 0.05:  # 50ms threshold
-            logger.warning(
-                f"[BATCHER_PERF] Slow broadcast flush: {flush_elapsed:.3f}s "
-                f"for {self._message_type}, content_size={len(content)} chars"
+            _emit_webui_debug(
+                "batcher.slow_flush",
+                flush_latency_ms=round(flush_elapsed * 1000, 2),
+                message_type=self._message_type,
+                content_size=len(content),
             )
 
 
@@ -1045,20 +1047,23 @@ async def _handle_chat_message(
 
                 # Log slow chunks (potential bottleneck indicator)
                 if chunk_latency > 0.1:  # 100ms threshold
-                    logger.warning(
-                        f"[STREAM_PERF] Slow chunk detected: {chunk_latency:.3f}s, "
-                        f"chunk_size={len(chunk)} chars, total_chunks={chunks_count}"
+                    _emit_webui_debug(
+                        "stream.slow_chunk",
+                        latency_ms=round(chunk_latency * 1000, 2),
+                        chunk_size=len(chunk),
+                        chunks_count=chunks_count,
                     )
 
                 # Periodic performance report every 100 chunks
                 if chunks_count % 100 == 0:
                     avg_chunk_time = sum(chunk_times[-100:]) / min(100, len(chunk_times))
                     total_time = now - stream_start_time
-                    logger.info(
-                        f"[STREAM_PERF] Chunk {chunks_count}: "
-                        f"avg_latency={avg_chunk_time:.3f}s, "
-                        f"total_time={total_time:.1f}s, "
-                        f"content_len={len(full_content)} chars"
+                    _emit_webui_debug(
+                        "stream.progress",
+                        chunks_count=chunks_count,
+                        avg_latency_ms=round(avg_chunk_time * 1000, 2),
+                        total_time_ms=round(total_time * 1000, 2),
+                        content_len=len(full_content),
                     )
 
                 if chunk.startswith("[REASONING]"):
@@ -1095,15 +1100,15 @@ async def _handle_chat_message(
             max_chunk_latency = max(chunk_times) if chunk_times else 0
             min_chunk_latency = min(chunk_times) if chunk_times else 0
 
-            logger.info(
-                f"[STREAM_PERF_SUMMARY] "
-                f"total_chunks={chunks_count}, "
-                f"total_time={total_stream_time:.2f}s, "
-                f"avg_chunk_latency={avg_chunk_latency:.3f}s, "
-                f"min_chunk_latency={min_chunk_latency:.3f}s, "
-                f"max_chunk_latency={max_chunk_latency:.3f}s, "
-                f"content_chars={len(full_content)}, "
-                f"reasoning_chars={len(full_reasoning)}"
+            _emit_webui_debug(
+                "stream.summary",
+                total_chunks=chunks_count,
+                total_time_ms=round(total_stream_time * 1000, 2),
+                avg_chunk_latency_ms=round(avg_chunk_latency * 1000, 2),
+                min_chunk_latency_ms=round(min_chunk_latency * 1000, 2),
+                max_chunk_latency_ms=round(max_chunk_latency * 1000, 2),
+                content_chars=len(full_content),
+                reasoning_chars=len(full_reasoning),
             )
 
         token_usage["outputTokens"] = len(full_content) // 4

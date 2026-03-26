@@ -1,11 +1,15 @@
 """Main AlfredTUI class for the CLI interface."""
 
 import asyncio
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from alfred.alfred import Alfred
+from alfred.observability import log_event, Surface
+
+logger = logging.getLogger(__name__)
 
 # Import commands
 from alfred.interfaces.pypitui.commands import (
@@ -809,20 +813,25 @@ class AlfredTUI:
                 
                 # Log slow chunks (potential bottleneck indicator)
                 if chunk_latency > 0.1:  # 100ms threshold
-                    logger.warning(
-                        f"[TUI_STREAM_PERF] Slow chunk detected: {chunk_latency:.3f}s, "
-                        f"chunk_size={len(chunk)} chars, total_chunks={chunks_count}"
+                    log_event(
+                        logger, logging.WARNING, "tui.slow_chunk",
+                        surface=Surface.CORE,
+                        latency_ms=round(chunk_latency * 1000, 2),
+                        chunk_size=len(chunk),
+                        chunks_count=chunks_count,
                     )
-                
+
                 # Periodic performance report every 100 chunks
                 if chunks_count % 100 == 0:
                     avg_chunk_time = sum(chunk_times[-100:]) / min(100, len(chunk_times))
                     total_time = now - stream_start_time
-                    logger.info(
-                        f"[TUI_STREAM_PERF] Chunk {chunks_count}: "
-                        f"avg_latency={avg_chunk_time:.3f}s, "
-                        f"total_time={total_time:.1f}s, "
-                        f"content_len={len(accumulated)} chars"
+                    log_event(
+                        logger, logging.INFO, "tui.stream_progress",
+                        surface=Surface.CORE,
+                        chunks_count=chunks_count,
+                        avg_latency_ms=round(avg_chunk_time * 1000, 2),
+                        total_time_ms=round(total_time * 1000, 2),
+                        content_len=len(accumulated),
                     )
                 
                 # Create message panel on first chunk
@@ -843,9 +852,11 @@ class AlfredTUI:
                 render_times.append(render_elapsed)
                 
                 if render_elapsed > 0.016:  # 16ms = 60fps threshold
-                    logger.warning(
-                        f"[TUI_RENDER_PERF] Slow render: {render_elapsed:.3f}s "
-                        f"(content_len={len(accumulated)} chars)"
+                    log_event(
+                        logger, logging.WARNING, "tui.slow_render",
+                        surface=Surface.CORE,
+                        render_time_ms=round(render_elapsed * 1000, 2),
+                        content_len=len(accumulated),
                     )
 
                 # Estimate output tokens during streaming (chars / 4)
@@ -871,18 +882,19 @@ class AlfredTUI:
             avg_render_time = sum(render_times) / len(render_times) if render_times else 0
             max_chunk_latency = max(chunk_times) if chunk_times else 0
             max_render_time = max(render_times) if render_times else 0
-            
-            logger.info(
-                f"[TUI_STREAM_PERF_SUMMARY] "
-                f"total_chunks={chunks_count}, "
-                f"total_time={total_stream_time:.2f}s, "
-                f"avg_chunk_latency={avg_chunk_latency:.3f}s, "
-                f"max_chunk_latency={max_chunk_latency:.3f}s, "
-                f"avg_render_time={avg_render_time:.3f}s, "
-                f"max_render_time={max_render_time:.3f}s, "
-                f"content_chars={len(accumulated)}"
+
+            log_event(
+                logger, logging.INFO, "tui.stream_summary",
+                surface=Surface.CORE,
+                total_chunks=chunks_count,
+                total_time_ms=round(total_stream_time * 1000, 2),
+                avg_chunk_latency_ms=round(avg_chunk_latency * 1000, 2),
+                max_chunk_latency_ms=round(max_chunk_latency * 1000, 2),
+                avg_render_time_ms=round(avg_render_time * 1000, 2),
+                max_render_time_ms=round(max_render_time * 1000, 2),
+                content_chars=len(accumulated),
             )
-            
+
             self._current_assistant_msg = None
             self._is_streaming = False
             self._is_sending = False

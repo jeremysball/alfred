@@ -92,9 +92,12 @@ class ChatMessage extends HTMLElement {
    * Update just the text content block without full re-render
    */
   _updateTextBlock(content) {
-    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
+    // Find the most recent text block (not just the last block)
+    // This ensures we update the main text even if tools were added
+    const textBlocks = this._contentBlocks.filter(block => block.type === 'text');
+    const lastTextBlock = textBlocks[textBlocks.length - 1];
 
-    if (!lastBlock || lastBlock.type !== 'text') {
+    if (!lastTextBlock) {
       // Create new text block
       this._contentBlocks.push({
         type: 'text',
@@ -105,11 +108,11 @@ class ChatMessage extends HTMLElement {
       this._renderContentBlocks();
     } else {
       // Update existing text block
-      lastBlock.content = content;
+      lastTextBlock.content = content;
       // Find and update the DOM element directly for performance
       const container = this._getContentBlocksContainer();
       if (container) {
-        const textElement = container.querySelector('.text-block[data-sequence="' + lastBlock.sequence + '"]');
+        const textElement = container.querySelector('.text-block[data-sequence="' + lastTextBlock.sequence + '"]');
         if (textElement) {
           if (this._role === 'assistant') {
             textElement.innerHTML = this._renderMarkdown(content);
@@ -290,8 +293,9 @@ class ChatMessage extends HTMLElement {
    * Ensure a text block exists for the main content
    */
   _ensureTextBlock() {
-    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
-    if (!lastBlock || lastBlock.type !== 'text') {
+    // Check if ANY text block exists (not just the last one)
+    const hasTextBlock = this._contentBlocks.some(block => block.type === 'text');
+    if (!hasTextBlock) {
       this._contentBlocks.push({
         type: 'text',
         sequence: this._nextSequence(),
@@ -589,17 +593,19 @@ class ChatMessage extends HTMLElement {
     const startTime = performance.now();
     this._perfStats.appendContentCalls++;
     this._perfStats.lastChunkSize = chunk.length;
-    
+
     this._textAccumulator += chunk;
     this._content = this._textAccumulator;
     this._perfStats.totalContentLength = this._textAccumulator.length;
-    
-    // Get the last block
-    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
-    
-    if (lastBlock && lastBlock.type === 'text' && lastBlock.metadata?.isStreaming) {
+
+    // Find the most recent text block (not just the last block)
+    // This ensures we continue updating the main text even if tools were added
+    const textBlocks = this._contentBlocks.filter(block => block.type === 'text');
+    const lastTextBlock = textBlocks[textBlocks.length - 1];
+
+    if (lastTextBlock && lastTextBlock.metadata?.isStreaming) {
       // Continue appending to existing text block
-      lastBlock.content = this._textAccumulator;
+      lastTextBlock.content = this._textAccumulator;
     } else {
       // Create new text block with full accumulated content
       this._contentBlocks.push({
@@ -609,7 +615,7 @@ class ChatMessage extends HTMLElement {
         metadata: { isStreaming: true }
       });
     }
-    
+
     // Re-render content blocks
     this._renderContentBlocks();
     this._applySyntaxHighlighting();
@@ -634,12 +640,14 @@ class ChatMessage extends HTMLElement {
     if (this._role === 'user') {
       return;
     }
-    // Get the last block
-    const lastBlock = this._contentBlocks[this._contentBlocks.length - 1];
-    
-    if (lastBlock && lastBlock.type === 'reasoning') {
+    // Find the most recent reasoning block (not just the last block)
+    // This ensures we continue updating reasoning even if tools were added after
+    const reasoningBlocks = this._contentBlocks.filter(block => block.type === 'reasoning');
+    const lastReasoningBlock = reasoningBlocks[reasoningBlocks.length - 1];
+
+    if (lastReasoningBlock) {
       // Continue appending to existing reasoning block
-      lastBlock.content += chunk;
+      lastReasoningBlock.content += chunk;
     } else {
       // Create new reasoning block
       this._contentBlocks.push({
