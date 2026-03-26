@@ -236,6 +236,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 155 | Interleaved Tool Calls and Thinking Blocks | Display tool calls and thinking blocks inline at their trigger point in conversation (PRD #155) |
+| 156 | Playwright Browser Control | Agent can control browser programmatically with real-time preview (PRD #156) |
 | 83 | ✅ Interactive Terminal Tool | E2E testing capability for AI agents to run CLIs interactively with visual capture (PRD #83) |
 | 89 | Unified Notification System | Consistent notification formatting and prompt preservation (PRD #89) |
 | 91 | Inline Streaming Renderer | Manual ANSI-based streaming markdown above prompt_toolkit prompt (PRD #91) |

@@ -1,7 +1,7 @@
 """Cron runner entry point.
 
 A standalone process that runs the cron scheduler and executor,
-communicating with the TUI via Unix socket.
+hosting a socket server for tools and interfaces to connect to.
 
 Usage:
     alfred cron-runner                    # Run in foreground
@@ -20,33 +20,37 @@ from pathlib import Path
 from alfred.config import Config, load_config
 from alfred.core import AlfredCore
 from alfred.cron.daemon import DaemonManager, daemonize
+from alfred.cron.daemon_server import DaemonSocketServer
 from alfred.cron.scheduler import CronScheduler
-from alfred.cron.socket_client import SocketClient
 from alfred.cron.store import CronStore
 from alfred.data_manager import get_cache_dir
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(log_file: Path | None = None, debug: bool = False) -> None:
+def setup_logging(log_file: Path | None = None, debug: bool = False, daemon_mode: bool = False) -> None:
     """Configure logging for the cron runner.
 
     Args:
         log_file: Optional file to log to
         debug: Enable debug logging
+        daemon_mode: If True, only use StreamHandler since stdout is redirected to log_file
     """
     level = logging.DEBUG if debug else logging.INFO
 
     handlers: list[logging.Handler] = []
 
-    # Console handler
+    # Console handler - always needed for foreground mode
+    # In daemon mode, stdout is redirected to log_file, so this becomes the file logger
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s:%(name)s:%(message)s"))
     handlers.append(console_handler)
 
-    # File handler
-    if log_file:
+    # File handler - only add in foreground mode (not daemon)
+    # In daemon mode, stdout is already redirected to the log file, so adding
+    # a FileHandler would cause duplicate log entries
+    if log_file and not daemon_mode:
         log_file.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(level)
@@ -57,15 +61,13 @@ def setup_logging(log_file: Path | None = None, debug: bool = False) -> None:
 
 
 async def run_scheduler(
-    socket_client: SocketClient,
     config: Config,
     daemon_manager: DaemonManager,
     core: AlfredCore,
 ) -> None:
-    """Run the cron scheduler with socket client.
+    """Run the cron scheduler with socket server.
 
     Args:
-        socket_client: Socket client for TUI communication
         config: Application configuration
         daemon_manager: Daemon manager for signal handling
         core: AlfredCore with registered services for system jobs
@@ -73,20 +75,24 @@ async def run_scheduler(
     data_dir = config.data_dir
     store = CronStore(data_dir)
 
-    # Create scheduler with socket client for notifications
+    # Create scheduler (socket_server will be set after creation)
     scheduler = CronScheduler(
         store=store,
-        socket_client=socket_client,
         data_dir=data_dir,
     )
+
+    # Create socket server for tools and interfaces to connect to
+    socket_server = DaemonSocketServer(scheduler=scheduler)
+
+    # Set socket server on scheduler for notifications
+    scheduler.set_socket_server(socket_server)
 
     # Track background tasks to prevent "Task was destroyed but it is pending" warnings
     _background_tasks: set[asyncio.Task[None]] = set()
 
     # Set up signal handlers
     def _on_shutdown() -> None:
-        task = asyncio.create_task(scheduler.stop())
-        # Keep reference to avoid "Task was destroyed but it is pending" warning
+        task = asyncio.create_task(_shutdown(scheduler, socket_server))
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
 
@@ -103,12 +109,10 @@ async def run_scheduler(
     # Write PID file
     daemon_manager.write_pid()
 
-    # Notify TUI that we've started
-    from alfred.cron.socket_protocol import RunnerStartedMessage
-
-    await socket_client.send(RunnerStartedMessage(pid=daemon_manager.pid))
-
     try:
+        # Start the socket server
+        await socket_server.start()
+
         # Start the scheduler
         await scheduler.start()
 
@@ -121,21 +125,15 @@ async def run_scheduler(
             await asyncio.sleep(1.0)
 
     finally:
-        # Notify TUI that we're stopping
-        from alfred.cron.socket_protocol import RunnerStoppingMessage
-
-        await socket_client.send(RunnerStoppingMessage(reason="shutdown"))
-
-        # Stop scheduler
-        await scheduler.stop()
-
-        # Stop socket client
-        await socket_client.stop()
-
-        # Clean up PID file
+        await _shutdown(scheduler, socket_server)
         daemon_manager.remove_pid()
-
         logger.info("Cron runner stopped")
+
+
+async def _shutdown(scheduler: CronScheduler, socket_server: DaemonSocketServer) -> None:
+    """Shutdown scheduler and socket server gracefully."""
+    await scheduler.stop()
+    await socket_server.stop()
 
 
 def main() -> int:
@@ -199,7 +197,7 @@ def main() -> int:
 
     # Set up logging
     log_file = get_cache_dir() / "cron-runner.log"
-    setup_logging(log_file=log_file, debug=args.debug)
+    setup_logging(log_file=log_file, debug=args.debug, daemon_mode=args.daemon)
 
     # Daemonize if requested
     if args.daemon:
@@ -212,13 +210,12 @@ def main() -> int:
     logger.info("Initializing AlfredCore for cron runner...")
     core = AlfredCore(config)
 
-    # Create components
-    socket_client = SocketClient()
+    # Create daemon manager for this process
     daemon_mgr = DaemonManager()
 
     # Run the scheduler
     try:
-        asyncio.run(run_scheduler(socket_client, config, daemon_mgr, core))
+        asyncio.run(run_scheduler(config, daemon_mgr, core))
         return 0
     except KeyboardInterrupt:
         logger.info("Interrupted")

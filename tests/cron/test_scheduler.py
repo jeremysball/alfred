@@ -358,55 +358,55 @@ def run():
             scheduler._compile_handler(code)
 
 
-class TestCronSchedulerSocketClient:
-    """Tests for socket client integration."""
+class TestCronSchedulerSocketServer:
+    """Tests for socket server integration."""
 
-    def test_scheduler_accepts_socket_client_parameter(self, temp_data_dir: Path):
-        """CronScheduler accepts socket_client in constructor."""
-        from alfred.cron.socket_client import SocketClient
-
-        store = CronStore(data_dir=temp_data_dir)
-        socket_client = SocketClient()
-        scheduler = CronScheduler(store=store, socket_client=socket_client)
-
-        assert scheduler._socket_client is socket_client
-
-    def test_scheduler_socket_client_defaults_to_none(self, temp_data_dir: Path):
-        """CronScheduler socket_client defaults to None."""
+    def test_scheduler_socket_server_defaults_to_none(self, temp_data_dir: Path):
+        """CronScheduler socket_server defaults to None."""
         store = CronStore(data_dir=temp_data_dir)
         scheduler = CronScheduler(store=store)
 
-        assert scheduler._socket_client is None
+        assert scheduler._socket_server is None
 
-    async def test_socket_client_passed_to_execution_context(self, temp_data_dir: Path):
-        """Socket client is passed to ExecutionContext during job execution."""
-        from alfred.cron.socket_client import SocketClient
-        from alfred.cron.socket_protocol import NotifyMessage
-
+    def test_scheduler_set_socket_server(self, temp_data_dir: Path):
+        """CronScheduler can set socket_server via set_socket_server."""
         store = CronStore(data_dir=temp_data_dir)
-        socket_client = SocketClient()
-        scheduler = CronScheduler(store=store, check_interval=0.1, socket_client=socket_client)
+        scheduler = CronScheduler(store=store)
 
-        # Register job that calls notify
-        job_code = """
-async def run():
-    await notify("Hello from test job!")
-"""
+        # socket_server is None by default
+        assert scheduler._socket_server is None
+
+        # Can be set via set_socket_server
+        mock_server = object()  # Just test the attribute, not actual server
+        scheduler.set_socket_server(mock_server)
+        assert scheduler._socket_server is mock_server
+
+
+class TestCronSchedulerGetJobsForResponse:
+    """Tests for get_jobs_for_response method."""
+
+    async def test_get_jobs_for_response_returns_formatted_jobs(self, scheduler: CronScheduler):
+        """get_jobs_for_response returns properly formatted job dictionaries."""
         job = Job(
-            job_id="test-notify-job",
-            name="Test Notify Job",
+            job_id="test-job",
+            name="Test Job",
             expression="* * * * *",
-            code=job_code,
+            code="async def run(): pass",
             status="active",
         )
         await scheduler.register_job(job)
 
-        # Execute the job directly
-        runnable_job = scheduler._jobs["test-notify-job"]
-        await scheduler._execute_job(runnable_job)
+        jobs = await scheduler.get_jobs_for_response()
 
-        # Check the message was buffered (socket not connected)
-        # First message is JobStarted, second should be NotifyMessage
-        notify_messages = [m for m in socket_client._buffer if isinstance(m, NotifyMessage)]
-        assert len(notify_messages) > 0
-        assert notify_messages[0].message == "Hello from test job!"
+        assert len(jobs) == 1
+        assert jobs[0]["job_id"] == "test-job"
+        assert jobs[0]["name"] == "Test Job"
+        assert jobs[0]["status"] == "active"
+        assert jobs[0]["expression"] == "* * * * *"
+        assert "last_run" in jobs[0]
+        assert "created_at" in jobs[0]
+
+    async def test_get_jobs_for_response_empty_when_no_jobs(self, scheduler: CronScheduler):
+        """get_jobs_for_response returns empty list when no jobs."""
+        jobs = await scheduler.get_jobs_for_response()
+        assert jobs == []

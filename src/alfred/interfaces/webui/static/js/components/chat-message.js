@@ -185,8 +185,15 @@ class ChatMessage extends HTMLElement {
   }
 
   _syncStateClasses() {
-    this.classList.toggle('streaming', this._messageState === 'streaming');
+    const isStreaming = this._messageState === 'streaming';
+    this.classList.toggle('streaming', isStreaming);
     this.classList.toggle('editing', this._messageState === 'editing');
+
+    // Update existing reasoning blocks' streaming state
+    const reasoningBlocks = this.querySelectorAll('.reasoning-block');
+    reasoningBlocks.forEach((block) => {
+      block.classList.toggle('streaming', isStreaming);
+    });
   }
 
   /**
@@ -341,24 +348,37 @@ class ChatMessage extends HTMLElement {
    */
   _createReasoningBlockElement(block) {
     const isExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : this._reasoningExpanded;
-    
+    const isStreaming = this._messageState === 'streaming';
+
     const div = document.createElement('div');
-    div.className = 'content-block reasoning-block';
+    div.className = `content-block reasoning-block${isStreaming ? ' streaming' : ''}`;
     div.dataset.sequence = block.sequence;
-    
-    div.innerHTML = `
-      <div class="reasoning-section">
-        <div class="reasoning-header" onclick="this.closest('chat-message')._toggleReasoning()">
-          <span class="reasoning-icon">◈</span>
-          <span class="reasoning-label">Thinking</span>
-          <span class="reasoning-toggle">${isExpanded ? '-' : '+'}</span>
-        </div>
-        <div class="reasoning-content" style="display: ${isExpanded ? 'block' : 'none'}">
-          ${this._escapeHtml(block.content)}
-        </div>
-      </div>
+
+    const section = document.createElement('div');
+    section.className = 'reasoning-section';
+
+    const header = document.createElement('div');
+    header.className = 'reasoning-header';
+    header.innerHTML = `
+      <span class="reasoning-icon">◈</span>
+      <span class="reasoning-label">Thinking</span>
+      <span class="reasoning-toggle">${isExpanded ? '−' : '+'}</span>
     `;
-    
+    // Click anywhere on header to toggle (but not content)
+    header.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleReasoning();
+    });
+
+    const content = document.createElement('div');
+    content.className = 'reasoning-content';
+    content.style.display = isExpanded ? 'block' : 'none';
+    content.textContent = block.content;
+
+    section.appendChild(header);
+    section.appendChild(content);
+    div.appendChild(section);
+
     return div;
   }
 
@@ -551,11 +571,11 @@ class ChatMessage extends HTMLElement {
       // Continue appending to existing text block
       lastBlock.content = this._textAccumulator;
     } else {
-      // Create new text block
+      // Create new text block with full accumulated content
       this._contentBlocks.push({
         type: 'text',
         sequence: this._nextSequence(),
-        content: chunk,
+        content: this._textAccumulator,
         metadata: { isStreaming: true }
       });
     }

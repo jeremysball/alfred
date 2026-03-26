@@ -267,7 +267,8 @@ function initAlfredUI() {
       setMessageState(messageEl, 'idle');
     }
 
-    if (loadedReasoning || !preserveExistingAssistantContent) {
+    // Only set reasoning for assistant messages
+    if (role === 'assistant' && (loadedReasoning || !preserveExistingAssistantContent)) {
       if (!preserveExistingAssistantContent || loadedReasoning.length >= existingReasoning.length) {
         messageEl.setReasoning(loadedReasoning);
       }
@@ -294,10 +295,13 @@ function initAlfredUI() {
     const existingById = new Map();
 
     // Remove ephemeral UI-only messages before we rebuild the loaded session state.
+    // This prevents duplication of loading indicators, toasts, etc.
     Array.from(messageList.children).forEach((child) => {
-      if (child.matches?.('chat-message[data-session-message="true"]')) {
+      // Keep chat-message elements (they're handled below)
+      if (child.matches?.('chat-message')) {
         return;
       }
+      // Remove all other ephemeral elements
       child.remove();
     });
 
@@ -1145,8 +1149,15 @@ function initAlfredUI() {
   }
 
   function getRetryRequest(messageElement) {
-    const previousPrompt = findPreviousUserPrompt(messageElement);
-    const messageId = messageElement?.getAttribute?.('message-id') || '';
+    const previousUserMessage = findPreviousUserMessage(messageElement);
+    if (!previousUserMessage) {
+      return null;
+    }
+
+    const previousPrompt = typeof previousUserMessage.getContent === 'function'
+      ? previousUserMessage.getContent()
+      : previousUserMessage.getAttribute('content') || '';
+    const messageId = previousUserMessage.getAttribute('message-id') || '';
 
     if (!previousPrompt || !messageId) {
       return null;
@@ -1156,6 +1167,22 @@ function initAlfredUI() {
       messageId,
       content: previousPrompt,
     };
+  }
+
+  function findPreviousUserMessage(messageElement) {
+    let previousMessage = messageElement?.previousElementSibling ?? null;
+
+    while (previousMessage) {
+      if (
+        previousMessage.matches?.('chat-message') &&
+        previousMessage.getAttribute('role') === 'user'
+      ) {
+        return previousMessage;
+      }
+      previousMessage = previousMessage.previousElementSibling ?? null;
+    }
+
+    return null;
   }
 
   function sendChatEditRequest(messageId, content, { playSound = true } = {}) {
@@ -1693,6 +1720,16 @@ function initAlfredUI() {
     if (!retryRequest) {
       showError('Could not find the previous user prompt to regenerate this reply.');
       return;
+    }
+
+    // Remove the assistant message being regenerated from the DOM
+    // so the new response replaces it instead of appending
+    if (messageElement && messageElement.parentNode) {
+      messageElement.remove();
+    }
+    // Clear reference if this was the current assistant message
+    if (currentAssistantMessage === messageElement) {
+      currentAssistantMessage = null;
     }
 
     if (currentAssistantMessage) {

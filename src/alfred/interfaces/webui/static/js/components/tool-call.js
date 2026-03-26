@@ -74,8 +74,8 @@ class ToolCall extends HTMLElement {
   }
 
   _handleClick = (e) => {
-    // Only toggle if clicking the button header
-    if (e.target.closest('.tool-button')) {
+    // Toggle when clicking anywhere on the tool call (but not the content area)
+    if (!e.target.closest('.tool-content')) {
       this.toggle();
     }
   };
@@ -140,7 +140,8 @@ class ToolCall extends HTMLElement {
         const cmd = this._arguments.command || '';
         return cmd.length > 30 ? cmd.substring(0, 30) + '...' : cmd;
       case 'remember':
-        return this._arguments.fact || '';
+        const content = this._arguments.content || '';
+        return content.length > 30 ? content.substring(0, 30) + '...' : content;
       case 'search_memories':
         return this._arguments.query || '';
       default:
@@ -209,8 +210,8 @@ class ToolCall extends HTMLElement {
 
   _renderEditArgs() {
     const path = this._arguments.path || '';
-    const oldText = this._arguments.oldText || '';
-    const newText = this._arguments.newText || '';
+    const oldText = this._arguments.old_text || '';
+    const newText = this._arguments.new_text || '';
 
     let html = '<div class="tool-args-ui">';
     html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
@@ -243,12 +244,12 @@ class ToolCall extends HTMLElement {
   }
 
   _renderRememberArgs() {
-    const fact = this._arguments.fact || '';
+    const content = this._arguments.content || '';
     const permanent = this._arguments.permanent;
 
     let html = '<div class="tool-args-ui">';
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Fact:</span></div>`;
-    html += `<div class="tool-fact-box">${this._escapeHtml(fact)}</div>`;
+    html += `<div class="tool-arg-row"><span class="tool-arg-label">Content:</span></div>`;
+    html += `<div class="tool-fact-box">${this._escapeHtml(content)}</div>`;
     if (permanent) {
       html += `<div class="tool-arg-row"><span class="tool-arg-value tool-badge tool-badge-permanent">Permanent</span></div>`;
     }

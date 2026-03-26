@@ -609,6 +609,28 @@ chat-message.streaming .reasoning-icon {
     margin-bottom: 0;
 }
 
+/* List styling for text blocks (interleaved content system) */
+.text-block ul,
+.text-block ol {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    margin: 0.75rem 0;
+    padding-inline-start: 1.5rem;
+    list-style-position: outside;
+    overflow-wrap: break-word;
+}
+
+.text-block li {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.text-block li + li {
+    margin-top: 0.35rem;
+}
+
 /* Reasoning block styling */
 .reasoning-block {
     margin: 0.25rem 0;
@@ -2050,3 +2072,60 @@ status-bar {
 }
 
 
+/* ============================================
+   ELEGANT STREAMING GLOW FOR REASONING BLOCKS
+   ============================================ */
+
+.reasoning-block.streaming .reasoning-section {
+    position: relative;
+    border: 1px solid rgba(201, 169, 89, 0.3);
+    box-shadow: 
+        0 0 20px rgba(201, 169, 89, 0.15),
+        0 0 40px rgba(201, 169, 89, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: reasoning-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes reasoning-glow-pulse {
+    0%, 100% {
+        box-shadow: 
+            0 0 20px rgba(201, 169, 89, 0.15),
+            0 0 40px rgba(201, 169, 89, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        border-color: rgba(201, 169, 89, 0.3);
+    }
+    50% {
+        box-shadow: 
+            0 0 30px rgba(201, 169, 89, 0.25),
+            0 0 60px rgba(201, 169, 89, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        border-color: rgba(201, 169, 89, 0.5);
+    }
+}
+
+.reasoning-block.streaming .reasoning-header {
+    background: linear-gradient(
+        90deg,
+        rgba(201, 169, 89, 0.1) 0%,
+        rgba(201, 169, 89, 0.05) 50%,
+        rgba(201, 169, 89, 0.1) 100%
+    );
+    background-size: 200% 100%;
+    animation: reasoning-shimmer 3s linear infinite;
+}
+
+@keyframes reasoning-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.reasoning-block.streaming .reasoning-icon {
+    color: #c9a959;
+    text-shadow: 
+        0 0 10px rgba(201, 169, 89, 0.5),
+        0 0 20px rgba(201, 169, 89, 0.3);
+}
