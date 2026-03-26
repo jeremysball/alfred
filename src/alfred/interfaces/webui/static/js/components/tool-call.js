@@ -109,17 +109,12 @@ class ToolCall extends HTMLElement {
           ${argsSummary ? `<span class="tool-args">${this._escapeHtml(argsSummary)}</span>` : ''}
           <span class="tool-toggle">${this._expanded ? '-' : '+'}</span>
         </button>
-        <div class="tool-content" style="display: ${this._expanded ? 'block' : 'none'}">
-          <div class="tool-arguments">
+        ${this._expanded ? `
+          <div class="tool-details">
             ${this._renderArguments()}
+            ${this._output ? this._renderOutput() : ''}
           </div>
-          ${this._output ? `
-            <div class="tool-output">
-              <strong>Output:</strong>
-              <pre><code>${this._escapeHtml(this._output)}</code></pre>
-            </div>
-          ` : ''}
-        </div>
+        ` : ''}
       </div>
     `;
   }
@@ -141,7 +136,12 @@ class ToolCall extends HTMLElement {
         return cmd.length > 30 ? cmd.substring(0, 30) + '...' : cmd;
       case 'remember':
         const content = this._arguments.content || '';
-        return content.length > 30 ? content.substring(0, 30) + '...' : content;
+        const tags = this._arguments.tags || '';
+        const contentStr = content.length > 30 ? content.substring(0, 30) + '...' : content;
+        if (tags) {
+          return `${contentStr} (${tags})`;
+        }
+        return contentStr;
       case 'search_memories':
         return this._arguments.query || '';
       default:
@@ -179,82 +179,80 @@ class ToolCall extends HTMLElement {
     }
   }
 
+  _renderOutput() {
+    const output = this._output || '';
+    
+    switch (this._toolName) {
+      case 'remember':
+        // Output is just a status indicator - content+tags shown in args
+        return '<div class="tool-status tool-status-success">Saved</div>';
+      case 'search_memories':
+        return this._renderCodeOutput(output, 'search', 'Found');
+      case 'forget':
+        return this._renderCardOutput(output, 'forget', 'Removed', 'error');
+      case 'update_memory':
+        return this._renderCardOutput(output, 'update', 'Updated', 'warning');
+      case 'read':
+        return this._renderCodeOutput(output, 'read', 'Content');
+      case 'write':
+        return this._renderCardOutput(output, 'write', 'Saved', 'success');
+      case 'edit':
+        return this._renderCardOutput(output, 'edit', 'Modified', 'warning');
+      case 'bash':
+        return this._renderCodeOutput(output, 'bash', 'Result');
+      default:
+        return this._renderCodeOutput(output, 'default', 'Output');
+    }
+  }
+
+  _renderCardOutput(output, toolType, title, variant) {
+    return `
+      <div class="tool-output tool-output-${toolType} tool-output-${variant}">
+        <div class="tool-output-body">${this._escapeHtml(output)}</div>
+      </div>
+    `;
+  }
+
+  _renderCodeOutput(output, toolType, title) {
+    return `
+      <div class="tool-output tool-output-${toolType}">
+        <pre class="tool-output-code"><code>${this._escapeHtml(output)}</code></pre>
+      </div>
+    `;
+  }
+
   _renderReadArgs() {
     const path = this._arguments.path || '';
-    const limit = this._arguments.limit;
-    const offset = this._arguments.offset;
-
-    let html = '<div class="tool-args-ui">';
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
-    if (limit !== undefined) {
-      html += `<div class="tool-arg-row"><span class="tool-arg-label">Limit:</span><span class="tool-arg-value">${limit}</span></div>`;
-    }
-    if (offset !== undefined) {
-      html += `<div class="tool-arg-row"><span class="tool-arg-label">Offset:</span><span class="tool-arg-value">${offset}</span></div>`;
-    }
-    html += '</div>';
-    return html;
+    return `<div class="tool-read-path">${this._escapeHtml(path)}</div>`;
   }
 
   _renderWriteArgs() {
-    const path = this._arguments.path || '';
     const content = this._arguments.content || '';
-
-    let html = '<div class="tool-args-ui">';
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Content:</span></div>`;
-    html += `<pre class="tool-content-preview"><code>${this._escapeHtml(content.length > 500 ? content.substring(0, 500) + '\n...' : content)}</code></pre>`;
-    html += '</div>';
-    return html;
+    return `<pre class="tool-write-content"><code>${this._escapeHtml(content.length > 500 ? content.substring(0, 500) + '\n...' : content)}</code></pre>`;
   }
 
   _renderEditArgs() {
-    const path = this._arguments.path || '';
     const oldText = this._arguments.old_text || '';
     const newText = this._arguments.new_text || '';
 
-    let html = '<div class="tool-args-ui">';
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Path:</span><span class="tool-arg-value tool-path">${this._escapeHtml(path)}</span></div>`;
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Replace:</span></div>`;
-    html += `<div class="tool-edit-diff">`;
-    html += `<div class="tool-edit-old"><span class="tool-edit-label">Old:</span><pre><code>${this._escapeHtml(oldText.length > 200 ? oldText.substring(0, 200) + '...' : oldText)}</code></pre></div>`;
-    html += `<div class="tool-edit-arrow">→</div>`;
-    html += `<div class="tool-edit-new"><span class="tool-edit-label">New:</span><pre><code>${this._escapeHtml(newText.length > 200 ? newText.substring(0, 200) + '...' : newText)}</code></pre></div>`;
-    html += `</div>`;
-    html += '</div>';
-    return html;
+    return `
+      <div class="tool-edit-simple">
+        <div class="tool-edit-removed">${this._escapeHtml(oldText.length > 200 ? oldText.substring(0, 200) + '...' : oldText)}</div>
+        <div class="tool-edit-added">${this._escapeHtml(newText.length > 200 ? newText.substring(0, 200) + '...' : newText)}</div>
+      </div>
+    `;
   }
 
   _renderBashArgs() {
     const command = this._arguments.command || '';
-    const timeout = this._arguments.timeout;
-    const workingDir = this._arguments.workingDir;
-
-    let html = '<div class="tool-args-ui">';
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Command:</span></div>`;
-    html += `<pre class="tool-bash-command"><code>${this._escapeHtml(command)}</code></pre>`;
-    if (workingDir) {
-      html += `<div class="tool-arg-row"><span class="tool-arg-label">Working Dir:</span><span class="tool-arg-value tool-path">${this._escapeHtml(workingDir)}</span></div>`;
-    }
-    if (timeout !== undefined) {
-      html += `<div class="tool-arg-row"><span class="tool-arg-label">Timeout:</span><span class="tool-arg-value">${timeout}s</span></div>`;
-    }
-    html += '</div>';
-    return html;
+    return `<pre class="tool-bash-command"><code>${this._escapeHtml(command)}</code></pre>`;
   }
 
   _renderRememberArgs() {
     const content = this._arguments.content || '';
-    const permanent = this._arguments.permanent;
 
-    let html = '<div class="tool-args-ui">';
-    html += `<div class="tool-arg-row"><span class="tool-arg-label">Content:</span></div>`;
-    html += `<div class="tool-fact-box">${this._escapeHtml(content)}</div>`;
-    if (permanent) {
-      html += `<div class="tool-arg-row"><span class="tool-arg-value tool-badge tool-badge-permanent">Permanent</span></div>`;
-    }
-    html += '</div>';
-    return html;
+    // Just show the content directly - no labels, no boxes
+    return `<div class="tool-remember-content">${this._escapeHtml(content)}</div>`;
   }
 
   _renderSearchMemoriesArgs() {

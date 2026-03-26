@@ -1508,90 +1508,56 @@ function initAlfredUI() {
   }
 
   function handleDebugInfo(payload) {
-    const lines = [];
-    lines.push('=== DEBUG INFO ===');
-    lines.push(`Type: ${payload.debug_type || 'all'}`);
-    lines.push('');
+    const debugPanel = document.getElementById('debug-panel');
+    if (!debugPanel) {
+      console.error('Debug panel not found');
+      return;
+    }
 
-    // UI State
-    lines.push('--- UI State ---');
-    lines.push(`currentAssistantMessage: ${currentAssistantMessage ? 'YES' : 'NO'}`);
-    if (currentAssistantMessage) {
-      lines.push(`  message-id: ${currentAssistantMessage.getAttribute('message-id') || 'NONE'}`);
-      lines.push(`  role: ${currentAssistantMessage.getAttribute('role') || 'NONE'}`);
-      lines.push(`  streaming: ${currentAssistantMessage.classList.contains('streaming') ? 'YES' : 'NO'}`);
-      const content = typeof currentAssistantMessage.getContent === 'function' 
+    // Gather DOM message info
+    const domMessages = Array.from(messageList.querySelectorAll('chat-message')).map(msg => ({
+      id: msg.getAttribute('message-id') || 'NO-ID',
+      role: msg.getAttribute('role') || 'unknown',
+      content_length: (typeof msg.getContent === 'function' 
+        ? msg.getContent() 
+        : msg.getAttribute('content') || '').length,
+      is_streaming: msg.classList.contains('streaming')
+    }));
+
+    // Gather current assistant info
+    const currentAssistant = currentAssistantMessage ? {
+      id: currentAssistantMessage.getAttribute('message-id') || 'NONE',
+      role: currentAssistantMessage.getAttribute('role') || 'NONE',
+      streaming: currentAssistantMessage.classList.contains('streaming'),
+      content_length: (typeof currentAssistantMessage.getContent === 'function' 
         ? currentAssistantMessage.getContent() 
-        : currentAssistantMessage.getAttribute('content') || '';
-      lines.push(`  content length: ${content.length}`);
-    }
-    lines.push(`activeSessionId: ${activeSessionId || 'NONE'}`);
-    lines.push(`composerState: ${composerState}`);
-    lines.push('');
+        : currentAssistantMessage.getAttribute('content') || '').length
+    } : null;
 
-    // DOM Messages
-    lines.push('--- DOM Messages ---');
-    const domMessages = Array.from(messageList.querySelectorAll('chat-message'));
-    lines.push(`Total chat-message elements: ${domMessages.length}`);
-    domMessages.forEach((msg, idx) => {
-      const id = msg.getAttribute('message-id') || 'NO-ID';
-      const role = msg.getAttribute('role') || 'unknown';
-      const content = typeof msg.getContent === 'function' 
-        ? msg.getContent().substring(0, 50) 
-        : (msg.getAttribute('content') || '').substring(0, 50);
-      lines.push(`  [${idx}] ${id.substring(0, 20)}... role=${role} content="${content}..."`);
-    });
-    lines.push('');
+    // WebSocket snapshot
+    const wsSnapshot = wsClient.getConnectionSnapshot ? wsClient.getConnectionSnapshot() : {};
 
-    // Server Session State
-    if (payload.session) {
-      lines.push('--- Server Session ---');
-      lines.push(`session.id: ${payload.session.id || 'NONE'}`);
-      lines.push(`session.has_messages: ${payload.session.has_messages}`);
-      lines.push(`session.message_count: ${payload.session.message_count}`);
-      lines.push('');
-    }
+    // Build debug data
+    const debugData = {
+      messages: payload.messages || [],
+      session: payload.session || {},
+      websocket: {
+        isConnected: wsClient.isConnected,
+        reconnect_attempts: wsClient.reconnectAttempts,
+        message_queue_length: wsClient.messageQueue?.length || 0,
+        active_connections: payload.websocket?.active_connections || 0,
+        snapshot: wsSnapshot
+      },
+      dom: {
+        chat_message_count: domMessages.length,
+        has_current_assistant: !!currentAssistantMessage,
+        composer_state: composerState,
+        current_assistant: currentAssistant,
+        messages: domMessages
+      }
+    };
 
-    // Server Messages
-    if (payload.messages) {
-      lines.push('--- Server Messages ---');
-      lines.push(`Count: ${payload.messages.length}`);
-      payload.messages.forEach((msg) => {
-        const id = msg.id || 'NO-ID';
-        const role = msg.role || 'unknown';
-        const preview = msg.content_preview || '';
-        const tools = msg.has_tool_calls ? ' [TOOLS]' : '';
-        lines.push(`  [${msg.index}] ${id.substring(0, 30)}... role=${role}${tools}`);
-        lines.push(`      preview: "${preview}..."`);
-      });
-      lines.push('');
-    }
-
-    // WebSocket State
-    if (payload.websocket) {
-      lines.push('--- WebSocket ---');
-      lines.push(`active_connections: ${payload.websocket.active_connections}`);
-      lines.push(`connection_states: ${payload.websocket.connection_states}`);
-      lines.push('');
-    }
-
-    // Client WebSocket State
-    lines.push('--- Client WebSocket ---');
-    lines.push(`isConnected: ${wsClient.isConnected}`);
-    lines.push(`reconnectAttempts: ${wsClient.reconnectAttempts}`);
-    lines.push(`messageQueue length: ${wsClient.messageQueue?.length || 0}`);
-    const snapshot = wsClient.getConnectionSnapshot ? wsClient.getConnectionSnapshot() : null;
-    if (snapshot) {
-      lines.push(`connectionState: ${snapshot.connectionState || 'unknown'}`);
-      lines.push(`lastCloseCode: ${snapshot.lastCloseCode || 'NONE'}`);
-    }
-    lines.push('');
-
-    lines.push('==================');
-
-    clearComposerEditState();
-    showSystemMessage(lines.join('\n'));
-    enableInput();
+    debugPanel.open(debugData);
   }
 
   function showSystemMessage(content, options = {}) {

@@ -31,8 +31,8 @@ def _emit_webui_debug(event: str, **fields: object) -> None:
 
 
 StatusField = str | int | bool | None
-CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.05
-CHUNK_BATCH_MAX_CHARS = 256
+CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.01  # 10ms for low-latency streaming
+CHUNK_BATCH_MAX_CHARS = 1024  # Larger batches to reduce overhead
 
 
 @dataclass

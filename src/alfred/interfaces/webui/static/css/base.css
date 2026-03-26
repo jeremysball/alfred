@@ -1164,6 +1164,26 @@ chat-message.streaming .reasoning-icon {
     animation: pulse 1.5s ease-in-out infinite;
 }
 
+/* Glow effect for currently executing tool */
+.tool-call.running {
+    animation: tool-glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tool-glow-pulse {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(245, 124, 0, 0.3),
+                    0 0 10px rgba(245, 124, 0, 0.2),
+                    inset 0 0 5px rgba(245, 124, 0, 0.05);
+        border-color: rgba(245, 124, 0, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 10px rgba(245, 124, 0, 0.5),
+                    0 0 20px rgba(245, 124, 0, 0.3),
+                    inset 0 0 10px rgba(245, 124, 0, 0.1);
+        border-color: rgba(245, 124, 0, 0.5);
+    }
+}
+
 .tool-call.success .tool-status-icon {
     color: var(--tool-success, #2e7d32);
 }
@@ -2071,61 +2091,691 @@ status-bar {
     }
 }
 
+}
+/* Remember tool output styling */
+
+/* Flat tool output styling - minimal */
+.tool-output {
+    margin-top: 0.5rem;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.tool-output-body {
+    color: #e0e0e0;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.tool-output-code {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #e0e0e0;
+}
+
+/* Tool-specific accent colors (just the left border) */
+.tool-output-success,
+.tool-output-remember,
+.tool-output-write {
+    border-left-color: #4caf50;
+}
+
+.tool-output-error,
+.tool-output-forget {
+    border-left-color: #f44336;
+}
+
+.tool-output-warning,
+.tool-output-edit,
+.tool-output-update {
+    border-left-color: #ff9800;
+}
+
+.tool-output-info,
+.tool-output-search {
+    border-left-color: #2196f3;
+}
+
+.tool-output-read,
+.tool-output-bash {
+    border-left-color: #9c27b0;
+}
+
+/* Remove old header styles */
+.tool-output-header,
+.tool-output-title {
+    display: none;
+}
+
+/* Flat tool details container */
+.tool-details {
+    padding: 0.75rem 0 0 1.5rem;
+    border-left: 2px solid rgba(255, 255, 255, 0.1);
+    margin-left: 0.5rem;
+}
+
+/* Simplified tool arguments */
+.tool-args-ui {
+    margin-bottom: 0.5rem;
+}
+
+.tool-arg-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.tool-arg-label {
+    color: #888;
+    flex-shrink: 0;
+}
+
+.tool-arg-value {
+    color: #e0e0e0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.tool-arg-value.tool-path {
+    color: #81c784;
+}
+
+.tool-arg-value.tool-query {
+    color: #64b5f6;
+}
+
+/* Content preview for write/edit - flat */
+.tool-content-preview {
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+    font-size: 0.8125rem;
+    overflow-x: auto;
+}
+
+/* Edit diff - flat */
+.tool-edit-diff {
+    margin: 0.5rem 0;
+}
+
+.tool-edit-old,
+.tool-edit-new {
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid;
+    font-size: 0.8125rem;
+}
+
+.tool-edit-old {
+    border-left-color: #e57373;
+    background: rgba(244, 67, 54, 0.05);
+}
+
+.tool-edit-new {
+    border-left-color: #81c784;
+    background: rgba(76, 175, 80, 0.05);
+}
+
+.tool-edit-label {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.tool-edit-arrow {
+    color: #888;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Tool badges - minimal */
+.tool-badge {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.125rem;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tool-badge-permanent {
+    background: rgba(76, 175, 80, 0.15);
+    color: #81c784;
+}
+
+/* Fact box - flat */
+.tool-fact-box {
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid #81c784;
+    background: rgba(76, 175, 80, 0.05);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+
+/* Clean remember tool styling */
+.tool-remember-content {
+    color: #e0e0e0;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    padding: 0.5rem 0;
+    border-left: 2px solid #4caf50;
+    padding-left: 0.75rem;
+    margin: 0.25rem 0;
+}
+
+/* Flat tool arguments - minimal styling */
+.tool-read-path {
+    color: #81c784;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.875rem;
+    padding: 0.25rem 0;
+}
+
+.tool-write-content,
+.tool-bash-command {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 2px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.8125rem;
+    overflow-x: auto;
+}
+
+.tool-edit-simple {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tool-edit-removed {
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid #e57373;
+    background: rgba(244, 67, 54, 0.05);
+    font-size: 0.8125rem;
+    color: #e0e0e0;
+}
+
+.tool-edit-added {
+    padding: 0.5rem 0.75rem;
+    border-left: 2px solid #81c784;
+    background: rgba(76, 175, 80, 0.05);
+    font-size: 0.8125rem;
+    color: #e0e0e0;
+}
+
+/* Simple tool status indicators */
+.tool-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #888;
+}
+
+.tool-status-success {
+    color: #81c784;
+}
+
+.tool-status-error {
+    color: #e57373;
+}
+
+.tool-status-warning {
+    color: #ffb74d;
+}
 
 /* ============================================
-   ELEGANT STREAMING GLOW FOR REASONING BLOCKS
+   DEBUG PANEL
    ============================================ */
 
-.reasoning-block.streaming .reasoning-section {
-    position: relative;
-    border: 1px solid rgba(201, 169, 89, 0.3);
-    box-shadow: 
-        0 0 20px rgba(201, 169, 89, 0.15),
-        0 0 40px rgba(201, 169, 89, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    animation: reasoning-glow-pulse 2s ease-in-out infinite;
+debug-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
 }
 
-@keyframes reasoning-glow-pulse {
-    0%, 100% {
-        box-shadow: 
-            0 0 20px rgba(201, 169, 89, 0.15),
-            0 0 40px rgba(201, 169, 89, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.05);
-        border-color: rgba(201, 169, 89, 0.3);
-    }
-    50% {
-        box-shadow: 
-            0 0 30px rgba(201, 169, 89, 0.25),
-            0 0 60px rgba(201, 169, 89, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        border-color: rgba(201, 169, 89, 0.5);
-    }
+debug-panel:not([open]) {
+    display: none;
 }
 
-.reasoning-block.streaming .reasoning-header {
-    background: linear-gradient(
-        90deg,
-        rgba(201, 169, 89, 0.1) 0%,
-        rgba(201, 169, 89, 0.05) 50%,
-        rgba(201, 169, 89, 0.1) 100%
-    );
-    background-size: 200% 100%;
-    animation: reasoning-shimmer 3s linear infinite;
+.debug-panel-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
 }
 
-@keyframes reasoning-shimmer {
-    0% {
-        background-position: 200% 0;
-    }
-    100% {
-        background-position: -200% 0;
-    }
+.debug-panel {
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    height: 80vh;
+    max-width: 1200px;
+    background: #1e1e1e;
+    border-radius: 12px;
+    border: 1px solid #333;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
 }
 
-.reasoning-block.streaming .reasoning-icon {
-    color: #c9a959;
-    text-shadow: 
-        0 0 10px rgba(201, 169, 89, 0.5),
-        0 0 20px rgba(201, 169, 89, 0.3);
+.debug-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: #252525;
+    border-bottom: 1px solid #333;
+}
+
+.debug-panel-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.debug-panel-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 1.5rem;
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.debug-panel-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.debug-panel-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    overflow-x: auto;
+}
+
+.debug-tab {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.debug-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+}
+
+.debug-tab.active {
+    background: #333;
+    color: #fff;
+}
+
+.debug-panel-content {
+    flex: 1;
+    overflow: auto;
+    padding: 1rem;
+}
+
+.debug-panel-footer {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: #252525;
+    border-top: 1px solid #333;
+}
+
+.debug-panel-footer button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #444;
+    background: #333;
+    color: #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.debug-panel-footer button:hover {
+    background: #444;
+    color: #fff;
+}
+
+/* Debug Toolbar */
+.debug-toolbar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #333;
+}
+
+.debug-search {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #444;
+    background: #252525;
+    color: #e0e0e0;
+    border-radius: 6px;
+    font-size: 0.875rem;
+}
+
+.debug-search:focus {
+    outline: none;
+    border-color: #4fc3f7;
+}
+
+.debug-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #888;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.debug-filter input {
+    cursor: pointer;
+}
+
+/* Debug Stats Grid */
+.debug-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.debug-stat {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    background: #252525;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+
+.debug-stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #888;
+    margin-bottom: 0.25rem;
+}
+
+.debug-stat-value {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: #e0e0e0;
+}
+
+.debug-stat-value.success {
+    color: #81c784;
+}
+
+.debug-stat-value.error {
+    color: #e57373;
+}
+
+.debug-stat-value.code {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.75rem;
+    word-break: break-all;
+}
+
+/* Debug Messages */
+.debug-message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.debug-message-card {
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.debug-message-card.role-user {
+    border-left: 3px solid #4fc3f7;
+}
+
+.debug-message-card.role-assistant {
+    border-left: 3px solid #81c784;
+}
+
+.debug-message-card.role-system {
+    border-left: 3px solid #ffb74d;
+}
+
+.debug-message-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #252525;
+    cursor: pointer;
+}
+
+.debug-message-role {
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    background: #333;
+    color: #ccc;
+}
+
+.role-user .debug-message-role {
+    background: rgba(79, 195, 247, 0.2);
+    color: #4fc3f7;
+}
+
+.role-assistant .debug-message-role {
+    background: rgba(129, 199, 132, 0.2);
+    color: #81c784;
+}
+
+.role-system .debug-message-role {
+    background: rgba(255, 183, 77, 0.2);
+    color: #ffb74d;
+}
+
+.debug-message-id {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.75rem;
+    color: #666;
+    flex: 1;
+}
+
+.debug-message-tools {
+    font-size: 0.875rem;
+}
+
+.debug-message-expand {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.debug-message-expand:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.debug-message-preview {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: #ccc;
+    background: #1a1a1a;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.debug-message-details {
+    padding: 1rem;
+    background: #252525;
+    border-top: 1px solid #333;
+}
+
+.debug-message-details pre {
+    margin: 0;
+    padding: 0.75rem;
+    background: #1a1a1a;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    overflow-x: auto;
+}
+
+/* Debug Section */
+.debug-section {
+    margin-top: 1.5rem;
+}
+
+.debug-section h3 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #888;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Debug DOM */
+.debug-dom-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.debug-dom-item {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: #252525;
+    border-radius: 6px;
+    font-size: 0.875rem;
+}
+
+.debug-dom-role {
+    width: 80px;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.debug-dom-id {
+    flex: 1;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.debug-dom-length {
+    color: #888;
+    font-size: 0.75rem;
+}
+
+/* JSON Tree */
+.json-tree {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.8125rem;
+}
+
+.json-toggle {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #888;
+    font-size: 0.625rem;
+    margin-right: 0.25rem;
+}
+
+.json-toggle:hover {
+    color: #ccc;
+}
+
+.json-children {
+    margin-top: 0.25rem;
+}
+
+.json-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+}
+
+.json-key {
+    color: #9cdcfe;
+}
+
+.json-string {
+    color: #ce9178;
+}
+
+.json-number {
+    color: #b5cea8;
+}
+
+.json-boolean {
+    color: #569cd6;
+}
+
+.json-null {
+    color: #569cd6;
+}
+
+.json-array {
+    color: #ffd700;
+}
+
+.json-object {
+    color: #4ec9b0;
+}
+
+/* Debug Empty State */
+.debug-empty {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+    font-style: italic;
 }
