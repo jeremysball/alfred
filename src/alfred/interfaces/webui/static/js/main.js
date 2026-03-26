@@ -412,6 +412,7 @@ function initAlfredUI() {
     { value: '/sessions', description: 'List recent sessions' },
     { value: '/session', description: 'Show current session info' },
     { value: '/context', description: 'Show system context' },
+    { value: '/debug', description: 'Show debug diagnostics (all|session|messages|websocket)' },
     { value: '/help', description: 'Show available commands' }
   ];
 
@@ -1238,7 +1239,7 @@ function initAlfredUI() {
           currentAssistantMessage.appendReasoning(msg.payload.content);
           playKidcoreChunk();
           pulseGlueShimmer(currentAssistantMessage);
-          scrollToBottom();
+          scrollToBottomIfNearBottom();
         }
         break;
 
@@ -1247,7 +1248,7 @@ function initAlfredUI() {
           currentAssistantMessage.appendContent(msg.payload.content);
           playKidcoreChunk();
           pulseGlueShimmer(currentAssistantMessage);
-          scrollToBottom();
+          scrollToBottomIfNearBottom();
         }
         break;
 
@@ -1312,6 +1313,10 @@ function initAlfredUI() {
 
       case 'context.info':
         handleContextInfo(msg.payload);
+        break;
+
+      case 'debug.info':
+        handleDebugInfo(msg.payload);
         break;
 
       case 'tool.start':
@@ -1499,6 +1504,93 @@ function initAlfredUI() {
 
     clearComposerEditState();
     showSystemMessage(lines.join('\n'), { warning: warnings.length > 0 });
+    enableInput();
+  }
+
+  function handleDebugInfo(payload) {
+    const lines = [];
+    lines.push('=== DEBUG INFO ===');
+    lines.push(`Type: ${payload.debug_type || 'all'}`);
+    lines.push('');
+
+    // UI State
+    lines.push('--- UI State ---');
+    lines.push(`currentAssistantMessage: ${currentAssistantMessage ? 'YES' : 'NO'}`);
+    if (currentAssistantMessage) {
+      lines.push(`  message-id: ${currentAssistantMessage.getAttribute('message-id') || 'NONE'}`);
+      lines.push(`  role: ${currentAssistantMessage.getAttribute('role') || 'NONE'}`);
+      lines.push(`  streaming: ${currentAssistantMessage.classList.contains('streaming') ? 'YES' : 'NO'}`);
+      const content = typeof currentAssistantMessage.getContent === 'function' 
+        ? currentAssistantMessage.getContent() 
+        : currentAssistantMessage.getAttribute('content') || '';
+      lines.push(`  content length: ${content.length}`);
+    }
+    lines.push(`activeSessionId: ${activeSessionId || 'NONE'}`);
+    lines.push(`composerState: ${composerState}`);
+    lines.push('');
+
+    // DOM Messages
+    lines.push('--- DOM Messages ---');
+    const domMessages = Array.from(messageList.querySelectorAll('chat-message'));
+    lines.push(`Total chat-message elements: ${domMessages.length}`);
+    domMessages.forEach((msg, idx) => {
+      const id = msg.getAttribute('message-id') || 'NO-ID';
+      const role = msg.getAttribute('role') || 'unknown';
+      const content = typeof msg.getContent === 'function' 
+        ? msg.getContent().substring(0, 50) 
+        : (msg.getAttribute('content') || '').substring(0, 50);
+      lines.push(`  [${idx}] ${id.substring(0, 20)}... role=${role} content="${content}..."`);
+    });
+    lines.push('');
+
+    // Server Session State
+    if (payload.session) {
+      lines.push('--- Server Session ---');
+      lines.push(`session.id: ${payload.session.id || 'NONE'}`);
+      lines.push(`session.has_messages: ${payload.session.has_messages}`);
+      lines.push(`session.message_count: ${payload.session.message_count}`);
+      lines.push('');
+    }
+
+    // Server Messages
+    if (payload.messages) {
+      lines.push('--- Server Messages ---');
+      lines.push(`Count: ${payload.messages.length}`);
+      payload.messages.forEach((msg) => {
+        const id = msg.id || 'NO-ID';
+        const role = msg.role || 'unknown';
+        const preview = msg.content_preview || '';
+        const tools = msg.has_tool_calls ? ' [TOOLS]' : '';
+        lines.push(`  [${msg.index}] ${id.substring(0, 30)}... role=${role}${tools}`);
+        lines.push(`      preview: "${preview}..."`);
+      });
+      lines.push('');
+    }
+
+    // WebSocket State
+    if (payload.websocket) {
+      lines.push('--- WebSocket ---');
+      lines.push(`active_connections: ${payload.websocket.active_connections}`);
+      lines.push(`connection_states: ${payload.websocket.connection_states}`);
+      lines.push('');
+    }
+
+    // Client WebSocket State
+    lines.push('--- Client WebSocket ---');
+    lines.push(`isConnected: ${wsClient.isConnected}`);
+    lines.push(`reconnectAttempts: ${wsClient.reconnectAttempts}`);
+    lines.push(`messageQueue length: ${wsClient.messageQueue?.length || 0}`);
+    const snapshot = wsClient.getConnectionSnapshot ? wsClient.getConnectionSnapshot() : null;
+    if (snapshot) {
+      lines.push(`connectionState: ${snapshot.connectionState || 'unknown'}`);
+      lines.push(`lastCloseCode: ${snapshot.lastCloseCode || 'NONE'}`);
+    }
+    lines.push('');
+
+    lines.push('==================');
+
+    clearComposerEditState();
+    showSystemMessage(lines.join('\n'));
     enableInput();
   }
 
@@ -1814,7 +1906,15 @@ function initAlfredUI() {
   }
 
   function handleStopGenerating() {
-    if (!currentAssistantMessage || composerState === 'cancelling') {
+    if (composerState === 'cancelling') {
+      return;
+    }
+
+    // Even if currentAssistantMessage is null, we should still send cancel
+    // and reset state to handle edge cases where UI is out of sync
+    if (!currentAssistantMessage) {
+      // Reset to idle state since there's no message to cancel
+      enableInput();
       return;
     }
 
@@ -1837,6 +1937,16 @@ function initAlfredUI() {
 
   function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  function scrollToBottomIfNearBottom() {
+    // Only scroll if user is already near the bottom (within 100px)
+    // This prevents auto-scroll from jumping while user is reading earlier content
+    const scrollBottom = chatContainer.scrollTop + chatContainer.clientHeight;
+    const isNearBottom = chatContainer.scrollHeight - scrollBottom < 100;
+    if (isNearBottom) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
   }
 
   function showError(message) {
