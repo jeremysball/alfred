@@ -503,7 +503,10 @@ def _serialize_message(message: object) -> dict[str, object]:
     role = getattr(message, "role", "")
     role_value = role.value if hasattr(role, "value") else str(role)
     timestamp = getattr(message, "timestamp", None)
-    message_id = getattr(message, "id", None) or getattr(message, "idx", uuid.uuid4())
+    message_id = getattr(message, "id", None)
+    # Generate UUID if missing (backward compatibility)
+    if not message_id:
+        message_id = str(uuid.uuid4())
     payload: dict[str, object] = {
         "id": str(message_id),
         "role": role_value,
@@ -1133,6 +1136,8 @@ async def _handle_command(
         await _handle_session_command(websocket, alfred_instance)
     elif cmd == "/context":
         await _handle_context_command(websocket, alfred_instance)
+    elif cmd == "/debug":
+        await _handle_debug_command(websocket, alfred_instance, args)
     else:
         await websocket.send_json(
             {
@@ -1387,6 +1392,54 @@ async def _handle_context_command(
                 "payload": {"error": f"Failed to get context: {str(e)}"},
             }
         )
+
+
+async def _handle_debug_command(
+    websocket: WebSocket,
+    alfred_instance: WebUIAlfred | None,
+    args: list[str],
+) -> None:
+    """Handle /debug command to dump diagnostics."""
+    debug_type = args[0] if args else "all"
+
+    payload: dict[str, object] = {"debug_type": debug_type}
+
+    if debug_type in ("all", "session"):
+        # Session info
+        session = _get_current_session(alfred_instance)
+        payload["session"] = {
+            "id": _session_identifier(session),
+            "has_messages": bool(getattr(session, "messages", [])),
+            "message_count": len(getattr(session, "messages", [])),
+        }
+
+    if debug_type in ("all", "messages"):
+        # Message details
+        session = _get_current_session(alfred_instance)
+        messages = getattr(session, "messages", [])
+        payload["messages"] = [
+            {
+                "index": i,
+                "id": str(getattr(msg, "id", "") or getattr(msg, "idx", "") or f"idx_{i}"),
+                "role": str(getattr(msg, "role", "unknown")),
+                "content_preview": str(getattr(msg, "content", ""))[:100],
+                "has_tool_calls": bool(getattr(msg, "tool_calls", None)),
+            }
+            for i, msg in enumerate(messages)
+        ]
+
+    if debug_type in ("all", "websocket"):
+        # WebSocket connection stats
+        payload["websocket"] = {
+            "active_connections": len(_active_connections),
+        }
+
+    await websocket.send_json(
+        {
+            "type": "debug.info",
+            "payload": payload,
+        }
+    )
 
 
 def _render_webui_config_script(debug: bool) -> str:
