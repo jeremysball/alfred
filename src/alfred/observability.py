@@ -126,14 +126,6 @@ class SurfaceFormatter(logging.Formatter):
             record.msg = msg
             record.args = ()
 
-        # Also truncate giant messages generally
-        max_msg_len = 500
-        if len(record.getMessage()) > max_msg_len:
-            msg = record.getMessage()
-            msg = msg[:max_msg_len] + f"...({len(msg) - max_msg_len} chars truncated)"
-            record.msg = msg
-            record.args = ()
-
         return super().format(record)
 
     def _stream_is_tty(self) -> bool:
