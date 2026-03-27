@@ -28,7 +28,12 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv
-          uv sync --no-install-package pypitui
+          # Create a mock pypitui directory to satisfy the editable dependency
+          mkdir -p ../pypitui
+          echo '[project]' > ../pypitui/pyproject.toml
+          echo 'name = "pypitui"' >> ../pypitui/pyproject.toml
+          echo 'version = "1.0.0"' >> ../pypitui/pyproject.toml
+          uv sync
           
       - name: Build static assets (if needed)
         run: |
