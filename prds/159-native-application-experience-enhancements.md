@@ -492,10 +492,10 @@ function handleTouchStart(e) {
 
 ---
 
-### Milestone 9: Search & Quick Navigation ⏳ IN PROGRESS
+### Milestone 9: Search & Quick Navigation ✅ COMPLETE
 **Goal**: Find and navigate content quickly
 
-**Status**: Phase 1 & 2 complete, Phase 3 ready
+**Status**: All 3 phases complete (Ctrl+F, Ctrl+Tab, @ Mentions)
 
 **Features**:
 - In-conversation search (Ctrl+F) - browser native find on rendered content
@@ -590,6 +590,44 @@ function handleTouchStart(e) {
 - Match counter shows "3 of 12" format
 - Escape closes search overlay
 
+**Phase 3: @ Mentions** ✅ COMPLETE
+- [x] Design: `MentionDropdown` component with singleton pattern
+- [x] Design: DOM-based message extraction (scans .message elements)
+- [x] Design: Fuzzy search filtering for message text
+- [x] Design: Max 20 messages, format: `@author: "excerpt..."`
+- [x] Implement: Mention dropdown component (`mention-dropdown.js`)
+- [x] Implement: Message extraction from DOM
+- [x] Implement: Fuzzy filtering with query after @
+- [x] Implement: Keyboard navigation (↑↓, Enter, Escape, Tab)
+- [x] Implement: Mention insertion at cursor position
+- [x] Test: 11 unit tests for MentionDropdown class
+- [x] Integrate: Added to `main.js` initialization
+
+**Files Created**:
+- `features/search/mention-dropdown.js` - MentionDropdown class (380 lines)
+- `features/search/test-mention-dropdown.js` - 11 unit tests
+
+**Files Modified**:
+- `features/search/index.js` - Export MentionDropdown
+- `features/search/styles.css` - Mention dropdown glassmorphism styles
+- `main.js` - Add initMentions() call
+
+**Usage**: Type `@` in composer to open mention dropdown, type to filter, arrows to navigate, Enter to insert
+
+**Design Decisions**:
+- **Message Source**: DOM scan of `.message` elements (no backend changes)
+- **Max Messages**: 20 recent messages (sufficient for context)
+- **Mention Format**: `@author: "excerpt..."` (clear and compact)
+- **Trigger**: `@` character in composer (standard convention)
+- **Position**: Below composer input (follows cursor)
+
+**Phase 1 Validation**:
+- Ctrl+F opens search overlay (not browser find)
+- Matches highlight in current viewport
+- Enter/Shift+Enter navigates between matches
+- Match counter shows "3 of 12" format
+- Escape closes search overlay
+
 **Phase 2 Validation**:
 - Ctrl+Tab opens quick switcher modal
 - Shows up to 10 recent sessions
@@ -600,9 +638,14 @@ function handleTouchStart(e) {
 - Escape closes without action
 
 **Phase 3 Validation**:
-- @ in composer shows dropdown of last 20 messages in session
-- Arrow keys navigate mentions
-- Enter inserts reference to selected message
+- Type `@` in composer opens mention dropdown
+- Shows up to 20 recent messages
+- Displays author name + message excerpt
+- Type to filter messages (fuzzy search)
+- Arrow keys (↑↓) navigate mentions
+- Enter inserts `@author: "excerpt..."` at cursor
+- Escape closes dropdown without inserting
+- Click on mention item to select
 
 **Execution Plan**: See `execution-plan-159-milestone9.md` for detailed implementation tasks
 
@@ -957,6 +1000,7 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **IMPLEMENTED**: Milestone 9 Phase 3 - @ Mentions | MentionDropdown implementation complete: singleton pattern, DOM-based message extraction (scans `.message` elements), fuzzy search filtering, max 20 messages. Keyboard navigation (↑↓ arrows, Enter, Escape, Tab). Inserts mention in format `@author: "excerpt..."` at cursor position. 11 unit tests. Glassmorphism dropdown positioned below composer. Files: `mention-dropdown.js`, `test-mention-dropdown.js`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 9 Phase 2 - Quick Session Switcher (Ctrl+Tab) | QuickSwitcher implementation complete: singleton pattern, localStorage session tracking (captures on `/new` and `/resume`), max 10 sessions, simple fuzzy character matching. Keyboard navigation (arrows, Enter, Escape, Tab). Sends `/resume <id>` via WebSocket on selection. 15 unit tests. Glassmorphism modal UI centered on screen. Files: `quick-switcher.js`, `test-quick-switcher.js`. |
 | 2026-03-27 | **DESIGNED**: Milestone 9 Phase 2 - Quick Session Switcher (Ctrl+Tab) | Session switching architecture: `QuickSwitcher` class with singleton pattern, localStorage-based session tracking (capture on every `/new` and `/resume`), max 10 recent sessions, simple character-matching fuzzy search MVP. Glassmorphism UI reuses Phase 1 styles. Display: session name + relative time. Selection sends `/resume <id>` via WebSocket. Ctrl+Tab shortcut (avoiding Ctrl+Shift+Tab browser conflict). |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 9 Phase 1 - In-Conversation Search (Ctrl+F) | SearchOverlay implementation complete: singleton pattern, `window.find()` API for DOM-based search, case-insensitive matching, "N of M" counter, Enter/Shift+Enter navigation. 10 unit tests. Glassmorphism top-right overlay. Integrated in `main.js`. Files: `search-overlay.js`, `test-search-overlay.js`, `styles.css`. |
