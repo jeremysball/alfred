@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import time
 import webbrowser
@@ -11,6 +12,8 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from alfred.interfaces.webui.daemon_bootstrap import bootstrap_daemon
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_WEBUI_STATIC_ROOT = Path(__file__).resolve().parents[1] / "interfaces" / "webui" / "static"
 DEFAULT_WEBUI_SRC_ROOT = Path(__file__).resolve().parents[2] / "alfred"
@@ -114,7 +117,7 @@ def _has_relevant_python_change(changes: Iterable[tuple[object, str]]) -> bool:
     return any(_is_relevant_python_file(path) for _change, path in changes)
 
 
-def _build_server_controller(host: str, port: int, debug: bool) -> _ServerController:
+def _build_server_controller(host: str, port: int) -> _ServerController:
     """Create a new Uvicorn-backed WebUI server controller."""
     import uvicorn
 
@@ -133,7 +136,7 @@ def _build_server_controller(host: str, port: int, debug: bool) -> _ServerContro
 
     asyncio.run(_start_alfred())
 
-    app = create_app(alfred_instance=cast(Any, alfred), debug=debug)
+    app = create_app(alfred_instance=cast(Any, alfred))
     app.state.webui_bootstrap_result = bootstrap_result
 
     server = uvicorn.Server(
@@ -141,17 +144,27 @@ def _build_server_controller(host: str, port: int, debug: bool) -> _ServerContro
             app,
             host=host,
             port=port,
-            log_level="debug" if debug else "info",
+            # Use warning level to let Alfred's logging configuration control output
+            # Our observability layer suppresses uvicorn below WARNING by default
+            log_level="warning",
+            # Increase WebSocket max message size from 16 MB default to 64 MB
+            # to handle long messages with large context
+            ws_max_size=64 * 1024 * 1024,
         )
     )
     return _UvicornServerController(server)
 
 
-def run_webui_server(*, host: str, port: int, open_browser: bool, debug: bool) -> None:
+def run_webui_server(*, host: str, port: int, open_browser: bool) -> None:
     """Run the Web UI server once until it exits."""
-    controller = _build_server_controller(host=host, port=port, debug=debug)
+    logger.info("Starting WebUI server", extra={"surface": "webui-server"})
+    controller = _build_server_controller(host=host, port=port)
     controller.start()
     _wait_for_started(controller)
+
+    logger.info(f"WebUI server ready on {host}:{port}", extra={"surface": "webui-server"})
+    # Use warning level so it shows by default (user needs to know server is ready)
+    logger.warning(f"WebUI server running at http://{host}:{port}/", extra={"surface": "webui-server"})
 
     if open_browser:
         _open_browser_delayed(host, port)
@@ -168,7 +181,6 @@ def run_webui_hotswap(
     host: str,
     port: int,
     open_browser: bool,
-    debug: bool,
     watch_root: Path | None = None,
     stop_event: threading.Event | None = None,
     server_factory: Callable[[], _ServerController] | None = None,
@@ -179,7 +191,7 @@ def run_webui_hotswap(
     watch_path = watch_root or DEFAULT_WEBUI_STATIC_ROOT
     python_watch_path = DEFAULT_WEBUI_SRC_ROOT
     local_stop_event = stop_event or threading.Event()
-    create_server = server_factory or (lambda: _build_server_controller(host=host, port=port, debug=debug))
+    create_server = server_factory or (lambda: _build_server_controller(host=host, port=port))
     browser_opened = False
 
     while not local_stop_event.is_set():

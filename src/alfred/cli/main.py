@@ -63,7 +63,7 @@ def main(
         None,
         "--log",
         "-l",
-        help="Set log level: 'info' or 'debug'. Default: warnings only",
+        help="Set log level: 'trace', 'debug', or 'info'. Default: warnings only.",
     ),
     install_completions: str = typer.Option(
         "",
@@ -91,6 +91,9 @@ def main(
     global _run_telegram, _log_level
     _run_telegram = telegram
     _log_level = log
+
+    # Setup logging for all commands (including subcommands like webui)
+    _setup_logging()
 
     # If no subcommand, run interactive chat
     if ctx.invoked_subcommand is None:
@@ -223,27 +226,15 @@ def webui_callback(
         "--hotswap",
         help="Restart the Web UI server when static web assets change",
     ),
-    log: str | None = typer.Option(
-        None,
-        "--log",
-        "-l",
-        help="Set Web UI log level: 'info' or 'debug'. Separate from the root --log option.",
-    ),
 ) -> None:
     """Launch Alfred Web UI server."""
     if ctx.invoked_subcommand is not None:
         return
 
-    debug = log == "debug"
-
-    # Configure core logging from the root --log option and keep the Web UI
-    # surface independently controllable via the webui --log flag.
-    _setup_logging(webui_debug=debug)
-
     from alfred.cli.webui_hotswap import run_webui_hotswap, run_webui_server
 
     runner = run_webui_hotswap if hotswap else run_webui_server
-    runner(host=host, port=port, open_browser=open_browser, debug=debug)
+    runner(host=host, port=port, open_browser=open_browser)
 
 
 app.add_typer(webui_app)
@@ -768,10 +759,11 @@ async def _run_telegram_bot(alfred: "Alfred") -> None:
 
 def _setup_logging(
     toast_manager: "ToastManager | None" = None,
-    webui_debug: bool = False,
 ) -> None:
     """Configure logging with surface-aware console and file handlers."""
-    if _log_level == "debug":
+    if _log_level == "trace":
+        level = 5  # Custom TRACE level below DEBUG
+    elif _log_level == "debug":
         level = logging.DEBUG
     elif _log_level == "info":
         level = logging.INFO
@@ -790,7 +782,6 @@ def _setup_logging(
         level=level,
         log_file=get_log_file(),
         toast_handler=toast_handler,
-        webui_debug=webui_debug,
     )
 
 
