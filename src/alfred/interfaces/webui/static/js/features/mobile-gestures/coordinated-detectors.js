@@ -30,6 +30,13 @@ class CoordinatedSwipeDetector {
     this.coordinator = GestureCoordinator.getInstance();
     this.isActive = false;
 
+    // Axis locking properties
+    this.axisLock = null; // 'horizontal', 'vertical', or null
+    this.startX = 0;
+    this.startY = 0;
+    this.AXIS_THRESHOLD = 15;
+    this.AXIS_DOMINANCE_RATIO = 1.5;
+
     // Create the wrapped detector (don't attach yet)
     this.wrappedDetector = new SwipeDetector({
       threshold: options.threshold || 100,
@@ -44,6 +51,7 @@ class CoordinatedSwipeDetector {
 
     // Bind methods
     this._handleTouchStart = this._handleTouchStart.bind(this);
+    this._handleTouchMove = this._handleTouchMove.bind(this);
     this._handleTouchEnd = this._handleTouchEnd.bind(this);
     this._handleTouchCancel = this._handleTouchCancel.bind(this);
   }
@@ -56,6 +64,7 @@ class CoordinatedSwipeDetector {
 
     // Add our coordination listeners
     this.element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
+    this.element.addEventListener('touchmove', this._handleTouchMove, { passive: true });
     this.element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
     this.element.addEventListener('touchcancel', this._handleTouchCancel, { passive: true });
 
@@ -71,6 +80,7 @@ class CoordinatedSwipeDetector {
 
     if (this.element) {
       this.element.removeEventListener('touchstart', this._handleTouchStart);
+      this.element.removeEventListener('touchmove', this._handleTouchMove);
       this.element.removeEventListener('touchend', this._handleTouchEnd);
       this.element.removeEventListener('touchcancel', this._handleTouchCancel);
     }
@@ -81,7 +91,7 @@ class CoordinatedSwipeDetector {
   }
 
   /**
-   * Handle touchstart - request gesture lock
+   * Handle touchstart - request gesture lock and store start position
    * @private
    */
   _handleTouchStart(e) {
@@ -92,7 +102,41 @@ class CoordinatedSwipeDetector {
 
     if (granted) {
       this.isActive = true;
+      // Store start position for axis locking
+      if (e.touches && e.touches[0]) {
+        this.startX = e.touches[0].clientX;
+        this.startY = e.touches[0].clientY;
+      }
     }
+  }
+
+  /**
+   * Handle touchmove - check axis locking
+   * @private
+   */
+  _handleTouchMove(e) {
+    if (!this.isActive || !e.touches || !e.touches[0]) return;
+
+    // If already locked, don't re-evaluate
+    if (this.axisLock) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+
+    const deltaX = Math.abs(currentX - this.startX);
+    const deltaY = Math.abs(currentY - this.startY);
+
+    // Check for horizontal lock
+    if (deltaX > this.AXIS_THRESHOLD && 
+        deltaX > deltaY * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = 'horizontal';
+    }
+    // Check for vertical lock
+    else if (deltaY > this.AXIS_THRESHOLD && 
+             deltaY > deltaX * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = 'vertical';
+    }
+    // Otherwise stay neutral (null)
   }
 
   /**
@@ -119,6 +163,9 @@ class CoordinatedSwipeDetector {
     if (this.isActive) {
       this.coordinator.releaseGesture();
       this.isActive = false;
+      this.axisLock = null;
+      this.startX = 0;
+      this.startY = 0;
     }
   }
 }
@@ -144,6 +191,13 @@ class CoordinatedLongPressDetector {
     this.coordinator = GestureCoordinator.getInstance();
     this.isActive = false;
 
+    // Axis locking properties (less critical for long press but included for consistency)
+    this.axisLock = null;
+    this.startX = 0;
+    this.startY = 0;
+    this.AXIS_THRESHOLD = 15;
+    this.AXIS_DOMINANCE_RATIO = 1.5;
+
     // Create the wrapped detector (don't attach yet)
     this.wrappedDetector = new LongPressDetector({
       delay: options.delay || 500,
@@ -158,6 +212,7 @@ class CoordinatedLongPressDetector {
 
     // Bind methods
     this._handleTouchStart = this._handleTouchStart.bind(this);
+    this._handleTouchMove = this._handleTouchMove.bind(this);
     this._handleTouchEnd = this._handleTouchEnd.bind(this);
     this._handleTouchCancel = this._handleTouchCancel.bind(this);
   }
@@ -170,6 +225,7 @@ class CoordinatedLongPressDetector {
 
     // Add our coordination listeners
     this.element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
+    this.element.addEventListener('touchmove', this._handleTouchMove, { passive: true });
     this.element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
     this.element.addEventListener('touchcancel', this._handleTouchCancel, { passive: true });
 
@@ -185,6 +241,7 @@ class CoordinatedLongPressDetector {
 
     if (this.element) {
       this.element.removeEventListener('touchstart', this._handleTouchStart);
+      this.element.removeEventListener('touchmove', this._handleTouchMove);
       this.element.removeEventListener('touchend', this._handleTouchEnd);
       this.element.removeEventListener('touchcancel', this._handleTouchCancel);
     }
@@ -206,7 +263,41 @@ class CoordinatedLongPressDetector {
 
     if (granted) {
       this.isActive = true;
+      // Store start position for axis locking
+      if (e.touches && e.touches[0]) {
+        this.startX = e.touches[0].clientX;
+        this.startY = e.touches[0].clientY;
+      }
     }
+  }
+
+  /**
+   * Handle touchmove - check axis locking
+   * @private
+   */
+  _handleTouchMove(e) {
+    if (!this.isActive || !e.touches || !e.touches[0]) return;
+
+    // If already locked, don't re-evaluate
+    if (this.axisLock) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+
+    const deltaX = Math.abs(currentX - this.startX);
+    const deltaY = Math.abs(currentY - this.startY);
+
+    // Check for horizontal lock
+    if (deltaX > this.AXIS_THRESHOLD && 
+        deltaX > deltaY * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = 'horizontal';
+    }
+    // Check for vertical lock
+    else if (deltaY > this.AXIS_THRESHOLD && 
+             deltaY > deltaX * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = 'vertical';
+    }
+    // Otherwise stay neutral (null)
   }
 
   /**
@@ -233,6 +324,9 @@ class CoordinatedLongPressDetector {
     if (this.isActive) {
       this.coordinator.releaseGesture();
       this.isActive = false;
+      this.axisLock = null;
+      this.startX = 0;
+      this.startY = 0;
     }
   }
 }

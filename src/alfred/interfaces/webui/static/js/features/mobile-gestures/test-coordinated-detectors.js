@@ -158,6 +158,148 @@ test('CoordinatedLongPressDetector uses priority 3', () => {
   detector.destroy();
 });
 
+// Test 4: Axis locking - horizontal lock triggers at 15px X with minimal Y
+test('axis locking - horizontal lock triggers at 15px X with minimal Y', () => {
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at (100, 200)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Simulate touchmove with 20px X, 5px Y (should lock horizontal)
+  element.triggerEvent('touchmove', {
+    type: 'touchmove',
+    touches: [{ clientX: 120, clientY: 205 }],
+    preventDefault: () => {}
+  });
+
+  // Check that axis is locked to horizontal
+  assert(detector.axisLock === 'horizontal', 'Expected axisLock to be horizontal');
+
+  detector.destroy();
+});
+
+// Test 5: Axis locking - vertical lock triggers at 15px Y with minimal X
+test('axis locking - vertical lock triggers at 15px Y with minimal X', () => {
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at (100, 200)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Simulate touchmove with 5px X, 20px Y (should lock vertical)
+  element.triggerEvent('touchmove', {
+    type: 'touchmove',
+    touches: [{ clientX: 105, clientY: 220 }],
+    preventDefault: () => {}
+  });
+
+  // Check that axis is locked to vertical
+  assert(detector.axisLock === 'vertical', 'Expected axisLock to be vertical');
+
+  detector.destroy();
+});
+
+// Test 6: Axis locking - neutral state below 15px threshold
+test('axis locking - neutral state below 15px threshold', () => {
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at (100, 200)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Simulate touchmove with 10px X, 8px Y (below threshold, should stay neutral)
+  element.triggerEvent('touchmove', {
+    type: 'touchmove',
+    touches: [{ clientX: 110, clientY: 208 }],
+    preventDefault: () => {}
+  });
+
+  // Check that axis is still neutral
+  assert(detector.axisLock === null, 'Expected axisLock to be null (neutral)');
+
+  detector.destroy();
+});
+
+// Test 7: Axis locking - cannot switch axis after lock established
+test('axis locking - cannot switch axis after lock established', () => {
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at (100, 200)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // First movement locks horizontal (20px X, 5px Y)
+  element.triggerEvent('touchmove', {
+    type: 'touchmove',
+    touches: [{ clientX: 120, clientY: 205 }],
+    preventDefault: () => {}
+  });
+
+  assert(detector.axisLock === 'horizontal', 'Expected initial lock to be horizontal');
+
+  // Second movement tries to switch to vertical (5px more X, 30px Y)
+  // This should NOT switch the lock
+  element.triggerEvent('touchmove', {
+    type: 'touchmove',
+    touches: [{ clientX: 125, clientY: 235 }],
+    preventDefault: () => {}
+  });
+
+  // Check that axis is still horizontal (lock persisted)
+  assert(detector.axisLock === 'horizontal', 'Expected axisLock to remain horizontal after attempted switch');
+
+  detector.destroy();
+});
+
 // Summary
 console.log('\n-------------------');
 console.log(`Tests passed: ${testsPassed}`);
