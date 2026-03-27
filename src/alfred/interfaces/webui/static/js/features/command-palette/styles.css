@@ -1,0 +1,173 @@
+/**
+ * Command Palette Styles
+ *
+ * Glassmorphism modal with smooth animations.
+ */
+
+.command-palette {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.command-palette-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  animation: palette-fade-in 150ms ease-out;
+}
+
+.command-palette-modal {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  background: var(--bg-primary, #1e1e1e);
+  border: 1px solid var(--border-color, #3e3e3e);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: palette-slide-in 150ms ease-out;
+}
+
+@keyframes palette-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes palette-slide-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Search Input */
+.command-palette-input {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 16px;
+  border: none;
+  border-bottom: 1px solid var(--border-color, #3e3e3e);
+  background: var(--bg-secondary, #252526);
+  color: var(--text-primary, #e0e0e0);
+  outline: none;
+}
+
+.command-palette-input::placeholder {
+  color: var(--text-muted, #808080);
+}
+
+.command-palette-input:focus {
+  background: var(--bg-primary, #1e1e1e);
+}
+
+/* Results Container */
+.command-palette-results-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.command-palette-results {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+
+/* Result Items */
+.command-palette-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background-color 100ms ease;
+  outline: none;
+}
+
+.command-palette-result:hover,
+.command-palette-result.selected {
+  background: var(--bg-hover, #2a2d2e);
+}
+
+.command-palette-result:focus {
+  background: var(--bg-focus, #094771);
+}
+
+.command-palette-result-title {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.command-palette-result-title mark {
+  background: transparent;
+  color: var(--accent-color, #4ec9b0);
+  font-weight: bold;
+}
+
+.command-palette-result-shortcut {
+  font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
+  font-size: 12px;
+  padding: 2px 6px;
+  background: var(--bg-tertiary, #3e3e3e);
+  border: 1px solid var(--border-color, #3e3e3e);
+  border-radius: 4px;
+  color: var(--text-secondary, #bbbbbb);
+}
+
+/* Empty State */
+.command-palette-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted, #808080);
+  font-size: 14px;
+}
+
+/* Scrollbar Styling */
+.command-palette-results-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.command-palette-results-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-palette-results-container::-webkit-scrollbar-thumb {
+  background: var(--border-color, #3e3e3e);
+  border-radius: 4px;
+}
+
+.command-palette-results-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted, #808080);
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .command-palette-backdrop,
+  .command-palette-modal {
+    animation: none;
+  }
+
+  .command-palette-result {
+    transition: none;
+  }
+}
