@@ -117,18 +117,24 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 ---
 
-### Milestone 3: Make message sending and reconnect behavior robust
+### Milestone 3: Make message sending and reconnect behavior robust ✅ COMPLETE
 **Goal**: Ensure messages continue to send correctly across disconnects and reconnects.
 
 **Scope**:
-- Make `connect()` idempotent across open/connecting/closing states
-- Clean up reconnect and lifecycle listeners so repeated connects do not leak handlers
-- Keep queue flushing and resend behavior predictable during transient disconnects
-- Preserve the current WebSocket transport for send operations
+- [x] Make `connect()` idempotent across open/connecting/closing states
+- [x] Clean up reconnect and lifecycle listeners so repeated connects do not leak handlers
+- [x] Keep queue flushing and resend behavior predictable during transient disconnects
+- [x] Preserve the current WebSocket transport for send operations
 
 **Validation**:
-- A transient disconnect does not lose messages or wedge the composer
-- Reconnect behavior remains stable across visibility changes, page restores, and pull-to-refresh
+- [x] A transient disconnect does not lose messages or wedge the composer
+- [x] Reconnect behavior remains stable across visibility changes, page restores, and pull-to-refresh
+
+**Evidence**:
+- Added guards for OPEN, CONNECTING, and CLOSING states in `connect()` method
+- Tracked lifecycle handlers (`_freezeHandler`, `_resumeHandler`, `_pagehideHandler`, `_pageshowHandler`) to prevent duplicate registration
+- Verified `_flushMessageQueue()` is called on connection open
+- Added 8 tests covering idempotency, listener cleanup, and queue behavior
 
 ---
 
@@ -182,7 +188,7 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 - [x] The Web UI no longer depends on `/health` for live runtime status
 - [x] The connection pill and popover accurately reflect WebSocket state
-- [ ] Message sending remains WebSocket-based and survives transient reconnects
+- [x] Message sending remains WebSocket-based and survives transient reconnects
 - [ ] The browser console uses intentional, prefixed debug logging when enabled
 - [ ] Global server logs and Web UI/client logs are independently useful
 - [x] No startup console noise from unhandled protocol messages
