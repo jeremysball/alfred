@@ -300,6 +300,106 @@ test('axis locking - cannot switch axis after lock established', () => {
   detector.destroy();
 });
 
+// Test 8: Edge zone handling - left edge touch does not request lock
+test('edge zone handling - left edge touch does not request lock', () => {
+  // Mock window.innerWidth for the test
+  const originalInnerWidth = global.window.innerWidth;
+  global.window.innerWidth = 400; // Simulate 400px wide viewport
+
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at x=20px (within 40px left edge zone)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 20, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Check that NO gesture lock was requested
+  assert(!coordinator.isGestureActive(), 'Expected no gesture lock for left edge touch');
+
+  detector.destroy();
+
+  // Restore window.innerWidth
+  global.window.innerWidth = originalInnerWidth;
+});
+
+// Test 9: Edge zone handling - right edge touch does not request lock
+test('edge zone handling - right edge touch does not request lock', () => {
+  // Mock window.innerWidth for the test
+  const originalInnerWidth = global.window.innerWidth;
+  global.window.innerWidth = 400; // Simulate 400px wide viewport
+
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at x=380px (within 40px of right edge: 400-380=20px)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 380, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Check that NO gesture lock was requested
+  assert(!coordinator.isGestureActive(), 'Expected no gesture lock for right edge touch');
+
+  detector.destroy();
+
+  // Restore window.innerWidth
+  global.window.innerWidth = originalInnerWidth;
+});
+
+// Test 10: Edge zone handling - safe zone touch requests lock normally
+test('edge zone handling - safe zone touch requests lock normally', () => {
+  // Mock window.innerWidth for the test
+  const originalInnerWidth = global.window.innerWidth;
+  global.window.innerWidth = 400; // Simulate 400px wide viewport
+
+  const element = new MockHTMLElement();
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Simulate touchstart at x=200px (middle of screen, safe zone)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 200, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Check that gesture lock WAS requested
+  assert(coordinator.isGestureActive(), 'Expected gesture lock for safe zone touch');
+  assert(coordinator.isGestureActive('swipe'), 'Expected swipe gesture to be active');
+
+  detector.destroy();
+
+  // Restore window.innerWidth
+  global.window.innerWidth = originalInnerWidth;
+});
+
 // Summary
 console.log('\n-------------------');
 console.log(`Tests passed: ${testsPassed}`);

@@ -8,6 +8,7 @@
 const { GestureCoordinator } = require('./gesture-coordinator.js');
 const { SwipeDetector } = require('./swipe-detector.js');
 const { LongPressDetector } = require('./long-press-detector.js');
+const { isInEdgeZone } = require('./touch-detector.js');
 
 /**
  * CoordinatedSwipeDetector - Wraps SwipeDetector with gesture coordination
@@ -36,6 +37,9 @@ class CoordinatedSwipeDetector {
     this.startY = 0;
     this.AXIS_THRESHOLD = 15;
     this.AXIS_DOMINANCE_RATIO = 1.5;
+
+    // Edge zone margin for browser gesture conflicts
+    this.EDGE_MARGIN = 40; // px
 
     // Create the wrapped detector (don't attach yet)
     this.wrappedDetector = new SwipeDetector({
@@ -91,10 +95,32 @@ class CoordinatedSwipeDetector {
   }
 
   /**
+   * Check if touch is in edge zone (to avoid browser gesture conflicts)
+   * @private
+   * @param {TouchEvent} e - Touch event
+   * @returns {boolean} True if touch is in left/right edge zone
+   */
+  _isInEdgeZone(e) {
+    if (!e.touches || !e.touches[0]) return false;
+
+    const touchX = e.touches[0].clientX;
+    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+
+    // Check left edge OR right edge
+    return touchX < this.EDGE_MARGIN ||
+           touchX > (screenWidth - this.EDGE_MARGIN);
+  }
+
+  /**
    * Handle touchstart - request gesture lock and store start position
    * @private
    */
   _handleTouchStart(e) {
+    // Check edge zone FIRST - let browser handle edge gestures
+    if (this._isInEdgeZone(e)) {
+      return; // Don't request lock, let browser handle back/forward nav
+    }
+
     // Request lock with priority 1 (standard swipe)
     const granted = this.coordinator.requestGesture('swipe', 1, {
       element: this.element
