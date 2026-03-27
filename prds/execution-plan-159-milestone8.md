@@ -378,12 +378,15 @@ src/alfred/interfaces/webui/static/js/features/mobile-gestures/
 ├── long-press-detector.js        # Long press detection (500ms)
 ├── pull-to-refresh.js            # Pull-down refresh detector
 ├── fullscreen-compose.js         # Swipe-up fullscreen composer
-├── gesture-coordinator.js        # Manages multiple gesture handlers
+├── gesture-coordinator.js        # Central gesture coordination singleton
+├── coordinated-detectors.js      # Wrapped detectors with coordination
 ├── styles.css                    # All gesture-related styles
 ├── test-touch-detector.js        # Unit tests
 ├── test-swipe-detector.js        # Unit tests
 ├── test-long-press.js            # Unit tests
 ├── test-pull-to-refresh.js       # Unit tests
+├── test-fullscreen-compose.js    # Unit tests
+├── test-gesture-coordinator.js   # Coordination unit tests
 └── README.md                     # Usage documentation
 ```
 
@@ -409,7 +412,9 @@ Each checkbox = one atomic commit:
 - `test(mobile-gestures): add pull-to-refresh tests`
 - `feat(mobile-gestures): implement pull-to-refresh`
 - `feat(mobile-gestures): implement fullscreen compose`
-- `feat(mobile-gestures): add edge zone conflict resolution`
+- `test(mobile-gestures): add gesture coordinator tests`
+- `feat(mobile-gestures): implement gesture coordinator`
+- `feat(mobile-gestures): add coordinated detectors with axis locking`
 - `feat(mobile-gestures): integrate with main.js`
 
 ## Validation Checklist
@@ -498,6 +503,54 @@ Each checkbox = one atomic commit:
 - **Impact**: Reply gesture is "compose mode" not "quick reply mode". User must explicitly send after reviewing context.
 - **Owner**: Implementation team
 
+### 2026-03-27: Gesture Coordination Architecture (Phase 6)
+
+**Decision**: Use Wrapper Pattern for Gesture Coordination
+- **Context**: 5 gesture systems (swipe-to-reply, long-press, pull-to-refresh, swipe-up compose, swipe-down close) operate independently and can conflict
+- **Rationale**: Wrapper pattern (Option B) adds coordination layer without modifying existing working detectors. Lower risk than invasive changes.
+- **Implementation**: Create `CoordinatedSwipeDetector`, `CoordinatedLongPressDetector` wrappers that use central `GestureCoordinator` singleton
+- **Impact**: New files `gesture-coordinator.js`, `coordinated-detectors.js`, `test-gesture-coordinator.js`; existing 120 tests remain unchanged
+- **Owner**: Implementation team
+
+### 2026-03-27: Axis-Locking Threshold
+
+**Decision**: 15px threshold for horizontal/vertical axis locking
+- **Context**: Need to distinguish horizontal swipes (reply) from vertical (pull/compose)
+- **Options Considered**: 10px (too sensitive), 20px (requires too much movement)
+- **Rationale**: 15px balances responsiveness with accidental trigger prevention. Lock activates when dominant axis > 15px AND dominant > other * 1.5
+- **Implementation**: Coordinated detectors calculate deltaX/deltaY; lock to dominant axis once threshold met
+- **Impact**: Prevents diagonal gestures from triggering wrong action
+- **Owner**: Implementation team
+
+### 2026-03-27: Touch Target Region Definitions
+
+**Decision**: Define clear gesture regions to prevent conflicts
+- **Context**: Gestures overlap in screen space (composer vs message list vs page body)
+- **Regions Defined**:
+  - **Message Items** (`.chat-message`): Swipe-to-reply (right), Long-press
+  - **Composer Input** (`#message-input`): Swipe-up fullscreen
+  - **Fullscreen Modal** (`.fullscreen-compose`): Swipe-down close
+  - **Page Body** (top, scrolled): Pull-to-refresh
+  - **Edge Zones** (x<40px, x>width-40px): Browser gestures only
+- **Rationale**: Explicit regions prevent ambiguity about which gesture should fire
+- **Implementation**: Coordinator uses `element.matches()` to identify regions before granting gesture lock
+- **Impact**: Composer swipe-up won't trigger page pull-to-refresh
+- **Owner**: Implementation team
+
+### 2026-03-27: Gesture Priority Hierarchy
+
+**Decision**: Priority-based gesture resolution with active exclusivity
+- **Context**: Multiple gestures could start simultaneously (e.g., long-press timer running during swipe movement)
+- **Priority Map**: Long-press (3) > Fullscreen/Pulldown (2) > Reply/Pull (1)
+- **Rationale**: Long-press requires intentional 500ms hold, should win over accidental swipes. Once gesture passes threshold, it owns the touch.
+- **Rules**:
+  1. Higher priority can preempt lower priority before threshold
+  2. Once threshold met, gesture owns touch until `touchend`
+  3. Axis lock prevents direction switches after commitment
+- **Implementation**: `GestureCoordinator.requestGesture(type, priority)` checks current lock; `releaseGesture()` clears on `touchend`
+- **Impact**: Predictable gesture behavior, no "fighting" between detectors
+- **Owner**: Implementation team
+
 ### 2025-03-27: Open Questions (Phase 2)
 
 **Question**: Should swipe be disabled when message actions are visible (`.active` class)?
@@ -516,5 +569,5 @@ Each checkbox = one atomic commit:
 
 ---
 
-**Last Updated**: 2025-03-27
-**Updated By**: Design review session (Phase 2 detailed planning)
+**Last Updated**: 2026-03-27
+**Updated By**: Design review session (Phase 6 detailed planning)
