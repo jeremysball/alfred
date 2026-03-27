@@ -138,17 +138,17 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 ---
 
-### Milestone 4: Add intentional debug instrumentation and log policy
+### Milestone 4: Add intentional debug instrumentation and log policy ✅ COMPLETE
 **Goal**: Make failures diagnosable without flooding the console.
 
-**Status**: 80% complete (Phase 4/5 done)
+**Status**: 100% complete (all 5 phases done)
 
 **Phases**:
 - [x] Phase 1: CLI flag plumbing (`--log debug` propagates to server)
 - [x] Phase 2: Browser config verification (`/app-config.js` exposes debug flag)
 - [x] Phase 3: Structured lifecycle logging with `[websocket]` prefix
 - [x] Phase 4: Log policy enforcement (suppress non-prefixed logs in prod)
-- [ ] Phase 5: Ping/pong timing instrumentation
+- [x] Phase 5: Ping/pong timing instrumentation
 
 **Scope**:
 - Wire the Web UI debug flag through CLI startup into browser/client config
@@ -159,7 +159,11 @@ Make the Web UI WebSocket-first for all live runtime state:
 **Evidence**:
 - `alfred --log debug` shows server logs for backend diagnosis
 - `alfred webui --log debug` enables browser/client debug summaries
-- Connection lifecycle logs use `[websocket]` prefix: connect, close, reconnect, queue flush
+- Connection lifecycle logs use `[websocket]` prefix:
+  - Connection: connect, close (with code/reason/clean status)
+  - Reconnect: attempt count with exponential backoff delay
+  - Queue: flush with message count
+  - Ping/pong: round-trip latency in milliseconds
 - All non-prefixed logs gated by `debugEnabled` (14 console.log statements)
 - Consistent `[websocket]` lowercase prefix throughout (fixed `[WebSocket]` in sendCommand)
 - Error logs (`console.error`) remain ungated and always visible
@@ -206,8 +210,8 @@ Make the Web UI WebSocket-first for all live runtime state:
 - [x] The Web UI no longer depends on `/health` for live runtime status
 - [x] The connection pill and popover accurately reflect WebSocket state
 - [x] Message sending remains WebSocket-based and survives transient reconnects
-- [~] The browser console uses intentional, prefixed debug logging when enabled (Phases 3-4 complete, Phase 5 pending)
-- [~] Global server logs and Web UI/client logs are independently useful (Phase 4 complete, Phase 5 pending)
+- [x] The browser console uses intentional, prefixed debug logging when enabled
+- [x] Global server logs and Web UI/client logs are independently useful
 - [x] No startup console noise from unhandled protocol messages
 - [x] `/health` continues to serve readiness and ops monitoring
 
