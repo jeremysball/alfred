@@ -10,43 +10,48 @@ jobs:
   lighthouse:
     name: Lighthouse Audit
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
+      - name: Checkout sibling pypitui
+        uses: actions/checkout@v4
+        with:
+          repository: jeremysball/pypitui
+          ref: v2
+          path: pypitui
+
+      - name: Link sibling pypitui
+        run: ln -sfn "$GITHUB_WORKSPACE/pypitui" "$GITHUB_WORKSPACE/../pypitui"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          
+
       - name: Install dependencies
         run: |
           pip install uv
-          # Create a mock pypitui directory to satisfy the editable dependency
-          mkdir -p ../pypitui
-          echo '[project]' > ../pypitui/pyproject.toml
-          echo 'name = "pypitui"' >> ../pypitui/pyproject.toml
-          echo 'version = "1.0.0"' >> ../pypitui/pyproject.toml
           uv sync
-          
+
       - name: Build static assets (if needed)
         run: |
           # Add any build steps here if needed
           echo "Static assets ready"
-          
+
       - name: Run Lighthouse CI
         run: |
           npm install -g @lhci/cli@0.14.x
           lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
-          
+
       - name: Upload Lighthouse reports
         uses: actions/upload-artifact@v4
         if: always()
