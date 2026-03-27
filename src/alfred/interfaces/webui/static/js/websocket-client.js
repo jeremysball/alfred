@@ -191,7 +191,18 @@ class AlfredWebSocketClient extends EventTarget {
     }
     
     this.visibilityHandler = () => {
-      if (document.visibilityState === 'visible') {
+      const isVisible = document.visibilityState === 'visible';
+
+      // Send visibility state to server
+      this.send({
+        type: 'client.visibility',
+        payload: {
+          isVisible: isVisible,
+          timestamp: Date.now()
+        }
+      });
+
+      if (isVisible) {
         console.log('Page visible, checking WebSocket connection');
         if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) {
           console.log('Reconnecting on visibility change');

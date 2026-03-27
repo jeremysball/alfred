@@ -2666,6 +2666,82 @@ function initContextMenus() {
 }
 
 // ============================================
+// Notifications Initialization (PRD #159)
+// ============================================
+
+function initNotifications() {
+  // Only initialize if libraries are loaded
+  if (typeof window.NotificationsLib === 'undefined') {
+    console.warn('Notifications library not loaded, skipping notifications');
+    return;
+  }
+
+  const {
+    NotificationPermissionManager,
+    NotificationService,
+    FaviconBadge,
+    Toast
+  } = window.NotificationsLib;
+
+  // Initialize permission manager
+  NotificationPermissionManager.init();
+
+  // Initialize favicon badge
+  FaviconBadge.init();
+
+  // Listen for WebSocket response completion
+  window.addEventListener('websocket:message-complete', async (e) => {
+    const { message, preview } = e.detail || {};
+
+    // Only notify if tab is hidden
+    if (!document.hidden) {
+      return;
+    }
+
+    // Increment badge
+    FaviconBadge.increment();
+
+    // Try browser notification
+    const permission = NotificationPermissionManager.getPermission();
+
+    if (permission === 'granted') {
+      await NotificationService.showResponseComplete(preview || message);
+    } else if (permission === 'denied') {
+      // Show in-app toast instead
+      Toast.info('New response from Alfred', { duration: 5000 });
+    }
+    // If permission is 'default', don't show anything (user hasn't decided)
+  });
+
+  // Request permission on first message send
+  const originalSendMessage = window.sendMessage;
+  if (originalSendMessage) {
+    window.sendMessage = async function(...args) {
+      // Request permission if needed
+      if (NotificationPermissionManager.shouldAsk()) {
+        const result = await NotificationPermissionManager.request();
+        if (result === 'denied') {
+          Toast.warning('Notifications denied. Enable in browser settings for background alerts.', {
+            duration: 8000
+          });
+        }
+      }
+      return originalSendMessage.apply(this, args);
+    };
+  }
+
+  console.log('Notifications initialized');
+
+  // Store globally
+  window.alfredNotifications = {
+    permission: NotificationPermissionManager,
+    service: NotificationService,
+    badge: FaviconBadge,
+    toast: Toast
+  };
+}
+
+// ============================================
 // Initialization
 // ============================================
 
@@ -2674,6 +2750,7 @@ function initAll() {
   initCommandPalette();
   initKeyboardShortcuts();
   initContextMenus();
+  initNotifications();
 }
 
 // Initialize when DOM is ready
