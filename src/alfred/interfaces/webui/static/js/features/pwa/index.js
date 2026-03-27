@@ -4,6 +4,7 @@
  */
 
 import { initInstallPrompt, getInstallPrompt, InstallPromptManager } from './install-prompt.js';
+import { initAutoTheme, getThemeManager, ThemeManager } from '../theme/auto-theme.js';
 
 /**
  * Initialize all PWA features
@@ -14,20 +15,26 @@ export function initPWA(options = {}) {
   // Initialize install prompt
   const installManager = initInstallPrompt();
   
+  // Initialize auto-theme
+  const themeManager = initAutoTheme();
+  
   if (options.debug) {
     console.log('[PWA] Initialized', {
       canInstall: installManager.canInstall(),
       isInstalled: installManager.getIsInstalled(),
+      theme: themeManager.getEffectiveTheme(),
     });
   }
   
   return {
     installManager,
+    themeManager,
   };
 }
 
 // Export individual components
 export { initInstallPrompt, getInstallPrompt, InstallPromptManager };
+export { initAutoTheme, getThemeManager, ThemeManager };
 
 // Default export
 export default {
@@ -35,4 +42,7 @@ export default {
   initInstallPrompt,
   getInstallPrompt,
   InstallPromptManager,
+  initAutoTheme,
+  getThemeManager,
+  ThemeManager,
 };
