@@ -10,6 +10,9 @@
 // Import detector utilities
 const { isTouchDevice, isInEdgeZone, shouldHandleTouch } = require('./touch-detector.js');
 const { SwipeDetector } = require('./swipe-detector.js');
+const { LongPressDetector } = require('./long-press-detector.js');
+const { LongPressContextMenu } = require('./long-press-context-menu.js');
+const { SwipeToReply } = require('./swipe-to-reply.js');
 
 /**
  * Gesture configuration constants
@@ -78,8 +81,13 @@ module.exports = {
   shouldHandleTouch,
   shouldEnableGestures,
 
-  // Swipe detection
+  // Gesture detectors
   SwipeDetector,
+  LongPressDetector,
+
+  // Feature implementations
+  SwipeToReply,
+  LongPressContextMenu,
 
   // Initialization
   initializeGestures,

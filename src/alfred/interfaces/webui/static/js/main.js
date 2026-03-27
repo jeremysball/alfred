@@ -1,5 +1,7 @@
 // Alfred Web UI - Main JavaScript
 import { applyThemeContrast } from './utils/contrast.js';
+import { MessageAnimator, TypingIndicator, prefersReducedMotion } from './features/animations/index.js';
+import { ConnectionMonitor, OfflineIndicator } from './features/offline/index.js';
 
 // Mobile Chrome Collapse
 const MOBILE_BREAKPOINT = 768;
@@ -1244,6 +1246,8 @@ function initAlfredUI() {
         disableInput();
         showStreaming();
         scrollToBottom();
+        // Animate message entrance
+        void MessageAnimator.animateEntrance(currentAssistantMessage, 'assistant');
         break;
 
       case 'reasoning.start':
@@ -1360,6 +1364,14 @@ function initAlfredUI() {
 
       case 'toast':
         showToast(msg.payload?.message, msg.payload?.level);
+        break;
+
+      case 'typing.start':
+        showTypingIndicator();
+        break;
+
+      case 'typing.stop':
+        hideTypingIndicator();
         break;
 
       default:
@@ -1570,6 +1582,8 @@ function initAlfredUI() {
       systemMsg.removeAttribute('data-warning');
     }
     messageList.appendChild(systemMsg);
+    // Animate message entrance (use assistant style - fade in only)
+    void MessageAnimator.animateEntrance(systemMsg, 'assistant');
     scrollToBottom();
   }
 
@@ -1715,6 +1729,8 @@ function initAlfredUI() {
     userMessage.setAttribute('message-id', createClientMessageId('user'));
     userMessage.setAttribute('data-session-message', 'true');
     messageList.appendChild(userMessage);
+    // Animate message entrance
+    void MessageAnimator.animateEntrance(userMessage, 'user');
 
     if (currentAssistantMessage) {
       pendingChatSendRequest = { content: cleanContent };
@@ -1907,6 +1923,28 @@ function initAlfredUI() {
       toastContainer.show(message, level, 5000);
     } else {
       console.log(`[${level?.toUpperCase() || 'INFO'}] ${message}`);
+    }
+  }
+
+  // Typing Indicator
+  let typingIndicatorElement = null;
+
+  function showTypingIndicator() {
+    // Don't show if already visible
+    if (typingIndicatorElement) return;
+
+    // Don't show if there's already an assistant message
+    if (currentAssistantMessage) return;
+
+    typingIndicatorElement = TypingIndicator.create();
+    messageList.appendChild(typingIndicatorElement);
+    scrollToBottom();
+  }
+
+  function hideTypingIndicator() {
+    if (typingIndicatorElement) {
+      typingIndicatorElement.remove();
+      typingIndicatorElement = null;
     }
   }
 
@@ -2936,6 +2974,83 @@ function initAll() {
   initContextMenus();
   initNotifications();
   initDragDrop();
+  initOffline();
+  registerServiceWorker();
+}
+
+/**
+ * Initialize offline features (connection monitor and indicator)
+ */
+function initOffline() {
+  // Create offline indicator element if it doesn't exist
+  let offlineIndicator = document.getElementById('offline-indicator');
+  if (!offlineIndicator) {
+    offlineIndicator = document.createElement('offline-indicator');
+    offlineIndicator.id = 'offline-indicator';
+    document.body.appendChild(offlineIndicator);
+  }
+
+  // Initialize connection monitor
+  const monitor = new ConnectionMonitor();
+
+  // Listen for connection state changes
+  monitor.addEventListener('statechange', (event) => {
+    const { state, previousState } = event.detail;
+
+    // Update offline indicator
+    if (offlineIndicator) {
+      offlineIndicator.setAttribute('state', state);
+    }
+
+    // Log for debugging
+    console.log(`[Connection] ${previousState} → ${state}`);
+  });
+
+  // Track WebSocket state
+  monitor.trackWebSocket(wsClient);
+
+  // Expose for debugging
+  window.__alfredConnectionMonitor = monitor;
+}
+
+/**
+ * Register Service Worker for offline support
+ */
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    console.log('[SW] Service Worker not supported');
+    return;
+  }
+
+  navigator.serviceWorker.register('/static/service-worker.js', {
+    scope: '/'
+  })
+    .then((registration) => {
+      console.log('[SW] Registered:', registration.scope);
+
+      // Handle updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        console.log('[SW] New version found');
+
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // New version available, show update notification
+            showToast('Update available. Refresh to apply.', 'info');
+          }
+        });
+      });
+    })
+    .catch((error) => {
+      console.error('[SW] Registration failed:', error);
+    });
+
+  // Listen for messages from SW
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'SW_ACTIVATED') {
+      console.log('[SW] Activated and controlling');
+    }
+  });
 }
 
 // Initialize when DOM is ready

@@ -1,0 +1,149 @@
+/**
+ * Offline Indicator Styles
+ *
+ * Glassmorphism design matching other UI components
+ */
+
+offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.offline-indicator {
+  pointer-events: auto;
+  padding: 12px 16px;
+  background: var(--glass-bg, rgba(30, 30, 30, 0.85));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(0);
+  transition: transform 300ms cubic-bezier(0.4, 0.0, 0.2, 1),
+              opacity 200ms ease-out;
+  animation: slideDown 300ms cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* State-specific styles */
+.offline-indicator.offline {
+  background: var(--offline-bg, rgba(180, 50, 50, 0.9));
+}
+
+.offline-indicator.reconnecting {
+  background: var(--reconnecting-bg, rgba(200, 150, 50, 0.9));
+}
+
+.offline-indicator__content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.offline-indicator__icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.offline-indicator__icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.offline-indicator__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+}
+
+.offline-indicator__message {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary, #fff);
+}
+
+.offline-indicator__sub {
+  font-size: 12px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+}
+
+.offline-indicator__retry {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #fff);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+}
+
+.offline-indicator__retry:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.offline-indicator__retry:active {
+  transform: scale(0.95);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .offline-indicator {
+    animation: none;
+    transition: none;
+  }
+
+  .offline-indicator__icon.spinning {
+    animation: none;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .offline-indicator {
+    padding: 10px 12px;
+  }
+
+  .offline-indicator__content {
+    gap: 8px;
+  }
+
+  .offline-indicator__icon {
+    font-size: 18px;
+  }
+
+  .offline-indicator__message {
+    font-size: 13px;
+  }
+
+  .offline-indicator__sub {
+    font-size: 11px;
+  }
+
+  .offline-indicator__retry {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}

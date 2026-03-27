@@ -321,25 +321,73 @@ monitor.addEventListener('statechange', ({detail}) => {
 ### Milestone 8: Mobile Gestures ⏳ IN PROGRESS
 **Goal**: Touch-friendly interactions for mobile users
 
-**Status**: Phase 1 Complete (Foundation)
+**Status**: Phase 1, 2 & 3 Complete (Foundation + Swipe-to-Reply + Long Press Context Menu)
 
 **Implemented (Phase 1)**:
 - [x] Touch device detection (ontouchstart, maxTouchPoints, pointer:coarse)
 - [x] Edge zone utilities (40px margin for browser conflict protection)
 - [x] Swipe detector class with passive event listeners
 - [x] Module exports and initialization infrastructure
-- [x] All 25 unit tests passing (touch-detector: 7, swipe-detector: 8, index: 10)
+- [x] All 15 unit tests passing (touch-detector: 7, swipe-detector: 8)
 
-**Pending (Phase 2-4)**:
-- [ ] Swipe right on message = reply (disabled in 40px edge zone)
-- [ ] Long press = context menu (500ms threshold)
-- [ ] Pull down to refresh/reconnect (only from top of scroll)
-- [ ] Swipe up on input = fullscreen compose
+**Implemented (Phase 2) - Swipe-to-Reply**:
+- [x] `SwipeToReply` class with 80px threshold, right-swipe only
+- [x] `attachToMessage()` - creates SwipeDetector per message
+- [x] `attachToAllMessages()` - batch attachment with container selector
+- [x] Visual feedback: CSS transform (translateX), 20px icon threshold, 85% opacity
+- [x] Snap-back animation on insufficient swipe (300ms cubic-bezier)
+- [x] Haptic feedback: 10ms on start, [20, 30, 20] pattern on reply
+- [x] MutationObserver for dynamic message attachment
+- [x] Lifecycle: `detachFromMessage()`, `destroy()` with full cleanup
+- [x] All 15 unit tests passing (test-swipe-to-reply.js)
+
+**Files Created (Phase 2)**:
+- `features/mobile-gestures/swipe-to-reply.js` - SwipeToReply class
+- `features/mobile-gestures/test-swipe-to-reply.js` - 15 tests
+
+**Phase 2 Design Decisions** (see `execution-plan-159-milestone5-touch-gestures.md`):
+- **Threshold**: 80px (tuned for mobile comfort)
+- **Direction**: Right swipe only (consistent with iOS/Android)
+- **Transform**: `translateX()` for 60fps GPU acceleration
+- **Icon**: Reply arrow (↩️) fades in at 20px, fully visible at 80px
+- **Snap-back**: 300ms cubic-bezier(0.4, 0.0, 0.2, 1) Material Design standard
+- **Haptic**: Light tap on start, stronger pattern on success (progressive enhancement)
+
+**Implemented (Phase 3) - Long Press Context Menu**:
+- [x] `LongPressDetector` class with 500ms threshold, 10px movement tolerance
+- [x] `LongPressContextMenu` integration class for message context menus
+- [x] Visual feedback: scale (0.98) and opacity (0.95) at 200ms
+- [x] Haptic feedback: 5ms tap at visual feedback point
+- [x] Exclude selectors: buttons, links, inputs, textareas, contenteditable
+- [x] Movement tolerance to distinguish from swipe (10px default)
+- [x] MutationObserver for dynamic message attachment
+- [x] Lifecycle: `detachFromElement()`, `destroy()` with full cleanup
+- [x] All 32 unit tests passing (LongPressDetector: 16, LongPressContextMenu: 16)
+
+**Files Created (Phase 3)**:
+- `features/mobile-gestures/long-press-detector.js` - LongPressDetector class
+- `features/mobile-gestures/long-press-context-menu.js` - Context menu integration
+- `features/mobile-gestures/test-long-press-detector.js` - 16 tests
+- `features/mobile-gestures/test-long-press-context-menu.js` - 16 tests
+
+**Phase 3 Design Decisions**:
+- **Threshold**: 500ms (standard mobile context menu timing)
+- **Movement Tolerance**: 10px (prevents accidental cancel on slight finger drift)
+- **Visual Feedback**: Subtle scale (0.98) + opacity (0.95) after 200ms
+- **Exclude Elements**: Links, buttons, inputs (avoids conflicts with native behavior)
+- **Integration**: Direct callback or fallback to global `MessageContextMenu`
+- **Haptic**: Light tap at feedback point, optional pattern on success
+
+**Pending (Phase 4)**:
+- [ ] Pull down to refresh/reconnect (only from top of scroll, 80px threshold)
+- [ ] Swipe up on input = fullscreen compose (120px threshold)
 - [ ] Pinch to zoom on images (when implemented)
 
 **Files Created**:
 - `features/mobile-gestures/touch-detector.js` - Device detection, edge zone checking
 - `features/mobile-gestures/swipe-detector.js` - Swipe detection with callbacks
+- `features/mobile-gestures/long-press-detector.js` - Long press detection class
+- `features/mobile-gestures/long-press-context-menu.js` - Context menu integration
 - `features/mobile-gestures/index.js` - Module exports, GESTURE_CONFIG, initializeGestures()
 
 **Gesture Conflict Mitigation**:
@@ -361,9 +409,13 @@ function handleTouchStart(e) {
 - [x] Edge zone filtering prevents gestures within 40px of edges
 - [x] Swipe detection calculates direction, distance, and validity
 - [x] Passive event listeners for scroll performance
-- [ ] Swipe right on message shows "Reply" action
-- [ ] Swipe from left edge (<40px) triggers browser back (not reply)
-- [ ] Long press shows context menu after 500ms
+- [x] Swipe-to-Reply: 80px threshold triggers onReply callback
+- [x] Swipe-to-Reply: Visual feedback (transform, opacity, icon)
+- [x] Swipe-to-Reply: Snap-back on insufficient swipe
+- [x] Swipe-to-Reply: Haptic feedback (navigator.vibrate)
+- [x] Swipe-to-Reply: MutationObserver for dynamic messages
+- [x] Swipe from left edge (<40px) triggers browser back (not reply)
+- [x] Long press shows context menu after 500ms
 - [ ] Pull down triggers reconnect (only when scrolled to top)
 - [ ] Tested on Safari iOS, Chrome Android
 
@@ -482,12 +534,14 @@ src/alfred/interfaces/webui/static/js/
 │   │   ├── offline-indicator.js  # Connection status banner
 │   │   ├── styles.css            # Glassmorphism styles
 │   │   └── index.js              # Module exports
-│   └── mobile-gestures/      ⏳ PARTIAL (Phase 1)
+│   └── mobile-gestures/      ✅ PHASE 2 COMPLETE
 │       ├── touch-detector.js     # Device detection, edge zone
 │       ├── swipe-detector.js     # Swipe detection with callbacks
+│       ├── swipe-to-reply.js     # Swipe-to-reply feature (Phase 2)
 │       ├── index.js              # Module exports, initializeGestures()
 │       ├── test-touch-detector.js    # 7 unit tests
 │       ├── test-swipe-detector.js    # 8 unit tests
+│       ├── test-swipe-to-reply.js    # 15 unit tests (Phase 2)
 │       └── test-index.js             # 10 unit tests
 
 **PLANNED (Not Yet Implemented):**
@@ -747,6 +801,8 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply complete: `SwipeToReply` class with 80px threshold, right-swipe only, CSS transform visual feedback, haptic feedback, MutationObserver for dynamic messages. 15 tests. Files: `swipe-to-reply.js`, `test-swipe-to-reply.js`. See `execution-plan-159-milestone5-touch-gestures.md` for full API. |
+| 2026-03-27 | **DESIGNED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply architecture finalized: MutationObserver for dynamic attachment, CSS transform feedback with `--swipe-offset`/`--swipe-progress`, right-swipe only (100px threshold), markdown blockquote reply format. Composer integration: populate input, focus, position cursor. See `execution-plan-159-milestone5-touch-gestures.md` Decision Log. |
 | 2026-03-27 | **PARTIAL**: Milestone 8 - Mobile Gestures (Phase 1) | Foundation layer complete: touch-detector.js (device detection, 40px edge zone), swipe-detector.js (direction/distance/progress), index.js (module exports, 25 tests). Phases 2-4 pending: swipe-to-reply, long-press, pull-to-refresh. Passive listeners for scroll performance. See `features/mobile-gestures/`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 7 - Service Worker & Offline Support | Static asset caching via service worker, ConnectionMonitor for WebSocket state, glassmorphism offline indicator. Cache-first strategy, versioned caches, offline HTML fallback. Message queuing deferred. See `service-worker.js` and `features/offline/`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 6 - Enhanced Animations | GPU-accelerated animations (transform/opacity only). Message entrance, button press, smooth scroll, skeleton loading, typing indicator, tool call progress. Reduced motion support. See `features/animations/`. |

@@ -101,6 +101,13 @@ class ToolCall extends HTMLElement {
     // Build arguments summary for the button
     const argsSummary = this._buildArgsSummary();
 
+    // Add progress bar for running state
+    const progressBar = this._status === 'running' ? `
+      <div class="tool-call-progress">
+        <div class="tool-call-progress__bar tool-call-progress__bar--indeterminate"></div>
+      </div>
+    ` : '';
+
     this.innerHTML = `
       <div class="tool-call ${statusClass} ${expandedClass}">
         <button class="tool-button" type="button" aria-expanded="${this._expanded}">
@@ -109,6 +116,7 @@ class ToolCall extends HTMLElement {
           ${argsSummary ? `<span class="tool-args">${this._escapeHtml(argsSummary)}</span>` : ''}
           <span class="tool-toggle">${this._expanded ? '-' : '+'}</span>
         </button>
+        ${progressBar}
         ${this._expanded ? `
           <div class="tool-details">
             ${this._renderArguments()}
