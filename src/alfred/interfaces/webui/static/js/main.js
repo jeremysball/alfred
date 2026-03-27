@@ -2742,6 +2742,190 @@ function initNotifications() {
 }
 
 // ============================================
+// Drag & Drop Initialization (PRD #159)
+// ============================================
+
+function initDragDrop() {
+  // Only initialize if libraries are loaded
+  if (typeof window.DragDropLib === 'undefined') {
+    console.warn('Drag-drop library not loaded, skipping drag-drop');
+    return;
+  }
+
+  const { DragDropManager, FileValidation, ImageCompression, FileUpload, ClipboardHandler, DropZoneVisual } = window.DragDropLib;
+
+  // Find chat container
+  const chatContainer = document.getElementById('chat-container') || document.getElementById('message-list');
+  if (!chatContainer) {
+    console.warn('Chat container not found, drag-drop disabled');
+    return;
+  }
+
+  // Create visual feedback
+  const visual = new DropZoneVisual(chatContainer);
+
+  // Create drag-drop manager
+  const manager = new DragDropManager();
+
+  manager.onDragEnter = () => {
+    visual.show();
+  };
+
+  manager.onDragLeave = () => {
+    visual.hide();
+  };
+
+  manager.onFilesDropped = async (files) => {
+    visual.hide();
+
+    // Validate files
+    const { valid, invalid } = FileValidation.validateFiles(files);
+
+    // Show errors for invalid files
+    invalid.forEach(({ file, error }) => {
+      console.warn('Invalid file:', file.name, error);
+      if (window.NotificationsLib?.Toast) {
+        window.NotificationsLib.Toast.error(error);
+      }
+    });
+
+    if (valid.length === 0) return;
+
+    // Get WebSocket client
+    const wsClient = window.alfredWebSocketClient;
+    if (!wsClient) {
+      console.error('WebSocket client not available');
+      if (window.NotificationsLib?.Toast) {
+        window.NotificationsLib.Toast.error('Cannot upload: not connected to server');
+      }
+      return;
+    }
+
+    // Process and upload each file
+    for (const file of valid) {
+      try {
+        // Show progress toast
+        const progressToast = window.NotificationsLib?.Toast
+          ? window.NotificationsLib.Toast.info(`Uploading ${file.name}...`, { duration: 60000 })
+          : null;
+
+        // Compress images if needed
+        const processedFile = await ImageCompression.compressToFile(file);
+
+        // Upload
+        const result = await FileUpload.uploadFile(processedFile, wsClient);
+
+        // Show success
+        if (window.NotificationsLib?.Toast) {
+          if (progressToast) progressToast.dismiss?.();
+          window.NotificationsLib.Toast.success(`${file.name} uploaded`);
+        }
+
+        console.log('Upload started:', result);
+
+      } catch (error) {
+        console.error('Upload failed:', file.name, error);
+        if (window.NotificationsLib?.Toast) {
+          window.NotificationsLib.Toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        }
+      }
+    }
+  };
+
+  // Attach to chat container
+  manager.attachToElement(chatContainer);
+
+  // Set up clipboard paste
+  ClipboardHandler.onPaste = async (files) => {
+    // Same validation and upload logic as drag-drop
+    const { valid, invalid } = FileValidation.validateFiles(files);
+
+    invalid.forEach(({ error }) => {
+      if (window.NotificationsLib?.Toast) {
+        window.NotificationsLib.Toast.error(error);
+      }
+    });
+
+    if (valid.length === 0) return;
+
+    const wsClient = window.alfredWebSocketClient;
+    if (!wsClient) {
+      if (window.NotificationsLib?.Toast) {
+        window.NotificationsLib.Toast.error('Cannot upload: not connected to server');
+      }
+      return;
+    }
+
+    for (const file of valid) {
+      try {
+        const processedFile = await ImageCompression.compressToFile(file);
+        await FileUpload.uploadFile(processedFile, wsClient);
+        if (window.NotificationsLib?.Toast) {
+          window.NotificationsLib.Toast.success(`${file.name} uploaded`);
+        }
+      } catch (error) {
+        if (window.NotificationsLib?.Toast) {
+          window.NotificationsLib.Toast.error(`Failed to upload ${file.name}`);
+        }
+      }
+    }
+  };
+
+  ClipboardHandler.attach();
+
+  // Handle server responses
+  const originalOnMessage = wsClient.onmessage;
+  wsClient.addEventListener('message', (event) => {
+    const message = event.detail || event.data;
+    if (typeof message === 'object' && message.type === 'file.received') {
+      const result = FileUpload.handleResponse(message);
+      if (result) {
+        if (result.status === 'accepted') {
+          if (window.NotificationsLib?.Toast) {
+            window.NotificationsLib.Toast.success(`${result.file.name} ready`);
+          }
+        } else {
+          if (window.NotificationsLib?.Toast) {
+            window.NotificationsLib.Toast.error(`Upload failed: ${result.reason}`);
+          }
+        }
+      }
+    }
+  });
+
+  // Register upload command in palette
+  if (window.registerCommand) {
+    window.registerCommand({
+      id: 'upload-file',
+      title: 'Upload File',
+      keywords: ['upload', 'file', 'attach', 'image'],
+      action: () => {
+        // Create hidden file input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = FileValidation.ALLOWED_MIME_TYPES.join(',');
+        input.onchange = (e) => {
+          if (e.target.files.length > 0) {
+            manager.onFilesDropped?.(Array.from(e.target.files));
+          }
+        };
+        input.click();
+      }
+    });
+  }
+
+  console.log('Drag-drop initialized');
+
+  // Store globally
+  window.alfredDragDrop = {
+    manager,
+    visual,
+    clipboard: ClipboardHandler,
+  };
+}
+
+// ============================================
 // Initialization
 // ============================================
 
@@ -2751,6 +2935,7 @@ function initAll() {
   initKeyboardShortcuts();
   initContextMenus();
   initNotifications();
+  initDragDrop();
 }
 
 // Initialize when DOM is ready
