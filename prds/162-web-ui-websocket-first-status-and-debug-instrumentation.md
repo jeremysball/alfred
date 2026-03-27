@@ -102,18 +102,18 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 ---
 
-### Milestone 2: Drive the connection pill and popover from WebSocket state
+### Milestone 2: Drive the connection pill and popover from WebSocket state ✅ COMPLETE
 **Goal**: Make the visible connection status accurate and responsive.
 
 **Scope**:
-- Update the connection pill for connected, disconnected, and reconnecting states
-- Render the popover from the WebSocket snapshot and daemon snapshot data
-- Remove runtime dependency on HTTP health hydration from the Web UI
-- Keep `/health` available for ops/readiness use
+- [x] Update the connection pill for connected, disconnected, and reconnecting states
+- [x] Render the popover from the WebSocket snapshot and daemon snapshot data
+- [x] Remove runtime dependency on HTTP health hydration from the Web UI
+- [x] Keep `/health` available for ops/readiness use
 
 **Validation**:
-- The pill and popover match the actual socket state in desktop and mobile layouts
-- The popover still shows daemon and keepalive details while the app remains WebSocket-first
+- [x] The pill and popover match the actual socket state in desktop and mobile layouts
+- [x] The popover still shows daemon and keepalive details while the app remains WebSocket-first
 
 ---
 
@@ -180,13 +180,13 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 ## Success Criteria
 
-- [ ] The Web UI no longer depends on `/health` for live runtime status
-- [ ] The connection pill and popover accurately reflect WebSocket state
+- [x] The Web UI no longer depends on `/health` for live runtime status
+- [x] The connection pill and popover accurately reflect WebSocket state
 - [ ] Message sending remains WebSocket-based and survives transient reconnects
 - [ ] The browser console uses intentional, prefixed debug logging when enabled
 - [ ] Global server logs and Web UI/client logs are independently useful
 - [x] No startup console noise from unhandled protocol messages
-- [ ] `/health` continues to serve readiness and ops monitoring
+- [x] `/health` continues to serve readiness and ops monitoring
 
 ---
 
