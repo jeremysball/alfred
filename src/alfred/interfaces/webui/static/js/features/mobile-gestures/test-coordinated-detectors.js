@@ -654,6 +654,90 @@ test('multi-gesture - touchcancel releases gesture lock', () => {
   detector.destroy();
 });
 
+// Import region functions for testing
+const { getRegionForElement, REGIONS } = require('./coordinated-detectors.js');
+
+// Test 17: Region-based coordination - getRegionForElement returns correct region
+test('region coordination - getRegionForElement identifies message region', () => {
+  // Create element that simulates .chat-message
+  const messageElement = new MockHTMLElement('div');
+  messageElement._attributes.class = 'chat-message';
+  messageElement.matches = function(selector) {
+    return this._attributes.class?.includes(selector.replace('.', '')) || false;
+  };
+  messageElement.closest = function() { return null; };
+
+  const region = getRegionForElement(messageElement);
+  assert(region === 'message', `Expected region 'message', got '${region}'`);
+});
+
+// Test 18: Region-based coordination - composer region detected
+test('region coordination - getRegionForElement identifies composer region', () => {
+  // Create element that simulates #message-input
+  const composerElement = new MockHTMLElement('input');
+  composerElement._attributes.id = 'message-input';
+  composerElement.matches = function(selector) {
+    if (selector.startsWith('#')) {
+      return this._attributes.id === selector.replace('#', '');
+    }
+    return this._attributes.class?.includes(selector.replace('.', '')) || false;
+  };
+  composerElement.closest = function() { return null; };
+
+  const region = getRegionForElement(composerElement);
+  assert(region === 'composer', `Expected region 'composer', got '${region}'`);
+});
+
+// Test 19: Region-based coordination - region info stored in gesture lock
+test('region coordination - region info stored in gesture metadata', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  // Create element that simulates .chat-message
+  const messageElement = new MockHTMLElement('div');
+  messageElement._attributes.class = 'chat-message';
+  messageElement.matches = function(selector) {
+    return this._attributes.class?.includes(selector.replace('.', '')) || false;
+  };
+  messageElement.closest = function() { return null; };
+
+  const detector = new CoordinatedSwipeDetector(messageElement, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Start gesture on message element
+  messageElement.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Verify gesture is active with region info
+  assert(coordinator.isGestureActive('swipe'), 'Expected swipe gesture to be active');
+  
+  const activeGesture = coordinator.getActiveGesture();
+  assert(activeGesture !== null, 'Expected active gesture info');
+  assert(activeGesture.region === 'message', `Expected region 'message', got '${activeGesture.region}'`);
+  assert(detector.currentRegion === 'message', `Expected detector currentRegion to be 'message'`);
+
+  detector.destroy();
+});
+
+// Test 20: Region-based coordination - default region for unknown elements
+test('region coordination - default region for unknown elements', () => {
+  // Create element with no matching region
+  const unknownElement = new MockHTMLElement('div');
+  unknownElement._attributes.class = 'some-random-class';
+  unknownElement.matches = function() { return false; };
+  unknownElement.closest = function() { return null; };
+
+  const region = getRegionForElement(unknownElement);
+  assert(region === 'default', `Expected region 'default', got '${region}'`);
+});
+
 // Summary
 console.log('\n-------------------');
 console.log(`Tests passed: ${testsPassed}`);

@@ -11,6 +11,43 @@ const { LongPressDetector } = require('./long-press-detector.js');
 const { isInEdgeZone } = require('./touch-detector.js');
 
 /**
+ * Region definitions for gesture coordination
+ * Maps CSS selectors to region names
+ */
+const REGIONS = {
+  MESSAGE: '.chat-message',      // Swipe-to-reply, long-press
+  COMPOSER: '#message-input',     // Swipe-up fullscreen
+  MODAL: '.fullscreen-compose',   // Swipe-down close, isolated gestures
+  MESSAGE_LIST: '.message-list',  // Pull-to-refresh
+  DEFAULT: 'default'              // Fallback
+};
+
+/**
+ * Get the region for a given element
+ * @param {HTMLElement} element - Element to check
+ * @returns {string} Region name
+ */
+function getRegionForElement(element) {
+  if (!element) return REGIONS.DEFAULT;
+
+  // Check if element matches or is within a region
+  if (element.matches?.(REGIONS.MESSAGE) || element.closest?.(REGIONS.MESSAGE)) {
+    return 'message';
+  }
+  if (element.matches?.(REGIONS.COMPOSER) || element.closest?.(REGIONS.COMPOSER)) {
+    return 'composer';
+  }
+  if (element.matches?.(REGIONS.MODAL) || element.closest?.(REGIONS.MODAL)) {
+    return 'modal';
+  }
+  if (element.matches?.(REGIONS.MESSAGE_LIST) || element.closest?.(REGIONS.MESSAGE_LIST)) {
+    return 'message-list';
+  }
+
+  return REGIONS.DEFAULT;
+}
+
+/**
  * CoordinatedSwipeDetector - Wraps SwipeDetector with gesture coordination
  *
  * Requests a gesture lock from the coordinator before starting swipe detection.
@@ -40,6 +77,9 @@ class CoordinatedSwipeDetector {
 
     // Edge zone margin for browser gesture conflicts
     this.EDGE_MARGIN = 40; // px
+
+    // Region tracking for context-aware gestures
+    this.currentRegion = null;
 
     // Create the wrapped detector (don't attach yet)
     this.wrappedDetector = new SwipeDetector({
@@ -121,13 +161,18 @@ class CoordinatedSwipeDetector {
       return; // Don't request lock, let browser handle back/forward nav
     }
 
-    // Request lock with priority 1 (standard swipe)
+    // Get region for context-aware gesture coordination
+    const region = getRegionForElement(this.element);
+
+    // Request lock with priority 1 (standard swipe) and region info
     const granted = this.coordinator.requestGesture('swipe', 1, {
-      element: this.element
+      element: this.element,
+      region: region
     });
 
     if (granted) {
       this.isActive = true;
+      this.currentRegion = region;
       // Store start position for axis locking
       if (e.touches && e.touches[0]) {
         this.startX = e.touches[0].clientX;
@@ -190,6 +235,7 @@ class CoordinatedSwipeDetector {
       this.coordinator.releaseGesture();
       this.isActive = false;
       this.axisLock = null;
+      this.currentRegion = null;
       this.startX = 0;
       this.startY = 0;
     }
@@ -223,6 +269,9 @@ class CoordinatedLongPressDetector {
     this.startY = 0;
     this.AXIS_THRESHOLD = 15;
     this.AXIS_DOMINANCE_RATIO = 1.5;
+
+    // Region tracking for context-aware gestures
+    this.currentRegion = null;
 
     // Create the wrapped detector (don't attach yet)
     this.wrappedDetector = new LongPressDetector({
@@ -282,13 +331,18 @@ class CoordinatedLongPressDetector {
    * @private
    */
   _handleTouchStart(e) {
-    // Request lock with priority 3 (highest - intentional long press)
+    // Get region for context-aware gesture coordination
+    const region = getRegionForElement(this.element);
+
+    // Request lock with priority 3 (highest - intentional long press) and region info
     const granted = this.coordinator.requestGesture('longpress', 3, {
-      element: this.element
+      element: this.element,
+      region: region
     });
 
     if (granted) {
       this.isActive = true;
+      this.currentRegion = region;
       // Store start position for axis locking
       if (e.touches && e.touches[0]) {
         this.startX = e.touches[0].clientX;
@@ -351,6 +405,7 @@ class CoordinatedLongPressDetector {
       this.coordinator.releaseGesture();
       this.isActive = false;
       this.axisLock = null;
+      this.currentRegion = null;
       this.startX = 0;
       this.startY = 0;
     }
@@ -362,6 +417,8 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     CoordinatedSwipeDetector,
     CoordinatedLongPressDetector,
+    getRegionForElement,
+    REGIONS,
   };
 }
 
@@ -369,5 +426,7 @@ if (typeof window !== 'undefined') {
   window.CoordinatedDetectors = {
     CoordinatedSwipeDetector,
     CoordinatedLongPressDetector,
+    getRegionForElement,
+    REGIONS,
   };
 }

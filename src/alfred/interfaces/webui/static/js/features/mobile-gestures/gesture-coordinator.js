@@ -38,6 +38,7 @@ class GestureCoordinator {
    * @param {number} priority - Priority level (higher = more important)
    * @param {Object} options - Additional options
    * @param {HTMLElement} options.element - Target element
+   * @param {string} options.region - UI region identifier
    * @returns {boolean} True if lock granted, false if denied
    */
   requestGesture(type, priority = 1, options = {}) {
@@ -47,7 +48,8 @@ class GestureCoordinator {
         type,
         priority,
         startTime: Date.now(),
-        element: options.element || null
+        element: options.element || null,
+        region: options.region || 'default'
       };
       return true;
     }
@@ -56,6 +58,7 @@ class GestureCoordinator {
     if (this.activeGesture.type === type) {
       this.activeGesture.startTime = Date.now();
       this.activeGesture.element = options.element || null;
+      this.activeGesture.region = options.region || 'default';
       return true;
     }
 
@@ -65,7 +68,8 @@ class GestureCoordinator {
         type,
         priority,
         startTime: Date.now(),
-        element: options.element || null
+        element: options.element || null,
+        region: options.region || 'default'
       };
       return true;
     }
