@@ -120,17 +120,23 @@ class AlfredWebSocketClient extends EventTarget {
   connect() {
     // Idempotent connect: guard against all active states
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
+      if (this.debugEnabled) {
+        console.log('[websocket] Already connected');
+      }
       return;
     }
 
     if (this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log('WebSocket connection in progress');
+      if (this.debugEnabled) {
+        console.log('[websocket] Connection in progress');
+      }
       return;
     }
 
     if (this.ws?.readyState === WebSocket.CLOSING) {
-      console.log('WebSocket is closing, will reconnect when closed');
+      if (this.debugEnabled) {
+        console.log('[websocket] Closing, will reconnect when closed');
+      }
       return;
     }
 
@@ -138,7 +144,9 @@ class AlfredWebSocketClient extends EventTarget {
       this.debugStats = new WebSocketDebugStats();
     }
 
-    console.log('Connecting to WebSocket:', this.url);
+    if (this.debugEnabled) {
+      console.log('[websocket] Connecting to:', this.url);
+    }
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = (event) => {
@@ -244,9 +252,13 @@ class AlfredWebSocketClient extends EventTarget {
       });
 
       if (isVisible) {
-        console.log('Page visible, checking WebSocket connection');
+        if (this.debugEnabled) {
+          console.log('[websocket] Page visible, checking connection');
+        }
         if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) {
-          console.log('Reconnecting on visibility change');
+          if (this.debugEnabled) {
+            console.log('[websocket] Reconnecting on visibility change');
+          }
           this.reconnectAttempts = 0; // Reset for user-initiated reconnect
           this.connect();
         }
@@ -262,11 +274,15 @@ class AlfredWebSocketClient extends EventTarget {
     // Page Lifecycle API for more granular control (Chrome/Android)
     if ('onfreeze' in document) {
       this._freezeHandler = () => {
-        console.log('Page frozen by OS');
+        if (this.debugEnabled) {
+          console.log('[websocket] Page frozen by OS');
+        }
         this._stopPing();
       };
       this._resumeHandler = () => {
-        console.log('Page resumed from frozen state');
+        if (this.debugEnabled) {
+          console.log('[websocket] Page resumed from frozen state');
+        }
         this.reconnectAttempts = 0;
         this.connect();
       };
@@ -278,14 +294,18 @@ class AlfredWebSocketClient extends EventTarget {
     this._pagehideHandler = (e) => {
       if (e.persisted) {
         // Page is going into bfcache - connection will be suspended
-        console.log('Page entering bfcache');
+        if (this.debugEnabled) {
+          console.log('[websocket] Page entering bfcache');
+        }
         this._stopPing();
       }
     };
     this._pageshowHandler = (e) => {
       if (e.persisted) {
         // Page restored from bfcache - connection is dead, reconnect
-        console.log('Page restored from bfcache, reconnecting');
+        if (this.debugEnabled) {
+          console.log('[websocket] Page restored from bfcache, reconnecting');
+        }
         this.reconnectAttempts = 0;
         this.connect();
       }
@@ -326,7 +346,9 @@ class AlfredWebSocketClient extends EventTarget {
         }
         // Expect pong within timeout window
         this.pingTimeout = setTimeout(() => {
-          console.log('Ping timeout, closing connection');
+          if (this.debugEnabled) {
+            console.log('[websocket] Ping timeout, closing connection');
+          }
           this.ws?.close();
         }, pongTimeoutMs);
       }
@@ -334,14 +356,18 @@ class AlfredWebSocketClient extends EventTarget {
     
     // Listen for online/offline events
     this._onlineHandler = () => {
-      console.log('Network online');
+      if (this.debugEnabled) {
+        console.log('[websocket] Network online');
+      }
       if (!this.isConnected) {
         this.reconnectAttempts = 0;
         this.connect();
       }
     };
     this._offlineHandler = () => {
-      console.log('Network offline');
+      if (this.debugEnabled) {
+        console.log('[websocket] Network offline');
+      }
       this._stopPing();
     };
     window.addEventListener('online', this._onlineHandler);
@@ -407,7 +433,9 @@ class AlfredWebSocketClient extends EventTarget {
       }
       this.ws.send(messageStr);
     } else {
-      console.log('Queueing message until connection is ready');
+      if (this.debugEnabled) {
+        console.log('[websocket] Queueing message until connection is ready');
+      }
       this.messageQueue.push(messageStr);
     }
   }
@@ -442,7 +470,9 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   sendCommand(command) {
-    console.log('[WebSocket] Sending command:', command);
+    if (this.debugEnabled) {
+      console.log('[websocket] Sending command:', command);
+    }
     this.send({
       type: 'command.execute',
       payload: {
