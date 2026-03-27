@@ -296,7 +296,9 @@ class TestWebSocketChatWithMockedAlfred:
 
             while True:
                 data = websocket.receive_json()
-                if data["type"] == "reasoning.chunk":
+                if data["type"] == "reasoning.start":
+                    continue
+                elif data["type"] == "reasoning.chunk":
                     reasoning_chunks_received.append(data["payload"]["content"])
                     assert data["payload"]["messageId"] == message_id
                 elif data["type"] == "chat.chunk":
@@ -360,7 +362,9 @@ class TestWebSocketChatWithMockedAlfred:
             content_chunks_received = []
             while True:
                 data = websocket.receive_json()
-                if data["type"] == "reasoning.chunk":
+                if data["type"] == "reasoning.start":
+                    continue
+                elif data["type"] == "reasoning.chunk":
                     reasoning_chunks_received.append(data["payload"]["content"])
                 elif data["type"] == "chat.chunk":
                     content_chunks_received.append(data["payload"]["content"])

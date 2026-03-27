@@ -236,12 +236,11 @@ class MessagePanel(Component):
             display_path = path if len(path) <= max_path else "..." + path[-(max_path-3):]
 
             # Add content preview
-            if content:
-                if isinstance(content, str):
-                    preview = content.replace("\n", " ")[:50]
-                    if len(content) > 50:
-                        preview += "..."
-                    return f"→ {display_path}: {preview}"
+            if content and isinstance(content, str):
+                preview = content.replace("\n", " ")[:50]
+                if len(content) > 50:
+                    preview += "..."
+                return f"→ {display_path}: {preview}"
 
             return f"→ {display_path}"
 
@@ -435,10 +434,11 @@ class MessagePanel(Component):
 
         # Output (truncated unless expanded)
         if tool_call.output:
-            if self._expanded:
-                output = tool_call.output
-            else:
-                output = tool_call.output[:200] if len(tool_call.output) > 200 else tool_call.output
+            output = (
+                tool_call.output
+                if self._expanded
+                else tool_call.output[:200] if len(tool_call.output) > 200 else tool_call.output
+            )
 
             lines.append(f"{DIM}{output}{RESET}")
 

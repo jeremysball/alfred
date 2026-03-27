@@ -143,12 +143,13 @@ class TestContextDisplay:
 class TestContextCommandIntegration:
     """Integration tests for /context command."""
 
-    def test_context_command_handler_exists_in_tui(self):
-        """Test that TUI has handler for /context command."""
-        from alfred.interfaces.pypitui.tui import AlfredTUI
+    def test_context_command_exists(self):
+        """Test that ShowContextCommand class exists and is registered."""
+        from alfred.interfaces.pypitui.commands.show_context import ShowContextCommand
 
-        # Assert the method exists (will fail until we implement)
-        assert hasattr(AlfredTUI, "_handle_session_command")
+        # Assert the command class exists
+        assert ShowContextCommand is not None
+        assert ShowContextCommand.name == "context"
 
 
 @pytest.mark.asyncio
@@ -174,6 +175,12 @@ async def test_show_context_command_reports_blocked_context_warning_and_omits_bl
         "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
         "session_history": {"count": 1, "messages": [{"role": "user", "content": "hello"}], "tokens": 3},
         "tool_calls": {"count": 0, "items": [], "tokens": 0},
+        "self_model": {
+            "identity": {"name": "Alfred", "role": "Assistant"},
+            "runtime": {"interface": "cli", "daemon_mode": False},
+            "capabilities": {"memory_enabled": True, "search_enabled": True, "tools_count": 10},
+            "context_pressure": {"message_count": 1, "memory_count": 0, "approximate_tokens": 15},
+        },
         "total_tokens": 15,
     }
 

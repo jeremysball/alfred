@@ -20,7 +20,9 @@ from alfred.templates import TemplateManager
 
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
-    from alfred.self_model import RuntimeSelfModel
+
+# Runtime import for RuntimeSelfModel (needed for AssembledContext forward reference)
+from alfred.self_model import RuntimeSelfModel
 
 logger = logging.getLogger(__name__)
 
@@ -795,3 +797,7 @@ class ContextLoader:
                 continue
             parts.append(f"# {name.upper()}\n\n{file.content}")
         return "\n\n---\n\n".join(parts) if parts else ""
+
+
+# Rebuild AssembledContext to resolve forward references
+AssembledContext.model_rebuild()

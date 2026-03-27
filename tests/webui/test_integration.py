@@ -170,7 +170,9 @@ class TestFullChatFlow:
 
             while True:
                 data = websocket.receive_json()
-                if data["type"] == "reasoning.chunk":
+                if data["type"] == "reasoning.start":
+                    continue
+                elif data["type"] == "reasoning.chunk":
                     reasoning_chunks.append(data["payload"]["content"])
                     assert data["payload"]["messageId"] == message_id
                 elif data["type"] == "chat.chunk":

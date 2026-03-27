@@ -59,6 +59,7 @@ class FakeContextLoader:
         memories: list[Any],
         session_messages: list[tuple[str, str]] | None = None,
         session_messages_with_tools: list[Any] | None = None,
+        alfred: Any | None = None,
     ) -> tuple[str, int]:
         self.calls.append(
             {
@@ -66,11 +67,24 @@ class FakeContextLoader:
                 "memories_count": len(memories),
                 "session_messages_count": len(session_messages or []),
                 "session_messages_with_tools_count": len(session_messages_with_tools or []),
+                "alfred": alfred,
             }
         )
         if self.fail_with is not None:
             raise self.fail_with
         return "## SYSTEM\n\nObservability test system prompt", 2
+
+    async def assemble_with_self_model(
+        self,
+        alfred: Any,
+        memories: list[Any] | None = None,
+    ) -> SimpleNamespace:
+        """Return assembled context with self-model for non-streaming chat tests."""
+        return SimpleNamespace(
+            system_prompt="## SYSTEM\n\nObservability test system prompt",
+            memories=memories or [],
+            self_model=None,
+        )
 
 
 @dataclass
