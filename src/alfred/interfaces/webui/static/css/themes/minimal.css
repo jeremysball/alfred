@@ -237,14 +237,23 @@
   opacity: 0.5;
 }
 
-/* Message Actions - Bottom right, visible but muted */
+/* Message Actions - Bottom right, visible */
 [data-theme="minimal"] .message-actions {
   justify-content: flex-end;
-  opacity: 0.5;
-  transition: opacity 0.15s ease;
+  opacity: 1;
 }
 
-[data-theme="minimal"] .message:hover .message-actions {
+[data-theme="minimal"] .message-action {
+  background: var(--min-bg-tertiary);
+  border: 1px solid var(--min-border-color);
+  color: var(--min-text-secondary);
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+[data-theme="minimal"] .message-action:hover {
+  background: var(--min-bg-secondary);
+  color: var(--min-text-primary);
   opacity: 1;
 }
 
@@ -267,6 +276,7 @@
 
   [data-theme="minimal"] .message-actions {
     opacity: 0;
+    transition: opacity 0.15s ease;
   }
 
   [data-theme="minimal"] chat-message.active .message-actions {
