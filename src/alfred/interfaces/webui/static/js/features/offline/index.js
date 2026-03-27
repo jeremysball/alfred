@@ -13,5 +13,3 @@
 export { ConnectionMonitor } from './connection-monitor.js';
 export { OfflineIndicator } from './offline-indicator.js';
 
-// Import styles
-import './styles.css';

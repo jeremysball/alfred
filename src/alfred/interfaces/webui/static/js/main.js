@@ -1,4 +1,5 @@
 // Alfred Web UI - Main JavaScript
+import { AlfredWebSocketClient } from './websocket-client.js';
 import { applyThemeContrast } from './utils/contrast.js';
 import { MessageAnimator, TypingIndicator, prefersReducedMotion } from './features/animations/index.js';
 import { ConnectionMonitor, OfflineIndicator } from './features/offline/index.js';
@@ -7,6 +8,7 @@ import {
   SwipeToReply,
   initializeFullscreenCompose,
   initializePullToRefresh,
+  initializeGestures as initializeMobileGestures,
   CoordinatedSwipeDetector,
   CoordinatedLongPressDetector,
   GestureCoordinator,

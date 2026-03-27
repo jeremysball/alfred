@@ -58,39 +58,39 @@ Migrate **all JavaScript code throughout the repository** to use ES Modules (ESM
 ## Milestones
 
 ### Milestone 1: AGENTS.md Policy Update ✅
-- [ ] Add "Use ESM for all JavaScript" rule to AGENTS.md
-- [ ] Reference this PRD in the rule
-- [ ] Commit the documentation change
+- [x] Add "Use ESM for all JavaScript" rule to AGENTS.md
+- [x] Reference this PRD in the rule
+- [x] Commit the documentation change
 
 ### Milestone 2: Web UI Core Modules
-- [ ] Convert `features/mobile-gestures/index.js` from CommonJS to ESM
-- [ ] Convert `features/mobile-gestures/touch-detector.js`
-- [ ] Convert `features/mobile-gestures/swipe-detector.js`
-- [ ] Convert `features/mobile-gestures/long-press-detector.js`
-- [ ] Convert `features/mobile-gestures/long-press-context-menu.js`
-- [ ] Convert `features/mobile-gestures/swipe-to-reply.js`
-- [ ] Convert `features/mobile-gestures/pull-to-refresh.js`
-- [ ] Convert `features/mobile-gestures/pull-indicator.js`
-- [ ] Convert `features/mobile-gestures/fullscreen-compose.js`
-- [ ] Convert `features/mobile-gestures/gesture-coordinator.js`
-- [ ] Convert `features/mobile-gestures/coordinated-detectors.js`
+- [x] Convert `features/mobile-gestures/index.js` from CommonJS to ESM
+- [x] Convert `features/mobile-gestures/touch-detector.js`
+- [x] Convert `features/mobile-gestures/swipe-detector.js`
+- [x] Convert `features/mobile-gestures/long-press-detector.js`
+- [x] Convert `features/mobile-gestures/long-press-context-menu.js`
+- [x] Convert `features/mobile-gestures/swipe-to-reply.js`
+- [x] Convert `features/mobile-gestures/pull-to-refresh.js`
+- [x] Convert `features/mobile-gestures/pull-indicator.js`
+- [x] Convert `features/mobile-gestures/fullscreen-compose.js`
+- [x] Convert `features/mobile-gestures/gesture-coordinator.js`
+- [x] Convert `features/mobile-gestures/coordinated-detectors.js`
 
 ### Milestone 3: Web UI Feature Modules
-- [ ] Convert `features/search/search-overlay.js`
-- [ ] Verify `features/search/index.js` ESM imports work correctly
-- [ ] Convert `features/notifications/index.js` (if CommonJS)
-- [ ] Convert `features/dragdrop/index.js` (if CommonJS)
-- [ ] Convert `features/context-menu/index.js` (if CommonJS)
+- [x] Convert `features/search/search-overlay.js`
+- [x] Verify `features/search/index.js` ESM imports work correctly
+- [x] Convert `features/notifications/index.js` (if CommonJS)
+- [x] Convert `features/dragdrop/index.js` (if CommonJS)
+- [x] Convert `features/context-menu/index.js` (if CommonJS)
 
 ### Milestone 4: Browser Testing
 - [ ] Run browser tests: `tests/webui/test_streaming_composer.py`
 - [ ] Run browser tests: `tests/webui/test_kidcore_browser.py`
-- [ ] Verify `window.__alfredWebUI` is defined
-- [ ] Verify send button works
+- [x] Verify `window.__alfredWebUI` is defined
+- [x] Verify send button works
 - [ ] Verify connection status tooltip works
 
 ### Milestone 5: Remaining JS Files
-- [ ] Audit all `.js` files in repository for CommonJS syntax
+- [x] Audit all `.js` files in repository for CommonJS syntax
 - [ ] Convert any remaining files (test utilities, scripts, etc.)
 
 ### Milestone 6: Validation
@@ -98,6 +98,14 @@ Migrate **all JavaScript code throughout the repository** to use ES Modules (ESM
 - [ ] Ruff check passes: `uv run ruff check src/`
 - [ ] MyPy check passes: `uv run mypy --strict src/`
 - [ ] Manual browser verification: UI loads and all features work
+
+Progress note:
+- Runtime Web UI modules are now ESM.
+- `src/alfred/interfaces/webui/static/index.html` still loads several feature bundles through classic `<script>` tags; Phase 2 of the execution plan covers the remaining entrypoint wiring.
+- Browser-side `test-*.js` helpers still use CommonJS, so the repo-wide scan gate remains open.
+- `tests/webui/test_bootstrap.py` now passes for page boot, `window.__alfredWebUI`, and `chat.send`.
+- The broader `tests/webui/test_streaming_composer.py::test_streaming_composer_keyboard_contract` check still fails later on stale edit assertions.
+
 
 ---
 
@@ -162,11 +170,11 @@ export { FooClass };
 
 ## Success Criteria
 
-- [ ] AGENTS.md contains clear "Use ESM for all JavaScript" policy
+- [x] AGENTS.md contains clear "Use ESM for all JavaScript" policy
 - [ ] No `require()` or `module.exports` in any `.js` files (verified via grep)
 - [ ] Web UI loads without console errors
-- [ ] `window.__alfredWebUI` is defined after page load
-- [ ] Send button sends messages
+- [x] `window.__alfredWebUI` is defined after page load
+- [x] Send button sends messages
 - [ ] Connection status tooltip shows on hover/click
 - [ ] All browser tests pass
 - [ ] Full pytest suite passes

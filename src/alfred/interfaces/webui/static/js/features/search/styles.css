@@ -21,6 +21,11 @@
   animation: search-overlay-enter 200ms cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
+/* Hidden state */
+.search-overlay.hidden {
+  display: none !important;
+}
+
 /* Dark mode support */
 [data-theme="dark"] .search-overlay,
 [data-theme="kidcore-playground"] .search-overlay {
