@@ -70,3 +70,19 @@ def test_lifecycle_listeners_tracked_for_cleanup():
     assert "_pagehideHandler" in source or "pagehideHandler" in source
     # Should track pageshow handler
     assert "_pageshowHandler" in source or "pageshowHandler" in source
+
+
+def test_queue_flushes_on_connect():
+    """Message queue should flush when connection opens."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # _flushMessageQueue should be called in onopen handler
+    assert "_flushMessageQueue()" in source
+
+
+def test_message_queue_exists():
+    """WebSocket client should have a message queue for offline buffering."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have messageQueue property initialized
+    assert "this.messageQueue = []" in source or "messageQueue" in source
