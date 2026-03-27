@@ -74,7 +74,7 @@
 }
 
 [data-theme="element-modern"] .message-list {
-  max-width: 900px;
+  max-width: 1400px;
   gap: 0;
 }
 
@@ -219,7 +219,7 @@
 }
 
 [data-theme="element-modern"] .input-area {
-  max-width: 900px;
+  max-width: 1400px;
 }
 
 [data-theme="element-modern"] .message-input {

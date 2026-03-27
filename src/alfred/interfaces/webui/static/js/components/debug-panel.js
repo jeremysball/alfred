@@ -313,8 +313,29 @@ class DebugPanel extends HTMLElement {
   _renderTrafficTab() {
     const traffic = this._data.websocket?.traffic_log || [];
     
-    if (traffic.length === 0) {
-      return '<div class="debug-empty">No WebSocket traffic recorded</div>';
+    // Filter out ping/pong messages by default
+    const filterPingPong = this._filterPingPong !== false;
+    const filteredTraffic = filterPingPong 
+      ? traffic.filter(entry => entry.type !== 'ping' && entry.type !== 'pong')
+      : traffic;
+    
+    if (filteredTraffic.length === 0) {
+      return `
+        <div class="debug-traffic">
+          <div class="debug-toolbar">
+            <label class="debug-filter">
+              <input type="checkbox" id="filter-out" checked /> Show outgoing
+            </label>
+            <label class="debug-filter">
+              <input type="checkbox" id="filter-in" checked /> Show incoming
+            </label>
+            <label class="debug-filter">
+              <input type="checkbox" id="filter-pingpong" ${filterPingPong ? 'checked' : ''} /> Hide ping/pong
+            </label>
+          </div>
+          <div class="debug-empty">No WebSocket traffic recorded${filterPingPong ? ' (ping/pong filtered)' : ''}</div>
+        </div>
+      `;
     }
     
     return `
@@ -326,11 +347,14 @@ class DebugPanel extends HTMLElement {
           <label class="debug-filter">
             <input type="checkbox" id="filter-in" checked /> Show incoming
           </label>
+          <label class="debug-filter">
+            <input type="checkbox" id="filter-pingpong" ${filterPingPong ? 'checked' : ''} /> Hide ping/pong
+          </label>
         </div>
         
         <div class="debug-traffic-list">
-          ${traffic.slice().reverse().map((entry, idx) => `
-            <div class="debug-traffic-entry ${entry.direction}" data-direction="${entry.direction}">
+          ${filteredTraffic.slice().reverse().map((entry, idx) => `
+            <div class="debug-traffic-entry ${entry.direction}" data-direction="${entry.direction}" data-type="${entry.type}">
               <div class="debug-traffic-header">
                 <span class="debug-traffic-direction">${entry.direction === 'out' ? '⬆️ OUT' : '⬇️ IN'}</span>
                 <span class="debug-traffic-type">${entry.type}</span>
