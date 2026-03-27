@@ -16,14 +16,12 @@ from alfred.context import ContextLoader
 from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
 from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
-from alfred.session import Message, Role, Session, ToolCallRecord
+from alfred.session import Message, ReasoningBlock, Role, Session, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
 
 # Default prompt sections loaded by ContextLoader
 DEFAULT_PROMPT_SECTIONS = ["AGENTS", "SOUL", "USER", "TOOLS"]
-PARTIAL_PERSIST_BATCH_MAX_CHARS = 256
-PARTIAL_PERSIST_FLUSH_INTERVAL_SECONDS = 0.05
 
 
 class ContextSummary:
@@ -279,6 +277,7 @@ class Alfred:
         persist_partial: bool = False,
         assistant_message_id: str | None = None,
         reuse_user_message: bool = False,
+        status_callback: Callable[[str], None] | None = None,
     ) -> AsyncIterator[str]:
         """Process a message with streaming.
 
@@ -348,16 +347,23 @@ class Alfred:
             assistant_msg_obj: Message | None = None
 
             boundary = "embedding"
+            if status_callback:
+                status_callback("Embedding")
             # Get query embedding for memory search
             logger.debug("Generating query embedding...")
             query_embedding = await self.core.embedder.embed(message)
 
+            if status_callback:
+                status_callback("Loading memories")
             # Load all memories
             logger.debug("Loading memories...")
             all_memories = await self.core.memory_store.get_all_entries()
             logger.info(f"Loaded {len(all_memories)} memories from store")
 
+            if status_callback:
+                status_callback("Assembling context")
             boundary = "context"
+
             # Build context with memory search and session history
             session_messages = self.core.session_manager.get_messages_for_context(session_id)
             # Get full messages with tool_calls for context
@@ -411,6 +417,8 @@ class Alfred:
                 session.meta.message_count = len(session.messages)
                 await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
 
+            if status_callback:
+                status_callback("")
             boundary = "agent"
             agent_started_at = perf_counter()
             self._log_turn_event(
@@ -423,9 +431,9 @@ class Alfred:
             chunk_count = 0
             tool_calls_accumulator: list[dict[str, Any]] = []
             full_response: list[str] = []
-            reasoning_content: list[str] = []  # Accumulate reasoning separately
-            partial_persist_chars = 0
-            last_partial_persist_at = asyncio.get_running_loop().time()
+            reasoning_blocks: list[ReasoningBlock] = []  # Interleaved reasoning blocks
+            current_reasoning_block: ReasoningBlock | None = None
+            sequence_counter = 0  # Shared sequence counter for interleaving
 
             def _build_tool_calls_snapshot() -> list[ToolCallRecord] | None:
                 if not tool_calls_accumulator:
@@ -444,33 +452,9 @@ class Alfred:
                     for tc in tool_calls_accumulator
                 ]
 
-            async def _flush_partial_state(force: bool = False) -> None:
-                nonlocal partial_persist_chars, last_partial_persist_at
-
-                if not persist_partial or assistant_msg_obj is None:
-                    return
-
-                now = asyncio.get_running_loop().time()
-                if (
-                    not force
-                    and partial_persist_chars < PARTIAL_PERSIST_BATCH_MAX_CHARS
-                    and (now - last_partial_persist_at) < PARTIAL_PERSIST_FLUSH_INTERVAL_SECONDS
-                ):
-                    return
-
-                assistant_msg_obj.content = "".join(full_response)
-                assistant_msg_obj.reasoning_content = "".join(reasoning_content)
-                assistant_msg_obj.tool_calls = _build_tool_calls_snapshot()
-                assistant_msg_obj.streaming = True
-                session.meta.last_active = datetime.now(UTC)
-                session.meta.message_count = len(session.messages)
-                await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
-                partial_persist_chars = 0
-                last_partial_persist_at = now
-
             def _tool_callback_wrapper(event: ToolEvent) -> None:
                 """Wrapper to capture tool calls while still calling external callback."""
-                nonlocal full_response
+                nonlocal full_response, sequence_counter, reasoning_blocks, current_reasoning_block
 
                 # Call external callback if provided
                 if tool_callback:
@@ -478,11 +462,17 @@ class Alfred:
 
                 # Capture tool call data
                 if isinstance(event, ToolStart):
+                    # Finalize any active reasoning block before tool call
+                    if current_reasoning_block is not None:
+                        reasoning_blocks.append(current_reasoning_block)
+                        current_reasoning_block = None
+
                     # Calculate insert position based on current response length
                     insert_position = len("".join(full_response))
 
-                    # Find sequence number for tools at same position
-                    sequence = sum(1 for tc in tool_calls_accumulator if tc.get("insert_position") == insert_position)
+                    # Assign sequence from shared counter and increment
+                    sequence = sequence_counter
+                    sequence_counter += 1
 
                     tool_calls_accumulator.append(
                         {
@@ -511,35 +501,77 @@ class Alfred:
                 if persist_partial and assistant_msg_obj is not None:
                     assistant_msg_obj.tool_calls = _build_tool_calls_snapshot()
 
+            chunk_times: list[float] = []
+            last_chunk_time = perf_counter()
+            stream_start = perf_counter()
+
             async for chunk in self.agent.run_stream(
                 messages,
                 system_prompt,
                 usage_callback=self._on_usage,
                 tool_callback=_tool_callback_wrapper,
             ):
+                now = perf_counter()
+                chunk_latency = now - last_chunk_time
+                chunk_times.append(chunk_latency)
+                last_chunk_time = now
+
                 # Separate reasoning from content for storage
                 if chunk.startswith("[REASONING]"):
-                    reasoning_chunk = chunk[11:]
-                    reasoning_content.append(reasoning_chunk)  # Strip [REASONING] prefix
+                    reasoning_chunk = chunk[11:]  # Strip [REASONING] prefix
+
+                    # Start new reasoning block if needed
+                    if current_reasoning_block is None:
+                        current_reasoning_block = ReasoningBlock(
+                            content=reasoning_chunk,
+                            sequence=sequence_counter,
+                        )
+                        sequence_counter += 1
+                    else:
+                        current_reasoning_block.content += reasoning_chunk
+
                     if assistant_msg_obj is not None:
-                        assistant_msg_obj.reasoning_content = "".join(reasoning_content)
+                        assistant_msg_obj.reasoning_content += reasoning_chunk
                         assistant_msg_obj.streaming = True
-                        partial_persist_chars += len(reasoning_chunk)
-                        await _flush_partial_state()
                 elif chunk.startswith("[/REASONING]"):
-                    pass  # Skip end marker
+                    # End current reasoning block
+                    if current_reasoning_block is not None:
+                        reasoning_blocks.append(current_reasoning_block)
+                        current_reasoning_block = None
                 else:
                     full_response.append(chunk)
                     if assistant_msg_obj is not None:
                         assistant_msg_obj.content = "".join(full_response)
                         assistant_msg_obj.streaming = True
-                        partial_persist_chars += len(chunk)
-                        await _flush_partial_state()
                 chunk_count += 1
+
+                # Log slow chunks (>100ms) at debug level
+                if chunk_latency > 0.1:
+                    logger.debug(f"[STREAM_SLOW_CHUNK] chunk={chunk_count} latency={chunk_latency*1000:.2f}ms chars={len(chunk)}")
+
                 yield chunk
 
+            # Log streaming performance summary
+            if chunk_times:
+                total_stream_time = perf_counter() - stream_start
+                avg_chunk_latency = sum(chunk_times) / len(chunk_times)
+                max_chunk_latency = max(chunk_times)
+                min_chunk_latency = min(chunk_times[1:])  # Exclude first chunk (includes request setup)
+                logger.debug(
+                    f"[STREAM_PERF] chunks={chunk_count} "
+                    f"total_time={total_stream_time*1000:.2f}ms "
+                    f"avg_latency={avg_chunk_latency*1000:.2f}ms "
+                    f"min_latency={min_chunk_latency*1000:.2f}ms "
+                    f"max_latency={max_chunk_latency*1000:.2f}ms"
+                )
+
+            # Finalize any pending reasoning block
+            if current_reasoning_block is not None:
+                reasoning_blocks.append(current_reasoning_block)
+                current_reasoning_block = None
+
             assistant_message = "".join(full_response)
-            reasoning_text = "".join(reasoning_content)
+            reasoning_text = "".join(rb.content for rb in reasoning_blocks)
             self._log_turn_event(
                 "core.agent_loop.completed",
                 turn_id=turn_id,
@@ -564,11 +596,13 @@ class Alfred:
                     timestamp=datetime.now(UTC),
                     tool_calls=tool_calls,
                     reasoning_content=reasoning_text,
+                    reasoning_blocks=reasoning_blocks if reasoning_blocks else None,
                 )
                 session.messages.append(assistant_msg_obj)
             else:
                 assistant_msg_obj.content = assistant_message
                 assistant_msg_obj.reasoning_content = reasoning_text
+                assistant_msg_obj.reasoning_blocks = reasoning_blocks if reasoning_blocks else None
                 assistant_msg_obj.tool_calls = tool_calls
                 assistant_msg_obj.streaming = False
 
@@ -644,6 +678,10 @@ class Alfred:
                 chunks=chunk_count,
                 duration_ms=round((perf_counter() - turn_started_at) * 1000, 2),
             )
+            # Clean up streaming flag on cancellation
+            if persist_partial and assistant_msg_obj is not None:
+                assistant_msg_obj.streaming = False
+                await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
             raise
         except Exception as exc:
             self._log_turn_event(
@@ -658,6 +696,10 @@ class Alfred:
                 chunks=chunk_count,
                 duration_ms=round((perf_counter() - turn_started_at) * 1000, 2),
             )
+            # Clean up streaming flag on error
+            if persist_partial and assistant_msg_obj is not None:
+                assistant_msg_obj.streaming = False
+                await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
             raise
 
     def _build_system_prompt(self, base_prompt: str) -> str:

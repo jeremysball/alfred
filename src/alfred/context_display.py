@@ -45,7 +45,11 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     """
     logger.debug("get_context_display: gathering context for session=%s", session_id or "cli")
 
-    # Load context files
+    # Get disabled sections before loading
+    disabled_sections = alfred.context_loader.get_disabled_sections()
+    logger.debug("get_context_display: disabled sections: %s", disabled_sections)
+
+    # Load context files (this will exclude disabled sections)
     context_files = await alfred.context_loader.load_all()
     logger.debug("get_context_display: loaded %d context files", len(context_files))
 
@@ -54,6 +58,10 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         logger.debug("get_context_display: found %d blocked context files", len(blocked_context_files))
 
     warnings = [f"Blocked context files: {', '.join(blocked_context_files)}"] if blocked_context_files else []
+
+    # Add warning about disabled sections
+    if disabled_sections:
+        warnings.append(f"Disabled sections: {', '.join(disabled_sections)}")
 
     # Build system prompt sections with token counts
     system_sections = []
@@ -170,6 +178,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             "total_tokens": total_system_tokens,
         },
         "blocked_context_files": blocked_context_files,
+        "disabled_sections": disabled_sections,
         "warnings": warnings,
         "memories": {
             "displayed": len(memory_display),

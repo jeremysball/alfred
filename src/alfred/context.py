@@ -458,11 +458,43 @@ class ContextLoader:
         self._store = store
         self._context_builder: ContextBuilder | None = None
         self._blocked_context_files: set[str] = set()
+        self._disabled_sections: set[str] = set()  # Track disabled context sections
         if store:
             self._context_builder = ContextBuilder(
                 store,
                 memory_budget=config.memory_budget,
             )
+
+    def toggle_section(self, name: str, enabled: bool) -> bool:
+        """Enable or disable a context section.
+
+        Args:
+            name: The context section name (e.g., 'AGENTS', 'SOUL', 'TOOLS')
+            enabled: Whether the section should be enabled
+
+        Returns:
+            True if the section state was changed, False otherwise
+        """
+        upper_name = name.upper()
+        if enabled:
+            if upper_name in self._disabled_sections:
+                self._disabled_sections.discard(upper_name)
+                logger.info(f"Context section '{upper_name}' enabled")
+                return True
+        else:
+            if upper_name not in self._disabled_sections:
+                self._disabled_sections.add(upper_name)
+                logger.info(f"Context section '{upper_name}' disabled")
+                return True
+        return False
+
+    def get_disabled_sections(self) -> list[str]:
+        """Return list of disabled context sections."""
+        return sorted(self._disabled_sections)
+
+    def is_section_enabled(self, name: str) -> bool:
+        """Check if a context section is enabled."""
+        return name.upper() not in self._disabled_sections
 
     def get_blocked_context_files(self) -> list[str]:
         """Return blocked managed context files in stable order."""
@@ -587,8 +619,17 @@ class ContextLoader:
         return self._refresh_context_file(cached_file)
 
     async def load_all(self) -> dict[str, ContextFile]:
-        """Load all required context files concurrently."""
-        tasks = [self.load_file(name, path) for name, path in (self.config.context_files or {}).items()]
+        """Load all required context files concurrently.
+
+        Filters out disabled sections.
+        """
+        files = self.config.context_files or {}
+        # Filter out disabled sections
+        enabled_files = {
+            name: path for name, path in files.items()
+            if name.upper() not in self._disabled_sections
+        }
+        tasks = [self.load_file(name, path) for name, path in enabled_files.items()]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
 

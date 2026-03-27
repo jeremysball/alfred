@@ -48,6 +48,17 @@ class ToolCallRecord:
 
 
 @dataclass
+class ReasoningBlock:
+    """Record of a reasoning/thinking block within a message.
+
+    Allows interleaving reasoning content with text and tool calls.
+    """
+
+    content: str
+    sequence: int = 0
+
+
+@dataclass
 class Message:
     """Single exchange turn with optional embedding and token counts."""
 
@@ -61,7 +72,8 @@ class Message:
     output_tokens: int = 0
     cached_tokens: int = 0
     reasoning_tokens: int = 0
-    reasoning_content: str = ""  # Persisted reasoning/thinking content
+    reasoning_content: str = ""  # Persisted reasoning/thinking content (legacy)
+    reasoning_blocks: list[ReasoningBlock] | None = None  # Interleaved reasoning blocks
     tool_calls: list[ToolCallRecord] | None = None
     streaming: bool = False
 
@@ -237,6 +249,18 @@ class SessionManager:
                         for tc in tool_calls_data
                     ]
 
+                # Convert dict reasoning_blocks to ReasoningBlock objects
+                reasoning_blocks_data = msg_data.get("reasoning_blocks")
+                reasoning_blocks = None
+                if reasoning_blocks_data:
+                    reasoning_blocks = [
+                        ReasoningBlock(
+                            content=rb["content"],
+                            sequence=rb.get("sequence", 0),
+                        )
+                        for rb in reasoning_blocks_data
+                    ]
+
                 # Handle timestamp - older sessions may not have it
                 timestamp_str = msg_data.get("timestamp")
                 if timestamp_str:
@@ -264,6 +288,7 @@ class SessionManager:
                     cached_tokens=msg_data.get("cached_tokens", 0),
                     reasoning_tokens=msg_data.get("reasoning_tokens", 0),
                     reasoning_content=msg_data.get("reasoning_content", ""),
+                    reasoning_blocks=reasoning_blocks,
                     tool_calls=tool_calls,
                     streaming=bool(msg_data.get("streaming", False)),
                 )
@@ -473,6 +498,14 @@ class SessionManager:
                     }
                     for tc in msg.tool_calls
                 ]
+            if msg.reasoning_blocks:
+                msg_dict["reasoning_blocks"] = [
+                    {
+                        "content": rb.content,
+                        "sequence": rb.sequence,
+                    }
+                    for rb in msg.reasoning_blocks
+                ]
             messages_data.append(msg_dict)
         return messages_data
 
@@ -480,17 +513,12 @@ class SessionManager:
         """Persist messages and propagate storage errors to the caller.
 
         Generates embeddings for messages that don't have them if an embedder is configured.
+        Skips embedding during streaming (any active streaming message defers all embeddings).
         """
-        # Generate embeddings for messages that don't have them
-        if self._embedder is not None:
-            for msg in messages:
-                if msg.embedding is None and msg.content:
-                    try:
-                        msg.embedding = await self._embedder.embed(msg.content)
-                    except Exception as e:
-                        logger.warning(f"Failed to generate embedding for message {msg.id}: {e}")
+        import time
+        persist_start = time.perf_counter()
 
-        # Build metadata if session meta provided
+        # Build metadata if session meta provided (used for both paths)
         metadata: dict[str, Any] | None = None
         if meta is not None:
             metadata = {
@@ -499,7 +527,65 @@ class SessionManager:
                 "summary_version": meta.summary_version,
             }
 
+        # Check if any message is currently streaming - if so, defer ALL embeddings
+        # This prevents embedding user messages during assistant streaming
+        any_streaming = any(msg.streaming for msg in messages)
+        if any_streaming:
+            # Fast path: just persist without embedding during streaming
+            save_start = time.perf_counter()
+            await self.store.save_session(session_id, self._serialize_messages(messages), metadata)
+            save_time = time.perf_counter() - save_start
+            total_time = time.perf_counter() - persist_start
+            from alfred.observability import TRACE
+            logger.log(
+                TRACE,
+                f"[SESSION_PERSIST_STREAMING] session_id={session_id} "
+                f"total_time={total_time*1000:.2f}ms "
+                f"save_time={save_time*1000:.2f}ms "
+                f"messages={len(messages)} (embeddings deferred)"
+            )
+            return
+
+        # Generate embeddings for messages that don't have them
+        # Only runs when no messages are streaming (completion or non-streaming persist)
+        embedding_count = 0
+        embedding_time = 0.0
+        if self._embedder is not None:
+            for msg in messages:
+                # Skip if already has embedding or has no content
+                if msg.embedding is not None or not msg.content:
+                    continue
+                embed_start = time.perf_counter()
+                try:
+                    msg.embedding = await self._embedder.embed(msg.content)
+                    embedding_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to generate embedding for message {msg.id}: {e}")
+                embedding_time += time.perf_counter() - embed_start
+
+        save_start = time.perf_counter()
         await self.store.save_session(session_id, self._serialize_messages(messages), metadata)
+        save_time = time.perf_counter() - save_start
+
+        total_time = time.perf_counter() - persist_start
+        from alfred.observability import TRACE
+        logger.log(
+            TRACE,
+            f"[SESSION_PERSIST] session_id={session_id} "
+            f"total_time={total_time*1000:.2f}ms "
+            f"save_time={save_time*1000:.2f}ms "
+            f"embeddings={embedding_count} "
+            f"embedding_time={embedding_time*1000:.2f}ms "
+            f"messages={len(messages)}"
+        )
+        if total_time > 0.1:  # 100ms threshold
+            logger.warning(
+                f"[SESSION_PERSIST_SLOW] session_id={session_id} "
+                f"total_time={total_time:.3f}s "
+                f"embeddings={embedding_count} "
+                f"embedding_time={embedding_time:.3f}s "
+                f"messages={len(messages)}"
+            )
 
     async def _mutate_session_messages_async(
         self,
