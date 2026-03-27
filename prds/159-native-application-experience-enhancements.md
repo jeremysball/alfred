@@ -492,10 +492,10 @@ function handleTouchStart(e) {
 
 ---
 
-### Milestone 9: Search & Quick Navigation ⏳ READY
+### Milestone 9: Search & Quick Navigation ⏳ IN PROGRESS
 **Goal**: Find and navigate content quickly
 
-**Status**: Execution plan created, ready for implementation
+**Status**: Phase 1 design complete, implementation starting
 
 **Features**:
 - In-conversation search (Ctrl+F) - browser native find on rendered content
@@ -503,6 +503,24 @@ function handleTouchStart(e) {
 - Jump between matches with Enter/Shift+Enter
 - Quick switcher (Ctrl+Tab) for recent sessions
 - @ mentions to reference previous messages
+
+**Phase 1: In-Conversation Search (Ctrl+F)** ⏳ IN PROGRESS
+- [x] Design: `SearchOverlay` component with singleton pattern
+- [x] Design: `window.find()` API for MVP (visible messages only)
+- [x] Design: Case-insensitive search, "N of M" match counter
+- [x] Design: Glassmorphism UI (consistent with Command Palette)
+- [ ] Implement: Search overlay component
+- [ ] Implement: Ctrl+F keyboard shortcut (override browser native)
+- [ ] Implement: Match navigation (Enter/Shift+Enter)
+- [ ] Implement: Match counter display
+- [ ] Test: Unit tests for SearchOverlay class
+
+**Design Decisions**:
+- **API Strategy**: `window.find()` for MVP, server-side search deferred to Phase 2
+- **Search Scope**: Visible/rendered messages only (DOM-based)
+- **Case Sensitivity**: Case-insensitive for better UX
+- **Architecture**: Component-based with event-driven pattern
+- **Styling**: Glassmorphism design matching Command Palette
 
 **In-Conversation Search Approach**:
 - **Phase 1 (MVP)**: Use browser's native `window.find()` API
@@ -519,9 +537,11 @@ function handleTouchStart(e) {
 - No additional server requests needed
 
 **Validation**:
-- Ctrl+F opens browser find bar (or custom UI calling window.find)
+- Ctrl+F opens search overlay (not browser find)
 - Matches highlight in current viewport
 - Enter/Shift+Enter navigates between matches
+- Match counter shows "3 of 12" format
+- Escape closes search overlay
 - Ctrl+Tab shows quick switcher with recent sessions (up to 10)
 - Click session in switcher loads it via `/resume <id>`
 - @ in composer shows dropdown of last 20 messages in session
@@ -879,6 +899,7 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **DESIGNED**: Milestone 9 - Search & Quick Navigation (Phase 1) | In-conversation search architecture: `SearchOverlay` class with singleton pattern, `window.find()` API for MVP (visible messages only), case-insensitive search, "3 of 12" match counter. Glassmorphism UI consistent with Command Palette. Ctrl+F shortcut overrides browser native find. Server-side search deferred to Phase 2. See `execution-plan-159-milestone9.md`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply complete: `SwipeToReply` class with 80px threshold, right-swipe only, CSS transform visual feedback, haptic feedback, MutationObserver for dynamic messages. 15 tests. Files: `swipe-to-reply.js`, `test-swipe-to-reply.js`. See `execution-plan-159-milestone5-touch-gestures.md` for full API. |
 | 2026-03-27 | **DESIGNED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply architecture finalized: MutationObserver for dynamic attachment, CSS transform feedback with `--swipe-offset`/`--swipe-progress`, right-swipe only (100px threshold), markdown blockquote reply format. Composer integration: populate input, focus, position cursor. See `execution-plan-159-milestone5-touch-gestures.md` Decision Log. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 4) | Pull-to-refresh detector complete: `pull-to-refresh.js` adds `PullToRefreshDetector`, `isScrolledToTop`, resistance handling, and refresh callbacks. Unit tests pass in `test-pull-to-refresh.js`. Visual feedback and reconnect wiring remain pending. See `features/mobile-gestures/`. |
