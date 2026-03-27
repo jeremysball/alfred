@@ -6,6 +6,7 @@ behind the EmbeddingProvider interface.
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
@@ -13,6 +14,7 @@ import openai
 
 from alfred.config import Config
 from alfred.embeddings.provider import EmbeddingProvider
+from alfred.observability import TRACE
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,7 @@ class OpenAIProvider(EmbeddingProvider):
         Returns:
             List of floats representing the embedding vector
         """
+        start = time.perf_counter()
 
         async def _embed() -> list[float]:
             response = await self._client.embeddings.create(
@@ -126,12 +129,15 @@ class OpenAIProvider(EmbeddingProvider):
             )
             return response.data[0].embedding
 
-        return await _with_retry(
+        result = await _with_retry(
             f"embed({text[:50]}...)",
             _embed,
             max_retries=self._max_retries,
             base_delay=self._base_delay,
         )
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.log(TRACE, f"[EMBED] text_len={len(text)} dim={self.dimension} time={elapsed_ms:.2f}ms")
+        return result
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts.
@@ -145,6 +151,9 @@ class OpenAIProvider(EmbeddingProvider):
         if not texts:
             return []
 
+        start = time.perf_counter()
+        total_chars = sum(len(t) for t in texts)
+
         async def _embed_batch() -> list[list[float]]:
             response = await self._client.embeddings.create(
                 model=self._model,
@@ -153,9 +162,17 @@ class OpenAIProvider(EmbeddingProvider):
             )
             return [item.embedding for item in response.data]
 
-        return await _with_retry(
+        result = await _with_retry(
             f"embed_batch({len(texts)} texts)",
             _embed_batch,
             max_retries=self._max_retries,
             base_delay=self._base_delay,
         )
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        avg_per_item = elapsed_ms / len(texts) if texts else 0
+        logger.log(
+            TRACE,
+            f"[EMBED_BATCH] count={len(texts)} total_chars={total_chars} "
+            f"dim={self.dimension} time={elapsed_ms:.2f}ms avg_per_item={avg_per_item:.2f}ms"
+        )
+        return result

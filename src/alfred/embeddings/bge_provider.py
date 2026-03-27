@@ -6,9 +6,11 @@ Implements lazy async loading with singleton pattern.
 
 import asyncio
 import logging
+import time
 from typing import Any, TypedDict, cast
 
 from alfred.embeddings.provider import EmbeddingProvider
+from alfred.observability import TRACE
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +215,7 @@ class BGEProvider(EmbeddingProvider):
         async with self._in_flight_lock:
             self._in_flight.add(display_text)
 
+        start = time.perf_counter()
         try:
             # Run in thread pool since SentenceTransformer is synchronous
             loop = asyncio.get_event_loop()
@@ -221,6 +224,8 @@ class BGEProvider(EmbeddingProvider):
                 self._embed_sync,
                 text,
             )
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            logger.log(TRACE, f"[EMBED] text_len={len(text)} dim={self.dimension} time={elapsed_ms:.2f}ms")
             return embedding
         finally:
             async with self._in_flight_lock:
@@ -251,6 +256,8 @@ class BGEProvider(EmbeddingProvider):
             for dt in display_texts:
                 self._in_flight.add(dt)
 
+        start = time.perf_counter()
+        total_chars = sum(len(t) for t in texts)
         try:
             # Run in thread pool since SentenceTransformer is synchronous
             loop = asyncio.get_event_loop()
@@ -258,6 +265,13 @@ class BGEProvider(EmbeddingProvider):
                 None,
                 self._embed_batch_sync,
                 texts,
+            )
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            avg_per_item = elapsed_ms / len(texts) if texts else 0
+            logger.log(
+                TRACE,
+                f"[EMBED_BATCH] count={len(texts)} total_chars={total_chars} "
+                f"dim={self.dimension} time={elapsed_ms:.2f}ms avg_per_item={avg_per_item:.2f}ms"
             )
             return embeddings
         finally:
