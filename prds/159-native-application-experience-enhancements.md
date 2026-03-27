@@ -495,7 +495,7 @@ function handleTouchStart(e) {
 ### Milestone 9: Search & Quick Navigation ⏳ IN PROGRESS
 **Goal**: Find and navigate content quickly
 
-**Status**: Phase 1 design complete, implementation starting
+**Status**: Phase 1 & 2 complete, Phase 3 ready
 
 **Features**:
 - In-conversation search (Ctrl+F) - browser native find on rendered content
@@ -537,26 +537,27 @@ function handleTouchStart(e) {
 - **Architecture**: Component-based with event-driven pattern
 - **Styling**: Glassmorphism design matching Command Palette
 
-**Phase 2: Quick Session Switcher (Ctrl+Tab)** ⏳ READY
+**Phase 2: Quick Session Switcher (Ctrl+Tab)** ✅ COMPLETE
 - [x] Design: `QuickSwitcher` component with singleton pattern
 - [x] Design: localStorage-based session tracking (capture on `/new`, `/resume`)
 - [x] Design: Max 10 recent sessions, display name + relative time
 - [x] Design: Simple character-matching fuzzy search MVP
 - [x] Design: Ctrl+Tab shortcut (avoiding Ctrl+Shift+Tab browser conflict)
-- [ ] Implement: Quick switcher component (`quick-switcher.js`)
-- [ ] Implement: Session tracking in localStorage
-- [ ] Implement: Fuzzy filtering logic
-- [ ] Implement: Keyboard navigation (arrows, Enter, Escape)
-- [ ] Implement: `/resume <id>` command integration
-- [ ] Test: Unit tests for QuickSwitcher class
-- [ ] Integrate: Add to `main.js` initialization
+- [x] Implement: Quick switcher component (`quick-switcher.js`)
+- [x] Implement: Session tracking in localStorage
+- [x] Implement: Fuzzy filtering logic
+- [x] Implement: Keyboard navigation (arrows, Enter, Escape)
+- [x] Implement: `/resume <id>` command integration
+- [x] Test: 15 unit tests for QuickSwitcher class
+- [x] Integrate: Added to `main.js` initialization
 
-**Files to Create**:
-- `features/search/quick-switcher.js` - QuickSwitcher class
-- `features/search/test-quick-switcher.js` - Unit tests
+**Files Created**:
+- `features/search/quick-switcher.js` - QuickSwitcher class (350 lines)
+- `features/search/test-quick-switcher.js` - 15 unit tests
 
-**Files to Modify**:
+**Files Modified**:
 - `features/search/index.js` - Export QuickSwitcher
+- `features/search/styles.css` - Quick switcher glassmorphism styles
 - `main.js` - Add initQuickSwitcher() call
 
 **Usage**: Press `Ctrl+Tab` to open session switcher, type to filter, arrows to navigate, Enter to select
@@ -564,7 +565,7 @@ function handleTouchStart(e) {
 **Design Decisions**:
 - **Session Tracking**: localStorage on every `/new` and `/resume` (self-contained, no backend changes)
 - **Max Sessions**: 10 recent (configurable, sufficient for most users)
-- **Display Format**: Session name + relative time (e.g., "Project Planning - 2 hours ago")
+- **Display Format**: Session name + relative time (e.g., "Project Planning - 2h ago")
 - **Fuzzy Search**: Simple character-matching MVP (can upgrade to scoring later)
 - **Shortcut**: Ctrl+Tab (Ctrl+Shift+Tab reserved for browser backward navigation)
 
@@ -956,7 +957,9 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **IMPLEMENTED**: Milestone 9 Phase 2 - Quick Session Switcher (Ctrl+Tab) | QuickSwitcher implementation complete: singleton pattern, localStorage session tracking (captures on `/new` and `/resume`), max 10 sessions, simple fuzzy character matching. Keyboard navigation (arrows, Enter, Escape, Tab). Sends `/resume <id>` via WebSocket on selection. 15 unit tests. Glassmorphism modal UI centered on screen. Files: `quick-switcher.js`, `test-quick-switcher.js`. |
 | 2026-03-27 | **DESIGNED**: Milestone 9 Phase 2 - Quick Session Switcher (Ctrl+Tab) | Session switching architecture: `QuickSwitcher` class with singleton pattern, localStorage-based session tracking (capture on every `/new` and `/resume`), max 10 recent sessions, simple character-matching fuzzy search MVP. Glassmorphism UI reuses Phase 1 styles. Display: session name + relative time. Selection sends `/resume <id>` via WebSocket. Ctrl+Tab shortcut (avoiding Ctrl+Shift+Tab browser conflict). |
+| 2026-03-27 | **IMPLEMENTED**: Milestone 9 Phase 1 - In-Conversation Search (Ctrl+F) | SearchOverlay implementation complete: singleton pattern, `window.find()` API for DOM-based search, case-insensitive matching, "N of M" counter, Enter/Shift+Enter navigation. 10 unit tests. Glassmorphism top-right overlay. Integrated in `main.js`. Files: `search-overlay.js`, `test-search-overlay.js`, `styles.css`. |
 | 2026-03-27 | **DESIGNED**: Milestone 9 - Search & Quick Navigation (Phase 1) | In-conversation search architecture: `SearchOverlay` class with singleton pattern, `window.find()` API for MVP (visible messages only), case-insensitive search, "3 of 12" match counter. Glassmorphism UI consistent with Command Palette. Ctrl+F shortcut overrides browser native find. Server-side search deferred to Phase 2. See `execution-plan-159-milestone9.md`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply complete: `SwipeToReply` class with 80px threshold, right-swipe only, CSS transform visual feedback, haptic feedback, MutationObserver for dynamic messages. 15 tests. Files: `swipe-to-reply.js`, `test-swipe-to-reply.js`. See `execution-plan-159-milestone5-touch-gestures.md` for full API. |
 | 2026-03-27 | **DESIGNED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply architecture finalized: MutationObserver for dynamic attachment, CSS transform feedback with `--swipe-offset`/`--swipe-progress`, right-swipe only (100px threshold), markdown blockquote reply format. Composer integration: populate input, focus, position cursor. See `execution-plan-159-milestone5-touch-gestures.md` Decision Log. |
