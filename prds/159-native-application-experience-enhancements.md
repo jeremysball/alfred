@@ -454,8 +454,10 @@ function handleTouchStart(e) {
 
 ---
 
-### Milestone 9: Search & Quick Navigation
+### Milestone 9: Search & Quick Navigation ⏳ READY
 **Goal**: Find and navigate content quickly
+
+**Status**: Execution plan created, ready for implementation
 
 **Features**:
 - In-conversation search (Ctrl+F) - browser native find on rendered content
@@ -486,10 +488,14 @@ function handleTouchStart(e) {
 - Click session in switcher loads it via `/resume <id>`
 - @ in composer shows dropdown of last 20 messages in session
 
+**Execution Plan**: See `execution-plan-159-milestone9.md` for detailed implementation tasks
+
 ---
 
-### Milestone 10: PWA Polish & System Integration
+### Milestone 10: PWA Polish & System Integration ⏳ READY
 **Goal**: Full Progressive Web App compliance
+
+**Status**: Execution plan created, ready for implementation
 
 **Features**:
 - Install prompt (Add to Home Screen)
@@ -505,6 +511,8 @@ function handleTouchStart(e) {
 - Runs in standalone window
 - Respects system dark/light mode
 - CI runs Lighthouse on PRs (fails if score < 90)
+
+**Execution Plan**: See `execution-plan-159-milestone10.md` for detailed implementation tasks
 
 ---
 
