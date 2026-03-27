@@ -52,3 +52,34 @@ def test_main_js_handles_daemon_status_message() -> None:
 
     # Should have explicit case for 'daemon.status' message
     assert "case 'daemon.status':" in source
+
+
+def test_connection_status_uses_daemon_status_message() -> None:
+    """Connection status tooltip should use daemon.status message, not /health fetch."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/main.js").read_text()
+
+    # Should apply daemon status payload from WebSocket message
+    assert "applyDaemonStatusPayload" in source
+
+    # daemon.status handler should call applyDaemonStatusPayload
+    # (This ensures the popover gets data from WebSocket, not HTTP)
+    daemon_status_section = source.split("case 'daemon.status':")[1].split("case '")[0]
+    assert "applyDaemonStatusPayload" in daemon_status_section or "msg.payload" in daemon_status_section
+
+
+def test_no_health_fetch_at_runtime() -> None:
+    """Web UI should not fetch /health at runtime for live status."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/main.js").read_text()
+
+    # The hydrateConnectionStatusFromHealth function should not be invoked at startup
+    # (Function may exist for ops/debug but call was removed in Milestone 2)
+    # Check that the call pattern (void hydrate... or hydrate...()) is not present
+    # outside of comments or the function definition itself
+    lines = source.split("\n")
+    for line in lines:
+        stripped = line.strip()
+        # Skip comments and function definition
+        if stripped.startswith("//") or stripped.startswith("*") or stripped.startswith("async function"):
+            continue
+        # Assert no invocation of hydrateConnectionStatusFromHealth
+        assert "hydrateConnectionStatusFromHealth()" not in stripped, f"Found call in: {line}"

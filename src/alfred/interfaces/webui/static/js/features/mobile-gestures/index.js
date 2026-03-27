@@ -73,24 +73,65 @@ function shouldEnableGestures(element, touchX) {
 }
 
 /**
- * Initialize pull-to-refresh with visual indicator
+ * Initialize pull-to-refresh with visual indicator and optional ConnectionMonitor integration
  *
  * @param {HTMLElement} element - Element to attach pull-to-refresh to
  * @param {Object} options - Configuration options
- * @param {Function} options.onRefresh - Callback when refresh is triggered
+ * @param {Function} options.onRefresh - Callback when refresh is triggered (optional)
+ * @param {Object} options.connectionMonitor - ConnectionMonitor instance with reconnect() method (optional)
  * @param {HTMLElement} options.scrollContainer - Scroll container to check (default: element)
  * @param {Object} options.indicatorOptions - Options passed to PullIndicator
- * @returns {Object} Object containing detector and indicator instances
+ * @param {number} options.debounceMs - Debounce time between pulls in ms (default: 2000)
+ * @returns {Object} Object containing detector, indicator, and cleanup function
  */
 function initializePullToRefresh(element, options = {}) {
   if (!element || !isTouchDevice()) {
     return null;
   }
 
-  // Create detector
+  const connectionMonitor = options.connectionMonitor;
+  const debounceMs = options.debounceMs ?? 2000;
+  let isRefreshing = false;
+  let lastRefreshTime = 0;
+
+  // Create detector with integrated callback
   const detector = new PullToRefreshDetector({
     threshold: options.threshold || GESTURE_CONFIG.PULL_THRESHOLD,
-    onRefresh: options.onRefresh,
+    onRefresh: async (detail) => {
+      // Debounce check
+      const now = Date.now();
+      if (isRefreshing || (now - lastRefreshTime) < debounceMs) {
+        console.log('[PullToRefresh] Debounced - ignoring pull');
+        return;
+      }
+
+      // Check if ConnectionMonitor is available
+      if (!connectionMonitor) {
+        console.warn('[PullToRefresh] No ConnectionMonitor provided');
+        // Still call user callback if provided
+        if (typeof options.onRefresh === 'function') {
+          await options.onRefresh(detail);
+        }
+        return;
+      }
+
+      isRefreshing = true;
+
+      try {
+        // Attempt to reconnect
+        await connectionMonitor.reconnect();
+
+        // Success - indicator will show success via createPullIndicator wiring
+        lastRefreshTime = Date.now();
+
+      } catch (error) {
+        // Failure - indicator will show error via createPullIndicator wiring
+        console.error('[PullToRefresh] Reconnect failed:', error);
+        throw error; // Re-throw so indicator shows error state
+      } finally {
+        isRefreshing = false;
+      }
+    },
   });
 
   // Create and wire up visual indicator
@@ -99,7 +140,13 @@ function initializePullToRefresh(element, options = {}) {
   // Attach to element
   detector.attachToElement(element, options.scrollContainer);
 
-  return { detector, indicator };
+  // Return cleanup function
+  const cleanup = () => {
+    detector.destroy();
+    indicator.destroy();
+  };
+
+  return { detector, indicator, cleanup };
 }
 
 // Export public API

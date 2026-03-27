@@ -113,8 +113,19 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   connect() {
+    // Idempotent connect: guard against all active states
     if (this.ws?.readyState === WebSocket.OPEN) {
       console.log('WebSocket already connected');
+      return;
+    }
+
+    if (this.ws?.readyState === WebSocket.CONNECTING) {
+      console.log('WebSocket connection in progress');
+      return;
+    }
+
+    if (this.ws?.readyState === WebSocket.CLOSING) {
+      console.log('WebSocket is closing, will reconnect when closed');
       return;
     }
 

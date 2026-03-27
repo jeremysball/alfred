@@ -318,10 +318,24 @@ function createPullIndicator(detector, options = {}) {
     }
   };
 
-  detector.onRefresh = (detail) => {
+  detector.onRefresh = async (detail) => {
     indicator.setState('refreshing');
-    if (typeof originalCallbacks.onRefresh === 'function') {
-      originalCallbacks.onRefresh(detail);
+
+    try {
+      // Call original callback and await if it's async
+      if (typeof originalCallbacks.onRefresh === 'function') {
+        await originalCallbacks.onRefresh(detail);
+      }
+
+      // Success - show connected state
+      indicator.showSuccess(1500);
+
+    } catch (error) {
+      // Failure - show error state
+      indicator.showError(2000);
+
+      // Re-throw error for upstream handling
+      throw error;
     }
   };
 

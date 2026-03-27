@@ -32,3 +32,27 @@ def test_websocket_client_uses_wss_on_https():
 
 def test_websocket_client_uses_ws_on_http():
     assert _websocket_client_url("http:").strip() == "ws://example.com/ws"
+
+
+def test_connect_guards_against_open_state():
+    """connect() should be idempotent when WebSocket is already OPEN."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have guard for OPEN state at start of connect()
+    assert "readyState === WebSocket.OPEN" in source or "this.ws?.readyState === WebSocket.OPEN" in source
+
+
+def test_connect_guards_against_connecting_state():
+    """connect() should be idempotent when WebSocket is CONNECTING."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have guard for CONNECTING state
+    assert "WebSocket.CONNECTING" in source
+
+
+def test_connect_guards_against_closing_state():
+    """connect() should be idempotent when WebSocket is CLOSING."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have guard for CLOSING state
+    assert "WebSocket.CLOSING" in source

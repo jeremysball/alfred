@@ -1020,7 +1020,9 @@ function initAlfredUI() {
     updateConnectionStatus('disconnected');
   });
 
-  void hydrateConnectionStatusFromHealth();
+  // Note: hydrateConnectionStatusFromHealth() removed - Web UI now uses
+  // WebSocket daemon.status message for live status, not /health.
+  // /health endpoint is preserved for ops/readiness checks only.
 
   // Streaming Indicator
   function showStreaming() {
@@ -1412,8 +1414,9 @@ function initAlfredUI() {
 
       case 'daemon.status':
         // Runtime daemon snapshot for connection status popover
-        // Stores daemon info (model, version, status) for display in Milestone 2
-        // This is handled intentionally to avoid "unhandled" console noise
+        // Stores daemon info (model, version, status) for display
+        // This replaces the /health fetch for live status
+        applyDaemonStatusPayload(msg.payload);
         break;
 
       default:
