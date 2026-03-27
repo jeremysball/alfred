@@ -56,7 +56,7 @@ Transform the Alfred Web UI into a Progressive Web App (PWA) with native desktop
 - [ ] Lighthouse PWA score > 90 (enforced in CI) - pending Milestones 8-10
 - [ ] All features work on desktop and mobile - pending Milestone 8
 - [x] File uploads respect 10MB limit with clear error messages (Milestone 5 - Drag & Drop)
-- [ ] Mobile gestures disabled in 40px edge zone (no browser conflicts) - pending Milestone 8
+- [x] Mobile gestures disabled in 40px edge zone (no browser conflicts) (Milestone 8 - Phase 1)
 - [x] Search latency < 16ms for <1000 commands (Milestone 1 - Command Palette)
 - [x] Focus management follows ARIA guidelines (focus trap, return to trigger) (Milestone 1)
 
@@ -318,15 +318,29 @@ monitor.addEventListener('statechange', ({detail}) => {
 
 ---
 
-### Milestone 8: Mobile Gestures
+### Milestone 8: Mobile Gestures ⏳ IN PROGRESS
 **Goal**: Touch-friendly interactions for mobile users
 
-**Features**:
-- Swipe right on message = reply (disabled in 40px edge zone)
-- Long press = context menu (500ms threshold)
-- Pull down to refresh/reconnect (only from top of scroll)
-- Swipe up on input = fullscreen compose
-- Pinch to zoom on images (when implemented)
+**Status**: Phase 1 Complete (Foundation)
+
+**Implemented (Phase 1)**:
+- [x] Touch device detection (ontouchstart, maxTouchPoints, pointer:coarse)
+- [x] Edge zone utilities (40px margin for browser conflict protection)
+- [x] Swipe detector class with passive event listeners
+- [x] Module exports and initialization infrastructure
+- [x] All 25 unit tests passing (touch-detector: 7, swipe-detector: 8, index: 10)
+
+**Pending (Phase 2-4)**:
+- [ ] Swipe right on message = reply (disabled in 40px edge zone)
+- [ ] Long press = context menu (500ms threshold)
+- [ ] Pull down to refresh/reconnect (only from top of scroll)
+- [ ] Swipe up on input = fullscreen compose
+- [ ] Pinch to zoom on images (when implemented)
+
+**Files Created**:
+- `features/mobile-gestures/touch-detector.js` - Device detection, edge zone checking
+- `features/mobile-gestures/swipe-detector.js` - Swipe detection with callbacks
+- `features/mobile-gestures/index.js` - Module exports, GESTURE_CONFIG, initializeGestures()
 
 **Gesture Conflict Mitigation**:
 ```javascript
@@ -343,11 +357,15 @@ function handleTouchStart(e) {
 ```
 
 **Validation**:
-- Swipe right on message shows "Reply" action
-- Swipe from left edge (<40px) triggers browser back (not reply)
-- Long press shows context menu after 500ms
-- Pull down triggers reconnect (only when scrolled to top)
-- Tested on Safari iOS, Chrome Android
+- [x] Touch device detection works (ontouchstart, maxTouchPoints, pointer:coarse)
+- [x] Edge zone filtering prevents gestures within 40px of edges
+- [x] Swipe detection calculates direction, distance, and validity
+- [x] Passive event listeners for scroll performance
+- [ ] Swipe right on message shows "Reply" action
+- [ ] Swipe from left edge (<40px) triggers browser back (not reply)
+- [ ] Long press shows context menu after 500ms
+- [ ] Pull down triggers reconnect (only when scrolled to top)
+- [ ] Tested on Safari iOS, Chrome Android
 
 ---
 
@@ -459,11 +477,34 @@ src/alfred/interfaces/webui/static/js/
 │   │   ├── skeleton.js         # Loading skeletons
 │   │   ├── styles.css          # Animation CSS (5.6KB)
 │   │   └── index.js            # Module exports
-│   └── offline/              ✅ IMPLEMENTED
-│       ├── connection-monitor.js # WebSocket state tracking
-│       ├── offline-indicator.js  # Connection status banner
-│       ├── styles.css            # Glassmorphism styles
-│       └── index.js              # Module exports
+│   ├── offline/              ✅ IMPLEMENTED
+│   │   ├── connection-monitor.js # WebSocket state tracking
+│   │   ├── offline-indicator.js  # Connection status banner
+│   │   ├── styles.css            # Glassmorphism styles
+│   │   └── index.js              # Module exports
+│   └── mobile-gestures/      ⏳ PARTIAL (Phase 1)
+│       ├── touch-detector.js     # Device detection, edge zone
+│       ├── swipe-detector.js     # Swipe detection with callbacks
+│       ├── index.js              # Module exports, initializeGestures()
+│       ├── test-touch-detector.js    # 7 unit tests
+│       ├── test-swipe-detector.js    # 8 unit tests
+│       └── test-index.js             # 10 unit tests
+
+**PLANNED (Not Yet Implemented):**
+```
+src/alfred/interfaces/webui/static/js/
+├── features/
+│   ├── drag-drop/              ⏳ PARTIAL
+│   │   ├── quote.js            # Drag-to-quote (deferred)
+│   │   └── reorder.js          # Drag-to-reorder (deferred)
+│   ├── offline/                ⏳ PARTIAL
+│   │   └── queue.js            # Message queuing (deferred)
+│   └── mobile-gestures/        ⏳ PARTIAL (Phases 2-4)
+│       ├── swipe-to-reply.js   # Reply on swipe right
+│       ├── long-press-detector.js # Long press detection
+│       ├── pull-detector.js    # Pull-to-refresh detection
+│       ├── pull-to-refresh.js  # Pull-to-refresh UI
+│       └── styles.css          # Gesture styles
 ```
 
 **PLANNED (Not Yet Implemented):**
@@ -706,6 +747,7 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **PARTIAL**: Milestone 8 - Mobile Gestures (Phase 1) | Foundation layer complete: touch-detector.js (device detection, 40px edge zone), swipe-detector.js (direction/distance/progress), index.js (module exports, 25 tests). Phases 2-4 pending: swipe-to-reply, long-press, pull-to-refresh. Passive listeners for scroll performance. See `features/mobile-gestures/`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 7 - Service Worker & Offline Support | Static asset caching via service worker, ConnectionMonitor for WebSocket state, glassmorphism offline indicator. Cache-first strategy, versioned caches, offline HTML fallback. Message queuing deferred. See `service-worker.js` and `features/offline/`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 6 - Enhanced Animations | GPU-accelerated animations (transform/opacity only). Message entrance, button press, smooth scroll, skeleton loading, typing indicator, tool call progress. Reduced motion support. See `features/animations/`. |
 | 2026-03-26 | **IMPLEMENTED**: Milestone 5 - Drag & Drop | File upload via drag-drop and clipboard paste. Canvas-based image compression (>2MB), 10MB size limit, WebSocket base64 upload, glassmorphism drop zone. See `features/drag-drop/`. |
