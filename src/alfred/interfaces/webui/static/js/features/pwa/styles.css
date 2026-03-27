@@ -1,0 +1,102 @@
+/**
+ * PWA Install Prompt Styles
+ * Glassmorphism design consistent with the rest of the app
+ */
+
+.pwa-install-button {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(59, 130, 246, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: white;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.pwa-install-button.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.pwa-install-button:hover {
+  background: rgba(59, 130, 246, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+}
+
+.pwa-install-button:active {
+  transform: translateY(0);
+}
+
+.pwa-install-button svg {
+  flex-shrink: 0;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .pwa-install-button {
+    background: rgba(59, 130, 246, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .pwa-install-button:hover {
+    background: rgba(59, 130, 246, 0.95);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .pwa-install-button {
+    transition: none;
+  }
+  
+  .pwa-install-button:hover {
+    transform: none;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .pwa-install-button {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    justify-content: center;
+  }
+  
+  .pwa-install-button span {
+    display: inline;
+  }
+}
+
+/* Standalone mode - hide install button */
+@media (display-mode: standalone) {
+  .pwa-install-button {
+    display: none !important;
+  }
+}
+
+/* iOS standalone mode */
+@media all and (display-mode: standalone) {
+  .pwa-install-button {
+    display: none !important;
+  }
+}

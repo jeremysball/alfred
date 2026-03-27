@@ -13,6 +13,7 @@ import {
   GESTURE_CONFIG
 } from './features/mobile-gestures/index.js';
 import { initializeSearch, initializeQuickSwitcher, initializeMentions } from './features/search/index.js';
+import { initPWA } from './features/pwa/index.js';
 
 /**
  * WebSocket Message Contract
@@ -3172,6 +3173,7 @@ function initAll() {
   initSearch();
   initQuickSwitcher();
   initMentions();
+  initPWA({ debug: window.APP_CONFIG?.debug });
   registerServiceWorker();
 
   // Cleanup on page unload
