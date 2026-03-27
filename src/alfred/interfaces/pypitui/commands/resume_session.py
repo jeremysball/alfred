@@ -1,12 +1,9 @@
 """/resume command - Resume an existing session."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import Any
 
 from alfred.interfaces.pypitui.commands.base import Command
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
 
 
 class ResumeSessionCommand(Command):
@@ -15,7 +12,7 @@ class ResumeSessionCommand(Command):
     name = "resume"
     description = "Resume session by ID"
 
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """Resume an existing session."""
         if not arg:
             tui._add_user_message("Usage: /resume <session_id>\nUse /sessions to see available sessions.")
@@ -24,7 +21,7 @@ class ResumeSessionCommand(Command):
         asyncio.create_task(self._execute_async(tui, arg.strip()))
         return True
 
-    async def _execute_async(self, tui: "AlfredTUI", session_id: str) -> None:
+    async def _execute_async(self, tui: Any, session_id: str) -> None:
         """Async implementation of resume session."""
         try:
             tui._clear_conversation()

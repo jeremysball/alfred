@@ -1,10 +1,7 @@
 """Base class for TUI commands."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
+from typing import Any
 
 
 class Command(ABC):
@@ -21,7 +18,7 @@ class Command(ABC):
     """Brief description shown in completion menu."""
 
     @abstractmethod
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """Execute the command.
 
         Args:

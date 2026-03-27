@@ -1,12 +1,9 @@
 """/new command - Create a new session."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import Any
 
 from alfred.interfaces.pypitui.commands.base import Command
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
 
 
 class NewSessionCommand(Command):
@@ -15,13 +12,13 @@ class NewSessionCommand(Command):
     name = "new"
     description = "Create new session"
 
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """Create a new session."""
         # Run async initialization in background task
         asyncio.create_task(self._execute_async(tui))
         return True
 
-    async def _execute_async(self, tui: "AlfredTUI") -> None:
+    async def _execute_async(self, tui: Any) -> None:
         """Async implementation of new session creation."""
         tui._clear_conversation()
         tui.alfred.token_tracker.reset()

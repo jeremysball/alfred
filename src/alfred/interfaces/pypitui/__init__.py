@@ -37,31 +37,56 @@ from alfred.interfaces.ansi import (
     RESET,
     YELLOW,
 )
+from alfred.interfaces.pypitui.commands import (
+    Command,
+    HealthCommand,
+    ListSessionsCommand,
+    NewSessionCommand,
+    ResumeSessionCommand,
+    ShowContextCommand,
+    ShowSessionCommand,
+    ThrobbersCommand,
+)
+from alfred.interfaces.pypitui.compat import (
+    CompatTUI,
+    OverlayHandle,
+    OverlayOptions,
+    ProcessTerminal,
+)
 from alfred.interfaces.pypitui.constants import (
     DIM_BLUE,
     DIM_GREEN,
     DIM_RED,
 )
-from alfred.interfaces.pypitui.message_panel import MessagePanel
+from alfred.interfaces.pypitui.history_cache import HistoryManager
 from alfred.interfaces.pypitui.models import ToolCallInfo
-from alfred.interfaces.pypitui.status_line import StatusLine
-from alfred.interfaces.pypitui.toast import ToastManager, add_toast
-from alfred.interfaces.pypitui.toast_overlay import ToastOverlay
-from alfred.interfaces.pypitui.tui import AlfredTUI
+from alfred.interfaces.pypitui.toast import ToastHandler, ToastManager, add_toast
 from alfred.interfaces.pypitui.utils import format_tokens
 
 __all__ = [
-    # Classes
-    "AlfredTUI",
-    "MessagePanel",
-    "StatusLine",
+    # TUI Compatibility
+    "CompatTUI",
+    "ProcessTerminal",
+    "OverlayHandle",
+    "OverlayOptions",
+    # Commands
+    "Command",
+    "HealthCommand",
+    "ListSessionsCommand",
+    "NewSessionCommand",
+    "ResumeSessionCommand",
+    "ShowContextCommand",
+    "ShowSessionCommand",
+    "ThrobbersCommand",
+    # Components
+    "HistoryManager",
     "ToastManager",
-    "ToastOverlay",
+    "ToastHandler",
     "ToolCallInfo",
     # Functions
     "add_toast",
     "format_tokens",
-    # ANSI Colors (comprehensive)
+    # ANSI Colors
     "BLACK",
     "BLUE",
     "BOLD",

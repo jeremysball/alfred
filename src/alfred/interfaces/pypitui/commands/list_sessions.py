@@ -1,12 +1,9 @@
 """/sessions command - List all sessions."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import Any
 
 from alfred.interfaces.pypitui.commands.base import Command
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
 
 
 class ListSessionsCommand(Command):
@@ -15,12 +12,12 @@ class ListSessionsCommand(Command):
     name = "sessions"
     description = "List all sessions"
 
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """List all sessions."""
         asyncio.create_task(self._execute_async(tui))
         return True
 
-    async def _execute_async(self, tui: "AlfredTUI") -> None:
+    async def _execute_async(self, tui: Any) -> None:
         """Async implementation of list sessions."""
         sessions = await tui.alfred.core.session_manager.list_sessions_async()
         if not sessions:

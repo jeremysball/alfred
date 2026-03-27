@@ -2,12 +2,9 @@
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import Any
 
 from alfred.interfaces.pypitui.commands.base import Command
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +15,7 @@ class ShowContextCommand(Command):
     name = "context"
     description = "Show system context"
 
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """Show current system context."""
         from alfred.context_display import get_context_display
 

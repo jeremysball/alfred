@@ -1,11 +1,8 @@
 """/session command - Show current session info."""
 
-from typing import TYPE_CHECKING
+from typing import Any
 
 from alfred.interfaces.pypitui.commands.base import Command
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
 
 
 class ShowSessionCommand(Command):
@@ -14,7 +11,7 @@ class ShowSessionCommand(Command):
     name = "session"
     description = "Show current session info"
 
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """Show current session details."""
         if not tui.alfred.core.session_manager.has_active_session():
             tui._add_user_message("No active session.")

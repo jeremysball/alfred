@@ -1,7 +1,7 @@
 """/health command - Show system health status."""
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import Any
 
 from alfred.interfaces.ansi import (
     BOLD,
@@ -15,9 +15,6 @@ from alfred.interfaces.ansi import (
     YELLOW,
 )
 from alfred.interfaces.pypitui.commands.base import Command
-
-if TYPE_CHECKING:
-    from alfred.interfaces.pypitui.tui import AlfredTUI
 
 
 def _status_ok(text: str) -> str:
@@ -61,7 +58,7 @@ class HealthCommand(Command):
     name = "health"
     description = "Show system health status"
 
-    def execute(self, tui: "AlfredTUI", arg: str | None) -> bool:
+    def execute(self, tui: Any, arg: str | None) -> bool:
         """Show health status of Alfred's systems."""
 
         async def _fetch_and_display() -> None:
