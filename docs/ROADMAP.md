@@ -235,6 +235,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 
 | # | Milestone | Description |
 |---|-----------|-------------|
+| 162 | Web UI WebSocket-first Status and Debug Instrumentation | Make live Web UI state and message delivery WebSocket-first, keep /health for readiness only, and add explicit server/client debug logs (PRD #162) |
 | 160 | Dictation Support and Voice Mode | Bidirectional voice support for Web UI—speech-to-text input and text-to-speech responses with local and cloud options (PRD #160) |
 | 155 | Interleaved Tool Calls and Thinking Blocks | Display tool calls and thinking blocks inline at their trigger point in conversation (PRD #155) |
 | 156 | Playwright Browser Control | Agent can control browser programmatically with real-time preview (PRD #156) |
