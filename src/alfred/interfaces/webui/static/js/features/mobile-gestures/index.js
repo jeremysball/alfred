@@ -15,6 +15,7 @@ const { LongPressContextMenu } = require('./long-press-context-menu.js');
 const { SwipeToReply } = require('./swipe-to-reply.js');
 const { PullToRefreshDetector } = require('./pull-to-refresh.js');
 const { PullIndicator, createPullIndicator } = require('./pull-indicator.js');
+const { FullscreenComposeModal, createFullscreenCompose } = require('./fullscreen-compose.js');
 
 /**
  * Gesture configuration constants
@@ -149,6 +150,34 @@ function initializePullToRefresh(element, options = {}) {
   return { detector, indicator, cleanup };
 }
 
+/**
+ * Initialize fullscreen compose on a textarea element
+ *
+ * @param {HTMLTextAreaElement} compactInput - The compact composer textarea
+ * @param {Object} options - Configuration options
+ * @param {Function} options.onSubmit - Callback when message is submitted
+ * @param {Function} options.onOpen - Callback when modal opens
+ * @param {Function} options.onClose - Callback when modal closes
+ * @param {string} options.placeholder - Placeholder text
+ * @returns {Object} Object containing modal and cleanup function
+ */
+function initializeFullscreenCompose(compactInput, options = {}) {
+  if (!compactInput || !isTouchDevice()) {
+    console.log('[Gestures] Touch device not detected or no input provided, skipping fullscreen compose');
+    return null;
+  }
+
+  console.log('[Gestures] Initializing fullscreen compose...');
+
+  const result = createFullscreenCompose(compactInput, options);
+
+  if (result) {
+    console.log('[Gestures] Fullscreen compose initialized');
+  }
+
+  return result;
+}
+
 // Export public API
 module.exports = {
   // Configuration
@@ -170,10 +199,13 @@ module.exports = {
   PullToRefreshDetector,
   PullIndicator,
   createPullIndicator,
+  FullscreenComposeModal,
+  createFullscreenCompose,
 
   // Initialization
   initializeGestures,
   initializePullToRefresh,
+  initializeFullscreenCompose,
 };
 
 // Also expose to window for browser usage
