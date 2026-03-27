@@ -22,29 +22,33 @@
  *   const helpModal = new HelpModal();
  */
 
-// Re-export all modules
-const shortcuts = typeof require !== 'undefined' ? require('./shortcuts.js') : (window.ShortcutRegistry || {});
-const help = typeof require !== 'undefined' ? require('./help.js') : (window.HelpModal ? { HelpModal: window.HelpModal } : {});
-const keyboardManager = typeof require !== 'undefined' ? require('./keyboard-manager.js') : (window.KeyboardManager ? { KeyboardManager: window.KeyboardManager } : {});
-const navigation = typeof require !== 'undefined' ? require('./navigation.js') : (window.MessageNavigator ? { MessageNavigator: window.MessageNavigator } : {});
+// Import from window globals (loaded via script tags)
+const {
+  register,
+  getAll,
+  getAllFlat,
+  getById,
+  unregister,
+  clear,
+  formatShortcut,
+  parseKeyCombo
+} = window.ShortcutRegistry || {};
 
-const { register, getAll, getAllFlat, getById, unregister, clear, formatShortcut, parseKeyCombo } = shortcuts;
-const { HelpModal } = help;
-const { KeyboardManager } = keyboardManager;
-const { MessageNavigator } = navigation;
+const HelpModal = window.HelpModal;
+const KeyboardManager = window.KeyboardManager;
+const MessageNavigator = window.MessageNavigator;
 
 // ShortcutRegistry convenience object
-const ShortcutRegistry = { register, getAll, getAllFlat, getById, unregister, clear, formatShortcut, parseKeyCombo };
-
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    ShortcutRegistry,
-    HelpModal,
-    KeyboardManager,
-    MessageNavigator
-  };
-}
+const ShortcutRegistry = {
+  register,
+  getAll,
+  getAllFlat,
+  getById,
+  unregister,
+  clear,
+  formatShortcut,
+  parseKeyCombo
+};
 
 // Export for ES modules
 export { ShortcutRegistry, HelpModal, KeyboardManager, MessageNavigator };

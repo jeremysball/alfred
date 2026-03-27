@@ -4,9 +4,7 @@
  * Context menu for chat messages with copy and quote actions.
  */
 
-const { ContextMenu } = typeof require !== 'undefined'
-  ? require('./menu.js')
-  : (window.ContextMenu ? { ContextMenu: window.ContextMenu } : {});
+import { ContextMenu } from './menu.js';
 
 /**
  * Extract text content from a message element
@@ -19,7 +17,7 @@ function getMessageText(messageElement) {
   if (contentEl) {
     return contentEl.textContent.trim();
   }
-  
+
   // Fallback: get all text except metadata
   const clone = messageElement.cloneNode(true);
   const metadata = clone.querySelector('.message-metadata, .timestamp, .author, .avatar');
@@ -64,14 +62,14 @@ function showToast(message) {
 function quoteMessage(text, author) {
   const input = document.getElementById('message-input');
   if (!input) return;
-  
-  const quoteText = author 
+
+  const quoteText = author
     ? `> ${author}: ${text.split('\n').join('\n> ')}\n\n`
     : `> ${text.split('\n').join('\n> ')}\n\n`;
-  
+
   const currentValue = input.value;
   const cursorPos = input.selectionStart;
-  
+
   const newValue = currentValue.slice(0, cursorPos) + quoteText + currentValue.slice(cursorPos);
   input.value = newValue;
   input.focus();
@@ -89,7 +87,7 @@ function showMessageMenu(messageElement, x, y) {
   const messageText = getMessageText(messageElement);
   const authorEl = messageElement.querySelector('.message-author, .author, [data-author]');
   const author = authorEl ? authorEl.textContent.trim() : '';
-  
+
   const items = [
     {
       id: 'copy-text',
@@ -127,7 +125,7 @@ function showMessageMenu(messageElement, x, y) {
       }
     }
   ];
-  
+
   menu.show({ x, y, items, triggerElement: messageElement });
 }
 
@@ -142,11 +140,11 @@ function attachMessageMenu(messageElement) {
     if (e.target.closest('a, button, input, textarea')) {
       return;
     }
-    
+
     e.preventDefault();
     showMessageMenu(messageElement, e.clientX, e.clientY);
   });
-  
+
   // Shift+F10 keyboard shortcut
   messageElement.addEventListener('keydown', (e) => {
     if (e.shiftKey && e.key === 'F10') {
@@ -170,19 +168,16 @@ function attachToAllMessages() {
   });
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    showMessageMenu,
-    attachMessageMenu,
-    attachToAllMessages,
-    getMessageText,
-    copyToClipboard,
-    quoteMessage
-  };
-}
+// Export for ESM and browser
+export {
+  showMessageMenu,
+  attachMessageMenu,
+  attachToAllMessages,
+  getMessageText,
+  copyToClipboard,
+  quoteMessage
+};
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.MessageContextMenu = {
     showMessageMenu,

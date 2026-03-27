@@ -259,10 +259,8 @@ class SwipeDetector {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SwipeDetector };
-}
+// Export for ESM and browser usage
+export { SwipeDetector };
 
 if (typeof window !== 'undefined') {
   window.SwipeDetector = SwipeDetector;

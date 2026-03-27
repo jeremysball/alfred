@@ -5,14 +5,8 @@
  * Handles keyboard navigation and command execution.
  */
 
-// Import dependencies (works in both module and script contexts)
-const { search } = typeof require !== 'undefined'
-  ? require('./fuzzy-search.js')
-  : (window.FuzzySearch || {});
-
-const { getAll } = typeof require !== 'undefined'
-  ? require('./commands.js')
-  : (window.CommandRegistry || {});
+import { search } from './fuzzy-search.js';
+import { getAll } from './commands.js';
 
 /**
  * @typedef {Object} PaletteConfig
@@ -396,10 +390,8 @@ class CommandPalette {
   }
 }
 
-// Export for both CommonJS and ES modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { CommandPalette };
-}
+// Export for ESM and browser
+export { CommandPalette };
 
 if (typeof window !== 'undefined') {
   window.CommandPalette = CommandPalette;

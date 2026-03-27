@@ -346,13 +346,8 @@ function createPullIndicator(detector, options = {}) {
   return indicator;
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    PullIndicator,
-    createPullIndicator,
-  };
-}
+// Export for ESM and browser usage
+export { PullIndicator, createPullIndicator };
 
 if (typeof window !== 'undefined') {
   window.PullIndicator = PullIndicator;

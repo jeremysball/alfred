@@ -116,12 +116,8 @@ class GestureCoordinator {
 // Static instance holder
 GestureCoordinator.instance = null;
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    GestureCoordinator,
-  };
-}
+// Export for ESM and browser usage
+export { GestureCoordinator };
 
 if (typeof window !== 'undefined') {
   window.GestureCoordinator = {

@@ -5,10 +5,7 @@
  * with support for modifier keys and context awareness.
  */
 
-// Import from shortcuts module
-const { getAllFlat } = typeof require !== 'undefined'
-  ? require('./shortcuts.js')
-  : (window.ShortcutRegistry || {});
+import { getAllFlat } from './shortcuts.js';
 
 class KeyboardManager {
   constructor() {
@@ -131,12 +128,9 @@ class KeyboardManager {
   }
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { KeyboardManager };
-}
+// Export for ESM and browser
+export { KeyboardManager };
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.KeyboardManager = KeyboardManager;
 }

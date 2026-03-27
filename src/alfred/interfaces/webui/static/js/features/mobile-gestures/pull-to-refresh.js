@@ -363,12 +363,8 @@ class PullToRefreshDetector {
   }
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    isScrolledToTop,
-    PullToRefreshDetector,
-  };
-}
+// Export for ESM and browser usage
+export { isScrolledToTop, PullToRefreshDetector };
 
 if (typeof window !== 'undefined') {
   window.PullToRefresh = {

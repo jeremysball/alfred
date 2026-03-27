@@ -14,7 +14,7 @@
  * Phase 2: Touch Gesture Support - Swipe-to-Reply
  */
 
-const { SwipeDetector } = require('./swipe-detector.js');
+import { SwipeDetector } from './swipe-detector.js';
 
 class SwipeToReply {
   constructor(options = {}) {
@@ -369,10 +369,8 @@ class SwipeToReply {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SwipeToReply };
-}
+// Export for ESM and browser usage
+export { SwipeToReply };
 
 if (typeof window !== 'undefined') {
   window.SwipeToReply = SwipeToReply;

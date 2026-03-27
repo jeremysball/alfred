@@ -203,10 +203,8 @@ function benchmark(query, commands, iterations = 100) {
   return total / iterations;
 }
 
-// Export for both CommonJS and ES modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { search, benchmark, calculateScore, isFuzzyMatch, getHighlightIndices };
-}
+// Export for ESM and browser usage
+export { search, benchmark, calculateScore, isFuzzyMatch, getHighlightIndices };
 
 if (typeof window !== 'undefined') {
   window.FuzzySearch = { search, benchmark, calculateScore, isFuzzyMatch, getHighlightIndices };

@@ -85,10 +85,8 @@ function clear() {
   registry.clear();
 }
 
-// Export for both CommonJS and ES modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { register, getAll, getById, unregister, clear };
-}
+// Export for ESM and browser usage
+export { register, getAll, getById, unregister, clear };
 
 if (typeof window !== 'undefined') {
   window.CommandRegistry = { register, getAll, getById, unregister, clear };

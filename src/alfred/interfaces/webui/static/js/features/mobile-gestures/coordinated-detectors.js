@@ -5,10 +5,10 @@
  * Ensures gestures coordinate and don't conflict with each other.
  */
 
-const { GestureCoordinator } = require('./gesture-coordinator.js');
-const { SwipeDetector } = require('./swipe-detector.js');
-const { LongPressDetector } = require('./long-press-detector.js');
-const { isInEdgeZone } = require('./touch-detector.js');
+import { GestureCoordinator } from './gesture-coordinator.js';
+import { SwipeDetector } from './swipe-detector.js';
+import { LongPressDetector } from './long-press-detector.js';
+import { isInEdgeZone } from './touch-detector.js';
 
 /**
  * Region definitions for gesture coordination
@@ -412,15 +412,8 @@ class CoordinatedLongPressDetector {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    CoordinatedSwipeDetector,
-    CoordinatedLongPressDetector,
-    getRegionForElement,
-    REGIONS,
-  };
-}
+// Export for ESM and browser usage
+export { CoordinatedSwipeDetector, CoordinatedLongPressDetector, getRegionForElement, REGIONS };
 
 if (typeof window !== 'undefined') {
   window.CoordinatedDetectors = {

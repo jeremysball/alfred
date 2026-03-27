@@ -564,7 +564,9 @@ class AlfredWebSocketClient extends EventTarget {
   }
 }
 
-// Export for module usage if supported
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AlfredWebSocketClient };
+// Export for ESM and browser usage
+export { AlfredWebSocketClient };
+
+if (typeof window !== 'undefined') {
+  window.AlfredWebSocketClient = AlfredWebSocketClient;
 }

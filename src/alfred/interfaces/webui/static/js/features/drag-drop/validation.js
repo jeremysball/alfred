@@ -140,10 +140,8 @@ const FileValidation = {
   },
 };
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FileValidation };
-}
+// Export for ESM and browser usage
+export { FileValidation };
 
 if (typeof window !== 'undefined') {
   window.FileValidation = FileValidation;

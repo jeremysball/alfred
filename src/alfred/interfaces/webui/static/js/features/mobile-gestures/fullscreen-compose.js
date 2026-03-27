@@ -445,13 +445,8 @@ function createFullscreenCompose(compactInput, options = {}) {
   return { modal, cleanup };
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    FullscreenComposeModal,
-    createFullscreenCompose,
-  };
-}
+// Export for ESM and browser usage
+export { FullscreenComposeModal, createFullscreenCompose };
 
 if (typeof window !== 'undefined') {
   window.FullscreenCompose = {

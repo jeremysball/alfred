@@ -35,18 +35,6 @@ const FileUpload = window.FileUpload;
 const ClipboardHandler = window.ClipboardHandler;
 const DropZoneVisual = window.DropZoneVisual;
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    DragDropManager,
-    FileValidation,
-    ImageCompression,
-    FileUpload,
-    ClipboardHandler,
-    DropZoneVisual,
-  };
-}
-
 // Export for ES modules
 export {
   DragDropManager,

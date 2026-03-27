@@ -182,20 +182,9 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    show,
-    dismiss,
-    dismissAll,
-    info,
-    success,
-    warning,
-    error
-  };
-}
+// Export for ESM and browser usage
+export { show, dismiss, dismissAll, info, success, warning, error };
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.Toast = {
     show,

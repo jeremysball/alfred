@@ -208,6 +208,16 @@ Docs-only changes do not need code validation unless behavior changed.
 
 ## Tooling Rules
 
+### Use ESM for All JavaScript
+
+All JavaScript code must use ES Modules (ESM) syntax exclusively:
+- Use `import` / `export` instead of `require` / `module.exports`
+- Browser-facing code in `src/alfred/interfaces/webui/static/js/` must be native ESM
+- Node.js JavaScript utilities should use `.mjs` extension or `"type": "module"` in package.json
+- Never mix CommonJS and ESM in the same module graph
+
+See PRD #164 for the full migration rationale and implementation details.
+
 ### Use `uv`, Never `pip`
 
 Use `uv` for package management and command execution.

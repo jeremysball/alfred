@@ -255,10 +255,8 @@ class DragDropManager {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { DragDropManager };
-}
+// Export for ESM and browser usage
+export { DragDropManager };
 
 if (typeof window !== 'undefined') {
   window.DragDropManager = DragDropManager;

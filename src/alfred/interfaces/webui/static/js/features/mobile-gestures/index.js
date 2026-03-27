@@ -8,16 +8,16 @@
  */
 
 // Import detector utilities
-const { isTouchDevice, isInEdgeZone, shouldHandleTouch } = require('./touch-detector.js');
-const { SwipeDetector } = require('./swipe-detector.js');
-const { LongPressDetector } = require('./long-press-detector.js');
-const { LongPressContextMenu } = require('./long-press-context-menu.js');
-const { SwipeToReply } = require('./swipe-to-reply.js');
-const { PullToRefreshDetector } = require('./pull-to-refresh.js');
-const { PullIndicator, createPullIndicator } = require('./pull-indicator.js');
-const { FullscreenComposeModal, createFullscreenCompose } = require('./fullscreen-compose.js');
-const { GestureCoordinator } = require('./gesture-coordinator.js');
-const { CoordinatedSwipeDetector, CoordinatedLongPressDetector } = require('./coordinated-detectors.js');
+import { isTouchDevice, isInEdgeZone, shouldHandleTouch } from './touch-detector.js';
+import { SwipeDetector } from './swipe-detector.js';
+import { LongPressDetector } from './long-press-detector.js';
+import { LongPressContextMenu } from './long-press-context-menu.js';
+import { SwipeToReply } from './swipe-to-reply.js';
+import { PullToRefreshDetector } from './pull-to-refresh.js';
+import { PullIndicator, createPullIndicator } from './pull-indicator.js';
+import { FullscreenComposeModal, createFullscreenCompose } from './fullscreen-compose.js';
+import { GestureCoordinator } from './gesture-coordinator.js';
+import { CoordinatedSwipeDetector, CoordinatedLongPressDetector } from './coordinated-detectors.js';
 
 /**
  * Gesture configuration constants
@@ -181,7 +181,7 @@ function initializeFullscreenCompose(compactInput, options = {}) {
 }
 
 // Export public API
-module.exports = {
+export {
   // Configuration
   GESTURE_CONFIG,
 
@@ -217,5 +217,26 @@ module.exports = {
 
 // Also expose to window for browser usage
 if (typeof window !== 'undefined') {
-  window.MobileGestures = module.exports;
+  window.MobileGestures = {
+    GESTURE_CONFIG,
+    isTouchDevice,
+    isInEdgeZone,
+    shouldHandleTouch,
+    shouldEnableGestures,
+    SwipeDetector,
+    LongPressDetector,
+    SwipeToReply,
+    LongPressContextMenu,
+    PullToRefreshDetector,
+    PullIndicator,
+    createPullIndicator,
+    FullscreenComposeModal,
+    createFullscreenCompose,
+    GestureCoordinator,
+    CoordinatedSwipeDetector,
+    CoordinatedLongPressDetector,
+    initializeGestures,
+    initializePullToRefresh,
+    initializeFullscreenCompose,
+  };
 }

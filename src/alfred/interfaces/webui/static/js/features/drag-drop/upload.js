@@ -220,10 +220,8 @@ const FileUpload = {
   },
 };
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FileUpload };
-}
+// Export for ESM and browser usage
+export { FileUpload };
 
 if (typeof window !== 'undefined') {
   window.FileUpload = FileUpload;

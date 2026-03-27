@@ -163,18 +163,9 @@ function getCount() {
   return unreadCount;
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    init,
-    set,
-    increment,
-    clear,
-    getCount
-  };
-}
+// Export for ESM and browser usage
+export { init, set, increment, clear, getCount };
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.FaviconBadge = {
     init,

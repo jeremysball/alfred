@@ -5,9 +5,7 @@
  * while the tab is not focused.
  */
 
-const { isGranted, isSupported } = typeof require !== 'undefined'
-  ? require('./permissions.js')
-  : (window.NotificationPermissionManager || {});
+import { isGranted, isSupported } from './permissions.js';
 
 /**
  * Show a browser notification
@@ -129,18 +127,15 @@ function setDoNotDisturb(enabled) {
   }
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    show,
-    showResponseComplete,
-    notifyIfHidden,
-    isDoNotDisturbEnabled,
-    setDoNotDisturb
-  };
-}
+// Export for ESM and browser
+export {
+  show,
+  showResponseComplete,
+  notifyIfHidden,
+  isDoNotDisturbEnabled,
+  setDoNotDisturb
+};
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.NotificationService = {
     show,

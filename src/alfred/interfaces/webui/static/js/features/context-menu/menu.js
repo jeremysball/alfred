@@ -364,12 +364,9 @@ class ContextMenu {
   }
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ContextMenu };
-}
+// Export for ESM and browser usage
+export { ContextMenu };
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.ContextMenu = ContextMenu;
 }

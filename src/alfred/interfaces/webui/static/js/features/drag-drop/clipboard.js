@@ -116,10 +116,8 @@ const ClipboardHandler = {
   },
 };
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ClipboardHandler };
-}
+// Export for ESM and browser usage
+export { ClipboardHandler };
 
 if (typeof window !== 'undefined') {
   window.ClipboardHandler = ClipboardHandler;

@@ -17,29 +17,22 @@
  *   CodeContextMenu.attachToAllCodeBlocks();
  */
 
-// Import modules (works with both CommonJS and browser globals)
-const menu = typeof require !== 'undefined' ? require('./menu.js') : (window.ContextMenu ? { ContextMenu: window.ContextMenu } : {});
-const messageMenu = typeof require !== 'undefined' ? require('./message-menu.js') : (window.MessageContextMenu || {});
-const codeMenu = typeof require !== 'undefined' ? require('./code-menu.js') : (window.CodeContextMenu || {});
-
-const { ContextMenu } = menu;
+// Import from window globals (loaded via script tags)
+const ContextMenu = window.ContextMenu;
+const MessageContextMenu = window.MessageContextMenu;
+const CodeContextMenu = window.CodeContextMenu;
 
 // Re-export everything
 const ContextMenuModule = {
   ContextMenu,
-  MessageContextMenu: messageMenu,
-  CodeContextMenu: codeMenu
+  MessageContextMenu,
+  CodeContextMenu
 };
-
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ContextMenuModule;
-}
 
 // Export for ES modules
 export { ContextMenu };
-export const MessageContextMenu = messageMenu;
-export const CodeContextMenu = codeMenu;
+export { MessageContextMenu };
+export { CodeContextMenu };
 
 // Also expose on window
 if (typeof window !== 'undefined') {

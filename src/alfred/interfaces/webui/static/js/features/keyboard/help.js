@@ -5,10 +5,7 @@
  * Open with `?` key.
  */
 
-// Import from shortcuts module (works with both CommonJS and browser)
-const { getAll, formatShortcut } = typeof require !== 'undefined'
-  ? require('./shortcuts.js')
-  : (window.ShortcutRegistry || {});
+import { getAll, formatShortcut } from './shortcuts.js';
 
 class HelpModal {
   constructor() {
@@ -49,7 +46,7 @@ class HelpModal {
     header.className = 'keyboard-help-header';
     header.innerHTML = `
       <h2>Keyboard Shortcuts</h2>
-      <button class="keyboard-help-close" aria-label="Close">&times;</button>
+      <button class="keyboard-help-close" aria-label="Close">×</button>
     `;
     header.querySelector('.keyboard-help-close').addEventListener('click', this.close);
 
@@ -198,12 +195,9 @@ class HelpModal {
   }
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { HelpModal };
-}
+// Export for ESM and browser
+export { HelpModal };
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.HelpModal = HelpModal;
 }

@@ -164,22 +164,19 @@ function init() {
   console.log(`Notification permission: ${current} (saved: ${saved})`);
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    getPermission,
-    isSupported,
-    isGranted,
-    isDenied,
-    shouldAsk,
-    request,
-    requestIfNeeded,
-    getInstructions,
-    init
-  };
-}
+// Export for ESM and browser usage
+export {
+  getPermission,
+  isSupported,
+  isGranted,
+  isDenied,
+  shouldAsk,
+  request,
+  requestIfNeeded,
+  getInstructions,
+  init
+};
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.NotificationPermissionManager = {
     getPermission,

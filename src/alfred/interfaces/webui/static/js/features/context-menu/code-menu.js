@@ -4,9 +4,7 @@
  * Context menu for code blocks with copy actions.
  */
 
-const { ContextMenu } = typeof require !== 'undefined'
-  ? require('./menu.js')
-  : (window.ContextMenu ? { ContextMenu: window.ContextMenu } : {});
+import { ContextMenu } from './menu.js';
 
 /**
  * Extract code from a code block element
@@ -19,7 +17,7 @@ function getCodeText(codeBlock) {
   if (codeEl) {
     return codeEl.textContent;
   }
-  
+
   // Fallback: the element itself
   return codeBlock.textContent;
 }
@@ -34,13 +32,13 @@ function getCodeLanguage(codeBlock) {
   if (codeBlock.dataset.language) {
     return codeBlock.dataset.language;
   }
-  
+
   // Check class (e.g., "language-python")
   const match = codeBlock.className.match(/language-(\w+)/);
   if (match) {
     return match[1];
   }
-  
+
   // Check parent pre element
   const parent = codeBlock.closest('pre');
   if (parent) {
@@ -49,7 +47,7 @@ function getCodeLanguage(codeBlock) {
       return parentMatch[1];
     }
   }
-  
+
   return null;
 }
 
@@ -90,7 +88,7 @@ function showCodeMenu(codeBlock, x, y) {
   const menu = new ContextMenu();
   const codeText = getCodeText(codeBlock);
   const language = getCodeLanguage(codeBlock);
-  
+
   const items = [
     {
       id: 'copy-code',
@@ -118,7 +116,7 @@ function showCodeMenu(codeBlock, x, y) {
       }
     }
   ];
-  
+
   // Add language-specific option if detected
   if (language) {
     items.push({ type: 'separator' });
@@ -129,7 +127,7 @@ function showCodeMenu(codeBlock, x, y) {
       disabled: true
     });
   }
-  
+
   menu.show({ x, y, items, triggerElement: codeBlock });
 }
 
@@ -144,7 +142,7 @@ function attachCodeMenu(codeBlock) {
     e.stopPropagation();
     showCodeMenu(codeBlock, e.clientX, e.clientY);
   });
-  
+
   // Shift+F10 keyboard shortcut
   codeBlock.addEventListener('keydown', (e) => {
     if (e.shiftKey && e.key === 'F10') {
@@ -153,7 +151,7 @@ function attachCodeMenu(codeBlock) {
       showCodeMenu(codeBlock, rect.left, rect.top);
     }
   });
-  
+
   // Make focusable
   if (!codeBlock.hasAttribute('tabindex')) {
     codeBlock.setAttribute('tabindex', '0');
@@ -173,19 +171,16 @@ function attachToAllCodeBlocks() {
   });
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    showCodeMenu,
-    attachCodeMenu,
-    attachToAllCodeBlocks,
-    getCodeText,
-    getCodeLanguage,
-    copyToClipboard
-  };
-}
+// Export for ESM and browser
+export {
+  showCodeMenu,
+  attachCodeMenu,
+  attachToAllCodeBlocks,
+  getCodeText,
+  getCodeLanguage,
+  copyToClipboard
+};
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.CodeContextMenu = {
     showCodeMenu,

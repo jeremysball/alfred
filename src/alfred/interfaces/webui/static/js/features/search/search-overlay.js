@@ -303,7 +303,9 @@ class SearchOverlay {
 // Singleton instance storage
 SearchOverlay._instance = null;
 
-// Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SearchOverlay };
+// Export for ESM and browser usage
+export { SearchOverlay };
+
+if (typeof window !== 'undefined') {
+  window.SearchOverlay = SearchOverlay;
 }

@@ -177,21 +177,18 @@ function formatShortcut(shortcut) {
   return parts.join('+');
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    register,
-    getAll,
-    getAllFlat,
-    getById,
-    unregister,
-    clear,
-    formatShortcut,
-    parseKeyCombo
-  };
-}
+// Export for ESM and browser usage
+export {
+  register,
+  getAll,
+  getAllFlat,
+  getById,
+  unregister,
+  clear,
+  formatShortcut,
+  parseKeyCombo
+};
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.ShortcutRegistry = {
     register,

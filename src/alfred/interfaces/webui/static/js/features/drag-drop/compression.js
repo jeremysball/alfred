@@ -156,10 +156,8 @@ const ImageCompression = {
   },
 };
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ImageCompression };
-}
+// Export for ESM and browser usage
+export { ImageCompression };
 
 if (typeof window !== 'undefined') {
   window.ImageCompression = ImageCompression;

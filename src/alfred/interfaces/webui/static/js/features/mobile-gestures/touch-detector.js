@@ -68,14 +68,8 @@ function shouldHandleTouch(element, excludedSelectors = ['input', 'textarea', 's
   return true;
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    isTouchDevice,
-    isInEdgeZone,
-    shouldHandleTouch
-  };
-}
+// Export for ESM and browser usage
+export { isTouchDevice, isInEdgeZone, shouldHandleTouch };
 
 if (typeof window !== 'undefined') {
   window.TouchDetector = {

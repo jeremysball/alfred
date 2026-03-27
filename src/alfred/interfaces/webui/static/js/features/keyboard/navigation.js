@@ -148,12 +148,9 @@ class MessageNavigator {
   }
 }
 
-// Export for CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MessageNavigator };
-}
+// Export for ESM and browser usage
+export { MessageNavigator };
 
-// Export for browser
 if (typeof window !== 'undefined') {
   window.MessageNavigator = MessageNavigator;
 }

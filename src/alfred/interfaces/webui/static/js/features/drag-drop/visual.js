@@ -111,10 +111,8 @@ class DropZoneVisual {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { DropZoneVisual };
-}
+// Export for ESM and browser usage
+export { DropZoneVisual };
 
 if (typeof window !== 'undefined') {
   window.DropZoneVisual = DropZoneVisual;

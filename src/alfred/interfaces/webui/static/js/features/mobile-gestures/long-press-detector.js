@@ -268,10 +268,8 @@ class LongPressDetector {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { LongPressDetector };
-}
+// Export for ESM and browser usage
+export { LongPressDetector };
 
 if (typeof window !== 'undefined') {
   window.LongPressDetector = LongPressDetector;

@@ -14,7 +14,7 @@
  * Phase 3: Touch Gesture Support - Long Press Context Menu
  */
 
-const { LongPressDetector } = require('./long-press-detector.js');
+import { LongPressDetector } from './long-press-detector.js';
 
 class LongPressContextMenu {
   constructor(options = {}) {
@@ -267,10 +267,8 @@ class LongPressContextMenu {
   }
 }
 
-// Export for different module systems
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { LongPressContextMenu };
-}
+// Export for ESM and browser usage
+export { LongPressContextMenu };
 
 if (typeof window !== 'undefined') {
   window.LongPressContextMenu = LongPressContextMenu;
