@@ -1,9 +1,23 @@
-# PRD: Web UI WebSocket-First Status and Debug Instrumentation
+# PRD: Web UI WebSocket-First Status and Debug Instrumentation ✅ COMPLETE
 
 **GitHub Issue**: [#162](https://github.com/jeremysball/alfred/issues/162)  
 **Priority**: High  
-**Status**: Draft  
-**Created**: 2026-03-27
+**Status**: Complete  
+**Created**: 2026-03-27  
+**Completed**: 2026-03-27
+
+---
+
+## Summary
+
+All milestones completed. The Web UI now uses WebSocket as the single source of truth for live runtime state, with comprehensive debug instrumentation and full test coverage.
+
+**Key Deliverables**:
+- WebSocket-first connection status (no `/health` dependency for live state)
+- Structured `[websocket]` prefixed debug logging (5 lifecycle event types)
+- Log policy enforcement (14 non-prefixed logs gated by debug flag)
+- 30 regression tests covering protocol, UI, and logging
+- Complete documentation in README.md and websocket-protocol.md
 
 ---
 
@@ -175,33 +189,51 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 ---
 
-### Milestone 5: Add regression coverage for protocol, UI, and logging
+### Milestone 5: Add regression coverage for protocol, UI, and logging ✅ COMPLETE
 **Goal**: Lock the behavior with browser and server tests.
 
 **Scope**:
-- Verify startup handling does not produce unhandled-message console noise
-- Verify the connection popover reflects WebSocket state without HTTP hydration
-- Verify reconnect and send behavior under transient disconnects
-- Verify debug config wiring and log summaries in debug mode
+- [x] Verify startup handling does not produce unhandled-message console noise
+- [x] Verify the connection popover reflects WebSocket state without HTTP hydration
+- [x] Verify reconnect and send behavior under transient disconnects
+- [x] Verify debug config wiring and log summaries in debug mode
 
 **Validation**:
-- Existing Web UI tests pass with the new contract
-- Browser regression tests cover desktop and mobile connection states
-- Debug-mode tests assert meaningful logs rather than raw payload spam
+- [x] Existing Web UI tests pass with the new contract
+- [x] Browser regression tests cover desktop and mobile connection states
+- [x] Debug-mode tests assert meaningful logs rather than raw payload spam
+
+**Evidence**:
+- 30 tests covering WebSocket-first status and debug instrumentation
+- `test_frontend_logging.py`: 18 tests for startup handling, protocol messages, debug logging
+- `test_reconnect.py`: 5 browser tests for reconnect behavior
+- `test_websocket_client_protocol.py`: 9 tests for connection state guards, lifecycle cleanup, queue behavior
+- All tests pass: `uv run pytest tests/webui/test_frontend_logging.py tests/webui/test_reconnect.py tests/webui/test_websocket_client_protocol.py -v`
 
 ---
 
-### Milestone 6: Update docs and rollout guidance
+### Milestone 6: Update docs and rollout guidance ✅ COMPLETE
 **Goal**: Make the new behavior discoverable and supportable.
 
 **Scope**:
-- Document the `alfred --log debug webui --log debug` workflow
-- Clarify that `/health` is ops/readiness only
-- Document how to interpret connection and debug logs when troubleshooting
+- [x] Document the `alfred --log debug webui --log debug` workflow
+- [x] Clarify that `/health` is ops/readiness only
+- [x] Document how to interpret connection and debug logs when troubleshooting
 
 **Validation**:
-- CLI and Web UI logging guidance is easy to find
-- The new behavior is understandable without reading source code
+- [x] CLI and Web UI logging guidance is easy to find
+- [x] The new behavior is understandable without reading source code
+
+**Evidence**:
+- Updated `docs/websocket-protocol.md` with "Debugging and Troubleshooting" section
+  * Document debug flag usage: `alfred webui --log debug`
+  * Explain `[websocket]` prefixed log messages
+  * Clarify `/health` endpoint is for ops/readiness only
+  * Add troubleshooting guide for common connection scenarios
+- Updated `README.md` Web UI logging section
+  * Document `[websocket]` debug logs
+  * Reference websocket-protocol.md for detailed guide
+- Added 2 tests verifying documentation exists and is correct
 
 ---
 
