@@ -18,6 +18,23 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TextIO
 
+# Define custom TRACE level (more verbose than DEBUG)
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+
+
+def trace(self: logging.Logger, msg: str, *args: object, **kwargs: object) -> None:
+    """Log at TRACE level (more verbose than DEBUG)."""
+    if self.isEnabledFor(TRACE):
+        extra = kwargs.get("extra")
+        if isinstance(extra, dict):
+            self._log(TRACE, msg, args, extra=extra)
+        else:
+            self._log(TRACE, msg, args)
+
+
+logging.Logger.trace = trace  # type: ignore[attr-defined]
+
 ANSI_RESET = "\x1b[0m"
 ANSI_COLORS: dict[Surface, str] = {
     # Populated after Surface is defined.
@@ -65,13 +82,21 @@ _SURFACE_PREFIXES: tuple[tuple[str, Surface], ...] = (
     ("alfred.cli.main", Surface.CORE),
     ("alfred.cli", Surface.CORE),
     ("py.warnings", Surface.CORE),
+    # Third-party libraries - route through Alfred's formatter
+    ("markdown_it", Surface.CORE),
+    ("httpcore", Surface.CORE),
+    ("httpx", Surface.CORE),
+    ("urllib3", Surface.CORE),
+    ("asyncio", Surface.CORE),
+    ("aiosqlite", Surface.STORAGE),
+    ("sqlite3", Surface.STORAGE),
+    ("websockets", Surface.CORE),
 )
 
 
 @dataclass(frozen=True, slots=True)
 class _LoggingConfig:
     level: int
-    webui_debug: bool
 
 
 class SurfaceRoutingFilter(logging.Filter):
@@ -84,7 +109,7 @@ class SurfaceRoutingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         surface = resolve_surface(record)
         record.surface = surface.value
-        return record.levelno >= self._config.level or (self._config.webui_debug and surface is Surface.WEBUI_SERVER)
+        return record.levelno >= self._config.level
 
 
 class SurfaceFormatter(logging.Formatter):
@@ -112,19 +137,10 @@ class SurfaceFormatter(logging.Formatter):
         # Get the full formatted message
         msg = record.getMessage()
 
-        # Truncate embedding arrays (detect by pattern of many floats in brackets)
-        import re
-        # Pattern: [-0.123, 0.456, ...] with 10+ floats = likely embedding
-        embedding_pattern = r'\[(\s*-?\d+\.\d+(?:[eE][+-]?\d+)?\s*,){10,}'
-        if re.search(embedding_pattern, msg):
-            # Replace full embedding with truncated version
-            msg = re.sub(
-                r'(\[\s*-?\d+\.\d+(?:[eE][+-]?\d+)?\s*,\s*){5}[^\]]*(\])',
-                r'[... 20 of ~1536 embeddings truncated ...]',
-                msg
-            )
-            record.msg = msg
-            record.args = ()
+        # Truncate list/array patterns in strings (element-based, not char-based)
+        msg = _truncate_lists_in_string(msg)
+        record.msg = msg
+        record.args = ()
 
         return super().format(record)
 
@@ -165,6 +181,75 @@ def render_surface_prefix(surface: Surface, *, color: bool) -> str:
     if not color:
         return prefix
     return f"{ANSI_COLORS[surface]}{prefix}{ANSI_RESET}"
+
+
+def _truncate_lists_in_string(text: str, max_elements: int = 6, min_elements_to_truncate: int = 20) -> str:
+    """Truncate list/array patterns in strings by element count.
+
+    Only truncates lists with many elements (>= min_elements_to_truncate).
+    Handles embeddings and other large numeric arrays.
+    """
+    import re
+
+    # Pattern to match list-like arrays: [item, item, ...]
+    # Uses non-greedy match but limits size to avoid runaway regex
+    list_pattern = r'\[[^\[\]]*?\]'
+
+    def truncate_list_match(match: re.Match[str]) -> str:
+        full_match = match.group(0)
+        inner = full_match[1:-1]  # Remove brackets
+
+        if not inner.strip():
+            return full_match
+
+        # Quick count of commas at top level (elements ≈ commas + 1)
+        comma_count = inner.count(',')
+        element_count = comma_count + 1 if comma_count > 0 else (1 if inner.strip() else 0)
+
+        # Only truncate if it's a large list (likely embedding)
+        if element_count < min_elements_to_truncate:
+            return full_match
+
+        # Split elements properly
+        elements = []
+        depth = 0
+        current = ""
+        for char in inner:
+            if char in '([{':
+                depth += 1
+            elif char in ')]}':
+                depth -= 1
+            elif char == ',' and depth == 0:
+                if current.strip():
+                    elements.append(current.strip())
+                current = ""
+                continue
+            current += char
+        if current.strip():
+            elements.append(current.strip())
+
+        actual_count = len(elements)
+        if actual_count <= max_elements:
+            return full_match
+
+        # Truncate: keep first N and last N elements
+        half = max_elements // 2
+        prefix = elements[:half]
+        suffix = elements[-half:] if half > 0 else []
+
+        middle = f"...({actual_count - max_elements} items)..."
+        if suffix:
+            return f"[{', '.join(prefix)}, {middle}, {', '.join(suffix)}]"
+        return f"[{', '.join(prefix)}, {middle}]"
+
+    # Apply truncation iteratively until no more changes
+    prev_text = None
+    current_text = text
+    while prev_text != current_text:
+        prev_text = current_text
+        current_text = re.sub(list_pattern, truncate_list_match, prev_text)
+
+    return current_text
 
 
 def _render_field_value(value: object) -> str:
@@ -227,7 +312,6 @@ def configure_logging(
     level: int,
     log_file: Path | None,
     stream: TextIO | None = None,
-    webui_debug: bool = False,
     toast_handler: logging.Handler | None = None,
 ) -> None:
     """Configure Alfred logging with surface-aware console and file handlers."""
@@ -235,7 +319,7 @@ def configure_logging(
     _reset_root_handlers(root)
     root.setLevel(logging.DEBUG)
 
-    config = _LoggingConfig(level=level, webui_debug=webui_debug)
+    config = _LoggingConfig(level=level)
 
     console_stream = stream if stream is not None else sys.stderr
     console_handler = logging.StreamHandler(console_stream)
@@ -260,8 +344,32 @@ def configure_logging(
 
     logging.captureWarnings(True)
 
-    for logger_name in ["markdown_it", "httpcore", "httpx", "urllib3", "asyncio"]:
+    # Third-party libraries: let bubble up to root for Alfred formatting
+    for logger_name in [
+        "markdown_it", "httpcore", "httpx", "urllib3", "asyncio",
+        "aiosqlite", "sqlite3", "aiosqlite.cursor", "aiosqlite.connection",
+    ]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+    # Websockets: only visible with --log trace
+    for logger_name in [
+        "websockets", "websockets.client", "websockets.server",
+        "websockets.protocol", "websockets.connection",
+    ]:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+    # Uvicorn: suppress INFO/DEBUG unless at TRACE level
+    # Note: Uvicorn configures its own logging, so we need to be aggressive
+    for logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error", "uvicorn.asgi"]:
+        log = logging.getLogger(logger_name)
+        log.setLevel(logging.WARNING)
+        # Remove any existing handlers to prevent custom formatting
+        for handler in list(log.handlers):
+            log.removeHandler(handler)
+        log.propagate = True  # Let it bubble to our root handler
+
+    # FastAPI: suppress
+    logging.getLogger("fastapi").setLevel(logging.WARNING)
 
 
 def _mark_owned(handler: logging.Handler) -> None:
