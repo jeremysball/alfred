@@ -610,6 +610,42 @@ Each checkbox = one atomic commit:
 - **Impact**: No performance regression; coordination works correctly
 - **Owner**: Implementation team
 
+### 2026-03-27: Axis Locking Architecture (Phase 6, Step 3)
+
+**Decision**: Track touch origin in detector (not coordinator)
+- **Context**: Where should the touch start position (startX, startY) be stored for delta calculations?
+- **Options Considered**:
+  - A: Store in detector instance (this.startX/Y)
+  - B: Store in coordinator gesture info
+- **Rationale**: Option A keeps each detector isolated and responsible for its own tracking. Coordinator should only manage locks, not gesture-specific state.
+- **Implementation**: Each coordinated detector stores `this.startX` and `this.startY` in `touchstart`, calculates deltas in `touchmove`
+- **Impact**: Cleaner separation of concerns; coordinator remains gesture-agnostic
+- **Owner**: Implementation team
+
+**Decision**: 15px Threshold with 1.5x Dominance Ratio
+- **Context**: When should axis lock trigger to distinguish horizontal from vertical gestures?
+- **Formula**:
+  - Horizontal lock: `|deltaX| > 15 && |deltaX| > |deltaY| * 1.5`
+  - Vertical lock: `|deltaY| > 15 && |deltaY| > |deltaX| * 1.5`
+- **Rationale**: 15px minimum prevents accidental locks on tiny movements. 1.5x ratio ensures clear dominance (e.g., 20px X vs 10px Y = horizontal, but 20px X vs 15px Y = neutral).
+- **Implementation**: `axisLock` property set to 'horizontal', 'vertical', or null in `touchmove` handler
+- **Impact**: Predictable gesture recognition; diagonal swipes stay neutral until dominance is clear
+- **Owner**: Implementation team
+
+**Decision**: Lock Persistence Until touchend
+- **Context**: Should axis lock be released if user reverses direction?
+- **Rationale**: Once committed to a gesture direction, switching mid-gesture would be confusing. Lock persists until `touchend`/`touchcancel`.
+- **Implementation**: `axisLock` cleared in `_releaseLock()` alongside gesture coordinator lock
+- **Impact**: Consistent gesture behavior throughout touch lifecycle
+- **Owner**: Implementation team
+
+**Decision**: Modify coordinated-detectors.js only (no new files)
+- **Context**: Where should axis locking logic live?
+- **Rationale**: Axis locking is core to coordinated detector behavior. Adding to existing file keeps related logic together.
+- **Implementation**: Add `axisLock`, `startX`, `startY` properties and axis check logic to both `CoordinatedSwipeDetector` and `CoordinatedLongPressDetector`
+- **Impact**: Minimal file changes; tests added to existing `test-coordinated-detectors.js`
+- **Owner**: Implementation team
+
 ### 2025-03-27: Open Questions (Phase 2)
 
 **Question**: Should swipe be disabled when message actions are visible (`.active` class)?
