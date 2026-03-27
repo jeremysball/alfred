@@ -33,11 +33,17 @@ Implement in-conversation search, quick session switcher, and @ mentions for mes
 - `src/alfred/interfaces/webui/static/js/features/search/styles.css` - Glassmorphism styles
 - `src/alfred/interfaces/webui/static/js/features/search/index.js` - Module exports
 
-### Pending Integration
+### Integration ✅ COMPLETE
 
-- [ ] Add CSS import to index.html
-- [ ] Initialize search in main.js
-- [ ] Browser test - Ctrl+F opens custom search overlay
+- [x] Add CSS import to index.html
+- [x] Initialize search in main.js
+- [x] Browser test - Ctrl+F opens custom search overlay
+
+**Files Modified:**
+- `index.html` - Added search styles.css link
+- `main.js` - Added initSearch() function, imported initializeSearch
+
+**Result:** Ctrl+F now opens the search overlay in Alfred
 
 ---
 

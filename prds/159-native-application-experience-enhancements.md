@@ -515,12 +515,20 @@ function handleTouchStart(e) {
 - [x] Implement: Match counter display ("N of M" format)
 - [x] Implement: Glassmorphism styles (`styles.css`)
 - [x] Test: 10 unit tests (all passing in `test-search-overlay.js`)
+- [x] Integrate: CSS import added to `index.html`
+- [x] Integrate: `initSearch()` added to `main.js` initialization
 
 **Files Created**:
 - `features/search/search-overlay.js` - SearchOverlay class (263 lines)
 - `features/search/test-search-overlay.js` - 10 unit tests
 - `features/search/styles.css` - Glassmorphism styling
 - `features/search/index.js` - Module exports
+
+**Files Modified**:
+- `index.html` - Added search styles.css link
+- `main.js` - Added initSearch() function and initialization call
+
+**Usage**: Press `Ctrl+F` to open search overlay in Alfred
 
 **Design Decisions**:
 - **API Strategy**: `window.find()` for MVP, server-side search deferred to Phase 2
