@@ -288,15 +288,26 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 - [x] Implement: Create `gesture-coordinator.js` with `GestureCoordinator` class
 - [x] Run: `node test-gesture-coordinator.js` - 8 tests passing
 
-### CoordinatedDetectors
+### CoordinatedDetectors ✅ COMPLETE
 
-- [ ] Test: `test_coordinated_swipe_checks_before_start()` - verifies coordinator lock on touchstart
-- [ ] Test: `test_coordinated_long_press_checks_before_start()` - verifies coordinator lock
-- [ ] Test: `test_coordinated_detector_releases_on_end()` - verifies lock released on touchend
-- [ ] Implement: Create `coordinated-detectors.js` with wrapped versions
-- [ ] Implement: `CoordinatedSwipeDetector` wraps `SwipeDetector` with coordinator calls
-- [ ] Implement: `CoordinatedLongPressDetector` wraps `LongPressDetector` with coordinator calls
-- [ ] Run: Verify 120 total tests still pass
+- [x] Test: `test_coordinated_swipe_checks_before_start()` - verifies coordinator lock on touchstart
+- [x] Test: `test_coordinated_long_press_checks_before_start()` - verifies coordinator lock
+- [x] Test: `test_coordinated_detector_releases_on_end()` - verifies lock released on touchend
+- [x] Implement: Create `coordinated-detectors.js` with wrapped versions
+- [x] Implement: `CoordinatedSwipeDetector` wraps `SwipeDetector` with coordinator calls
+- [x] Implement: `CoordinatedLongPressDetector` wraps `LongPressDetector` with coordinator calls
+- [x] Run: Verify 131 total tests passing (128 existing + 3 new)
+
+**Files Created:**
+- `features/mobile-gestures/coordinated-detectors.js` - CoordinatedSwipeDetector and CoordinatedLongPressDetector classes
+- `features/mobile-gestures/test-coordinated-detectors.js` - 3 unit tests
+
+**Implementation Details:**
+- Priority: Swipe=1 (standard), LongPress=3 (highest)
+- Lock requested on `touchstart`, released on `touchend`/`touchcancel`
+- Wrapped detector only triggers callbacks when lock is held
+- Passive listeners maintained for performance
+- Exports added to `index.js`
 
 ### AxisLocking
 
