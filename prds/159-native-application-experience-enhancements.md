@@ -151,14 +151,20 @@ const fuse = new Fuse(commands, {
 
 ---
 
-### Milestone 4: System Notifications & Background Activity
+### Milestone 4: System Notifications & Background Activity ✅ COMPLETE
 **Goal**: Notify users of activity when tab is not focused
 
 **Features**:
-- Browser notification when response completes (if tab not focused)
-- Favicon badge with unread count
-- Notification permission request (on first message send, before fetch)
-- Sound notification option (respects system settings)
+- [x] Browser notification when response completes (if tab not focused)
+- [x] Favicon badge with unread count
+- [x] Notification permission request (on first message send, before fetch)
+- [ ] Sound notification option (respects system settings) - deferred
+
+**WebSocket Protocol**:
+```javascript
+client → server: "client.visibility" {isVisible: false}  // On tab blur
+server → client: notification sent only if !isVisible && permission === "granted"
+```
 
 **Permission Flow**:
 ```
@@ -175,13 +181,13 @@ server → client: notification sent only if !isVisible && permission === "grant
 ```
 
 **Validation**:
-- Send first message → permission prompt appears before network request
-- Deny permission → toast shown, message still sends
-- Send message, switch tabs (blur event triggers visibility message)
-- Response completes while hidden → notification appears
-- Click notification focuses Alfred tab
-- Badge shows on favicon with unread count
-- Grant permission, reload → no prompt on subsequent messages
+- [x] Send first message → permission prompt appears before network request
+- [x] Deny permission → toast shown, message still sends
+- [x] Send message, switch tabs (blur event triggers visibility message)
+- [x] Response completes while hidden → notification appears
+- [x] Click notification focuses Alfred tab
+- [x] Badge shows on favicon with unread count
+- [x] Grant permission, reload → no prompt on subsequent messages
 
 ---
 
@@ -406,11 +412,18 @@ src/alfred/interfaces/webui/static/js/
 │   │   ├── styles.css          # Help modal styles
 │   │   ├── index.js            # Module exports
 │   │   └── test-shortcuts.js   # 19 unit tests
-│   └── context-menu/           ✅ IMPLEMENTED
-│       ├── menu.js             # Core menu component
-│       ├── message-menu.js     # Message right-click actions
-│       ├── code-menu.js        # Code block actions
-│       ├── styles.css          # Menu styling
+│   ├── context-menu/           ✅ IMPLEMENTED
+│   │   ├── menu.js             # Core menu component
+│   │   ├── message-menu.js     # Message right-click actions
+│   │   ├── code-menu.js        # Code block actions
+│   │   ├── styles.css          # Menu styling
+│   │   └── index.js            # Module exports
+│   └── notifications/        ✅ IMPLEMENTED
+│       ├── permissions.js      # Permission management
+│       ├── service.js          # Browser notifications
+│       ├── favicon.js          # Favicon badge
+│       ├── toast.js            # In-app toasts
+│       ├── styles.css          # Toast styling
 │       └── index.js            # Module exports
 ```
 
@@ -663,6 +676,7 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-26 | **IMPLEMENTED**: Milestone 4 - System Notifications | Browser notifications with permission handling, favicon badges for unread count, WebSocket visibility tracking, in-app toasts. See `features/notifications/`. |
 | 2026-03-26 | **IMPLEMENTED**: Milestone 3 - Context Menus | Right-click menus for messages (copy, quote) and code blocks (copy, copy as markdown). ARIA roles, Shift+F10 keyboard access, viewport-aware positioning. See `features/context-menu/`. |
 | 2026-03-26 | **IMPLEMENTED**: Milestone 2 - Keyboard Shortcuts | Context-aware shortcuts (global/input/message), 19 tests, Help modal with glassmorphism, Message navigation with arrow keys. See `features/keyboard/`. |
 | 2026-03-26 | **IMPLEMENTED**: Native Intl.Collator for fuzzy search | Chosen over Fuse.js. 36 tests passing, <16ms latency achieved without external dependency. See `features/command-palette/fuzzy-search.js`. |
