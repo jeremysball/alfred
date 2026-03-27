@@ -409,8 +409,9 @@ monitor.addEventListener('statechange', ({detail}) => {
 - `features/mobile-gestures/fullscreen-compose.js` - Modal component + factory
 - `features/mobile-gestures/fullscreen-compose.css` - Glassmorphism styles
 
-**Pending (Phase 6+)**:
-- [x] Gesture conflict resolution (Phase 6) ✅ COMPLETE - Axis locking with 15px threshold
+**Pending (Phase 7+)**:
+- [x] Gesture conflict resolution (Phase 6) ✅ COMPLETE - Axis locking, edge zones, priority, regions
+- [x] Region-based coordination (Phase 6) ✅ COMPLETE - Context-aware gestures
 - [ ] Integration & Module Export - main.js wiring (Phase 7)
 - [ ] Cross-platform testing (Phase 8)
 
