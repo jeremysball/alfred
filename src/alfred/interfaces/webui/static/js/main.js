@@ -1881,10 +1881,11 @@ function initAlfredUI() {
   }
 
   function scrollToBottomIfNearBottom() {
-    // Only scroll if user is already near the bottom (within 100px)
+    // Only scroll if user is already near the bottom (within 400px)
     // This prevents auto-scroll from jumping while user is reading earlier content
+    // 400px = ~3-4 lines of text, comfortable "eyeshot" of the bottom
     const scrollBottom = chatContainer.scrollTop + chatContainer.clientHeight;
-    const isNearBottom = chatContainer.scrollHeight - scrollBottom < 100;
+    const isNearBottom = chatContainer.scrollHeight - scrollBottom < 400;
     if (isNearBottom) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
