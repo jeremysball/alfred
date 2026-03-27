@@ -86,3 +86,13 @@ def test_message_queue_exists():
 
     # Should have messageQueue property initialized
     assert "this.messageQueue = []" in source or "messageQueue" in source
+
+
+def test_websocket_client_reads_debug_config():
+    """Verify WEBSOCKET_DEBUG_ENABLED is set from window.__ALFRED_WEBUI_CONFIG__."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should read debug from window config
+    assert "window.__ALFRED_WEBUI_CONFIG__" in source, "should read from window.__ALFRED_WEBUI_CONFIG__"
+    # Should have WEBSOCKET_DEBUG_ENABLED constant
+    assert "WEBSOCKET_DEBUG_ENABLED" in source, "should define WEBSOCKET_DEBUG_ENABLED"

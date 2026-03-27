@@ -415,3 +415,25 @@ def test_session_command_matches_tui_session_details() -> None:
     assert response["payload"]["status"] == "active"
     assert "lastActive" in response["payload"]
     assert response["payload"]["messageCount"] == 1
+
+
+def test_app_config_includes_debug_flag_when_false() -> None:
+    """/app-config.js should return debug: false when server created without debug flag."""
+    fake_alfred = FakeAlfred()
+    client = TestClient(create_app(alfred_instance=fake_alfred, debug=False))
+
+    response = client.get("/app-config.js")
+
+    assert response.status_code == 200
+    assert '"debug": false' in response.text or "'debug': False" in response.text
+
+
+def test_app_config_includes_debug_flag_when_true() -> None:
+    """/app-config.js should return debug: true when server created with debug=True."""
+    fake_alfred = FakeAlfred()
+    client = TestClient(create_app(alfred_instance=fake_alfred, debug=True))
+
+    response = client.get("/app-config.js")
+
+    assert response.status_code == 200
+    assert '"debug": true' in response.text or "'debug': True" in response.text
