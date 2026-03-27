@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv
-          uv sync
+          uv sync --no-install-package pypitui
           
       - name: Build static assets (if needed)
         run: |

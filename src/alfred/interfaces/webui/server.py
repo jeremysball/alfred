@@ -424,7 +424,8 @@ async def _send_json(
         debug_stats.record_outgoing(message, phase=phase)
     # Log to traffic introspection log
     msg_type = str(message.get("type", "unknown"))
-    payload = message.get("payload") if isinstance(message.get("payload"), dict) else None
+    raw_payload = message.get("payload")
+    payload: dict[str, Any] | None = raw_payload if isinstance(raw_payload, dict) else None
     _log_websocket_traffic("out", msg_type, payload, connection_id)
     try:
         if send_lock is None:

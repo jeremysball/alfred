@@ -11,6 +11,7 @@ import logging
 import os
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from alfred.cron.scheduler import CronScheduler
 from alfred.cron.socket_protocol import (
@@ -198,7 +199,7 @@ class DaemonSocketServer:
             return QueryJobsResponse(
                 request_id=request.request_id,
                 jobs=[],
-                error=str(e),
+                recent_failures=[{"error": str(e)}],
             )
 
     async def _handle_submit_job(self, request: SubmitJobRequest) -> SubmitJobResponse:
@@ -317,6 +318,6 @@ class DaemonSocketServer:
             duration_ms=duration_ms,
         ))
 
-    async def notify(self, message: str, level: str = "info") -> None:
+    async def notify(self, message: str, level: Literal["info", "warning", "error"] = "info") -> None:
         """Broadcast a toast notification."""
         await self._broadcast(NotifyMessage(message=message, level=level))

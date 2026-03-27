@@ -291,6 +291,21 @@ class FakeSessionManager:
         return session
 
 
+class FakeContextLoader:
+    """Context loader fake for Web UI tests."""
+
+    def __init__(self) -> None:
+        self.sections: dict[str, bool] = {}
+        self.toggle_called_with: list[tuple[str, bool]] = []
+
+    def toggle_section(self, section: str, enabled: bool) -> bool:
+        """Toggle a context section on/off."""
+        self.toggle_called_with.append((section, enabled))
+        was_enabled = self.sections.get(section, True)
+        self.sections[section] = enabled
+        return was_enabled != enabled
+
+
 class FakeAlfred:
     """Top-level Alfred fake for Web UI tests."""
 
@@ -308,6 +323,7 @@ class FakeAlfred:
     ) -> None:
         self.core = FakeCore(FakeSessionManager(sessions))
         self.token_tracker = TokenTracker()
+        self.context_loader = FakeContextLoader()
         self.socket_client = FakeSocketClient()
         self._socket_client = self.socket_client
         self.model_name = model_name
