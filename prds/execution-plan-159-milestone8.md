@@ -11,26 +11,29 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ---
 
-## Phase 1: Touch Detection & Utilities
+## Phase 1: Touch Detection & Utilities ✅ COMPLETE
 
 ### TouchCapabilities
 
-- [ ] Test: `test_detects_touch_device()` - verify touch detection works
-- [ ] Test: `test_detects_mouse_device()` - verify mouse detection works
-- [ ] Implement: Create `touch-detector.js` with `isTouchDevice()` helper
-- [ ] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-touch-detector.js`
+- [x] Test: `test_detects_touch_device()` - verify touch detection works
+- [x] Test: `test_detects_mouse_device()` - verify mouse detection works
+- [x] Implement: Create `touch-detector.js` with `isTouchDevice()` helper
+- [x] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-touch-detector.js`
 
 ### EdgeZoneDetection
 
-- [ ] Test: `test_edge_zone_40px_left()` - verify touch at x=39px is in edge zone
-- [ ] Test: `test_edge_zone_40px_right()` - verify touch at width-39px is in edge zone
-- [ ] Test: `test_not_edge_zone_at_50px()` - verify touch at x=50px is NOT in edge zone
-- [ ] Implement: `isInEdgeZone(touchX, screenWidth, edgeMargin = 40)` function
-- [ ] Run: Verify tests pass
+- [x] Test: `test_edge_zone_40px_left()` - verify touch at x=39px is in edge zone
+- [x] Test: `test_edge_zone_40px_right()` - verify touch at width-39px is in edge zone
+- [x] Test: `test_not_edge_zone_at_50px()` - verify touch at x=50px is NOT in edge zone
+- [x] Implement: `isInEdgeZone(touchX, screenWidth, edgeMargin = 40)` function
+- [x] Run: Verify tests pass
+
+**Status**: 7 tests passing in `test-touch-detector.js`, 10 tests in `test-index.js`
+**Files**: `touch-detector.js`, `index.js`, `test-touch-detector.js`, `test-index.js`
 
 ---
 
-## Phase 2: Swipe-to-Reply Gesture
+## Phase 2: Swipe-to-Reply Gesture ✅ COMPLETE
 
 ### Design Decisions (Phase 2)
 
@@ -52,84 +55,90 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ### SwipeDetectorClass
 
-- [ ] Test: `test_swipe_detector_initializes()` - verify class instantiation
-- [ ] Test: `test_swipe_threshold_100px()` - verify 100px minimum swipe distance
-- [ ] Test: `test_horizontal_swipe_detected()` - verify horizontal swipe recognized
-- [ ] Test: `test_vertical_swipe_ignored()` - verify vertical swipes don't trigger horizontal handler
-- [ ] Implement: Create `swipe-detector.js` with SwipeDetector class
-- [ ] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-swipe-detector.js`
+- [x] Test: `test_swipe_detector_initializes()` - verify class instantiation
+- [x] Test: `test_swipe_threshold_100px()` - verify 100px minimum swipe distance
+- [x] Test: `test_horizontal_swipe_detected()` - verify horizontal swipe recognized
+- [x] Test: `test_vertical_swipe_ignored()` - verify vertical swipes don't trigger horizontal handler
+- [x] Implement: Create `swipe-detector.js` with SwipeDetector class
+- [x] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-swipe-detector.js`
 
 ### SwipeToReply Module
 
-- [ ] Test: `test_swipe_to_reply_module_exports()` - verify SwipeToReply class exported
-- [ ] Test: `test_attach_to_message_creates_detector()` - verify attachment creates SwipeDetector instance
-- [ ] Test: `test_detach_removes_detector()` - verify cleanup removes listeners
-- [ ] Implement: Create `swipe-to-reply.js` with SwipeToReply class
-- [ ] Implement: Dynamic attachment via MutationObserver on message-list
-- [ ] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-swipe-to-reply.js`
+- [x] Test: `test_swipe_to_reply_module_exports()` - verify SwipeToReply class exported
+- [x] Test: `test_attach_to_message_creates_detector()` - verify attachment creates SwipeDetector instance
+- [x] Test: `test_detach_removes_detector()` - verify cleanup removes listeners
+- [x] Implement: Create `swipe-to-reply.js` with SwipeToReply class
+- [x] Implement: Dynamic attachment via MutationObserver on message-list
+- [x] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-swipe-to-reply.js`
+
+**Status**: 15 tests passing
+**Files**: `swipe-to-reply.js`, `test-swipe-to-reply.js`
 
 ### SwipeRightOnMessage
 
-- [ ] Test: `test_swipe_right_triggers_reply()` - verify right swipe on message calls reply callback
-- [ ] Test: `test_swipe_left_does_nothing()` - verify left swipe is ignored
-- [ ] Test: `test_swipe_in_edge_zone_ignored()` - verify swipe from left edge (<40px) doesn't trigger
-- [ ] Test: `test_reply_callback_receives_message_element()` - verify callback gets correct element
-- [ ] Implement: `onReply` callback extracts message content and populates composer input
-- [ ] Implement: Callback uses `messageElement.getContent()` API from chat-message component
-- [ ] Run: Manual test in browser DevTools mobile view
+- [x] Test: `test_swipe_right_triggers_reply()` - verify right swipe on message calls reply callback
+- [x] Test: `test_swipe_left_does_nothing()` - verify left swipe is ignored
+- [x] Test: `test_swipe_in_edge_zone_ignored()` - verify swipe from left edge (<40px) doesn't trigger
+- [x] Test: `test_reply_callback_receives_message_element()` - verify callback gets correct element
+- [x] Implement: `onReply` callback extracts message content and populates composer input
+- [x] Implement: Callback uses `messageElement.getContent()` API from chat-message component
+- [x] Run: Manual test in browser DevTools mobile view
 
 ### SwipeVisualFeedback
 
-- [ ] Test: `test_swipe_under_threshold_snaps_back()` - verify <100px swipe snaps back (300ms ease-out)
-- [ ] Test: `test_swipe_over_threshold_completes()` - verify ≥100px swipe triggers reply action
-- [ ] Test: `test_reply_hint_opacity_progress()` - verify hint opacity follows swipe progress (0% at 0px, 100% at 100px)
-- [ ] Implement: CSS `--swipe-offset` custom property bound to touch position
-- [ ] Implement: Reply hint SVG icon with `opacity: var(--swipe-progress, 0)`
-- [ ] Implement: Snap-back animation uses `cubic-bezier(0.4, 0.0, 0.2, 1)` (Material Design standard)
-- [ ] Run: Visual verification in browser, verify 60fps in Chrome DevTools Performance panel
+- [x] Test: `test_swipe_under_threshold_snaps_back()` - verify <100px swipe snaps back (300ms ease-out)
+- [x] Test: `test_swipe_over_threshold_completes()` - verify ≥100px swipe triggers reply action
+- [x] Test: `test_reply_hint_opacity_progress()` - verify hint opacity follows swipe progress (0% at 0px, 100% at 100px)
+- [x] Implement: CSS `--swipe-offset` custom property bound to touch position
+- [x] Implement: Reply hint SVG icon with `opacity: var(--swipe-progress, 0)`
+- [x] Implement: Snap-back animation uses `cubic-bezier(0.4, 0.0, 0.2, 1)` (Material Design standard)
+- [x] Run: Visual verification in browser, verify 60fps in Chrome DevTools Performance panel
 
 ### Composer Input Integration
 
-- [ ] Test: `test_reply_populates_input()` - verify input value set to `> content\n\n`
-- [ ] Test: `test_reply_focuses_input()` - verify composer textarea receives focus
-- [ ] Test: `test_reply_caret_position()` - verify cursor at end of quoted text
-- [ ] Implement: Reply callback queries `#message-input` and sets value
-- [ ] Implement: Call `textarea.focus()` and `setSelectionRange()` to position cursor
-- [ ] Run: End-to-end test - swipe message → input populated → ready to type response
+- [x] Test: `test_reply_populates_input()` - verify input value set to `> content\n\n`
+- [x] Test: `test_reply_focuses_input()` - verify composer textarea receives focus
+- [x] Test: `test_reply_caret_position()` - verify cursor at end of quoted text
+- [x] Implement: Reply callback queries `#message-input` and sets value
+- [x] Implement: Call `textarea.focus()` and `setSelectionRange()` to position cursor
+- [x] Run: End-to-end test - swipe message → input populated → ready to type response
 
 ---
 
-## Phase 3: Long-Press Context Menu
+## Phase 3: Long-Press Context Menu ✅ COMPLETE
 
 ### LongPressDetector
 
-- [ ] Test: `test_long_press_500ms_threshold()` - verify 500ms press triggers
-- [ ] Test: `test_short_press_ignored()` - verify <500ms press is ignored
-- [ ] Test: `test_touch_move_cancels_long_press()` - verify movement cancels long press
-- [ ] Test: `test_long_press_on_message()` - verify correct target element captured
-- [ ] Implement: Create `long-press-detector.js` with LongPressDetector class
-- [ ] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-long-press.js`
+- [x] Test: `test_long_press_500ms_threshold()` - verify 500ms press triggers
+- [x] Test: `test_short_press_ignored()` - verify <500ms press is ignored
+- [x] Test: `test_touch_move_cancels_long_press()` - verify movement cancels long press
+- [x] Test: `test_long_press_on_message()` - verify correct target element captured
+- [x] Implement: Create `long-press-detector.js` with LongPressDetector class
+- [x] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-long-press.js`
 
 ### LongPressContextMenuIntegration
 
-- [ ] Test: `test_long_press_opens_context_menu()` - verify long press opens existing menu
-- [ ] Test: `test_context_menu_shows_at_touch_position()` - verify correct positioning
-- [ ] Test: `test_touch_end_closes_menu()` - verify touch elsewhere closes menu
-- [ ] Implement: Integrate with existing `features/context-menu/` system
-- [ ] Implement: Position menu at touch coordinates (not mouse coordinates)
-- [ ] Run: Manual test on message elements
+- [x] Test: `test_long_press_opens_context_menu()` - verify long press opens existing menu
+- [x] Test: `test_context_menu_shows_at_touch_position()` - verify correct positioning
+- [x] Test: `test_touch_end_closes_menu()` - verify touch elsewhere closes menu
+- [x] Implement: Integrate with existing `features/context-menu/` system
+- [x] Implement: Position menu at touch coordinates (not mouse coordinates)
+- [x] Run: Manual test on message elements
 
 ### LongPressVisualFeedback
 
-- [ ] Test: `test_long_press_shows_ripple()` - verify visual feedback during press
-- [ ] Test: `test_ripple_centers_on_touch()` - verify ripple position matches touch
-- [ ] Implement: CSS ripple effect (scale animation)
-- [ ] Implement: Prevent default touch actions during long press detection
-- [ ] Run: Visual verification in browser
+- [x] Test: `test_long_press_shows_ripple()` - verify visual feedback during press
+- [x] Test: `test_ripple_centers_on_touch()` - verify ripple position matches touch
+- [x] Implement: CSS ripple effect (scale animation)
+- [x] Implement: Prevent default touch actions during long press detection
+- [x] Run: Visual verification in browser
+
+**Status**: 16 tests in `test-long-press-detector.js`, 16 tests in `test-long-press-context-menu.js`
+**Files**: `long-press-detector.js`, `long-press-context-menu.js`, `test-long-press-detector.js`, `test-long-press-context-menu.js`
 
 ---
 
-## Phase 4: Pull-to-Refresh
+## Phase 4: Pull-to-Refresh ⏳ IN PROGRESS (Steps 1-3 Complete)
 
 ### ScrollPositionDetection
 
