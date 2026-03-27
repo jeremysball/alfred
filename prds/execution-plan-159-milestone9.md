@@ -1,0 +1,99 @@
+# Execution Plan: PRD #159 - Milestone 9 (Search & Quick Navigation)
+
+## Overview
+Implement in-conversation search, quick session switcher, and @ mentions for message references.
+
+---
+
+## Phase 1: In-Conversation Search (Ctrl+F)
+
+### SearchOverlay Component
+
+- [ ] Test: `test_search_overlay_opens_on_ctrl_f()` - keyboard shortcut triggers search UI
+- [ ] Test: `test_search_overlay_closes_on_escape()` - Escape key closes search
+- [ ] Test: `test_search_highlights_matches_in_viewport()` - matching text gets highlight class
+- [ ] Test: `test_search_navigates_between_matches()` - Enter/Shift+Enter jumps to next/prev
+- [ ] Test: `test_search_shows_match_count()` - "3 of 12" style counter
+- [ ] Implement: `SearchOverlay` class with input field and navigation controls
+- [ ] Implement: Integration with `window.find()` API for MVP
+- [ ] Implement: Highlight styling with CSS `::selection` or mark elements
+- [ ] Run: `uv run pytest tests/webui/test_search_overlay.py -v`
+
+### Keyboard Shortcuts
+
+- [ ] Test: `test_ctrl_f_prevents_default_browser_find()` - overrides native find
+- [ ] Test: `test_search_shortcut_works_in_all_contexts()` - global shortcut
+- [ ] Implement: Add `Ctrl+F` to keyboard shortcuts registry
+- [ ] Implement: Prevent default browser find, open custom overlay
+- [ ] Run: Browser test - Ctrl+F opens custom search, not browser find
+
+---
+
+## Phase 2: Quick Session Switcher (Ctrl+Tab)
+
+### QuickSwitcher Component
+
+- [ ] Test: `test_quick_switcher_opens_on_ctrl_tab()` - shortcut opens switcher modal
+- [ ] Test: `test_quick_switcher_shows_recent_sessions()` - displays last 10 sessions
+- [ ] Test: `test_quick_switcher_navigates_with_arrows()` - arrow keys select session
+- [ ] Test: `test_quick_switcher_loads_session_on_enter()` - Enter loads selected session
+- [ ] Test: `test_quick_switcher_closes_on_escape()` - Escape closes without action
+- [ ] Test: `test_quick_switcher_filters_by_typing()` - type to filter sessions
+- [ ] Implement: `QuickSwitcher` class with fuzzy search
+- [ ] Implement: Session data from existing `/sessions` command cache
+- [ ] Implement: Visual styling matching command palette (glassmorphism)
+- [ ] Run: `uv run pytest tests/webui/test_quick_switcher.py -v`
+
+### Session Loading
+
+- [ ] Test: `test_quick_switcher_sends_resume_command()` - sends `/resume <id>`
+- [ ] Test: `test_quick_switcher_shows_loading_state()` - loading indicator while switching
+- [ ] Implement: Integration with WebSocket to send `/resume` command
+- [ ] Implement: Loading state and error handling
+- [ ] Run: Browser test - switch session, verify messages load
+
+---
+
+## Phase 3: @ Mentions
+
+### MentionProvider
+
+- [ ] Test: `test_mention_triggers_on_at_symbol()` - typing @ shows dropdown
+- [ ] Test: `test_mention_filters_messages()` - typing filters last 20 messages
+- [ ] Test: `test_mention_shows_message_preview()` - dropdown shows message snippet
+- [ ] Test: `test_mention_inserts_reference_on_select()` - clicking inserts @ mention
+- [ ] Test: `test_mention_closes_on_escape()` - Escape closes dropdown
+- [ ] Test: `test_mention_navigates_with_arrows()` - arrow keys navigate dropdown
+- [ ] Implement: `MentionProvider` class with dropdown UI
+- [ ] Implement: Message caching from current session (last 20 messages)
+- [ ] Implement: Fuzzy search on message content
+- [ ] Run: `uv run pytest tests/webui/test_mention_provider.py -v`
+
+### Composer Integration
+
+- [ ] Test: `test_mention_position_tracks_caret()` - dropdown follows cursor
+- [ ] Test: `test_mention_formats_as_blockquote()` - inserts markdown quote format
+- [ ] Implement: Caret position tracking for dropdown placement
+- [ ] Implement: Markdown blockquote insertion with message reference
+- [ ] Run: Browser test - type @, select message, verify quote inserted
+
+---
+
+## Files to Create/Modify
+
+1. `src/alfred/interfaces/webui/static/js/features/search/search-overlay.js` - NEW
+2. `src/alfred/interfaces/webui/static/js/features/search/quick-switcher.js` - NEW
+3. `src/alfred/interfaces/webui/static/js/features/search/mention-provider.js` - NEW
+4. `src/alfred/interfaces/webui/static/js/features/search/styles.css` - NEW
+5. `src/alfred/interfaces/webui/static/js/features/search/index.js` - NEW
+6. `src/alfred/interfaces/webui/static/js/features/keyboard/shortcuts.js` - Add Ctrl+F, Ctrl+Tab
+7. `tests/webui/test_search_overlay.py` - NEW
+8. `tests/webui/test_quick_switcher.py` - NEW
+9. `tests/webui/test_mention_provider.py` - NEW
+
+## Commit Strategy
+
+- `feat(search): add in-conversation search overlay with Ctrl+F`
+- `feat(search): implement quick session switcher with Ctrl+Tab`
+- `feat(search): add @ mentions with message reference dropdown`
+- `test(search): add comprehensive search feature tests`
