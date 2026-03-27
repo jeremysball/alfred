@@ -26,7 +26,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    max-width: 1200px;
+    max-width: 1600px;
     min-width: 320px;
     margin: 0 auto;
     background: #1a1a1a;
@@ -40,7 +40,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
+    padding: 0.5rem 1rem;
     border-bottom: 1px solid #333;
     background: #252525;
     flex-shrink: 0;
@@ -311,7 +311,7 @@ body {
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 1rem;
+    padding: 0.5rem;
     display: flex;
     flex-direction: column;
     scroll-behavior: smooth;
@@ -327,8 +327,8 @@ body {
 .message-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    max-width: 900px;
+    gap: 0.25rem;
+    max-width: 1400px;
     width: 100%;
     margin: 0 auto;
 }
@@ -338,10 +338,10 @@ body {
    ============================================ */
 
 .message {
-    padding: 1rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 0.25rem;
     width: auto;
-    min-width: 200px;
+    min-width: 280px;
     max-width: 85%;
     animation: message-fade-in 0.2s ease-out;
     overflow: visible;
@@ -415,22 +415,44 @@ chat-message[data-message-state="editing"] .message.user {
 .message-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    gap: 0.25rem;
+    margin-bottom: 0.25rem;
     font-size: 0.875rem;
     opacity: 0.9;
 }
 
 .message-avatar {
-    font-size: 0.875rem;
+    font-size: 1rem;
+    width: 2em;
+    height: 2em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    vertical-align: text-bottom;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.message-avatar-icon {
+    width: 65%;
+    height: 65%;
+    flex-shrink: 0;
+}
+
+.message-avatar-small {
     width: 1.5rem;
     height: 1.5rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    vertical-align: middle;
-    line-height: 1;
+    vertical-align: text-bottom;
+}
+
+.message-avatar-small svg {
+    width: 75%;
+    height: 75%;
+    display: block;
 }
 
 .message.user .message-avatar {
@@ -570,9 +592,12 @@ chat-message.streaming .reasoning-icon {
     font-size: 0.875rem;
     color: #b8b0a3;
     font-style: italic;
-    white-space: normal;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
     max-height: 300px;
     overflow-y: auto;
+    scroll-behavior: smooth;
     line-height: 1.6;
     background: transparent;
     font-family: inherit;
@@ -589,7 +614,7 @@ chat-message.streaming .reasoning-icon {
 .content-blocks {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
 }
 
 .content-block {
@@ -647,19 +672,23 @@ chat-message.streaming .reasoning-icon {
     display: block;
 }
 
-/* Message Actions */
+/* Message Actions - Bottom right, always visible */
 .message-actions {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    opacity: 0;
-    transition: opacity 0.2s ease;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+    opacity: 1;
 }
 
-.message:hover .message-actions {
+/* Hover effect for buttons */
+.message-action {
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+}
+
+.message:hover .message-action {
     opacity: 1;
 }
 
@@ -700,13 +729,103 @@ chat-message.streaming .reasoning-icon {
 }
 
 .message-action.icon-only {
-    width: 2rem;
-    height: 2rem;
+    width: 1.75em;
+    height: 1.75em;
     padding: 0;
     font-size: 1rem;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+.message-action-icon {
+    width: 60%;
+    height: 60%;
+    display: block;
+}
+
+/* ============================================
+   INLINE EDITING
+   ============================================ */
+
+.inline-edit-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.inline-edit-textarea {
+    width: 100%;
+    min-height: 80px;
+    max-height: 400px;
+    padding: 0.75rem 1rem;
+    border: 2px solid #4fc3f7;
+    border-radius: 0.5rem;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.inline-edit-textarea:focus {
+    border-color: #29b6f6;
+    box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+}
+
+.inline-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.inline-edit-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #444;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: #aaa;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.inline-edit-btn:hover {
+    background: #333;
+    color: #fff;
+    border-color: #555;
+}
+
+.inline-edit-btn.save {
+    background: #4fc3f7;
+    border-color: #4fc3f7;
+    color: #1a1a1a;
+}
+
+.inline-edit-btn.save:hover {
+    background: #29b6f6;
+    border-color: #29b6f6;
+}
+
+.inline-edit-btn.cancel {
+    background: transparent;
+    border-color: #555;
+    color: #aaa;
+}
+
+.inline-edit-btn.cancel:hover {
+    background: #333;
+    color: #fff;
+}
+
+/* Hide message actions when inline editing */
+.editing-inline .message-actions {
+    display: none;
 }
 
 /* ============================================
@@ -714,8 +833,8 @@ chat-message.streaming .reasoning-icon {
    ============================================ */
 
 .app-footer {
-    --composer-max-width: 900px;
-    padding: 1rem 1.5rem;
+    --composer-max-width: 1400px;
+    padding: 0.5rem 1rem;
     border-top: 1px solid #333;
     background: #252525;
     flex-shrink: 0;
@@ -724,7 +843,7 @@ chat-message.streaming .reasoning-icon {
 .input-area {
     display: flex;
     gap: 0.75rem;
-    max-width: var(--composer-max-width, 900px);
+    max-width: var(--composer-max-width, 1400px);
     width: 100%;
     margin: 0 auto;
     align-items: center;
@@ -737,9 +856,9 @@ chat-message.streaming .reasoning-icon {
 
 .message-input {
     width: 100%;
-    min-height: 2.75rem;
-    max-height: 200px;
-    padding: 0.875rem 1rem;
+    min-height: 0;
+    max-height: 120px;
+    padding: 0.25rem 0.5rem;
     border: var(--composer-border, 1px solid #444);
     border-radius: var(--composer-radius, 0.5rem);
     background: var(--composer-bg, #1a1a1a);
@@ -764,12 +883,12 @@ chat-message.streaming .reasoning-icon {
 }
 
 .send-button {
-    padding: 0.75rem 1.5rem;
+    padding: 0.5rem 1rem;
     border: none;
     border-radius: var(--composer-send-radius, 0.5rem);
     background: var(--send-button-bg, #4fc3f7);
     color: var(--contrast-send-text, #1a1a1a);
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s;
@@ -927,8 +1046,8 @@ chat-message.streaming .reasoning-icon {
 }
 
 .settings-icon {
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     stroke: currentColor;
 }
 
@@ -1435,7 +1554,7 @@ completion-menu {
 
 .message-list .session-list-message {
   width: 100vw;
-  max-width: 1200px;
+  max-width: 1600px;
   margin-left: 50%;
   transform: translateX(-50%);
   padding: 0 1rem;
@@ -1611,7 +1730,8 @@ session-list {
 
     .message {
         max-width: 95%;
-        padding: 0.5rem;
+        min-width: 150px;
+        padding: 0.5rem 0.75rem;
     }
 
     .message-header {
@@ -1648,9 +1768,12 @@ session-list {
     }
 
     .message-actions {
-        opacity: 1 !important;
-        margin-top: 0.5rem;
-        padding-top: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    chat-message.active .message-actions {
+        opacity: 1;
     }
 
     .message-action.icon-only {
@@ -1758,7 +1881,7 @@ status-bar {
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    max-width: var(--composer-max-width, 900px);
+    max-width: var(--composer-max-width, 1400px);
     width: 100%;
     margin: 0 auto;
 }
@@ -1922,7 +2045,7 @@ status-bar {
     .app-footer {
         /* Static position - never hides */
         position: relative;
-        padding: 0.375rem 0.75rem;
+        padding: 0.75rem 0.75rem;
         border-top: 1px solid #333;
     }
 
@@ -1930,11 +2053,11 @@ status-bar {
         padding: 0;
     }
 
-    /* Compact message input - smaller but usable */
+    /* Mobile: larger composer for touch */
     .input-area .message-input {
-        min-height: 2.25rem;
-        max-height: 120px;
-        padding: 0.5rem 0.625rem;
+        min-height: 2.75rem;
+        max-height: 200px;
+        padding: 0.875rem 1rem;
         font-size: 16px; /* Prevent iOS zoom - must be >= 16px */
     }
 
@@ -1943,10 +2066,10 @@ status-bar {
         font-size: 16px !important;
     }
 
-    /* Compact send button */
+    /* Mobile: larger send button for touch */
     .input-area .send-button {
-        padding: 0.5rem 0.875rem;
-        font-size: 0.875rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
     }
 
     /* Compact history controls */
@@ -2031,19 +2154,25 @@ status-bar {
    FONT SIZE CLASSES
    ============================================ */
 
-.font-size-small {
+/* Font size classes applied to html/:root element to scale entire UI */
+
+html.font-size-small,
+:root.font-size-small {
     font-size: 90%;
 }
 
-.font-size-medium {
+html.font-size-medium,
+:root.font-size-medium {
     font-size: 100%;
 }
 
-.font-size-large {
+html.font-size-large,
+:root.font-size-large {
     font-size: 115%;
 }
 
-.font-size-xlarge {
+html.font-size-xlarge,
+:root.font-size-xlarge {
     font-size: 130%;
 }
 
@@ -2051,20 +2180,99 @@ status-bar {
    FONT FAMILY CLASSES
    ============================================ */
 
-.font-family-system {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+/* Font family classes applied to html/:root element */
+/* Need to override body font-family and theme-specific font variables */
+
+/* System font */
+html.font-family-system,
+:root.font-family-system {
+    --font-family-override: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--font-family-override);
 }
 
-.font-family-serif {
-    font-family: Georgia, 'Times New Roman', Times, serif;
+html.font-family-system body,
+:root.font-family-system body {
+    font-family: var(--font-family-override) !important;
 }
 
-.font-family-mono {
-    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+/* Override theme-specific font variables for system font */
+/* Use !important to override theme CSS which loads after base.css */
+html.font-family-system,
+:root.font-family-system {
+    --da-font-primary: var(--font-family-override) !important;
+    --swiss-font-primary: var(--font-family-override) !important;
+    --min-font-primary: var(--font-family-override) !important;
+    --font-primary: var(--font-family-override) !important;
+    --md-font-primary: var(--font-family-override) !important;
 }
 
-.font-family-sans {
-    font-family: Inter, Helvetica, Arial, sans-serif;
+/* Serif font */
+html.font-family-serif,
+:root.font-family-serif {
+    --font-family-override: Georgia, 'Times New Roman', Times, serif;
+    font-family: var(--font-family-override);
+}
+
+html.font-family-serif body,
+:root.font-family-serif body {
+    font-family: var(--font-family-override) !important;
+}
+
+/* Override theme-specific font variables for serif font */
+/* Use !important to override theme CSS which loads after base.css */
+html.font-family-serif,
+:root.font-family-serif {
+    --da-font-primary: var(--font-family-override) !important;
+    --swiss-font-primary: var(--font-family-override) !important;
+    --min-font-primary: var(--font-family-override) !important;
+    --font-primary: var(--font-family-override) !important;
+    --md-font-primary: var(--font-family-override) !important;
+}
+
+/* Monospace font */
+html.font-family-mono,
+:root.font-family-mono {
+    --font-family-override: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: var(--font-family-override);
+}
+
+html.font-family-mono body,
+:root.font-family-mono body {
+    font-family: var(--font-family-override) !important;
+}
+
+/* Override theme-specific font variables for monospace font */
+/* Use !important to override theme CSS which loads after base.css */
+html.font-family-mono,
+:root.font-family-mono {
+    --da-font-primary: var(--font-family-override) !important;
+    --swiss-font-primary: var(--font-family-override) !important;
+    --min-font-primary: var(--font-family-override) !important;
+    --font-primary: var(--font-family-override) !important;
+    --md-font-primary: var(--font-family-override) !important;
+}
+
+/* Sans-serif font */
+html.font-family-sans,
+:root.font-family-sans {
+    --font-family-override: Inter, Helvetica, Arial, sans-serif;
+    font-family: var(--font-family-override);
+}
+
+html.font-family-sans body,
+:root.font-family-sans body {
+    font-family: var(--font-family-override) !important;
+}
+
+/* Override theme-specific font variables for sans font */
+/* Use !important to override theme CSS which loads after base.css */
+html.font-family-sans,
+:root.font-family-sans {
+    --da-font-primary: var(--font-family-override) !important;
+    --swiss-font-primary: var(--font-family-override) !important;
+    --min-font-primary: var(--font-family-override) !important;
+    --font-primary: var(--font-family-override) !important;
+    --md-font-primary: var(--font-family-override) !important;
 }
 
 /* ============================================
@@ -2367,7 +2575,7 @@ debug-panel:not([open]) {
     flex-direction: column;
     width: 90vw;
     height: 80vh;
-    max-width: 1200px;
+    max-width: 1600px;
     background: #1e1e1e;
     border-radius: 12px;
     border: 1px solid #333;

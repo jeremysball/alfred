@@ -16,6 +16,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
+from websockets.exceptions import ConnectionClosedError
 
 from alfred.agent import ToolEvent
 from alfred.interfaces.webui.contracts import WebUIAlfred, WebUISessionManager
@@ -432,7 +433,7 @@ async def _send_json(
             async with send_lock:
                 await websocket.send_json(message)
         return True
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, ConnectionClosedError):
         # Client disconnected - don't raise, just return False
         # This allows background tasks to continue without crashing
         return False
@@ -462,7 +463,7 @@ async def _broadcast_json(
     for ws in list(_active_connections):
         try:
             await ws.send_json(message)
-        except WebSocketDisconnect:
+        except (WebSocketDisconnect, ConnectionClosedError):
             disconnected.append(ws)
         except Exception:
             disconnected.append(ws)
@@ -549,6 +550,14 @@ def _serialize_tool_call(tool_call: object) -> dict[str, object]:
     }
 
 
+def _serialize_reasoning_block(block: object) -> dict[str, object]:
+    """Serialize a reasoning block for WebSocket transport."""
+    return {
+        "content": str(getattr(block, "content", "")),
+        "sequence": int(getattr(block, "sequence", 0)),
+    }
+
+
 def _serialize_message(message: object) -> dict[str, object]:
     """Serialize a session message for WebSocket transport."""
     role = getattr(message, "role", "")
@@ -570,6 +579,10 @@ def _serialize_message(message: object) -> dict[str, object]:
     tool_calls = getattr(message, "tool_calls", None)
     if isinstance(tool_calls, (list, tuple)) and tool_calls:
         payload["toolCalls"] = [_serialize_tool_call(tool_call) for tool_call in tool_calls]
+
+    reasoning_blocks = getattr(message, "reasoning_blocks", None)
+    if isinstance(reasoning_blocks, (list, tuple)) and reasoning_blocks:
+        payload["reasoningBlocks"] = [_serialize_reasoning_block(block) for block in reasoning_blocks]
 
     return payload
 
@@ -1067,6 +1080,18 @@ async def _handle_chat_message(
                     )
 
                 if chunk.startswith("[REASONING]"):
+                    # Signal new reasoning block start to frontend (only on transition)
+                    if not in_reasoning:
+                        await _send_json(
+                            websocket,
+                            {
+                                "type": "reasoning.start",
+                                "payload": {"messageId": message_id},
+                            },
+                            phase="reasoning.start",
+                            debug_stats=debug_stats,
+                            send_lock=connection_state.send_lock,
+                        )
                     in_reasoning = True
                     reasoning_content = chunk[11:]
                     full_reasoning += reasoning_content
@@ -1237,7 +1262,7 @@ async def _handle_command(
     elif cmd == "/session":
         await _handle_session_command(websocket, alfred_instance)
     elif cmd == "/context":
-        await _handle_context_command(websocket, alfred_instance)
+        await _handle_context_command(websocket, alfred_instance, args)
     elif cmd == "/debug":
         await _handle_debug_command(websocket, alfred_instance, args)
     else:
@@ -1466,8 +1491,9 @@ async def _handle_session_command(
 async def _handle_context_command(
     websocket: WebSocket,
     alfred_instance: WebUIAlfred | None,
+    args: list[str] | None = None,
 ) -> None:
-    """Handle /context command to show system context."""
+    """Handle /context command to show and modify system context."""
     if alfred_instance is None:
         await websocket.send_json(
             {
@@ -1477,6 +1503,56 @@ async def _handle_context_command(
         )
         return
 
+    # Handle toggle subcommand: /context toggle <section> [on|off]
+    if args and len(args) >= 2 and args[0].lower() == "toggle":
+        section = args[1].upper()
+        enabled = True
+        if len(args) >= 3:
+            enabled = args[2].lower() in ("on", "true", "yes", "1")
+
+        try:
+            changed = alfred_instance.context_loader.toggle_section(section, enabled)
+            if changed:
+                status = "enabled" if enabled else "disabled"
+                await websocket.send_json(
+                    {
+                        "type": "toast",
+                        "payload": {
+                            "message": f"Context section '{section}' {status}",
+                            "level": "success",
+                        },
+                    }
+                )
+            else:
+                status = "already enabled" if enabled else "already disabled"
+                await websocket.send_json(
+                    {
+                        "type": "toast",
+                        "payload": {
+                            "message": f"Context section '{section}' was {status}",
+                            "level": "info",
+                        },
+                    }
+                )
+            # Refresh context display after toggle
+            from alfred.context_display import get_context_display
+            context_data = await get_context_display(cast(Any, alfred_instance))
+            await websocket.send_json(
+                {
+                    "type": "context.info",
+                    "payload": _build_context_payload(context_data),
+                }
+            )
+        except Exception as e:
+            await websocket.send_json(
+                {
+                    "type": "chat.error",
+                    "payload": {"error": f"Failed to toggle context: {str(e)}"},
+                }
+            )
+        return
+
+    # Default: show context info
     try:
         from alfred.context_display import get_context_display
 
@@ -1729,7 +1805,18 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                 )
 
             while True:
-                data = await websocket.receive_text()
+                try:
+                    data = await websocket.receive_text()
+                except WebSocketDisconnect as recv_disconnect:
+                    # Handle disconnect during receive (e.g., message too big)
+                    # Code 1009 = MESSAGE_TOO_BIG - payload exceeded ws_max_size
+                    if recv_disconnect.code == 1009:
+                        logger.error(
+                            "webui.websocket.payload_too_big: Message exceeded maximum size (64MB). "
+                            "Consider sending smaller messages or reducing context."
+                        )
+                    raise  # Re-raise to let outer handler deal with it
+
                 try:
                     message = json.loads(data)
                 except json.JSONDecodeError:
@@ -1998,6 +2085,15 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     )
 
         except WebSocketDisconnect as disconnect:
+            # Log payload too big errors (code 1009) even without debug mode
+            # These can happen when messages exceed ws_max_size
+            if disconnect.code == 1009 or connection_debug_stats.enabled:
+                logger.warning(
+                    "webui.websocket.disconnect code=%s reason=%s summary=%s",
+                    disconnect.code,
+                    getattr(disconnect, "reason", ""),
+                    connection_debug_stats.summary() if connection_debug_stats.enabled else "debug disabled",
+                )
             if connection_debug_stats.enabled:
                 _emit_webui_debug(
                     "webui.websocket.disconnect",
@@ -2005,12 +2101,29 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     reason=getattr(disconnect, "reason", ""),
                     summary=connection_debug_stats.summary(),
                 )
-        except Exception:
+        except ConnectionClosedError as closed_err:
+            # Client disconnected abruptly (no close frame)
+            # Common when: laptop closes, wifi drops, browser crash, sleep mode
+            # Only log in debug mode - this is expected behavior
             if connection_debug_stats.enabled:
-                logger.exception(
-                    "webui websocket unexpected error summary=%s",
+                logger.warning(
+                    "webui.websocket.connection_closed code=%s reason=%s summary=%s",
+                    closed_err.code,
+                    getattr(closed_err, "reason", ""),
                     connection_debug_stats.summary(),
                 )
+                _emit_webui_debug(
+                    "webui.websocket.connection_closed",
+                    code=closed_err.code,
+                    reason=getattr(closed_err, "reason", ""),
+                    summary=connection_debug_stats.summary(),
+                )
+        except Exception:
+            # Always log exceptions, not just in debug mode
+            logger.exception(
+                "webui websocket unexpected error summary=%s",
+                connection_debug_stats.summary() if connection_debug_stats.enabled else "debug disabled",
+            )
         finally:
             # Don't cancel active chat task on disconnect - let it complete in background
             # The task will handle WebSocket errors gracefully and finish streaming to session

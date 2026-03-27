@@ -32,6 +32,7 @@ class ChatMessage extends HTMLElement {
     this._editable = false;
     this._copied = false;
     this._isConnected = false;
+    this._isEditingInline = false;
 
     // Interleaved content blocks
     this._contentBlocks = []; // Array of {type, sequence, content, metadata, element}
@@ -169,13 +170,17 @@ class ChatMessage extends HTMLElement {
   _getAvatar() {
     switch (this._role) {
       case 'user':
-        return '●'; // Solid circle for user
+        // User: person icon
+        return '<svg class="message-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
       case 'assistant':
-        return '◆'; // Diamond for assistant
+        // Alfred: bot/robot head icon
+        return '<svg class="message-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>';
       case 'system':
-        return '◉'; // Double circle for system
+        // System: gear icon
+        return '<svg class="message-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
       default:
-        return '○'; // Empty circle default
+        // Default: empty circle
+        return '<svg class="message-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>';
     }
   }
 
@@ -254,16 +259,16 @@ class ChatMessage extends HTMLElement {
     const actionButtons = this._role !== 'system'
       ? `<div class="message-actions">
           <button class="message-action icon-only" data-action="copy" title="Copy" aria-label="Copy message">
-            ⧉
+            <svg class="message-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           </button>
           ${this._role === 'assistant'
             ? `<button class="message-action icon-only" data-action="retry" title="Regenerate" aria-label="Regenerate response">
-            ↻
+            <svg class="message-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
           </button>`
             : ''}
           ${this._role === 'user' && this._editable
             ? `<button class="message-action icon-only" data-action="edit" title="Edit" aria-label="Edit message">
-            ✎
+            <svg class="message-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
           </button>`
             : ''}
         </div>`
@@ -313,6 +318,9 @@ class ChatMessage extends HTMLElement {
     const container = this._getContentBlocksContainer();
     if (!container) return;
 
+    // Save scroll positions of existing reasoning blocks before clearing
+    const scrollPositions = this._saveReasoningScrollPositions();
+
     // Sort blocks by sequence
     const sortedBlocks = [...this._contentBlocks].sort((a, b) => a.sequence - b.sequence);
     
@@ -324,9 +332,64 @@ class ChatMessage extends HTMLElement {
         container.appendChild(blockElement);
       }
     }
+
+    // Restore scroll positions and auto-scroll only the last (active) reasoning block
+    this._restoreReasoningScrollPositions(scrollPositions);
     
     const elapsed = performance.now() - startTime;
     this._perfStats.domRebuildTime += elapsed;
+  }
+
+  /**
+   * Save scroll positions of all reasoning content blocks
+   * Returns a Map of sequence number to scrollTop value
+   */
+  _saveReasoningScrollPositions() {
+    const scrollPositions = new Map();
+    const reasoningBlocks = this.querySelectorAll('.reasoning-block');
+    reasoningBlocks.forEach((block) => {
+      const content = block.querySelector('.reasoning-content');
+      const sequence = block.dataset.sequence;
+      if (content && sequence) {
+        scrollPositions.set(sequence, content.scrollTop);
+      }
+    });
+    return scrollPositions;
+  }
+
+  /**
+   * Restore scroll positions to reasoning blocks and auto-scroll only the last one
+   * @param {Map} scrollPositions - Map of sequence to scrollTop values
+   */
+  _restoreReasoningScrollPositions(scrollPositions) {
+    const reasoningBlocks = this.querySelectorAll('.reasoning-block');
+    const lastBlockIndex = reasoningBlocks.length - 1;
+    let lastBlockContent = null;
+    
+    reasoningBlocks.forEach((block, index) => {
+      const content = block.querySelector('.reasoning-content');
+      const sequence = block.dataset.sequence;
+      if (!content || !sequence) return;
+      
+      // Don't scroll collapsed blocks
+      if (content.style.display === 'none') return;
+      
+      if (index === lastBlockIndex) {
+        // Save reference to last block for deferred scroll
+        lastBlockContent = content;
+      } else if (scrollPositions.has(sequence)) {
+        // Restore previous scroll position for older blocks
+        content.scrollTop = scrollPositions.get(sequence);
+      }
+    });
+    
+    // Auto-scroll the last (active) reasoning block after the browser renders
+    // This prevents flickering by ensuring scroll happens after content is laid out
+    if (lastBlockContent) {
+      requestAnimationFrame(() => {
+        lastBlockContent.scrollTop = lastBlockContent.scrollHeight;
+      });
+    }
   }
 
   /**
@@ -392,7 +455,8 @@ class ChatMessage extends HTMLElement {
     const content = document.createElement('div');
     content.className = 'reasoning-content';
     content.style.display = isExpanded ? 'block' : 'none';
-    content.textContent = block.content;
+    // Render reasoning content with markdown
+    content.innerHTML = this._renderMarkdown(block.content);
 
     section.appendChild(header);
     section.appendChild(content);
@@ -456,6 +520,28 @@ class ChatMessage extends HTMLElement {
   }
 
   _setupEventListeners() {
+    // Toggle active state on message tap (for mobile)
+    this.addEventListener('click', (e) => {
+      // Don't toggle if clicking on buttons, links, or interactive elements
+      if (e.target.closest('[data-action]') ||
+          e.target.closest('a') ||
+          e.target.closest('button') ||
+          e.target.closest('.reasoning-header')) {
+        return;
+      }
+
+      // Toggle active class for showing/hiding action buttons on mobile
+      this.classList.toggle('active');
+
+      // Remove active class from other messages (only one active at a time)
+      const allMessages = this.parentElement?.querySelectorAll('chat-message');
+      allMessages?.forEach((msg) => {
+        if (msg !== this) {
+          msg.classList.remove('active');
+        }
+      });
+    });
+
     // Use event delegation for action buttons
     this.addEventListener('click', (e) => {
       const actionBtn = e.target.closest('[data-action]');
@@ -517,11 +603,11 @@ class ChatMessage extends HTMLElement {
 
   _showCopyFeedback(btn) {
     if (!btn) return;
-    const originalText = btn.textContent;
-    btn.textContent = '✓';
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     btn.classList.add('copied');
     setTimeout(() => {
-      btn.textContent = originalText;
+      btn.innerHTML = originalHTML;
       btn.classList.remove('copied');
     }, 800);
   }
@@ -536,12 +622,104 @@ class ChatMessage extends HTMLElement {
   }
 
   _editMessage() {
-    // Dispatch event for parent to handle
-    this.dispatchEvent(new CustomEvent('edit-message', {
+    // Start inline editing instead of dispatching to composer
+    this._startInlineEdit();
+  }
+
+  _startInlineEdit() {
+    if (this._isEditingInline) return;
+    
+    this._isEditingInline = true;
+    this._renderInlineEdit();
+  }
+
+  _cancelInlineEdit() {
+    if (!this._isEditingInline) return;
+    
+    this._isEditingInline = false;
+    this._render();
+  }
+
+  _saveInlineEdit() {
+    if (!this._isEditingInline) return;
+    
+    const textarea = this.querySelector('.inline-edit-textarea');
+    if (!textarea) return;
+    
+    const newContent = textarea.value.trim();
+    if (!newContent) return; // Don't save empty content
+    
+    // Exit editing mode first
+    this._isEditingInline = false;
+    
+    // Dispatch event for parent to handle the actual save
+    this.dispatchEvent(new CustomEvent('message-edited', {
       bubbles: true,
       composed: true,
-      detail: { messageId: this._messageId, content: this._content }
+      detail: { 
+        messageId: this._messageId, 
+        oldContent: this._content,
+        newContent: newContent 
+      }
     }));
+  }
+
+  _renderInlineEdit() {
+    const roleClass = this._role.toLowerCase();
+    const avatar = this._getAvatar();
+    const displayName = this._getDisplayName();
+    const timeDisplay = this._formatTime();
+
+    this.innerHTML = `
+      <div class="message ${roleClass} editing-inline">
+        <div class="message-header">
+          <span class="message-avatar" aria-hidden="true">${avatar}</span>
+          <span class="message-role">${displayName}</span>
+          ${timeDisplay ? `<span class="message-time">${timeDisplay}</span>` : ''}
+        </div>
+        <div class="inline-edit-container">
+          <textarea class="inline-edit-textarea" rows="3">${this._escapeHtml(this._content)}</textarea>
+          <div class="inline-edit-actions">
+            <button class="inline-edit-btn cancel" data-action="cancel-edit">Cancel</button>
+            <button class="inline-edit-btn save" data-action="save-edit">Save</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Focus the textarea and set cursor at end
+    const textarea = this.querySelector('.inline-edit-textarea');
+    if (textarea) {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      
+      // Auto-resize textarea
+      const resizeTextarea = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 400) + 'px';
+      };
+      textarea.addEventListener('input', resizeTextarea);
+      resizeTextarea();
+
+      // Handle keyboard shortcuts
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          this._saveInlineEdit();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this._cancelInlineEdit();
+        }
+      });
+    }
+
+    // Setup button handlers
+    this.querySelector('[data-action="cancel-edit"]')?.addEventListener('click', () => {
+      this._cancelInlineEdit();
+    });
+    this.querySelector('[data-action="save-edit"]')?.addEventListener('click', () => {
+      this._saveInlineEdit();
+    });
   }
 
   _sendFeedback(type) {
@@ -573,14 +751,14 @@ class ChatMessage extends HTMLElement {
   }
 
   _updateReasoningVisibility() {
-    const content = this.querySelector('.reasoning-content');
-    const toggle = this.querySelector('.reasoning-toggle');
-    if (content) {
+    const contents = this.querySelectorAll('.reasoning-content');
+    const toggles = this.querySelectorAll('.reasoning-toggle');
+    contents.forEach((content) => {
       content.style.display = this._reasoningExpanded ? 'block' : 'none';
-    }
-    if (toggle) {
+    });
+    toggles.forEach((toggle) => {
       toggle.textContent = this._reasoningExpanded ? '−' : '+';
-    }
+    });
   }
 
   // ============ Interleaved Content API ============
@@ -632,8 +810,39 @@ class ChatMessage extends HTMLElement {
   }
 
   /**
+   * Start a new reasoning block (for when backend signals new reasoning segment)
+   * Only creates a new block if the last reasoning block already has content.
+   */
+  startNewReasoningBlock() {
+    // Don't add reasoning to user messages
+    if (this._role === 'user') {
+      return;
+    }
+
+    // Check if the last reasoning block is empty - if so, don't create another
+    const reasoningBlocks = this._contentBlocks.filter(block => block.type === 'reasoning');
+    const lastReasoningBlock = reasoningBlocks[reasoningBlocks.length - 1];
+
+    if (lastReasoningBlock && !lastReasoningBlock.content) {
+      // Last block is empty and hasn't received content yet, reuse it
+      return;
+    }
+
+    // Create a new empty reasoning block that subsequent chunks will append to
+    this._contentBlocks.push({
+      type: 'reasoning',
+      sequence: this._nextSequence(),
+      content: '',
+      metadata: {}
+    });
+
+    // Use global state if set, otherwise default to expanded for new reasoning
+    this._reasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : true;
+  }
+
+  /**
    * Append reasoning content (interleaved)
-   * Creates a new reasoning block each time (allows multiple reasoning blocks)
+   * Appends to the most recent reasoning block, or creates one if none exists
    */
   appendReasoning(chunk) {
     // Don't add reasoning to user messages
@@ -656,15 +865,15 @@ class ChatMessage extends HTMLElement {
         content: chunk,
         metadata: {}
       });
-      
+
       // Use global state if set, otherwise default to expanded for new reasoning
       this._reasoningExpanded = globalReasoningExpanded !== null ? globalReasoningExpanded : true;
     }
-    
+
     // Update total reasoning
     this._reasoning = (this._reasoning || '') + chunk;
     this._reasoningAccumulator = this._reasoning;
-    
+
     // Re-render content blocks
     this._renderContentBlocks();
   }
@@ -782,32 +991,44 @@ class ChatMessage extends HTMLElement {
     return this._editable;
   }
 
-  setReasoning(reasoning) {
+  setReasoning(reasoning, sequence = null) {
     // Don't add reasoning to user messages
     if (this._role === 'user') {
       return;
     }
     this._reasoning = reasoning;
     this._reasoningAccumulator = reasoning;
-    
+
     // Update or create reasoning block
     let reasoningBlock = this._contentBlocks.find(b => b.type === 'reasoning');
     if (!reasoningBlock) {
+      // Use provided sequence (for session restore) or generate new one
+      // Default to 0 for session restore so reasoning appears before content
+      const blockSequence = sequence !== null ? sequence : this._nextSequence();
+      if (sequence !== null) {
+        this._sequenceCounter = Math.max(this._sequenceCounter, sequence);
+      }
+
       reasoningBlock = {
         type: 'reasoning',
-        sequence: this._nextSequence(),
+        sequence: blockSequence,
         content: reasoning,
         metadata: {}
       };
       this._contentBlocks.push(reasoningBlock);
-      
+
       if (globalReasoningExpanded !== null) {
         this._reasoningExpanded = globalReasoningExpanded;
       }
     } else {
       reasoningBlock.content = reasoning;
+      // Update sequence if provided (for session restore)
+      if (sequence !== null) {
+        reasoningBlock.sequence = sequence;
+        this._sequenceCounter = Math.max(this._sequenceCounter, sequence);
+      }
     }
-    
+
     this._renderContentBlocks();
     this._applySyntaxHighlighting();
     this._setupEventListeners();
@@ -818,11 +1039,58 @@ class ChatMessage extends HTMLElement {
     return this._reasoning;
   }
 
+  /**
+   * Set multiple reasoning blocks with sequences (for session restore)
+   * This allows reasoning to be interleaved with tool calls
+   */
+  setReasoningBlocks(reasoningBlocks) {
+    // Don't add reasoning to user messages
+    if (this._role === 'user') {
+      return;
+    }
+
+    // Clear existing reasoning blocks
+    this._contentBlocks = this._contentBlocks.filter(b => b.type !== 'reasoning');
+
+    // Add new reasoning blocks with their sequences
+    let totalReasoning = '';
+    reasoningBlocks.forEach((blockData) => {
+      const content = blockData.content || '';
+      const sequence = blockData.sequence !== undefined ? blockData.sequence : this._nextSequence();
+
+      // Update sequence counter to ensure future blocks are after this
+      this._sequenceCounter = Math.max(this._sequenceCounter, sequence);
+
+      this._contentBlocks.push({
+        type: 'reasoning',
+        sequence: sequence,
+        content: content,
+        metadata: {}
+      });
+
+      totalReasoning += content;
+    });
+
+    // Update total reasoning
+    this._reasoning = totalReasoning;
+    this._reasoningAccumulator = totalReasoning;
+
+    // Use global state if set, otherwise default to expanded
+    if (globalReasoningExpanded !== null) {
+      this._reasoningExpanded = globalReasoningExpanded;
+    }
+
+    this._renderContentBlocks();
+    this._applySyntaxHighlighting();
+    this._setupEventListeners();
+    this._updateReasoningVisibility();
+  }
+
   setToolCalls(toolCalls) {
     // Clear existing tool blocks
     this._contentBlocks = this._contentBlocks.filter(b => b.type !== 'tool');
-    
-    // Add new tool blocks
+
+    // Add new tool blocks, preserving sequence from backend if available
     toolCalls.forEach((toolCallData) => {
       const toolCall = document.createElement('tool-call');
       toolCall.setAttribute('tool-call-id', toolCallData.toolCallId || toolCallData.tool_call_id || '');
@@ -831,16 +1099,21 @@ class ChatMessage extends HTMLElement {
       toolCall.setAttribute('status', toolCallData.status || 'success');
       toolCall.setAttribute('output', toolCallData.output || '');
       toolCall.setAttribute('expanded', (toolCallData.status || '') === 'running' ? 'true' : 'false');
-      
+
+      // Use backend sequence if available, otherwise generate new one
+      const sequence = toolCallData.sequence !== undefined ? toolCallData.sequence : this._nextSequence();
+      // Update sequence counter to ensure future blocks are after this
+      this._sequenceCounter = Math.max(this._sequenceCounter, sequence);
+
       this._contentBlocks.push({
         type: 'tool',
-        sequence: this._nextSequence(),
+        sequence: sequence,
         content: '',
         metadata: { toolCallId: toolCall.getAttribute('tool-call-id') },
         element: toolCall
       });
     });
-    
+
     this._renderContentBlocks();
   }
 

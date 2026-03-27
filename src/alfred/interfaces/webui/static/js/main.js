@@ -267,15 +267,27 @@ function initAlfredUI() {
       setMessageState(messageEl, 'idle');
     }
 
-    // Only set reasoning for assistant messages
-    if (role === 'assistant' && (loadedReasoning || !preserveExistingAssistantContent)) {
-      if (!preserveExistingAssistantContent || loadedReasoning.length >= existingReasoning.length) {
-        messageEl.setReasoning(loadedReasoning);
+    // Handle interleaved reasoning blocks (new format) or legacy reasoningContent
+    if (role === 'assistant') {
+      if (Array.isArray(msg.reasoningBlocks) && msg.reasoningBlocks.length > 0) {
+        // New format: interleaved reasoning blocks with sequences
+        messageEl.setReasoningBlocks(msg.reasoningBlocks);
+      } else if (loadedReasoning || !preserveExistingAssistantContent) {
+        // Legacy format: single reasoning string
+        if (!preserveExistingAssistantContent || loadedReasoning.length >= existingReasoning.length) {
+          messageEl.setReasoning(loadedReasoning);
+        }
       }
     }
 
     if (Array.isArray(msg.toolCalls) && (msg.toolCalls.length > 0 || !preserveExistingAssistantContent)) {
-      messageEl.setToolCalls(msg.toolCalls);
+      // Sort tool calls by sequence to preserve original ordering
+      const sortedToolCalls = [...msg.toolCalls].sort((a, b) => {
+        const seqA = a.sequence !== undefined ? a.sequence : 0;
+        const seqB = b.sequence !== undefined ? b.sequence : 0;
+        return seqA - seqB;
+      });
+      messageEl.setToolCalls(sortedToolCalls);
     }
   }
 
@@ -411,7 +423,7 @@ function initAlfredUI() {
     { value: '/resume', description: 'Resume a session' },
     { value: '/sessions', description: 'List recent sessions' },
     { value: '/session', description: 'Show current session info' },
-    { value: '/context', description: 'Show system context' },
+    { value: '/context', description: 'Show system context (use /context toggle <section> [on|off])' },
     { value: '/debug', description: 'Show debug diagnostics (all|session|messages|websocket)' },
     { value: '/help', description: 'Show available commands' }
   ];
@@ -1234,6 +1246,13 @@ function initAlfredUI() {
         scrollToBottom();
         break;
 
+      case 'reasoning.start':
+        // Signal to create a new reasoning block (for multiple reasoning segments)
+        if (currentAssistantMessage) {
+          currentAssistantMessage.startNewReasoningBlock();
+        }
+        break;
+
       case 'reasoning.chunk':
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendReasoning(msg.payload.content);
@@ -1451,59 +1470,38 @@ function initAlfredUI() {
   }
 
   function handleContextInfo(payload) {
-    const warnings = Array.isArray(payload.warnings) ? payload.warnings.filter(Boolean) : [];
-    const blockedContextFiles = Array.isArray(payload.blockedContextFiles)
-      ? payload.blockedContextFiles.filter(Boolean)
-      : [];
+    // Create context viewer container
+    const container = document.createElement('div');
+    container.className = 'context-viewer-message';
 
-    if (!warnings.length && blockedContextFiles.length > 0) {
-      warnings.push(`Blocked context files: ${blockedContextFiles.join(', ')}`);
-    }
+    // Create the context viewer component
+    const contextViewer = document.createElement('context-viewer');
+    contextViewer.setAttribute('data-context', JSON.stringify(payload));
 
-    const lines = [];
+    // Listen for refresh events
+    contextViewer.addEventListener('context-refresh', () => {
+      wsClient.sendCommand('/context');
+    });
 
-    if (warnings.length > 0) {
-      lines.push('WARNING:');
-      warnings.forEach(warning => {
-        lines.push(`  ! ${warning}`);
-      });
-      lines.push('');
-    }
+    // Listen for toggle events
+    contextViewer.addEventListener('context-toggle', (e) => {
+      const { section, enabled } = e.detail;
+      console.log(`Context section ${section} toggled: ${enabled}`);
+    });
 
-    lines.push('System Context:', '');
+    // Listen for command events to send to server
+    contextViewer.addEventListener('send-command', (e) => {
+      const { command } = e.detail;
+      if (command) {
+        wsClient.sendCommand(command);
+      }
+    });
 
-    if (payload.systemPrompt) {
-      lines.push(`System Prompt: ${payload.systemPrompt.totalTokens || 0} tokens`);
-      const sections = payload.systemPrompt.sections || [];
-      sections.forEach(section => {
-        lines.push(`  - ${section.name}: ${section.tokens} tokens`);
-      });
-      lines.push('');
-    }
+    container.appendChild(contextViewer);
+    messageList.appendChild(container);
 
-    if (payload.memories) {
-      lines.push(
-        `Memories: ${payload.memories.displayed || 0} shown / ${payload.memories.total || 0} total (${payload.memories.tokens || 0} tokens)`
-      );
-      lines.push('');
-    }
-
-    if (payload.sessionHistory) {
-      lines.push(
-        `Session History: ${payload.sessionHistory.count || 0} messages (${payload.sessionHistory.tokens || 0} tokens)`
-      );
-      lines.push('');
-    }
-
-    if (payload.toolCalls) {
-      lines.push(`Tool Calls: ${payload.toolCalls.count || 0} (${payload.toolCalls.tokens || 0} tokens)`);
-      lines.push('');
-    }
-
-    lines.push(`Total Tokens: ${payload.totalTokens || 0}`);
-
+    scrollToBottom();
     clearComposerEditState();
-    showSystemMessage(lines.join('\n'), { warning: warnings.length > 0 });
     enableInput();
   }
 
@@ -1619,7 +1617,6 @@ function initAlfredUI() {
   function addToQueue(content) {
     messageQueue.push(content);
     updateQueueBadge();
-    showToast(`Message queued (${messageQueue.length})`, 'info');
   }
 
   function processQueue() {
@@ -1685,32 +1682,8 @@ function initAlfredUI() {
       return;
     }
 
-    if (editingMessageElement) {
-      const editedMessage = editingMessageElement;
-      const messageId = editedMessage.getAttribute('message-id') || '';
-
-      if (!messageId) {
-        showError('Could not edit the selected message.');
-        clearComposerEditState();
-        enableInput();
-        return;
-      }
-
-      removeSessionMessagesAfter(editedMessage);
-      editedMessage.setContent(cleanContent);
-      if (messageHistory.length === 0) {
-        addToHistory(cleanContent);
-      } else {
-        messageHistory[messageHistory.length - 1] = cleanContent;
-        historyIndex = messageHistory.length;
-      }
-      clearComposerEditState();
-      pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
-      playKidcoreSend();
-      scrollToBottom();
-      sendChatEditRequest(messageId, cleanContent, { playSound: false });
-      return;
-    }
+    // Note: Inline editing is now handled via 'message-edited' event from chat-message component
+    // This function only handles sending new messages
 
     // Add to history
     addToHistory(cleanContent);
@@ -2015,12 +1988,16 @@ function initAlfredUI() {
       }
     }
 
-    // Shift+Enter: Queue message while streaming
+    // Shift+Enter: Queue message if streaming, otherwise send immediately
     if (e.key === 'Enter' && e.shiftKey && composerState !== 'editing') {
       e.preventDefault();
       const content = messageInput.value.trim();
       if (content) {
-        addToQueue(content);
+        if (currentAssistantMessage) {
+          addToQueue(content);
+        } else {
+          sendMessageContent(content);
+        }
         messageInput.value = '';
         autoResizeTextarea();
       }
@@ -2052,12 +2029,6 @@ function initAlfredUI() {
       return;
     }
 
-    if (e.key === 'Escape' && composerState === 'editing') {
-      e.preventDefault();
-      clearComposerEditState();
-      return;
-    }
-
     // Ctrl+U: Clear input
     if (e.ctrlKey && e.key === 'u') {
       e.preventDefault();
@@ -2076,16 +2047,10 @@ function initAlfredUI() {
       return;
     }
 
-    // Escape: cancel active response, edit mode, or clear queued messages
+    // Escape: cancel active response or clear queued messages
     if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
       e.preventDefault();
       handleStopGenerating();
-      return;
-    }
-
-    if (e.key === 'Escape' && composerState === 'editing') {
-      e.preventDefault();
-      clearComposerEditState();
       return;
     }
 
@@ -2104,12 +2069,42 @@ function initAlfredUI() {
   });
 
   messageList.addEventListener('edit-message', (event) => {
+    // Inline editing is now handled within chat-message component
+    // This event is kept for backward compatibility
     const messageElement = event.target?.closest?.('chat-message');
     if (!messageElement || messageElement.getAttribute('role') !== 'user') {
       return;
     }
+    // Inline editing starts automatically when the edit button is clicked
+    // No need to populate composer anymore
+  });
 
-    startComposerEdit(messageElement);
+  // Handle inline edit save
+  messageList.addEventListener('message-edited', (event) => {
+    const { messageId, newContent } = event.detail;
+    const messageElement = event.target?.closest?.('chat-message');
+    if (!messageElement || !messageId || !newContent) {
+      return;
+    }
+
+    // Update the message content in the UI
+    messageElement.setContent(newContent);
+
+    // Remove messages after this one
+    removeSessionMessagesAfter(messageElement);
+
+    // Update history
+    if (messageHistory.length === 0) {
+      addToHistory(newContent);
+    } else {
+      messageHistory[messageHistory.length - 1] = newContent;
+      historyIndex = messageHistory.length;
+    }
+
+    // Send the edit request to the backend
+    pendingKidcoreStreamingFx = newContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    scrollToBottom();
+    sendChatEditRequest(messageId, newContent, { playSound: false });
   });
 
   // Completion menu selection

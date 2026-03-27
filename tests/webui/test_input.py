@@ -170,15 +170,16 @@ def test_esc_key_calls_stop_handler():
 
 
 def test_esc_key_cancels_edit_mode():
-    """Verify Esc key cancels edit mode."""
+    """Verify Esc key cancels inline edit mode in chat-message component."""
     app = create_app()
     client = TestClient(app)
 
-    response = client.get("/static/js/main.js")
+    # Check chat-message component handles Escape for inline editing
+    response = client.get("/static/js/components/chat-message.js")
     content = response.text
 
-    assert "composerState === 'editing'" in content
-    assert "clearComposerEditState()" in content
+    assert "_cancelInlineEdit()" in content
+    assert "e.key === 'Escape'" in content
 
 
 def test_composer_placeholder_changes_for_edit_mode():
@@ -203,7 +204,7 @@ def test_pencil_button_exists_in_chat_message():
 
     assert 'data-action="edit"' in content
     assert 'aria-label="Edit message"' in content
-    assert '✎' in content
+    assert '<svg' in content
 
 
 def test_pencil_button_only_for_user_messages():
@@ -218,14 +219,14 @@ def test_pencil_button_only_for_user_messages():
 
 
 def test_edit_message_event_dispatched():
-    """Verify edit-message event is dispatched with correct detail."""
+    """Verify message-edited event is dispatched when saving inline edit."""
     app = create_app()
     client = TestClient(app)
 
     response = client.get("/static/js/components/chat-message.js")
     content = response.text
 
-    assert "edit-message" in content
+    assert "message-edited" in content
     assert "messageId: this._messageId" in content
     assert "_editMessage()" in content
 
