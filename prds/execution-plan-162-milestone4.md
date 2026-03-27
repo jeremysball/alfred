@@ -26,19 +26,25 @@ Make failures diagnosable without flooding the console by wiring the Web UI debu
 
 ---
 
-## Phase 2: Browser Config Verification
+## Phase 2: Browser Config Verification ✅ COMPLETE
 
 ### App Config Includes Debug Flag
 
-- [ ] Test: `test_app_config_includes_debug_flag()` - verify `/app-config.js` returns `debug: true` when server started with debug
-- [ ] Verify: `_render_webui_config_script` already handles this, confirm via test
-- [ ] Run: `uv run pytest tests/webui/test_server_parity.py -v -k "app_config"`
+- [x] Test: `test_app_config_includes_debug_flag_when_false()` - verify `/app-config.js` returns `debug: false` when server created without debug
+- [x] Test: `test_app_config_includes_debug_flag_when_true()` - verify `/app-config.js` returns `debug: true` when server created with debug
+- [x] Verify: `_render_webui_config_script` already handles this, confirmed via tests
+- [x] Run: `uv run pytest tests/webui/test_server_parity.py -v -k "app_config"`
 
 ### WebSocket Client Reads Debug Config
 
-- [ ] Test: `test_websocket_client_reads_debug_config()` - verify `WEBSOCKET_DEBUG_ENABLED` is set from window config
-- [ ] Verify: Current implementation already reads from `window.__ALFRED_WEBUI_CONFIG__`
-- [ ] Run: `uv run pytest tests/webui/test_websocket_client_protocol.py -v -k "debug_config"`
+- [x] Test: `test_websocket_client_reads_debug_config()` - verify `WEBSOCKET_DEBUG_ENABLED` is set from window config
+- [x] Verify: Current implementation already reads from `window.__ALFRED_WEBUI_CONFIG__`
+- [x] Run: `uv run pytest tests/webui/test_websocket_client_protocol.py -v -k "debug_config"`
+
+**Evidence**:
+- Added 2 tests in `test_server_parity.py` verifying `/app-config.js` returns correct debug flag
+- Added 1 test in `test_websocket_client_protocol.py` verifying WebSocket client reads debug config
+- All tests pass - implementation already works correctly
 
 ---
 
@@ -166,9 +172,9 @@ uv run alfred --log debug webui --log debug
 
 **Completed**:
 - [x] Phase 1: CLI Flag Plumbing ✅
-- [ ] Phase 2: Browser Config Verification
+- [x] Phase 2: Browser Config Verification ✅
 - [ ] Phase 3: Structured Lifecycle Logging
 - [ ] Phase 4: Log Policy Enforcement
 - [ ] Phase 5: Integration Verification
 
-**Current Task**: Phase 2 - Browser Config Verification
+**Current Task**: Phase 3 - Structured Lifecycle Logging
