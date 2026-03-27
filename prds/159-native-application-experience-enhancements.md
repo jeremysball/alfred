@@ -48,17 +48,17 @@ Transform the Alfred Web UI into a Progressive Web App (PWA) with native desktop
 
 ## Success Criteria
 
-- [ ] User can access all major features without touching the mouse
-- [ ] Right-click context menus work on all interactive elements
-- [ ] Notifications appear when responses complete in inactive tabs
-- [ ] App works offline with static asset caching (UI loads, message queuing deferred)
-- [ ] Animations use only `transform`/`opacity`, complete within 200ms
-- [ ] Lighthouse PWA score > 90 (enforced in CI)
-- [ ] All features work on desktop and mobile
-- [ ] File uploads respect 10MB limit with clear error messages
-- [ ] Mobile gestures disabled in 40px edge zone (no browser conflicts)
-- [ ] Search latency < 16ms for <1000 commands
-- [ ] Focus management follows ARIA guidelines (focus trap, return to trigger)
+- [x] User can access all major features without touching the mouse (Milestone 2 - Keyboard Shortcuts)
+- [x] Right-click context menus work on all interactive elements (Milestone 3 - Context Menus)
+- [x] Notifications appear when responses complete in inactive tabs (Milestone 4 - System Notifications)
+- [x] App works offline with static asset caching (UI loads, message queuing deferred) (Milestone 7)
+- [x] Animations use only `transform`/`opacity`, complete within 200ms (Milestone 6)
+- [ ] Lighthouse PWA score > 90 (enforced in CI) - pending Milestones 8-10
+- [ ] All features work on desktop and mobile - pending Milestone 8
+- [x] File uploads respect 10MB limit with clear error messages (Milestone 5 - Drag & Drop)
+- [ ] Mobile gestures disabled in 40px edge zone (no browser conflicts) - pending Milestone 8
+- [x] Search latency < 16ms for <1000 commands (Milestone 1 - Command Palette)
+- [x] Focus management follows ARIA guidelines (focus trap, return to trigger) (Milestone 1)
 
 ---
 
@@ -236,7 +236,7 @@ server → client: "file.received" {
 
 ---
 
-### Milestone 6: Enhanced Animations & Micro-interactions
+### Milestone 6: Enhanced Animations & Micro-interactions ✅ COMPLETE
 **Goal**: Smooth, polished interactions that feel native
 
 **Features**:
@@ -276,31 +276,45 @@ server → client: "file.received" {
 
 ---
 
-### Milestone 7: Service Worker & Offline Support
+### Milestone 7: Service Worker & Offline Support ✅ COMPLETE
 **Goal**: Static asset caching and offline indicator only (reduced scope)
 
 **Features**:
-- Service worker caches static assets (CSS, JS, HTML)
-- Offline indicator in UI when WebSocket disconnects
-- Page reload while offline loads cached UI shell
+- [x] Service worker caches static assets (CSS, JS, HTML)
+- [x] Offline indicator in UI when WebSocket disconnects
+- [x] Page reload while offline loads cached UI shell
 - **Out of Scope**: Message queuing (requires complex sync protocol - see Future Work)
 
-**Rationale**: Full offline messaging requires IndexedDB queue, conflict resolution, and server-side sync protocol. Deferred to post-MVP.
-
-**WebSocket Protocol Extensions**:
+**Implementation**:
 ```javascript
-// Client tracks visibility for notification logic
-client → server: "client.visibility" {isVisible: boolean, timestamp: number}
+// service-worker.js - Static asset caching
+const STATIC_ASSETS = [
+  '/static/index.html',
+  '/static/css/base.css',
+  '/static/js/main.js',
+  '/static/js/features/*/index.js',
+  // ... app shell
+];
 
-// Server uses this to decide whether to send browser notification
-// when response completes while tab hidden
+// ConnectionMonitor tracks WebSocket state
+const monitor = new ConnectionMonitor();
+monitor.trackWebSocket(wsClient);
+monitor.addEventListener('statechange', ({detail}) => {
+  offlineIndicator.setAttribute('state', detail.state);
+});
 ```
 
+**Files Created**:
+- `service-worker.js` - Cache-first strategy, offline fallback
+- `features/offline/connection-monitor.js` - WebSocket state tracking
+- `features/offline/offline-indicator.js` - Glassmorphism banner
+- `features/offline/styles.css` - Slide-down animation, reduced motion support
+
 **Validation**:
-- Disconnect network → offline indicator appears within 5 seconds
-- Page reload while offline loads cached UI (no 404 errors)
-- Reconnect WebSocket → indicator disappears
-- Lighthouse "Works Offline" audit passes
+- [x] Disconnect network → offline indicator appears within 5 seconds
+- [x] Page reload while offline loads cached UI (no 404 errors)
+- [x] Reconnect WebSocket → indicator disappears
+- [x] Lighthouse "Works Offline" audit passes
 
 ---
 
@@ -437,6 +451,19 @@ src/alfred/interfaces/webui/static/js/
 │       ├── visual.js           # Drop zone overlay
 │       ├── styles.css          # Drop zone styling
 │       └── index.js            # Module exports
+│   ├── animations/           ✅ IMPLEMENTED
+│   │   ├── utils.js            # prefersReducedMotion helper
+│   │   ├── message-animator.js # Message entrance animations
+│   │   ├── typing-indicator.js # Bouncing dots component
+│   │   ├── tool-call-progress.js # Progress bar animations
+│   │   ├── skeleton.js         # Loading skeletons
+│   │   ├── styles.css          # Animation CSS (5.6KB)
+│   │   └── index.js            # Module exports
+│   └── offline/              ✅ IMPLEMENTED
+│       ├── connection-monitor.js # WebSocket state tracking
+│       ├── offline-indicator.js  # Connection status banner
+│       ├── styles.css            # Glassmorphism styles
+│       └── index.js              # Module exports
 ```
 
 **PLANNED (Not Yet Implemented):**
@@ -446,12 +473,8 @@ src/alfred/interfaces/webui/static/js/
 │   ├── drag-drop/              ⏳ PARTIAL
 │   │   ├── quote.js            # Drag-to-quote (deferred)
 │   │   └── reorder.js          # Drag-to-reorder (deferred)
-│   ├── animations/             ⏳ PENDING
-│   │   ├── message-enter.js    # Message entrance animations
-│   │   └── micro-interactions.js
-│   └── offline/                ⏳ PENDING
-│       ├── service-worker.js
-│       └── queue.js
+│   └── offline/                ⏳ PARTIAL
+│       └── queue.js            # Message queuing (deferred)
 ```
 
 ### Key Components
@@ -683,6 +706,8 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **IMPLEMENTED**: Milestone 7 - Service Worker & Offline Support | Static asset caching via service worker, ConnectionMonitor for WebSocket state, glassmorphism offline indicator. Cache-first strategy, versioned caches, offline HTML fallback. Message queuing deferred. See `service-worker.js` and `features/offline/`. |
+| 2026-03-27 | **IMPLEMENTED**: Milestone 6 - Enhanced Animations | GPU-accelerated animations (transform/opacity only). Message entrance, button press, smooth scroll, skeleton loading, typing indicator, tool call progress. Reduced motion support. See `features/animations/`. |
 | 2026-03-26 | **IMPLEMENTED**: Milestone 5 - Drag & Drop | File upload via drag-drop and clipboard paste. Canvas-based image compression (>2MB), 10MB size limit, WebSocket base64 upload, glassmorphism drop zone. See `features/drag-drop/`. |
 | 2026-03-26 | **IMPLEMENTED**: Milestone 4 - System Notifications | Browser notifications with permission handling, favicon badges for unread count, WebSocket visibility tracking, in-app toasts. See `features/notifications/`. |
 | 2026-03-26 | **IMPLEMENTED**: Milestone 3 - Context Menus | Right-click menus for messages (copy, quote) and code blocks (copy, copy as markdown). ARIA roles, Shift+F10 keyboard access, viewport-aware positioning. See `features/context-menu/`. |
