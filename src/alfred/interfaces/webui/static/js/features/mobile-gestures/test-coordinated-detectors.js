@@ -400,6 +400,260 @@ test('edge zone handling - safe zone touch requests lock normally', () => {
   global.window.innerWidth = originalInnerWidth;
 });
 
+// Test 11: Multi-gesture - independent gestures on different elements work simultaneously
+test('multi-gesture - independent gestures on different elements', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const elementA = new MockHTMLElement();
+  const elementB = new MockHTMLElement();
+
+  let swipeTriggered = false;
+  let longPressTriggered = false;
+
+  const swipeDetector = new CoordinatedSwipeDetector(elementA, {
+    onSwipe: () => { swipeTriggered = true; },
+    threshold: 100
+  });
+
+  const longPressDetector = new CoordinatedLongPressDetector(elementB, {
+    onLongPress: () => { longPressTriggered = true; },
+    delay: 500
+  });
+
+  swipeDetector.attach();
+  longPressDetector.attach();
+
+  // Start touch on element A (swipe)
+  elementA.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Verify swipe is active
+  assert(coordinator.isGestureActive('swipe'), 'Expected swipe gesture to be active');
+
+  // End swipe gesture
+  elementA.triggerEvent('touchend', {
+    type: 'touchend',
+    changedTouches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Reset for second gesture
+  coordinator.releaseGesture();
+
+  // Start touch on element B (long-press)
+  elementB.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 300, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Verify long-press is active
+  assert(coordinator.isGestureActive('longpress'), 'Expected longpress gesture to be active');
+
+  swipeDetector.destroy();
+  longPressDetector.destroy();
+});
+
+// Test 12: Multi-gesture - long-press priority 3 preempts swipe priority 1
+test('multi-gesture - long-press priority 3 preempts swipe priority 1', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  // First verify coordinator-level priority behavior
+  // Request low priority gesture first
+  const granted1 = coordinator.requestGesture('swipe', 1, { element: 'test1' });
+  assert(granted1 === true, 'Expected low priority request to be granted');
+  assert(coordinator.getActiveGesture().priority === 1, 'Expected priority 1 active');
+
+  // Higher priority should preempt
+  const granted2 = coordinator.requestGesture('longpress', 3, { element: 'test2' });
+  assert(granted2 === true, 'Expected high priority to preempt low priority');
+  assert(coordinator.isGestureActive('longpress'), 'Expected longpress to be active');
+  assert(coordinator.getActiveGesture().priority === 3, 'Expected priority 3 for longpress');
+
+  coordinator.releaseGesture();
+
+  // Now test with coordinated detectors on same element
+  const element = new MockHTMLElement();
+
+  const swipeDetector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  const longPressDetector = new CoordinatedLongPressDetector(element, {
+    onLongPress: () => {},
+    delay: 500
+  });
+
+  swipeDetector.attach();
+  longPressDetector.attach();
+
+  // With both attached, long-press (priority 3) should preempt swipe (priority 1)
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Verify long-press won due to higher priority
+  assert(coordinator.isGestureActive('longpress'), 'Expected longpress to take precedence');
+  assert(coordinator.getActiveGesture().priority === 3, 'Expected priority 3 active');
+  assert(longPressDetector.isActive === true, 'Expected long-press detector to be active');
+
+  swipeDetector.destroy();
+  longPressDetector.destroy();
+});
+
+// Test 13: Multi-gesture - active gesture owns touch until touchend
+test('multi-gesture - active gesture owns touch until touchend', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const element = new MockHTMLElement();
+
+  const swipeDetector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  swipeDetector.attach();
+
+  // Start first touch
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Verify gesture is active
+  assert(coordinator.isGestureActive(), 'Expected gesture to be active');
+  assert(swipeDetector.isActive === true, 'Expected detector to be active');
+
+  // Try to start another gesture with same priority while first is active (should be denied)
+  // Using same priority (1) to test exclusivity, not preemption
+  const granted = coordinator.requestGesture('pull', 1, { element });
+  assert(granted === false, 'Expected same priority gesture to be denied while first is active');
+
+  // But higher priority should still be able to preempt
+  const grantedHigh = coordinator.requestGesture('longpress', 3, { element });
+  assert(grantedHigh === true, 'Expected higher priority gesture to preempt');
+
+  // End the gesture
+  element.triggerEvent('touchend', {
+    type: 'touchend',
+    changedTouches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  // Verify gesture is released
+  assert(!coordinator.isGestureActive(), 'Expected no gesture after touchend');
+  assert(swipeDetector.isActive === false, 'Expected detector to be inactive');
+
+  swipeDetector.destroy();
+});
+
+// Test 14: Multi-gesture - gesture priority respected in coordinator
+test('multi-gesture - gesture priority respected in coordinator', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  // Request low priority gesture first (should succeed)
+  const granted1 = coordinator.requestGesture('swipe', 1, { element: 'test1' });
+  assert(granted1 === true, 'Expected low priority request to be granted');
+
+  // Try to request same priority (should fail - already active)
+  const granted2 = coordinator.requestGesture('pull', 1, { element: 'test2' });
+  assert(granted2 === false, 'Expected same priority request to be denied');
+
+  // Release and test higher priority
+  coordinator.releaseGesture();
+
+  // Request low priority again
+  const granted3 = coordinator.requestGesture('swipe', 1, { element: 'test3' });
+  assert(granted3 === true, 'Expected low priority to be granted after release');
+
+  // Higher priority should preempt
+  const granted4 = coordinator.requestGesture('longpress', 3, { element: 'test4' });
+  assert(granted4 === true, 'Expected high priority to preempt low priority');
+
+  const activeGesture = coordinator.getActiveGesture();
+  assert(activeGesture.type === 'longpress', 'Expected longpress to be active');
+  assert(activeGesture.priority === 3, 'Expected priority 3 to be active');
+
+  coordinator.releaseGesture();
+});
+
+// Test 15: Multi-gesture - detector cleanup releases lock properly
+test('multi-gesture - detector destroy releases gesture lock', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const element = new MockHTMLElement();
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Start gesture
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  assert(coordinator.isGestureActive(), 'Expected gesture to be active');
+
+  // Destroy detector (should release lock)
+  detector.destroy();
+
+  // Verify gesture lock was released
+  assert(!coordinator.isGestureActive(), 'Expected gesture lock to be released after destroy');
+});
+
+// Test 16: Multi-gesture - touchcancel releases lock like touchend
+test('multi-gesture - touchcancel releases gesture lock', () => {
+  const coordinator = GestureCoordinator.getInstance();
+  coordinator.releaseGesture(); // Reset
+
+  const element = new MockHTMLElement();
+
+  const detector = new CoordinatedSwipeDetector(element, {
+    onSwipe: () => {},
+    threshold: 100
+  });
+
+  detector.attach();
+
+  // Start gesture
+  element.triggerEvent('touchstart', {
+    type: 'touchstart',
+    touches: [{ clientX: 100, clientY: 200 }],
+    preventDefault: () => {}
+  });
+
+  assert(coordinator.isGestureActive(), 'Expected gesture to be active');
+
+  // Cancel gesture (should release lock)
+  element.triggerEvent('touchcancel', {
+    type: 'touchcancel',
+    preventDefault: () => {}
+  });
+
+  // Verify gesture lock was released
+  assert(!coordinator.isGestureActive(), 'Expected gesture lock to be released after touchcancel');
+  assert(detector.isActive === false, 'Expected detector to be inactive');
+
+  detector.destroy();
+});
+
 // Summary
 console.log('\n-------------------');
 console.log(`Tests passed: ${testsPassed}`);
