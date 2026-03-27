@@ -103,31 +103,31 @@ const fuse = new Fuse(commands, {
 
 ---
 
-### Milestone 2: Keyboard Shortcuts & Help System
+### Milestone 2: Keyboard Shortcuts & Help System ✅ COMPLETE
 **Goal**: Comprehensive keyboard control with discoverability
 
 **Features**:
-- Global shortcuts (Ctrl+T toggle tools, already exists)
-- Message navigation (Tab/Shift+Tab or arrow keys between messages)
-- Shortcut help overlay (press `?` to view all shortcuts)
-- Focus management (Tab cycles through interactive elements)
+- [x] Global shortcuts (Ctrl+T toggle tools, already exists)
+- [x] Message navigation (Tab/Shift+Tab or arrow keys between messages)
+- [x] Shortcut help overlay (press `?` to view all shortcuts)
+- [x] Focus management (Tab cycles through interactive elements)
 
-**Shortcuts to Implement**:
-| Key | Action |
-|-----|--------|
-| `?` | Show shortcut help |
-| `Tab` / `Shift+Tab` | Next/previous focusable element |
-| `↑` / `↓` (when message focused) | Previous/next message |
-| `Home` / `End` | Jump to first/last message |
-| `Esc` | Close modals/cancel actions |
-| `Ctrl+K` | Open command palette |
-| `Ctrl+F` | Search in conversation |
+**Shortcuts Implemented**:
+| Key | Action | Status |
+|-----|--------|--------|
+| `?` | Show shortcut help | ✅ |
+| `Tab` / `Shift+Tab` | Next/previous focusable element | ✅ |
+| `↑` / `↓` (when message focused) | Previous/next message | ✅ |
+| `Home` / `End` | Jump to first/last message | ✅ |
+| `Esc` | Close modals/cancel actions | ✅ |
+| `Ctrl+K` | Open command palette | ✅ (M1) |
+| `Ctrl+F` | Search in conversation | ⏳ Pending |
 
 **Validation**:
-- Press `?` shows help modal
-- Tab navigates between interactive elements
-- Arrow keys navigate between messages when a message has focus
-- All shortcuts documented in help
+- [x] Press `?` shows help modal
+- [x] Tab navigates between interactive elements
+- [x] Arrow keys navigate between messages when a message has focus
+- [x] All shortcuts documented in help
 
 ---
 
@@ -386,14 +386,22 @@ function handleTouchStart(e) {
 ```
 src/alfred/interfaces/webui/static/js/
 ├── features/
-│   └── command-palette/        ✅ IMPLEMENTED
-│       ├── commands.js         # Command registry with validation
-│       ├── fuzzy-search.js     # Native Intl.Collator search
-│       ├── palette.js          # Modal UI with keyboard nav
-│       ├── styles.css          # Glassmorphism styling
+│   ├── command-palette/        ✅ IMPLEMENTED
+│   │   ├── commands.js         # Command registry with validation
+│   │   ├── fuzzy-search.js     # Native Intl.Collator search
+│   │   ├── palette.js          # Modal UI with keyboard nav
+│   │   ├── styles.css          # Glassmorphism styling
+│   │   ├── index.js            # Module exports
+│   │   ├── test-commands.js    # 15 unit tests
+│   │   └── test-fuzzy-search.js # 21 unit tests
+│   └── keyboard/               ✅ IMPLEMENTED
+│       ├── shortcuts.js        # Shortcut registry with modifiers
+│       ├── keyboard-manager.js # Global keydown listener
+│       ├── help.js             # Help modal component
+│       ├── navigation.js       # Message arrow key nav
+│       ├── styles.css          # Help modal styles
 │       ├── index.js            # Module exports
-│       ├── test-commands.js    # 15 unit tests
-│       └── test-fuzzy-search.js # 21 unit tests
+│       └── test-shortcuts.js   # 19 unit tests
 ```
 
 **PLANNED (Not Yet Implemented):**
@@ -404,10 +412,6 @@ src/alfred/interfaces/webui/static/js/
 │   │   ├── menu.js
 │   │   ├── message-menu.js
 │   │   └── code-menu.js
-│   ├── keyboard/               ⏳ PENDING
-│   │   ├── shortcuts.js
-│   │   ├── navigation.js
-│   │   └── help.js
 │   ├── notifications/          ⏳ PENDING
 │   │   ├── browser.js
 │   │   ├── favicon.js
@@ -649,6 +653,7 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-26 | **IMPLEMENTED**: Milestone 2 - Keyboard Shortcuts | Context-aware shortcuts (global/input/message), 19 tests, Help modal with glassmorphism, Message navigation with arrow keys. See `features/keyboard/`. |
 | 2026-03-26 | **IMPLEMENTED**: Native Intl.Collator for fuzzy search | Chosen over Fuse.js. 36 tests passing, <16ms latency achieved without external dependency. See `features/command-palette/fuzzy-search.js`. |
 | 2026-03-26 | Scope reduction: Offline messaging deferred | Full queue/sync requires IndexedDB + conflict resolution protocol. Keeping static asset caching only for MVP. |
 | 2026-03-26 | Remove Electron/Tauri from this PRD | Requires separate deployment model changes. PWA provides sufficient native feel for now. |
