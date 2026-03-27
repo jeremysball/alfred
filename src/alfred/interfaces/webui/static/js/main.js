@@ -2607,6 +2607,65 @@ function initKeyboardShortcuts() {
 }
 
 // ============================================
+// Context Menu Initialization (PRD #159)
+// ============================================
+
+function initContextMenus() {
+  // Only initialize if the library is loaded
+  if (typeof window.ContextMenuLib === 'undefined' ||
+      typeof window.MessageContextMenu === 'undefined' ||
+      typeof window.CodeContextMenu === 'undefined') {
+    console.warn('Context menu libraries not loaded, skipping context menu initialization');
+    return;
+  }
+
+  const { MessageContextMenu, CodeContextMenu } = window;
+
+  // Attach to existing messages
+  MessageContextMenu.attachToAllMessages();
+
+  // Attach to existing code blocks
+  CodeContextMenu.attachToAllCodeBlocks();
+
+  // Watch for new messages and code blocks
+  const messageList = document.getElementById('message-list');
+  if (messageList) {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          // Check for new messages
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              // If it's a message
+              if (node.classList && node.classList.contains('message')) {
+                MessageContextMenu.attachMessageMenu(node);
+              }
+              // If it contains messages
+              if (node.querySelectorAll) {
+                const messages = node.querySelectorAll('.message');
+                messages.forEach(msg => MessageContextMenu.attachMessageMenu(msg));
+              }
+            }
+          });
+        }
+      }
+    });
+    observer.observe(messageList, { childList: true, subtree: true });
+  }
+
+  // Watch for code blocks (they may be added when messages render)
+  const chatContainer = document.getElementById('chat-container');
+  if (chatContainer) {
+    const codeObserver = new MutationObserver(() => {
+      CodeContextMenu.attachToAllCodeBlocks();
+    });
+    codeObserver.observe(chatContainer, { childList: true, subtree: true });
+  }
+
+  console.log('Context menus initialized');
+}
+
+// ============================================
 // Initialization
 // ============================================
 
@@ -2614,6 +2673,7 @@ function initAll() {
   initAlfredUI();
   initCommandPalette();
   initKeyboardShortcuts();
+  initContextMenus();
 }
 
 // Initialize when DOM is ready
