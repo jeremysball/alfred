@@ -2417,9 +2417,97 @@ function showCopyFailed(btn) {
   }, 1500);
 }
 
+// ============================================
+// Command Palette Initialization (PRD #159)
+// ============================================
+
+function initCommandPalette() {
+  // Only initialize if the library is loaded
+  if (typeof window.CommandPaletteLib === 'undefined') {
+    console.warn('CommandPaletteLib not loaded, skipping palette initialization');
+    return;
+  }
+
+  const { CommandPalette, CommandRegistry } = window.CommandPaletteLib;
+
+  // Create palette instance
+  const palette = new CommandPalette({
+    placeholder: 'Type a command...'
+  });
+
+  // Register default commands
+  CommandRegistry.register({
+    id: 'clear-chat',
+    title: 'Clear Chat',
+    keywords: ['reset', 'clean', 'delete'],
+    shortcut: 'Ctrl+Shift+C',
+    action: () => {
+      if (confirm('Clear all messages?')) {
+        const messageList = document.getElementById('message-list');
+        if (messageList) {
+          messageList.innerHTML = '';
+          window.addSystemMessage?.('Chat cleared');
+        }
+      }
+    }
+  });
+
+  CommandRegistry.register({
+    id: 'toggle-theme',
+    title: 'Toggle Theme',
+    keywords: ['dark', 'light', 'mode', 'color'],
+    shortcut: 'Ctrl+Shift+T',
+    action: () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      window.addSystemMessage?.(`Theme changed to ${newTheme}`);
+    }
+  });
+
+  CommandRegistry.register({
+    id: 'new-session',
+    title: 'New Session',
+    keywords: ['create', 'start', 'reset'],
+    action: () => {
+      if (confirm('Start a new session? Current conversation will be archived.')) {
+        window.location.reload();
+      }
+    }
+  });
+
+  CommandRegistry.register({
+    id: 'focus-input',
+    title: 'Focus Input',
+    keywords: ['type', 'write', 'compose'],
+    shortcut: '/',
+    action: () => {
+      const input = document.getElementById('message-input');
+      if (input) {
+        input.focus();
+      }
+    }
+  });
+
+  console.log('Command palette initialized with', CommandRegistry.getAll().length, 'commands');
+
+  // Store palette instance globally for debugging
+  window.alfredCommandPalette = palette;
+}
+
+// ============================================
+// Initialization
+// ============================================
+
+function initAll() {
+  initAlfredUI();
+  initCommandPalette();
+}
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAlfredUI);
+  document.addEventListener('DOMContentLoaded', initAll);
 } else {
-  initAlfredUI();
+  initAll();
 }
