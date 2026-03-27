@@ -321,7 +321,7 @@ monitor.addEventListener('statechange', ({detail}) => {
 ### Milestone 8: Mobile Gestures ⏳ IN PROGRESS
 **Goal**: Touch-friendly interactions for mobile users
 
-**Status**: Phase 1, 2 & 3 Complete (Foundation + Swipe-to-Reply + Long Press Context Menu)
+**Status**: Phases 1-7 Complete (Foundation + Gestures + Conflict Resolution + Integration)
 
 **Implemented (Phase 1)**:
 - [x] Touch device detection (ontouchstart, maxTouchPoints, pointer:coarse)
@@ -409,20 +409,54 @@ monitor.addEventListener('statechange', ({detail}) => {
 - `features/mobile-gestures/fullscreen-compose.js` - Modal component + factory
 - `features/mobile-gestures/fullscreen-compose.css` - Glassmorphism styles
 
-**Pending (Phase 8)**:
-- [x] Gesture conflict resolution (Phase 6) ✅ COMPLETE - Axis locking, edge zones, priority, regions
-- [x] Region-based coordination (Phase 6) ✅ COMPLETE - Context-aware gestures
-- [x] Integration & Module Export (Phase 7) ✅ COMPLETE - main.js wired, all exports ready
-- [ ] Cross-platform testing (Phase 8)
+**Implemented (Phase 6) - Gesture Conflict Resolution**:
+- [x] `GestureCoordinator` singleton with priority-based preemption
+- [x] `CoordinatedSwipeDetector` wrapper with axis locking (15px threshold)
+- [x] `CoordinatedLongPressDetector` wrapper with edge zone handling (40px margin)
+- [x] Priority system: Long-press (3) > Fullscreen/Pulldown (2) > Reply/Pull (1)
+- [x] Axis locking: 15px threshold, 1.5x dominance ratio, no mid-gesture switching
+- [x] Edge zone filtering: 40px left/right margins prevent browser conflicts
+- [x] Region-based coordination: message, composer, modal, message-list contexts
+- [x] `getRegionForElement()` utility using CSS selectors and `element.closest()`
+- [x] 28 unit tests passing (GestureCoordinator: 8, CoordinatedDetectors: 20)
 
-**Execution Plan**: See `execution-plan-159-milestone8-remaining.md` for detailed implementation tasks
+**Files Created (Phase 6)**:
+- `features/mobile-gestures/gesture-coordinator.js` - Singleton coordination class
+- `features/mobile-gestures/coordinated-detectors.js` - Wrapped detectors with coordination
+- `features/mobile-gestures/test-gesture-coordinator.js` - 8 tests
+- `features/mobile-gestures/test-coordinated-detectors.js` - 20 tests
+
+**Implemented (Phase 7) - Integration & Module Export**:
+- [x] `index.js` exports all coordinated detectors and utilities
+- [x] `main.js` imports coordinated detectors and gesture coordinator
+- [x] `initializeMobileGestures()` called on app startup (touch devices only)
+- [x] SwipeToReply attached to message list with haptic feedback
+- [x] Fullscreen compose initialized on message input
+- [x] Cleanup on page unload via `beforeunload` event
+- [x] All 148 tests passing across mobile-gestures module
+
+**Files Modified (Phase 7)**:
+- `main.js` - Added imports and initialization call
+
+**Pending (Phase 8)**:
+- [ ] Cross-platform testing - Chrome DevTools mobile emulation
+- [ ] Touch device validation - actual device testing
+- [ ] Browser-specific issue documentation
+
+**Execution Plan**: See `execution-plan-159-milestone8.md` for detailed implementation tasks
 
 **Files Created**:
 - `features/mobile-gestures/touch-detector.js` - Device detection, edge zone checking
 - `features/mobile-gestures/swipe-detector.js` - Swipe detection with callbacks
 - `features/mobile-gestures/long-press-detector.js` - Long press detection class
 - `features/mobile-gestures/long-press-context-menu.js` - Context menu integration
-- `features/mobile-gestures/index.js` - Module exports, GESTURE_CONFIG, initializeGestures()
+- `features/mobile-gestures/swipe-to-reply.js` - Swipe-to-reply feature
+- `features/mobile-gestures/pull-to-refresh.js` - Pull-to-refresh with WebSocket
+- `features/mobile-gestures/pull-indicator.js` - Visual pull indicator component
+- `features/mobile-gestures/fullscreen-compose.js` - Fullscreen compose modal
+- `features/mobile-gestures/gesture-coordinator.js` - Gesture coordination singleton
+- `features/mobile-gestures/coordinated-detectors.js` - Wrapped detectors
+- `features/mobile-gestures/index.js` - Module exports, GESTURE_CONFIG
 
 **Gesture Conflict Mitigation**:
 ```javascript
@@ -450,8 +484,8 @@ function handleTouchStart(e) {
 - [x] Swipe-to-Reply: MutationObserver for dynamic messages
 - [x] Swipe from left edge (<40px) triggers browser back (not reply)
 - [x] Long press shows context menu after 500ms
-- [ ] Pull down triggers reconnect (only when scrolled to top)
-- [ ] Tested on Safari iOS, Chrome Android
+- [x] Pull down triggers reconnect (WebSocket integration when scrolled to top)
+- [ ] Tested on Safari iOS, Chrome Android (Phase 8)
 
 ---
 
