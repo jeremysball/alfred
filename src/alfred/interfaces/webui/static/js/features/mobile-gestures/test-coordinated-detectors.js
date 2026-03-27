@@ -13,15 +13,28 @@ class MockHTMLElement {
     this.tagName = tagName;
     this._listeners = {};
     this._attributes = {};
+    this.style = {};
   }
 
   addEventListener(type, handler, options) {
-    this._listeners[type] = { handler, options };
+    if (!this._listeners[type]) {
+      this._listeners[type] = [];
+    }
+    this._listeners[type].push({ handler, options });
   }
 
   removeEventListener(type, handler) {
-    if (this._listeners[type]?.handler === handler) {
-      delete this._listeners[type];
+    if (this._listeners[type]) {
+      this._listeners[type] = this._listeners[type].filter(
+        l => l.handler !== handler
+      );
+    }
+  }
+
+  // Helper to trigger all listeners for an event type
+  triggerEvent(type, event) {
+    if (this._listeners[type]) {
+      this._listeners[type].forEach(l => l.handler(event));
     }
   }
 
@@ -101,10 +114,8 @@ test('CoordinatedSwipeDetector requests lock on touchstart', () => {
     preventDefault: () => {}
   };
 
-  // Call the handler directly
-  if (element._listeners.touchstart) {
-    element._listeners.touchstart.handler(touchStartEvent);
-  }
+  // Trigger the event on the element
+  element.triggerEvent('touchstart', touchStartEvent);
 
   // Check that gesture was requested (coordinator should have active gesture)
   assert(coordinator.isGestureActive(), 'Expected gesture to be active after touchstart');
@@ -133,9 +144,8 @@ test('CoordinatedLongPressDetector uses priority 3', () => {
     preventDefault: () => {}
   };
 
-  if (element._listeners.touchstart) {
-    element._listeners.touchstart.handler(touchStartEvent);
-  }
+  // Trigger the event on the element
+  element.triggerEvent('touchstart', touchStartEvent);
 
   // Check that longpress is active
   assert(coordinator.isGestureActive('longpress'), 'Expected longpress gesture to be active');

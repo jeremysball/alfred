@@ -17,6 +17,7 @@ const { PullToRefreshDetector } = require('./pull-to-refresh.js');
 const { PullIndicator, createPullIndicator } = require('./pull-indicator.js');
 const { FullscreenComposeModal, createFullscreenCompose } = require('./fullscreen-compose.js');
 const { GestureCoordinator } = require('./gesture-coordinator.js');
+const { CoordinatedSwipeDetector, CoordinatedLongPressDetector } = require('./coordinated-detectors.js');
 
 /**
  * Gesture configuration constants
@@ -205,6 +206,8 @@ module.exports = {
 
   // Gesture coordination
   GestureCoordinator,
+  CoordinatedSwipeDetector,
+  CoordinatedLongPressDetector,
 
   // Initialization
   initializeGestures,
