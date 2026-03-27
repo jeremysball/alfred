@@ -198,3 +198,23 @@ def test_debug_logs_ping_pong_latency_with_prefix() -> None:
     # Should reference pong handling and latency
     assert "message.type === 'pong'" in source or 'message.type === "pong"' in source, "should handle pong messages"
     assert "lastPingLatencyMs" in source, "should log latency"
+
+
+def test_websocket_protocol_documentation_exists() -> None:
+    """WebSocket protocol documentation should exist and reference debug logging."""
+    doc_path = PROJECT_ROOT / "docs/websocket-protocol.md"
+    assert doc_path.exists(), "websocket-protocol.md should exist"
+
+    content = doc_path.read_text()
+    assert "Debugging and Troubleshooting" in content, "should have debugging section"
+    assert "[websocket]" in content, "should document [websocket] prefix"
+    assert "alfred webui --log debug" in content, "should document debug flag"
+
+
+def test_readme_documents_websocket_logging() -> None:
+    """README should document WebSocket debug logging."""
+    readme_path = PROJECT_ROOT / "README.md"
+    content = readme_path.read_text()
+
+    assert "[websocket]" in content, "README should mention [websocket] prefix"
+    assert "websocket-protocol.md" in content, "README should reference protocol docs"

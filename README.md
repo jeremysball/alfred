@@ -122,6 +122,14 @@ alfred --log debug webui --log debug
 
 When logging is enabled, console output uses surface prefixes such as `[core]`, `[webui-server]`, `[webui-client]`, `[llm]`, `[tools]`, and `[storage]` so live streams are easy to scan. In a TTY those prefixes are colorized; in non-TTY output and log files they stay plain, and file logs include `surface=...` fields so they stay grep-friendly.
 
+**WebSocket Debug Logs:** When Web UI debug logging is enabled (`alfred webui --log debug`), the browser console shows `[websocket]` prefixed logs for connection lifecycle events:
+- Connection open/close with close codes
+- Reconnect attempts with exponential backoff
+- Message queue flushes
+- Ping/pong latency timings
+
+These logs are debug-gated and do not appear in normal operation. See [docs/websocket-protocol.md](docs/websocket-protocol.md) for the complete debugging guide.
+
 ### Web UI Features
 
 - **Real-time streaming** — Watch responses appear token-by-token
