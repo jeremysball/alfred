@@ -186,3 +186,15 @@ def test_error_logs_remain_ungated() -> None:
     # Main error handlers should exist and not be gated
     assert "console.error('Failed to parse WebSocket message:'" in source
     assert "console.error('WebSocket error:'" in source
+
+
+def test_debug_logs_ping_pong_latency_with_prefix() -> None:
+    """Ping/pong timing should log '[websocket]' prefix with latency in debug mode."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have debug-gated logging with [websocket] prefix in pong handler
+    assert "this.debugEnabled" in source, "should check debugEnabled before logging"
+    assert "[websocket]" in source, "should use [websocket] prefix"
+    # Should reference pong handling and latency
+    assert "message.type === 'pong'" in source or 'message.type === "pong"' in source, "should handle pong messages"
+    assert "lastPingLatencyMs" in source, "should log latency"

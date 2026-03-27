@@ -172,6 +172,9 @@ class AlfredWebSocketClient extends EventTarget {
           if (this.lastPingAt !== null) {
             this.lastPingLatencyMs = this.lastPongAt - this.lastPingAt;
           }
+          if (this.debugEnabled) {
+            console.log(`[websocket] Pong received, latency: ${this.lastPingLatencyMs}ms`);
+          }
           this._clearPingTimeout();
           return;
         }
