@@ -1706,6 +1706,38 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
             headers={"Cache-Control": "no-store"},
         )
 
+    @app.get("/manifest.json")
+    async def manifest() -> Response:
+        """Serve PWA manifest.json for install prompts."""
+        manifest_path = static_dir / "manifest.json"
+        if manifest_path.exists():
+            content = manifest_path.read_text()
+            return Response(
+                content=content,
+                media_type="application/manifest+json",
+                headers={"Cache-Control": "public, max-age=3600"},
+            )
+        return Response(content="{}", media_type="application/manifest+json")
+
+    @app.post("/share")
+    async def share_target(
+        title: str = "",
+        text: str = "",
+        url: str = "",
+    ) -> RedirectResponse:
+        """Handle Web Share Target API submissions."""
+        # Build query params for the composer
+        params = []
+        if text:
+            params.append(f"text={text}")
+        if url:
+            params.append(f"url={url}")
+        if title:
+            params.append(f"title={title}")
+
+        query = "&".join(params)
+        return RedirectResponse(url=f"/static/index.html?share={query}")
+
     @app.get("/health")
     async def health_check() -> dict[str, object]:
         """Health check endpoint."""
