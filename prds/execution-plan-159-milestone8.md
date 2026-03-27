@@ -245,19 +245,90 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ## Phase 6: Gesture Conflict Resolution
 
+### Design Decisions (Phase 6)
+
+**Decision**: Use Wrapper Pattern for Gesture Coordination
+- **Context**: 5 gesture systems operate independently (swipe-to-reply, long-press, pull-to-refresh, swipe-up compose, swipe-down close)
+- **Rationale**: Wrapper pattern (Option B) keeps existing detectors untouched while adding coordination layer. Less risky than modifying working code.
+- **Implementation**: Create `CoordinatedSwipeDetector`, `CoordinatedLongPressDetector` wrappers that use central `GestureCoordinator`
+- **Impact**: New files `gesture-coordinator.js`, `coordinated-detectors.js`; existing detectors remain unchanged
+
+**Decision**: 15px Axis-Locking Threshold
+- **Context**: Need to distinguish horizontal swipes (reply) from vertical (pull/compose)
+- **Rationale**: 10px too sensitive (accidental triggers), 20px requires too much deliberate movement
+- **Implementation**: Track deltaX and deltaY; lock to dominant axis once |dominant| > 15px and |dominant| > |other| * 1.5
+- **Impact**: Coordinated detectors calculate axis dominance before committing to gesture type
+
+**Decision**: Touch Target Region Definitions
+- **Context**: Gestures overlap in screen regions (composer vs message list vs page body)
+- **Regions**:
+  - **Message Items** (`.chat-message`): Swipe-to-reply (right), Long-press
+  - **Composer Input** (`#message-input`): Swipe-up fullscreen
+  - **Fullscreen Modal** (`.fullscreen-compose`): Swipe-down close
+  - **Page Body** (top, scrolled): Pull-to-refresh
+  - **Edge Zones** (x<40px, x>width-40px): Browser gestures only
+- **Impact**: Coordinator checks element.matches() against region selectors before granting gesture lock
+
+**Decision**: Gesture Priority Hierarchy
+- **Priority**: Long-press (3) > Fullscreen/Pulldown (2) > Reply/Pull (1)
+- **Rationale**: Long-press requires intentional hold (500ms), should win over accidental swipes
+- **Rule**: Once gesture starts (threshold met), it owns the touch until `touchend`
+- **Impact**: `GestureCoordinator.requestGesture()` uses priority map; higher priority can preempt lower
+
+### GestureCoordinator Class
+
+- [ ] Test: `test_coordinator_singleton_pattern()` - verify single coordinator instance
+- [ ] Test: `test_requestGesture_grants_lock()` - verify lock granted when available
+- [ ] Test: `test_requestGesture_denies_when_busy()` - verify lock denied when gesture active
+- [ ] Test: `test_releaseGesture_clears_lock()` - verify lock released after gesture ends
+- [ ] Implement: Create `gesture-coordinator.js` with `GestureCoordinator` class
+- [ ] Run: `node test-gesture-coordinator.js`
+
+### CoordinatedDetectors
+
+- [ ] Test: `test_coordinated_swipe_checks_before_start()` - verifies coordinator lock on touchstart
+- [ ] Test: `test_coordinated_long_press_checks_before_start()` - verifies coordinator lock
+- [ ] Test: `test_coordinated_detector_releases_on_end()` - verifies lock released on touchend
+- [ ] Implement: Create `coordinated-detectors.js` with wrapped versions
+- [ ] Implement: `CoordinatedSwipeDetector` wraps `SwipeDetector` with coordinator calls
+- [ ] Implement: `CoordinatedLongPressDetector` wraps `LongPressDetector` with coordinator calls
+- [ ] Run: Verify 120 total tests still pass
+
+### AxisLocking
+
+- [ ] Test: `test_axis_lock_horizontal_at_15px()` - X-movement > 15px locks to horizontal
+- [ ] Test: `test_axis_lock_vertical_at_15px()` - Y-movement > 15px locks to vertical
+- [ ] Test: `test_axis_neutral_below_threshold()` - no lock below 15px
+- [ ] Test: `test_axis_switch_prevented_after_lock()` - cannot switch axis once locked
+- [ ] Implement: Axis dominance calculation in coordinated detectors
+- [ ] Run: Verify horizontal swipes don't trigger vertical gestures
+
 ### EdgeZoneHandling
 
 - [ ] Test: `test_left_edge_swipe_passes_through()` - verify browser back gesture works
 - [ ] Test: `test_right_edge_swipe_passes_through()` - verify browser forward gesture works
-- [ ] Implement: Ensure all gesture detectors check edge zone before handling
+- [ ] Test: `test_edge_zone_prevents_custom_gesture()` - our gestures disabled in edge zones
+- [ ] Implement: Check `isInEdgeZone()` before requesting gesture lock
 - [ ] Run: Manual test on Safari iOS (if available) or Chrome DevTools mobile emulation
 
 ### MultiGestureCoordination
 
 - [ ] Test: `test_swipe_and_long_press_dont_conflict()` - verify both work independently
-- [ ] Test: `test_pull_and_swipe_up_dont_conflict()` - verify different regions work separately
-- [ ] Implement: Gesture priority system (long-press takes precedence over swipe)
+- [ ] Test: `test_long_press_wins_after_200ms()` - long-press locks out swipe after hold
+- [ ] Test: `test_swipe_wins_with_movement()` - significant X-movement prevents long-press
+- [ ] Test: `test_pull_and_swipe_up_dont_conflict()` - different regions work separately
+- [ ] Test: `test_gesture_priority_respected()` - high priority preempts low priority
+- [ ] Test: `test_active_gesture_exclusivity()` - once started, owns touch until end
+- [ ] Implement: Gesture priority system with preempt logic
 - [ ] Run: Verify all gestures work together without conflicts
+
+### RegionBasedCoordination
+
+- [ ] Test: `test_region_composer_prevents_pull()` - swipe-up on composer doesn't trigger pull
+- [ ] Test: `test_region_message_prevents_fullscreen()` - message swipe doesn't trigger fullscreen
+- [ ] Test: `test_region_fullscreen_isolates_gestures()` - modal has its own gesture space
+- [ ] Implement: Region selector checks in coordinated detectors
+- [ ] Run: Integration test with all regions active
 
 ---
 

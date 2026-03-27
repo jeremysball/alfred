@@ -142,7 +142,9 @@ class AlfredWebSocketClient extends EventTarget {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = (event) => {
-      console.log('WebSocket connected');
+      if (this.debugEnabled) {
+        console.log('[websocket] WebSocket connected');
+      }
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this._startPing();
@@ -178,9 +180,10 @@ class AlfredWebSocketClient extends EventTarget {
     this.ws.onclose = (event) => {
       if (this.debugStats) {
         this.debugStats.recordClose(event);
-        console.info('[WebSocket debug] close summary', this.debugStats.summary());
       }
-      console.log('WebSocket closed:', event.code, event.reason);
+      if (this.debugEnabled) {
+        console.log(`[websocket] WebSocket closed: code=${event.code}, reason="${event.reason || ''}", clean=${event.wasClean}`);
+      }
       this.isConnected = false;
       this.lastCloseAt = Date.now();
       this.lastCloseCode = event.code;
@@ -504,14 +507,20 @@ class AlfredWebSocketClient extends EventTarget {
   _scheduleReconnect() {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
+    if (this.debugEnabled) {
+      console.log(`[websocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    }
+
     setTimeout(() => {
       this.connect();
     }, delay);
   }
 
   _flushMessageQueue() {
+    const count = this.messageQueue.length;
+    if (this.debugEnabled && count > 0) {
+      console.log(`[websocket] Flushing ${count} queued message(s)`);
+    }
     while (this.messageQueue.length > 0) {
       const message = this.messageQueue.shift();
       if (this.debugStats) {

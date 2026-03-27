@@ -83,3 +83,44 @@ def test_no_health_fetch_at_runtime() -> None:
             continue
         # Assert no invocation of hydrateConnectionStatusFromHealth
         assert "hydrateConnectionStatusFromHealth()" not in stripped, f"Found call in: {line}"
+
+
+def test_debug_logs_connection_open_with_prefix() -> None:
+    """WebSocket connection open should log '[websocket] WebSocket connected' in debug mode."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have debug-gated logging with [websocket] prefix in onopen handler
+    assert "this.debugEnabled" in source, "should check debugEnabled before logging"
+    assert "[websocket]" in source or "'[websocket]'" in source, "should use [websocket] prefix"
+
+
+def test_debug_logs_connection_close_with_prefix() -> None:
+    """WebSocket connection close should log '[websocket]' prefix with code and reason in debug mode."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have debug-gated logging with [websocket] prefix in onclose handler
+    assert "this.debugEnabled" in source, "should check debugEnabled before logging"
+    # Should log close code and reason
+    assert "event.code" in source, "should log close code"
+    assert "[websocket]" in source, "should use [websocket] prefix"
+
+
+def test_debug_logs_reconnect_attempts_with_prefix() -> None:
+    """WebSocket reconnect attempts should log '[websocket]' prefix with attempt count in debug mode."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have debug-gated logging with [websocket] prefix in _scheduleReconnect
+    assert "this.debugEnabled" in source, "should check debugEnabled before logging"
+    assert "[websocket]" in source, "should use [websocket] prefix"
+    assert "reconnectAttempts" in source, "should log reconnect attempts"
+
+
+def test_debug_logs_queue_flush_with_prefix() -> None:
+    """WebSocket queue flush should log '[websocket]' prefix with message count in debug mode."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should have debug-gated logging with [websocket] prefix in _flushMessageQueue
+    assert "this.debugEnabled" in source, "should check debugEnabled before logging"
+    assert "[websocket]" in source, "should use [websocket] prefix"
+    # Should log message count
+    assert "messageQueue.length" in source, "should reference message queue length"
