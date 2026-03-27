@@ -13,6 +13,8 @@ const { SwipeDetector } = require('./swipe-detector.js');
 const { LongPressDetector } = require('./long-press-detector.js');
 const { LongPressContextMenu } = require('./long-press-context-menu.js');
 const { SwipeToReply } = require('./swipe-to-reply.js');
+const { PullToRefreshDetector } = require('./pull-to-refresh.js');
+const { PullIndicator, createPullIndicator } = require('./pull-indicator.js');
 
 /**
  * Gesture configuration constants
@@ -70,6 +72,36 @@ function shouldEnableGestures(element, touchX) {
   return true;
 }
 
+/**
+ * Initialize pull-to-refresh with visual indicator
+ *
+ * @param {HTMLElement} element - Element to attach pull-to-refresh to
+ * @param {Object} options - Configuration options
+ * @param {Function} options.onRefresh - Callback when refresh is triggered
+ * @param {HTMLElement} options.scrollContainer - Scroll container to check (default: element)
+ * @param {Object} options.indicatorOptions - Options passed to PullIndicator
+ * @returns {Object} Object containing detector and indicator instances
+ */
+function initializePullToRefresh(element, options = {}) {
+  if (!element || !isTouchDevice()) {
+    return null;
+  }
+
+  // Create detector
+  const detector = new PullToRefreshDetector({
+    threshold: options.threshold || GESTURE_CONFIG.PULL_THRESHOLD,
+    onRefresh: options.onRefresh,
+  });
+
+  // Create and wire up visual indicator
+  const indicator = createPullIndicator(detector, options.indicatorOptions);
+
+  // Attach to element
+  detector.attachToElement(element, options.scrollContainer);
+
+  return { detector, indicator };
+}
+
 // Export public API
 module.exports = {
   // Configuration
@@ -88,9 +120,13 @@ module.exports = {
   // Feature implementations
   SwipeToReply,
   LongPressContextMenu,
+  PullToRefreshDetector,
+  PullIndicator,
+  createPullIndicator,
 
   // Initialization
   initializeGestures,
+  initializePullToRefresh,
 };
 
 // Also expose to window for browser usage

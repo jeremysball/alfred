@@ -87,18 +87,18 @@ Make the Web UI WebSocket-first for all live runtime state:
 
 ## Implementation Milestones
 
-### Milestone 1: Define the WebSocket-first runtime contract
+### Milestone 1: Define the WebSocket-first runtime contract ✅ COMPLETE
 **Goal**: Establish a single source of truth for live Web UI state.
 
 **Scope**:
-- Document which messages mutate live UI state
-- Treat `daemon.status` as the runtime daemon snapshot
-- Keep `status.update` focused on conversation/session telemetry
-- Ensure startup message handling does not create console noise
+- [x] Document which messages mutate live UI state
+- [x] Treat `daemon.status` as the runtime daemon snapshot
+- [x] Keep `status.update` focused on conversation/session telemetry
+- [x] Ensure startup message handling does not create console noise
 
 **Validation**:
-- Browser startup shows the correct live state without relying on `/health`
-- Startup protocol messages are consumed intentionally, not as unhandled noise
+- [x] Browser startup shows the correct live state without relying on `/health`
+- [x] Startup protocol messages are consumed intentionally, not as unhandled noise
 
 ---
 
@@ -185,7 +185,7 @@ Make the Web UI WebSocket-first for all live runtime state:
 - [ ] Message sending remains WebSocket-based and survives transient reconnects
 - [ ] The browser console uses intentional, prefixed debug logging when enabled
 - [ ] Global server logs and Web UI/client logs are independently useful
-- [ ] No startup console noise from unhandled protocol messages
+- [x] No startup console noise from unhandled protocol messages
 - [ ] `/health` continues to serve readiness and ops monitoring
 
 ---

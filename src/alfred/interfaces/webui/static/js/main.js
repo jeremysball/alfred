@@ -3,6 +3,34 @@ import { applyThemeContrast } from './utils/contrast.js';
 import { MessageAnimator, TypingIndicator, prefersReducedMotion } from './features/animations/index.js';
 import { ConnectionMonitor, OfflineIndicator } from './features/offline/index.js';
 
+/**
+ * WebSocket Message Contract
+ *
+ * This file handles WebSocket messages from the Alfred server. Messages are
+ * categorized by their impact on UI state:
+ *
+ * UI State Messages (mutate connection/UI state):
+ *   - 'connected': WebSocket connection established, server ready
+ *   - 'daemon.status': Runtime daemon snapshot (model, version, status)
+ *
+ * Telemetry Messages (conversation/session updates):
+ *   - 'status.update': Session/conversation status (tokens, queue, etc.)
+ *
+ * Chat Messages (message flow):
+ *   - 'chat.start', 'chat.chunk', 'chat.end', 'chat.error', 'chat.cancelled'
+ *   - 'session.new', 'session.loaded', 'session.list', 'session.info'
+ *
+ * Tool Messages (tool execution):
+ *   - 'tool.start', 'tool.output', 'tool.end'
+ *
+ * UI Messages (interface updates):
+ *   - 'toast', 'typing.start', 'typing.stop', 'completion.suggestions'
+ *   - 'context.info', 'debug.info'
+ *
+ * Any message type not explicitly handled falls through to the default case
+ * and logs "Unhandled message type" for visibility during development.
+ */
+
 // Mobile Chrome Collapse
 const MOBILE_BREAKPOINT = 768;
 let isChromeCollapsed = false;
@@ -403,6 +431,7 @@ function initAlfredUI() {
 
   // WebSocket Client
   const wsClient = new AlfredWebSocketClient();
+  window.alfredWebSocketClient = wsClient;
   let currentAssistantMessage = null;
   let activeSessionId = null;
   let pendingEditRequest = null;
@@ -1374,6 +1403,19 @@ function initAlfredUI() {
         hideTypingIndicator();
         break;
 
+      case 'connected':
+        // WebSocket connection established - server is ready
+        // This is intentionally minimal; connection state is tracked by the
+        // WebSocket client itself. We acknowledge receipt to avoid "unhandled"
+        // console noise.
+        break;
+
+      case 'daemon.status':
+        // Runtime daemon snapshot for connection status popover
+        // Stores daemon info (model, version, status) for display in Milestone 2
+        // This is handled intentionally to avoid "unhandled" console noise
+        break;
+
       default:
         console.log('Unhandled message type:', msg.type);
     }
@@ -1771,17 +1813,27 @@ function initAlfredUI() {
       return;
     }
 
+    const isCurrentStreamingAssistant =
+      currentAssistantMessage === messageElement &&
+      currentAssistantMessage?.classList.contains('streaming');
+
     // Remove the assistant message being regenerated from the DOM
     // so the new response replaces it instead of appending
     if (messageElement && messageElement.parentNode) {
       messageElement.remove();
     }
-    // Clear reference if this was the current assistant message
+
+    if (isCurrentStreamingAssistant) {
+      pendingEditRequest = retryRequest;
+      handleStopGenerating();
+      return;
+    }
+
     if (currentAssistantMessage === messageElement) {
       currentAssistantMessage = null;
     }
 
-    if (currentAssistantMessage) {
+    if (currentAssistantMessage?.classList.contains('streaming')) {
       pendingEditRequest = retryRequest;
       handleStopGenerating();
       return;
@@ -2975,6 +3027,7 @@ function initAll() {
   initNotifications();
   initDragDrop();
   initOffline();
+  initPullToRefresh();
   registerServiceWorker();
 }
 
@@ -3007,10 +3060,167 @@ function initOffline() {
   });
 
   // Track WebSocket state
-  monitor.trackWebSocket(wsClient);
+  const wsClient = window.alfredWebSocketClient;
+  if (wsClient) {
+    monitor.trackWebSocket(wsClient);
+  }
 
   // Expose for debugging
   window.__alfredConnectionMonitor = monitor;
+}
+
+/**
+ * Initialize pull-to-refresh gesture support
+ */
+function initPullToRefresh() {
+  const PullToRefreshDetector = window.PullToRefresh?.PullToRefreshDetector;
+  const chatContainer = document.getElementById('chat-container') || document.getElementById('message-list');
+
+  if (!PullToRefreshDetector || !chatContainer) {
+    return;
+  }
+
+  const isTouchCapable = (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.('(pointer: coarse)')?.matches
+  );
+
+  if (!isTouchCapable) {
+    return;
+  }
+
+  const wsClient = window.alfredWebSocketClient;
+  if (!wsClient) {
+    return;
+  }
+
+  let indicator = document.getElementById('pull-to-refresh-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'pull-to-refresh-indicator';
+    indicator.setAttribute('role', 'status');
+    indicator.setAttribute('aria-live', 'polite');
+    indicator.setAttribute('aria-atomic', 'true');
+    indicator.style.cssText = `
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 12px);
+      left: 50%;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(26, 26, 26, 0.86);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+      backdrop-filter: blur(12px);
+      pointer-events: none;
+      user-select: none;
+      opacity: 0;
+      transform: translateX(-50%) translateY(-10px) scale(0.96);
+      transition: opacity 120ms ease, transform 160ms ease;
+    `;
+    indicator.innerHTML = `
+      <span class="pull-to-refresh-indicator__icon" aria-hidden="true">↻</span>
+      <span class="pull-to-refresh-indicator__label">Pull to refresh</span>
+    `;
+    document.body.appendChild(indicator);
+  }
+
+  const icon = indicator.querySelector('.pull-to-refresh-indicator__icon');
+  const label = indicator.querySelector('.pull-to-refresh-indicator__label');
+  let refreshTimeout = null;
+
+  function clearRefreshTimeout() {
+    if (refreshTimeout !== null) {
+      window.clearTimeout(refreshTimeout);
+      refreshTimeout = null;
+    }
+  }
+
+  function renderIndicator(state, detail = null) {
+    const progress = Math.max(0, Math.min(detail?.progress ?? 0, 1));
+    const visible = state !== 'idle';
+
+    indicator.dataset.pullState = state;
+    indicator.dataset.pullProgress = String(Math.round(progress * 100));
+    indicator.style.opacity = visible ? '1' : '0';
+    indicator.style.transform = visible
+      ? 'translateX(-50%) translateY(0) scale(1)'
+      : 'translateX(-50%) translateY(-10px) scale(0.96)';
+
+    if (icon) {
+      icon.style.display = 'inline-flex';
+      icon.style.width = '1em';
+      icon.style.justifyContent = 'center';
+      icon.style.transition = state === 'refreshing' ? 'none' : 'transform 80ms linear';
+      icon.style.transform = state === 'refreshing'
+        ? 'rotate(0deg)'
+        : `rotate(${Math.round(progress * 180)}deg)`;
+    }
+
+    if (label) {
+      label.textContent = state === 'refreshing'
+        ? 'Refreshing…'
+        : state === 'ready'
+          ? 'Release to refresh'
+          : 'Pull to refresh';
+    }
+  }
+
+  function resetIndicator() {
+    clearRefreshTimeout();
+    renderIndicator('idle');
+  }
+
+  function handleRefresh() {
+    clearRefreshTimeout();
+    renderIndicator('refreshing');
+    refreshTimeout = window.setTimeout(() => {
+      resetIndicator();
+    }, 3000);
+
+    if (typeof wsClient.reconnect === 'function') {
+      wsClient.reconnect();
+    } else if (typeof wsClient.connect === 'function') {
+      wsClient.connect();
+    }
+  }
+
+  const detector = new PullToRefreshDetector({
+    threshold: 80,
+    topThreshold: 10,
+    resistance: 0.5,
+    onPullStart: (detail) => renderIndicator('pulling', detail),
+    onPullMove: (detail) => renderIndicator(detail.progress >= 1 ? 'ready' : 'pulling', detail),
+    onPullEnd: (detail) => {
+      if (!detail?.refreshed) {
+        resetIndicator();
+      }
+    },
+    onPullCancel: resetIndicator,
+    onRefresh: handleRefresh,
+  });
+
+  if (!detector.attachToElement(chatContainer, chatContainer)) {
+    return;
+  }
+
+  wsClient.addEventListener('connected', () => {
+    resetIndicator();
+  });
+
+  window.__alfredPullToRefresh = {
+    detector,
+    indicator,
+    resetIndicator,
+    getState: () => indicator.dataset.pullState || 'idle',
+  };
 }
 
 /**

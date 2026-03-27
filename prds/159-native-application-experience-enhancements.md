@@ -378,8 +378,24 @@ monitor.addEventListener('statechange', ({detail}) => {
 - **Integration**: Direct callback or fallback to global `MessageContextMenu`
 - **Haptic**: Light tap at feedback point, optional pattern on success
 
-**Pending (Phase 4)**:
-- [ ] Pull down to refresh/reconnect (only from top of scroll, 80px threshold)
+**Implemented (Phase 4) - Pull-to-Refresh Visual Feedback**:
+- [x] Glassmorphism pull indicator component with smooth animations
+- [x] CSS custom properties for dynamic progress values (`--ptr-progress`, `--ptr-distance`)
+- [x] Four visual states: hidden, pulling, ready, refreshing
+- [x] Spinner rotation follows pull progress (0-180 degrees)
+- [x] Reduced motion support via `prefers-reduced-motion`
+- [x] `createPullIndicator()` factory for easy detector integration
+- [x] 9 new unit tests (23 total passing in test-pull-to-refresh.js)
+
+**Files Created (Phase 4)**:
+- `features/mobile-gestures/styles.css` - Pull indicator styles with glassmorphism
+- `features/mobile-gestures/pull-indicator.js` - Visual component with state management
+
+**Pending (Phase 4 - WebSocket Integration)**:
+- [ ] Wire PullToRefresh to existing ConnectionMonitor
+- [ ] Show success/error states on reconnect
+
+**Pending (Phase 5+)**:
 - [ ] Swipe up on input = fullscreen compose (120px threshold)
 - [ ] Pinch to zoom on images (when implemented)
 
@@ -556,8 +572,7 @@ src/alfred/interfaces/webui/static/js/
 │   └── mobile-gestures/        ⏳ PARTIAL (Phases 2-4)
 │       ├── swipe-to-reply.js   # Reply on swipe right
 │       ├── long-press-detector.js # Long press detection
-│       ├── pull-detector.js    # Pull-to-refresh detection
-│       ├── pull-to-refresh.js  # Pull-to-refresh UI
+│       ├── pull-to-refresh.js  # Pull-to-refresh detector
 │       └── styles.css          # Gesture styles
 ```
 
@@ -803,6 +818,7 @@ self.addEventListener('sync', (event) => {
 |------|----------|-----------|
 | 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply complete: `SwipeToReply` class with 80px threshold, right-swipe only, CSS transform visual feedback, haptic feedback, MutationObserver for dynamic messages. 15 tests. Files: `swipe-to-reply.js`, `test-swipe-to-reply.js`. See `execution-plan-159-milestone5-touch-gestures.md` for full API. |
 | 2026-03-27 | **DESIGNED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply architecture finalized: MutationObserver for dynamic attachment, CSS transform feedback with `--swipe-offset`/`--swipe-progress`, right-swipe only (100px threshold), markdown blockquote reply format. Composer integration: populate input, focus, position cursor. See `execution-plan-159-milestone5-touch-gestures.md` Decision Log. |
+| 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 4) | Pull-to-refresh detector complete: `pull-to-refresh.js` adds `PullToRefreshDetector`, `isScrolledToTop`, resistance handling, and refresh callbacks. Unit tests pass in `test-pull-to-refresh.js`. Visual feedback and reconnect wiring remain pending. See `features/mobile-gestures/`. |
 | 2026-03-27 | **PARTIAL**: Milestone 8 - Mobile Gestures (Phase 1) | Foundation layer complete: touch-detector.js (device detection, 40px edge zone), swipe-detector.js (direction/distance/progress), index.js (module exports, 25 tests). Phases 2-4 pending: swipe-to-reply, long-press, pull-to-refresh. Passive listeners for scroll performance. See `features/mobile-gestures/`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 7 - Service Worker & Offline Support | Static asset caching via service worker, ConnectionMonitor for WebSocket state, glassmorphism offline indicator. Cache-first strategy, versioned caches, offline HTML fallback. Message queuing deferred. See `service-worker.js` and `features/offline/`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 6 - Enhanced Animations | GPU-accelerated animations (transform/opacity only). Message entrance, button press, smooth scroll, skeleton loading, typing indicator, tool call progress. Reduced motion support. See `features/animations/`. |

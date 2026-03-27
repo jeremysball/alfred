@@ -88,7 +88,9 @@ class WebSocketDebugStats {
 class AlfredWebSocketClient extends EventTarget {
   constructor(url = null) {
     super();
-    this.url = url || `ws://${window.location.host}/ws`;
+    const { protocol, host } = window.location;
+    const scheme = protocol === 'https:' ? 'wss' : 'ws';
+    this.url = url || `${scheme}://${host}/ws`;
     this.ws = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10; // Increased for mobile
@@ -107,6 +109,7 @@ class AlfredWebSocketClient extends EventTarget {
     this.lastCloseCode = null;
     this.lastCloseReason = '';
     this.lastCloseWasClean = null;
+    this._pendingManualReconnect = false;
   }
 
   connect() {
@@ -170,6 +173,12 @@ class AlfredWebSocketClient extends EventTarget {
       this._stopPing();
       this.dispatchEvent(new CustomEvent('disconnected', { detail: event }));
       
+      if (this._pendingManualReconnect) {
+        this._pendingManualReconnect = false;
+        this.connect();
+        return;
+      }
+
       // Always try to reconnect unless explicitly disconnected
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this._scheduleReconnect();
@@ -339,6 +348,19 @@ class AlfredWebSocketClient extends EventTarget {
       this.ws = null;
       this.isConnected = false;
     }
+  }
+
+  reconnect() {
+    this._pendingManualReconnect = true;
+    this.reconnectAttempts = 0;
+
+    if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+      this._pendingManualReconnect = false;
+      this.connect();
+      return;
+    }
+
+    this.ws.close();
   }
 
   send(message) {

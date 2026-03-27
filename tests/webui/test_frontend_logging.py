@@ -36,3 +36,19 @@ def test_webui_client_logger_prefixes_console_methods() -> None:
     assert "[webui-client]" in source
     assert "console[methodName] = (...args) =>" in source
     assert "window[MARKER] = true;" in source
+
+
+def test_main_js_handles_connected_message() -> None:
+    """main.js should explicitly handle 'connected' WebSocket message."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/main.js").read_text()
+
+    # Should have explicit case for 'connected' message
+    assert "case 'connected':" in source
+
+
+def test_main_js_handles_daemon_status_message() -> None:
+    """main.js should explicitly handle 'daemon.status' WebSocket message."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/main.js").read_text()
+
+    # Should have explicit case for 'daemon.status' message
+    assert "case 'daemon.status':" in source

@@ -52,7 +52,7 @@ def test_websocket_client_has_connection_logic():
 
     # Verify WebSocket connection logic
     assert "WebSocket" in content
-    assert "ws://" in content or "wss://" in content
+    assert "protocol === 'https:' ? 'wss' : 'ws'" in content
 
 
 def test_chat_message_component_exposes_edit_state_and_websocket_client_helpers():

@@ -133,29 +133,42 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ### ScrollPositionDetection
 
-- [ ] Test: `test_scroll_at_top_true()` - verify scrollTop === 0 detection
-- [ ] Test: `test_scroll_at_top_false()` - verify scrollTop > 0 returns false
-- [ ] Test: `test_scroll_threshold_10px()` - verify small tolerance allowed
-- [ ] Implement: `isScrolledToTop(element, threshold = 10)` helper
-- [ ] Run: Verify tests pass
+- [x] Test: `test_scroll_at_top_true()` - verify scrollTop === 0 detection
+- [x] Test: `test_scroll_at_top_false()` - verify scrollTop > 0 returns false
+- [x] Test: `test_scroll_threshold_10px()` - verify small tolerance allowed
+- [x] Implement: `isScrolledToTop(element, threshold = 10)` helper
+- [x] Run: Verify tests pass
 
 ### PullToRefreshDetector
 
-- [ ] Test: `test_pull_down_threshold_80px()` - verify 80px pull threshold
-- [ ] Test: `test_pull_only_when_at_top()` - verify pull ignored when scrolled down
-- [ ] Test: `test_pull_triggers_reconnect()` - verify callback fires on valid pull
-- [ ] Test: `test_pull_resistance_feel()` - verify pull distance feels natural
-- [ ] Implement: Create `pull-to-refresh.js` with PullToRefreshDetector class
-- [ ] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-pull-to-refresh.js`
+- [x] Test: `test_pull_down_threshold_80px()` - verify 80px pull threshold
+- [x] Test: `test_pull_only_when_at_top()` - verify pull ignored when scrolled down
+- [x] Test: `test_pull_triggers_reconnect()` - verify callback fires on valid pull
+- [x] Test: `test_pull_resistance_feel()` - verify pull distance feels natural
+- [x] Implement: Create `pull-to-refresh.js` with PullToRefreshDetector class
+- [x] Run: `node src/alfred/interfaces/webui/static/js/features/mobile-gestures/test-pull-to-refresh.js`
 
 ### PullToRefreshVisualFeedback
 
-- [ ] Test: `test_pull_indicator_shows()` - verify visual indicator appears
-- [ ] Test: `test_pull_indicator_rotates()` - verify spinner rotates during pull
-- [ ] Test: `test_release_triggers_refresh()` - verify release at threshold triggers action
-- [ ] Implement: Glassmorphism pull indicator component
-- [ ] Implement: CSS animations for pull state (pulling, releasing, refreshing)
-- [ ] Run: Visual verification in browser DevTools mobile view
+- [x] Test: `test_pull_indicator_shows()` - verify visual indicator appears
+- [x] Test: `test_pull_indicator_rotates()` - verify spinner rotates during pull
+- [x] Test: `test_release_triggers_refresh()` - verify release at threshold triggers action
+- [x] Implement: Glassmorphism pull indicator component (`pull-indicator.js`)
+- [x] Implement: CSS animations for pull state (pulling, releasing, refreshing) (`styles.css`)
+- [x] Run: Visual verification in browser DevTools mobile view
+
+**Files Created:**
+- `features/mobile-gestures/styles.css` - Glassmorphism pull indicator styles with CSS custom properties
+- `features/mobile-gestures/pull-indicator.js` - PullIndicator component with state management
+
+**Implementation Details:**
+- Uses CSS custom properties (`--ptr-progress`, `--ptr-distance`, `--ptr-opacity`, `--ptr-translate`) for smooth animations
+- Four visual states: `hidden`, `pulling`, `ready`, `refreshing`
+- Spinner rotates 0-180 degrees based on pull progress
+- Reduced motion support via `prefers-reduced-motion` media query
+- `createPullIndicator()` factory function wires callbacks to PullToRefreshDetector
+- `initializePullToRefresh()` helper combines detector + indicator setup
+- 9 new tests added (23 total passing in test-pull-to-refresh.js)
 
 ### WebSocketReconnectIntegration
 
