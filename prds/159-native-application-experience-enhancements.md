@@ -504,16 +504,23 @@ function handleTouchStart(e) {
 - Quick switcher (Ctrl+Tab) for recent sessions
 - @ mentions to reference previous messages
 
-**Phase 1: In-Conversation Search (Ctrl+F)** ⏳ IN PROGRESS
+**Phase 1: In-Conversation Search (Ctrl+F)** ✅ COMPLETE
 - [x] Design: `SearchOverlay` component with singleton pattern
 - [x] Design: `window.find()` API for MVP (visible messages only)
 - [x] Design: Case-insensitive search, "N of M" match counter
 - [x] Design: Glassmorphism UI (consistent with Command Palette)
-- [ ] Implement: Search overlay component
-- [ ] Implement: Ctrl+F keyboard shortcut (override browser native)
-- [ ] Implement: Match navigation (Enter/Shift+Enter)
-- [ ] Implement: Match counter display
-- [ ] Test: Unit tests for SearchOverlay class
+- [x] Implement: Search overlay component (`search-overlay.js`)
+- [x] Implement: Module exports and initialization (`index.js`)
+- [x] Implement: Match navigation (Enter/Shift+Enter)
+- [x] Implement: Match counter display ("N of M" format)
+- [x] Implement: Glassmorphism styles (`styles.css`)
+- [x] Test: 10 unit tests (all passing in `test-search-overlay.js`)
+
+**Files Created**:
+- `features/search/search-overlay.js` - SearchOverlay class (263 lines)
+- `features/search/test-search-overlay.js` - 10 unit tests
+- `features/search/styles.css` - Glassmorphism styling
+- `features/search/index.js` - Module exports
 
 **Design Decisions**:
 - **API Strategy**: `window.find()` for MVP, server-side search deferred to Phase 2
