@@ -2,6 +2,16 @@
 import { applyThemeContrast } from './utils/contrast.js';
 import { MessageAnimator, TypingIndicator, prefersReducedMotion } from './features/animations/index.js';
 import { ConnectionMonitor, OfflineIndicator } from './features/offline/index.js';
+import {
+  isTouchDevice,
+  SwipeToReply,
+  initializeFullscreenCompose,
+  initializePullToRefresh,
+  CoordinatedSwipeDetector,
+  CoordinatedLongPressDetector,
+  GestureCoordinator,
+  GESTURE_CONFIG
+} from './features/mobile-gestures/index.js';
 
 /**
  * WebSocket Message Contract
@@ -84,6 +94,9 @@ function initAlfredUI() {
   const inputArea = document.getElementById('input-area');
 
   const completionMenu = document.getElementById('completion-menu');
+
+  // Initialize mobile gestures on touch devices
+  initializeMobileGestures();
 
   // Reset composer state on load to prevent stale streaming UI
   if (inputArea) {
@@ -3019,6 +3032,87 @@ function initDragDrop() {
 }
 
 // ============================================
+// Mobile Gestures Initialization
+// ============================================
+
+let mobileGesturesCleanup = null;
+let swipeToReplyInstance = null;
+
+/**
+ * Initialize mobile gesture features (swipe-to-reply, fullscreen compose)
+ */
+function initMobileGestures() {
+  // Only initialize on touch devices
+  if (!isTouchDevice()) {
+    console.log('[Gestures] Touch device not detected, skipping gesture initialization');
+    return;
+  }
+
+  console.log('[Gestures] Initializing mobile gestures...');
+
+  // Initialize Swipe-to-Reply on message list
+  const messageList = document.getElementById('message-list');
+  const messageInput = document.getElementById('message-input');
+
+  if (messageList && messageInput) {
+    swipeToReplyInstance = new SwipeToReply({
+      threshold: GESTURE_CONFIG.SWIPE_THRESHOLD,
+      onReply: (messageId, content) => {
+        // Format as markdown quote and populate input
+        const quotedContent = content
+          .split('\n')
+          .map(line => `> ${line}`)
+          .join('\n');
+        messageInput.value = `${quotedContent}\n\n`;
+        messageInput.focus();
+
+        // Trigger input event to resize textarea
+        messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Haptic feedback
+        if (navigator.vibrate) {
+          navigator.vibrate([20, 30, 20]);
+        }
+      }
+    });
+
+    // Attach to existing messages
+    swipeToReplyInstance.attachToAllMessages(messageList);
+
+    console.log('[Gestures] Swipe-to-reply initialized');
+  }
+
+  // Initialize fullscreen compose on mobile
+  if (messageInput) {
+    const fullscreenResult = initializeFullscreenCompose(messageInput, {
+      placeholder: 'Message Alfred...',
+      onSubmit: (content) => {
+        // Send message via WebSocket
+        const wsClient = window.alfredWebSocketClient;
+        if (wsClient && typeof wsClient.sendCommand === 'function') {
+          wsClient.sendCommand(content);
+        }
+      }
+    });
+
+    if (fullscreenResult) {
+      console.log('[Gestures] Fullscreen compose initialized');
+    }
+  }
+
+  // Store cleanup function
+  mobileGesturesCleanup = () => {
+    if (swipeToReplyInstance) {
+      swipeToReplyInstance.destroy();
+      swipeToReplyInstance = null;
+    }
+    // Fullscreen compose cleanup is handled by its own destroy function
+  };
+
+  console.log('[Gestures] Mobile gestures initialized');
+}
+
+// ============================================
 // Initialization
 // ============================================
 
@@ -3031,7 +3125,15 @@ function initAll() {
   initDragDrop();
   initOffline();
   initPullToRefresh();
+  initMobileGestures();
   registerServiceWorker();
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (mobileGesturesCleanup) {
+      mobileGesturesCleanup();
+    }
+  });
 }
 
 /**
