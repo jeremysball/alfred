@@ -309,14 +309,22 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 - Passive listeners maintained for performance
 - Exports added to `index.js`
 
-### AxisLocking
+### AxisLocking ✅ COMPLETE
 
-- [ ] Test: `test_axis_lock_horizontal_at_15px()` - X-movement > 15px locks to horizontal
-- [ ] Test: `test_axis_lock_vertical_at_15px()` - Y-movement > 15px locks to vertical
-- [ ] Test: `test_axis_neutral_below_threshold()` - no lock below 15px
-- [ ] Test: `test_axis_switch_prevented_after_lock()` - cannot switch axis once locked
-- [ ] Implement: Axis dominance calculation in coordinated detectors
-- [ ] Run: Verify horizontal swipes don't trigger vertical gestures
+- [x] Test: `test_axis_lock_horizontal_at_15px()` - X-movement > 15px locks to horizontal
+- [x] Test: `test_axis_lock_vertical_at_15px()` - Y-movement > 15px locks to vertical
+- [x] Test: `test_axis_neutral_below_threshold()` - no lock below 15px
+- [x] Test: `test_axis_switch_prevented_after_lock()` - cannot switch axis once locked
+- [x] Implement: Axis dominance calculation in coordinated detectors
+- [x] Run: 135 total tests passing
+
+**Implementation Details:**
+- Threshold: 15px minimum movement to trigger lock
+- Dominance ratio: 1.5x (dominant axis must be 50% larger than other)
+- Horizontal lock: `|deltaX| > 15 && |deltaX| > |deltaY| * 1.5`
+- Vertical lock: `|deltaY| > 15 && |deltaY| > |deltaX| * 1.5`
+- Lock persists until `touchend`/`touchcancel` (no mid-gesture switching)
+- Stored in `axisLock` property ('horizontal', 'vertical', or null)
 
 ### EdgeZoneHandling
 
