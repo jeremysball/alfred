@@ -5,19 +5,24 @@ Make failures diagnosable without flooding the console by wiring the Web UI debu
 
 ---
 
-## Phase 1: CLI Flag Plumbing
+## Phase 1: CLI Flag Plumbing ✅ COMPLETE
 
 ### WebUI Subcommand Debug Option
 
-- [ ] Test: `test_webui_log_debug_flag_accepted()` - verify `webui --log debug` is accepted by CLI
-- [ ] Implement: Add `--log` option to `webui_app` callback in `main.py`
-- [ ] Run: `uv run pytest tests/webui/test_webui_cli.py -v -k "log_debug"`
+- [x] Test: `test_webui_log_debug_flag_accepted()` - verify `webui --log debug` is accepted by CLI
+- [x] Implement: Add `--log` option to `webui_app` callback in `main.py`
+- [x] Run: `uv run pytest tests/webui/test_webui_cli.py -v -k "log_debug"`
 
 ### WebUI Server Factory Passes Debug Flag
 
-- [ ] Test: `test_webui_server_receives_debug_flag()` - verify `_build_server_controller` receives debug parameter
-- [ ] Implement: Update `_build_server_controller` signature and pass `debug=True` when `--log debug` is set
-- [ ] Run: `uv run pytest tests/webui/test_webui_cli.py -v -k "server_receives"`
+- [x] Test: `test_webui_server_receives_debug_flag()` - verify `_build_server_controller` receives debug parameter
+- [x] Implement: Update `_build_server_controller` signature and pass `debug=True` when `--log debug` is set
+- [x] Run: `uv run pytest tests/webui/test_webui_cli.py -v -k "server_receives"`
+
+**Evidence**:
+- Added `log` parameter with `typer.Option` to `webui_callback` in `main.py`
+- Updated `_build_server_controller`, `run_webui_server`, `run_webui_hotswap` to accept `debug` parameter
+- Created `tests/webui/test_webui_cli.py` with 2 tests covering CLI flag acceptance and server parameter passing
 
 ---
 
@@ -157,13 +162,13 @@ uv run alfred --log debug webui --log debug
 
 ## Progress Tracking
 
-**Started**: [Date]
+**Started**: 2026-03-27
 
 **Completed**:
-- [ ] Phase 1: CLI Flag Plumbing
+- [x] Phase 1: CLI Flag Plumbing ✅
 - [ ] Phase 2: Browser Config Verification
 - [ ] Phase 3: Structured Lifecycle Logging
 - [ ] Phase 4: Log Policy Enforcement
 - [ ] Phase 5: Integration Verification
 
-**Current Task**: Phase 1 - CLI Flag Plumbing
+**Current Task**: Phase 2 - Browser Config Verification

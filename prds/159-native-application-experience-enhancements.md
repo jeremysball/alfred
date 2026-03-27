@@ -395,9 +395,24 @@ monitor.addEventListener('statechange', ({detail}) => {
 - `features/mobile-gestures/styles.css` - Pull indicator styles with glassmorphism
 - `features/mobile-gestures/pull-indicator.js` - Visual component with state management
 
-**Pending (Phase 5+)**:
-- [ ] Swipe up on input = fullscreen compose (120px threshold)
-- [ ] Pinch to zoom on images (when implemented)
+**Implemented (Phase 5) - Swipe-Up Fullscreen Compose**:
+- [x] `FullscreenComposeModal` class with glassmorphism styling
+- [x] Swipe-up (120px) on composer input opens fullscreen modal
+- [x] Content sync between compact and fullscreen inputs
+- [x] Swipe-down, close button, or Escape key to close
+- [x] 300ms enter/exit animations with cubic-bezier easing
+- [x] Reduced motion support via `prefers-reduced-motion`
+- [x] iOS safe area support
+- [x] 22 unit tests passing in test-fullscreen-compose.js
+
+**Files Created (Phase 5)**:
+- `features/mobile-gestures/fullscreen-compose.js` - Modal component + factory
+- `features/mobile-gestures/fullscreen-compose.css` - Glassmorphism styles
+
+**Pending (Phase 6+)**:
+- [ ] Gesture conflict resolution (Phase 6)
+- [ ] Integration & Module Export - main.js wiring (Phase 7)
+- [ ] Cross-platform testing (Phase 8)
 
 **Files Created**:
 - `features/mobile-gestures/touch-detector.js` - Device detection, edge zone checking
