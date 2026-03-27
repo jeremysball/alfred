@@ -277,12 +277,16 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ### GestureCoordinator Class
 
-- [ ] Test: `test_coordinator_singleton_pattern()` - verify single coordinator instance
-- [ ] Test: `test_requestGesture_grants_lock()` - verify lock granted when available
-- [ ] Test: `test_requestGesture_denies_when_busy()` - verify lock denied when gesture active
-- [ ] Test: `test_releaseGesture_clears_lock()` - verify lock released after gesture ends
-- [ ] Implement: Create `gesture-coordinator.js` with `GestureCoordinator` class
-- [ ] Run: `node test-gesture-coordinator.js`
+- [x] Test: `test_coordinator_singleton_pattern()` - verify single coordinator instance
+- [x] Test: `test_requestGesture_grants_lock()` - verify lock granted when available
+- [x] Test: `test_requestGesture_denies_when_busy()` - verify lock denied when gesture active
+- [x] Test: `test_releaseGesture_clears_lock()` - verify lock released after gesture ends
+- [x] Test: `test_higher_priority_can_preempt()` - verify high priority preempts low priority
+- [x] Test: `test_equal_priority_cannot_preempt()` - verify equal priority denied
+- [x] Test: `test_getActiveGesture_returns_info()` - verify complete gesture info returned
+- [x] Test: `test_isGestureActive_checks_any()` - verify can check any gesture active
+- [x] Implement: Create `gesture-coordinator.js` with `GestureCoordinator` class
+- [x] Run: `node test-gesture-coordinator.js` - 8 tests passing
 
 ### CoordinatedDetectors
 

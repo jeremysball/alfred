@@ -16,6 +16,7 @@ const { SwipeToReply } = require('./swipe-to-reply.js');
 const { PullToRefreshDetector } = require('./pull-to-refresh.js');
 const { PullIndicator, createPullIndicator } = require('./pull-indicator.js');
 const { FullscreenComposeModal, createFullscreenCompose } = require('./fullscreen-compose.js');
+const { GestureCoordinator } = require('./gesture-coordinator.js');
 
 /**
  * Gesture configuration constants
@@ -201,6 +202,9 @@ module.exports = {
   createPullIndicator,
   FullscreenComposeModal,
   createFullscreenCompose,
+
+  // Gesture coordination
+  GestureCoordinator,
 
   // Initialization
   initializeGestures,
