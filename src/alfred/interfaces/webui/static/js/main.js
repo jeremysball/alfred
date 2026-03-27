@@ -2497,12 +2497,123 @@ function initCommandPalette() {
 }
 
 // ============================================
+// Keyboard Shortcuts Initialization (PRD #159)
+// ============================================
+
+function initKeyboardShortcuts() {
+  // Only initialize if the library is loaded
+  if (typeof window.ShortcutRegistry === 'undefined' ||
+      typeof window.KeyboardManager === 'undefined' ||
+      typeof window.HelpModal === 'undefined' ||
+      typeof window.MessageNavigator === 'undefined') {
+    console.warn('Keyboard libraries not loaded, skipping keyboard shortcuts initialization');
+    return;
+  }
+
+  const { ShortcutRegistry, KeyboardManager, HelpModal, MessageNavigator } = window;
+
+  // Create help modal
+  const helpModal = new HelpModal();
+
+  // Create message navigator
+  const messageNavigator = new MessageNavigator();
+
+  // Create keyboard manager
+  const keyboardManager = new KeyboardManager();
+
+  // Register default shortcuts
+
+  // Global shortcuts
+  ShortcutRegistry.register({
+    id: 'show-help',
+    key: '?',
+    description: 'Show keyboard shortcuts',
+    category: 'Global',
+    action: () => helpModal.toggle()
+  });
+
+  ShortcutRegistry.register({
+    id: 'toggle-help',
+    key: 'Shift+/',
+    description: 'Show keyboard shortcuts',
+    category: 'Global',
+    action: () => helpModal.toggle()
+  });
+
+  // Navigation shortcuts
+  ShortcutRegistry.register({
+    id: 'focus-previous-message',
+    key: 'ArrowUp',
+    description: 'Previous message',
+    category: 'Navigation',
+    context: 'message-focused',
+    action: () => messageNavigator.previous()
+  });
+
+  ShortcutRegistry.register({
+    id: 'focus-next-message',
+    key: 'ArrowDown',
+    description: 'Next message',
+    category: 'Navigation',
+    context: 'message-focused',
+    action: () => messageNavigator.next()
+  });
+
+  ShortcutRegistry.register({
+    id: 'focus-first-message',
+    key: 'Home',
+    description: 'First message',
+    category: 'Navigation',
+    context: 'message-focused',
+    action: () => messageNavigator.first()
+  });
+
+  ShortcutRegistry.register({
+    id: 'focus-last-message',
+    key: 'End',
+    description: 'Last message',
+    category: 'Navigation',
+    context: 'message-focused',
+    action: () => messageNavigator.last()
+  });
+
+  // Make messages focusable when they're added
+  const makeMessagesFocusable = () => {
+    messageNavigator.makeMessagesFocusable();
+  };
+
+  // Run initially and after new messages
+  makeMessagesFocusable();
+
+  // Watch for new messages
+  const messageList = document.getElementById('message-list');
+  if (messageList) {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+          makeMessagesFocusable();
+        }
+      }
+    });
+    observer.observe(messageList, { childList: true });
+  }
+
+  console.log('Keyboard shortcuts initialized with', ShortcutRegistry.getAllFlat().length, 'shortcuts');
+
+  // Store instances globally for debugging
+  window.alfredKeyboardManager = keyboardManager;
+  window.alfredHelpModal = helpModal;
+  window.alfredMessageNavigator = messageNavigator;
+}
+
+// ============================================
 // Initialization
 // ============================================
 
 function initAll() {
   initAlfredUI();
   initCommandPalette();
+  initKeyboardShortcuts();
 }
 
 // Initialize when DOM is ready
