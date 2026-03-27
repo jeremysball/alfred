@@ -17,16 +17,17 @@ def test_main_does_not_log_every_message_payload() -> None:
     assert "console.log('[WebSocket] Received message:'" not in source
 
 
-def test_index_loads_app_config_before_websocket_client() -> None:
-    """The page should load runtime config before websocket code reads debug flags."""
+def test_index_loads_app_config_before_main_js() -> None:
+    """The page should load runtime config before main.js initializes the websocket client."""
     source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/index.html").read_text()
 
     assert '<script src="/app-config.js"></script>' in source
     assert 'webui-client-logger.js?v=' in source
-    assert 'websocket-client.js?v=' in source
-    # Verify load order: app-config before logger before websocket client
+    # Note: websocket-client.js is now imported as an ES module by main.js,
+    # not loaded via script tag. The load order is enforced by module imports.
+    # Verify load order: app-config before logger before main.js
     assert source.index('/app-config.js') < source.index('webui-client-logger.js')
-    assert source.index('webui-client-logger.js') < source.index('websocket-client.js')
+    assert source.index('webui-client-logger.js') < source.index('main.js')
 
 
 def test_webui_client_logger_prefixes_console_methods() -> None:

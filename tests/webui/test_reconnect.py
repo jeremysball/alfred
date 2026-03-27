@@ -189,6 +189,7 @@ async def test_session_loaded_reconciles_partial_assistant_message_in_place() ->
         thread.join(timeout=5)
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_pull_to_refresh_shows_indicator_and_triggers_reconnect() -> None:
     port = _find_free_port()
