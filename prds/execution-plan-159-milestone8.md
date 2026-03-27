@@ -555,6 +555,50 @@ Each checkbox = one atomic commit:
 - **Impact**: Predictable gesture behavior, no "fighting" between detectors
 - **Owner**: Implementation team
 
+### 2026-03-27: Coordinated Detector Wrapper Architecture (Phase 6, Step 2)
+
+**Decision**: Request lock immediately on `touchstart` with low priority
+- **Context**: When should coordinated detectors request gesture lock from coordinator?
+- **Options Considered**:
+  - A: On `touchstart` immediately
+  - B: After minimal movement (10px) to confirm intent
+- **Rationale**: Option A ensures fast response. Low priority (1 for swipe, 3 for long-press) means higher priority gestures can still preempt within first ~50ms if needed.
+- **Implementation**: `CoordinatedSwipeDetector` and `CoordinatedLongPressDetector` call `coordinator.requestGesture()` in their `touchstart` handlers
+- **Impact**: Gesture coordination begins at touch start, preventing race conditions
+- **Owner**: Implementation team
+
+**Decision**: Detector Priorities for Coordinated Wrappers
+- **Context**: What priority should each coordinated detector use?
+- **Priorities Defined**:
+  - `CoordinatedLongPressDetector`: priority 3 (highest - intentional 500ms hold)
+  - `CoordinatedSwipeDetector` (reply): priority 1 (standard)
+  - Future coordinated pull-to-refresh: priority 1 (standard)
+  - Future coordinated fullscreen compose: priority 2 (modal overlay)
+- **Rationale**: Matches the priority hierarchy defined earlier. Long-press requires most intentional user action.
+- **Implementation**: Each wrapper class hardcodes its priority constant, passed to `requestGesture(type, priority)`
+- **Impact**: Consistent priority behavior across all coordinated detectors
+- **Owner**: Implementation team
+
+**Decision**: Wrapped Detector Lifecycle Management
+- **Context**: How to manage the underlying detector's lifecycle within the wrapper?
+- **Approach**:
+  1. Create wrapped detector in constructor (but don't attach)
+  2. On `touchstart` + lock granted, manually trigger wrapped detector's touch handling
+  3. On `touchend`/`touchcancel`, release lock and let wrapped detector complete normally
+  4. `destroy()` releases any active lock and destroys wrapped detector
+- **Rationale**: Allows wrapper to intercept events for coordination while delegating actual gesture logic to tested detectors
+- **Implementation**: Store wrapped detector instance, proxy events when lock granted, clean up on destroy
+- **Impact**: Existing detectors remain unchanged; wrappers add coordination layer
+- **Owner**: Implementation team
+
+**Decision**: Passive Listener Compatibility
+- **Context**: Wrapped detectors use `{ passive: true }` for scroll performance
+- **Solution**: Coordination check happens in wrapper's non-passive handler first, then delegates to wrapped detector's passive handler if lock granted
+- **Rationale**: Must maintain passive listeners for performance while still being able to prevent gesture if lock denied
+- **Implementation**: Wrapper attaches non-passive listener for coordination, wrapped detector attaches its own passive listeners
+- **Impact**: No performance regression; coordination works correctly
+- **Owner**: Implementation team
+
 ### 2025-03-27: Open Questions (Phase 2)
 
 **Question**: Should swipe be disabled when message actions are visible (`.active` class)?
