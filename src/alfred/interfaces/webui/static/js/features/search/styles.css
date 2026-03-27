@@ -1,0 +1,153 @@
+/**
+ * Search Feature Styles
+ * Milestone 9 Phase 1: In-Conversation Search (Ctrl+F)
+ */
+
+/* Search Overlay Container */
+.search-overlay {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(var(--bg-primary-rgb, 255, 255, 255), 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: search-overlay-enter 200ms cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Dark mode support */
+[data-theme="dark"] .search-overlay,
+[data-theme="kidcore-playground"] .search-overlay {
+  background: rgba(30, 30, 30, 0.9);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Enter animation */
+@keyframes search-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Search Input */
+.search-input {
+  width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.search-input:focus {
+  border-color: var(--accent-color, #0066cc);
+}
+
+.search-input::placeholder {
+  color: var(--text-secondary, #999);
+}
+
+/* Navigation Buttons Container */
+.search-nav-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* Navigation Buttons */
+.search-nav-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #333);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+
+.search-nav-btn:hover {
+  background: var(--bg-hover, #e0e0e0);
+}
+
+.search-nav-btn:active {
+  transform: scale(0.95);
+}
+
+.search-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Match Counter */
+.search-match-counter {
+  min-width: 60px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Close Button */
+.search-close-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.search-close-btn:hover {
+  background: var(--bg-hover, #e0e0e0);
+  color: var(--text-primary, #333);
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .search-overlay {
+    animation: none;
+  }
+  
+  .search-nav-btn,
+  .search-close-btn {
+    transition: none;
+  }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .search-overlay {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    padding: 10px 12px;
+  }
+  
+  .search-input {
+    flex: 1;
+    width: auto;
+    min-width: 120px;
+  }
+}
