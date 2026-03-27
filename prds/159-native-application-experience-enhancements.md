@@ -537,6 +537,37 @@ function handleTouchStart(e) {
 - **Architecture**: Component-based with event-driven pattern
 - **Styling**: Glassmorphism design matching Command Palette
 
+**Phase 2: Quick Session Switcher (Ctrl+Tab)** ⏳ READY
+- [x] Design: `QuickSwitcher` component with singleton pattern
+- [x] Design: localStorage-based session tracking (capture on `/new`, `/resume`)
+- [x] Design: Max 10 recent sessions, display name + relative time
+- [x] Design: Simple character-matching fuzzy search MVP
+- [x] Design: Ctrl+Tab shortcut (avoiding Ctrl+Shift+Tab browser conflict)
+- [ ] Implement: Quick switcher component (`quick-switcher.js`)
+- [ ] Implement: Session tracking in localStorage
+- [ ] Implement: Fuzzy filtering logic
+- [ ] Implement: Keyboard navigation (arrows, Enter, Escape)
+- [ ] Implement: `/resume <id>` command integration
+- [ ] Test: Unit tests for QuickSwitcher class
+- [ ] Integrate: Add to `main.js` initialization
+
+**Files to Create**:
+- `features/search/quick-switcher.js` - QuickSwitcher class
+- `features/search/test-quick-switcher.js` - Unit tests
+
+**Files to Modify**:
+- `features/search/index.js` - Export QuickSwitcher
+- `main.js` - Add initQuickSwitcher() call
+
+**Usage**: Press `Ctrl+Tab` to open session switcher, type to filter, arrows to navigate, Enter to select
+
+**Design Decisions**:
+- **Session Tracking**: localStorage on every `/new` and `/resume` (self-contained, no backend changes)
+- **Max Sessions**: 10 recent (configurable, sufficient for most users)
+- **Display Format**: Session name + relative time (e.g., "Project Planning - 2 hours ago")
+- **Fuzzy Search**: Simple character-matching MVP (can upgrade to scoring later)
+- **Shortcut**: Ctrl+Tab (Ctrl+Shift+Tab reserved for browser backward navigation)
+
 **In-Conversation Search Approach**:
 - **Phase 1 (MVP)**: Use browser's native `window.find()` API
   - Pros: No additional implementation, works immediately
@@ -551,15 +582,26 @@ function handleTouchStart(e) {
 - Uses already-loaded session list (from `/sessions` command)
 - No additional server requests needed
 
-**Validation**:
+**Phase 1 Validation**:
 - Ctrl+F opens search overlay (not browser find)
 - Matches highlight in current viewport
 - Enter/Shift+Enter navigates between matches
 - Match counter shows "3 of 12" format
 - Escape closes search overlay
-- Ctrl+Tab shows quick switcher with recent sessions (up to 10)
-- Click session in switcher loads it via `/resume <id>`
+
+**Phase 2 Validation**:
+- Ctrl+Tab opens quick switcher modal
+- Shows up to 10 recent sessions
+- Session name + relative time displayed
+- Type to filter sessions (fuzzy search)
+- Arrow keys navigate up/down
+- Enter selects and loads session via `/resume <id>`
+- Escape closes without action
+
+**Phase 3 Validation**:
 - @ in composer shows dropdown of last 20 messages in session
+- Arrow keys navigate mentions
+- Enter inserts reference to selected message
 
 **Execution Plan**: See `execution-plan-159-milestone9.md` for detailed implementation tasks
 
@@ -914,6 +956,7 @@ self.addEventListener('sync', (event) => {
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-03-27 | **DESIGNED**: Milestone 9 Phase 2 - Quick Session Switcher (Ctrl+Tab) | Session switching architecture: `QuickSwitcher` class with singleton pattern, localStorage-based session tracking (capture on every `/new` and `/resume`), max 10 recent sessions, simple character-matching fuzzy search MVP. Glassmorphism UI reuses Phase 1 styles. Display: session name + relative time. Selection sends `/resume <id>` via WebSocket. Ctrl+Tab shortcut (avoiding Ctrl+Shift+Tab browser conflict). |
 | 2026-03-27 | **DESIGNED**: Milestone 9 - Search & Quick Navigation (Phase 1) | In-conversation search architecture: `SearchOverlay` class with singleton pattern, `window.find()` API for MVP (visible messages only), case-insensitive search, "3 of 12" match counter. Glassmorphism UI consistent with Command Palette. Ctrl+F shortcut overrides browser native find. Server-side search deferred to Phase 2. See `execution-plan-159-milestone9.md`. |
 | 2026-03-27 | **IMPLEMENTED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply complete: `SwipeToReply` class with 80px threshold, right-swipe only, CSS transform visual feedback, haptic feedback, MutationObserver for dynamic messages. 15 tests. Files: `swipe-to-reply.js`, `test-swipe-to-reply.js`. See `execution-plan-159-milestone5-touch-gestures.md` for full API. |
 | 2026-03-27 | **DESIGNED**: Milestone 8 - Mobile Gestures (Phase 2) | Swipe-to-Reply architecture finalized: MutationObserver for dynamic attachment, CSS transform feedback with `--swipe-offset`/`--swipe-progress`, right-swipe only (100px threshold), markdown blockquote reply format. Composer integration: populate input, focus, position cursor. See `execution-plan-159-milestone5-touch-gestures.md` Decision Log. |
