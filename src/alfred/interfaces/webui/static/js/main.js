@@ -3173,7 +3173,10 @@ function initAll() {
   initSearch();
   initQuickSwitcher();
   initMentions();
-  initPWA({ debug: window.APP_CONFIG?.debug });
+  initPWA({ 
+    debug: window.APP_CONFIG?.debug,
+    getComposer: () => document.getElementById('user-input'),
+  });
   registerServiceWorker();
 
   // Cleanup on page unload
