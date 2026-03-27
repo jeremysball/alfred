@@ -25,7 +25,7 @@ from alfred.cron.store import CronStore
 from alfred.data_manager import get_data_dir
 
 if TYPE_CHECKING:
-    from alfred.cron.socket_client import SocketClient
+    from alfred.cron.daemon_server import DaemonSocketServer
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class CronScheduler:
         store: CronStore | None = None,
         check_interval: float = 60.0,
         data_dir: Path | None = None,
-        socket_client: "SocketClient | None" = None,
+        socket_server: "DaemonSocketServer | None" = None,
     ) -> None:
         """Initialize scheduler.
 
@@ -87,7 +87,7 @@ class CronScheduler:
             store: CronStore for persistence (creates default if None)
             check_interval: Seconds between schedule checks
             data_dir: Directory for log files (default: XDG data dir)
-            socket_client: Socket client for TUI communication (optional)
+            socket_server: Socket server for notifications (optional)
         """
         self._store = store or CronStore(data_dir)
         self._jobs: dict[str, RunnableJob] = {}
@@ -95,11 +95,18 @@ class CronScheduler:
         self._task: asyncio.Task[None] | None = None
         self._shutdown_event = asyncio.Event()
         self._check_interval = check_interval
-        self._socket_client = socket_client
+        self._socket_server: DaemonSocketServer | None = socket_server
 
         # Initialize logger
         log_file = (data_dir or get_data_dir()) / "cron_logs.jsonl"
         self._logger = StructuredLogger(log_file)
+
+    def set_socket_server(self, socket_server: "DaemonSocketServer") -> None:
+        """Set the socket server for notifications.
+
+        Called after initialization when socket server is ready.
+        """
+        self._socket_server = socket_server
 
     async def start(self) -> None:
         """Start the scheduler monitoring loop.
@@ -389,6 +396,26 @@ class CronScheduler:
                 # Start execution without waiting (queue if already running)
                 asyncio.create_task(self._execute_job(job))
 
+    async def get_jobs_for_response(self) -> list[dict[str, Any]]:
+        """Get all jobs formatted for QueryJobsResponse.
+
+        Returns:
+            List of job dictionaries with id, name, status, expression, last_run, created_at
+        """
+        jobs = await self._store.load_jobs()
+        result = []
+        for job in jobs:
+            job_dict: dict[str, Any] = {
+                "job_id": job.job_id,
+                "name": job.name,
+                "status": job.status,
+                "expression": job.expression,
+                "last_run": job.last_run.isoformat() if job.last_run else None,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+            }
+            result.append(job_dict)
+        return result
+
     async def _execute_job(self, job: RunnableJob) -> None:
         """Execute a single job with resource limits.
 
@@ -408,11 +435,11 @@ class CronScheduler:
             job_model = job.to_job(code_snapshot) if code_snapshot else None
             limits = job_model.resource_limits if job_model else ResourceLimits()
 
-            # Create execution context
+            # Create execution context (socket_client is deprecated, use socket_server)
             context = ExecutionContext(
                 job_id=job.job_id,
                 job_name=job.name,
-                socket_client=self._socket_client,
+                socket_client=None,
             )
 
             # Create executor and run
@@ -434,10 +461,8 @@ class CronScheduler:
             logger.debug(f"Executing job: {job.name} ({job.job_id})")
 
             # Send job started notification
-            if self._socket_client:
-                from alfred.cron.socket_protocol import JobStartedMessage
-
-                await self._socket_client.send(JobStartedMessage(job_id=job.job_id, job_name=job.name))
+            if self._socket_server:
+                await self._socket_server.notify_job_started(job_id=job.job_id, job_name=job.name)
 
             # Execute with resource limits
             result = await executor.execute()
@@ -460,45 +485,33 @@ class CronScheduler:
             if result.status == ExecutionStatus.SUCCESS:
                 logger.debug("Job completed: %s (%s)", job.name, job.job_id)
                 # Send completion notification
-                if self._socket_client:
-                    from alfred.cron.socket_protocol import JobCompletedMessage
-
+                if self._socket_server:
                     stdout_preview = (result.stdout or "")[:200]
-                    await self._socket_client.send(
-                        JobCompletedMessage(
-                            job_id=job.job_id,
-                            job_name=job.name,
-                            duration_ms=result.duration_ms,
-                            stdout_preview=stdout_preview,
-                        )
+                    await self._socket_server.notify_job_completed(
+                        job_id=job.job_id,
+                        job_name=job.name,
+                        duration_ms=result.duration_ms,
+                        stdout_preview=stdout_preview,
                     )
             elif result.status == ExecutionStatus.TIMEOUT:
                 logger.warning("Job timed out: %s (%s)", job.name, job.job_id)
                 # Send failure notification
-                if self._socket_client:
-                    from alfred.cron.socket_protocol import JobFailedMessage
-
-                    await self._socket_client.send(
-                        JobFailedMessage(
-                            job_id=job.job_id,
-                            job_name=job.name,
-                            error="Job timed out",
-                            duration_ms=result.duration_ms,
-                        )
+                if self._socket_server:
+                    await self._socket_server.notify_job_failed(
+                        job_id=job.job_id,
+                        job_name=job.name,
+                        error="Job timed out",
+                        duration_ms=result.duration_ms,
                     )
             else:
                 logger.error("Job failed: %s (%s)", job.name, job.job_id)
                 # Send failure notification
-                if self._socket_client:
-                    from alfred.cron.socket_protocol import JobFailedMessage
-
-                    await self._socket_client.send(
-                        JobFailedMessage(
-                            job_id=job.job_id,
-                            job_name=job.name,
-                            error=result.error_message or "Unknown error",
-                            duration_ms=result.duration_ms,
-                        )
+                if self._socket_server:
+                    await self._socket_server.notify_job_failed(
+                        job_id=job.job_id,
+                        job_name=job.name,
+                        error=result.error_message or "Unknown error",
+                        duration_ms=result.duration_ms,
                     )
 
             # Record execution

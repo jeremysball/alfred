@@ -247,11 +247,16 @@ class SessionManager:
                 else:
                     msg_timestamp = datetime.now(UTC)
 
+                # Generate UUID if missing (backward compatibility for old sessions)
+                msg_id = msg_data.get("id")
+                if not msg_id:
+                    msg_id = str(uuid.uuid4())
+
                 msg = Message(
                     idx=msg_data.get("idx", 0),
                     role=Role(msg_data["role"]),
                     content=msg_data["content"],
-                    id=str(msg_data.get("id") or msg_data.get("idx", 0)),
+                    id=str(msg_id),
                     timestamp=msg_timestamp,
                     embedding=msg_data.get("embedding"),
                     input_tokens=msg_data.get("input_tokens", 0),

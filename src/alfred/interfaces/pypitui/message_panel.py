@@ -84,6 +84,10 @@ class MessagePanel(BorderedBox):
         # Content blocks for mixed rendering
         self._content_blocks: list[ContentBlock] = []
 
+        # Incremental rendering: track last rendered length to avoid O(n²) re-rendering
+        self._last_rendered_len = 0
+        self._rendered_text_cache = ""  # Cache of already-rendered markdown
+
         # Set title based on role
         title = {"user": "You", "assistant": "Alfred", "system": "System"}.get(role, "Alfred")
         self.set_title(title)
@@ -261,20 +265,76 @@ class MessagePanel(BorderedBox):
             self._compose_content()
 
     def _compose_content(self) -> None:
-        """Compose content blocks from text and tool calls."""
+        """Compose content blocks from text and tool calls.
+
+        Uses incremental rendering for streaming performance:
+        - No tool calls: renders only new text deltas, avoiding O(n²) re-rendering
+        - With tool calls: falls back to full re-render since structure changes
+        """
         from alfred.interfaces.ansi import apply_ansi
 
-        self._content_blocks = []
-
         if not self._tool_calls:
-            # Simple case: no tool calls
+            # Simple case: no tool calls - use incremental rendering
+            current_len = len(self._text_content)
+
+            # Check if this is just an append (content grew from previous render)
+            if current_len > self._last_rendered_len and self._content_blocks:
+                # Get just the new text delta
+                delta = self._text_content[self._last_rendered_len :]
+                delta = apply_ansi(delta)
+
+                # Render the delta and append to cached content
+                if self._use_markdown and self._renderer and delta:
+                    with suppress(Exception):
+                        # To maintain markdown context, we render with a leading context
+                        # and extract just the new rendered portion
+                        context_window = min(self._last_rendered_len, 100)
+                        context_start = self._last_rendered_len - context_window
+                        render_chunk = self._text_content[context_start:]
+                        render_chunk = apply_ansi(render_chunk)
+                        rendered_chunk = self._renderer.render_markdown(render_chunk)
+
+                        # Find where new content starts in rendered output
+                        # This is approximate - we look for the last 20 chars of cached content
+                        cache_suffix = (
+                            self._rendered_text_cache[-20:]
+                            if len(self._rendered_text_cache) >= 20
+                            else self._rendered_text_cache
+                        )
+                        suffix_pos = rendered_chunk.rfind(cache_suffix)
+                        if suffix_pos >= 0:
+                            new_rendered = rendered_chunk[suffix_pos + len(cache_suffix) :]
+                        else:
+                            # Fallback: render full text (rare edge case)
+                            new_rendered = self._renderer.render_markdown(self._text_content)
+                            self._rendered_text_cache = new_rendered
+                            self._last_rendered_len = current_len
+                            self._content_blocks = [ContentBlock(type="text", content=new_rendered)]
+                            return
+
+                        self._rendered_text_cache += new_rendered
+                        self._last_rendered_len = current_len
+                        self._content_blocks[0].content = self._rendered_text_cache
+                        return
+
+                # No markdown or empty delta - just append
+                if delta:
+                    self._rendered_text_cache += delta
+                    self._content_blocks[0].content = self._rendered_text_cache
+                self._last_rendered_len = current_len
+                return
+
+            # First render or content changed non-monotonically - full render
             text = apply_ansi(self._text_content)
             if self._use_markdown and self._renderer:
                 with suppress(Exception):
                     text = self._renderer.render_markdown(text)
-            self._content_blocks.append(ContentBlock(type="text", content=text))
+            self._rendered_text_cache = text
+            self._last_rendered_len = current_len
+            self._content_blocks = [ContentBlock(type="text", content=text)]
         else:
-            # Mixed case: text with embedded tool calls
+            # Mixed case: text with embedded tool calls - always full re-render
+            self._content_blocks = []
             sorted_tools = sorted(self._tool_calls, key=lambda t: (t.insert_position, t.sequence))
 
             last_pos = 0
@@ -301,6 +361,10 @@ class MessagePanel(BorderedBox):
                     with suppress(Exception):
                         text = self._renderer.render_markdown(text)
                 self._content_blocks.append(ContentBlock(type="text", content=text))
+
+            # Reset incremental cache since tool calls break the simple model
+            self._last_rendered_len = len(self._text_content)
+            self._rendered_text_cache = ""
 
     def _build_tool_box(self, tool_info: ToolCallInfo) -> list[str]:
         """Build a tool call box as list of lines.

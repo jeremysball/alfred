@@ -65,14 +65,21 @@ class FakeAlfred:
         self._telegram_bot = None  # CLI mode by default
 
 
+class FakeTool:
+    """Fake tool with name attribute."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
 class FakeTools:
     """Fake tools registry."""
 
     def __init__(self, tool_names: list[str]) -> None:
         self._tool_names = tool_names
 
-    def list_tools(self) -> list[str]:
-        return self._tool_names
+    def list_tools(self) -> list[FakeTool]:
+        return [FakeTool(name) for name in self._tool_names]
 
 
 class FakeContextSummary:

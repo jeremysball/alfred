@@ -67,7 +67,7 @@ def test_chat_message_component_exposes_edit_state_and_websocket_client_helpers(
 
     assert "editable" in chat_message
     assert "data-message-state" in chat_message
-    assert "edit-message" in chat_message
+    assert "message-edited" in chat_message
     assert "setMessageState" in chat_message
 
     assert "sendCancel" in websocket_client

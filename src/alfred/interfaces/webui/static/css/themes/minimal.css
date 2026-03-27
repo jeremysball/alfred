@@ -54,7 +54,7 @@
 [data-theme="minimal"] .app-header {
   background: var(--min-bg-header);
   border-bottom: 1px solid var(--min-border-color);
-  padding: 1rem 1.5rem;
+  padding: 0.5rem 1rem;
 }
 
 [data-theme="minimal"] .app-header h1 {
@@ -77,17 +77,18 @@
 /* Chat Container */
 [data-theme="minimal"] .chat-container {
   background: var(--min-bg-primary);
+  padding: 0.5rem;
 }
 
 [data-theme="minimal"] .message-list {
   max-width: 800px;
-  gap: 1rem;
+  gap: 0.25rem;
 }
 
 /* Messages - Rectangular */
 [data-theme="minimal"] .message {
   max-width: 85%;
-  padding: 1rem 1.25rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 0;
 }
 
@@ -115,7 +116,7 @@
 }
 
 [data-theme="minimal"] .message-header {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 [data-theme="minimal"] .message-avatar {
@@ -190,7 +191,7 @@
 [data-theme="minimal"] .app-footer {
   background: var(--min-bg-footer);
   border-top: 1px solid var(--min-border-color);
-  padding: 1rem 1.5rem;
+  padding: 0.5rem 1rem;
 }
 
 [data-theme="minimal"] .input-area {
@@ -236,11 +237,40 @@
   opacity: 0.5;
 }
 
+/* Message Actions - Bottom right, visible but muted */
+[data-theme="minimal"] .message-actions {
+  justify-content: flex-end;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+[data-theme="minimal"] .message:hover .message-actions {
+  opacity: 1;
+}
+
+[data-theme="minimal"] .message-action.icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="minimal"] .message-action-icon {
+  display: block;
+}
+
 /* Mobile */
 @media (max-width: 768px) {
   [data-theme="minimal"] .message {
     max-width: 95%;
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  [data-theme="minimal"] .message-actions {
+    opacity: 0;
+  }
+
+  [data-theme="minimal"] chat-message.active .message-actions {
+    opacity: 1;
   }
 
   [data-theme="minimal"] .settings-dropdown {

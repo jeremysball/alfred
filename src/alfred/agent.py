@@ -138,7 +138,9 @@ class Agent:
                     )
                 )
 
-        tool_failed = encountered_error or self._is_error(tool_output)
+        # Only mark as error if an actual exception was raised during execution
+        # Content-based error detection causes false positives (e.g., reading error logs)
+        tool_failed = encountered_error
 
         # Emit tool end event
         if tool_callback:

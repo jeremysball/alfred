@@ -7,6 +7,9 @@
     <meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Alfred">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
     <title>Alfred Web UI</title>
     <link rel="stylesheet" href="/static/css/base.css?v=21">
     <link rel="stylesheet" href="/static/css/themes.css?v=4">
@@ -219,6 +222,7 @@
         </button>
 
         <toast-container id="toast-container"></toast-container>
+        <debug-panel id="debug-panel"></debug-panel>
 
         <main class="app-main">
             <div id="chat-container" class="chat-container">
@@ -248,6 +252,7 @@
                         placeholder="Type your message... (Shift+Enter to queue)"
                         autocomplete="off"
                         rows="1"
+                        tabindex="-1"
                     ></textarea>
                     <completion-menu id="completion-menu" visible="false"></completion-menu>
                 </div>
@@ -261,6 +266,7 @@
     <script type="module" src="/static/js/components/theme-selector.js?v=3"></script>
     <script src="/static/js/components/chat-message.js?v=5"></script>
     <script src="/static/js/components/tool-call.js?v=3"></script>
+    <script src="/static/js/components/debug-panel.js?v=1"></script>
     <script src="/static/js/components/completion-menu.js?v=3"></script>
     <script src="/static/js/components/status-bar.js?v=3"></script>
     <script src="/static/js/components/toast-container.js?v=3"></script>

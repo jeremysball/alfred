@@ -25,13 +25,13 @@ class SettingsMenu extends HTMLElement {
     this._fontSize = localStorage.getItem('alfred-font-size') || '';
     this._fontFamily = localStorage.getItem('alfred-font-family') || '';
     this._themes = [
-      { id: 'dark-academia', name: 'Dark Academia', description: 'Classical library dark', previewColor: '#8b6914', surfaceColor: '#24201c' },
-      { id: 'dark-academia-light', name: 'Dark Academia Light', description: 'Classical library light', previewColor: '#8b5a2b', surfaceColor: '#f4efe6' },
       { id: 'swiss-international', name: 'Swiss Light', description: 'Clean light style', previewColor: '#990000', surfaceColor: '#ffffff' },
-      { id: 'swiss-international-dark', name: 'Swiss Dark', description: 'Clean dark style', previewColor: '#cc0000', surfaceColor: '#2a2a2a' },
+      { id: 'dark-academia-light', name: 'Dark Academia Light', description: 'Classical library light', previewColor: '#8b5a2b', surfaceColor: '#f4efe6' },
+      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0', surfaceColor: '#f5f5f5' },
       { id: 'neumorphism', name: 'Neumorphism Light', description: 'Soft light plastic', previewColor: '#3d4fb8', surfaceColor: '#e0e5ec' },
       { id: 'neumorphism-dark', name: 'Neumorphism Dark', description: 'Soft dark plastic', previewColor: '#3d4fb8', surfaceColor: '#1a202c' },
-      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0', surfaceColor: '#f5f5f5' },
+      { id: 'swiss-international-dark', name: 'Swiss Dark', description: 'Clean dark style', previewColor: '#cc0000', surfaceColor: '#2a2a2a' },
+      { id: 'dark-academia', name: 'Dark Academia', description: 'Classical library dark', previewColor: '#8b6914', surfaceColor: '#24201c' },
       { id: 'element-modern', name: 'Element Modern', description: 'True black, seamless flow', previewColor: '#A855F7', surfaceColor: '#0a0a0a' },
       { id: 'kidcore-playground', name: 'Kidcore Playground', description: 'Handmade scrapbook chaos', previewColor: '#ff4fd8', surfaceColor: '#26003d' },
       { id: 'spacejam-neocities', name: 'Space Jam Neocities', description: 'Gaudy 90s neon browser shrine', previewColor: '#00e5ff', surfaceColor: '#180022' }
@@ -118,9 +118,9 @@ class SettingsMenu extends HTMLElement {
     this.innerHTML = `
       <div class="settings-menu-wrapper">
         <button class="settings-toggle" type="button" aria-label="Settings" aria-expanded="${String(this._isOpen)}">
-          <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v6m0 6v6m4.22-10.22l4.24-4.24M6.34 17.66l-4.24 4.24M23 12h-6m-6 0H1m20.24 4.24l-4.24-4.24M6.34 6.34L2.1 2.1"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
       </div>

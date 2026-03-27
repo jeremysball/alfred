@@ -109,6 +109,23 @@ class SurfaceFormatter(logging.Formatter):
             surface,
             color=self.kind == "console" and self._stream_is_tty(),
         )
+        # Get the full formatted message
+        msg = record.getMessage()
+
+        # Truncate embedding arrays (detect by pattern of many floats in brackets)
+        import re
+        # Pattern: [-0.123, 0.456, ...] with 10+ floats = likely embedding
+        embedding_pattern = r'\[(\s*-?\d+\.\d+(?:[eE][+-]?\d+)?\s*,){10,}'
+        if re.search(embedding_pattern, msg):
+            # Replace full embedding with truncated version
+            msg = re.sub(
+                r'(\[\s*-?\d+\.\d+(?:[eE][+-]?\d+)?\s*,\s*){5}[^\]]*(\])',
+                r'[... 20 of ~1536 embeddings truncated ...]',
+                msg
+            )
+            record.msg = msg
+            record.args = ()
+
         return super().format(record)
 
     def _stream_is_tty(self) -> bool:

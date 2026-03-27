@@ -203,7 +203,9 @@ def build_runtime_self_model(
     tools_available: list[str] = []
     tools_registry = getattr(alfred, "tools", None)
     if tools_registry is not None:
-        tools_available = tools_registry.list_tools()
+        tool_objects = tools_registry.list_tools()
+        # Extract tool names from Tool objects
+        tools_available = [tool.name for tool in tool_objects]
         logger.debug("Found %d tools in registry", len(tools_available))
     else:
         logger.debug("No tools registry found on Alfred instance")

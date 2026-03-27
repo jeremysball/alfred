@@ -62,18 +62,18 @@ class TestListJobsTool:
         assert "active" in output
 
     @pytest.mark.asyncio
-    async def test_list_jobs_handles_none_response(self, mock_socket_client):
-        """Test that ListJobsTool handles None response gracefully."""
+    async def test_list_jobs_handles_none_response_with_fallback(self, mock_socket_client, tmp_path):
+        """Test that ListJobsTool falls back to store when socket returns None."""
         mock_socket_client.query_jobs.return_value = None
 
-        tool = ListJobsTool(socket_client=mock_socket_client)
+        tool = ListJobsTool(socket_client=mock_socket_client, data_dir=tmp_path)
         result = []
         async for chunk in tool.execute_stream(status_filter="all"):
             result.append(chunk)
 
         output = "".join(result)
-        assert "Error" in output
-        assert "daemon may not be running" in output
+        # With no jobs in store, should show "no jobs" message
+        assert "don't have any jobs" in output or "No jobs" in output
 
     @pytest.mark.asyncio
     async def test_list_jobs_filters_by_status(self, mock_socket_client):

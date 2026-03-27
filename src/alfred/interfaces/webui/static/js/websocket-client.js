@@ -256,10 +256,10 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   _startPing() {
-    // Use shorter interval on mobile (5s vs 15s) for faster disconnect detection
+    // Aggressive keepalive to prevent disconnection on mobile networks
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const pingIntervalMs = isMobile ? 5000 : 15000;
-    const pongTimeoutMs = isMobile ? 3000 : 5000;
+    const pingIntervalMs = isMobile ? 3000 : 5000;
+    const pongTimeoutMs = isMobile ? 2000 : 3000;
     
     this.pingInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {

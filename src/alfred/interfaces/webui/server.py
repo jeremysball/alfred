@@ -16,6 +16,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
+from websockets.exceptions import ConnectionClosedError
 
 from alfred.agent import ToolEvent
 from alfred.interfaces.webui.contracts import WebUIAlfred, WebUISessionManager
@@ -24,15 +25,51 @@ from alfred.observability import event_message
 
 logger = logging.getLogger(__name__)
 
+# WebSocket traffic log for debug introspection (circular buffer, max 100 messages)
+_WEBSOCKET_TRAFFIC_LOG: list[dict[str, Any]] = []
+_MAX_TRAFFIC_LOG_SIZE = 100
+
 
 def _emit_webui_debug(event: str, **fields: object) -> None:
     """Emit a debug-only diagnostic line through the Web UI server surface."""
     logger.debug(event_message(event, **fields))
 
 
+def _log_websocket_traffic(
+    direction: str,
+    message_type: str,
+    payload: dict[str, Any] | None = None,
+    connection_id: str | None = None,
+) -> None:
+    """Log WebSocket message to traffic log for debug introspection."""
+    global _WEBSOCKET_TRAFFIC_LOG
+    entry = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "direction": direction,  # "in" or "out"
+        "type": message_type,
+        "connection_id": connection_id,
+        "payload_preview": _truncate_payload(payload) if payload else None,
+    }
+    _WEBSOCKET_TRAFFIC_LOG.append(entry)
+    # Keep only last N messages
+    if len(_WEBSOCKET_TRAFFIC_LOG) > _MAX_TRAFFIC_LOG_SIZE:
+        _WEBSOCKET_TRAFFIC_LOG = _WEBSOCKET_TRAFFIC_LOG[-_MAX_TRAFFIC_LOG_SIZE:]
+
+
+def _truncate_payload(payload: dict[str, Any], max_chars: int = 200) -> dict[str, Any] | str:
+    """Truncate payload for display, handling embeddings specially."""
+    payload_str = json.dumps(payload, default=str)
+    if len(payload_str) > max_chars:
+        # Check for embedding arrays
+        if "embedding" in payload_str or ("[" in payload_str and "," in payload_str[:100]):
+            return "[embedding array truncated]"
+        return payload_str[:max_chars] + "..."
+    return payload
+
+
 StatusField = str | int | bool | None
-CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.05
-CHUNK_BATCH_MAX_CHARS = 256
+CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.01  # 10ms for low-latency streaming
+CHUNK_BATCH_MAX_CHARS = 1024  # Larger batches to reduce overhead
 
 
 @dataclass
@@ -350,6 +387,8 @@ class _BroadcastChunkBatcher:
         payload = dict(self._extra_payload)
         payload[self._payload_key] = content
 
+        import time
+        flush_start = time.perf_counter()
         await _broadcast_json(
             {
                 "type": self._message_type,
@@ -358,6 +397,14 @@ class _BroadcastChunkBatcher:
             phase=f"batch:{self._message_type}",
             debug_stats=self._debug_stats,
         )
+        flush_elapsed = time.perf_counter() - flush_start
+        if flush_elapsed > 0.05:  # 50ms threshold
+            _emit_webui_debug(
+                "batcher.slow_flush",
+                flush_latency_ms=round(flush_elapsed * 1000, 2),
+                message_type=self._message_type,
+                content_size=len(content),
+            )
 
 
 async def _send_json(
@@ -367,6 +414,7 @@ async def _send_json(
     phase: str | None = None,
     debug_stats: _WebSocketDebugStats | None = None,
     send_lock: asyncio.Lock | None = None,
+    connection_id: str | None = None,
 ) -> bool:
     """Send a websocket JSON message with optional debug instrumentation.
 
@@ -374,6 +422,10 @@ async def _send_json(
     """
     if debug_stats is not None:
         debug_stats.record_outgoing(message, phase=phase)
+    # Log to traffic introspection log
+    msg_type = str(message.get("type", "unknown"))
+    payload = message.get("payload") if isinstance(message.get("payload"), dict) else None
+    _log_websocket_traffic("out", msg_type, payload, connection_id)
     try:
         if send_lock is None:
             await websocket.send_json(message)
@@ -381,7 +433,7 @@ async def _send_json(
             async with send_lock:
                 await websocket.send_json(message)
         return True
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, ConnectionClosedError):
         # Client disconnected - don't raise, just return False
         # This allows background tasks to continue without crashing
         return False
@@ -411,7 +463,7 @@ async def _broadcast_json(
     for ws in list(_active_connections):
         try:
             await ws.send_json(message)
-        except WebSocketDisconnect:
+        except (WebSocketDisconnect, ConnectionClosedError):
             disconnected.append(ws)
         except Exception:
             disconnected.append(ws)
@@ -498,12 +550,23 @@ def _serialize_tool_call(tool_call: object) -> dict[str, object]:
     }
 
 
+def _serialize_reasoning_block(block: object) -> dict[str, object]:
+    """Serialize a reasoning block for WebSocket transport."""
+    return {
+        "content": str(getattr(block, "content", "")),
+        "sequence": int(getattr(block, "sequence", 0)),
+    }
+
+
 def _serialize_message(message: object) -> dict[str, object]:
     """Serialize a session message for WebSocket transport."""
     role = getattr(message, "role", "")
     role_value = role.value if hasattr(role, "value") else str(role)
     timestamp = getattr(message, "timestamp", None)
-    message_id = getattr(message, "id", None) or getattr(message, "idx", uuid.uuid4())
+    message_id = getattr(message, "id", None)
+    # Generate UUID if missing (backward compatibility)
+    if not message_id:
+        message_id = str(uuid.uuid4())
     payload: dict[str, object] = {
         "id": str(message_id),
         "role": role_value,
@@ -516,6 +579,10 @@ def _serialize_message(message: object) -> dict[str, object]:
     tool_calls = getattr(message, "tool_calls", None)
     if isinstance(tool_calls, (list, tuple)) and tool_calls:
         payload["toolCalls"] = [_serialize_tool_call(tool_call) for tool_call in tool_calls]
+
+    reasoning_blocks = getattr(message, "reasoning_blocks", None)
+    if isinstance(reasoning_blocks, (list, tuple)) and reasoning_blocks:
+        payload["reasoningBlocks"] = [_serialize_reasoning_block(block) for block in reasoning_blocks]
 
     return payload
 
@@ -957,6 +1024,13 @@ async def _handle_chat_message(
 
         flush_task = asyncio.create_task(_flush_loop())
 
+        # Performance timing instrumentation
+        import time
+        chunk_times = []
+        last_chunk_time = time.perf_counter()
+        chunks_count = 0
+        stream_start_time = time.perf_counter()
+
         try:
             try:
                 stream = alfred_instance.chat_stream(
@@ -978,7 +1052,46 @@ async def _handle_chat_message(
                     stream = alfred_instance.chat_stream(content, tool_callback=_tool_callback)
 
             async for chunk in stream:
+                now = time.perf_counter()
+                chunk_latency = now - last_chunk_time
+                chunk_times.append(chunk_latency)
+                last_chunk_time = now
+                chunks_count += 1
+
+                # Log slow chunks (potential bottleneck indicator)
+                if chunk_latency > 0.1:  # 100ms threshold
+                    _emit_webui_debug(
+                        "stream.slow_chunk",
+                        latency_ms=round(chunk_latency * 1000, 2),
+                        chunk_size=len(chunk),
+                        chunks_count=chunks_count,
+                    )
+
+                # Periodic performance report every 100 chunks
+                if chunks_count % 100 == 0:
+                    avg_chunk_time = sum(chunk_times[-100:]) / min(100, len(chunk_times))
+                    total_time = now - stream_start_time
+                    _emit_webui_debug(
+                        "stream.progress",
+                        chunks_count=chunks_count,
+                        avg_latency_ms=round(avg_chunk_time * 1000, 2),
+                        total_time_ms=round(total_time * 1000, 2),
+                        content_len=len(full_content),
+                    )
+
                 if chunk.startswith("[REASONING]"):
+                    # Signal new reasoning block start to frontend (only on transition)
+                    if not in_reasoning:
+                        await _send_json(
+                            websocket,
+                            {
+                                "type": "reasoning.start",
+                                "payload": {"messageId": message_id},
+                            },
+                            phase="reasoning.start",
+                            debug_stats=debug_stats,
+                            send_lock=connection_state.send_lock,
+                        )
                     in_reasoning = True
                     reasoning_content = chunk[11:]
                     full_reasoning += reasoning_content
@@ -1005,6 +1118,23 @@ async def _handle_chat_message(
             await content_batcher.flush(force=True)
             for batcher in tool_output_batchers.values():
                 await batcher.flush(force=True)
+
+            # Log final performance summary
+            total_stream_time = time.perf_counter() - stream_start_time
+            avg_chunk_latency = sum(chunk_times) / len(chunk_times) if chunk_times else 0
+            max_chunk_latency = max(chunk_times) if chunk_times else 0
+            min_chunk_latency = min(chunk_times) if chunk_times else 0
+
+            _emit_webui_debug(
+                "stream.summary",
+                total_chunks=chunks_count,
+                total_time_ms=round(total_stream_time * 1000, 2),
+                avg_chunk_latency_ms=round(avg_chunk_latency * 1000, 2),
+                min_chunk_latency_ms=round(min_chunk_latency * 1000, 2),
+                max_chunk_latency_ms=round(max_chunk_latency * 1000, 2),
+                content_chars=len(full_content),
+                reasoning_chars=len(full_reasoning),
+            )
 
         token_usage["outputTokens"] = len(full_content) // 4
         token_usage["reasoningTokens"] = len(full_reasoning) // 4
@@ -1132,7 +1262,9 @@ async def _handle_command(
     elif cmd == "/session":
         await _handle_session_command(websocket, alfred_instance)
     elif cmd == "/context":
-        await _handle_context_command(websocket, alfred_instance)
+        await _handle_context_command(websocket, alfred_instance, args)
+    elif cmd == "/debug":
+        await _handle_debug_command(websocket, alfred_instance, args)
     else:
         await websocket.send_json(
             {
@@ -1359,8 +1491,9 @@ async def _handle_session_command(
 async def _handle_context_command(
     websocket: WebSocket,
     alfred_instance: WebUIAlfred | None,
+    args: list[str] | None = None,
 ) -> None:
-    """Handle /context command to show system context."""
+    """Handle /context command to show and modify system context."""
     if alfred_instance is None:
         await websocket.send_json(
             {
@@ -1370,6 +1503,56 @@ async def _handle_context_command(
         )
         return
 
+    # Handle toggle subcommand: /context toggle <section> [on|off]
+    if args and len(args) >= 2 and args[0].lower() == "toggle":
+        section = args[1].upper()
+        enabled = True
+        if len(args) >= 3:
+            enabled = args[2].lower() in ("on", "true", "yes", "1")
+
+        try:
+            changed = alfred_instance.context_loader.toggle_section(section, enabled)
+            if changed:
+                status = "enabled" if enabled else "disabled"
+                await websocket.send_json(
+                    {
+                        "type": "toast",
+                        "payload": {
+                            "message": f"Context section '{section}' {status}",
+                            "level": "success",
+                        },
+                    }
+                )
+            else:
+                status = "already enabled" if enabled else "already disabled"
+                await websocket.send_json(
+                    {
+                        "type": "toast",
+                        "payload": {
+                            "message": f"Context section '{section}' was {status}",
+                            "level": "info",
+                        },
+                    }
+                )
+            # Refresh context display after toggle
+            from alfred.context_display import get_context_display
+            context_data = await get_context_display(cast(Any, alfred_instance))
+            await websocket.send_json(
+                {
+                    "type": "context.info",
+                    "payload": _build_context_payload(context_data),
+                }
+            )
+        except Exception as e:
+            await websocket.send_json(
+                {
+                    "type": "chat.error",
+                    "payload": {"error": f"Failed to toggle context: {str(e)}"},
+                }
+            )
+        return
+
+    # Default: show context info
     try:
         from alfred.context_display import get_context_display
 
@@ -1387,6 +1570,79 @@ async def _handle_context_command(
                 "payload": {"error": f"Failed to get context: {str(e)}"},
             }
         )
+
+
+async def _handle_debug_command(
+    websocket: WebSocket,
+    alfred_instance: WebUIAlfred | None,
+    args: list[str],
+) -> None:
+    """Handle /debug command to dump diagnostics with daemon introspection."""
+    debug_type = args[0] if args else "all"
+
+    payload: dict[str, object] = {"debug_type": debug_type}
+
+    if debug_type in ("all", "session"):
+        # Session info
+        session = _get_current_session(alfred_instance)
+        payload["session"] = {
+            "id": _session_identifier(session),
+            "has_messages": bool(getattr(session, "messages", [])),
+            "message_count": len(getattr(session, "messages", [])),
+        }
+
+    if debug_type in ("all", "messages"):
+        # Message details
+        session = _get_current_session(alfred_instance)
+        messages = getattr(session, "messages", [])
+        payload["messages"] = [
+            {
+                "index": i,
+                "id": str(getattr(msg, "id", "") or getattr(msg, "idx", "") or f"idx_{i}"),
+                "role": str(getattr(msg, "role", "unknown")),
+                "content_preview": str(getattr(msg, "content", ""))[:100],
+                "has_tool_calls": bool(getattr(msg, "tool_calls", None)),
+            }
+            for i, msg in enumerate(messages)
+        ]
+
+    if debug_type in ("all", "websocket"):
+        # WebSocket connection stats + traffic log
+        payload["websocket"] = {
+            "active_connections": len(_active_connections),
+            "traffic_log": _WEBSOCKET_TRAFFIC_LOG[-50:],  # Last 50 messages
+        }
+
+    if debug_type in ("all", "daemon"):
+        # Daemon introspection
+        daemon_info: dict[str, object] = {
+            "available": alfred_instance is not None,
+        }
+        if alfred_instance is not None:
+            # Token tracking
+            token_tracker = getattr(alfred_instance, "token_tracker", None)
+            if token_tracker:
+                daemon_info["tokens"] = {
+                    "context_tokens": getattr(token_tracker, "context_tokens", 0),
+                    "usage": getattr(token_tracker, "usage", {}),
+                }
+            # Session manager info
+            session_manager = _get_session_manager(alfred_instance)
+            if session_manager:
+                daemon_info["session_manager"] = {
+                    "has_active_session": getattr(session_manager, "_cli_session_id", None) is not None,
+                    "cached_sessions": len(getattr(session_manager, "_sessions", {})),
+                }
+            # Model info
+            daemon_info["model"] = getattr(alfred_instance, "model_name", "unknown")
+        payload["daemon"] = daemon_info
+
+    await websocket.send_json(
+        {
+            "type": "debug.info",
+            "payload": payload,
+        }
+    )
 
 
 def _render_webui_config_script(debug: bool) -> str:
@@ -1549,11 +1805,23 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                 )
 
             while True:
-                data = await websocket.receive_text()
+                try:
+                    data = await websocket.receive_text()
+                except WebSocketDisconnect as recv_disconnect:
+                    # Handle disconnect during receive (e.g., message too big)
+                    # Code 1009 = MESSAGE_TOO_BIG - payload exceeded ws_max_size
+                    if recv_disconnect.code == 1009:
+                        logger.error(
+                            "webui.websocket.payload_too_big: Message exceeded maximum size (64MB). "
+                            "Consider sending smaller messages or reducing context."
+                        )
+                    raise  # Re-raise to let outer handler deal with it
+
                 try:
                     message = json.loads(data)
                 except json.JSONDecodeError:
                     connection_debug_stats.record_incoming("invalid.json", data)
+                    _log_websocket_traffic("in", "invalid.json", {"raw": data[:100]}, connection_debug_stats.connection_id)
                     await _send_json(
                         websocket,
                         {
@@ -1563,14 +1831,16 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                         phase="error.invalid_json",
                         debug_stats=connection_debug_stats,
                         send_lock=connection_state.send_lock,
+                        connection_id=connection_debug_stats.connection_id,
                     )
                     continue
 
                 msg_type = str(message.get("type", "unknown"))
+                payload = message.get("payload", {})
                 connection_debug_stats.record_incoming(msg_type, data)
+                _log_websocket_traffic("in", msg_type, payload if isinstance(payload, dict) else None, connection_debug_stats.connection_id)
                 if connection_state.has_active_chat():
                     connection_state.record_control_message_during_stream(msg_type)
-                payload = message.get("payload", {})
 
                 if msg_type == "ping":
                     await _send_json(
@@ -1815,6 +2085,15 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     )
 
         except WebSocketDisconnect as disconnect:
+            # Log payload too big errors (code 1009) even without debug mode
+            # These can happen when messages exceed ws_max_size
+            if disconnect.code == 1009 or connection_debug_stats.enabled:
+                logger.warning(
+                    "webui.websocket.disconnect code=%s reason=%s summary=%s",
+                    disconnect.code,
+                    getattr(disconnect, "reason", ""),
+                    connection_debug_stats.summary() if connection_debug_stats.enabled else "debug disabled",
+                )
             if connection_debug_stats.enabled:
                 _emit_webui_debug(
                     "webui.websocket.disconnect",
@@ -1822,12 +2101,29 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
                     reason=getattr(disconnect, "reason", ""),
                     summary=connection_debug_stats.summary(),
                 )
-        except Exception:
+        except ConnectionClosedError as closed_err:
+            # Client disconnected abruptly (no close frame)
+            # Common when: laptop closes, wifi drops, browser crash, sleep mode
+            # Only log in debug mode - this is expected behavior
             if connection_debug_stats.enabled:
-                logger.exception(
-                    "webui websocket unexpected error summary=%s",
+                logger.warning(
+                    "webui.websocket.connection_closed code=%s reason=%s summary=%s",
+                    closed_err.code,
+                    getattr(closed_err, "reason", ""),
                     connection_debug_stats.summary(),
                 )
+                _emit_webui_debug(
+                    "webui.websocket.connection_closed",
+                    code=closed_err.code,
+                    reason=getattr(closed_err, "reason", ""),
+                    summary=connection_debug_stats.summary(),
+                )
+        except Exception:
+            # Always log exceptions, not just in debug mode
+            logger.exception(
+                "webui websocket unexpected error summary=%s",
+                connection_debug_stats.summary() if connection_debug_stats.enabled else "debug disabled",
+            )
         finally:
             # Don't cancel active chat task on disconnect - let it complete in background
             # The task will handle WebSocket errors gracefully and finish streaming to session
