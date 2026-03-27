@@ -138,7 +138,7 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ---
 
-## Phase 4: Pull-to-Refresh ⏳ IN PROGRESS (Steps 1-3 Complete)
+## Phase 4: Pull-to-Refresh ✅ COMPLETE
 
 ### ScrollPositionDetection
 
@@ -181,11 +181,21 @@ Implement mobile gesture support including swipe-to-reply, long-press context me
 
 ### WebSocketReconnectIntegration
 
-- [ ] Test: `test_pull_triggers_websocket_reconnect()` - verify ConnectionMonitor.reconnect() called
-- [ ] Test: `test_reconnect_success_hides_indicator()` - verify indicator hidden on success
-- [ ] Test: `test_reconnect_failure_shows_error()` - verify error toast on failure
-- [ ] Implement: Wire PullToRefresh to existing ConnectionMonitor
-- [ ] Run: Integration test with offline/online toggle
+- [x] Test: `test_pull_triggers_websocket_reconnect()` - verify ConnectionMonitor.reconnect() called
+- [x] Test: `test_reconnect_success_hides_indicator()` - verify indicator hidden on success
+- [x] Test: `test_reconnect_failure_shows_error()` - verify error toast on failure
+- [x] Implement: Wire PullToRefresh to existing ConnectionMonitor via `initializePullToRefresh()`
+- [x] Implement: `createPullIndicator` updated to handle async success/error states
+- [x] Implement: Debounce (2s) to prevent rapid pull spam
+- [x] Run: Integration test with offline/online toggle
+
+**Implementation Details:**
+- `initializePullToRefresh()` accepts `connectionMonitor` option with `reconnect()` method
+- `onRefresh` callback wraps ConnectionMonitor.reconnect() and handles async result
+- Success: Shows "Connected!" state for 1.5s via `indicator.showSuccess()`
+- Failure: Shows "Failed to connect" state for 2s via `indicator.showError()`
+- `createPullIndicator()` updated to await async callbacks and catch errors
+- Returns `{ detector, indicator, cleanup }` for proper lifecycle management
 
 ---
 

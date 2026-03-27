@@ -378,22 +378,22 @@ monitor.addEventListener('statechange', ({detail}) => {
 - **Integration**: Direct callback or fallback to global `MessageContextMenu`
 - **Haptic**: Light tap at feedback point, optional pattern on success
 
-**Implemented (Phase 4) - Pull-to-Refresh Visual Feedback**:
+**Implemented (Phase 4) - Pull-to-Refresh with WebSocket Integration**:
 - [x] Glassmorphism pull indicator component with smooth animations
 - [x] CSS custom properties for dynamic progress values (`--ptr-progress`, `--ptr-distance`)
 - [x] Four visual states: hidden, pulling, ready, refreshing
 - [x] Spinner rotation follows pull progress (0-180 degrees)
 - [x] Reduced motion support via `prefers-reduced-motion`
 - [x] `createPullIndicator()` factory for easy detector integration
-- [x] 9 new unit tests (23 total passing in test-pull-to-refresh.js)
+- [x] **WebSocketReconnectIntegration** - `initializePullToRefresh()` wires to ConnectionMonitor
+- [x] Success state shows "Connected!" for 1.5s
+- [x] Error state shows "Failed to connect" for 2s
+- [x] 2-second debounce prevents rapid pull spam
+- [x] 26 unit tests passing in test-pull-to-refresh.js
 
 **Files Created (Phase 4)**:
 - `features/mobile-gestures/styles.css` - Pull indicator styles with glassmorphism
 - `features/mobile-gestures/pull-indicator.js` - Visual component with state management
-
-**Pending (Phase 4 - WebSocket Integration)**:
-- [ ] Wire PullToRefresh to existing ConnectionMonitor
-- [ ] Show success/error states on reconnect
 
 **Pending (Phase 5+)**:
 - [ ] Swipe up on input = fullscreen compose (120px threshold)
