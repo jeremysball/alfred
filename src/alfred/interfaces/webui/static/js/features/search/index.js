@@ -1,11 +1,13 @@
 /**
  * Search Feature Module
  * Milestone 9 Phase 1: In-Conversation Search (Ctrl+F)
+ * Milestone 9 Phase 2: Quick Session Switcher (Ctrl+Tab)
  *
- * Exports: SearchOverlay component and initialization functions
+ * Exports: SearchOverlay, QuickSwitcher components and initialization functions
  */
 
 import { SearchOverlay } from './search-overlay.js';
+import { QuickSwitcher, initializeQuickSwitcher } from './quick-switcher.js';
 
 /**
  * Initialize search feature
@@ -41,9 +43,11 @@ function isSearchSupported() {
 // Export public API
 export {
   SearchOverlay,
+  QuickSwitcher,
   initializeSearch,
+  initializeQuickSwitcher,
   isSearchSupported
 };
 
-// Default export for convenience
+// Default exports for convenience
 export default SearchOverlay;
