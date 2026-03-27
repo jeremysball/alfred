@@ -12,6 +12,7 @@ import {
   GestureCoordinator,
   GESTURE_CONFIG
 } from './features/mobile-gestures/index.js';
+import { initializeSearch } from './features/search/index.js';
 
 /**
  * WebSocket Message Contract
@@ -3112,6 +3113,19 @@ function initMobileGestures() {
   console.log('[Gestures] Mobile gestures initialized');
 }
 
+/**
+ * Initialize in-conversation search (Ctrl+F)
+ * Milestone 9 Phase 1: Search & Quick Navigation
+ */
+function initSearch() {
+  try {
+    initializeSearch();
+    console.log('[Search] In-conversation search initialized (Ctrl+F)');
+  } catch (error) {
+    console.error('[Search] Failed to initialize search:', error);
+  }
+}
+
 // ============================================
 // Initialization
 // ============================================
@@ -3126,6 +3140,7 @@ function initAll() {
   initOffline();
   initPullToRefresh();
   initMobileGestures();
+  initSearch();
   registerServiceWorker();
 
   // Cleanup on page unload
