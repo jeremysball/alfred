@@ -12,7 +12,7 @@ import {
   GestureCoordinator,
   GESTURE_CONFIG
 } from './features/mobile-gestures/index.js';
-import { initializeSearch } from './features/search/index.js';
+import { initializeSearch, initializeQuickSwitcher, initializeMentions } from './features/search/index.js';
 
 /**
  * WebSocket Message Contract
@@ -3126,6 +3126,35 @@ function initSearch() {
   }
 }
 
+/**
+ * Initialize quick session switcher (Ctrl+Tab)
+ * Milestone 9 Phase 2: Search & Quick Navigation
+ */
+function initQuickSwitcher() {
+  try {
+    initializeQuickSwitcher();
+    console.log('[QuickSwitcher] Quick session switcher initialized (Ctrl+Tab)');
+  } catch (error) {
+    console.error('[QuickSwitcher] Failed to initialize quick switcher:', error);
+  }
+}
+
+/**
+ * Initialize @ mentions in message composer
+ * Milestone 9 Phase 3: Search & Quick Navigation
+ */
+function initMentions() {
+  try {
+    const composer = document.getElementById('message-input');
+    if (composer) {
+      initializeMentions({ composer });
+      console.log('[Mentions] @ mentions initialized');
+    }
+  } catch (error) {
+    console.error('[Mentions] Failed to initialize mentions:', error);
+  }
+}
+
 // ============================================
 // Initialization
 // ============================================
@@ -3141,6 +3170,8 @@ function initAll() {
   initPullToRefresh();
   initMobileGestures();
   initSearch();
+  initQuickSwitcher();
+  initMentions();
   registerServiceWorker();
 
   // Cleanup on page unload

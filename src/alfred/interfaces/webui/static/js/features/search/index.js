@@ -2,12 +2,14 @@
  * Search Feature Module
  * Milestone 9 Phase 1: In-Conversation Search (Ctrl+F)
  * Milestone 9 Phase 2: Quick Session Switcher (Ctrl+Tab)
+ * Milestone 9 Phase 3: @ Mentions
  *
- * Exports: SearchOverlay, QuickSwitcher components and initialization functions
+ * Exports: SearchOverlay, QuickSwitcher, MentionDropdown components and initialization functions
  */
 
 import { SearchOverlay } from './search-overlay.js';
 import { QuickSwitcher, initializeQuickSwitcher } from './quick-switcher.js';
+import { MentionDropdown, initializeMentions } from './mention-dropdown.js';
 
 /**
  * Initialize search feature
@@ -44,8 +46,10 @@ function isSearchSupported() {
 export {
   SearchOverlay,
   QuickSwitcher,
+  MentionDropdown,
   initializeSearch,
   initializeQuickSwitcher,
+  initializeMentions,
   isSearchSupported
 };
 
