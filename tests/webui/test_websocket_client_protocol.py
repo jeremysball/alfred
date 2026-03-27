@@ -56,3 +56,17 @@ def test_connect_guards_against_closing_state():
 
     # Should have guard for CLOSING state
     assert "WebSocket.CLOSING" in source
+
+
+def test_lifecycle_listeners_tracked_for_cleanup():
+    """freeze, resume, pagehide, pageshow listeners should be tracked to prevent duplicates."""
+    source = (PROJECT_ROOT / "src/alfred/interfaces/webui/static/js/websocket-client.js").read_text()
+
+    # Should track freeze handler
+    assert "_freezeHandler" in source or "freezeHandler" in source
+    # Should track resume handler
+    assert "_resumeHandler" in source or "resumeHandler" in source
+    # Should track pagehide handler
+    assert "_pagehideHandler" in source or "pagehideHandler" in source
+    # Should track pageshow handler
+    assert "_pageshowHandler" in source or "pageshowHandler" in source

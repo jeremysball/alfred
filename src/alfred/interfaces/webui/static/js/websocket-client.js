@@ -110,6 +110,11 @@ class AlfredWebSocketClient extends EventTarget {
     this.lastCloseReason = '';
     this.lastCloseWasClean = null;
     this._pendingManualReconnect = false;
+    // Lifecycle handler tracking to prevent duplicate listeners on reconnect
+    this._freezeHandler = null;
+    this._resumeHandler = null;
+    this._pagehideHandler = null;
+    this._pageshowHandler = null;
   }
 
   connect() {
@@ -206,10 +211,23 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   _setupVisibilityHandling() {
+    // Clean up existing listeners to prevent duplicates on reconnect
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
     }
-    
+    if (this._freezeHandler) {
+      document.removeEventListener('freeze', this._freezeHandler);
+    }
+    if (this._resumeHandler) {
+      document.removeEventListener('resume', this._resumeHandler);
+    }
+    if (this._pagehideHandler) {
+      window.removeEventListener('pagehide', this._pagehideHandler);
+    }
+    if (this._pageshowHandler) {
+      window.removeEventListener('pageshow', this._pageshowHandler);
+    }
+
     this.visibilityHandler = () => {
       const isVisible = document.visibilityState === 'visible';
 
@@ -235,39 +253,42 @@ class AlfredWebSocketClient extends EventTarget {
         this._sendKeepalive();
       }
     };
-    
+
     document.addEventListener('visibilitychange', this.visibilityHandler);
-    
+
     // Page Lifecycle API for more granular control (Chrome/Android)
     if ('onfreeze' in document) {
-      document.addEventListener('freeze', () => {
+      this._freezeHandler = () => {
         console.log('Page frozen by OS');
         this._stopPing();
-      });
-      document.addEventListener('resume', () => {
+      };
+      this._resumeHandler = () => {
         console.log('Page resumed from frozen state');
         this.reconnectAttempts = 0;
         this.connect();
-      });
+      };
+      document.addEventListener('freeze', this._freezeHandler);
+      document.addEventListener('resume', this._resumeHandler);
     }
-    
+
     // Handle pagehide/pageshow for iOS Safari
-    window.addEventListener('pagehide', (e) => {
+    this._pagehideHandler = (e) => {
       if (e.persisted) {
         // Page is going into bfcache - connection will be suspended
         console.log('Page entering bfcache');
         this._stopPing();
       }
-    });
-    
-    window.addEventListener('pageshow', (e) => {
+    };
+    this._pageshowHandler = (e) => {
       if (e.persisted) {
         // Page restored from bfcache - connection is dead, reconnect
         console.log('Page restored from bfcache, reconnecting');
         this.reconnectAttempts = 0;
         this.connect();
       }
-    });
+    };
+    window.addEventListener('pagehide', this._pagehideHandler);
+    window.addEventListener('pageshow', this._pageshowHandler);
   }
 
   _sendKeepalive() {
