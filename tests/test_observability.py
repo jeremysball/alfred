@@ -119,7 +119,7 @@ def test_configure_logging_emits_file_records_with_surface_fields(tmp_path) -> N
     stream = _PlainBuffer()
 
     with _preserve_root_logging():
-        configure_logging(level=logging.INFO, log_file=log_file, stream=stream, webui_debug=False)
+        configure_logging(level=logging.INFO, log_file=log_file, stream=stream)
         logging.getLogger("alfred.context").info("event=turn.start")
 
     output = log_file.read_text()
@@ -129,21 +129,32 @@ def test_configure_logging_emits_file_records_with_surface_fields(tmp_path) -> N
     assert "\x1b[" not in output
 
 
-def test_configure_logging_allows_webui_debug_without_enabling_core_debug(tmp_path) -> None:
+def test_configure_logging_respects_level_for_all_surfaces(tmp_path) -> None:
+    """All surfaces follow the same log level (no special webui handling)."""
     log_file = tmp_path / "alfred.log"
     stream = _PlainBuffer()
 
     with _preserve_root_logging():
-        configure_logging(level=logging.WARNING, log_file=log_file, stream=stream, webui_debug=True)
+        configure_logging(level=logging.WARNING, log_file=log_file, stream=stream)
         logging.getLogger("alfred.context").debug("event=core.hidden")
-        logging.getLogger("alfred.interfaces.webui.server").debug("event=webui.visible")
+        logging.getLogger("alfred.interfaces.webui.server").debug("event=webui.hidden")
+        logging.getLogger("alfred.context").warning("event=core.visible")
+        logging.getLogger("alfred.interfaces.webui.server").warning("event=webui.visible")
 
     console_output = stream.getvalue()
     file_output = log_file.read_text()
 
+    # Debug messages hidden (below WARNING)
     assert "event=core.hidden" not in console_output
+    assert "event=webui.hidden" not in console_output
+
+    # Warning messages visible
+    assert "event=core.visible" in console_output
     assert "event=webui.visible" in console_output
     assert "[webui-server]" in console_output
+
+    # Same for file output
     assert "event=core.hidden" not in file_output
+    assert "event=webui.hidden" not in file_output
     assert "event=webui.visible" in file_output
     assert "surface=webui-server" in file_output

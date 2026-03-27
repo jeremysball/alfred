@@ -84,7 +84,6 @@ def test_webui_hotswap_restarts_only_on_webui_assets(tmp_path: Path) -> None:
             "host": "127.0.0.1",
             "port": 0,
             "open_browser": False,
-            "debug": False,
             "watch_root": static_root,
             "stop_event": stop_event,
             "server_factory": server_factory,
@@ -154,10 +153,9 @@ def test_run_webui_hotswap_uses_the_same_bootstrap_path(monkeypatch, tmp_path: P
         bootstrap_calls += 1
         return bootstrap_result
 
-    def fake_create_app(*, alfred_instance, debug: bool):
+    def fake_create_app(*, alfred_instance):
         app = SimpleNamespace(state=SimpleNamespace())
         app.state.alfred = alfred_instance
-        app.state.webui_debug = debug
         return app
 
     def fake_watch(*args, **kwargs):
@@ -181,7 +179,6 @@ def test_run_webui_hotswap_uses_the_same_bootstrap_path(monkeypatch, tmp_path: P
         host="127.0.0.1",
         port=8080,
         open_browser=False,
-        debug=False,
         watch_root=watched_file.parent,
         stop_event=stop_event,
     )

@@ -43,10 +43,9 @@ def test_run_webui_server_bootstraps_daemon_before_starting_uvicorn(monkeypatch)
         bootstrap_calls += 1
         return bootstrap_result
 
-    def fake_create_app(*, alfred_instance, debug: bool):
+    def fake_create_app(*, alfred_instance):
         app = SimpleNamespace(state=SimpleNamespace())
         app.state.alfred = alfred_instance
-        app.state.webui_debug = debug
         return app
 
     monkeypatch.setattr("alfred.data_manager.init_xdg_directories", lambda: None)
@@ -56,7 +55,7 @@ def test_run_webui_server_bootstraps_daemon_before_starting_uvicorn(monkeypatch)
     monkeypatch.setattr("alfred.cli.webui_hotswap.bootstrap_daemon", fake_bootstrap_daemon)
     monkeypatch.setattr("uvicorn.Server", FakeServer)
 
-    webui_hotswap.run_webui_server(host="127.0.0.1", port=8080, open_browser=False, debug=False)
+    webui_hotswap.run_webui_server(host="127.0.0.1", port=8080, open_browser=False)
 
     assert bootstrap_calls == 1
     assert len(configured_apps) == 1

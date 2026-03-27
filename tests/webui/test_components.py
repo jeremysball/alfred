@@ -346,20 +346,20 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
                   const box = toolCall?.querySelector('.tool-call');
                   return {
                     toolName: toolCall?.querySelector('.tool-name')?.textContent || '',
-                    status: toolCall?.querySelector('.tool-status')?.textContent || '',
+                    statusIcon: toolCall?.querySelector('.tool-status-icon')?.textContent || '',
                     expanded: toolCall?.getAttribute('expanded') || '',
                     collapsedClass: box?.className || '',
-                    outputText: toolCall?.querySelector('.tool-output')?.textContent || '',
+                    toggle: toolCall?.querySelector('.tool-toggle')?.textContent || '',
                   };
                 }
                 """
             )
 
             assert collapsed["toolName"] == "read_file"
-            assert collapsed["status"] == "running"
+            assert collapsed["statusIcon"] == ">"  # running status shows ">"
             assert collapsed["expanded"] == "false"
             assert "collapsed" in collapsed["collapsedClass"]
-            assert "File contents here" in collapsed["outputText"]
+            assert collapsed["toggle"] == "+"
 
             await page.evaluate(
                 """
@@ -378,19 +378,20 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
                   const toolCall = document.querySelector('#browser-tool-call');
                   const box = toolCall?.querySelector('.tool-call');
                   return {
-                    status: toolCall?.querySelector('.tool-status')?.textContent || '',
-                    outputText: toolCall?.querySelector('.tool-output')?.textContent || '',
+                    statusIcon: toolCall?.querySelector('.tool-status-icon')?.textContent || '',
                     collapsedClass: box?.className || '',
+                    toggle: toolCall?.querySelector('.tool-toggle')?.textContent || '',
                   };
                 }
                 """
             )
 
-            assert updated["status"] == "success"
-            assert "More output" in updated["outputText"]
+            assert updated["statusIcon"] == "ok"  # success status shows "ok"
             assert "success" in updated["collapsedClass"]
+            assert updated["toggle"] == "+"  # still collapsed
 
-            await page.click("#browser-tool-call .tool-header")
+            # Expand to check output
+            await page.click("#browser-tool-call .tool-button")
             await page.wait_for_timeout(80)
 
             expanded = await page.evaluate(
@@ -402,6 +403,7 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
                     expanded: toolCall?.getAttribute('expanded') || '',
                     expandedClass: box?.className || '',
                     toggle: toolCall?.querySelector('.tool-toggle')?.textContent || '',
+                    outputText: toolCall?.querySelector('.tool-output')?.textContent || '',
                   };
                 }
                 """
@@ -409,7 +411,8 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
 
             assert expanded["expanded"] == "true"
             assert "expanded" in expanded["expandedClass"]
-            assert expanded["toggle"] == "v"
+            assert expanded["toggle"] == "-"  # expanded shows "-"
+            assert "More output" in expanded["outputText"]
 
             await browser.close()
     finally:
