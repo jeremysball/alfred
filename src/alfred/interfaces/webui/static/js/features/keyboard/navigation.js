@@ -7,7 +7,7 @@
 
 class MessageNavigator {
   constructor() {
-    this.messageSelector = '.message';
+    this.messageSelector = ".message";
   }
 
   /**
@@ -29,12 +29,12 @@ class MessageNavigator {
     if (!activeElement) return null;
 
     // Check if active element is a message
-    if (activeElement.classList.contains('message')) {
+    if (activeElement.classList.contains("message")) {
       return activeElement;
     }
 
     // Check if active element is inside a message
-    return activeElement.closest('.message');
+    return activeElement.closest(".message");
   }
 
   /**
@@ -62,7 +62,7 @@ class MessageNavigator {
     }
 
     messages[index].focus();
-    messages[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    messages[index].scrollIntoView({ behavior: "smooth", block: "nearest" });
     return true;
   }
 
@@ -78,9 +78,7 @@ class MessageNavigator {
     if (currentIndex === -1) return false;
 
     // Wrap to end if at beginning
-    const newIndex = currentIndex === 0
-      ? this.getMessages().length - 1
-      : currentIndex - 1;
+    const newIndex = currentIndex === 0 ? this.getMessages().length - 1 : currentIndex - 1;
 
     return this.focusMessageAtIndex(newIndex);
   }
@@ -99,9 +97,7 @@ class MessageNavigator {
     const messages = this.getMessages();
 
     // Wrap to start if at end
-    const newIndex = currentIndex === messages.length - 1
-      ? 0
-      : currentIndex + 1;
+    const newIndex = currentIndex === messages.length - 1 ? 0 : currentIndex + 1;
 
     return this.focusMessageAtIndex(newIndex);
   }
@@ -135,14 +131,14 @@ class MessageNavigator {
   makeMessagesFocusable() {
     const messages = this.getMessages();
     messages.forEach((msg, index) => {
-      if (!msg.hasAttribute('tabindex')) {
-        msg.setAttribute('tabindex', '0');
-        msg.setAttribute('data-message-index', index.toString());
+      if (!msg.hasAttribute("tabindex")) {
+        msg.setAttribute("tabindex", "0");
+        msg.setAttribute("data-message-index", index.toString());
       }
 
       // Add focus styles if not present
-      if (!msg.classList.contains('message-focusable')) {
-        msg.classList.add('message-focusable');
+      if (!msg.classList.contains("message-focusable")) {
+        msg.classList.add("message-focusable");
       }
     });
   }
@@ -151,6 +147,6 @@ class MessageNavigator {
 // Export for ESM and browser usage
 export { MessageNavigator };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.MessageNavigator = MessageNavigator;
 }

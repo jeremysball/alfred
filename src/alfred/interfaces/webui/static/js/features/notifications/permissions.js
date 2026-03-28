@@ -5,14 +5,14 @@
  * Stores permission choice in localStorage for persistence.
  */
 
-const STORAGE_KEY = 'alfred_notification_permission';
+const STORAGE_KEY = "alfred_notification_permission";
 
 /**
  * Get the current notification permission status
  * @returns {NotificationPermission} 'granted', 'denied', 'default', or null (not supported)
  */
 function getPermission() {
-  if (!('Notification' in window)) {
+  if (!("Notification" in window)) {
     return null;
   }
   return Notification.permission;
@@ -23,7 +23,7 @@ function getPermission() {
  * @returns {boolean}
  */
 function isSupported() {
-  return 'Notification' in window;
+  return "Notification" in window;
 }
 
 /**
@@ -31,7 +31,7 @@ function isSupported() {
  * @returns {boolean}
  */
 function isGranted() {
-  return getPermission() === 'granted';
+  return getPermission() === "granted";
 }
 
 /**
@@ -39,7 +39,7 @@ function isGranted() {
  * @returns {boolean}
  */
 function isDenied() {
-  return getPermission() === 'denied';
+  return getPermission() === "denied";
 }
 
 /**
@@ -48,7 +48,7 @@ function isDenied() {
  */
 function shouldAsk() {
   const permission = getPermission();
-  return permission === 'default' || permission === null;
+  return permission === "default" || permission === null;
 }
 
 /**
@@ -65,8 +65,8 @@ async function request() {
     savePermissionState(result);
     return result;
   } catch (err) {
-    console.error('Failed to request notification permission:', err);
-    return 'denied';
+    console.error("Failed to request notification permission:", err);
+    return "denied";
   }
 }
 
@@ -77,12 +77,12 @@ async function request() {
 async function requestIfNeeded() {
   const current = getPermission();
 
-  if (current === 'granted') {
-    return 'granted';
+  if (current === "granted") {
+    return "granted";
   }
 
-  if (current === 'denied') {
-    return 'denied';
+  if (current === "denied") {
+    return "denied";
   }
 
   return await request();
@@ -97,7 +97,7 @@ function savePermissionState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, state);
   } catch (err) {
-    console.warn('Failed to save permission state:', err);
+    console.warn("Failed to save permission state:", err);
   }
 }
 
@@ -109,7 +109,7 @@ function savePermissionState(state) {
 function loadPermissionState() {
   try {
     return localStorage.getItem(STORAGE_KEY);
-  } catch (err) {
+  } catch (_err) {
     return null;
   }
 }
@@ -122,11 +122,11 @@ function getInstructions() {
   const browser = detectBrowser();
 
   const instructions = {
-    chrome: 'Click the lock icon in the address bar, then allow notifications.',
-    firefox: 'Click the icon in the address bar, then allow notifications.',
-    safari: 'Open Safari Preferences > Websites > Notifications, then allow for this site.',
-    edge: 'Click the lock icon in the address bar, then allow notifications.',
-    default: 'Check your browser settings to allow notifications for this site.'
+    chrome: "Click the lock icon in the address bar, then allow notifications.",
+    firefox: "Click the icon in the address bar, then allow notifications.",
+    safari: "Open Safari Preferences > Websites > Notifications, then allow for this site.",
+    edge: "Click the lock icon in the address bar, then allow notifications.",
+    default: "Check your browser settings to allow notifications for this site.",
   };
 
   return instructions[browser] || instructions.default;
@@ -140,12 +140,12 @@ function getInstructions() {
 function detectBrowser() {
   const ua = navigator.userAgent.toLowerCase();
 
-  if (ua.includes('chrome') && !ua.includes('edg')) return 'chrome';
-  if (ua.includes('firefox')) return 'firefox';
-  if (ua.includes('safari') && !ua.includes('chrome')) return 'safari';
-  if (ua.includes('edg')) return 'edge';
+  if (ua.includes("chrome") && !ua.includes("edg")) return "chrome";
+  if (ua.includes("firefox")) return "firefox";
+  if (ua.includes("safari") && !ua.includes("chrome")) return "safari";
+  if (ua.includes("edg")) return "edge";
 
-  return 'default';
+  return "default";
 }
 
 /**
@@ -154,7 +154,7 @@ function detectBrowser() {
  */
 function init() {
   if (!isSupported()) {
-    console.log('Notifications not supported in this browser');
+    console.log("Notifications not supported in this browser");
     return;
   }
 
@@ -166,18 +166,18 @@ function init() {
 
 // Export for ESM and browser usage
 export {
+  getInstructions,
   getPermission,
-  isSupported,
-  isGranted,
+  init,
   isDenied,
-  shouldAsk,
+  isGranted,
+  isSupported,
   request,
   requestIfNeeded,
-  getInstructions,
-  init
+  shouldAsk,
 };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.NotificationPermissionManager = {
     getPermission,
     isSupported,
@@ -187,6 +187,6 @@ if (typeof window !== 'undefined') {
     request,
     requestIfNeeded,
     getInstructions,
-    init
+    init,
   };
 }

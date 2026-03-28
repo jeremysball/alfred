@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from alfred.agent import ToolEvent
 from alfred.interfaces.webui.contracts import WebUISessionManager
-from alfred.session import Message, Role, Session, SessionMeta, ToolCallRecord
+from alfred.session import Message, Role, Session, SessionMeta, TextBlock, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 
 DEFAULT_MODEL_NAME = "kimi/k2-test"
@@ -82,12 +82,27 @@ def make_message(
     cached_tokens: int = 0,
     reasoning_tokens: int = 0,
     reasoning_content: str = "",
+    text_blocks: list[dict[str, Any] | TextBlock] | None = None,
     tool_calls: list[ToolCallRecord] | None = None,
     streaming: bool = False,
 ) -> Message:
     """Create a real Message."""
 
     role_enum = role if isinstance(role, Role) else Role(role)
+    converted_text_blocks: list[TextBlock] | None = None
+    if text_blocks is not None:
+        converted_text_blocks = []
+        for block in text_blocks:
+            if isinstance(block, TextBlock):
+                converted_text_blocks.append(block)
+            else:
+                converted_text_blocks.append(
+                    TextBlock(
+                        content=block.get("content", ""),
+                        sequence=block.get("sequence", 0),
+                    )
+                )
+
     return Message(
         idx=idx,
         role=role_enum,
@@ -99,6 +114,7 @@ def make_message(
         cached_tokens=cached_tokens,
         reasoning_tokens=reasoning_tokens,
         reasoning_content=reasoning_content,
+        text_blocks=converted_text_blocks,
         tool_calls=tool_calls,
         streaming=streaming,
     )

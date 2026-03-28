@@ -1,5 +1,6 @@
 """Tests for frontend Web Components and WebSocket client."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
@@ -122,3 +123,70 @@ def test_chat_styles_exist():
     # Verify chat-related styles
     assert ".message" in content or "chat" in content.lower()
     assert ".user" in content.lower() or ".assistant" in content.lower()
+
+
+@pytest.mark.asyncio
+async def test_leader_popup_shows_legend_and_nested_submenu(websocket_server, page_helper):
+    """Verify leader mode shows the full keybind tree (leader-only mode)."""
+    from playwright.async_api import expect
+
+    page = page_helper
+
+    await page.wait_for_function(
+        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
+        timeout=5000,
+    )
+
+    await page.focus("#message-input")
+    await page.keyboard.press("Control+s")
+
+    which_key = page.locator(".which-key")
+    await expect(which_key).to_be_visible()
+
+    # Verify root-level categories (leader-only mode: all keybinds)
+    await expect(which_key).to_contain_text("S")
+    await expect(which_key).to_contain_text("Search")
+    await expect(which_key).to_contain_text("C")
+    await expect(which_key).to_contain_text("Chat")
+    await expect(which_key).to_contain_text("M")
+    await expect(which_key).to_contain_text("Messages")
+    await expect(which_key).to_contain_text("P")
+    await expect(which_key).to_contain_text("Palette")
+    await expect(which_key).to_contain_text("T")
+    await expect(which_key).to_contain_text("Theme")
+    await expect(which_key).to_contain_text("H")
+    await expect(which_key).to_contain_text("Help")
+    await expect(which_key).to_contain_text("X")
+    await expect(which_key).to_contain_text("Cancel")
+    await expect(which_key).to_contain_text("Esc")
+
+    # Verify popup is within viewport bounds
+    box = await which_key.bounding_box()
+    assert box is not None
+    assert box["y"] >= 0
+    assert box["y"] + box["height"] <= await page.evaluate("window.innerHeight")
+
+    # Navigate to Search > Messages
+    await page.keyboard.press("S")
+    await expect(which_key).to_contain_text("Leader + S")
+    await expect(which_key).to_contain_text("M")
+    await expect(which_key).to_contain_text("Messages")
+    await expect(which_key).to_contain_text("Q")
+    await expect(which_key).to_contain_text("Quick Switcher")
+
+    await page.keyboard.press("M")
+    await expect(page.locator(".search-overlay")).to_be_visible()
+
+    # Close search and test Help > Keyboard help
+    await page.keyboard.press("Escape")
+    await page.keyboard.press("Control+s")
+    await page.keyboard.press("H")  # Enter Help submenu
+
+    await expect(which_key).to_contain_text("Leader + H")
+    await expect(which_key).to_contain_text("Keyboard help")
+
+    await page.keyboard.press("H")  # Open keyboard help
+    await page.wait_for_function(
+        "() => window.alfredHelpSheet?.sheet?.isOpen === true",
+        timeout=5000,
+    )

@@ -20,12 +20,12 @@ export class MentionDropdown {
       return MentionDropdown.instance;
     }
 
-    this.composer = options.composer || document.getElementById('message-input');
+    this.composer = options.composer || document.getElementById("message-input");
     this.maxMessages = options.maxMessages || 20;
-    this.triggerChar = '@';
+    this.triggerChar = "@";
 
     this.isOpen = false;
-    this.query = '';
+    this.query = "";
     this.messages = [];
     this.filteredMessages = [];
     this.selectedIndex = 0;
@@ -59,18 +59,18 @@ export class MentionDropdown {
 
   createDOM() {
     // Positioned absolute below cursor
-    this.dropdown = document.createElement('div');
-    this.dropdown.className = 'mention-dropdown hidden';
-    this.dropdown.setAttribute('role', 'listbox');
-    this.dropdown.setAttribute('aria-label', 'Message mentions');
+    this.dropdown = document.createElement("div");
+    this.dropdown.className = "mention-dropdown hidden";
+    this.dropdown.setAttribute("role", "listbox");
+    this.dropdown.setAttribute("aria-label", "Message mentions");
 
-    const listContainer = document.createElement('div');
-    listContainer.className = 'mention-list';
+    const listContainer = document.createElement("div");
+    listContainer.className = "mention-list";
     this.listEl = listContainer;
 
-    const hint = document.createElement('div');
-    hint.className = 'mention-hint';
-    hint.innerHTML = '<span>↑↓ Navigate</span><span>Enter Select</span><span>Esc Close</span>';
+    const hint = document.createElement("div");
+    hint.className = "mention-hint";
+    hint.innerHTML = "<span>↑↓ Navigate</span><span>Enter Select</span><span>Esc Close</span>";
 
     this.dropdown.appendChild(listContainer);
     this.dropdown.appendChild(hint);
@@ -78,17 +78,17 @@ export class MentionDropdown {
   }
 
   attachEventListeners() {
-    this.composer.addEventListener('input', this.boundHandleInput);
-    this.composer.addEventListener('keydown', this.boundHandleKeydown);
-    this.composer.addEventListener('blur', this.boundHandleBlur);
+    this.composer.addEventListener("input", this.boundHandleInput);
+    this.composer.addEventListener("keydown", this.boundHandleKeydown);
+    this.composer.addEventListener("blur", this.boundHandleBlur);
   }
 
-  handleInput(e) {
+  handleInput(_e) {
     const cursorPos = this.composer.selectionStart;
     const textBeforeCursor = this.composer.value.slice(0, cursorPos);
 
     // Check if we're in an @ mention context
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
 
     if (lastAtIndex === -1) {
       this.close();
@@ -106,7 +106,7 @@ export class MentionDropdown {
     this.query = textBeforeCursor.slice(lastAtIndex + 1);
 
     // Don't trigger if query has spaces (user moved to next word)
-    if (this.query.includes(' ')) {
+    if (this.query.includes(" ")) {
       this.close();
       return;
     }
@@ -124,20 +124,20 @@ export class MentionDropdown {
     if (!this.isOpen) return;
 
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
-        this.navigate('next');
+        this.navigate("next");
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
-        this.navigate('previous');
+        this.navigate("previous");
         break;
-      case 'Enter':
-      case 'Tab':
+      case "Enter":
+      case "Tab":
         e.preventDefault();
         this.select();
         break;
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         this.close();
         break;
@@ -161,12 +161,12 @@ export class MentionDropdown {
     if (this.isOpen) return;
 
     this.isOpen = true;
-    this.dropdown.classList.remove('hidden');
+    this.dropdown.classList.remove("hidden");
     this.messages = this.extractMessages();
     this.positionDropdown();
 
     // Dispatch custom event
-    this.dropdown.dispatchEvent(new CustomEvent('mention:open'));
+    this.dropdown.dispatchEvent(new CustomEvent("mention:open"));
   }
 
   /**
@@ -176,13 +176,13 @@ export class MentionDropdown {
     if (!this.isOpen) return;
 
     this.isOpen = false;
-    this.dropdown.classList.add('hidden');
-    this.query = '';
+    this.dropdown.classList.add("hidden");
+    this.query = "";
     this.filteredMessages = [];
     this.mentionStartIndex = -1;
 
     // Dispatch custom event
-    this.dropdown.dispatchEvent(new CustomEvent('mention:close'));
+    this.dropdown.dispatchEvent(new CustomEvent("mention:close"));
   }
 
   /**
@@ -196,7 +196,7 @@ export class MentionDropdown {
       this.filteredMessages = this.messages.slice(0, this.maxMessages);
     } else {
       this.filteredMessages = this.messages
-        .filter(m => this.fuzzyMatch(normalizedQuery, m.text.toLowerCase()))
+        .filter((m) => this.fuzzyMatch(normalizedQuery, m.text.toLowerCase()))
         .slice(0, this.maxMessages);
     }
 
@@ -228,7 +228,7 @@ export class MentionDropdown {
     const len = this.filteredMessages.length;
     if (len === 0) return;
 
-    if (direction === 'next') {
+    if (direction === "next") {
       this.selectedIndex = (this.selectedIndex + 1) % len;
     } else {
       this.selectedIndex = (this.selectedIndex - 1 + len) % len;
@@ -259,12 +259,12 @@ export class MentionDropdown {
 
     // Find the @ that triggered this mention
     const textBeforeCursor = fullText.slice(0, cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
 
     if (lastAtIndex === -1) return;
 
     // Build mention text
-    const excerpt = message.text.slice(0, 50) + (message.text.length > 50 ? '...' : '');
+    const excerpt = message.text.slice(0, 50) + (message.text.length > 50 ? "..." : "");
     const mentionText = `@${message.author}: "${excerpt}" `;
 
     // Replace @query with mention
@@ -278,12 +278,14 @@ export class MentionDropdown {
     this.composer.setSelectionRange(newCursorPos, newCursorPos);
 
     // Trigger input event for any listeners
-    this.composer.dispatchEvent(new Event('input', { bubbles: true }));
+    this.composer.dispatchEvent(new Event("input", { bubbles: true }));
 
     // Dispatch custom event
-    this.composer.dispatchEvent(new CustomEvent('mention:insert', {
-      detail: { message, mentionText }
-    }));
+    this.composer.dispatchEvent(
+      new CustomEvent("mention:insert", {
+        detail: { message, mentionText },
+      }),
+    );
   }
 
   /**
@@ -292,27 +294,27 @@ export class MentionDropdown {
    */
   extractMessages() {
     // Scan DOM for message elements
-    const messageEls = document.querySelectorAll('.message, [data-message-id]');
+    const messageEls = document.querySelectorAll(".message, [data-message-id]");
     const messages = [];
     const seenIds = new Set();
 
-    messageEls.forEach(el => {
+    messageEls.forEach((el) => {
       const id = el.dataset.messageId;
-      const textEl = el.querySelector('.message-text, .content, .text, .message-content');
-      const authorEl = el.querySelector('.author, .username, .sender, .message-author');
+      const textEl = el.querySelector(".message-text, .content, .text, .message-content");
+      const authorEl = el.querySelector(".author, .username, .sender, .message-author");
 
       // Skip if no ID or already seen
       if (!id || seenIds.has(id)) return;
       seenIds.add(id);
 
       // Skip if no text content
-      if (!textEl || !textEl.textContent.trim()) return;
+      if (!textEl?.textContent.trim()) return;
 
       messages.push({
         id,
         text: textEl.textContent.trim(),
-        author: authorEl?.textContent.trim() || 'Unknown',
-        element: el
+        author: authorEl?.textContent.trim() || "Unknown",
+        element: el,
       });
     });
 
@@ -328,11 +330,11 @@ export class MentionDropdown {
     const composerRect = this.composer.getBoundingClientRect();
 
     // Calculate position (below composer, aligned left)
-    let top = composerRect.bottom + window.scrollY + 5;
+    const top = composerRect.bottom + window.scrollY + 5;
     let left = composerRect.left + window.scrollX;
 
     // Adjust if would go off screen
-    const dropdownRect = this.dropdown.getBoundingClientRect();
+    const _dropdownRect = this.dropdown.getBoundingClientRect();
     const windowWidth = window.innerWidth;
 
     if (left + 300 > windowWidth) {
@@ -352,32 +354,32 @@ export class MentionDropdown {
       return;
     }
 
-    this.listEl.innerHTML = '';
+    this.listEl.innerHTML = "";
 
     this.filteredMessages.forEach((msg, index) => {
-      const item = document.createElement('div');
-      item.className = 'mention-item';
-      item.setAttribute('role', 'option');
-      item.setAttribute('aria-selected', index === this.selectedIndex ? 'true' : 'false');
+      const item = document.createElement("div");
+      item.className = "mention-item";
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", index === this.selectedIndex ? "true" : "false");
 
       if (index === this.selectedIndex) {
-        item.classList.add('selected');
+        item.classList.add("selected");
       }
 
-      const authorSpan = document.createElement('span');
-      authorSpan.className = 'mention-author';
+      const authorSpan = document.createElement("span");
+      authorSpan.className = "mention-author";
       authorSpan.textContent = msg.author;
 
-      const textSpan = document.createElement('span');
-      textSpan.className = 'mention-text';
-      const excerpt = msg.text.slice(0, 60) + (msg.text.length > 60 ? '...' : '');
+      const textSpan = document.createElement("span");
+      textSpan.className = "mention-text";
+      const excerpt = msg.text.slice(0, 60) + (msg.text.length > 60 ? "..." : "");
       textSpan.textContent = excerpt;
 
       item.appendChild(authorSpan);
       item.appendChild(textSpan);
 
       // Click to select
-      item.addEventListener('mousedown', (e) => {
+      item.addEventListener("mousedown", (e) => {
         e.preventDefault(); // Prevent blur from closing before click
         this.selectedIndex = index;
         this.select();
@@ -391,9 +393,9 @@ export class MentionDropdown {
    * Scroll selected item into view
    */
   scrollSelectedIntoView() {
-    const selected = this.listEl.querySelector('.selected');
+    const selected = this.listEl.querySelector(".selected");
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      selected.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }
 
@@ -403,7 +405,7 @@ export class MentionDropdown {
    * @returns {string} - Escaped text
    */
   escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
@@ -412,11 +414,11 @@ export class MentionDropdown {
    * Destroy the instance and clean up
    */
   destroy() {
-    this.composer.removeEventListener('input', this.boundHandleInput);
-    this.composer.removeEventListener('keydown', this.boundHandleKeydown);
-    this.composer.removeEventListener('blur', this.boundHandleBlur);
+    this.composer.removeEventListener("input", this.boundHandleInput);
+    this.composer.removeEventListener("keydown", this.boundHandleKeydown);
+    this.composer.removeEventListener("blur", this.boundHandleBlur);
 
-    if (this.dropdown && this.dropdown.parentNode) {
+    if (this.dropdown?.parentNode) {
       this.dropdown.parentNode.removeChild(this.dropdown);
     }
 
@@ -431,6 +433,6 @@ export class MentionDropdown {
  */
 export function initializeMentions(options = {}) {
   const dropdown = MentionDropdown.getInstance(options);
-  console.log('[Mentions] @ mentions initialized');
+  console.log("[Mentions] @ mentions initialized");
   return dropdown;
 }

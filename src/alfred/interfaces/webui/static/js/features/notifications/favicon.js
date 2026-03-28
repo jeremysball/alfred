@@ -17,11 +17,12 @@ let linkElement = null;
  */
 function init() {
   // Find the favicon link element
-  linkElement = document.querySelector('link[rel="icon"]') ||
-                document.querySelector('link[rel="shortcut icon"]');
+  linkElement =
+    document.querySelector('link[rel="icon"]') ||
+    document.querySelector('link[rel="shortcut icon"]');
 
   if (!linkElement) {
-    console.warn('No favicon link element found');
+    console.warn("No favicon link element found");
     return;
   }
 
@@ -29,13 +30,13 @@ function init() {
   originalFavicon = linkElement.href;
 
   // Create canvas for badge drawing
-  canvas = document.createElement('canvas');
+  canvas = document.createElement("canvas");
   canvas.width = 32;
   canvas.height = 32;
-  ctx = canvas.getContext('2d');
+  ctx = canvas.getContext("2d");
 
   // Listen for visibility changes
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       // Tab became visible - clear badge
       clear();
@@ -56,7 +57,7 @@ function drawBadge(count) {
 
   // Load original favicon
   const img = new Image();
-  img.crossOrigin = 'anonymous';
+  img.crossOrigin = "anonymous";
   img.onload = () => {
     // Draw original favicon
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -68,30 +69,30 @@ function drawBadge(count) {
       const y = canvas.height - badgeSize;
 
       // Badge background
-      ctx.fillStyle = '#f85149'; // Red badge
+      ctx.fillStyle = "#f85149"; // Red badge
       ctx.beginPath();
-      ctx.arc(x + badgeSize/2, y + badgeSize/2, badgeSize/2, 0, Math.PI * 2);
+      ctx.arc(x + badgeSize / 2, y + badgeSize / 2, badgeSize / 2, 0, Math.PI * 2);
       ctx.fill();
 
       // Badge text
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
-      const text = count > 99 ? '99+' : count.toString();
+      const text = count > 99 ? "99+" : count.toString();
       const fontSize = count > 9 ? 8 : 10;
       ctx.font = `bold ${fontSize}px sans-serif`;
 
-      ctx.fillText(text, x + badgeSize/2, y + badgeSize/2 + 1);
+      ctx.fillText(text, x + badgeSize / 2, y + badgeSize / 2 + 1);
     }
 
     // Update favicon
-    updateFaviconLink(canvas.toDataURL('image/png'));
+    updateFaviconLink(canvas.toDataURL("image/png"));
   };
 
   img.onerror = () => {
-    console.warn('Failed to load original favicon');
+    console.warn("Failed to load original favicon");
   };
 
   img.src = originalFavicon;
@@ -106,14 +107,15 @@ function updateFaviconLink(dataUrl) {
   if (!linkElement) return;
 
   // Create new link element
-  const newLink = document.createElement('link');
-  newLink.rel = 'icon';
-  newLink.type = 'image/png';
+  const newLink = document.createElement("link");
+  newLink.rel = "icon";
+  newLink.type = "image/png";
   newLink.href = dataUrl;
 
   // Remove old and add new
-  const oldLink = document.querySelector('link[rel="icon"]') ||
-                  document.querySelector('link[rel="shortcut icon"]');
+  const oldLink =
+    document.querySelector('link[rel="icon"]') ||
+    document.querySelector('link[rel="shortcut icon"]');
   if (oldLink) {
     oldLink.parentNode.removeChild(oldLink);
   }
@@ -164,14 +166,14 @@ function getCount() {
 }
 
 // Export for ESM and browser usage
-export { init, set, increment, clear, getCount };
+export { clear, getCount, increment, init, set };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.FaviconBadge = {
     init,
     set,
     increment,
     clear,
-    getCount
+    getCount,
   };
 }

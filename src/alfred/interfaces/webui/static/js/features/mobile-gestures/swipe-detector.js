@@ -17,9 +17,14 @@
 class SwipeDetector {
   constructor(options = {}) {
     this.threshold = options.threshold || 100;
-    this.direction = options.direction || 'horizontal'; // 'horizontal', 'vertical', or 'both'
+    this.direction = options.direction || "horizontal"; // 'horizontal', 'vertical', or 'both'
     this.edgeMargin = options.edgeMargin !== undefined ? options.edgeMargin : 40;
-    this.excludeSelectors = options.excludeSelectors || ['input', 'textarea', 'select', '[contenteditable]'];
+    this.excludeSelectors = options.excludeSelectors || [
+      "input",
+      "textarea",
+      "select",
+      "[contenteditable]",
+    ];
 
     // Callbacks
     this.onSwipe = options.onSwipe || null;
@@ -49,7 +54,7 @@ class SwipeDetector {
    */
   attachToElement(element) {
     if (!element || !(element instanceof HTMLElement)) {
-      console.error('SwipeDetector: Invalid element provided');
+      console.error("SwipeDetector: Invalid element provided");
       return false;
     }
 
@@ -59,13 +64,13 @@ class SwipeDetector {
     this._screenWidth = window.innerWidth;
 
     // Use passive listeners for better scroll performance
-    element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
-    element.addEventListener('touchmove', this._handleTouchMove, { passive: true });
-    element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
-    element.addEventListener('touchcancel', this._handleTouchEnd, { passive: true });
+    element.addEventListener("touchstart", this._handleTouchStart, { passive: true });
+    element.addEventListener("touchmove", this._handleTouchMove, { passive: true });
+    element.addEventListener("touchend", this._handleTouchEnd, { passive: true });
+    element.addEventListener("touchcancel", this._handleTouchEnd, { passive: true });
 
     // Update screen width on resize
-    window.addEventListener('resize', this._updateScreenWidth.bind(this));
+    window.addEventListener("resize", this._updateScreenWidth.bind(this));
 
     return true;
   }
@@ -76,10 +81,10 @@ class SwipeDetector {
   detach() {
     if (!this._element) return;
 
-    this._element.removeEventListener('touchstart', this._handleTouchStart);
-    this._element.removeEventListener('touchmove', this._handleTouchMove);
-    this._element.removeEventListener('touchend', this._handleTouchEnd);
-    this._element.removeEventListener('touchcancel', this._handleTouchEnd);
+    this._element.removeEventListener("touchstart", this._handleTouchStart);
+    this._element.removeEventListener("touchmove", this._handleTouchMove);
+    this._element.removeEventListener("touchend", this._handleTouchEnd);
+    this._element.removeEventListener("touchcancel", this._handleTouchEnd);
 
     this._element = null;
     this._isActive = false;
@@ -141,7 +146,7 @@ class SwipeDetector {
 
     this._isActive = true;
 
-    if (typeof this.onSwipeStart === 'function') {
+    if (typeof this.onSwipeStart === "function") {
       this.onSwipeStart(event);
     }
   }
@@ -160,7 +165,7 @@ class SwipeDetector {
     const deltaX = this._currentX - this._startX;
     const deltaY = this._currentY - this._startY;
 
-    if (typeof this.onSwipeMove === 'function') {
+    if (typeof this.onSwipeMove === "function") {
       this.onSwipeMove(deltaX, deltaY, event);
     }
   }
@@ -174,11 +179,11 @@ class SwipeDetector {
 
     const result = this._calculateSwipe(this._currentX, this._currentY);
 
-    if (typeof this.onSwipeEnd === 'function') {
+    if (typeof this.onSwipeEnd === "function") {
       this.onSwipeEnd(result, event);
     }
 
-    if (result.isValid && typeof this.onSwipe === 'function') {
+    if (result.isValid && typeof this.onSwipe === "function") {
       this.onSwipe(result.direction, result.distance, event, result);
     }
 
@@ -207,16 +212,16 @@ class SwipeDetector {
 
     if (isHorizontal) {
       distance = absX;
-      direction = deltaX > 0 ? 'right' : 'left';
+      direction = deltaX > 0 ? "right" : "left";
 
-      if (this.direction === 'horizontal' || this.direction === 'both') {
+      if (this.direction === "horizontal" || this.direction === "both") {
         isValid = distance >= this.threshold;
       }
     } else {
       distance = absY;
-      direction = deltaY > 0 ? 'down' : 'up';
+      direction = deltaY > 0 ? "down" : "up";
 
-      if (this.direction === 'vertical' || this.direction === 'both') {
+      if (this.direction === "vertical" || this.direction === "both") {
         isValid = distance >= this.threshold;
       }
     }
@@ -229,7 +234,7 @@ class SwipeDetector {
       isVertical,
       deltaX,
       deltaY,
-      duration: Date.now() - this._startTime
+      duration: Date.now() - this._startTime,
     };
   }
 
@@ -262,6 +267,6 @@ class SwipeDetector {
 // Export for ESM and browser usage
 export { SwipeDetector };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.SwipeDetector = SwipeDetector;
 }

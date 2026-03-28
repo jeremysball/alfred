@@ -19,10 +19,10 @@ const ClipboardHandler = {
   attach() {
     if (this.isAttached) return;
 
-    document.addEventListener('paste', this._handlePaste.bind(this));
+    document.addEventListener("paste", this._handlePaste.bind(this));
     this.isAttached = true;
 
-    console.log('ClipboardHandler: attached');
+    console.log("ClipboardHandler: attached");
   },
 
   /**
@@ -31,10 +31,10 @@ const ClipboardHandler = {
   detach() {
     if (!this.isAttached) return;
 
-    document.removeEventListener('paste', this._handlePaste.bind(this));
+    document.removeEventListener("paste", this._handlePaste.bind(this));
     this.isAttached = false;
 
-    console.log('ClipboardHandler: detached');
+    console.log("ClipboardHandler: detached");
   },
 
   /**
@@ -44,8 +44,8 @@ const ClipboardHandler = {
   _handlePaste(event) {
     // Only handle if not in an input/textarea (unless it's the chat input)
     const target = event.target;
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-    const isChatInput = target.id === 'chat-input' || target.closest('#chat-input');
+    const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+    const isChatInput = target.id === "chat-input" || target.closest("#chat-input");
 
     if (isInput && !isChatInput) {
       return; // Let normal paste happen
@@ -54,10 +54,10 @@ const ClipboardHandler = {
     const files = this._extractFiles(event);
 
     if (files.length > 0) {
-      console.log('ClipboardHandler: files pasted:', files.length);
+      console.log("ClipboardHandler: files pasted:", files.length);
       event.preventDefault();
 
-      if (typeof this.onPaste === 'function') {
+      if (typeof this.onPaste === "function") {
         this.onPaste(files, event);
       }
     }
@@ -78,12 +78,12 @@ const ClipboardHandler = {
       const item = items[i];
 
       // Handle image files
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
         const file = item.getAsFile();
         if (file) {
           // Generate a better filename for pasted images
-          const extension = file.type === 'image/png' ? 'png' : 'jpg';
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const extension = file.type === "image/png" ? "png" : "jpg";
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
           const renamedFile = new File([file], `pasted-image-${timestamp}.${extension}`, {
             type: file.type,
           });
@@ -104,12 +104,12 @@ const ClipboardHandler = {
       const items = await navigator.clipboard.read();
       for (const item of items) {
         for (const type of item.types) {
-          if (type.startsWith('image/')) {
+          if (type.startsWith("image/")) {
             return true;
           }
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Clipboard API not available or permission denied
     }
     return false;
@@ -119,6 +119,6 @@ const ClipboardHandler = {
 // Export for ESM and browser usage
 export { ClipboardHandler };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.ClipboardHandler = ClipboardHandler;
 }

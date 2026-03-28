@@ -8,10 +8,10 @@ class InstallPromptManager {
     this.deferredPrompt = null;
     this.isInstalled = false;
     this.installButton = null;
-    
+
     this._init();
   }
-  
+
   /**
    * Initialize the install prompt manager
    * @private
@@ -19,9 +19,9 @@ class InstallPromptManager {
   _init() {
     // Check if already installed
     this._checkInstalled();
-    
+
     // Listen for beforeinstallprompt
-    window.addEventListener('beforeinstallprompt', (e) => {
+    window.addEventListener("beforeinstallprompt", (e) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Store the event for later use
@@ -29,19 +29,19 @@ class InstallPromptManager {
       // Show install button
       this._showInstallButton();
     });
-    
+
     // Listen for appinstalled event
-    window.addEventListener('appinstalled', () => {
+    window.addEventListener("appinstalled", () => {
       this.isInstalled = true;
       this.deferredPrompt = null;
       this._hideInstallButton();
-      this._log('PWA was installed');
+      this._log("PWA was installed");
     });
-    
+
     // Listen for display mode changes
     if (window.matchMedia) {
-      const mediaQuery = window.matchMedia('(display-mode: standalone)');
-      mediaQuery.addEventListener('change', (e) => {
+      const mediaQuery = window.matchMedia("(display-mode: standalone)");
+      mediaQuery.addEventListener("change", (e) => {
         this.isInstalled = e.matches;
         if (e.matches) {
           this._hideInstallButton();
@@ -49,62 +49,62 @@ class InstallPromptManager {
       });
     }
   }
-  
+
   /**
    * Check if app is already installed
    * @private
    */
   _checkInstalled() {
     // Check display mode
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isFullscreen = window.matchMedia('(display-mode: fullscreen)').matches;
-    const isMinimalUi = window.matchMedia('(display-mode: minimal-ui)').matches;
-    
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const isFullscreen = window.matchMedia("(display-mode: fullscreen)").matches;
+    const isMinimalUi = window.matchMedia("(display-mode: minimal-ui)").matches;
+
     // Check iOS standalone mode
     const isIOSStandalone = window.navigator.standalone === true;
-    
+
     this.isInstalled = isStandalone || isFullscreen || isMinimalUi || isIOSStandalone;
-    
+
     if (this.isInstalled) {
-      this._log('App is already installed');
+      this._log("App is already installed");
     }
   }
-  
+
   /**
    * Show the install button
    * @private
    */
   _showInstallButton() {
     if (this.isInstalled || !this.deferredPrompt) return;
-    
+
     // Create install button if it doesn't exist
     if (!this.installButton) {
       this.installButton = this._createInstallButton();
     }
-    
-    this.installButton.classList.add('visible');
-    this._log('Install button shown');
+
+    this.installButton.classList.add("visible");
+    this._log("Install button shown");
   }
-  
+
   /**
    * Hide the install button
    * @private
    */
   _hideInstallButton() {
     if (this.installButton) {
-      this.installButton.classList.remove('visible');
+      this.installButton.classList.remove("visible");
     }
   }
-  
+
   /**
    * Create the install button element
    * @private
    * @returns {HTMLElement}
    */
   _createInstallButton() {
-    const button = document.createElement('button');
-    button.className = 'pwa-install-button';
-    button.setAttribute('aria-label', 'Install Alfred as an app');
+    const button = document.createElement("button");
+    button.className = "pwa-install-button";
+    button.setAttribute("aria-label", "Install Alfred as an app");
     button.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -113,47 +113,47 @@ class InstallPromptManager {
       </svg>
       <span>Install App</span>
     `;
-    
-    button.addEventListener('click', () => this._triggerInstall());
-    
+
+    button.addEventListener("click", () => this._triggerInstall());
+
     // Insert into header or body
-    const header = document.querySelector('header, .header, #header');
+    const header = document.querySelector("header, .header, #header");
     if (header) {
       header.appendChild(button);
     } else {
       document.body.appendChild(button);
     }
-    
+
     return button;
   }
-  
+
   /**
    * Trigger the install prompt
    * @private
    */
   async _triggerInstall() {
     if (!this.deferredPrompt) {
-      this._log('No deferred prompt available');
+      this._log("No deferred prompt available");
       return;
     }
-    
+
     // Show the install prompt
     this.deferredPrompt.prompt();
-    
+
     // Wait for user response
     const { outcome } = await this.deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      this._log('User accepted install');
+
+    if (outcome === "accepted") {
+      this._log("User accepted install");
     } else {
-      this._log('User dismissed install');
+      this._log("User dismissed install");
     }
-    
+
     // Clear the deferred prompt
     this.deferredPrompt = null;
     this._hideInstallButton();
   }
-  
+
   /**
    * Check if install is available
    * @returns {boolean}
@@ -161,7 +161,7 @@ class InstallPromptManager {
   canInstall() {
     return !this.isInstalled && !!this.deferredPrompt;
   }
-  
+
   /**
    * Get install status
    * @returns {boolean}
@@ -169,21 +169,21 @@ class InstallPromptManager {
   getIsInstalled() {
     return this.isInstalled;
   }
-  
+
   /**
    * Manually trigger install (for command palette integration)
    */
   async install() {
     await this._triggerInstall();
   }
-  
+
   /**
    * Log helper
    * @private
    */
   _log(...args) {
     if (window.APP_CONFIG?.debug) {
-      console.log('[InstallPrompt]', ...args);
+      console.log("[InstallPrompt]", ...args);
     }
   }
 }

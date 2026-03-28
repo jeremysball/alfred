@@ -16,7 +16,7 @@ function clamp(value, min, max) {
  * @returns {boolean} True when the container is at or near the top.
  */
 function isScrolledToTop(element, threshold = 10) {
-  if (!element || typeof element.scrollTop !== 'number') {
+  if (!element || typeof element.scrollTop !== "number") {
     return false;
   }
 
@@ -35,17 +35,17 @@ function isScrolledToTop(element, threshold = 10) {
 class PullToRefreshDetector {
   constructor(options = {}) {
     this.threshold = Number.isFinite(options.threshold) ? Math.max(1, options.threshold) : 80;
-    this.topThreshold = Number.isFinite(options.topThreshold) ? Math.max(0, options.topThreshold) : 10;
-    this.resistance = Number.isFinite(options.resistance)
-      ? clamp(options.resistance, 0.1, 1)
-      : 0.5;
+    this.topThreshold = Number.isFinite(options.topThreshold)
+      ? Math.max(0, options.topThreshold)
+      : 10;
+    this.resistance = Number.isFinite(options.resistance) ? clamp(options.resistance, 0.1, 1) : 0.5;
 
     this.enableVisualFeedback = options.enableVisualFeedback !== false;
-    this.onRefresh = typeof options.onRefresh === 'function' ? options.onRefresh : () => {};
-    this.onPullStart = typeof options.onPullStart === 'function' ? options.onPullStart : null;
-    this.onPullMove = typeof options.onPullMove === 'function' ? options.onPullMove : null;
-    this.onPullEnd = typeof options.onPullEnd === 'function' ? options.onPullEnd : null;
-    this.onPullCancel = typeof options.onPullCancel === 'function' ? options.onPullCancel : null;
+    this.onRefresh = typeof options.onRefresh === "function" ? options.onRefresh : () => {};
+    this.onPullStart = typeof options.onPullStart === "function" ? options.onPullStart : null;
+    this.onPullMove = typeof options.onPullMove === "function" ? options.onPullMove : null;
+    this.onPullEnd = typeof options.onPullEnd === "function" ? options.onPullEnd : null;
+    this.onPullCancel = typeof options.onPullCancel === "function" ? options.onPullCancel : null;
 
     this._element = null;
     this._scrollContainer = null;
@@ -74,7 +74,7 @@ class PullToRefreshDetector {
    */
   attachToElement(element, scrollContainer = null) {
     if (!element || !(element instanceof HTMLElement)) {
-      console.error('PullToRefreshDetector: Invalid element provided');
+      console.error("PullToRefreshDetector: Invalid element provided");
       return false;
     }
 
@@ -83,10 +83,10 @@ class PullToRefreshDetector {
     this._element = element;
     this._scrollContainer = scrollContainer || element;
 
-    element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
-    element.addEventListener('touchmove', this._handleTouchMove, { passive: false });
-    element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
-    element.addEventListener('touchcancel', this._handleTouchEnd, { passive: true });
+    element.addEventListener("touchstart", this._handleTouchStart, { passive: true });
+    element.addEventListener("touchmove", this._handleTouchMove, { passive: false });
+    element.addEventListener("touchend", this._handleTouchEnd, { passive: true });
+    element.addEventListener("touchcancel", this._handleTouchEnd, { passive: true });
 
     return true;
   }
@@ -96,10 +96,10 @@ class PullToRefreshDetector {
    */
   detach() {
     if (this._element) {
-      this._element.removeEventListener('touchstart', this._handleTouchStart);
-      this._element.removeEventListener('touchmove', this._handleTouchMove);
-      this._element.removeEventListener('touchend', this._handleTouchEnd);
-      this._element.removeEventListener('touchcancel', this._handleTouchEnd);
+      this._element.removeEventListener("touchstart", this._handleTouchStart);
+      this._element.removeEventListener("touchmove", this._handleTouchMove);
+      this._element.removeEventListener("touchend", this._handleTouchEnd);
+      this._element.removeEventListener("touchcancel", this._handleTouchEnd);
     }
 
     this._resetTrackingState();
@@ -124,7 +124,7 @@ class PullToRefreshDetector {
    * @param {TouchEvent} event
    */
   _handleTouchStart(event) {
-    if (!event || !event.touches || event.touches.length === 0) {
+    if (!event?.touches || event.touches.length === 0) {
       return;
     }
 
@@ -155,12 +155,12 @@ class PullToRefreshDetector {
    * @param {TouchEvent} event
    */
   _handleTouchMove(event) {
-    if (!this._isTracking || !event || !event.touches || event.touches.length === 0) {
+    if (!this._isTracking || !event?.touches || event.touches.length === 0) {
       return;
     }
 
     if (!this._isAtTop()) {
-      this._cancelTracking('left-top-zone', event);
+      this._cancelTracking("left-top-zone", event);
       return;
     }
 
@@ -171,7 +171,7 @@ class PullToRefreshDetector {
     const rawDistance = this._currentY - this._startY;
 
     if (rawDistance <= 0) {
-      this._cancelTracking('moved-upward', event);
+      this._cancelTracking("moved-upward", event);
       return;
     }
 
@@ -184,7 +184,7 @@ class PullToRefreshDetector {
       this._applyVisualFeedback(this._lastDisplayDistance, this._lastProgress);
     }
 
-    if (typeof event.preventDefault === 'function') {
+    if (typeof event.preventDefault === "function") {
       event.preventDefault();
     }
 
@@ -240,7 +240,7 @@ class PullToRefreshDetector {
     }
 
     const extra = distance - this.threshold;
-    return (this.threshold * this.resistance) + (extra * this.resistance * 0.35);
+    return this.threshold * this.resistance + extra * this.resistance * 0.35;
   }
 
   /**
@@ -254,12 +254,12 @@ class PullToRefreshDetector {
       return;
     }
 
-    this._element.classList.add('pull-to-refresh--pulling');
+    this._element.classList.add("pull-to-refresh--pulling");
     this._element.style.transform = `translateY(${displayDistance}px)`;
-    this._element.style.transition = 'none';
-    this._element.style.opacity = String(1 - (progress * 0.12));
-    this._element.style.willChange = 'transform, opacity';
-    this._element.dataset.pullState = progress >= 1 ? 'ready' : 'pulling';
+    this._element.style.transition = "none";
+    this._element.style.opacity = String(1 - progress * 0.12);
+    this._element.style.willChange = "transform, opacity";
+    this._element.dataset.pullState = progress >= 1 ? "ready" : "pulling";
     this._element.dataset.pullProgress = String(progress);
   }
 
@@ -271,11 +271,12 @@ class PullToRefreshDetector {
       return;
     }
 
-    this._element.classList.remove('pull-to-refresh--pulling');
-    this._element.style.transition = 'transform 300ms cubic-bezier(0.4, 0.0, 0.2, 1), opacity 300ms ease';
-    this._element.style.transform = 'translateY(0)';
-    this._element.style.opacity = '1';
-    this._element.style.willChange = '';
+    this._element.classList.remove("pull-to-refresh--pulling");
+    this._element.style.transition =
+      "transform 300ms cubic-bezier(0.4, 0.0, 0.2, 1), opacity 300ms ease";
+    this._element.style.transform = "translateY(0)";
+    this._element.style.opacity = "1";
+    this._element.style.willChange = "";
     delete this._element.dataset.pullState;
     delete this._element.dataset.pullProgress;
   }
@@ -339,7 +340,7 @@ class PullToRefreshDetector {
    * @returns {number}
    */
   _getScrollTop() {
-    if (!this._scrollContainer || typeof this._scrollContainer.scrollTop !== 'number') {
+    if (!this._scrollContainer || typeof this._scrollContainer.scrollTop !== "number") {
       return 0;
     }
 
@@ -366,7 +367,7 @@ class PullToRefreshDetector {
 // Export for ESM and browser usage
 export { isScrolledToTop, PullToRefreshDetector };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.PullToRefresh = {
     isScrolledToTop,
     PullToRefreshDetector,

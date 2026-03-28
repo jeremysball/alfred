@@ -24,10 +24,10 @@ class FullscreenComposeModal {
    */
   constructor(options = {}) {
     this.compactInput = options.compactInput;
-    this.onOpen = typeof options.onOpen === 'function' ? options.onOpen : () => {};
-    this.onClose = typeof options.onClose === 'function' ? options.onClose : () => {};
-    this.onSubmit = typeof options.onSubmit === 'function' ? options.onSubmit : () => {};
-    this.placeholder = options.placeholder || 'Type a message...';
+    this.onOpen = typeof options.onOpen === "function" ? options.onOpen : () => {};
+    this.onClose = typeof options.onClose === "function" ? options.onClose : () => {};
+    this.onSubmit = typeof options.onSubmit === "function" ? options.onSubmit : () => {};
+    this.placeholder = options.placeholder || "Type a message...";
 
     // DOM element references
     this.element = null;
@@ -68,8 +68,8 @@ class FullscreenComposeModal {
 
     // Trigger animation
     requestAnimationFrame(() => {
-      this.element.classList.add('is-open');
-      this.backdrop.classList.add('is-visible');
+      this.element.classList.add("is-open");
+      this.backdrop.classList.add("is-visible");
     });
 
     // Focus fullscreen textarea after animation
@@ -81,7 +81,7 @@ class FullscreenComposeModal {
     }, 50);
 
     // Add keyboard listener
-    document.addEventListener('keydown', this._handleKeyDown);
+    document.addEventListener("keydown", this._handleKeyDown);
 
     // Initialize swipe-down detector
     this._initSwipeDown();
@@ -104,9 +104,9 @@ class FullscreenComposeModal {
     }
 
     // Trigger close animation
-    this.element.classList.remove('is-open');
-    this.element.classList.add('is-closing');
-    this.backdrop.classList.remove('is-visible');
+    this.element.classList.remove("is-open");
+    this.element.classList.add("is-closing");
+    this.backdrop.classList.remove("is-visible");
 
     // Remove after animation completes
     setTimeout(() => {
@@ -122,7 +122,7 @@ class FullscreenComposeModal {
     }, 300);
 
     // Remove keyboard listener
-    document.removeEventListener('keydown', this._handleKeyDown);
+    document.removeEventListener("keydown", this._handleKeyDown);
   }
 
   /**
@@ -132,9 +132,9 @@ class FullscreenComposeModal {
     const content = this.textarea.value.trim();
     if (content) {
       this.onSubmit(content);
-      this.textarea.value = '';
+      this.textarea.value = "";
       if (this.compactInput) {
-        this.compactInput.value = '';
+        this.compactInput.value = "";
       }
     }
     this.close(false);
@@ -153,7 +153,7 @@ class FullscreenComposeModal {
    * @returns {string}
    */
   getContent() {
-    return this.textarea ? this.textarea.value : '';
+    return this.textarea ? this.textarea.value : "";
   }
 
   /**
@@ -180,55 +180,55 @@ class FullscreenComposeModal {
    */
   _createModal() {
     // Create backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className = 'fullscreen-compose__backdrop';
+    this.backdrop = document.createElement("div");
+    this.backdrop.className = "fullscreen-compose__backdrop";
 
     // Create modal container
-    this.element = document.createElement('div');
-    this.element.className = 'fullscreen-compose';
-    this.element.setAttribute('role', 'dialog');
-    this.element.setAttribute('aria-modal', 'true');
-    this.element.setAttribute('aria-label', 'Fullscreen compose');
+    this.element = document.createElement("div");
+    this.element.className = "fullscreen-compose";
+    this.element.setAttribute("role", "dialog");
+    this.element.setAttribute("aria-modal", "true");
+    this.element.setAttribute("aria-label", "Fullscreen compose");
 
     // Create swipe indicator
-    const swipeIndicator = document.createElement('div');
-    swipeIndicator.className = 'fullscreen-compose__swipe-indicator';
-    swipeIndicator.setAttribute('aria-hidden', 'true');
+    const swipeIndicator = document.createElement("div");
+    swipeIndicator.className = "fullscreen-compose__swipe-indicator";
+    swipeIndicator.setAttribute("aria-hidden", "true");
 
     // Create header with close button
-    const header = document.createElement('div');
-    header.className = 'fullscreen-compose__header';
+    const header = document.createElement("div");
+    header.className = "fullscreen-compose__header";
 
-    const title = document.createElement('h2');
-    title.className = 'fullscreen-compose__title';
-    title.textContent = 'New Message';
+    const title = document.createElement("h2");
+    title.className = "fullscreen-compose__title";
+    title.textContent = "New Message";
 
-    this.closeButton = document.createElement('button');
-    this.closeButton.className = 'fullscreen-compose__close';
-    this.closeButton.setAttribute('aria-label', 'Close fullscreen compose');
+    this.closeButton = document.createElement("button");
+    this.closeButton.className = "fullscreen-compose__close";
+    this.closeButton.setAttribute("aria-label", "Close fullscreen compose");
     this.closeButton.innerHTML = `
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     `;
-    this.closeButton.addEventListener('click', () => this.close());
+    this.closeButton.addEventListener("click", () => this.close());
 
     header.appendChild(title);
     header.appendChild(this.closeButton);
 
     // Create textarea
-    this.textarea = document.createElement('textarea');
-    this.textarea.className = 'fullscreen-compose__textarea';
+    this.textarea = document.createElement("textarea");
+    this.textarea.className = "fullscreen-compose__textarea";
     this.textarea.placeholder = this.placeholder;
-    this.textarea.setAttribute('aria-label', 'Message text');
-    this.textarea.addEventListener('input', this._handleInput);
+    this.textarea.setAttribute("aria-label", "Message text");
+    this.textarea.addEventListener("input", this._handleInput);
 
     // Create submit button
-    this.submitButton = document.createElement('button');
-    this.submitButton.className = 'fullscreen-compose__submit';
-    this.submitButton.textContent = 'Send';
-    this.submitButton.addEventListener('click', this._handleSubmit);
+    this.submitButton = document.createElement("button");
+    this.submitButton.className = "fullscreen-compose__submit";
+    this.submitButton.textContent = "Send";
+    this.submitButton.addEventListener("click", this._handleSubmit);
 
     // Assemble modal
     this.element.appendChild(swipeIndicator);
@@ -246,32 +246,32 @@ class FullscreenComposeModal {
    * @private
    */
   _destroyModal() {
-    if (this.swipeDownDetector && this.swipeDownDetector.destroy) {
+    if (this.swipeDownDetector?.destroy) {
       this.swipeDownDetector.destroy();
       this.swipeDownDetector = null;
     }
 
     if (this.closeButton) {
-      this.closeButton.removeEventListener('click', () => this.close());
+      this.closeButton.removeEventListener("click", () => this.close());
       this.closeButton = null;
     }
 
     if (this.submitButton) {
-      this.submitButton.removeEventListener('click', this._handleSubmit);
+      this.submitButton.removeEventListener("click", this._handleSubmit);
       this.submitButton = null;
     }
 
     if (this.textarea) {
-      this.textarea.removeEventListener('input', this._handleInput);
+      this.textarea.removeEventListener("input", this._handleInput);
       this.textarea = null;
     }
 
-    if (this.element && this.element.parentNode) {
+    if (this.element?.parentNode) {
       this.element.parentNode.removeChild(this.element);
       this.element = null;
     }
 
-    if (this.backdrop && this.backdrop.parentNode) {
+    if (this.backdrop?.parentNode) {
       this.backdrop.parentNode.removeChild(this.backdrop);
       this.backdrop = null;
     }
@@ -315,18 +315,18 @@ class FullscreenComposeModal {
       isTracking = false;
     };
 
-    this.element.addEventListener('touchstart', handleTouchStart, { passive: true });
-    this.element.addEventListener('touchmove', handleTouchMove, { passive: true });
-    this.element.addEventListener('touchend', handleTouchEnd, { passive: true });
+    this.element.addEventListener("touchstart", handleTouchStart, { passive: true });
+    this.element.addEventListener("touchmove", handleTouchMove, { passive: true });
+    this.element.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     this.swipeDownDetector = {
       destroy: () => {
         if (this.element) {
-          this.element.removeEventListener('touchstart', handleTouchStart);
-          this.element.removeEventListener('touchmove', handleTouchMove);
-          this.element.removeEventListener('touchend', handleTouchEnd);
+          this.element.removeEventListener("touchstart", handleTouchStart);
+          this.element.removeEventListener("touchmove", handleTouchMove);
+          this.element.removeEventListener("touchend", handleTouchEnd);
         }
-      }
+      },
     };
   }
 
@@ -335,13 +335,13 @@ class FullscreenComposeModal {
    * @private
    */
   _handleKeyDown(e) {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       e.preventDefault();
       this.close();
     }
 
     // Cmd/Ctrl + Enter to submit
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
       this.submit();
     }
@@ -385,14 +385,14 @@ class FullscreenComposeModal {
  */
 function createFullscreenCompose(compactInput, options = {}) {
   if (!compactInput) {
-    console.warn('[FullscreenCompose] No compact input provided');
+    console.warn("[FullscreenCompose] No compact input provided");
     return null;
   }
 
   // Create modal instance
   const modal = new FullscreenComposeModal({
     compactInput,
-    ...options
+    ...options,
   });
 
   // Simple swipe-up detection
@@ -430,15 +430,15 @@ function createFullscreenCompose(compactInput, options = {}) {
     isTracking = false;
   };
 
-  compactInput.addEventListener('touchstart', handleTouchStart, { passive: true });
-  compactInput.addEventListener('touchmove', handleTouchMove, { passive: true });
-  compactInput.addEventListener('touchend', handleTouchEnd, { passive: true });
+  compactInput.addEventListener("touchstart", handleTouchStart, { passive: true });
+  compactInput.addEventListener("touchmove", handleTouchMove, { passive: true });
+  compactInput.addEventListener("touchend", handleTouchEnd, { passive: true });
 
   // Return cleanup function
   const cleanup = () => {
-    compactInput.removeEventListener('touchstart', handleTouchStart);
-    compactInput.removeEventListener('touchmove', handleTouchMove);
-    compactInput.removeEventListener('touchend', handleTouchEnd);
+    compactInput.removeEventListener("touchstart", handleTouchStart);
+    compactInput.removeEventListener("touchmove", handleTouchMove);
+    compactInput.removeEventListener("touchend", handleTouchEnd);
     modal.destroy();
   };
 
@@ -446,9 +446,9 @@ function createFullscreenCompose(compactInput, options = {}) {
 }
 
 // Export for ESM and browser usage
-export { FullscreenComposeModal, createFullscreenCompose };
+export { createFullscreenCompose, FullscreenComposeModal };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.FullscreenCompose = {
     FullscreenComposeModal,
     createFullscreenCompose,

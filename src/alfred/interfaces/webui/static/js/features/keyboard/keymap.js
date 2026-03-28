@@ -591,6 +591,34 @@ function formatLeaderPath(path) {
   return path.map((segment) => normalizeLeaderSegmentKey(segment) || "?").join(" > ");
 }
 
+function formatLeaderDisplayKey(key) {
+  const normalized = String(key ?? "").trim();
+
+  if (normalized === "Escape") return "Esc";
+  if (normalized === "Enter") return "Enter";
+  if (normalized === " ") return "Space";
+  if (normalized === "ArrowUp") return "↑";
+  if (normalized === "ArrowDown") return "↓";
+  if (normalized === "ArrowLeft") return "←";
+  if (normalized === "ArrowRight") return "→";
+
+  if (normalized.length === 1 && /[a-z]/i.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return normalized;
+}
+
+function formatLeaderBreadcrumb(path) {
+  if (!Array.isArray(path) || path.length === 0) {
+    return "Leader (Ctrl+S)";
+  }
+
+  return `Leader + ${path
+    .map((segment) => formatLeaderDisplayKey(typeof segment === "string" ? segment : segment?.key))
+    .join(" + ")}`;
+}
+
 function validateLeaderPathSegment(segment, actionId, index) {
   if (!segment || typeof segment !== "object" || Array.isArray(segment)) {
     throw new Error(`Leader path segment ${index + 1} for ${actionId} must be an object`);
@@ -858,6 +886,7 @@ export {
   DEFAULT_KEYMAP,
   exportKeymap,
   formatBinding,
+  formatLeaderBreadcrumb,
   getBinding,
   getBindingsByCategory,
   getKeymap,
@@ -887,6 +916,7 @@ if (typeof window !== "undefined") {
     buildLeaderTree,
     getLeaderNodeForPath,
     formatBinding,
+    formatLeaderBreadcrumb,
     matchesBinding,
     subscribe,
     exportKeymap,

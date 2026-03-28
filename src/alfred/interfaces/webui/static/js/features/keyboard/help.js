@@ -1,73 +1,94 @@
 /**
- * Help Modal for Keyboard Shortcuts
+ * Help Sheet for Keyboard Shortcuts
  *
- * Displays all registered shortcuts organized by category.
- * Open with `?` key.
+ * Displays all registered keyboard shortcuts organized by category.
+ * Uses the shared themed sheet surface for consistent theming.
+ * Opens with F1 (configurable via keymap).
  */
 
-import { getAll, formatShortcut } from './shortcuts.js';
+import { ThemedSheet } from "../../components/sheet/sheet.js";
+import {
+  formatBinding,
+  formatLeaderBreadcrumb,
+  getBinding,
+  getBindingsByCategory,
+  subscribe,
+} from "./keymap.js";
 
-class HelpModal {
+class HelpSheet {
   constructor() {
-    this.isOpen = false;
-    this.container = null;
-    this.backdrop = null;
+    this.sheet = null;
+    this.contentElement = null;
+    this.unsubscribe = null;
+    this.boundHandleKeydown = this.handleGlobalKeydown.bind(this);
+    this.boundHandleOpenEvent = this.handleOpenEvent.bind(this);
 
-    this.handleKeydown = this.handleKeydown.bind(this);
-    this.close = this.close.bind(this);
+    // Listen for keymap changes
+    this.unsubscribe = subscribe(() => {
+      if (this.sheet?.isOpen) {
+        this.renderShortcuts();
+      }
+    });
 
-    this.createDOM();
+    // Attach global listener for help shortcut
+    document.addEventListener("keydown", this.boundHandleKeydown);
+    window.addEventListener("help:open", this.boundHandleOpenEvent);
+    window.addEventListener("keyboard-help:open", this.boundHandleOpenEvent);
   }
 
   /**
-   * Create the help modal DOM structure
+   * Handle global keydown for help shortcut
+   * @param {KeyboardEvent} e
+   */
+  handleGlobalKeydown(e) {
+    const binding = getBinding("help.open");
+    if (binding && this.matchesBinding(e, binding)) {
+      e.preventDefault();
+      this.toggle();
+    }
+  }
+
+  /**
+   * Handle explicit open events from other UI paths
    * @private
    */
-  createDOM() {
-    // Container
-    this.container = document.createElement('div');
-    this.container.className = 'keyboard-help-modal';
-    this.container.setAttribute('role', 'dialog');
-    this.container.setAttribute('aria-modal', 'true');
-    this.container.setAttribute('aria-label', 'Keyboard Shortcuts');
-    this.container.style.display = 'none';
+  handleOpenEvent() {
+    this.show();
+  }
 
-    // Backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className = 'keyboard-help-backdrop';
-    this.backdrop.addEventListener('click', this.close);
+  /**
+   * Check if event matches binding
+   * @param {KeyboardEvent} event
+   * @param {Object} binding
+   * @returns {boolean}
+   */
+  matchesBinding(event, binding) {
+    const keyMatch = event.key.toLowerCase() === binding.key.toLowerCase();
+    const ctrlMatch = !!event.ctrlKey === !!binding.ctrl;
+    const shiftMatch = !!event.shiftKey === !!binding.shift;
+    const altMatch = !!event.altKey === !!binding.alt;
+    const metaMatch = !!event.metaKey === !!binding.meta;
 
-    // Modal content
-    const modal = document.createElement('div');
-    modal.className = 'keyboard-help-content';
+    return keyMatch && ctrlMatch && shiftMatch && altMatch && metaMatch;
+  }
 
-    // Header
-    const header = document.createElement('div');
-    header.className = 'keyboard-help-header';
-    header.innerHTML = `
-      <h2>Keyboard Shortcuts</h2>
-      <button class="keyboard-help-close" aria-label="Close">×</button>
-    `;
-    header.querySelector('.keyboard-help-close').addEventListener('click', this.close);
+  /**
+   * Create the sheet if not exists
+   * @private
+   */
+  ensureSheet() {
+    if (this.sheet) return;
 
-    // Content area (populated on show)
-    this.contentArea = document.createElement('div');
-    this.contentArea.className = 'keyboard-help-body';
+    this.sheet = new ThemedSheet({
+      title: "Keyboard Shortcuts",
+      onClose: () => {
+        window.dispatchEvent(new CustomEvent("keyboard-help:close"));
+      },
+    });
 
-    // Footer
-    const footer = document.createElement('div');
-    footer.className = 'keyboard-help-footer';
-    footer.textContent = 'Press ? to toggle this help';
-
-    // Assemble
-    modal.appendChild(header);
-    modal.appendChild(this.contentArea);
-    modal.appendChild(footer);
-    this.container.appendChild(this.backdrop);
-    this.container.appendChild(modal);
-
-    // Add to document
-    document.body.appendChild(this.container);
+    this.contentElement = document.createElement("div");
+    this.contentElement.className = "keyboard-help-content";
+    this.sheet.setContent(this.contentElement);
   }
 
   /**
@@ -75,97 +96,92 @@ class HelpModal {
    * @private
    */
   renderShortcuts() {
-    const grouped = getAll ? getAll() : {};
-    this.contentArea.innerHTML = '';
+    if (!this.contentElement) return;
+
+    const grouped = getBindingsByCategory();
+    this.contentElement.innerHTML = "";
 
     const categories = Object.keys(grouped).sort();
 
     if (categories.length === 0) {
-      this.contentArea.innerHTML = '<p class="keyboard-help-empty">No shortcuts registered</p>';
+      this.contentElement.innerHTML = '<p class="keyboard-help-empty">No shortcuts registered</p>';
       return;
     }
 
-    categories.forEach(category => {
-      const section = document.createElement('section');
-      section.className = 'keyboard-help-section';
+    categories.forEach((category) => {
+      const section = document.createElement("section");
+      section.className = "keyboard-help-section";
 
-      const heading = document.createElement('h3');
-      heading.className = 'keyboard-help-category';
+      const heading = document.createElement("h3");
+      heading.className = "keyboard-help-category";
       heading.textContent = category;
       section.appendChild(heading);
 
-      const list = document.createElement('ul');
-      list.className = 'keyboard-help-list';
+      const list = document.createElement("ul");
+      list.className = "keyboard-help-list";
 
-      // Sort shortcuts by key for consistent ordering
-      const shortcuts = grouped[category].sort((a, b) => {
-        return formatShortcut(a).localeCompare(formatShortcut(b));
+      // Sort by key for consistent ordering
+      const bindings = grouped[category].sort((a, b) => {
+        return formatBinding(a).localeCompare(formatBinding(b));
       });
 
-      shortcuts.forEach(shortcut => {
-        const item = document.createElement('li');
-        item.className = 'keyboard-help-item';
+      bindings.forEach((binding) => {
+        const item = document.createElement("li");
+        item.className = "keyboard-help-item";
 
-        const keyEl = document.createElement('kbd');
-        keyEl.className = 'keyboard-help-key';
-        keyEl.textContent = formatShortcut(shortcut);
+        const keyEl = document.createElement("kbd");
+        keyEl.className = "keyboard-help-key";
+        keyEl.textContent = formatBinding(binding);
 
-        const descEl = document.createElement('span');
-        descEl.className = 'keyboard-help-description';
-        descEl.textContent = shortcut.description;
+        const detailsEl = document.createElement("span");
+        detailsEl.className = "keyboard-help-details";
+
+        const descEl = document.createElement("span");
+        descEl.className = "keyboard-help-description";
+        descEl.textContent = binding.description;
+        detailsEl.appendChild(descEl);
+
+        if (Array.isArray(binding.leader?.path) && binding.leader.path.length > 0) {
+          const pathEl = document.createElement("span");
+          pathEl.className = "keyboard-help-path";
+          pathEl.textContent = formatLeaderBreadcrumb(binding.leader.path);
+          detailsEl.appendChild(pathEl);
+        }
 
         item.appendChild(keyEl);
-        item.appendChild(descEl);
+        item.appendChild(detailsEl);
         list.appendChild(item);
       });
 
       section.appendChild(list);
-      this.contentArea.appendChild(section);
+      this.contentElement.appendChild(section);
     });
   }
 
   /**
-   * Show the help modal
+   * Show the help sheet
    */
   show() {
-    if (this.isOpen) return;
-
-    this.isOpen = true;
+    this.ensureSheet();
     this.renderShortcuts();
-    this.container.style.display = 'block';
-
-    // Add escape listener
-    document.addEventListener('keydown', this.handleKeydown);
-
-    // Focus management - focus the close button
-    const closeBtn = this.container.querySelector('.keyboard-help-close');
-    if (closeBtn) {
-      closeBtn.focus();
-    }
-
-    window.dispatchEvent(new CustomEvent('keyboard-help:open'));
+    this.sheet.open();
+    window.dispatchEvent(new CustomEvent("keyboard-help:open"));
   }
 
   /**
-   * Close the help modal
+   * Close the help sheet
    */
   close() {
-    if (!this.isOpen) return;
-
-    this.isOpen = false;
-    this.container.style.display = 'none';
-
-    // Remove escape listener
-    document.removeEventListener('keydown', this.handleKeydown);
-
-    window.dispatchEvent(new CustomEvent('keyboard-help:close'));
+    if (this.sheet) {
+      this.sheet.close();
+    }
   }
 
   /**
-   * Toggle the help modal
+   * Toggle the help sheet
    */
   toggle() {
-    if (this.isOpen) {
+    if (this.sheet?.isOpen) {
       this.close();
     } else {
       this.show();
@@ -173,31 +189,27 @@ class HelpModal {
   }
 
   /**
-   * Handle keyboard events
-   * @param {KeyboardEvent} e
-   * @private
-   */
-  handleKeydown(e) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      this.close();
-    }
-  }
-
-  /**
-   * Destroy the modal and clean up
+   * Destroy the help sheet and clean up
    */
   destroy() {
     this.close();
-    if (this.container && this.container.parentNode) {
-      this.container.parentNode.removeChild(this.container);
+    if (this.sheet) {
+      this.sheet.destroy();
+      this.sheet = null;
     }
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
+    document.removeEventListener("keydown", this.boundHandleKeydown);
+    window.removeEventListener("help:open", this.boundHandleOpenEvent);
+    window.removeEventListener("keyboard-help:open", this.boundHandleOpenEvent);
   }
 }
 
 // Export for ESM and browser
-export { HelpModal };
+export { HelpSheet };
 
-if (typeof window !== 'undefined') {
-  window.HelpModal = HelpModal;
+if (typeof window !== "undefined") {
+  window.HelpSheet = HelpSheet;
 }

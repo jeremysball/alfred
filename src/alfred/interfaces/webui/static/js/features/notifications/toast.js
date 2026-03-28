@@ -16,11 +16,11 @@ const activeToasts = new Map();
 function createContainer() {
   if (toastContainer) return;
 
-  toastContainer = document.createElement('div');
-  toastContainer.className = 'toast-container';
-  toastContainer.setAttribute('role', 'status');
-  toastContainer.setAttribute('aria-live', 'polite');
-  toastContainer.setAttribute('aria-atomic', 'true');
+  toastContainer = document.createElement("div");
+  toastContainer.className = "toast-container";
+  toastContainer.setAttribute("role", "status");
+  toastContainer.setAttribute("aria-live", "polite");
+  toastContainer.setAttribute("aria-atomic", "true");
 
   document.body.appendChild(toastContainer);
 }
@@ -34,28 +34,23 @@ function createContainer() {
  * @param {boolean} [options.dismissible=true] - Show dismiss button
  * @returns {string} Toast ID
  */
-function show({
-  message,
-  type = 'info',
-  duration = 5000,
-  dismissible = true
-} = {}) {
+function show({ message, type = "info", duration = 5000, dismissible = true } = {}) {
   createContainer();
 
   const id = `toast-${++toastId}`;
 
   // Create toast element
-  const toast = document.createElement('div');
+  const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
   toast.id = id;
-  toast.setAttribute('role', 'alert');
+  toast.setAttribute("role", "alert");
 
   // Icon based on type
   const icons = {
-    info: 'ℹ️',
-    success: '✓',
-    warning: '⚠️',
-    error: '✗'
+    info: "ℹ️",
+    success: "✓",
+    warning: "⚠️",
+    error: "✗",
   };
 
   // Build content
@@ -78,16 +73,16 @@ function show({
 
   // Add dismiss handler
   if (dismissible) {
-    const closeBtn = toast.querySelector('.toast-close');
-    closeBtn.addEventListener('click', () => dismiss(id));
-    toast.addEventListener('click', (e) => {
+    const closeBtn = toast.querySelector(".toast-close");
+    closeBtn.addEventListener("click", () => dismiss(id));
+    toast.addEventListener("click", (e) => {
       if (e.target === toast) dismiss(id);
     });
   }
 
   // Animate in
   requestAnimationFrame(() => {
-    toast.classList.add('show');
+    toast.classList.add("show");
   });
 
   // Auto-dismiss
@@ -113,8 +108,8 @@ function dismiss(id) {
   }
 
   // Animate out
-  toast.element.classList.remove('show');
-  toast.element.classList.add('hide');
+  toast.element.classList.remove("show");
+  toast.element.classList.add("hide");
 
   // Remove from DOM after animation
   setTimeout(() => {
@@ -140,7 +135,7 @@ function dismissAll() {
  * @param {Object} [options]
  */
 function info(message, options = {}) {
-  return show({ message, type: 'info', ...options });
+  return show({ message, type: "info", ...options });
 }
 
 /**
@@ -149,7 +144,7 @@ function info(message, options = {}) {
  * @param {Object} [options]
  */
 function success(message, options = {}) {
-  return show({ message, type: 'success', ...options });
+  return show({ message, type: "success", ...options });
 }
 
 /**
@@ -158,7 +153,7 @@ function success(message, options = {}) {
  * @param {Object} [options]
  */
 function warning(message, options = {}) {
-  return show({ message, type: 'warning', ...options });
+  return show({ message, type: "warning", ...options });
 }
 
 /**
@@ -167,7 +162,7 @@ function warning(message, options = {}) {
  * @param {Object} [options]
  */
 function error(message, options = {}) {
-  return show({ message, type: 'error', ...options });
+  return show({ message, type: "error", ...options });
 }
 
 /**
@@ -177,15 +172,15 @@ function error(message, options = {}) {
  * @private
  */
 function escapeHtml(text) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
 
 // Export for ESM and browser usage
-export { show, dismiss, dismissAll, info, success, warning, error };
+export { dismiss, dismissAll, error, info, show, success, warning };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.Toast = {
     show,
     dismiss,
@@ -193,6 +188,6 @@ if (typeof window !== 'undefined') {
     info,
     success,
     warning,
-    error
+    error,
   };
 }

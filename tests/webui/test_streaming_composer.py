@@ -87,7 +87,8 @@ async def test_streaming_composer_keyboard_contract() -> None:
             await expect(page.locator("#message-input")).to_be_enabled()
 
             await page.fill("#message-input", "queued follow-up")
-            await page.keyboard.press("Shift+Enter")
+            await page.keyboard.press("Control+a")
+            await page.keyboard.press("Enter")
             await expect(page.locator("#queue-badge")).to_have_text("1")
             await expect(page.locator("#message-input")).to_have_value("")
 

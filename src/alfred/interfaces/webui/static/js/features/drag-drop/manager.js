@@ -24,7 +24,7 @@ class DragDropManager {
     this.options = {
       preventDefault: true,
       stopPropagation: true,
-      ...options
+      ...options,
     };
 
     // Callbacks (to be set by consumer)
@@ -46,7 +46,7 @@ class DragDropManager {
    */
   attachToElement(element) {
     if (!element || !(element instanceof HTMLElement)) {
-      console.error('DragDropManager: Invalid element provided');
+      console.error("DragDropManager: Invalid element provided");
       return false;
     }
 
@@ -56,12 +56,12 @@ class DragDropManager {
     this.targetElement = element;
 
     // Attach listeners
-    element.addEventListener('dragenter', this._handleDragEnter);
-    element.addEventListener('dragleave', this._handleDragLeave);
-    element.addEventListener('dragover', this._handleDragOver);
-    element.addEventListener('drop', this._handleDrop);
+    element.addEventListener("dragenter", this._handleDragEnter);
+    element.addEventListener("dragleave", this._handleDragLeave);
+    element.addEventListener("dragover", this._handleDragOver);
+    element.addEventListener("drop", this._handleDrop);
 
-    console.log('DragDropManager attached to element:', element);
+    console.log("DragDropManager attached to element:", element);
     return true;
   }
 
@@ -71,16 +71,16 @@ class DragDropManager {
   detach() {
     if (!this.targetElement) return;
 
-    this.targetElement.removeEventListener('dragenter', this._handleDragEnter);
-    this.targetElement.removeEventListener('dragleave', this._handleDragLeave);
-    this.targetElement.removeEventListener('dragover', this._handleDragOver);
-    this.targetElement.removeEventListener('drop', this._handleDrop);
+    this.targetElement.removeEventListener("dragenter", this._handleDragEnter);
+    this.targetElement.removeEventListener("dragleave", this._handleDragLeave);
+    this.targetElement.removeEventListener("dragover", this._handleDragOver);
+    this.targetElement.removeEventListener("drop", this._handleDrop);
 
     this.targetElement = null;
     this.isDragging = false;
     this.dragCounter = 0;
 
-    console.log('DragDropManager detached');
+    console.log("DragDropManager detached");
   }
 
   /**
@@ -89,7 +89,7 @@ class DragDropManager {
    * @returns {boolean}
    */
   _hasFiles(event) {
-    return event.dataTransfer && event.dataTransfer.types.includes('Files');
+    return event.dataTransfer?.types.includes("Files");
   }
 
   /**
@@ -111,9 +111,9 @@ class DragDropManager {
 
     if (this.dragCounter === 1) {
       this.isDragging = true;
-      console.log('DragDropManager: dragenter - files detected');
+      console.log("DragDropManager: dragenter - files detected");
 
-      if (typeof this.onDragEnter === 'function') {
+      if (typeof this.onDragEnter === "function") {
         this.onDragEnter(event);
       }
     }
@@ -139,9 +139,9 @@ class DragDropManager {
     if (this.dragCounter <= 0) {
       this.dragCounter = 0;
       this.isDragging = false;
-      console.log('DragDropManager: dragleave - drop zone cleared');
+      console.log("DragDropManager: dragleave - drop zone cleared");
 
-      if (typeof this.onDragLeave === 'function') {
+      if (typeof this.onDragLeave === "function") {
         this.onDragLeave(event);
       }
     }
@@ -165,10 +165,10 @@ class DragDropManager {
 
     // Set drop effect
     if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'copy';
+      event.dataTransfer.dropEffect = "copy";
     }
 
-    if (typeof this.onDragOver === 'function') {
+    if (typeof this.onDragOver === "function") {
       this.onDragOver(event);
     }
   }
@@ -189,23 +189,27 @@ class DragDropManager {
     this.dragCounter = 0;
     this.isDragging = false;
 
-    console.log('DragDropManager: drop event');
+    console.log("DragDropManager: drop event");
 
     // Extract files
     const files = this._extractFiles(event);
 
     if (files.length > 0) {
-      console.log('DragDropManager: files dropped:', files.length, files.map(f => f.name));
+      console.log(
+        "DragDropManager: files dropped:",
+        files.length,
+        files.map((f) => f.name),
+      );
 
-      if (typeof this.onFilesDropped === 'function') {
+      if (typeof this.onFilesDropped === "function") {
         this.onFilesDropped(files, event);
       }
     } else {
-      console.log('DragDropManager: no files in drop');
+      console.log("DragDropManager: no files in drop");
     }
 
     // Trigger dragleave callback since we're done
-    if (typeof this.onDragLeave === 'function') {
+    if (typeof this.onDragLeave === "function") {
       this.onDragLeave(event);
     }
   }
@@ -225,7 +229,7 @@ class DragDropManager {
       // Use DataTransferItemList if available (modern browsers)
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.kind === 'file') {
+        if (item.kind === "file") {
           const file = item.getAsFile();
           if (file) files.push(file);
         }
@@ -258,6 +262,6 @@ class DragDropManager {
 // Export for ESM and browser usage
 export { DragDropManager };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.DragDropManager = DragDropManager;
 }

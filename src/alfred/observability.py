@@ -193,7 +193,7 @@ def _truncate_lists_in_string(text: str, max_elements: int = 6, min_elements_to_
 
     # Pattern to match list-like arrays: [item, item, ...]
     # Uses non-greedy match but limits size to avoid runaway regex
-    list_pattern = r'\[[^\[\]]*?\]'
+    list_pattern = r"\[[^\[\]]*?\]"
 
     def truncate_list_match(match: re.Match[str]) -> str:
         full_match = match.group(0)
@@ -203,7 +203,7 @@ def _truncate_lists_in_string(text: str, max_elements: int = 6, min_elements_to_
             return full_match
 
         # Quick count of commas at top level (elements ≈ commas + 1)
-        comma_count = inner.count(',')
+        comma_count = inner.count(",")
         element_count = comma_count + 1 if comma_count > 0 else (1 if inner.strip() else 0)
 
         # Only truncate if it's a large list (likely embedding)
@@ -215,11 +215,11 @@ def _truncate_lists_in_string(text: str, max_elements: int = 6, min_elements_to_
         depth = 0
         current = ""
         for char in inner:
-            if char in '([{':
+            if char in "([{":
                 depth += 1
-            elif char in ')]}':
+            elif char in ")]}":
                 depth -= 1
-            elif char == ',' and depth == 0:
+            elif char == "," and depth == 0:
                 if current.strip():
                     elements.append(current.strip())
                 current = ""
@@ -346,15 +346,25 @@ def configure_logging(
 
     # Third-party libraries: let bubble up to root for Alfred formatting
     for logger_name in [
-        "markdown_it", "httpcore", "httpx", "urllib3", "asyncio",
-        "aiosqlite", "sqlite3", "aiosqlite.cursor", "aiosqlite.connection",
+        "markdown_it",
+        "httpcore",
+        "httpx",
+        "urllib3",
+        "asyncio",
+        "aiosqlite",
+        "sqlite3",
+        "aiosqlite.cursor",
+        "aiosqlite.connection",
     ]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     # Websockets: only visible with --log trace
     for logger_name in [
-        "websockets", "websockets.client", "websockets.server",
-        "websockets.protocol", "websockets.connection",
+        "websockets",
+        "websockets.client",
+        "websockets.server",
+        "websockets.protocol",
+        "websockets.connection",
     ]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 

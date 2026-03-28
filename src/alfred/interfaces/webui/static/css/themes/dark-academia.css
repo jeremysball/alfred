@@ -35,7 +35,7 @@
   --da-border-color: #3d362f;
   --da-border-subtle: #2a2621;
   
-  /* Typography */
+  /* Typography - inherits from themes.css scale */
   --da-font-primary: Georgia, 'Times New Roman', serif;
   --da-font-mono: 'Courier New', Courier, monospace;
 }
@@ -64,7 +64,7 @@
   letter-spacing: 0.05em;
   color: var(--da-accent-gold);
   text-transform: uppercase;
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
 }
 
 [data-theme="dark-academia"] .status.connected {
@@ -120,7 +120,7 @@
 
 [data-theme="dark-academia"] .message-role {
   font-family: var(--da-font-primary);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--da-accent-gold);
@@ -128,7 +128,7 @@
 }
 
 [data-theme="dark-academia"] .message-time {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--da-text-muted);
 }
 
@@ -154,14 +154,14 @@
 [data-theme="dark-academia"] .reasoning-label {
   color: var(--da-accent-oxblood);
   font-style: italic;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 [data-theme="dark-academia"] .reasoning-content {
   background: rgba(0, 0, 0, 0.2);
   color: var(--da-text-muted);
   font-family: var(--da-font-mono);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   border-radius: 4px;
   margin-top: 0.5rem;
 }
@@ -203,7 +203,7 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   border-radius: 4px;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 [data-theme="dark-academia"] .send-button:hover {
@@ -279,16 +279,16 @@
   }
 
   [data-theme="dark-academia"] .app-header h1 {
-    font-size: 1.125rem;
+    font-size: var(--text-lg);
   }
 
   [data-theme="dark-academia"] .message-role {
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
   }
 
   [data-theme="dark-academia"] .send-button {
     padding: 0.625rem 1rem;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
   }
 
   [data-theme="dark-academia"] .settings-dropdown {
@@ -339,7 +339,7 @@
 
 [data-theme="dark-academia"] .settings-section-header {
   font-family: var(--da-font-primary);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.2em;
   border-bottom: 1px solid var(--da-border-color);
 }
@@ -363,7 +363,7 @@
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875em;
+  font-size: var(--text-sm);
 }
 
 [data-theme="dark-academia"] .message-content pre code {

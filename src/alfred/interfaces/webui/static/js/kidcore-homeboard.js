@@ -1,107 +1,107 @@
-const ACTIVE_HOMEBOARD_THEMES = new Set(['kidcore-playground', 'spacejam-neocities']);
-const HOMEBOARD_STORAGE_KEY = 'alfred-kidcore-homeboard';
-const GUESTBOOK_STORAGE_KEY = 'alfred-kidcore-guestbook';
+const ACTIVE_HOMEBOARD_THEMES = new Set(["kidcore-playground", "spacejam-neocities"]);
+const HOMEBOARD_STORAGE_KEY = "alfred-kidcore-homeboard";
+const GUESTBOOK_STORAGE_KEY = "alfred-kidcore-guestbook";
 
 const DEFAULT_HOMEBOARD_STATE = Object.freeze({
-  activeTab: 'guestbook',
+  activeTab: "guestbook",
   webringIndex: 0,
   linkIndex: 0,
-  windowState: 'open',
+  windowState: "open",
   windowLeft: 16,
   windowTop: 100,
 });
 
 const DEFAULT_GUESTBOOK_ENTRIES = Object.freeze([
   {
-    name: 'Mossy Star',
-    message: 'your little homepage feels like finding a sticker in a library book',
-    createdAt: '2026-03-01T10:15:00.000Z',
+    name: "Mossy Star",
+    message: "your little homepage feels like finding a sticker in a library book",
+    createdAt: "2026-03-01T10:15:00.000Z",
   },
   {
-    name: 'Rain Tape',
-    message: 'please keep making pages that look like somebody stayed up too late with glitter',
-    createdAt: '2026-03-07T18:40:00.000Z',
+    name: "Rain Tape",
+    message: "please keep making pages that look like somebody stayed up too late with glitter",
+    createdAt: "2026-03-07T18:40:00.000Z",
   },
   {
-    name: 'Tiny Comet',
-    message: 'guestbooks are proof the web can still be kind',
-    createdAt: '2026-03-12T21:05:00.000Z',
+    name: "Tiny Comet",
+    message: "guestbooks are proof the web can still be kind",
+    createdAt: "2026-03-12T21:05:00.000Z",
   },
 ]);
 
 const WEBRING_SITES = Object.freeze([
   {
-    title: 'Kidcore Wonderland',
-    url: 'raining-starss.neocities.org',
-    description: 'a scrapbook of nostalgia pages, toy lists, and bright little obsessions',
-    note: 'buttons, journals, and very sincere enthusiasm',
+    title: "Kidcore Wonderland",
+    url: "raining-starss.neocities.org",
+    description: "a scrapbook of nostalgia pages, toy lists, and bright little obsessions",
+    note: "buttons, journals, and very sincere enthusiasm",
   },
   {
-    title: 'Z.T.T.P.W.',
-    url: 'zeronic.neocities.org',
-    description: 'unfinished on purpose, full of buttons, jokes, and personal corners',
-    note: 'the layout says “home page,” the voice says “come in, friend”',
+    title: "Z.T.T.P.W.",
+    url: "zeronic.neocities.org",
+    description: "unfinished on purpose, full of buttons, jokes, and personal corners",
+    note: "the layout says “home page,” the voice says “come in, friend”",
   },
   {
-    title: 'Fishmael’s Pond',
-    url: 'fishmaels-pond.neocities.org',
-    description: 'soft, friendly, and a little pond-like — stories, notes, and tiny projects',
-    note: 'the kind of site that remembers to wave back',
+    title: "Fishmael’s Pond",
+    url: "fishmaels-pond.neocities.org",
+    description: "soft, friendly, and a little pond-like — stories, notes, and tiny projects",
+    note: "the kind of site that remembers to wave back",
   },
   {
-    title: 'Retro Haven',
-    url: 'retro-haven.neocities.org',
-    description: 'a busy little archive with links, shrines, and an obvious love for the web',
-    note: 'guestbook energy, update-log energy, “i made this myself” energy',
+    title: "Retro Haven",
+    url: "retro-haven.neocities.org",
+    description: "a busy little archive with links, shrines, and an obvious love for the web",
+    note: "guestbook energy, update-log energy, “i made this myself” energy",
   },
   {
-    title: '55-Pedro',
-    url: '55-pedro.neocities.org',
-    description: 'big banners, buttons, and a homepage that feels like a desk covered in postcards',
-    note: 'chaotic, warm, and fully committed to the bit',
+    title: "55-Pedro",
+    url: "55-pedro.neocities.org",
+    description: "big banners, buttons, and a homepage that feels like a desk covered in postcards",
+    note: "chaotic, warm, and fully committed to the bit",
   },
 ]);
 
 const LINK_CARDS = Object.freeze([
   {
-    label: 'guestbook',
-    title: 'guestbook',
-    description: 'leave a small note so the page remembers you were here',
-    url: 'alfred.local/guestbook',
-    note: 'best for doodles, hello messages, and tiny compliments',
+    label: "guestbook",
+    title: "guestbook",
+    description: "leave a small note so the page remembers you were here",
+    url: "alfred.local/guestbook",
+    note: "best for doodles, hello messages, and tiny compliments",
   },
   {
-    label: 'buttons',
-    title: 'button wall',
-    description: 'a stash of tiny badges, blinkies, and site buttons',
-    url: 'alfred.local/buttons',
-    note: 'little images, big personality',
+    label: "buttons",
+    title: "button wall",
+    description: "a stash of tiny badges, blinkies, and site buttons",
+    url: "alfred.local/buttons",
+    note: "little images, big personality",
   },
   {
-    label: 'webring',
-    title: 'webring',
-    description: 'a pretend little loop of adjacent homes on the web',
-    url: 'alfred.local/webring',
-    note: 'prev / random / next, like a tiny neighborhood map',
+    label: "webring",
+    title: "webring",
+    description: "a pretend little loop of adjacent homes on the web",
+    url: "alfred.local/webring",
+    note: "prev / random / next, like a tiny neighborhood map",
   },
   {
-    label: 'friends',
-    title: 'friends',
-    description: 'fake postcards from imaginary pals and their little pages',
-    url: 'alfred.local/friends',
-    note: 'warm, messy, and proudly handmade',
+    label: "friends",
+    title: "friends",
+    description: "fake postcards from imaginary pals and their little pages",
+    url: "alfred.local/friends",
+    note: "warm, messy, and proudly handmade",
   },
   {
-    label: 'updates',
-    title: 'update log',
-    description: 'a tiny notebook for page changes, experiments, and new doodles',
-    url: 'alfred.local/updates',
-    note: 'the best part of an old personal site',
+    label: "updates",
+    title: "update log",
+    description: "a tiny notebook for page changes, experiments, and new doodles",
+    url: "alfred.local/updates",
+    note: "the best part of an old personal site",
   },
 ]);
 
 function isKidcoreThemeActive() {
-  return ACTIVE_HOMEBOARD_THEMES.has(document.documentElement.getAttribute('data-theme') || '');
+  return ACTIVE_HOMEBOARD_THEMES.has(document.documentElement.getAttribute("data-theme") || "");
 }
 
 function readJSON(storageKey, fallback) {
@@ -124,15 +124,15 @@ function writeJSON(storageKey, value) {
 
 function formatTimestamp(timestamp) {
   return new Date(timestamp).toLocaleString([], {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
-function createElement(tagName, className, textContent = '') {
+function createElement(tagName, className, textContent = "") {
   const element = document.createElement(tagName);
   if (className) {
     element.className = className;
@@ -146,66 +146,72 @@ function createElement(tagName, className, textContent = '') {
 class KidcoreHomeboard {
   constructor(root) {
     this.root = root;
-    this.window = document.getElementById('kidcore-homeboard-window');
-    this.windowBody = document.getElementById('kidcore-homeboard-body');
-    this.launcherButton = document.getElementById('kidcore-homeboard-launcher');
-    this.titlebar = document.getElementById('kidcore-homeboard-titlebar');
-    this.collapseButton = document.getElementById('kidcore-homeboard-collapse');
-    this.closeButton = document.getElementById('kidcore-homeboard-close');
+    this.window = document.getElementById("kidcore-homeboard-window");
+    this.windowBody = document.getElementById("kidcore-homeboard-body");
+    this.launcherButton = document.getElementById("kidcore-homeboard-launcher");
+    this.titlebar = document.getElementById("kidcore-homeboard-titlebar");
+    this.collapseButton = document.getElementById("kidcore-homeboard-collapse");
+    this.closeButton = document.getElementById("kidcore-homeboard-close");
     this.dragState = null;
-    this.isCompactViewport = window.matchMedia('(max-width: 720px)');
+    this.isCompactViewport = window.matchMedia("(max-width: 720px)");
 
     const storedState = readJSON(HOMEBOARD_STORAGE_KEY, {});
-    const persistedState = storedState && typeof storedState === 'object' && !Array.isArray(storedState) ? storedState : {};
+    const persistedState =
+      storedState && typeof storedState === "object" && !Array.isArray(storedState)
+        ? storedState
+        : {};
     this.state = {
       ...DEFAULT_HOMEBOARD_STATE,
       ...persistedState,
     };
 
-    if (typeof persistedState.windowState !== 'string' || !['open', 'collapsed', 'closed'].includes(persistedState.windowState)) {
-      this.state.windowState = this.isCompactViewport.matches ? 'collapsed' : 'open';
+    if (
+      typeof persistedState.windowState !== "string" ||
+      !["open", "collapsed", "closed"].includes(persistedState.windowState)
+    ) {
+      this.state.windowState = this.isCompactViewport.matches ? "collapsed" : "open";
     }
-    if (typeof this.state.windowLeft !== 'number' || !Number.isFinite(this.state.windowLeft)) {
+    if (typeof this.state.windowLeft !== "number" || !Number.isFinite(this.state.windowLeft)) {
       this.state.windowLeft = DEFAULT_HOMEBOARD_STATE.windowLeft;
     }
-    if (typeof this.state.windowTop !== 'number' || !Number.isFinite(this.state.windowTop)) {
+    if (typeof this.state.windowTop !== "number" || !Number.isFinite(this.state.windowTop)) {
       this.state.windowTop = DEFAULT_HOMEBOARD_STATE.windowTop;
     }
 
     const storedGuestbookEntries = readJSON(GUESTBOOK_STORAGE_KEY, []);
     this.userGuestbookEntries = Array.isArray(storedGuestbookEntries) ? storedGuestbookEntries : [];
 
-    this.tabButtons = Array.from(this.root.querySelectorAll('[data-kidcore-tab]'));
+    this.tabButtons = Array.from(this.root.querySelectorAll("[data-kidcore-tab]"));
     this.panels = {
-      guestbook: this.root.querySelector('#kidcore-guestbook-panel'),
-      webring: this.root.querySelector('#kidcore-webring-panel'),
-      links: this.root.querySelector('#kidcore-links-panel'),
-      updates: this.root.querySelector('#kidcore-updates-panel'),
+      guestbook: this.root.querySelector("#kidcore-guestbook-panel"),
+      webring: this.root.querySelector("#kidcore-webring-panel"),
+      links: this.root.querySelector("#kidcore-links-panel"),
+      updates: this.root.querySelector("#kidcore-updates-panel"),
     };
 
-    this.guestbookForm = this.root.querySelector('#kidcore-guestbook-form');
-    this.guestbookNameInput = this.root.querySelector('#kidcore-guestbook-name');
-    this.guestbookMessageInput = this.root.querySelector('#kidcore-guestbook-message');
-    this.guestbookEntriesList = this.root.querySelector('#kidcore-guestbook-entries');
+    this.guestbookForm = this.root.querySelector("#kidcore-guestbook-form");
+    this.guestbookNameInput = this.root.querySelector("#kidcore-guestbook-name");
+    this.guestbookMessageInput = this.root.querySelector("#kidcore-guestbook-message");
+    this.guestbookEntriesList = this.root.querySelector("#kidcore-guestbook-entries");
 
-    this.webringPrevButton = this.root.querySelector('#kidcore-webring-prev');
-    this.webringRandomButton = this.root.querySelector('#kidcore-webring-random');
-    this.webringNextButton = this.root.querySelector('#kidcore-webring-next');
-    this.webringVisitButton = this.root.querySelector('#kidcore-webring-visit');
-    this.webringPosition = this.root.querySelector('#kidcore-webring-position');
-    this.webringTitle = this.root.querySelector('#kidcore-webring-title');
-    this.webringDescription = this.root.querySelector('#kidcore-webring-description');
-    this.webringUrl = this.root.querySelector('#kidcore-webring-url');
-    this.webringNote = this.root.querySelector('#kidcore-webring-note');
+    this.webringPrevButton = this.root.querySelector("#kidcore-webring-prev");
+    this.webringRandomButton = this.root.querySelector("#kidcore-webring-random");
+    this.webringNextButton = this.root.querySelector("#kidcore-webring-next");
+    this.webringVisitButton = this.root.querySelector("#kidcore-webring-visit");
+    this.webringPosition = this.root.querySelector("#kidcore-webring-position");
+    this.webringTitle = this.root.querySelector("#kidcore-webring-title");
+    this.webringDescription = this.root.querySelector("#kidcore-webring-description");
+    this.webringUrl = this.root.querySelector("#kidcore-webring-url");
+    this.webringNote = this.root.querySelector("#kidcore-webring-note");
 
-    this.linkButtons = Array.from(this.root.querySelectorAll('[data-kidcore-link]'));
-    this.linkPreviewTitle = this.root.querySelector('#kidcore-links-title');
-    this.linkPreviewDescription = this.root.querySelector('#kidcore-links-description');
-    this.linkPreviewUrl = this.root.querySelector('#kidcore-links-url');
-    this.linkPreviewNote = this.root.querySelector('#kidcore-links-note');
-    this.linkPreviewAction = this.root.querySelector('#kidcore-links-action');
+    this.linkButtons = Array.from(this.root.querySelectorAll("[data-kidcore-link]"));
+    this.linkPreviewTitle = this.root.querySelector("#kidcore-links-title");
+    this.linkPreviewDescription = this.root.querySelector("#kidcore-links-description");
+    this.linkPreviewUrl = this.root.querySelector("#kidcore-links-url");
+    this.linkPreviewNote = this.root.querySelector("#kidcore-links-note");
+    this.linkPreviewAction = this.root.querySelector("#kidcore-links-action");
 
-    this.statusNote = this.root.querySelector('#kidcore-homeboard-status');
+    this.statusNote = this.root.querySelector("#kidcore-homeboard-status");
 
     this.boundWindowDragMove = (event) => {
       this.handleWindowDragMove(event);
@@ -217,7 +223,10 @@ class KidcoreHomeboard {
     this.themeObserver = new MutationObserver(() => {
       this.syncVisibility();
     });
-    this.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
 
     this.bindEvents();
     this.syncVisibility();
@@ -226,72 +235,72 @@ class KidcoreHomeboard {
 
   bindEvents() {
     this.tabButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const tabName = button.getAttribute('data-kidcore-tab') || 'guestbook';
+      button.addEventListener("click", () => {
+        const tabName = button.getAttribute("data-kidcore-tab") || "guestbook";
         this.setActiveTab(tabName);
         this.playClick();
       });
     });
 
-    this.guestbookForm?.addEventListener('submit', (event) => {
+    this.guestbookForm?.addEventListener("submit", (event) => {
       event.preventDefault();
       this.handleGuestbookSubmit();
     });
 
-    this.webringPrevButton?.addEventListener('click', () => {
+    this.webringPrevButton?.addEventListener("click", () => {
       this.selectWebringIndex(this.state.webringIndex - 1);
       this.playClick();
     });
 
-    this.webringRandomButton?.addEventListener('click', () => {
+    this.webringRandomButton?.addEventListener("click", () => {
       this.selectRandomWebringSite();
       this.playClick();
     });
 
-    this.webringNextButton?.addEventListener('click', () => {
+    this.webringNextButton?.addEventListener("click", () => {
       this.selectWebringIndex(this.state.webringIndex + 1);
       this.playClick();
     });
 
-    this.webringVisitButton?.addEventListener('click', () => {
+    this.webringVisitButton?.addEventListener("click", () => {
       this.playClick();
       this.setStatusNote(`pretending to visit ${this.currentWebringSite().title.toLowerCase()}...`);
     });
 
     this.linkButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const linkIndex = Number(button.getAttribute('data-kidcore-link') || '0');
+      button.addEventListener("click", () => {
+        const linkIndex = Number(button.getAttribute("data-kidcore-link") || "0");
         this.selectLinkIndex(linkIndex);
         this.playClick();
       });
     });
 
-    this.collapseButton?.addEventListener('click', () => {
+    this.collapseButton?.addEventListener("click", () => {
       this.toggleWindowCollapse();
       this.playClick();
     });
 
-    this.closeButton?.addEventListener('click', () => {
+    this.closeButton?.addEventListener("click", () => {
       this.closeWindow();
       this.playClick();
     });
 
-    this.launcherButton?.addEventListener('click', () => {
+    this.launcherButton?.addEventListener("click", () => {
       this.openWindow();
       this.playClick();
     });
 
-    this.titlebar?.addEventListener('pointerdown', (event) => {
+    this.titlebar?.addEventListener("pointerdown", (event) => {
       this.handleTitlebarPointerDown(event);
     });
 
-    this.titlebar?.addEventListener('click', (event) => {
+    this.titlebar?.addEventListener("click", (event) => {
       if (!this.matchesCompactViewport()) {
         return;
       }
 
       const target = event.target;
-      if (target instanceof Element && target.closest('button')) {
+      if (target instanceof Element && target.closest("button")) {
         return;
       }
 
@@ -299,8 +308,8 @@ class KidcoreHomeboard {
       this.playClick();
     });
 
-    this.titlebar?.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
+    this.titlebar?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
         return;
       }
 
@@ -363,9 +372,9 @@ class KidcoreHomeboard {
       return;
     }
 
-    if (this.matchesCompactViewport() || this.state.windowState === 'closed') {
-      this.window.style.removeProperty('left');
-      this.window.style.removeProperty('top');
+    if (this.matchesCompactViewport() || this.state.windowState === "closed") {
+      this.window.style.removeProperty("left");
+      this.window.style.removeProperty("top");
       return;
     }
 
@@ -377,12 +386,12 @@ class KidcoreHomeboard {
   }
 
   setWindowState(nextState, { save = true } = {}) {
-    if (!['open', 'collapsed', 'closed'].includes(nextState)) {
+    if (!["open", "collapsed", "closed"].includes(nextState)) {
       return;
     }
 
     this.state.windowState = nextState;
-    if (nextState !== 'closed') {
+    if (nextState !== "closed") {
       const position = this.clampWindowPosition(this.state.windowLeft, this.state.windowTop);
       this.state.windowLeft = position.left;
       this.state.windowTop = position.top;
@@ -396,24 +405,24 @@ class KidcoreHomeboard {
   }
 
   openWindow() {
-    this.setWindowState('open');
+    this.setWindowState("open");
   }
 
   closeWindow() {
-    this.setWindowState('closed');
+    this.setWindowState("closed");
   }
 
   toggleWindowCollapse() {
-    if (this.state.windowState === 'closed') {
+    if (this.state.windowState === "closed") {
       this.openWindow();
       return;
     }
 
-    this.setWindowState(this.state.windowState === 'collapsed' ? 'open' : 'collapsed');
+    this.setWindowState(this.state.windowState === "collapsed" ? "open" : "collapsed");
   }
 
   handleTitlebarPointerDown(event) {
-    if (this.matchesCompactViewport() || !this.window || this.state.windowState === 'closed') {
+    if (this.matchesCompactViewport() || !this.window || this.state.windowState === "closed") {
       return;
     }
 
@@ -422,7 +431,7 @@ class KidcoreHomeboard {
     }
 
     const target = event.target;
-    if (target instanceof Element && target.closest('button')) {
+    if (target instanceof Element && target.closest("button")) {
       return;
     }
 
@@ -435,9 +444,9 @@ class KidcoreHomeboard {
       startTop: this.getWindowPosition().top,
     };
 
-    window.addEventListener('pointermove', this.boundWindowDragMove);
-    window.addEventListener('pointerup', this.boundWindowDragEnd);
-    window.addEventListener('pointercancel', this.boundWindowDragEnd);
+    window.addEventListener("pointermove", this.boundWindowDragMove);
+    window.addEventListener("pointerup", this.boundWindowDragEnd);
+    window.addEventListener("pointercancel", this.boundWindowDragEnd);
   }
 
   handleWindowDragMove(event) {
@@ -456,47 +465,56 @@ class KidcoreHomeboard {
   }
 
   handleWindowDragEnd(event) {
-    if (!this.dragState || (typeof event.pointerId === 'number' && event.pointerId !== this.dragState.pointerId)) {
+    if (
+      !this.dragState ||
+      (typeof event.pointerId === "number" && event.pointerId !== this.dragState.pointerId)
+    ) {
       return;
     }
 
-    window.removeEventListener('pointermove', this.boundWindowDragMove);
-    window.removeEventListener('pointerup', this.boundWindowDragEnd);
-    window.removeEventListener('pointercancel', this.boundWindowDragEnd);
+    window.removeEventListener("pointermove", this.boundWindowDragMove);
+    window.removeEventListener("pointerup", this.boundWindowDragEnd);
+    window.removeEventListener("pointercancel", this.boundWindowDragEnd);
     this.dragState = null;
     this.saveState();
   }
 
   syncVisibility() {
     const visible = isKidcoreThemeActive();
-    const windowVisible = visible && this.state.windowState !== 'closed';
-    const bodyVisible = windowVisible && this.state.windowState === 'open';
+    const windowVisible = visible && this.state.windowState !== "closed";
+    const bodyVisible = windowVisible && this.state.windowState === "open";
 
     if (this.window) {
       this.window.hidden = !windowVisible;
-      this.window.setAttribute('aria-hidden', String(!windowVisible));
+      this.window.setAttribute("aria-hidden", String(!windowVisible));
       this.window.dataset.windowState = this.state.windowState;
     }
 
     if (this.windowBody) {
       this.windowBody.hidden = !bodyVisible;
-      this.windowBody.setAttribute('aria-hidden', String(!bodyVisible));
-      this.windowBody.dataset.windowBodyState = bodyVisible ? 'open' : 'collapsed';
+      this.windowBody.setAttribute("aria-hidden", String(!bodyVisible));
+      this.windowBody.dataset.windowBodyState = bodyVisible ? "open" : "collapsed";
     }
 
     this.root.hidden = !bodyVisible;
-    this.root.setAttribute('aria-hidden', String(!bodyVisible));
-    this.root.dataset.windowBodyState = bodyVisible ? 'open' : 'collapsed';
+    this.root.setAttribute("aria-hidden", String(!bodyVisible));
+    this.root.dataset.windowBodyState = bodyVisible ? "open" : "collapsed";
 
     if (this.launcherButton) {
-      this.launcherButton.hidden = !visible || this.state.windowState !== 'closed';
-      this.launcherButton.setAttribute('aria-hidden', String(!visible || this.state.windowState !== 'closed'));
+      this.launcherButton.hidden = !visible || this.state.windowState !== "closed";
+      this.launcherButton.setAttribute(
+        "aria-hidden",
+        String(!visible || this.state.windowState !== "closed"),
+      );
     }
 
     if (this.collapseButton) {
-      const collapsed = this.state.windowState === 'collapsed';
-      this.collapseButton.textContent = collapsed ? '▢' : '—';
-      this.collapseButton.setAttribute('aria-label', collapsed ? 'Expand scrapbook window' : 'Collapse scrapbook window');
+      const collapsed = this.state.windowState === "collapsed";
+      this.collapseButton.textContent = collapsed ? "▢" : "—";
+      this.collapseButton.setAttribute(
+        "aria-label",
+        collapsed ? "Expand scrapbook window" : "Collapse scrapbook window",
+      );
     }
 
     this.syncWindowPosition();
@@ -540,11 +558,12 @@ class KidcoreHomeboard {
   }
 
   selectWebringIndex(index) {
-    const normalized = ((index % WEBRING_SITES.length) + WEBRING_SITES.length) % WEBRING_SITES.length;
+    const normalized =
+      ((index % WEBRING_SITES.length) + WEBRING_SITES.length) % WEBRING_SITES.length;
     this.state.webringIndex = normalized;
     this.saveState();
     this.renderWebring();
-    this.setActiveTab('webring');
+    this.setActiveTab("webring");
   }
 
   selectRandomWebringSite() {
@@ -566,12 +585,12 @@ class KidcoreHomeboard {
     this.state.linkIndex = normalized;
     this.saveState();
     this.renderLinks();
-    this.setActiveTab('links');
+    this.setActiveTab("links");
   }
 
   handleGuestbookSubmit() {
-    const name = (this.guestbookNameInput?.value || 'Anonymous').trim() || 'Anonymous';
-    const message = (this.guestbookMessageInput?.value || '').trim();
+    const name = (this.guestbookNameInput?.value || "Anonymous").trim() || "Anonymous";
+    const message = (this.guestbookMessageInput?.value || "").trim();
     if (!message) {
       return;
     }
@@ -587,10 +606,10 @@ class KidcoreHomeboard {
     this.renderGuestbook();
     this.playSend();
     this.playSuccess();
-    this.setStatusNote('guestbook signed and tucked away for later');
+    this.setStatusNote("guestbook signed and tucked away for later");
 
     if (this.guestbookMessageInput) {
-      this.guestbookMessageInput.value = '';
+      this.guestbookMessageInput.value = "";
       this.guestbookMessageInput.focus();
     }
   }
@@ -605,11 +624,11 @@ class KidcoreHomeboard {
 
   renderTabs() {
     this.tabButtons.forEach((button) => {
-      const tabName = button.getAttribute('data-kidcore-tab') || 'guestbook';
+      const tabName = button.getAttribute("data-kidcore-tab") || "guestbook";
       const active = tabName === this.state.activeTab;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', String(active));
-      button.setAttribute('tabindex', active ? '0' : '-1');
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.setAttribute("tabindex", active ? "0" : "-1");
     });
   }
 
@@ -621,8 +640,8 @@ class KidcoreHomeboard {
 
       const active = tabName === this.state.activeTab;
       panel.hidden = !active;
-      panel.classList.toggle('active', active);
-      panel.setAttribute('aria-hidden', String(!active));
+      panel.classList.toggle("active", active);
+      panel.setAttribute("aria-hidden", String(!active));
     });
   }
 
@@ -632,16 +651,16 @@ class KidcoreHomeboard {
     }
 
     const entries = [...DEFAULT_GUESTBOOK_ENTRIES, ...this.userGuestbookEntries];
-    this.guestbookEntriesList.innerHTML = '';
+    this.guestbookEntriesList.innerHTML = "";
 
     entries.forEach((entry) => {
-      const item = createElement('li', 'kidcore-guestbook-entry');
-      const header = createElement('div', 'kidcore-guestbook-entry-header');
-      const name = createElement('strong', 'kidcore-entry-name', entry.name);
-      const time = createElement('span', 'kidcore-entry-time', formatTimestamp(entry.createdAt));
+      const item = createElement("li", "kidcore-guestbook-entry");
+      const header = createElement("div", "kidcore-guestbook-entry-header");
+      const name = createElement("strong", "kidcore-entry-name", entry.name);
+      const time = createElement("span", "kidcore-entry-time", formatTimestamp(entry.createdAt));
       header.append(name, time);
 
-      const message = createElement('p', 'kidcore-entry-message', entry.message);
+      const message = createElement("p", "kidcore-entry-message", entry.message);
       item.append(header, message);
       this.guestbookEntriesList.appendChild(item);
     });
@@ -670,9 +689,9 @@ class KidcoreHomeboard {
   renderLinks() {
     const selected = LINK_CARDS[this.state.linkIndex];
     this.linkButtons.forEach((button) => {
-      const index = Number(button.getAttribute('data-kidcore-link') || '0');
-      button.classList.toggle('active', index === this.state.linkIndex);
-      button.setAttribute('aria-pressed', String(index === this.state.linkIndex));
+      const index = Number(button.getAttribute("data-kidcore-link") || "0");
+      button.classList.toggle("active", index === this.state.linkIndex);
+      button.setAttribute("aria-pressed", String(index === this.state.linkIndex));
     });
 
     if (this.linkPreviewTitle) {
@@ -696,7 +715,7 @@ class KidcoreHomeboard {
 let kidcoreHomeboard = null;
 
 function initKidcoreHomeboard() {
-  const root = document.getElementById('kidcore-homeboard');
+  const root = document.getElementById("kidcore-homeboard");
   if (!root || kidcoreHomeboard) {
     return kidcoreHomeboard;
   }
@@ -723,8 +742,8 @@ function initKidcoreHomeboard() {
   return kidcoreHomeboard;
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initKidcoreHomeboard);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initKidcoreHomeboard);
 } else {
   initKidcoreHomeboard();
 }

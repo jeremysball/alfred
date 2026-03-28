@@ -27,8 +27,8 @@ class MessagePanel(Component):
     """Panel for displaying a message with optional tool calls."""
 
     # Width thresholds for responsive display
-    NARROW_WIDTH = 60    # ≤60: minimal display
-    MEDIUM_WIDTH = 100   # 61-100: moderate detail
+    NARROW_WIDTH = 60  # ≤60: minimal display
+    MEDIUM_WIDTH = 100  # 61-100: moderate detail
     # >100: full detail
 
     def __init__(
@@ -132,6 +132,7 @@ class MessagePanel(Component):
 
         # Add a placeholder child component for test compatibility
         from pypitui.components.text import Text
+
         self.children.append(Text(f"tool:{tool_name}"))
 
     def update_tool_call(self, tool_call_id: str, output: str) -> None:
@@ -228,12 +229,12 @@ class MessagePanel(Component):
         elif self._terminal_width <= self.MEDIUM_WIDTH:
             # Medium: show path (truncated if needed)
             max_path = self._terminal_width - 20
-            display_path = path if len(path) <= max_path else "..." + path[-(max_path-3):]
+            display_path = path if len(path) <= max_path else "..." + path[-(max_path - 3) :]
             return f"→ {display_path}"
         else:
             # Wide: show path and content preview
             max_path = 40
-            display_path = path if len(path) <= max_path else "..." + path[-(max_path-3):]
+            display_path = path if len(path) <= max_path else "..." + path[-(max_path - 3) :]
 
             # Add content preview
             if content and isinstance(content, str):
@@ -276,7 +277,7 @@ class MessagePanel(Component):
                 # Truncate args to fit
                 max_args = self._terminal_width - 30
                 if len(args_str) > max_args:
-                    args_str = args_str[:max_args-3] + "..."
+                    args_str = args_str[: max_args - 3] + "..."
                 title = f"{status_indicator} {BOLD}{tool_name}{RESET}"
                 subtitle = args_str
             else:
@@ -293,7 +294,7 @@ class MessagePanel(Component):
                 if command:
                     max_cmd = self._terminal_width - 20
                     if len(command) > max_cmd:
-                        command = command[:max_cmd-3] + "..."
+                        command = command[: max_cmd - 3] + "..."
                     subtitle = f"$ {command}"
                 else:
                     subtitle = args_str
@@ -365,7 +366,7 @@ class MessagePanel(Component):
         for tool_call in sorted_tools:
             # Add text segment before this tool
             if tool_call.insert_position > last_position:
-                text_segment = self._text_content[last_position:tool_call.insert_position]
+                text_segment = self._text_content[last_position : tool_call.insert_position]
                 text_parts.append((text_segment, []))
 
             # Mark position for tool call
@@ -393,7 +394,7 @@ class MessagePanel(Component):
                 for line in rendered.split("\n"):
                     # Ensure line fits in content width
                     if len(line) > content_width:
-                        line = line[:content_width - 3] + "..."
+                        line = line[: content_width - 3] + "..."
                     all_content_lines.append(line)
 
             # Render tool calls
@@ -434,11 +435,7 @@ class MessagePanel(Component):
 
         # Output (truncated unless expanded)
         if tool_call.output:
-            output = (
-                tool_call.output
-                if self._expanded
-                else tool_call.output[:200] if len(tool_call.output) > 200 else tool_call.output
-            )
+            output = tool_call.output if self._expanded else tool_call.output[:200] if len(tool_call.output) > 200 else tool_call.output
 
             lines.append(f"{DIM}{output}{RESET}")
 

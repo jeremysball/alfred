@@ -36,7 +36,7 @@ class ToastContainer extends HTMLElement {
    * @param {number} duration - Duration in milliseconds (default: 5000)
    * @returns {number} The toast ID
    */
-  show(message, level = 'info', duration = 5000) {
+  show(message, level = "info", duration = 5000) {
     const id = ++this._toastIdCounter;
     const toast = {
       id,
@@ -65,7 +65,7 @@ class ToastContainer extends HTMLElement {
    * @param {number} id - The toast ID to dismiss
    */
   dismiss(id) {
-    const index = this._toasts.findIndex(t => t.id === id);
+    const index = this._toasts.findIndex((t) => t.id === id);
     if (index === -1) return;
 
     const toast = this._toasts[index];
@@ -77,7 +77,7 @@ class ToastContainer extends HTMLElement {
 
     // Add exit animation
     if (toast.element) {
-      toast.element.classList.add('toast-exit');
+      toast.element.classList.add("toast-exit");
 
       // Remove after animation
       setTimeout(() => {
@@ -94,16 +94,16 @@ class ToastContainer extends HTMLElement {
    */
   dismissAll() {
     // Copy array since dismiss() modifies the original
-    [...this._toasts].forEach(toast => this.dismiss(toast.id));
+    [...this._toasts].forEach((toast) => this.dismiss(toast.id));
   }
 
   _renderToast(toast) {
-    const container = this.querySelector('.toast-container');
+    const container = this.querySelector(".toast-container");
     if (!container) return;
 
-    const toastEl = document.createElement('div');
+    const toastEl = document.createElement("div");
     toastEl.className = `toast toast-${toast.level}`;
-    toastEl.setAttribute('data-toast-id', toast.id);
+    toastEl.setAttribute("data-toast-id", toast.id);
 
     // Icon based on level
     const icon = this._getIcon(toast.level);
@@ -115,11 +115,11 @@ class ToastContainer extends HTMLElement {
     `;
 
     // Close button handler
-    const closeBtn = toastEl.querySelector('.toast-close');
-    closeBtn.addEventListener('click', () => this.dismiss(toast.id));
+    const closeBtn = toastEl.querySelector(".toast-close");
+    closeBtn.addEventListener("click", () => this.dismiss(toast.id));
 
     // Click to dismiss (optional - can be disabled)
-    toastEl.addEventListener('click', (e) => {
+    toastEl.addEventListener("click", (e) => {
       if (e.target !== closeBtn) {
         this.dismiss(toast.id);
       }
@@ -130,43 +130,44 @@ class ToastContainer extends HTMLElement {
 
     // Trigger enter animation
     requestAnimationFrame(() => {
-      toastEl.classList.add('toast-enter');
+      toastEl.classList.add("toast-enter");
     });
   }
 
   _getIcon(level) {
     const icons = {
-      info: 'ℹ️',
-      success: '✅',
-      warning: '⚠️',
-      error: '❌',
+      info: "ℹ️",
+      success: "✅",
+      warning: "⚠️",
+      error: "❌",
     };
     return icons[level] || icons.info;
   }
 
   _escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
 
   // Convenience methods for different levels
   info(message, duration) {
-    return this.show(message, 'info', duration);
+    return this.show(message, "info", duration);
   }
 
   success(message, duration) {
-    return this.show(message, 'success', duration);
+    return this.show(message, "success", duration);
   }
 
   warning(message, duration) {
-    return this.show(message, 'warning', duration);
+    return this.show(message, "warning", duration);
   }
 
   error(message, duration) {
-    return this.show(message, 'error', duration);
+    return this.show(message, "error", duration);
   }
 }
 
 // Register the custom element
-customElements.define('toast-container', ToastContainer);
+// customElements.define('toast-container'
+customElements.define("toast-container", ToastContainer);

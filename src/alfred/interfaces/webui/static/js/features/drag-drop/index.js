@@ -27,16 +27,16 @@
  *   };
  */
 
-// These will be loaded via script tags before this module
-const DragDropManager = window.DragDropManager;
-const FileValidation = window.FileValidation;
-const ImageCompression = window.ImageCompression;
-const FileUpload = window.FileUpload;
-const ClipboardHandler = window.ClipboardHandler;
-const DropZoneVisual = window.DropZoneVisual;
+// Import from window globals set up by individual modules
+const DragDropManager = window.DragDropManager || class {};
+const FileValidation = window.FileValidation || {};
+const ImageCompression = window.ImageCompression || {};
+const FileUpload = window.FileUpload || {};
+const ClipboardHandler = window.ClipboardHandler || {};
+const DropZoneVisual = window.DropZoneVisual || {};
 
-// Export for ES modules
-export {
+// Re-export everything
+const DragDropLib = {
   DragDropManager,
   FileValidation,
   ImageCompression,
@@ -45,14 +45,18 @@ export {
   DropZoneVisual,
 };
 
+// Export for ES modules
+export {
+  ClipboardHandler,
+  DragDropLib,
+  DragDropManager,
+  DropZoneVisual,
+  FileUpload,
+  FileValidation,
+  ImageCompression,
+};
+
 // Expose as namespace
-if (typeof window !== 'undefined') {
-  window.DragDropLib = {
-    DragDropManager,
-    FileValidation,
-    ImageCompression,
-    FileUpload,
-    ClipboardHandler,
-    DropZoneVisual,
-  };
+if (typeof window !== "undefined") {
+  window.DragDropLib = DragDropLib;
 }

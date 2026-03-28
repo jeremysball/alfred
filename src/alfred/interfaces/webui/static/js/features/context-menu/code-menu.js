@@ -4,7 +4,7 @@
  * Context menu for code blocks with copy actions.
  */
 
-import { ContextMenu } from './menu.js';
+import { ContextMenu } from "./menu.js";
 
 /**
  * Extract code from a code block element
@@ -13,7 +13,7 @@ import { ContextMenu } from './menu.js';
  */
 function getCodeText(codeBlock) {
   // Try to find the code element
-  const codeEl = codeBlock.querySelector('code, pre code');
+  const codeEl = codeBlock.querySelector("code, pre code");
   if (codeEl) {
     return codeEl.textContent;
   }
@@ -40,7 +40,7 @@ function getCodeLanguage(codeBlock) {
   }
 
   // Check parent pre element
-  const parent = codeBlock.closest('pre');
+  const parent = codeBlock.closest("pre");
   if (parent) {
     const parentMatch = parent.className.match(/language-(\w+)/);
     if (parentMatch) {
@@ -61,7 +61,7 @@ async function copyToClipboard(text) {
     await navigator.clipboard.writeText(text);
     return true;
   } catch (err) {
-    console.error('Failed to copy:', err);
+    console.error("Failed to copy:", err);
     return false;
   }
 }
@@ -91,40 +91,40 @@ function showCodeMenu(codeBlock, x, y) {
 
   const items = [
     {
-      id: 'copy-code',
-      label: 'Copy',
-      icon: '📋',
-      shortcut: 'Ctrl+C',
+      id: "copy-code",
+      label: "Copy",
+      icon: "📋",
+      shortcut: "Ctrl+C",
       action: async () => {
         const success = await copyToClipboard(codeText);
         if (success) {
-          showToast('Code copied to clipboard');
+          showToast("Code copied to clipboard");
         }
-      }
+      },
     },
     {
-      id: 'copy-as-markdown',
-      label: 'Copy as Markdown',
-      icon: '📝',
+      id: "copy-as-markdown",
+      label: "Copy as Markdown",
+      icon: "📝",
       action: async () => {
-        const lang = language || '';
-        const markdown = '```' + lang + '\n' + codeText + '\n```';
+        const lang = language || "";
+        const markdown = `\`\`\`${lang}\n${codeText}\n\`\`\``;
         const success = await copyToClipboard(markdown);
         if (success) {
-          showToast('Markdown copied to clipboard');
+          showToast("Markdown copied to clipboard");
         }
-      }
-    }
+      },
+    },
   ];
 
   // Add language-specific option if detected
   if (language) {
-    items.push({ type: 'separator' });
+    items.push({ type: "separator" });
     items.push({
-      id: 'language-indicator',
+      id: "language-indicator",
       label: `Language: ${language}`,
-      icon: '🔧',
-      disabled: true
+      icon: "🔧",
+      disabled: true,
     });
   }
 
@@ -137,15 +137,15 @@ function showCodeMenu(codeBlock, x, y) {
  */
 function attachCodeMenu(codeBlock) {
   // Right-click
-  codeBlock.addEventListener('contextmenu', (e) => {
+  codeBlock.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     e.stopPropagation();
     showCodeMenu(codeBlock, e.clientX, e.clientY);
   });
 
   // Shift+F10 keyboard shortcut
-  codeBlock.addEventListener('keydown', (e) => {
-    if (e.shiftKey && e.key === 'F10') {
+  codeBlock.addEventListener("keydown", (e) => {
+    if (e.shiftKey && e.key === "F10") {
       e.preventDefault();
       const rect = codeBlock.getBoundingClientRect();
       showCodeMenu(codeBlock, rect.left, rect.top);
@@ -153,8 +153,8 @@ function attachCodeMenu(codeBlock) {
   });
 
   // Make focusable
-  if (!codeBlock.hasAttribute('tabindex')) {
-    codeBlock.setAttribute('tabindex', '0');
+  if (!codeBlock.hasAttribute("tabindex")) {
+    codeBlock.setAttribute("tabindex", "0");
   }
 }
 
@@ -162,32 +162,34 @@ function attachCodeMenu(codeBlock) {
  * Attach context menus to all code blocks
  */
 function attachToAllCodeBlocks() {
-  const codeBlocks = document.querySelectorAll('pre, code.hljs, code[class*="language-"], .code-block');
-  codeBlocks.forEach(block => {
+  const codeBlocks = document.querySelectorAll(
+    'pre, code.hljs, code[class*="language-"], .code-block',
+  );
+  codeBlocks.forEach((block) => {
     if (!block.dataset.contextMenuAttached) {
       attachCodeMenu(block);
-      block.dataset.contextMenuAttached = 'true';
+      block.dataset.contextMenuAttached = "true";
     }
   });
 }
 
 // Export for ESM and browser
 export {
-  showCodeMenu,
   attachCodeMenu,
   attachToAllCodeBlocks,
-  getCodeText,
+  copyToClipboard,
   getCodeLanguage,
-  copyToClipboard
+  getCodeText,
+  showCodeMenu,
 };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.CodeContextMenu = {
     showCodeMenu,
     attachCodeMenu,
     attachToAllCodeBlocks,
     getCodeText,
     getCodeLanguage,
-    copyToClipboard
+    copyToClipboard,
   };
 }

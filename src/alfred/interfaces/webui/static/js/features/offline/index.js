@@ -10,6 +10,5 @@
  * monitor.trackWebSocket(wsClient);
  */
 
-export { ConnectionMonitor } from './connection-monitor.js';
-export { OfflineIndicator } from './offline-indicator.js';
-
+export { ConnectionMonitor } from "./connection-monitor.js";
+export { OfflineIndicator } from "./offline-indicator.js";

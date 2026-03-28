@@ -17,12 +17,12 @@
 const SCORE_EXACT = 100;
 const SCORE_PREFIX = 50;
 const SCORE_FUZZY = 25;
-const SCORE_KEYWORD_MATCH = 10;
+const _SCORE_KEYWORD_MATCH = 10;
 
 // Create collator for case-insensitive, punctuation-agnostic comparison
-const collator = new Intl.Collator('en', {
-  sensitivity: 'base',
-  ignorePunctuation: true
+const collator = new Intl.Collator("en", {
+  sensitivity: "base",
+  ignorePunctuation: true,
 });
 
 /**
@@ -48,7 +48,7 @@ function calculateScore(query, text) {
   }
 
   // Word boundary match (e.g., "Clear chat" matches "chat" at word boundary)
-  const wordBoundaryRegex = new RegExp(`\\b${escapeRegex(queryLower)}`, 'i');
+  const wordBoundaryRegex = new RegExp(`\\b${escapeRegex(queryLower)}`, "i");
   if (wordBoundaryRegex.test(textLower)) {
     return SCORE_PREFIX - 5; // Slightly less than prefix
   }
@@ -92,7 +92,7 @@ function isFuzzyMatch(query, text) {
  * @returns {string}
  */
 function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -131,14 +131,16 @@ function getHighlightIndices(query, text) {
 function search(query, commands, options = {}) {
   const { limit = 10 } = options;
 
-  if (!query || !query.trim()) {
+  if (!query?.trim()) {
     // Return all commands with no score when query is empty
-    return commands.map(cmd => ({
-      command: cmd,
-      score: 0,
-      matchedFields: [],
-      highlightIndices: []
-    })).slice(0, limit);
+    return commands
+      .map((cmd) => ({
+        command: cmd,
+        score: 0,
+        matchedFields: [],
+        highlightIndices: [],
+      }))
+      .slice(0, limit);
   }
 
   const queryStr = query.trim();
@@ -152,7 +154,7 @@ function search(query, commands, options = {}) {
     const titleScore = calculateScore(queryStr, cmd.title);
     if (titleScore > 0) {
       score += titleScore;
-      matchedFields.push('title');
+      matchedFields.push("title");
     }
 
     // Check keyword matches (additive scoring)
@@ -161,8 +163,8 @@ function search(query, commands, options = {}) {
         const keywordScore = calculateScore(queryStr, keyword);
         if (keywordScore > 0) {
           score += keywordScore * 0.5; // Keywords worth less than title
-          if (!matchedFields.includes('keywords')) {
-            matchedFields.push('keywords');
+          if (!matchedFields.includes("keywords")) {
+            matchedFields.push("keywords");
           }
         }
       }
@@ -174,7 +176,7 @@ function search(query, commands, options = {}) {
         command: cmd,
         score,
         matchedFields,
-        highlightIndices: getHighlightIndices(queryStr, cmd.title)
+        highlightIndices: getHighlightIndices(queryStr, cmd.title),
       });
     }
   }
@@ -204,8 +206,8 @@ function benchmark(query, commands, iterations = 100) {
 }
 
 // Export for ESM and browser usage
-export { search, benchmark, calculateScore, isFuzzyMatch, getHighlightIndices };
+export { benchmark, calculateScore, getHighlightIndices, isFuzzyMatch, search };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.FuzzySearch = { search, benchmark, calculateScore, isFuzzyMatch, getHighlightIndices };
 }

@@ -19,9 +19,9 @@ const FileUpload = {
    * @returns {string}
    */
   generateFileId() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
   },
@@ -45,7 +45,7 @@ const FileUpload = {
 
       reader.onload = () => {
         // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
-        const base64 = reader.result.split(',')[1];
+        const base64 = reader.result.split(",")[1];
         resolve(base64);
       };
 
@@ -65,11 +65,7 @@ const FileUpload = {
    * @returns {Promise<Object>}
    */
   async uploadFile(file, wsClient, options = {}) {
-    const {
-      onProgress = null,
-      onComplete = null,
-      onError = null,
-    } = options;
+    const { onProgress = null, onComplete = null, onError = null } = options;
 
     const fileId = this.generateFileId();
 
@@ -79,7 +75,7 @@ const FileUpload = {
     this.activeUploads.set(fileId, {
       file,
       startTime: Date.now(),
-      status: 'reading',
+      status: "reading",
     });
 
     try {
@@ -87,38 +83,39 @@ const FileUpload = {
       if (onProgress) onProgress(0);
       const base64Data = await this.readFileAsBase64(file, onProgress);
 
-      this.activeUploads.get(fileId).status = 'uploading';
+      this.activeUploads.get(fileId).status = "uploading";
 
       // Create upload message
       const uploadMessage = {
-        type: 'file.upload',
+        type: "file.upload",
         payload: {
           fileId,
           name: file.name,
-          mimeType: file.type || 'application/octet-stream',
+          mimeType: file.type || "application/octet-stream",
           size: file.size,
           data: base64Data,
         },
       };
 
       // Send via WebSocket
-      if (!wsClient || typeof wsClient.send !== 'function') {
-        throw new Error('Invalid WebSocket client');
+      if (!wsClient || typeof wsClient.send !== "function") {
+        throw new Error("Invalid WebSocket client");
       }
 
       wsClient.send(uploadMessage);
 
       // Wait for response (handled by caller)
-      this.activeUploads.get(fileId).status = 'sent';
+      this.activeUploads.get(fileId).status = "sent";
+
+      if (onComplete) onComplete({ fileId, file, status: "sent" });
 
       return {
         fileId,
         file,
-        status: 'sent',
+        status: "sent",
       };
-
     } catch (error) {
-      this.activeUploads.get(fileId).status = 'error';
+      this.activeUploads.get(fileId).status = "error";
       this.activeUploads.get(fileId).error = error.message;
 
       if (onError) onError(error);
@@ -132,14 +129,14 @@ const FileUpload = {
    * @returns {Object|null}
    */
   handleResponse(message) {
-    if (message.type !== 'file.received') {
+    if (message.type !== "file.received") {
       return null;
     }
 
     const { fileId, status, reason, url } = message.payload || {};
 
     if (!fileId || !this.activeUploads.has(fileId)) {
-      console.warn('Unknown file ID in response:', fileId);
+      console.warn("Unknown file ID in response:", fileId);
       return null;
     }
 
@@ -148,7 +145,7 @@ const FileUpload = {
     upload.endTime = Date.now();
     upload.duration = upload.endTime - upload.startTime;
 
-    if (status === 'accepted') {
+    if (status === "accepted") {
       upload.url = url;
       console.log(`Upload accepted: ${upload.file.name} (${upload.duration}ms)`);
     } else {
@@ -182,7 +179,7 @@ const FileUpload = {
   clearCompleted(olderThan = 5 * 60 * 1000) {
     const cutoff = Date.now() - olderThan;
     for (const [fileId, upload] of this.activeUploads.entries()) {
-      if (upload.status === 'accepted' || upload.status === 'rejected') {
+      if (upload.status === "accepted" || upload.status === "rejected") {
         if (upload.endTime && upload.endTime < cutoff) {
           this.activeUploads.delete(fileId);
         }
@@ -209,7 +206,6 @@ const FileUpload = {
 
         results.push({ file, success: true, fileId: result.fileId });
         onFileComplete?.(file, result);
-
       } catch (error) {
         results.push({ file, success: false, error: error.message });
         onFileError?.(file, error);
@@ -223,6 +219,6 @@ const FileUpload = {
 // Export for ESM and browser usage
 export { FileUpload };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.FileUpload = FileUpload;
 }

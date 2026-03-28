@@ -14,12 +14,12 @@
  * Phase 2: Touch Gesture Support - Swipe-to-Reply
  */
 
-import { SwipeDetector } from './swipe-detector.js';
+import { SwipeDetector } from "./swipe-detector.js";
 
 class SwipeToReply {
   constructor(options = {}) {
     this.threshold = options.threshold || 80;
-    this.direction = options.direction || 'right';
+    this.direction = options.direction || "right";
     this.onReply = options.onReply || (() => {});
     this.enableHaptic = options.enableHaptic !== false; // Default true
     this.enableVisualFeedback = options.enableVisualFeedback !== false; // Default true
@@ -42,7 +42,7 @@ class SwipeToReply {
    */
   attachToMessage(element, messageId) {
     if (!element || !(element instanceof HTMLElement)) {
-      console.error('SwipeToReply: Invalid element provided');
+      console.error("SwipeToReply: Invalid element provided");
       return false;
     }
 
@@ -52,11 +52,11 @@ class SwipeToReply {
     // Create SwipeDetector for this message
     const detector = new SwipeDetector({
       threshold: this.threshold,
-      direction: 'horizontal',
+      direction: "horizontal",
       edgeMargin: 0, // Allow swipe from anywhere on message
       onSwipeStart: () => this._handleSwipeStart(element, messageId),
-      onSwipeMove: (deltaX, deltaY) => this._handleSwipeMove(element, deltaX, messageId),
-      onSwipeEnd: (result) => this._handleSwipeEnd(element, result, messageId)
+      onSwipeMove: (deltaX, _deltaY) => this._handleSwipeMove(element, deltaX, messageId),
+      onSwipeEnd: (result) => this._handleSwipeEnd(element, result, messageId),
     });
 
     detector.attachToElement(element);
@@ -84,9 +84,9 @@ class SwipeToReply {
    * @param {string} selector - CSS selector for message elements
    * @returns {number} Number of messages attached
    */
-  attachToAllMessages(container, selector = '[data-message-id]') {
+  attachToAllMessages(container, selector = "[data-message-id]") {
     if (!container || !(container instanceof HTMLElement)) {
-      console.error('SwipeToReply: Invalid container provided');
+      console.error("SwipeToReply: Invalid container provided");
       return 0;
     }
 
@@ -123,7 +123,7 @@ class SwipeToReply {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check if the added node is a message
-            if (node.matches && node.matches(selector)) {
+            if (node.matches?.(selector)) {
               const messageId = node.dataset.messageId;
               if (messageId) {
                 this.attachToMessage(node, messageId);
@@ -147,7 +147,7 @@ class SwipeToReply {
 
     this._mutationObserver.observe(container, {
       childList: true,
-      subtree: true
+      subtree: true,
     });
   }
 
@@ -158,7 +158,7 @@ class SwipeToReply {
    */
   _handleSwipeStart(element, messageId) {
     this._activeSwipe = { element, messageId, startTime: Date.now() };
-    element.classList.add('swiping');
+    element.classList.add("swiping");
 
     if (this.enableHaptic) {
       this._triggerHaptic();
@@ -171,11 +171,11 @@ class SwipeToReply {
    * @param {number} deltaX - Horizontal movement
    * @param {string} messageId - The message ID
    */
-  _handleSwipeMove(element, deltaX, messageId) {
+  _handleSwipeMove(element, deltaX, _messageId) {
     if (!this._activeSwipe) return;
 
     // Only allow right swipes for reply (positive deltaX)
-    if (this.direction === 'right' && deltaX < 0) {
+    if (this.direction === "right" && deltaX < 0) {
       deltaX = 0;
     }
 
@@ -197,9 +197,9 @@ class SwipeToReply {
    */
   _handleSwipeEnd(element, result, messageId) {
     this._activeSwipe = null;
-    element.classList.remove('swiping');
+    element.classList.remove("swiping");
 
-    const isRightSwipe = result.direction === 'right';
+    const isRightSwipe = result.direction === "right";
     const isAboveThreshold = result.distance >= this.threshold;
 
     if (isRightSwipe && isAboveThreshold) {
@@ -222,7 +222,7 @@ class SwipeToReply {
   _applyVisualFeedback(element, distance) {
     // Use transform for smooth, GPU-accelerated movement
     element.style.transform = `translateX(${distance}px)`;
-    element.style.transition = 'none'; // No transition during drag
+    element.style.transition = "none"; // No transition during drag
 
     // Show reply icon when past threshold
     if (distance >= this.SWIPE_ICON_THRESHOLD) {
@@ -233,7 +233,7 @@ class SwipeToReply {
 
     // Scale opacity based on distance (subtle fade effect)
     const progress = this._calculateProgress(distance);
-    element.style.opacity = String(1 - (progress * 0.15)); // Fade to 85%
+    element.style.opacity = String(1 - progress * 0.15); // Fade to 85%
   }
 
   /**
@@ -242,12 +242,12 @@ class SwipeToReply {
    * @param {number} distance - Current swipe distance
    */
   _showReplyIcon(element, distance) {
-    let icon = element.querySelector('.swipe-reply-icon');
+    let icon = element.querySelector(".swipe-reply-icon");
 
     if (!icon) {
-      icon = document.createElement('div');
-      icon.className = 'swipe-reply-icon';
-      icon.innerHTML = '↩️';
+      icon = document.createElement("div");
+      icon.className = "swipe-reply-icon";
+      icon.innerHTML = "↩️";
       icon.style.cssText = `
         position: absolute;
         left: 10px;
@@ -258,7 +258,7 @@ class SwipeToReply {
         pointer-events: none;
         font-size: 20px;
       `;
-      element.style.position = 'relative';
+      element.style.position = "relative";
       element.appendChild(icon);
     }
 
@@ -272,9 +272,9 @@ class SwipeToReply {
    * @param {HTMLElement} element - The message element
    */
   _hideReplyIcon(element) {
-    const icon = element.querySelector('.swipe-reply-icon');
+    const icon = element.querySelector(".swipe-reply-icon");
     if (icon) {
-      icon.style.opacity = '0';
+      icon.style.opacity = "0";
     }
   }
 
@@ -292,9 +292,9 @@ class SwipeToReply {
    * @param {HTMLElement} element - The message element
    */
   _snapBack(element) {
-    element.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease';
-    element.style.transform = 'translateX(0)';
-    element.style.opacity = '1';
+    element.style.transition = "transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease";
+    element.style.transform = "translateX(0)";
+    element.style.opacity = "1";
 
     // Hide icon
     this._hideReplyIcon(element);
@@ -310,12 +310,12 @@ class SwipeToReply {
    * @param {HTMLElement} element - The message element
    */
   _resetVisualState(element) {
-    element.style.transform = '';
-    element.style.transition = '';
-    element.style.opacity = '';
+    element.style.transform = "";
+    element.style.transition = "";
+    element.style.opacity = "";
 
     // Remove icon
-    const icon = element.querySelector('.swipe-reply-icon');
+    const icon = element.querySelector(".swipe-reply-icon");
     if (icon) {
       icon.remove();
     }
@@ -372,6 +372,6 @@ class SwipeToReply {
 // Export for ESM and browser usage
 export { SwipeToReply };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.SwipeToReply = SwipeToReply;
 }

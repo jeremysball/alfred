@@ -31,8 +31,7 @@ class ShowContextCommand(Command):
                 logger.debug("ShowContextCommand: fetching context data from Alfred")
                 context_data = await get_context_display(tui.alfred)
                 logger.debug(
-                    "ShowContextCommand: context data fetched - total_tokens=%d, memories=%d, "
-                    "session_messages=%d, tool_calls=%d",
+                    "ShowContextCommand: context data fetched - total_tokens=%d, memories=%d, session_messages=%d, tool_calls=%d",
                     context_data.get("total_tokens", 0),
                     context_data.get("memories", {}).get("total", 0),
                     context_data.get("session_history", {}).get("count", 0),
@@ -110,15 +109,15 @@ class ShowContextCommand(Command):
                 lines.append("ALFRED SELF-MODEL")
                 lines.append("─" * 40)
                 lines.append(f"  Identity: {self_model['identity']['name']} ({self_model['identity']['role']})")
-                runtime = self_model['runtime']
-                mode_str = "daemon" if runtime['daemon_mode'] else "interactive"
+                runtime = self_model["runtime"]
+                mode_str = "daemon" if runtime["daemon_mode"] else "interactive"
                 lines.append(f"  Interface: {runtime['interface']} | Mode: {mode_str}")
-                caps = self_model['capabilities']
-                mem_status = "✓" if caps['memory_enabled'] else "✗"
-                search_status = "✓" if caps['search_enabled'] else "✗"
+                caps = self_model["capabilities"]
+                mem_status = "✓" if caps["memory_enabled"] else "✗"
+                search_status = "✓" if caps["search_enabled"] else "✗"
                 lines.append(f"  Capabilities: Memory {mem_status} | Search {search_status} | {caps['tools_count']} tools")
-                pressure = self_model['context_pressure']
-                tokens_str = f"~{pressure['approximate_tokens']:,} tokens" if pressure['approximate_tokens'] else "unknown tokens"
+                pressure = self_model["context_pressure"]
+                tokens_str = f"~{pressure['approximate_tokens']:,} tokens" if pressure["approximate_tokens"] else "unknown tokens"
                 lines.append(f"  Context: {pressure['message_count']} messages | {pressure['memory_count']} memories | {tokens_str}")
                 lines.append("")
 
@@ -128,7 +127,7 @@ class ShowContextCommand(Command):
                 logger.debug(
                     "ShowContextCommand: display built - %d lines, ~%d tokens total",
                     len(lines),
-                    context_data['total_tokens'],
+                    context_data["total_tokens"],
                 )
 
                 # Add as system message (no markdown to preserve formatting)

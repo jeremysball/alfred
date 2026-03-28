@@ -57,37 +57,37 @@ export class QuickSwitcher {
 
   createDOM() {
     // Create overlay container
-    this.overlay = document.createElement('div');
-    this.overlay.id = 'quick-switcher';
-    this.overlay.className = 'search-overlay hidden';
-    this.overlay.setAttribute('role', 'dialog');
-    this.overlay.setAttribute('aria-label', 'Quick Session Switcher');
+    this.overlay = document.createElement("div");
+    this.overlay.id = "quick-switcher";
+    this.overlay.className = "search-overlay hidden";
+    this.overlay.setAttribute("role", "dialog");
+    this.overlay.setAttribute("aria-label", "Quick Session Switcher");
 
     // Create search container
-    const container = document.createElement('div');
-    container.className = 'search-container';
+    const container = document.createElement("div");
+    container.className = "search-container";
 
     // Create search input
-    this.searchInput = document.createElement('input');
-    this.searchInput.type = 'text';
-    this.searchInput.className = 'search-input';
-    this.searchInput.placeholder = 'Switch to session...';
-    this.searchInput.setAttribute('autocomplete', 'off');
-    this.searchInput.setAttribute('aria-label', 'Search sessions');
+    this.searchInput = document.createElement("input");
+    this.searchInput.type = "text";
+    this.searchInput.className = "search-input";
+    this.searchInput.placeholder = "Switch to session...";
+    this.searchInput.setAttribute("autocomplete", "off");
+    this.searchInput.setAttribute("aria-label", "Search sessions");
 
     // Create counter
-    this.counterEl = document.createElement('div');
-    this.counterEl.className = 'search-counter';
-    this.counterEl.textContent = '0 sessions';
+    this.counterEl = document.createElement("div");
+    this.counterEl.className = "search-counter";
+    this.counterEl.textContent = "0 sessions";
 
     // Create results list
-    this.resultsList = document.createElement('div');
-    this.resultsList.className = 'search-results';
-    this.resultsList.setAttribute('role', 'listbox');
+    this.resultsList = document.createElement("div");
+    this.resultsList.className = "search-results";
+    this.resultsList.setAttribute("role", "listbox");
 
     // Create shortcuts hint
-    const shortcuts = document.createElement('div');
-    shortcuts.className = 'search-shortcuts';
+    const shortcuts = document.createElement("div");
+    shortcuts.className = "search-shortcuts";
     shortcuts.innerHTML = `
       <span>↑↓ Navigate</span>
       <span>Enter Select</span>
@@ -105,34 +105,34 @@ export class QuickSwitcher {
   }
 
   attachEventListeners() {
-    this.searchInput.addEventListener('input', this.boundHandleInput);
-    document.addEventListener('click', this.boundHandleClickOutside);
+    this.searchInput.addEventListener("input", this.boundHandleInput);
+    document.addEventListener("click", this.boundHandleClickOutside);
   }
 
   handleKeydown(e) {
     if (!this.isOpen) return;
 
     switch (e.key) {
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         this.close();
         break;
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         this.select();
         break;
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
-        this.navigate('next');
+        this.navigate("next");
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
-        this.navigate('previous');
+        this.navigate("previous");
         break;
-      case 'Tab':
+      case "Tab":
         // Prevent tab from moving focus
         e.preventDefault();
-        this.navigate(e.shiftKey ? 'previous' : 'next');
+        this.navigate(e.shiftKey ? "previous" : "next");
         break;
     }
   }
@@ -157,17 +157,17 @@ export class QuickSwitcher {
 
     this.loadSessions();
     this.isOpen = true;
-    this.overlay.classList.remove('hidden');
-    this.searchInput.value = '';
+    this.overlay.classList.remove("hidden");
+    this.searchInput.value = "";
     this.searchInput.focus();
     this.selectedIndex = 0;
-    this.filter('');
+    this.filter("");
 
     // Add keyboard listener
-    document.addEventListener('keydown', this.boundHandleKeydown);
+    document.addEventListener("keydown", this.boundHandleKeydown);
 
     // Trigger custom event
-    this.overlay.dispatchEvent(new CustomEvent('quickswitcher:open'));
+    this.overlay.dispatchEvent(new CustomEvent("quickswitcher:open"));
   }
 
   /**
@@ -177,14 +177,14 @@ export class QuickSwitcher {
     if (!this.isOpen) return;
 
     this.isOpen = false;
-    this.overlay.classList.add('hidden');
+    this.overlay.classList.add("hidden");
     this.searchInput.blur();
 
     // Remove keyboard listener
-    document.removeEventListener('keydown', this.boundHandleKeydown);
+    document.removeEventListener("keydown", this.boundHandleKeydown);
 
     // Trigger custom event
-    this.overlay.dispatchEvent(new CustomEvent('quickswitcher:close'));
+    this.overlay.dispatchEvent(new CustomEvent("quickswitcher:close"));
   }
 
   /**
@@ -197,8 +197,8 @@ export class QuickSwitcher {
     if (!normalizedQuery) {
       this.filteredSessions = [...this.sessions];
     } else {
-      this.filteredSessions = this.sessions.filter(session =>
-        this.fuzzyMatch(normalizedQuery, session.name.toLowerCase())
+      this.filteredSessions = this.sessions.filter((session) =>
+        this.fuzzyMatch(normalizedQuery, session.name.toLowerCase()),
       );
     }
 
@@ -230,10 +230,11 @@ export class QuickSwitcher {
   navigate(direction) {
     if (this.filteredSessions.length === 0) return;
 
-    if (direction === 'next') {
+    if (direction === "next") {
       this.selectedIndex = (this.selectedIndex + 1) % this.filteredSessions.length;
     } else {
-      this.selectedIndex = (this.selectedIndex - 1 + this.filteredSessions.length) % this.filteredSessions.length;
+      this.selectedIndex =
+        (this.selectedIndex - 1 + this.filteredSessions.length) % this.filteredSessions.length;
     }
 
     this.renderResults();
@@ -255,24 +256,24 @@ export class QuickSwitcher {
    * Render the results list
    */
   renderResults() {
-    this.resultsList.innerHTML = '';
+    this.resultsList.innerHTML = "";
 
     if (this.filteredSessions.length === 0) {
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'search-empty';
-      emptyMsg.textContent = 'No sessions found';
+      const emptyMsg = document.createElement("div");
+      emptyMsg.className = "search-empty";
+      emptyMsg.textContent = "No sessions found";
       this.resultsList.appendChild(emptyMsg);
       return;
     }
 
     this.filteredSessions.forEach((session, index) => {
-      const item = document.createElement('div');
-      item.className = 'search-result-item';
-      item.setAttribute('role', 'option');
-      item.setAttribute('aria-selected', index === this.selectedIndex ? 'true' : 'false');
+      const item = document.createElement("div");
+      item.className = "search-result-item";
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", index === this.selectedIndex ? "true" : "false");
 
       if (index === this.selectedIndex) {
-        item.classList.add('selected');
+        item.classList.add("selected");
       }
 
       const timeAgo = this.formatTimeAgo(session.timestamp);
@@ -282,7 +283,7 @@ export class QuickSwitcher {
         <span class="session-time">${timeAgo}</span>
       `;
 
-      item.addEventListener('click', () => {
+      item.addEventListener("click", () => {
         this.selectedIndex = index;
         this.select();
       });
@@ -295,9 +296,9 @@ export class QuickSwitcher {
    * Scroll the selected item into view
    */
   scrollSelectedIntoView() {
-    const selected = this.resultsList.querySelector('.selected');
+    const selected = this.resultsList.querySelector(".selected");
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      selected.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }
 
@@ -306,8 +307,8 @@ export class QuickSwitcher {
    */
   updateCounter() {
     const count = this.filteredSessions.length;
-    const total = this.sessions.length;
-    this.counterEl.textContent = `${count} session${count !== 1 ? 's' : ''}`;
+    const _total = this.sessions.length;
+    this.counterEl.textContent = `${count} session${count !== 1 ? "s" : ""}`;
   }
 
   /**
@@ -315,14 +316,14 @@ export class QuickSwitcher {
    */
   loadSessions() {
     try {
-      const stored = localStorage.getItem('alfred_recent_sessions');
+      const stored = localStorage.getItem("alfred_recent_sessions");
       if (stored) {
         this.sessions = JSON.parse(stored);
       } else {
         this.sessions = [];
       }
     } catch (e) {
-      console.error('[QuickSwitcher] Failed to load sessions:', e);
+      console.error("[QuickSwitcher] Failed to load sessions:", e);
       this.sessions = [];
     }
   }
@@ -332,9 +333,12 @@ export class QuickSwitcher {
    */
   saveSessions() {
     try {
-      localStorage.setItem('alfred_recent_sessions', JSON.stringify(this.sessions.slice(0, this.maxSessions)));
+      localStorage.setItem(
+        "alfred_recent_sessions",
+        JSON.stringify(this.sessions.slice(0, this.maxSessions)),
+      );
     } catch (e) {
-      console.error('[QuickSwitcher] Failed to save sessions:', e);
+      console.error("[QuickSwitcher] Failed to save sessions:", e);
     }
   }
 
@@ -345,13 +349,13 @@ export class QuickSwitcher {
    */
   trackSession(id, name) {
     // Remove existing entry if present
-    this.sessions = this.sessions.filter(s => s.id !== id);
+    this.sessions = this.sessions.filter((s) => s.id !== id);
 
     // Add to front
     this.sessions.unshift({
       id,
       name: name || `Session ${id}`,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // Trim to max
@@ -368,7 +372,7 @@ export class QuickSwitcher {
   formatTimeAgo(timestamp) {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
 
-    if (seconds < 60) return 'just now';
+    if (seconds < 60) return "just now";
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
@@ -380,7 +384,7 @@ export class QuickSwitcher {
    * @returns {string} - Escaped text
    */
   escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
@@ -391,10 +395,10 @@ export class QuickSwitcher {
    */
   defaultOnSelect(sessionId) {
     const wsClient = window.alfredWebSocketClient;
-    if (wsClient && typeof wsClient.sendCommand === 'function') {
+    if (wsClient && typeof wsClient.sendCommand === "function") {
       wsClient.sendCommand(`/resume ${sessionId}`);
     } else {
-      console.warn('[QuickSwitcher] WebSocket client not available');
+      console.warn("[QuickSwitcher] WebSocket client not available");
     }
   }
 
@@ -402,10 +406,10 @@ export class QuickSwitcher {
    * Destroy the instance and clean up
    */
   destroy() {
-    document.removeEventListener('keydown', this.boundHandleKeydown);
-    document.removeEventListener('click', this.boundHandleClickOutside);
+    document.removeEventListener("keydown", this.boundHandleKeydown);
+    document.removeEventListener("click", this.boundHandleClickOutside);
 
-    if (this.overlay && this.overlay.parentNode) {
+    if (this.overlay?.parentNode) {
       this.overlay.parentNode.removeChild(this.overlay);
     }
 
@@ -422,9 +426,9 @@ export function initializeQuickSwitcher(options = {}) {
   const switcher = QuickSwitcher.getInstance(options);
 
   // Register Ctrl+Tab shortcut
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener("keydown", (e) => {
     // Ctrl+Tab (but not Ctrl+Shift+Tab to avoid browser conflict)
-    if (e.ctrlKey && e.key === 'Tab' && !e.shiftKey) {
+    if (e.ctrlKey && e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
       switcher.open();
     }
@@ -433,7 +437,7 @@ export function initializeQuickSwitcher(options = {}) {
   // Hook into session changes to track them
   hookSessionTracking(switcher);
 
-  console.log('[QuickSwitcher] Initialized (Ctrl+Tab)');
+  console.log("[QuickSwitcher] Initialized (Ctrl+Tab)");
   return switcher;
 }
 
@@ -446,17 +450,17 @@ function hookSessionTracking(switcher) {
   const originalSendCommand = window.alfredWebSocketClient?.sendCommand;
 
   if (originalSendCommand) {
-    window.alfredWebSocketClient.sendCommand = function(command, ...args) {
+    window.alfredWebSocketClient.sendCommand = function (command, ...args) {
       const cmd = command.trim().toLowerCase();
 
       // Track /new command
-      if (cmd === '/new') {
+      if (cmd === "/new") {
         // New session created - will need to get ID from response
         // For now, we rely on /resume to track
       }
 
       // Track /resume command
-      if (cmd.startsWith('/resume')) {
+      if (cmd.startsWith("/resume")) {
         const parts = command.split(/\s+/);
         if (parts.length >= 2) {
           const sessionId = parts[1];
@@ -481,7 +485,9 @@ function hookSessionTracking(switcher) {
  */
 function getCurrentSessionName() {
   // Try to find session name in UI
-  const sessionHeader = document.querySelector('.session-header, .chat-header, [data-session-name]');
+  const sessionHeader = document.querySelector(
+    ".session-header, .chat-header, [data-session-name]",
+  );
   if (sessionHeader) {
     return sessionHeader.textContent.trim();
   }
@@ -495,7 +501,7 @@ function getCurrentSessionName() {
 function monitorSessionChanges(switcher) {
   // Check for session ID in URL or data attributes
   const checkSession = () => {
-    const urlMatch = window.location.pathname.match(/\/session\/([^\/]+)/);
+    const urlMatch = window.location.pathname.match(/\/session\/([^/]+)/);
     const sessionId = urlMatch ? urlMatch[1] : null;
 
     if (sessionId && sessionId !== switcher._lastSessionId) {

@@ -61,9 +61,17 @@ def test_context_command_structure():
 
 def test_session_loaded_message_structure():
     """Verify session.loaded message structure."""
-    from alfred.interfaces.webui.validation import SessionLoadedMessage, SessionLoadedPayload, SessionMessage
+    from alfred.interfaces.webui.validation import SessionLoadedMessage, SessionLoadedPayload, SessionMessage, TextBlock
 
-    messages = [SessionMessage(id="msg-1", role="user", content="Hello"), SessionMessage(id="msg-2", role="assistant", content="Hi there")]
+    messages = [
+        SessionMessage(id="msg-1", role="user", content="Hello"),
+        SessionMessage(
+            id="msg-2",
+            role="assistant",
+            content="Hi there",
+            text_blocks=[TextBlock(content="Hi there", sequence=0)],
+        ),
+    ]
 
     message = SessionLoadedMessage(type="session.loaded", payload=SessionLoadedPayload(session_id="session-123", messages=messages))
 
@@ -71,6 +79,7 @@ def test_session_loaded_message_structure():
     assert message.payload.session_id == "session-123"
     assert len(message.payload.messages) == 2
     assert message.payload.messages[0].role == "user"
+    assert message.payload.messages[1].text_blocks[0].sequence == 0
 
 
 def test_websocket_handles_session_commands():

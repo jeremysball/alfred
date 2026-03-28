@@ -1,12 +1,12 @@
 (() => {
-  const PREFIX = '[webui-client]';
-  const MARKER = '__ALFRED_WEBUI_CLIENT_LOGGER__';
+  const PREFIX = "[webui-client]";
+  const MARKER = "__ALFRED_WEBUI_CLIENT_LOGGER__";
 
   if (window[MARKER]) {
     return;
   }
 
-  const methodNames = ['log', 'info', 'warn', 'error', 'debug'];
+  const methodNames = ["log", "info", "warn", "error", "debug"];
   const originals = {};
 
   for (const methodName of methodNames) {
@@ -19,7 +19,7 @@
     }
 
     const [first, ...rest] = args;
-    if (typeof first === 'string') {
+    if (typeof first === "string") {
       return [`${PREFIX} ${first}`, ...rest];
     }
 

@@ -7,26 +7,26 @@
  * @module mobile-gestures
  */
 
+import { CoordinatedLongPressDetector, CoordinatedSwipeDetector } from "./coordinated-detectors.js";
+import { createFullscreenCompose, FullscreenComposeModal } from "./fullscreen-compose.js";
+import { GestureCoordinator } from "./gesture-coordinator.js";
+import { LongPressContextMenu } from "./long-press-context-menu.js";
+import { LongPressDetector } from "./long-press-detector.js";
+import { createPullIndicator, PullIndicator } from "./pull-indicator.js";
+import { PullToRefreshDetector } from "./pull-to-refresh.js";
+import { SwipeDetector } from "./swipe-detector.js";
+import { SwipeToReply } from "./swipe-to-reply.js";
 // Import detector utilities
-import { isTouchDevice, isInEdgeZone, shouldHandleTouch } from './touch-detector.js';
-import { SwipeDetector } from './swipe-detector.js';
-import { LongPressDetector } from './long-press-detector.js';
-import { LongPressContextMenu } from './long-press-context-menu.js';
-import { SwipeToReply } from './swipe-to-reply.js';
-import { PullToRefreshDetector } from './pull-to-refresh.js';
-import { PullIndicator, createPullIndicator } from './pull-indicator.js';
-import { FullscreenComposeModal, createFullscreenCompose } from './fullscreen-compose.js';
-import { GestureCoordinator } from './gesture-coordinator.js';
-import { CoordinatedSwipeDetector, CoordinatedLongPressDetector } from './coordinated-detectors.js';
+import { isInEdgeZone, isTouchDevice, shouldHandleTouch } from "./touch-detector.js";
 
 /**
  * Gesture configuration constants
  */
 const GESTURE_CONFIG = {
-  SWIPE_THRESHOLD: 100,      // px to trigger swipe
-  EDGE_MARGIN: 40,           // px to disable gestures (browser conflict protection)
-  LONG_PRESS_DELAY: 500,     // ms
-  PULL_THRESHOLD: 80,        // px to trigger refresh
+  SWIPE_THRESHOLD: 100, // px to trigger swipe
+  EDGE_MARGIN: 40, // px to disable gestures (browser conflict protection)
+  LONG_PRESS_DELAY: 500, // ms
+  PULL_THRESHOLD: 80, // px to trigger refresh
 };
 
 /**
@@ -36,18 +36,18 @@ const GESTURE_CONFIG = {
 function initializeGestures() {
   // Only initialize on touch devices
   if (!isTouchDevice()) {
-    console.log('[Gestures] Touch device not detected, skipping gesture initialization');
+    console.log("[Gestures] Touch device not detected, skipping gesture initialization");
     return;
   }
 
-  console.log('[Gestures] Initializing mobile gestures...');
+  console.log("[Gestures] Initializing mobile gestures...");
 
   // Initialize features will be added here as they are implemented:
   // - Swipe-to-reply on message elements
   // - Long-press context menus
   // - Pull-to-refresh on chat container
 
-  console.log('[Gestures] Mobile gestures initialized');
+  console.log("[Gestures] Mobile gestures initialized");
 }
 
 /**
@@ -103,16 +103,16 @@ function initializePullToRefresh(element, options = {}) {
     onRefresh: async (detail) => {
       // Debounce check
       const now = Date.now();
-      if (isRefreshing || (now - lastRefreshTime) < debounceMs) {
-        console.log('[PullToRefresh] Debounced - ignoring pull');
+      if (isRefreshing || now - lastRefreshTime < debounceMs) {
+        console.log("[PullToRefresh] Debounced - ignoring pull");
         return;
       }
 
       // Check if ConnectionMonitor is available
       if (!connectionMonitor) {
-        console.warn('[PullToRefresh] No ConnectionMonitor provided');
+        console.warn("[PullToRefresh] No ConnectionMonitor provided");
         // Still call user callback if provided
-        if (typeof options.onRefresh === 'function') {
+        if (typeof options.onRefresh === "function") {
           await options.onRefresh(detail);
         }
         return;
@@ -126,10 +126,9 @@ function initializePullToRefresh(element, options = {}) {
 
         // Success - indicator will show success via createPullIndicator wiring
         lastRefreshTime = Date.now();
-
       } catch (error) {
         // Failure - indicator will show error via createPullIndicator wiring
-        console.error('[PullToRefresh] Reconnect failed:', error);
+        console.error("[PullToRefresh] Reconnect failed:", error);
         throw error; // Re-throw so indicator shows error state
       } finally {
         isRefreshing = false;
@@ -165,16 +164,18 @@ function initializePullToRefresh(element, options = {}) {
  */
 function initializeFullscreenCompose(compactInput, options = {}) {
   if (!compactInput || !isTouchDevice()) {
-    console.log('[Gestures] Touch device not detected or no input provided, skipping fullscreen compose');
+    console.log(
+      "[Gestures] Touch device not detected or no input provided, skipping fullscreen compose",
+    );
     return null;
   }
 
-  console.log('[Gestures] Initializing fullscreen compose...');
+  console.log("[Gestures] Initializing fullscreen compose...");
 
   const result = createFullscreenCompose(compactInput, options);
 
   if (result) {
-    console.log('[Gestures] Fullscreen compose initialized');
+    console.log("[Gestures] Fullscreen compose initialized");
   }
 
   return result;
@@ -182,41 +183,36 @@ function initializeFullscreenCompose(compactInput, options = {}) {
 
 // Export public API
 export {
-  // Configuration
-  GESTURE_CONFIG,
-
-  // Device detection
-  isTouchDevice,
-  isInEdgeZone,
-  shouldHandleTouch,
-  shouldEnableGestures,
-
-  // Gesture detectors
-  SwipeDetector,
-  LongPressDetector,
-
-  // Feature implementations
-  SwipeToReply,
-  LongPressContextMenu,
-  PullToRefreshDetector,
-  PullIndicator,
+  CoordinatedLongPressDetector,
+  CoordinatedSwipeDetector,
+  createFullscreenCompose,
   createPullIndicator,
   FullscreenComposeModal,
-  createFullscreenCompose,
-
+  // Configuration
+  GESTURE_CONFIG,
   // Gesture coordination
   GestureCoordinator,
-  CoordinatedSwipeDetector,
-  CoordinatedLongPressDetector,
-
+  initializeFullscreenCompose,
   // Initialization
   initializeGestures,
   initializePullToRefresh,
-  initializeFullscreenCompose,
+  isInEdgeZone,
+  // Device detection
+  isTouchDevice,
+  LongPressContextMenu,
+  LongPressDetector,
+  PullIndicator,
+  PullToRefreshDetector,
+  // Gesture detectors
+  SwipeDetector,
+  // Feature implementations
+  SwipeToReply,
+  shouldEnableGestures,
+  shouldHandleTouch,
 };
 
 // Also expose to window for browser usage
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.MobileGestures = {
     GESTURE_CONFIG,
     isTouchDevice,

@@ -5,21 +5,20 @@
  * Ensures gestures coordinate and don't conflict with each other.
  */
 
-import { GestureCoordinator } from './gesture-coordinator.js';
-import { SwipeDetector } from './swipe-detector.js';
-import { LongPressDetector } from './long-press-detector.js';
-import { isInEdgeZone } from './touch-detector.js';
+import { GestureCoordinator } from "./gesture-coordinator.js";
+import { LongPressDetector } from "./long-press-detector.js";
+import { SwipeDetector } from "./swipe-detector.js";
 
 /**
  * Region definitions for gesture coordination
  * Maps CSS selectors to region names
  */
 const REGIONS = {
-  MESSAGE: '.chat-message',      // Swipe-to-reply, long-press
-  COMPOSER: '#message-input',     // Swipe-up fullscreen
-  MODAL: '.fullscreen-compose',   // Swipe-down close, isolated gestures
-  MESSAGE_LIST: '.message-list',  // Pull-to-refresh
-  DEFAULT: 'default'              // Fallback
+  MESSAGE: ".chat-message", // Swipe-to-reply, long-press
+  COMPOSER: "#message-input", // Swipe-up fullscreen
+  MODAL: ".fullscreen-compose", // Swipe-down close, isolated gestures
+  MESSAGE_LIST: ".message-list", // Pull-to-refresh
+  DEFAULT: "default", // Fallback
 };
 
 /**
@@ -32,16 +31,16 @@ function getRegionForElement(element) {
 
   // Check if element matches or is within a region
   if (element.matches?.(REGIONS.MESSAGE) || element.closest?.(REGIONS.MESSAGE)) {
-    return 'message';
+    return "message";
   }
   if (element.matches?.(REGIONS.COMPOSER) || element.closest?.(REGIONS.COMPOSER)) {
-    return 'composer';
+    return "composer";
   }
   if (element.matches?.(REGIONS.MODAL) || element.closest?.(REGIONS.MODAL)) {
-    return 'modal';
+    return "modal";
   }
   if (element.matches?.(REGIONS.MESSAGE_LIST) || element.closest?.(REGIONS.MESSAGE_LIST)) {
-    return 'message-list';
+    return "message-list";
   }
 
   return REGIONS.DEFAULT;
@@ -84,13 +83,13 @@ class CoordinatedSwipeDetector {
     // Create the wrapped detector (don't attach yet)
     this.wrappedDetector = new SwipeDetector({
       threshold: options.threshold || 100,
-      direction: options.direction || 'both',
+      direction: options.direction || "both",
       onSwipe: (detail) => {
         // Only call callback if we have the lock
-        if (this.isActive && typeof options.onSwipe === 'function') {
+        if (this.isActive && typeof options.onSwipe === "function") {
           options.onSwipe(detail);
         }
-      }
+      },
     });
 
     // Bind methods
@@ -107,10 +106,10 @@ class CoordinatedSwipeDetector {
     if (!this.element) return;
 
     // Add our coordination listeners
-    this.element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
-    this.element.addEventListener('touchmove', this._handleTouchMove, { passive: true });
-    this.element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
-    this.element.addEventListener('touchcancel', this._handleTouchCancel, { passive: true });
+    this.element.addEventListener("touchstart", this._handleTouchStart, { passive: true });
+    this.element.addEventListener("touchmove", this._handleTouchMove, { passive: true });
+    this.element.addEventListener("touchend", this._handleTouchEnd, { passive: true });
+    this.element.addEventListener("touchcancel", this._handleTouchCancel, { passive: true });
 
     // Attach the wrapped detector
     this.wrappedDetector.attachToElement(this.element);
@@ -123,10 +122,10 @@ class CoordinatedSwipeDetector {
     this._releaseLock();
 
     if (this.element) {
-      this.element.removeEventListener('touchstart', this._handleTouchStart);
-      this.element.removeEventListener('touchmove', this._handleTouchMove);
-      this.element.removeEventListener('touchend', this._handleTouchEnd);
-      this.element.removeEventListener('touchcancel', this._handleTouchCancel);
+      this.element.removeEventListener("touchstart", this._handleTouchStart);
+      this.element.removeEventListener("touchmove", this._handleTouchMove);
+      this.element.removeEventListener("touchend", this._handleTouchEnd);
+      this.element.removeEventListener("touchcancel", this._handleTouchCancel);
     }
 
     if (this.wrappedDetector) {
@@ -141,14 +140,13 @@ class CoordinatedSwipeDetector {
    * @returns {boolean} True if touch is in left/right edge zone
    */
   _isInEdgeZone(e) {
-    if (!e.touches || !e.touches[0]) return false;
+    if (!e.touches?.[0]) return false;
 
     const touchX = e.touches[0].clientX;
-    const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+    const screenWidth = typeof window !== "undefined" ? window.innerWidth : 0;
 
     // Check left edge OR right edge
-    return touchX < this.EDGE_MARGIN ||
-           touchX > (screenWidth - this.EDGE_MARGIN);
+    return touchX < this.EDGE_MARGIN || touchX > screenWidth - this.EDGE_MARGIN;
   }
 
   /**
@@ -165,16 +163,16 @@ class CoordinatedSwipeDetector {
     const region = getRegionForElement(this.element);
 
     // Request lock with priority 1 (standard swipe) and region info
-    const granted = this.coordinator.requestGesture('swipe', 1, {
+    const granted = this.coordinator.requestGesture("swipe", 1, {
       element: this.element,
-      region: region
+      region: region,
     });
 
     if (granted) {
       this.isActive = true;
       this.currentRegion = region;
       // Store start position for axis locking
-      if (e.touches && e.touches[0]) {
+      if (e.touches?.[0]) {
         this.startX = e.touches[0].clientX;
         this.startY = e.touches[0].clientY;
       }
@@ -186,7 +184,7 @@ class CoordinatedSwipeDetector {
    * @private
    */
   _handleTouchMove(e) {
-    if (!this.isActive || !e.touches || !e.touches[0]) return;
+    if (!this.isActive || !e.touches?.[0]) return;
 
     // If already locked, don't re-evaluate
     if (this.axisLock) return;
@@ -198,14 +196,12 @@ class CoordinatedSwipeDetector {
     const deltaY = Math.abs(currentY - this.startY);
 
     // Check for horizontal lock
-    if (deltaX > this.AXIS_THRESHOLD && 
-        deltaX > deltaY * this.AXIS_DOMINANCE_RATIO) {
-      this.axisLock = 'horizontal';
+    if (deltaX > this.AXIS_THRESHOLD && deltaX > deltaY * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = "horizontal";
     }
     // Check for vertical lock
-    else if (deltaY > this.AXIS_THRESHOLD && 
-             deltaY > deltaX * this.AXIS_DOMINANCE_RATIO) {
-      this.axisLock = 'vertical';
+    else if (deltaY > this.AXIS_THRESHOLD && deltaY > deltaX * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = "vertical";
     }
     // Otherwise stay neutral (null)
   }
@@ -214,7 +210,7 @@ class CoordinatedSwipeDetector {
    * Handle touchend - release gesture lock
    * @private
    */
-  _handleTouchEnd(e) {
+  _handleTouchEnd(_e) {
     this._releaseLock();
   }
 
@@ -222,7 +218,7 @@ class CoordinatedSwipeDetector {
    * Handle touchcancel - release gesture lock
    * @private
    */
-  _handleTouchCancel(e) {
+  _handleTouchCancel(_e) {
     this._releaseLock();
   }
 
@@ -279,10 +275,10 @@ class CoordinatedLongPressDetector {
       tolerance: options.tolerance || 10,
       onLongPress: (detail) => {
         // Only call callback if we have the lock
-        if (this.isActive && typeof options.onLongPress === 'function') {
+        if (this.isActive && typeof options.onLongPress === "function") {
           options.onLongPress(detail);
         }
-      }
+      },
     });
 
     // Bind methods
@@ -299,10 +295,10 @@ class CoordinatedLongPressDetector {
     if (!this.element) return;
 
     // Add our coordination listeners
-    this.element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
-    this.element.addEventListener('touchmove', this._handleTouchMove, { passive: true });
-    this.element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
-    this.element.addEventListener('touchcancel', this._handleTouchCancel, { passive: true });
+    this.element.addEventListener("touchstart", this._handleTouchStart, { passive: true });
+    this.element.addEventListener("touchmove", this._handleTouchMove, { passive: true });
+    this.element.addEventListener("touchend", this._handleTouchEnd, { passive: true });
+    this.element.addEventListener("touchcancel", this._handleTouchCancel, { passive: true });
 
     // Attach the wrapped detector
     this.wrappedDetector.attachToElement(this.element);
@@ -315,10 +311,10 @@ class CoordinatedLongPressDetector {
     this._releaseLock();
 
     if (this.element) {
-      this.element.removeEventListener('touchstart', this._handleTouchStart);
-      this.element.removeEventListener('touchmove', this._handleTouchMove);
-      this.element.removeEventListener('touchend', this._handleTouchEnd);
-      this.element.removeEventListener('touchcancel', this._handleTouchCancel);
+      this.element.removeEventListener("touchstart", this._handleTouchStart);
+      this.element.removeEventListener("touchmove", this._handleTouchMove);
+      this.element.removeEventListener("touchend", this._handleTouchEnd);
+      this.element.removeEventListener("touchcancel", this._handleTouchCancel);
     }
 
     if (this.wrappedDetector) {
@@ -335,16 +331,16 @@ class CoordinatedLongPressDetector {
     const region = getRegionForElement(this.element);
 
     // Request lock with priority 3 (highest - intentional long press) and region info
-    const granted = this.coordinator.requestGesture('longpress', 3, {
+    const granted = this.coordinator.requestGesture("longpress", 3, {
       element: this.element,
-      region: region
+      region: region,
     });
 
     if (granted) {
       this.isActive = true;
       this.currentRegion = region;
       // Store start position for axis locking
-      if (e.touches && e.touches[0]) {
+      if (e.touches?.[0]) {
         this.startX = e.touches[0].clientX;
         this.startY = e.touches[0].clientY;
       }
@@ -356,7 +352,7 @@ class CoordinatedLongPressDetector {
    * @private
    */
   _handleTouchMove(e) {
-    if (!this.isActive || !e.touches || !e.touches[0]) return;
+    if (!this.isActive || !e.touches?.[0]) return;
 
     // If already locked, don't re-evaluate
     if (this.axisLock) return;
@@ -368,14 +364,12 @@ class CoordinatedLongPressDetector {
     const deltaY = Math.abs(currentY - this.startY);
 
     // Check for horizontal lock
-    if (deltaX > this.AXIS_THRESHOLD && 
-        deltaX > deltaY * this.AXIS_DOMINANCE_RATIO) {
-      this.axisLock = 'horizontal';
+    if (deltaX > this.AXIS_THRESHOLD && deltaX > deltaY * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = "horizontal";
     }
     // Check for vertical lock
-    else if (deltaY > this.AXIS_THRESHOLD && 
-             deltaY > deltaX * this.AXIS_DOMINANCE_RATIO) {
-      this.axisLock = 'vertical';
+    else if (deltaY > this.AXIS_THRESHOLD && deltaY > deltaX * this.AXIS_DOMINANCE_RATIO) {
+      this.axisLock = "vertical";
     }
     // Otherwise stay neutral (null)
   }
@@ -384,7 +378,7 @@ class CoordinatedLongPressDetector {
    * Handle touchend - release gesture lock
    * @private
    */
-  _handleTouchEnd(e) {
+  _handleTouchEnd(_e) {
     this._releaseLock();
   }
 
@@ -392,7 +386,7 @@ class CoordinatedLongPressDetector {
    * Handle touchcancel - release gesture lock
    * @private
    */
-  _handleTouchCancel(e) {
+  _handleTouchCancel(_e) {
     this._releaseLock();
   }
 
@@ -413,9 +407,9 @@ class CoordinatedLongPressDetector {
 }
 
 // Export for ESM and browser usage
-export { CoordinatedSwipeDetector, CoordinatedLongPressDetector, getRegionForElement, REGIONS };
+export { CoordinatedLongPressDetector, CoordinatedSwipeDetector, getRegionForElement, REGIONS };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.CoordinatedDetectors = {
     CoordinatedSwipeDetector,
     CoordinatedLongPressDetector,

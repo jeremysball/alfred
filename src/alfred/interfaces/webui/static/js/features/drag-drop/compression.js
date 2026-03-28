@@ -27,7 +27,7 @@ const ImageCompression = {
    * @returns {boolean}
    */
   needsCompression(file) {
-    if (!file || !file.type.startsWith('image/')) return false;
+    if (!file?.type.startsWith("image/")) return false;
     return file.size > this.COMPRESSION_THRESHOLD;
   },
 
@@ -54,12 +54,12 @@ const ImageCompression = {
         const { width, height } = this._calculateDimensions(img.width, img.height);
 
         // Create canvas
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
 
         // Draw image
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
         // Determine output format
@@ -69,20 +69,22 @@ const ImageCompression = {
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              console.log(`Compressed: ${file.name} from ${(file.size / 1024 / 1024).toFixed(2)}MB to ${(blob.size / 1024 / 1024).toFixed(2)}MB`);
+              console.log(
+                `Compressed: ${file.name} from ${(file.size / 1024 / 1024).toFixed(2)}MB to ${(blob.size / 1024 / 1024).toFixed(2)}MB`,
+              );
               resolve(blob);
             } else {
-              reject(new Error('Canvas toBlob failed'));
+              reject(new Error("Canvas toBlob failed"));
             }
           },
           outputType,
-          this.JPEG_QUALITY
+          this.JPEG_QUALITY,
         );
       };
 
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        reject(new Error('Failed to load image'));
+        reject(new Error("Failed to load image"));
       };
 
       img.src = url;
@@ -100,10 +102,7 @@ const ImageCompression = {
       return { width, height };
     }
 
-    const ratio = Math.min(
-      this.MAX_DIMENSION / width,
-      this.MAX_DIMENSION / height
-    );
+    const ratio = Math.min(this.MAX_DIMENSION / width, this.MAX_DIMENSION / height);
 
     return {
       width: Math.round(width * ratio),
@@ -118,10 +117,10 @@ const ImageCompression = {
    */
   _getOutputType(originalType) {
     // Keep PNG as PNG (lossless), convert others to JPEG
-    if (originalType === 'image/png') {
-      return 'image/png';
+    if (originalType === "image/png") {
+      return "image/png";
     }
-    return 'image/jpeg';
+    return "image/jpeg";
   },
 
   /**
@@ -131,8 +130,8 @@ const ImageCompression = {
    * @returns {File}
    */
   createFileFromBlob(blob, originalFile) {
-    const extension = blob.type === 'image/png' ? '.png' : '.jpg';
-    const name = originalFile.name.replace(/\.[^/.]+$/, '') + extension;
+    const extension = blob.type === "image/png" ? ".png" : ".jpg";
+    const name = originalFile.name.replace(/\.[^/.]+$/, "") + extension;
 
     return new File([blob], name, {
       type: blob.type,
@@ -159,6 +158,6 @@ const ImageCompression = {
 // Export for ESM and browser usage
 export { ImageCompression };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.ImageCompression = ImageCompression;
 }

@@ -12,19 +12,19 @@
  */
 function isTouchDevice() {
   // Check for touch APIs
-  const hasTouchAPI = typeof window !== 'undefined' && (
-    'ontouchstart' in window ||
-    (window.DocumentTouch && document instanceof window.DocumentTouch)
-  );
+  const hasTouchAPI =
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window ||
+      (window.DocumentTouch && document instanceof window.DocumentTouch));
 
   // Check for touch points (modern browsers)
-  const hasTouchPoints = typeof navigator !== 'undefined' &&
-    navigator.maxTouchPoints > 0;
+  const hasTouchPoints = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
 
   // Check for coarse pointer (CSS media query via JS)
-  const hasCoarsePointer = typeof window !== 'undefined' &&
+  const hasCoarsePointer =
+    typeof window !== "undefined" &&
     window.matchMedia &&
-    window.matchMedia('(pointer: coarse)').matches;
+    window.matchMedia("(pointer: coarse)").matches;
 
   return !!(hasTouchAPI || hasTouchPoints || hasCoarsePointer);
 }
@@ -53,7 +53,10 @@ function isInEdgeZone(touchX, screenWidth, edgeMargin = 40) {
  * @param {string[]} excludedSelectors - CSS selectors to exclude
  * @returns {boolean} True if element should handle touches
  */
-function shouldHandleTouch(element, excludedSelectors = ['input', 'textarea', 'select', '[contenteditable]']) {
+function shouldHandleTouch(
+  element,
+  excludedSelectors = ["input", "textarea", "select", "[contenteditable]"],
+) {
   if (!element || !(element instanceof Element)) {
     return false;
   }
@@ -69,12 +72,12 @@ function shouldHandleTouch(element, excludedSelectors = ['input', 'textarea', 's
 }
 
 // Export for ESM and browser usage
-export { isTouchDevice, isInEdgeZone, shouldHandleTouch };
+export { isInEdgeZone, isTouchDevice, shouldHandleTouch };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.TouchDetector = {
     isTouchDevice,
     isInEdgeZone,
-    shouldHandleTouch
+    shouldHandleTouch,
   };
 }

@@ -18,7 +18,7 @@
   border-radius: 12px;
   color: white;
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   opacity: 0;
@@ -55,7 +55,7 @@
     background: rgba(59, 130, 246, 0.8);
     border-color: rgba(255, 255, 255, 0.1);
   }
-  
+
   .pwa-install-button:hover {
     background: rgba(59, 130, 246, 0.95);
   }
@@ -66,7 +66,7 @@
   .pwa-install-button {
     transition: none;
   }
-  
+
   .pwa-install-button:hover {
     transform: none;
   }
@@ -81,7 +81,7 @@
     left: 16px;
     justify-content: center;
   }
-  
+
   .pwa-install-button span {
     display: inline;
   }
@@ -90,13 +90,13 @@
 /* Standalone mode - hide install button */
 @media (display-mode: standalone) {
   .pwa-install-button {
-    display: none !important;
+    display: none;
   }
 }
 
 /* iOS standalone mode */
 @media all and (display-mode: standalone) {
   .pwa-install-button {
-    display: none !important;
+    display: none;
   }
 }

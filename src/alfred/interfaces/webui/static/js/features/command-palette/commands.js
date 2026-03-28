@@ -23,20 +23,20 @@ const registry = new Map();
  * @throws {Error} If required fields are missing or command already exists
  */
 function register(command) {
-  if (!command || typeof command !== 'object') {
-    throw new Error('Command must be an object');
+  if (!command || typeof command !== "object") {
+    throw new Error("Command must be an object");
   }
 
-  if (!command.id || typeof command.id !== 'string') {
-    throw new Error('Command id is required and must be a string');
+  if (!command.id || typeof command.id !== "string") {
+    throw new Error("Command id is required and must be a string");
   }
 
-  if (!command.title || typeof command.title !== 'string') {
-    throw new Error('Command title is required and must be a string');
+  if (!command.title || typeof command.title !== "string") {
+    throw new Error("Command title is required and must be a string");
   }
 
-  if (!command.action || typeof command.action !== 'function') {
-    throw new Error('Command action is required and must be a function');
+  if (!command.action || typeof command.action !== "function") {
+    throw new Error("Command action is required and must be a function");
   }
 
   if (registry.has(command.id)) {
@@ -48,7 +48,7 @@ function register(command) {
     title: command.title,
     keywords: command.keywords || [],
     shortcut: command.shortcut || null,
-    action: command.action
+    action: command.action,
   });
 }
 
@@ -86,8 +86,8 @@ function clear() {
 }
 
 // Export for ESM and browser usage
-export { register, getAll, getById, unregister, clear };
+export { clear, getAll, getById, register, unregister };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.CommandRegistry = { register, getAll, getById, unregister, clear };
 }

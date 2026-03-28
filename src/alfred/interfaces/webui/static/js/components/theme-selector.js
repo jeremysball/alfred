@@ -1,9 +1,9 @@
 /**
  * Settings Menu Web Component
  */
-import { applyThemeContrast, getContrastPalette } from '../utils/contrast.js';
+import { applyThemeContrast, getContrastPalette } from "../utils/contrast.js";
 
-const SETTINGS_PORTAL_ID = 'settings-portal-root';
+const SETTINGS_PORTAL_ID = "settings-portal-root";
 const DESKTOP_BREAKPOINT = 769;
 
 function buildThemeOptionStyle(theme) {
@@ -15,40 +15,101 @@ function buildThemeOptionStyle(theme) {
     `--theme-option-muted: ${palette.muted}`,
     `--theme-option-accent: ${palette.accent}`,
     `--theme-option-active-border: 2px solid ${palette.accent}`,
-  ].join('; ');
+  ].join("; ");
 }
 
 class SettingsMenu extends HTMLElement {
   constructor() {
     super();
-    this._currentTheme = localStorage.getItem('alfred-theme') || 'dark-academia';
-    this._fontSize = localStorage.getItem('alfred-font-size') || '';
-    this._fontFamily = localStorage.getItem('alfred-font-family') || '';
+    // localStorage.getItem('alfred-theme')
+    this._currentTheme = localStorage.getItem("theme") || "dark-academia";
+    this._fontSize = localStorage.getItem("alfred-font-size") || "";
+    this._fontFamily = localStorage.getItem("alfred-font-family") || "";
     this._themes = [
-      { id: 'swiss-international', name: 'Swiss Light', description: 'Clean light style', previewColor: '#990000', surfaceColor: '#ffffff' },
-      { id: 'dark-academia-light', name: 'Dark Academia Light', description: 'Classical library light', previewColor: '#8b5a2b', surfaceColor: '#f4efe6' },
-      { id: 'minimal', name: 'Minimal', description: 'Clean and simple', previewColor: '#1565c0', surfaceColor: '#f5f5f5' },
-      { id: 'neumorphism', name: 'Neumorphism Light', description: 'Soft light plastic', previewColor: '#3d4fb8', surfaceColor: '#e0e5ec' },
-      { id: 'neumorphism-dark', name: 'Neumorphism Dark', description: 'Soft dark plastic', previewColor: '#3d4fb8', surfaceColor: '#1a202c' },
-      { id: 'swiss-international-dark', name: 'Swiss Dark', description: 'Clean dark style', previewColor: '#cc0000', surfaceColor: '#2a2a2a' },
-      { id: 'dark-academia', name: 'Dark Academia', description: 'Classical library dark', previewColor: '#8b6914', surfaceColor: '#24201c' },
-      { id: 'element-modern', name: 'Element Modern', description: 'True black, seamless flow', previewColor: '#A855F7', surfaceColor: '#0a0a0a' },
-      { id: 'kidcore-playground', name: 'Kidcore Playground', description: 'Handmade scrapbook chaos', previewColor: '#ff4fd8', surfaceColor: '#26003d' },
-      { id: 'spacejam-neocities', name: 'Space Jam Neocities', description: 'Gaudy 90s neon browser shrine', previewColor: '#00e5ff', surfaceColor: '#180022' }
+      {
+        id: "swiss-international",
+        name: "Swiss Light",
+        description: "Clean light style",
+        previewColor: "#990000",
+        surfaceColor: "#ffffff",
+      },
+      {
+        id: "minimal",
+        name: "Minimal",
+        description: "Clean and simple",
+        previewColor: "#1565c0",
+        surfaceColor: "#f5f5f5",
+      },
+      {
+        id: "neumorphism",
+        name: "Neumorphism Light",
+        description: "Soft light plastic",
+        previewColor: "#3d4fb8",
+        surfaceColor: "#e0e5ec",
+      },
+      {
+        id: "neumorphism-dark",
+        name: "Neumorphism Dark",
+        description: "Soft dark plastic",
+        previewColor: "#3d4fb8",
+        surfaceColor: "#1a202c",
+      },
+      {
+        id: "swiss-international-dark",
+        name: "Swiss Dark",
+        description: "Clean dark style",
+        previewColor: "#cc0000",
+        surfaceColor: "#2a2a2a",
+      },
+      {
+        id: "dark-academia",
+        name: "Dark Academia",
+        description: "Classical library dark",
+        previewColor: "#8b6914",
+        surfaceColor: "#24201c",
+      },
+      {
+        id: "element-modern",
+        name: "Element Modern",
+        description: "True black, seamless flow",
+        previewColor: "#A855F7",
+        surfaceColor: "#0a0a0a",
+      },
+      {
+        id: "elegant-modern-yellow",
+        name: "Elegant Modern Yellow",
+        description: "Monospace yellow on black",
+        previewColor: "#FBBF24",
+        surfaceColor: "#0a0a0a",
+      },
+      {
+        id: "kidcore-playground",
+        name: "Kidcore Playground",
+        description: "Handmade scrapbook chaos",
+        previewColor: "#ff4fd8",
+        surfaceColor: "#26003d",
+      },
+      {
+        id: "spacejam-neocities",
+        name: "Space Jam Neocities",
+        description: "Gaudy 90s neon browser shrine",
+        previewColor: "#00e5ff",
+        surfaceColor: "#180022",
+      },
     ];
     this._fontSizes = [
-      { id: '', name: 'Default', description: 'Inherit from theme' },
-      { id: 'small', name: 'Small', description: '90% base size' },
-      { id: 'medium', name: 'Medium', description: '100% base size' },
-      { id: 'large', name: 'Large', description: '115% base size' },
-      { id: 'xlarge', name: 'Extra Large', description: '130% base size' }
+      { id: "", name: "Default", description: "Inherit from theme" },
+      { id: "small", name: "Small", description: "90% base size" },
+      { id: "medium", name: "Medium", description: "100% base size" },
+      { id: "large", name: "Large", description: "115% base size" },
+      { id: "xlarge", name: "Extra Large", description: "130% base size" },
     ];
     this._fontFamilies = [
-      { id: '', name: 'Default', description: 'Inherit from theme' },
-      { id: 'system', name: 'System', description: 'System UI fonts' },
-      { id: 'serif', name: 'Serif', description: 'Georgia, Times New Roman' },
-      { id: 'mono', name: 'Monospace', description: 'JetBrains Mono, Fira Code' },
-      { id: 'sans', name: 'Sans-serif', description: 'Inter, Helvetica, Arial' }
+      { id: "", name: "Default", description: "Inherit from theme" },
+      { id: "system", name: "System", description: "System UI fonts" },
+      { id: "serif", name: "Serif", description: "Georgia, Times New Roman" },
+      { id: "mono", name: "Monospace", description: "JetBrains Mono, Fira Code" },
+      { id: "sans", name: "Sans-serif", description: "Inter, Helvetica, Arial" },
     ];
     this._isOpen = false;
     this._portalRoot = null;
@@ -72,46 +133,64 @@ class SettingsMenu extends HTMLElement {
   }
 
   _applyTheme(themeId) {
-    document.documentElement.setAttribute('data-theme', themeId);
-    localStorage.setItem('alfred-theme', themeId);
+    // document.documentElement.setAttribute('data-theme', themeId)
+    document.documentElement.setAttribute("data-theme", themeId);
+    // localStorage.setItem('alfred-theme', themeId)
+    localStorage.setItem("theme", themeId);
     this._currentTheme = themeId;
     applyThemeContrast();
   }
 
   _applyFontSize(sizeId) {
     const root = document.documentElement;
-    root.classList.remove('font-size-small', 'font-size-medium', 'font-size-large', 'font-size-xlarge');
-    if (sizeId && sizeId !== '') {
+    root.classList.remove(
+      "font-size-small",
+      "font-size-medium",
+      "font-size-large",
+      "font-size-xlarge",
+    );
+    if (sizeId && sizeId !== "") {
       root.classList.add(`font-size-${sizeId}`);
     }
-    localStorage.setItem('alfred-font-size', sizeId);
+    // localStorage.setItem('alfred-font-size', sizeId)
+    localStorage.setItem("alfred-font-size", sizeId);
+    // localStorage.getItem('alfred-font-family')
+    // localStorage.getItem('alfred-font-size')
     this._fontSize = sizeId;
   }
 
   _applyFontFamily(fontId) {
     const root = document.documentElement;
-    root.classList.remove('font-family-system', 'font-family-serif', 'font-family-mono', 'font-family-sans');
-    if (fontId && fontId !== '') {
+    root.classList.remove(
+      "font-family-system",
+      "font-family-serif",
+      "font-family-mono",
+      "font-family-sans",
+    );
+    if (fontId && fontId !== "") {
       root.classList.add(`font-family-${fontId}`);
     }
-    localStorage.setItem('alfred-font-family', fontId);
+    // localStorage.setItem('alfred-font-family', fontId)
+    localStorage.setItem("alfred-font-family", fontId);
     this._fontFamily = fontId;
   }
 
   _buildThemeOptionsMarkup() {
-    return this._themes.map(theme => {
-      const isActive = theme.id === this._currentTheme;
-      return `
-        <div class="theme-option ${isActive ? 'active' : ''}" data-theme="${theme.id}" style="${buildThemeOptionStyle(theme)}">
+    return this._themes
+      .map((theme) => {
+        const isActive = theme.id === this._currentTheme;
+        return `
+        <div class="theme-option ${isActive ? "active" : ""}" data-theme="${theme.id}" style="${buildThemeOptionStyle(theme)}">
           <div class="theme-color-preview" style="background: ${theme.previewColor}"></div>
           <div class="theme-info">
             <div class="theme-name">${theme.name}</div>
             <div class="theme-description">${theme.description}</div>
           </div>
-          ${isActive ? '<div class="theme-check">✓</div>' : ''}
+          ${isActive ? '<div class="theme-check">✓</div>' : ""}
         </div>
       `;
-    }).join('');
+      })
+      .join("");
   }
 
   _render() {
@@ -131,12 +210,12 @@ class SettingsMenu extends HTMLElement {
   }
 
   _attachToggleListeners() {
-    const toggle = this.querySelector('.settings-toggle');
+    const toggle = this.querySelector(".settings-toggle");
     if (!toggle) {
       return;
     }
 
-    toggle.addEventListener('click', (event) => {
+    toggle.addEventListener("click", (event) => {
       event.stopPropagation();
       this._isOpen = !this._isOpen;
       this._render();
@@ -151,10 +230,10 @@ class SettingsMenu extends HTMLElement {
       return existingRoot;
     }
 
-    const root = document.createElement('div');
+    const root = document.createElement("div");
     root.id = SETTINGS_PORTAL_ID;
-    root.className = 'settings-portal-root';
-    root.setAttribute('aria-hidden', 'true');
+    root.className = "settings-portal-root";
+    root.setAttribute("aria-hidden", "true");
     document.body.appendChild(root);
     this._portalRoot = root;
     this._bindPortalRootListener();
@@ -167,7 +246,7 @@ class SettingsMenu extends HTMLElement {
     }
 
     this._portalClickHandler = (event) => {
-      const overlay = event.target.closest('.settings-overlay');
+      const overlay = event.target.closest(".settings-overlay");
       if (overlay) {
         event.stopPropagation();
         this._isOpen = false;
@@ -175,7 +254,7 @@ class SettingsMenu extends HTMLElement {
         return;
       }
 
-      const themeOption = event.target.closest('.theme-option');
+      const themeOption = event.target.closest(".theme-option");
       if (themeOption && this._portalRoot?.contains(themeOption)) {
         event.stopPropagation();
         const themeId = themeOption.dataset.theme;
@@ -186,7 +265,7 @@ class SettingsMenu extends HTMLElement {
         return;
       }
 
-      const fontSizeOption = event.target.closest('[data-font-size]');
+      const fontSizeOption = event.target.closest("[data-font-size]");
       if (fontSizeOption && this._portalRoot?.contains(fontSizeOption)) {
         event.stopPropagation();
         const sizeId = fontSizeOption.dataset.fontSize;
@@ -195,7 +274,7 @@ class SettingsMenu extends HTMLElement {
         return;
       }
 
-      const fontFamilyOption = event.target.closest('[data-font-family]');
+      const fontFamilyOption = event.target.closest("[data-font-family]");
       if (fontFamilyOption && this._portalRoot?.contains(fontFamilyOption)) {
         event.stopPropagation();
         const fontId = fontFamilyOption.dataset.fontFamily;
@@ -205,7 +284,7 @@ class SettingsMenu extends HTMLElement {
       }
     };
 
-    this._portalRoot.addEventListener('click', this._portalClickHandler);
+    this._portalRoot.addEventListener("click", this._portalClickHandler);
     this._portalRootBound = true;
   }
 
@@ -214,44 +293,84 @@ class SettingsMenu extends HTMLElement {
       return;
     }
 
-    this._portalRoot.removeEventListener('click', this._portalClickHandler);
+    this._portalRoot.removeEventListener("click", this._portalClickHandler);
     this._portalRootBound = false;
     this._portalClickHandler = null;
   }
 
   _buildFontSizeOptionsMarkup() {
-    return this._fontSizes.map(size => {
-      const isActive = size.id === this._fontSize;
-      return `
-        <div class="font-option ${isActive ? 'active' : ''}" data-font-size="${size.id}">
+    return this._fontSizes
+      .map((size) => {
+        const isActive = size.id === this._fontSize;
+        return `
+        <div class="font-option ${isActive ? "active" : ""}" data-font-size="${size.id}">
           <div class="font-option-info">
             <div class="font-option-name">${size.name}</div>
             <div class="font-option-description">${size.description}</div>
           </div>
-          ${isActive ? '<div class="font-check">✓</div>' : ''}
+          ${isActive ? '<div class="font-check">✓</div>' : ""}
         </div>
       `;
-    }).join('');
+      })
+      .join("");
   }
 
   _buildFontFamilyOptionsMarkup() {
-    return this._fontFamilies.map(font => {
-      const isActive = font.id === this._fontFamily;
-      return `
-        <div class="font-option ${isActive ? 'active' : ''}" data-font-family="${font.id}">
+    return this._fontFamilies
+      .map((font) => {
+        const isActive = font.id === this._fontFamily;
+        return `
+        <div class="font-option ${isActive ? "active" : ""}" data-font-family="${font.id}">
           <div class="font-option-info">
             <div class="font-option-name">${font.name}</div>
             <div class="font-option-description">${font.description}</div>
           </div>
-          ${isActive ? '<div class="font-check">✓</div>' : ''}
+          ${isActive ? '<div class="font-check">✓</div>' : ""}
         </div>
       `;
-    }).join('');
+      })
+      .join("");
+  }
+
+  _buildKeybindsMarkup() {
+    const KeymapManager = window.KeymapManager;
+    if (!KeymapManager) {
+      return '<div class="keybinds-unavailable">Keyboard shortcuts unavailable</div>';
+    }
+
+    const grouped = KeymapManager.getBindingsByCategory();
+    const categories = Object.keys(grouped).sort();
+
+    return categories
+      .map((category) => {
+        const bindings = grouped[category].sort((a, b) =>
+          a.description.localeCompare(b.description),
+        );
+
+        return `
+        <div class="keybind-category">
+          <div class="keybind-category-header">${category}</div>
+          <div class="keybind-list">
+            ${bindings
+              .map(
+                (binding) => `
+              <div class="keybind-item" data-action="${binding.actionId}">
+                <span class="keybind-description">${binding.description}</span>
+                <kbd class="keybind-key">${KeymapManager.formatBinding(binding)}</kbd>
+              </div>
+            `,
+              )
+              .join("")}
+          </div>
+        </div>
+      `;
+      })
+      .join("");
   }
 
   _syncPortal() {
     const portalRoot = this._ensurePortalRoot();
-    portalRoot.setAttribute('aria-hidden', String(!this._isOpen));
+    portalRoot.setAttribute("aria-hidden", String(!this._isOpen));
 
     if (!this._isOpen) {
       this._clearPortal();
@@ -273,8 +392,38 @@ class SettingsMenu extends HTMLElement {
           <div class="settings-section-header">Font Family</div>
           ${this._buildFontFamilyOptionsMarkup()}
         </div>
+        <div class="settings-section">
+          <div class="settings-section-header">Keyboard Shortcuts</div>
+          <div class="keybinds-container">
+            ${this._buildKeybindsMarkup()}
+          </div>
+          <div class="keybinds-footer">
+            <button class="keybinds-reset-btn" type="button">Reset to defaults</button>
+            <button class="keybinds-help-btn" type="button">Open Help (F1)</button>
+          </div>
+        </div>
       </div>
     `;
+
+    // Attach keybind listeners
+    const resetBtn = portalRoot.querySelector(".keybinds-reset-btn");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", () => {
+        if (window.KeymapManager) {
+          window.KeymapManager.resetAllBindings();
+          this._syncPortal();
+        }
+      });
+    }
+
+    const helpBtn = portalRoot.querySelector(".keybinds-help-btn");
+    if (helpBtn && window.alfredHelpSheet) {
+      helpBtn.addEventListener("click", () => {
+        this._isOpen = false;
+        this._render();
+        window.alfredHelpSheet.show();
+      });
+    }
 
     this._portalRoot = portalRoot;
     this._positionPortal();
@@ -283,7 +432,7 @@ class SettingsMenu extends HTMLElement {
 
   _clearPortal() {
     if (this._portalRoot) {
-      this._portalRoot.innerHTML = '';
+      this._portalRoot.innerHTML = "";
     }
     this._stopPortalTracking();
   }
@@ -296,7 +445,7 @@ class SettingsMenu extends HTMLElement {
     this._portalResizeHandler = () => {
       this._positionPortal();
     };
-    window.addEventListener('resize', this._portalResizeHandler, { passive: true });
+    window.addEventListener("resize", this._portalResizeHandler, { passive: true });
   }
 
   _stopPortalTracking() {
@@ -304,7 +453,7 @@ class SettingsMenu extends HTMLElement {
       return;
     }
 
-    window.removeEventListener('resize', this._portalResizeHandler);
+    window.removeEventListener("resize", this._portalResizeHandler);
     this._portalResizeHandler = null;
   }
 
@@ -313,20 +462,20 @@ class SettingsMenu extends HTMLElement {
       return;
     }
 
-    const content = this._portalRoot.querySelector('.settings-content');
-    const toggle = this.querySelector('.settings-toggle');
+    const content = this._portalRoot.querySelector(".settings-content");
+    const toggle = this.querySelector(".settings-toggle");
     if (!content || !toggle) {
       return;
     }
 
-    content.style.position = 'fixed';
-    content.style.transform = 'none';
+    content.style.position = "fixed";
+    content.style.transform = "none";
 
     if (window.innerWidth < DESKTOP_BREAKPOINT) {
-      content.style.top = 'auto';
-      content.style.right = '0';
-      content.style.bottom = '0';
-      content.style.left = '0';
+      content.style.top = "auto";
+      content.style.right = "0";
+      content.style.bottom = "0";
+      content.style.left = "0";
       return;
     }
 
@@ -336,9 +485,9 @@ class SettingsMenu extends HTMLElement {
 
     content.style.top = `${top}px`;
     content.style.right = `${right}px`;
-    content.style.bottom = 'auto';
-    content.style.left = 'auto';
+    content.style.bottom = "auto";
+    content.style.left = "auto";
   }
 }
 
-customElements.define('settings-menu', SettingsMenu);
+customElements.define("settings-menu", SettingsMenu);

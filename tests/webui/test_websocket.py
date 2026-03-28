@@ -101,6 +101,10 @@ class TestWebSocketSessionRestore:
             idx=1,
             id="assistant-123",
             reasoning_content="thinking",
+            text_blocks=[
+                {"content": "Here are the ", "sequence": 0},
+                {"content": "results", "sequence": 2},
+            ],
             tool_calls=[
                 make_tool_call(
                     tool_call_id="tool-1",
@@ -130,6 +134,8 @@ class TestWebSocketSessionRestore:
             assert status_update["type"] == "status.update"
             assert session_loaded["payload"]["messages"][0]["id"] == "assistant-123"
             assert session_loaded["payload"]["messages"][0]["streaming"] is True
+            assert session_loaded["payload"]["messages"][0]["textBlocks"][0]["content"] == "Here are the "
+            assert session_loaded["payload"]["messages"][0]["textBlocks"][1]["sequence"] == 2
             assert session_loaded["payload"]["messages"][0]["toolCalls"][0]["toolCallId"] == "tool-1"
             assert session_loaded["payload"]["messages"][0]["toolCalls"][0]["status"] == "success"
 
@@ -690,8 +696,8 @@ class TestWebSocketCommandsWithMockedAlfred:
 
             data = websocket.receive_json()
             assert data["type"] == "context.info"
-            assert data["payload"]["systemPrompt"]["totalTokens"] == 12
-            assert data["payload"]["sessionHistory"]["count"] == 1
+            assert data["payload"]["system_prompt"]["total_tokens"] == 12
+            assert data["payload"]["session_history"]["count"] == 1
 
 
 class TestWebSocketStatusUpdates:

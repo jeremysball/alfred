@@ -1,0 +1,554 @@
+/**
+ * Elegant Modern Yellow - Monospaced Variant
+ *
+ * Design Principles:
+ * - Seamless Flow: No rounded bubbles, subtle background shifts
+ * - True Black: #000000 base with warm yellow accents
+ * - Monospace Typography: JetBrains Mono for all text
+ * - High Contrast: Amber/yellow accent on dark backgrounds
+ */
+
+[data-theme="elegant-modern-yellow"] {
+  /* Core Palette - True Black */
+  --emy-bg-primary: #000000;
+  --emy-bg-secondary: #0A0A0A;
+  --emy-bg-tertiary: #111111;
+  --emy-bg-user: #0A0A0A;
+  --emy-bg-assistant: #161618;
+  --emy-bg-glass: rgba(255, 255, 255, 0.03);
+
+  /* AI Accent - Warm Amber/Yellow */
+  --emy-accent-primary: #FBBF24;
+  --emy-accent-glow: rgba(251, 191, 36, 0.5);
+  --emy-accent-secondary: #F59E0B;
+  --emy-accent-tertiary: #D97706;
+
+  /* Text Colors */
+  --emy-text-primary: #FAFAFA;
+  --emy-text-secondary: #A1A1AA;
+  --emy-text-muted: #71717A;
+
+  /* Borders - Subtle */
+  --emy-border-subtle: rgba(255, 255, 255, 0.06);
+  --emy-border-glass: rgba(255, 255, 255, 0.1);
+
+  /* Shared surface tokens consumed by panel/sheet surfaces */
+  --surface-panel-bg: rgba(15, 15, 18, 0.98);
+  --surface-panel-border: rgba(251, 191, 36, 0.3);
+  --surface-panel-header-bg: rgba(20, 20, 23, 0.95);
+  --surface-panel-header-text: #FBBF24;
+  --surface-panel-shadow: 0 18px 40px rgba(0, 0, 0, 0.58);
+
+  /* Typography - Monospace Throughout */
+  --emy-font-primary: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --emy-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+}
+
+/* Body & App - True Black */
+[data-theme="elegant-modern-yellow"] body {
+  background-color: var(--emy-bg-primary);
+  color: var(--emy-text-primary);
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] #app {
+  background: var(--emy-bg-primary);
+}
+
+/* Header - Glassmorphism */
+[data-theme="elegant-modern-yellow"] .app-header {
+  background: var(--emy-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--emy-border-glass);
+}
+
+[data-theme="elegant-modern-yellow"] .app-header h1 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--emy-text-primary);
+  font-size: var(--text-lg);
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .connection-pill.connected {
+  background: var(--emy-accent-primary);
+  color: #000;
+  box-shadow: 0 0 12px var(--emy-accent-glow);
+}
+
+/* Chat Container */
+[data-theme="elegant-modern-yellow"] .chat-container {
+  background: var(--emy-bg-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .message-list {
+  max-width: 1400px;
+  gap: 0;
+}
+
+/* Messages - Seamless Flow (No Borders, Rounded Corners) */
+[data-theme="elegant-modern-yellow"] .message {
+  max-width: 100%;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0;
+  border: none;
+  position: relative;
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .message.user {
+  background: var(--emy-bg-user);
+  align-self: flex-end;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+[data-theme="elegant-modern-yellow"] .message.assistant {
+  background: var(--emy-bg-assistant);
+  align-self: flex-start;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[data-theme="elegant-modern-yellow"] .message.system {
+  background: transparent;
+  border: 1px dashed var(--emy-border-subtle);
+  color: var(--emy-text-muted);
+}
+
+/* Message Header */
+[data-theme="elegant-modern-yellow"] .message-header {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .message-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+}
+
+[data-theme="elegant-modern-yellow"] .message.user .message-avatar {
+  color: var(--emy-text-secondary);
+}
+
+[data-theme="elegant-modern-yellow"] .message.assistant .message-avatar {
+  color: var(--emy-accent-primary);
+  text-shadow: 0 0 8px var(--emy-accent-glow);
+}
+
+[data-theme="elegant-modern-yellow"] .message-role {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--emy-text-muted);
+  font-weight: 500;
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .message-time {
+  font-size: var(--text-xs);
+  color: var(--emy-text-muted);
+  margin-left: auto;
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .message-content {
+  color: var(--emy-text-primary);
+  line-height: 1.7;
+  font-size: var(--text-md);
+  font-family: var(--emy-font-primary);
+}
+
+/* Reasoning Section - Glassmorphism */
+[data-theme="elegant-modern-yellow"] .reasoning-section {
+  margin: 1rem 0;
+  background: var(--emy-bg-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--emy-border-glass);
+  border-radius: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="elegant-modern-yellow"] .reasoning-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--emy-accent-primary), transparent);
+  opacity: 0.5;
+}
+
+[data-theme="elegant-modern-yellow"] .reasoning-header {
+  padding: 0.875rem 1rem 0.625rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+[data-theme="elegant-modern-yellow"] .reasoning-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--emy-accent-primary);
+  font-weight: 500;
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .reasoning-icon {
+  color: var(--emy-accent-primary);
+  animation: sparkle-yellow 2s ease-in-out infinite;
+}
+
+@keyframes sparkle-yellow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+[data-theme="elegant-modern-yellow"] .reasoning-content {
+  padding: 0 1rem 1rem;
+  font-family: var(--emy-font-mono);
+  font-size: var(--text-sm);
+  color: var(--emy-text-secondary);
+  line-height: 1.6;
+}
+
+/* Footer - Glassmorphism */
+[data-theme="elegant-modern-yellow"] .app-footer {
+  background: var(--emy-bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--emy-border-glass);
+}
+
+[data-theme="elegant-modern-yellow"] .input-area {
+  max-width: 1400px;
+}
+
+[data-theme="elegant-modern-yellow"] .message-input {
+  background: var(--emy-bg-secondary);
+  border: 1px solid var(--emy-border-subtle);
+  color: var(--emy-text-primary);
+  font-family: var(--emy-font-primary);
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+[data-theme="elegant-modern-yellow"] .message-input:focus {
+  border-color: var(--emy-accent-primary);
+  box-shadow: 0 0 0 1px var(--emy-accent-glow);
+  outline: none;
+}
+
+[data-theme="elegant-modern-yellow"] .message-input::placeholder {
+  color: var(--emy-text-muted);
+}
+
+/* Send Button - Glow Effect */
+[data-theme="elegant-modern-yellow"] .send-button {
+  background: var(--emy-accent-primary);
+  color: #000;
+  font-family: var(--emy-font-primary);
+  font-weight: 600;
+  border: none;
+  border-radius: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+  transition: all 0.2s ease;
+}
+
+[data-theme="elegant-modern-yellow"] .send-button:hover {
+  box-shadow: 0 0 20px var(--emy-accent-glow);
+  transform: translateY(-1px);
+}
+
+[data-theme="elegant-modern-yellow"] .send-button:disabled {
+  background: var(--emy-bg-tertiary);
+  color: var(--emy-text-muted);
+  box-shadow: none;
+}
+
+/* Tool Calls - High Contrast with Yellow */
+[data-theme="elegant-modern-yellow"] {
+  --tool-bg: rgba(20, 20, 25, 0.95);
+  --tool-border: rgba(251, 191, 36, 0.3);
+  --tool-header-bg: rgba(30, 30, 35, 0.8);
+  --tool-header-hover: rgba(40, 40, 45, 0.9);
+  --tool-icon: #fbbf24;
+  --tool-status-bg: rgba(255, 255, 255, 0.1);
+  --tool-running-border: #f59e0b;
+  --tool-running-bg: #f59e0b;
+  --tool-running-text: #000;
+  --tool-success-border: #10b981;
+  --tool-success-bg: #10b981;
+  --tool-success-text: #000;
+  --tool-error-border: #ef4444;
+  --tool-error-bg: #ef4444;
+  --tool-error-text: #fff;
+}
+
+[data-theme="elegant-modern-yellow"] .tool-call {
+  background: var(--tool-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--tool-border);
+  border-radius: 4px;
+  margin: 1rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-call.running {
+  border-color: var(--tool-running-border);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2), 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-call.success {
+  border-color: var(--tool-success-border);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-header {
+  background: var(--tool-header-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-header:hover {
+  background: var(--tool-header-hover);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-icon {
+  color: var(--tool-icon);
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
+}
+
+[data-theme="elegant-modern-yellow"] .tool-name {
+  font-family: var(--emy-font-mono);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--emy-text-primary);
+  letter-spacing: 0.02em;
+}
+
+[data-theme="elegant-modern-yellow"] .tool-status {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  background: var(--tool-status-bg);
+  color: var(--emy-text-secondary);
+  padding: 0.25rem 0.625rem;
+  border-radius: 4px;
+  font-family: var(--emy-font-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-call.running .tool-status {
+  background: var(--tool-running-bg);
+  color: var(--tool-running-text);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+  font-weight: 700;
+}
+
+[data-theme="elegant-modern-yellow"] .tool-call.success .tool-status {
+  background: var(--tool-success-bg);
+  color: var(--tool-success-text);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-call.error .tool-status {
+  background: var(--tool-error-bg);
+  color: var(--tool-error-text);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-toggle {
+  color: var(--emy-text-muted);
+}
+
+[data-theme="elegant-modern-yellow"] .tool-arguments strong,
+[data-theme="elegant-modern-yellow"] .tool-output strong {
+  color: var(--emy-accent-secondary);
+  font-weight: 600;
+}
+
+[data-theme="elegant-modern-yellow"] .tool-arguments pre,
+[data-theme="elegant-modern-yellow"] .tool-output pre {
+  background: rgba(10, 10, 12, 0.8);
+  border: 1px solid rgba(251, 191, 36, 0.15);
+  color: var(--emy-text-primary);
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-family: var(--emy-font-mono);
+}
+
+/* Inline Code */
+[data-theme="elegant-modern-yellow"] .message-content code {
+  background: var(--emy-bg-tertiary);
+  color: var(--emy-accent-secondary);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0;
+  font-family: var(--emy-font-mono);
+  font-size: var(--text-sm);
+}
+
+[data-theme="elegant-modern-yellow"] .message-content pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* Code Blocks */
+[data-theme="elegant-modern-yellow"] pre {
+  background: var(--emy-bg-secondary);
+  border: 1px solid var(--emy-border-subtle);
+  border-radius: 0;
+  font-family: var(--emy-font-mono);
+}
+
+/* Copy Button - Micro-interaction */
+[data-theme="elegant-modern-yellow"] .code-copy-btn,
+[data-theme="elegant-modern-yellow"] .message-action {
+  background: var(--emy-bg-glass);
+  border: 1px solid var(--emy-border-glass);
+  color: var(--emy-text-muted);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="elegant-modern-yellow"] .code-copy-btn:hover,
+[data-theme="elegant-modern-yellow"] .message-action:hover {
+  background: var(--emy-accent-primary);
+  border-color: var(--emy-accent-primary);
+  color: #000;
+  box-shadow: 0 0 12px var(--emy-accent-glow);
+  transform: scale(1.05);
+}
+
+[data-theme="elegant-modern-yellow"] .code-copy-btn.copied,
+[data-theme="elegant-modern-yellow"] .message-action.copied {
+  background: var(--emy-accent-secondary);
+  border-color: var(--emy-accent-secondary);
+  color: #000;
+  animation: haptic-pulse-yellow 0.3s ease;
+}
+
+@keyframes haptic-pulse-yellow {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  [data-theme="elegant-modern-yellow"] .message {
+    padding: 1rem;
+  }
+
+  [data-theme="elegant-modern-yellow"] .app-header {
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Status Bar */
+[data-theme="elegant-modern-yellow"] status-bar {
+  --status-bg: transparent;
+  --status-border: var(--emy-border-subtle);
+  --status-streaming: var(--emy-accent-primary);
+  --status-model: var(--emy-accent-primary);
+  --status-tokens: var(--emy-accent-secondary);
+  --status-queue: var(--emy-accent-tertiary);
+  --font-mono: var(--emy-font-mono);
+}
+
+/* Session List */
+[data-theme="elegant-modern-yellow"] .session-list-message {
+  --session-card-bg: var(--emy-bg-secondary);
+  --session-card-hover: var(--emy-bg-tertiary);
+  --session-border: var(--emy-border-subtle);
+  --session-accent: var(--emy-accent-primary);
+  --session-accent-glow: var(--emy-accent-glow);
+  --session-header-text: var(--emy-text-primary);
+  --session-body-text: var(--emy-text-secondary);
+  --session-meta-text: var(--emy-text-muted);
+  --session-action-text: var(--emy-text-muted);
+}
+
+/* History Buttons */
+[data-theme="elegant-modern-yellow"] .history-btn {
+  --history-btn-text: var(--emy-text-muted);
+  --history-btn-hover-text: var(--emy-accent-primary);
+  --history-btn-glow: var(--emy-accent-glow);
+}
+
+/* Settings Menu - Glassmorphism with proper contrast */
+[data-theme="elegant-modern-yellow"] {
+  --settings-overlay-bg: rgba(0, 0, 0, 0.85);
+  --settings-bg: rgba(15, 15, 18, 0.98);
+  --settings-radius: 0;
+  --settings-border: 1px solid rgba(251, 191, 36, 0.3);
+  --settings-shadow: 0 -20px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(251, 191, 36, 0.1);
+  --settings-header-bg: rgba(20, 20, 23, 0.95);
+  --settings-header-border: 1px solid rgba(251, 191, 36, 0.2);
+  --theme-option-border: 1px solid rgba(255, 255, 255, 0.06);
+  --theme-option-hover: rgba(251, 191, 36, 0.12);
+  --theme-option-active: rgba(251, 191, 36, 0.18);
+  --theme-option-active-border: 2px solid #fbbf24;
+  --theme-name-active: #fbbf24;
+  --theme-preview-border: rgba(251, 191, 36, 0.4);
+}
+
+[data-theme="elegant-modern-yellow"] .settings-overlay {
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="elegant-modern-yellow"] .settings-content {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: none;
+}
+
+/* Scrollbar - Minimal */
+[data-theme="elegant-modern-yellow"] .chat-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+[data-theme="elegant-modern-yellow"] .chat-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-theme="elegant-modern-yellow"] .chat-container::-webkit-scrollbar-thumb {
+  background: var(--emy-border-subtle);
+  border-radius: 0;
+}
+
+[data-theme="elegant-modern-yellow"] .chat-container::-webkit-scrollbar-thumb:hover {
+  background: var(--emy-accent-primary);
+}
+
+/* Tables - Yellow accent */
+[data-theme="elegant-modern-yellow"] .text-block table,
+[data-theme="elegant-modern-yellow"] .reasoning-content table {
+  border-color: var(--emy-border-subtle);
+}
+
+[data-theme="elegant-modern-yellow"] .text-block th,
+[data-theme="elegant-modern-yellow"] .reasoning-content th {
+  border-bottom-color: var(--emy-accent-primary);
+  color: var(--emy-accent-primary);
+}
+
+[data-theme="elegant-modern-yellow"] .text-block td,
+[data-theme="elegant-modern-yellow"] .reasoning-content td {
+  border-bottom-color: var(--emy-border-subtle);
+}

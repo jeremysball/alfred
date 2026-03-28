@@ -3,9 +3,14 @@
  * Progressive Web App functionality including install prompts and offline support
  */
 
-import { initInstallPrompt, getInstallPrompt, InstallPromptManager } from './install-prompt.js';
-import { initAutoTheme, getThemeManager, ThemeManager } from '../theme/auto-theme.js';
-import { initShareTarget, handleShareTarget, hasShareData, parseShareFromURL } from './share-target.js';
+import { getThemeManager, initAutoTheme, ThemeManager } from "../theme/auto-theme.js";
+import { getInstallPrompt, InstallPromptManager, initInstallPrompt } from "./install-prompt.js";
+import {
+  handleShareTarget,
+  hasShareData,
+  initShareTarget,
+  parseShareFromURL,
+} from "./share-target.js";
 
 /**
  * Initialize all PWA features
@@ -16,21 +21,21 @@ import { initShareTarget, handleShareTarget, hasShareData, parseShareFromURL } f
 export function initPWA(options = {}) {
   // Initialize install prompt
   const installManager = initInstallPrompt();
-  
+
   // Initialize auto-theme
   const themeManager = initAutoTheme();
-  
+
   // Initialize share target
   initShareTarget({ getComposer: options.getComposer });
-  
+
   if (options.debug) {
-    console.log('[PWA] Initialized', {
+    console.log("[PWA] Initialized", {
       canInstall: installManager.canInstall(),
       isInstalled: installManager.getIsInstalled(),
       theme: themeManager.getEffectiveTheme(),
     });
   }
-  
+
   return {
     installManager,
     themeManager,
@@ -38,9 +43,18 @@ export function initPWA(options = {}) {
 }
 
 // Export individual components
-export { initInstallPrompt, getInstallPrompt, InstallPromptManager };
-export { initAutoTheme, getThemeManager, ThemeManager };
-export { initShareTarget, handleShareTarget, hasShareData, parseShareFromURL };
+export {
+  getInstallPrompt,
+  getThemeManager,
+  handleShareTarget,
+  hasShareData,
+  InstallPromptManager,
+  initAutoTheme,
+  initInstallPrompt,
+  initShareTarget,
+  parseShareFromURL,
+  ThemeManager,
+};
 
 // Default export
 export default {

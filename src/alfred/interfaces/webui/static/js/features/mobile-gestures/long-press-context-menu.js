@@ -14,7 +14,7 @@
  * Phase 3: Touch Gesture Support - Long Press Context Menu
  */
 
-import { LongPressDetector } from './long-press-detector.js';
+import { LongPressDetector } from "./long-press-detector.js";
 
 class LongPressContextMenu {
   constructor(options = {}) {
@@ -35,12 +35,12 @@ class LongPressContextMenu {
 
     // Exclude selectors (elements that should not trigger long press)
     this.excludeSelectors = options.excludeSelectors || [
-      'a',
-      'button',
-      'input',
-      'textarea',
-      'select',
-      '[contenteditable]',
+      "a",
+      "button",
+      "input",
+      "textarea",
+      "select",
+      "[contenteditable]",
     ];
   }
 
@@ -52,7 +52,7 @@ class LongPressContextMenu {
    */
   attachToElement(element, elementId) {
     if (!element || !(element instanceof HTMLElement)) {
-      console.error('LongPressContextMenu: Invalid element provided');
+      console.error("LongPressContextMenu: Invalid element provided");
       return false;
     }
 
@@ -95,9 +95,9 @@ class LongPressContextMenu {
    * @param {string} idAttribute - Data attribute for element IDs
    * @returns {number} Number of elements attached
    */
-  attachToAllElements(container, selector = '[data-message-id]', idAttribute = 'messageId') {
+  attachToAllElements(container, selector = "[data-message-id]", idAttribute = "messageId") {
     if (!container || !(container instanceof HTMLElement)) {
-      console.error('LongPressContextMenu: Invalid container provided');
+      console.error("LongPressContextMenu: Invalid container provided");
       return 0;
     }
 
@@ -125,7 +125,7 @@ class LongPressContextMenu {
    * @returns {number} Number of messages attached
    */
   attachToAllMessages(container) {
-    return this.attachToAllElements(container, '.message, [data-message-id]', 'messageId');
+    return this.attachToAllElements(container, ".message, [data-message-id]", "messageId");
   }
 
   /**
@@ -144,7 +144,7 @@ class LongPressContextMenu {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check if the added node matches selector
-            if (node.matches && node.matches(selector)) {
+            if (node.matches?.(selector)) {
               const elementId = node.dataset[idAttribute];
               if (elementId) {
                 this.attachToElement(node, elementId);
@@ -177,7 +177,7 @@ class LongPressContextMenu {
    * @param {HTMLElement} element - The pressed element
    * @param {string} elementId - Element identifier
    */
-  _handleLongPress(element, elementId) {
+  _handleLongPress(element, _elementId) {
     // Check if clicking on excluded element
     if (this._isExcludedElement(element)) {
       return;
@@ -191,11 +191,11 @@ class LongPressContextMenu {
     // Show context menu
     if (this.showContextMenu) {
       this.showContextMenu(element, x, y);
-    } else if (window.MessageContextMenu && window.MessageContextMenu.showMessageMenu) {
+    } else if (window.MessageContextMenu?.showMessageMenu) {
       // Fallback to global MessageContextMenu
       window.MessageContextMenu.showMessageMenu(element, x, y);
     } else {
-      console.warn('LongPressContextMenu: No context menu handler configured');
+      console.warn("LongPressContextMenu: No context menu handler configured");
     }
 
     this._activeElement = null;
@@ -213,7 +213,7 @@ class LongPressContextMenu {
    * Handle press cancel
    * @param {HTMLElement} element - The element
    */
-  _handlePressCancel(element) {
+  _handlePressCancel(_element) {
     this._activeElement = null;
   }
 
@@ -270,6 +270,6 @@ class LongPressContextMenu {
 // Export for ESM and browser usage
 export { LongPressContextMenu };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.LongPressContextMenu = LongPressContextMenu;
 }

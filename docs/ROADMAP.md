@@ -221,6 +221,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | M20 | Unified SQLite Storage - All storage (sessions, memories, cron) in single SQLite database with ACID transactions (PRD #117) |
 | 143 | Cosine Similarity Migration for Memory and Session Search | Migrate vector search semantics to cosine similarity across memory and session retrieval, with safe rebuild support (PRD #143) |
 | 145 | Spacejam and Kidcore Theme Overhaul | Rework theme message surfaces, backgrounds, and subtle thinking blocks for the kidcore and spacejam themes (PRD #145) |
+| 159 | ✅ Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
 
 ### In Progress / Next Up 🔨
 
@@ -257,7 +258,6 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 140 | PyPiTUI v2 Adoption + Alfred Runtime Rewrite | Make PyPiTUI usable as a real runtime dependency and rewrite Alfred to consume it directly end-to-end (PRD #140) |
 | 151 | Web UI Compose, Cancel, and Edit While Streaming | Add cancel/edit streaming UX in the Web UI (PRD #151) |
 | 157 | Migrate to Pygments+Mistune | Replace Rich with Pygments+Mistune for 2-5x faster TUI markdown rendering (PRD #157) |
-| 159 | Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
 
 ### Medium-term 📅
 

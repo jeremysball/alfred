@@ -29,7 +29,9 @@
   pointer-events: auto;
   transform: translateX(100%);
   opacity: 0;
-  transition: transform 300ms ease, opacity 300ms ease;
+  transition:
+    transform 300ms ease,
+    opacity 300ms ease;
 }
 
 .toast.show {
@@ -61,14 +63,14 @@
 
 /* Toast Icon */
 .toast-icon {
-  font-size: 18px;
+  font-size: var(--text-lg);
   flex-shrink: 0;
 }
 
 /* Toast Message */
 .toast-message {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-primary, #e0e0e0);
   line-height: 1.4;
 }
@@ -77,7 +79,7 @@
 .toast-close {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: var(--text-xl);
   color: var(--text-muted, #808080);
   cursor: pointer;
   padding: 0 4px;

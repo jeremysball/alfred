@@ -12,13 +12,13 @@
 export class ConnectionMonitor extends EventTarget {
   constructor() {
     super();
-    this.state = 'online';
-    this.previousState = 'online';
+    this.state = "online";
+    this.previousState = "online";
     this.wsClient = null;
 
     // Listen to browser online/offline events
-    window.addEventListener('online', () => this.handleBrowserOnline());
-    window.addEventListener('offline', () => this.handleBrowserOffline());
+    window.addEventListener("online", () => this.handleBrowserOnline());
+    window.addEventListener("offline", () => this.handleBrowserOffline());
   }
 
   /**
@@ -29,15 +29,15 @@ export class ConnectionMonitor extends EventTarget {
     this.wsClient = wsClient;
 
     // Listen to WebSocket events (AlfredWebSocketClient events)
-    wsClient.addEventListener('connected', () => this.handleWsConnected());
-    wsClient.addEventListener('disconnected', () => this.handleWsDisconnected());
-    wsClient.addEventListener('error', () => this.handleWsError());
+    wsClient.addEventListener("connected", () => this.handleWsConnected());
+    wsClient.addEventListener("disconnected", () => this.handleWsDisconnected());
+    wsClient.addEventListener("error", () => this.handleWsError());
 
     // Set initial state based on current connection
     if (wsClient.isConnected) {
-      this.setState('online');
+      this.setState("online");
     } else {
-      this.setState('offline');
+      this.setState("offline");
     }
   }
 
@@ -45,7 +45,7 @@ export class ConnectionMonitor extends EventTarget {
    * Handle WebSocket connected
    */
   handleWsConnected() {
-    this.setState('online');
+    this.setState("online");
   }
 
   /**
@@ -56,9 +56,9 @@ export class ConnectionMonitor extends EventTarget {
     const isReconnecting = snapshot?.reconnectAttempts > 0;
 
     if (isReconnecting) {
-      this.setState('reconnecting');
+      this.setState("reconnecting");
     } else {
-      this.setState('offline');
+      this.setState("offline");
     }
   }
 
@@ -70,9 +70,9 @@ export class ConnectionMonitor extends EventTarget {
     const isReconnecting = snapshot?.reconnectAttempts > 0;
 
     if (isReconnecting) {
-      this.setState('reconnecting');
+      this.setState("reconnecting");
     } else {
-      this.setState('offline');
+      this.setState("offline");
     }
   }
 
@@ -80,12 +80,12 @@ export class ConnectionMonitor extends EventTarget {
    * Handle browser online event
    */
   handleBrowserOnline() {
-    console.log('[Connection] Browser reports online');
+    console.log("[Connection] Browser reports online");
     // WebSocket client handles reconnection automatically
     // We just update our state based on its reconnect attempts
     const snapshot = this.wsClient?.getConnectionSnapshot();
     if (snapshot?.reconnectAttempts > 0 && !this.wsClient?.isConnected) {
-      this.setState('reconnecting');
+      this.setState("reconnecting");
     }
   }
 
@@ -93,8 +93,8 @@ export class ConnectionMonitor extends EventTarget {
    * Handle browser offline event
    */
   handleBrowserOffline() {
-    console.log('[Connection] Browser reports offline');
-    this.setState('offline');
+    console.log("[Connection] Browser reports offline");
+    this.setState("offline");
   }
 
   /**
@@ -107,12 +107,14 @@ export class ConnectionMonitor extends EventTarget {
     this.previousState = this.state;
     this.state = newState;
 
-    this.dispatchEvent(new CustomEvent('statechange', {
-      detail: {
-        state: this.state,
-        previousState: this.previousState
-      }
-    }));
+    this.dispatchEvent(
+      new CustomEvent("statechange", {
+        detail: {
+          state: this.state,
+          previousState: this.previousState,
+        },
+      }),
+    );
   }
 
   /**
@@ -128,6 +130,6 @@ export class ConnectionMonitor extends EventTarget {
    * @returns {boolean} True if online
    */
   isOnline() {
-    return this.state === 'online';
+    return this.state === "online";
   }
 }

@@ -543,9 +543,7 @@ class ContextLoader:
 
         try:
             # Preserve user-customized files to avoid overwriting their changes
-            self._template_manager.reconcile_template(
-                template_name, preserve={"USER.md", "SOUL.md", "CUSTOM.md"}
-            )
+            self._template_manager.reconcile_template(template_name, preserve={"USER.md", "SOUL.md", "CUSTOM.md"})
         except Exception as exc:
             logger.warning(f"Failed to reconcile template {template_name}: {exc}")
 
@@ -566,9 +564,7 @@ class ContextLoader:
             return blocked
 
         cached = self._cache.get(name)
-        if cached is not None and (
-            not is_managed_template or sync_record is None or not sync_record.is_conflicted()
-        ):
+        if cached is not None and (not is_managed_template or sync_record is None or not sync_record.is_conflicted()):
             return self._refresh_context_file(cached)
 
         self._template_manager.ensure_prompts_exist()
@@ -627,10 +623,7 @@ class ContextLoader:
         """
         files = self.config.context_files or {}
         # Filter out disabled sections
-        enabled_files = {
-            name: path for name, path in files.items()
-            if name.upper() not in self._disabled_sections
-        }
+        enabled_files = {name: path for name, path in files.items() if name.upper() not in self._disabled_sections}
         tasks = [self.load_file(name, path) for name, path in enabled_files.items()]
         files_list = await asyncio.gather(*tasks)
         return {f.name: f for f in files_list}
@@ -700,8 +693,7 @@ class ContextLoader:
         self_model_section = self_model.to_prompt_section()
         system_prompt = f"{base_prompt}\n\n---\n\n{self_model_section}"
         logger.debug(
-            "assemble_with_self_model: system prompt assembled, length=%d chars, "
-            "self_model_section_length=%d chars",
+            "assemble_with_self_model: system prompt assembled, length=%d chars, self_model_section_length=%d chars",
             len(system_prompt),
             len(self_model_section),
         )
@@ -753,8 +745,7 @@ class ContextLoader:
             self_model_section = self_model.to_prompt_section()
             system_prompt = f"{system_prompt}\n\n---\n\n{self_model_section}"
             logger.debug(
-                "assemble_with_search: self-model appended - interface=%s, tools=%d, "
-                "prompt_length=%d chars",
+                "assemble_with_search: self-model appended - interface=%s, tools=%d, prompt_length=%d chars",
                 self_model.runtime.interface.value if self_model.runtime.interface else None,
                 len(self_model.capabilities.tools_available),
                 len(system_prompt),

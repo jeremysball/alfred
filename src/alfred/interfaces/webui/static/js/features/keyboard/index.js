@@ -26,6 +26,7 @@ import {
   DEFAULT_KEYMAP,
   exportKeymap,
   formatBinding,
+  formatLeaderBreadcrumb,
   getBinding,
   getBindingsByCategory,
   getKeymap,
@@ -81,6 +82,7 @@ const KeymapManager = {
   buildLeaderTree,
   getLeaderNodeForPath,
   formatBinding,
+  formatLeaderBreadcrumb,
   matchesBinding,
   subscribe,
   exportKeymap,
@@ -93,6 +95,7 @@ const registerShortcut = register;
 // Export for ES modules
 export {
   buildLeaderTree,
+  formatLeaderBreadcrumb,
   getLeaderNodeForPath,
   HelpSheet,
   KeyboardManager,

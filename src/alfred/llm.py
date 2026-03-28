@@ -22,6 +22,18 @@ _AsyncFunc = Callable[P, Coroutine[Any, Any, T]]
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_content(text: str) -> str:
+    """Sanitize content from LLM to remove invalid UTF-8 surrogates.
+
+    LLMs may generate content with invalid Unicode escape sequences (like surrogate
+    pairs) which json.loads() converts to surrogate characters. These surrogates
+    cannot be encoded as UTF-8, causing errors when sending over WebSocket.
+
+    This replaces surrogates with the Unicode replacement character.
+    """
+    return text.encode("utf-8", errors="surrogatepass").decode("utf-8", errors="replace")
+
+
 @dataclass
 class ChatMessage:
     role: str  # "system", "user", "assistant", "tool"
@@ -264,8 +276,10 @@ class KimiProvider(LLMProvider):
                 raise LLMError(f"Unexpected error: {e}") from e
 
             content = response.choices[0].message.content or ""
+            # Sanitize content to remove invalid UTF-8 surrogates
+            sanitized_content = _sanitize_content(content)
             return ChatResponse(
-                content=content,
+                content=sanitized_content,
                 model=response.model,
                 usage={
                     "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
@@ -335,8 +349,12 @@ class KimiProvider(LLMProvider):
 
             reasoning_content: str | None = getattr(message, "reasoning_content", None) or None
 
+            # Sanitize content and reasoning to remove invalid UTF-8 surrogates
+            sanitized_content = _sanitize_content(content)
+            sanitized_reasoning = _sanitize_content(reasoning_content) if reasoning_content else None
+
             return ChatResponse(
-                content=content,
+                content=sanitized_content,
                 model=response.model,
                 usage={
                     "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
@@ -345,7 +363,7 @@ class KimiProvider(LLMProvider):
                 if response.usage
                 else None,
                 tool_calls=tool_calls,
-                reasoning_content=reasoning_content,
+                reasoning_content=sanitized_reasoning,
             )
 
         self._log_request_event(
@@ -418,16 +436,18 @@ class KimiProvider(LLMProvider):
                 content = chunk.choices[0].delta.content
                 if content:
                     chunk_count += 1
-                    response_chars += len(content)
+                    # Sanitize content to remove invalid UTF-8 surrogates
+                    sanitized_content = _sanitize_content(content)
+                    response_chars += len(sanitized_content)
                     if not first_token_logged:
                         first_token_logged = True
                         self._log_request_event(
                             "llm.request.first_token",
                             operation="stream_chat",
                             latency_ms=round((perf_counter() - request_started_at) * 1000, 2),
-                            chunk_chars=len(content),
+                            chunk_chars=len(sanitized_content),
                         )
-                    yield content
+                    yield sanitized_content
         except Exception as e:
             log_event(
                 logger,
@@ -571,13 +591,17 @@ class KimiProvider(LLMProvider):
 
         # Handle content
         if delta.content:
-            state["full_content"] += delta.content
-            yield delta.content
+            # Sanitize content to remove invalid UTF-8 surrogates
+            sanitized_content = _sanitize_content(delta.content)
+            state["full_content"] += sanitized_content
+            yield sanitized_content
 
         # Handle reasoning content
         if hasattr(delta, "reasoning_content") and delta.reasoning_content:
-            state["full_reasoning"] += delta.reasoning_content
-            yield f"[REASONING]{delta.reasoning_content}"
+            # Sanitize reasoning content to remove invalid UTF-8 surrogates
+            sanitized_reasoning = _sanitize_content(delta.reasoning_content)
+            state["full_reasoning"] += sanitized_reasoning
+            yield f"[REASONING]{sanitized_reasoning}"
 
         # Handle tool calls
         if delta.tool_calls:

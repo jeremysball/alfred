@@ -1,13 +1,13 @@
 # Execution Plan: PRD #159 - Leader Mode and Which-Key Refinement
 
-## Status: IN PROGRESS
+## Status: COMPLETE
 
 ## Overview
 Make the leader-mode keyboard path trustworthy by deriving the which-key tree, runtime traversal, and help text from the same registry-backed keymap. Preserve `Ctrl+S` as the leader prefix, keep `WhichKey` render-only, and let theme surface tokens control the overlay skin.
 
 This is a post-milestone follow-up to the completed PRD 159 core work.
 
-Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical leader-tree fixture test passes, duplicate/conflict leader-path validation is covered, and the derived leader tree now drives the renderer and runtime dispatcher.
+Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical leader-tree fixture test passes, duplicate/conflict leader-path validation is covered, the derived leader tree now drives the renderer and runtime dispatcher, help-sheet parity now shares the same breadcrumb formatter, and WhichKey now skins through shared panel surface tokens.
 
 ---
 
@@ -51,11 +51,11 @@ Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical le
 
 ### Keyboard Help
 
-- [ ] Test: `test_help_sheet_lists_the_same_chord_paths_as_which_key()` - help output and the leader overlay show the same path text for the same binding
-- [ ] Test: `test_help_sheet_never_shows_the_legacy_leader_alias()` - no `Ctrl+A` leader text appears in help or overlay output
-- [ ] Implement: update `help.js` formatting so help text uses the same chord-path vocabulary as the derived leader tree
-- [ ] Implement: keep help rendering subscribed to keymap changes so rebinding refreshes the sheet when open
-- [ ] Run: `uv run pytest tests/webui/test_frontend.py tests/webui/test_leader_keybinds.py -v`
+- [x] Test: `test_help_sheet_lists_the_same_chord_paths_as_which_key()` - help output and the leader overlay show the same path text for the same binding
+- [x] Test: `test_help_sheet_never_shows_the_legacy_leader_alias()` - no `Ctrl+A` leader text appears in help or overlay output
+- [x] Implement: update `help.js` formatting so help text uses the same chord-path vocabulary as the derived leader tree
+- [x] Implement: keep help rendering subscribed to keymap changes so rebinding refreshes the sheet when open
+- [x] Run: `uv run pytest tests/webui/test_frontend.py tests/webui/test_leader_keybinds.py -v`
 
 ---
 
@@ -63,12 +63,12 @@ Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical le
 
 ### WhichKey Theme Skinning
 
-- [ ] Test: `test_which_key_uses_theme_surface_tokens_for_background_and_border()` - switching themes changes the overlay surface tokens instead of falling back to a single hardcoded look
-- [ ] Test: `test_theme_files_define_surface_panel_tokens_where_needed()` - theme CSS contains the overlay surface tokens expected by `features/keyboard/styles.css`
-- [ ] Implement: extend `themes.css` token docs/defaults for the which-key surface-panel tokens
-- [ ] Implement: update `base.css` and `features/keyboard/styles.css` to consume the surface tokens consistently
-- [ ] Implement: update the targeted theme files that should skin the overlay distinctly, including the existing dark/light/custom themes that already carry theme-specific surface values
-- [ ] Run: `uv run pytest tests/webui/test_theme_palette.py tests/webui/test_theme_persistence.py -v`
+- [x] Test: `test_which_key_uses_theme_surface_tokens_for_background_and_border()` - switching themes changes the overlay surface tokens instead of falling back to a single hardcoded look
+- [x] Test: `test_theme_files_define_surface_panel_tokens_where_needed()` - theme CSS contains the overlay surface tokens expected by `features/keyboard/styles.css`
+- [x] Implement: extend `themes.css` token docs/defaults for the which-key surface-panel tokens
+- [x] Implement: update `base.css` and `features/keyboard/styles.css` to consume the surface tokens consistently
+- [x] Implement: update the targeted theme files that should skin the overlay distinctly, including the existing dark/light/custom themes that already carry theme-specific surface values
+- [x] Run: `uv run pytest tests/webui/test_theme_palette.py tests/webui/test_theme_persistence.py -v`
 
 ---
 

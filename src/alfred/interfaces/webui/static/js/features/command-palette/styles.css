@@ -64,7 +64,7 @@
 .command-palette-input {
   width: 100%;
   padding: 16px 20px;
-  font-size: 16px;
+  font-size: var(--text-md);
   border: none;
   border-bottom: 1px solid var(--border-color, #3e3e3e);
   background: var(--bg-secondary, #252526);
@@ -114,7 +114,7 @@
 
 .command-palette-result-title {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-primary, #e0e0e0);
 }
 
@@ -125,8 +125,8 @@
 }
 
 .command-palette-result-shortcut {
-  font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
-  font-size: 12px;
+  font-family: var(--font-mono, "SF Mono", Monaco, monospace);
+  font-size: var(--text-xs);
   padding: 2px 6px;
   background: var(--bg-tertiary, #3e3e3e);
   border: 1px solid var(--border-color, #3e3e3e);
@@ -139,7 +139,7 @@
   padding: 20px;
   text-align: center;
   color: var(--text-muted, #808080);
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 /* Scrollbar Styling */

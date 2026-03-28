@@ -28,18 +28,17 @@ const registry = new Map();
  * @returns {Object} Parsed components
  */
 function parseKeyCombo(combo) {
-  const parts = combo.split('+').map(p => p.trim());
+  const parts = combo.split("+").map((p) => p.trim());
   const modifiers = {
-    ctrl: parts.includes('Ctrl'),
-    shift: parts.includes('Shift'),
-    alt: parts.includes('Alt'),
-    meta: parts.includes('Meta') || parts.includes('Cmd') || parts.includes('Command')
+    ctrl: parts.includes("Ctrl"),
+    shift: parts.includes("Shift"),
+    alt: parts.includes("Alt"),
+    meta: parts.includes("Meta") || parts.includes("Cmd") || parts.includes("Command"),
   };
 
   // The key is the last part or the only non-modifier part
-  const key = parts.find(p =>
-    !['Ctrl', 'Shift', 'Alt', 'Meta', 'Cmd', 'Command'].includes(p)
-  ) || '';
+  const key =
+    parts.find((p) => !["Ctrl", "Shift", "Alt", "Meta", "Cmd", "Command"].includes(p)) || "";
 
   return { ...modifiers, key };
 }
@@ -56,24 +55,24 @@ function parseKeyCombo(combo) {
  * @throws {Error} If required fields are missing or duplicate id
  */
 function register(config) {
-  if (!config || typeof config !== 'object') {
-    throw new Error('Shortcut config must be an object');
+  if (!config || typeof config !== "object") {
+    throw new Error("Shortcut config must be an object");
   }
 
-  if (!config.id || typeof config.id !== 'string') {
-    throw new Error('Shortcut id is required and must be a string');
+  if (!config.id || typeof config.id !== "string") {
+    throw new Error("Shortcut id is required and must be a string");
   }
 
-  if (!config.key || typeof config.key !== 'string') {
-    throw new Error('Shortcut key is required and must be a string');
+  if (!config.key || typeof config.key !== "string") {
+    throw new Error("Shortcut key is required and must be a string");
   }
 
-  if (!config.action || typeof config.action !== 'function') {
-    throw new Error('Shortcut action is required and must be a function');
+  if (!config.action || typeof config.action !== "function") {
+    throw new Error("Shortcut action is required and must be a function");
   }
 
-  if (!config.description || typeof config.description !== 'string') {
-    throw new Error('Shortcut description is required and must be a string');
+  if (!config.description || typeof config.description !== "string") {
+    throw new Error("Shortcut description is required and must be a string");
   }
 
   if (registry.has(config.id)) {
@@ -90,9 +89,9 @@ function register(config) {
     alt: parsed.alt,
     meta: parsed.meta,
     description: config.description,
-    category: config.category || 'Global',
-    context: config.context || 'global',
-    action: config.action
+    category: config.category || "Global",
+    context: config.context || "global",
+    action: config.action,
   });
 }
 
@@ -154,42 +153,33 @@ function clear() {
  */
 function formatShortcut(shortcut) {
   const parts = [];
-  if (shortcut.ctrl) parts.push('Ctrl');
-  if (shortcut.shift) parts.push('Shift');
-  if (shortcut.alt) parts.push('Alt');
-  if (shortcut.meta) parts.push('Cmd');
+  if (shortcut.ctrl) parts.push("Ctrl");
+  if (shortcut.shift) parts.push("Shift");
+  if (shortcut.alt) parts.push("Alt");
+  if (shortcut.meta) parts.push("Cmd");
 
   // Format special keys nicely
   let key = shortcut.key;
-  if (key === ' ') key = 'Space';
-  if (key === '?') key = '?';
-  if (key === 'arrowup') key = '↑';
-  if (key === 'arrowdown') key = '↓';
-  if (key === 'arrowleft') key = '←';
-  if (key === 'arrowright') key = '→';
-  if (key === 'home') key = 'Home';
-  if (key === 'end') key = 'End';
-  if (key === 'escape') key = 'Esc';
-  if (key === 'tab') key = 'Tab';
-  if (key === 'enter') key = 'Enter';
+  if (key === " ") key = "Space";
+  if (key === "?") key = "?";
+  if (key === "arrowup") key = "↑";
+  if (key === "arrowdown") key = "↓";
+  if (key === "arrowleft") key = "←";
+  if (key === "arrowright") key = "→";
+  if (key === "home") key = "Home";
+  if (key === "end") key = "End";
+  if (key === "escape") key = "Esc";
+  if (key === "tab") key = "Tab";
+  if (key === "enter") key = "Enter";
 
   parts.push(key);
-  return parts.join('+');
+  return parts.join("+");
 }
 
 // Export for ESM and browser usage
-export {
-  register,
-  getAll,
-  getAllFlat,
-  getById,
-  unregister,
-  clear,
-  formatShortcut,
-  parseKeyCombo
-};
+export { clear, formatShortcut, getAll, getAllFlat, getById, parseKeyCombo, register, unregister };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.ShortcutRegistry = {
     register,
     getAll,
@@ -198,6 +188,6 @@ if (typeof window !== 'undefined') {
     unregister,
     clear,
     formatShortcut,
-    parseKeyCombo
+    parseKeyCombo,
   };
 }

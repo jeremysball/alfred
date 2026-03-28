@@ -13,7 +13,7 @@ class GestureCoordinator {
    */
   constructor() {
     if (GestureCoordinator.instance) {
-      throw new Error('GestureCoordinator is a singleton - use getInstance()');
+      throw new Error("GestureCoordinator is a singleton - use getInstance()");
     }
 
     /** @type {Object|null} Currently active gesture info */
@@ -49,7 +49,7 @@ class GestureCoordinator {
         priority,
         startTime: Date.now(),
         element: options.element || null,
-        region: options.region || 'default'
+        region: options.region || "default",
       };
       return true;
     }
@@ -58,7 +58,7 @@ class GestureCoordinator {
     if (this.activeGesture.type === type) {
       this.activeGesture.startTime = Date.now();
       this.activeGesture.element = options.element || null;
-      this.activeGesture.region = options.region || 'default';
+      this.activeGesture.region = options.region || "default";
       return true;
     }
 
@@ -69,7 +69,7 @@ class GestureCoordinator {
         priority,
         startTime: Date.now(),
         element: options.element || null,
-        region: options.region || 'default'
+        region: options.region || "default",
       };
       return true;
     }
@@ -119,7 +119,7 @@ GestureCoordinator.instance = null;
 // Export for ESM and browser usage
 export { GestureCoordinator };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.GestureCoordinator = {
     GestureCoordinator,
   };

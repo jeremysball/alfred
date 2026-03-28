@@ -19,26 +19,30 @@
  *   Toast.info('Notifications enabled');
  */
 
-// Import from window globals (loaded via script tags)
-const NotificationPermissionManager = window.NotificationPermissionManager;
-const NotificationService = window.NotificationService;
-const FaviconBadge = window.FaviconBadge;
-const Toast = window.Toast;
+// Import from window globals set up by individual modules
+const NotificationPermissionManager = window.NotificationPermissionManager || {};
+const NotificationService = window.NotificationService || {};
+const FaviconBadge = window.FaviconBadge || {};
+const Toast = window.Toast || {};
 
-// Export for ES modules
-export {
+// Re-export everything
+const NotificationsLib = {
   NotificationPermissionManager,
   NotificationService,
   FaviconBadge,
-  Toast
+  Toast,
+};
+
+// Export for ES modules
+export {
+  FaviconBadge,
+  NotificationPermissionManager,
+  NotificationService,
+  NotificationsLib,
+  Toast,
 };
 
 // Also expose on window
-if (typeof window !== 'undefined') {
-  window.NotificationsLib = {
-    NotificationPermissionManager,
-    NotificationService,
-    FaviconBadge,
-    Toast
-  };
+if (typeof window !== "undefined") {
+  window.NotificationsLib = NotificationsLib;
 }

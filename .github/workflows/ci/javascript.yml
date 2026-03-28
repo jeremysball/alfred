@@ -1,0 +1,49 @@
+name: JavaScript Quality
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/alfred/interfaces/webui/static/js/**'
+      - 'tests/webui/**.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'biome.json'
+      - 'knip.json'
+      - '.github/workflows/ci/javascript.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/alfred/interfaces/webui/static/js/**'
+      - 'tests/webui/**.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'biome.json'
+      - 'knip.json'
+      - '.github/workflows/ci/javascript.yml'
+
+jobs:
+  js-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Biome check (lint + format)
+        run: npm run js:check
+
+      - name: Run Knip (dead code detection)
+        run: |
+          echo "Checking for dead code..."
+          npm run js:deadcode || true
+          echo "Knip check complete (informational only)"

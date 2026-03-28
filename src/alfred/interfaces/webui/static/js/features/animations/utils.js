@@ -7,7 +7,7 @@
  * @returns {boolean} True if reduced motion is preferred
  */
 export function prefersReducedMotion() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /**
@@ -20,11 +20,11 @@ export function waitForTransition(element, property = null) {
   return new Promise((resolve) => {
     const handler = (event) => {
       if (!property || event.propertyName === property) {
-        element.removeEventListener('transitionend', handler);
+        element.removeEventListener("transitionend", handler);
         resolve();
       }
     };
-    element.addEventListener('transitionend', handler);
+    element.addEventListener("transitionend", handler);
   });
 }
 
@@ -36,10 +36,10 @@ export function waitForTransition(element, property = null) {
 export function waitForAnimation(element) {
   return new Promise((resolve) => {
     const handler = () => {
-      element.removeEventListener('animationend', handler);
+      element.removeEventListener("animationend", handler);
       resolve();
     };
-    element.addEventListener('animationend', handler);
+    element.addEventListener("animationend", handler);
   });
 }
 
@@ -49,10 +49,10 @@ export function waitForAnimation(element) {
  * @param {string} properties - CSS properties to optimize (e.g., 'transform, opacity')
  * @returns {Function} Call to remove will-change
  */
-export function optimizeForAnimation(element, properties = 'transform, opacity') {
+export function optimizeForAnimation(element, properties = "transform, opacity") {
   element.style.willChange = properties;
 
   return () => {
-    element.style.willChange = 'auto';
+    element.style.willChange = "auto";
   };
 }

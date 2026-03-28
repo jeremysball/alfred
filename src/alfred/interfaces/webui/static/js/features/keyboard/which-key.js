@@ -5,6 +5,8 @@
  * when a binding is a prefix for additional keys.
  */
 
+import { formatLeaderBreadcrumb } from "./keymap.js";
+
 class WhichKey {
   constructor() {
     this.container = null;
@@ -92,11 +94,7 @@ class WhichKey {
    * @returns {string}
    */
   formatPath(path) {
-    if (!Array.isArray(path) || path.length === 0) {
-      return "Leader (Ctrl+A)";
-    }
-
-    return `Leader + ${path.map((key) => this.formatKey(key)).join(" + ")}`;
+    return formatLeaderBreadcrumb(path);
   }
 
   /**

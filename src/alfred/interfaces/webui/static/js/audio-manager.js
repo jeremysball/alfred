@@ -1,9 +1,9 @@
 const DEFAULT_AUDIO_ASSETS = Object.freeze({
-  music: '/static/audio/kidcore-loop.mp3',
-  click: '/static/audio/click.mp3',
-  send: '/static/audio/send.mp3',
-  complete: '/static/audio/success.mp3',
-  error: '/static/audio/error.mp3',
+  music: "/static/audio/kidcore-loop.mp3",
+  click: "/static/audio/click.mp3",
+  send: "/static/audio/send.mp3",
+  complete: "/static/audio/success.mp3",
+  error: "/static/audio/error.mp3",
 });
 
 const EFFECT_VOLUME = Object.freeze({
@@ -16,7 +16,7 @@ const EFFECT_VOLUME = Object.freeze({
 function createAudioElement(source, { loop = false, volume = 1 } = {}) {
   const audio = new Audio(source);
   audio.loop = loop;
-  audio.preload = 'auto';
+  audio.preload = "auto";
   audio.volume = volume;
   return audio;
 }
@@ -35,7 +35,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function randomBetween(min, max) {
+function _randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
@@ -58,13 +58,13 @@ export class KidcoreAudioManager {
     this._masterGain = null;
     this._visibilityHandler = null;
 
-    if (typeof document !== 'undefined') {
+    if (typeof document !== "undefined") {
       this._visibilityHandler = () => {
         if (document.hidden) {
           this.stopMusic();
         }
       };
-      document.addEventListener('visibilitychange', this._visibilityHandler);
+      document.addEventListener("visibilitychange", this._visibilityHandler);
     }
   }
 
@@ -90,11 +90,11 @@ export class KidcoreAudioManager {
 
   _rememberError(error) {
     this._lastError = error instanceof Error ? error : new Error(String(error));
-    console.warn('Kidcore audio playback failed:', this._lastError);
+    console.warn("Kidcore audio playback failed:", this._lastError);
   }
 
   _ensureAudioContext() {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return null;
     }
 
@@ -110,7 +110,7 @@ export class KidcoreAudioManager {
       this._masterGain.connect(this._audioContext.destination);
     }
 
-    if (this._audioContext.state === 'suspended') {
+    if (this._audioContext.state === "suspended") {
       void this._audioContext.resume().catch((error) => {
         this._rememberError(error);
       });
@@ -157,10 +157,7 @@ export class KidcoreAudioManager {
   }
 
   _buildAmbientLoopBuffer(context) {
-    if (
-      this._musicBuffer &&
-      this._musicBufferSampleRate === context.sampleRate
-    ) {
+    if (this._musicBuffer && this._musicBufferSampleRate === context.sampleRate) {
       return this._musicBuffer;
     }
 
@@ -181,7 +178,7 @@ export class KidcoreAudioManager {
       const loopProgress = (time % durationSeconds) / durationSeconds;
       const motifIndex = Math.floor(loopProgress * motifs.length) % motifs.length;
       const motif = motifs[motifIndex];
-      const envelope = Math.pow(Math.sin(Math.PI * loopProgress), 1.35);
+      const envelope = Math.sin(Math.PI * loopProgress) ** 1.35;
       const shimmer = 0.82 + 0.18 * Math.sin((Math.PI * 2 * time) / 5.25);
       const sway = 0.88 + 0.12 * Math.sin((Math.PI * 2 * time) / 8.5 + 0.65);
       let sample = 0;
@@ -189,11 +186,12 @@ export class KidcoreAudioManager {
       motif.forEach((frequency, noteIndex) => {
         const detune = 1 + 0.0018 * Math.sin((Math.PI * 2 * time) / 7.25 + noteIndex * 0.7);
         const phase = noteIndex * 0.33 + motifIndex * 0.52;
-        sample += Math.sin((Math.PI * 2 * frequency * detune * time) + phase) * (0.16 / (noteIndex + 1));
+        sample +=
+          Math.sin(Math.PI * 2 * frequency * detune * time + phase) * (0.16 / (noteIndex + 1));
       });
 
-      sample += Math.sin((Math.PI * 2 * 55 * time) + 0.25) * 0.05;
-      sample += Math.sin((Math.PI * 2 * 110 * time) + 0.5) * 0.02;
+      sample += Math.sin(Math.PI * 2 * 55 * time + 0.25) * 0.05;
+      sample += Math.sin(Math.PI * 2 * 110 * time + 0.5) * 0.02;
       channel[index] = clamp(sample * envelope * shimmer * sway, -0.18, 0.18);
     }
 
@@ -206,7 +204,7 @@ export class KidcoreAudioManager {
     startFrequency,
     endFrequency = null,
     duration = 0.08,
-    waveform = 'triangle',
+    waveform = "triangle",
     gain = 0.04,
     delay = 0,
     detune = 0,
@@ -231,7 +229,7 @@ export class KidcoreAudioManager {
       oscillator.frequency.exponentialRampToValueAtTime(clamp(endFrequency, 1, 20000), end);
     }
 
-    filter.type = 'lowpass';
+    filter.type = "lowpass";
     filter.frequency.value = filterFrequency ?? clamp(startFrequency * 2.8, 1200, 12000);
     filter.Q.value = filterQ;
 
@@ -275,7 +273,7 @@ export class KidcoreAudioManager {
     const gainNode = context.createGain();
 
     source.buffer = buffer;
-    filter.type = 'bandpass';
+    filter.type = "bandpass";
     filter.frequency.value = filterFrequency;
     filter.Q.value = filterQ;
 
@@ -296,19 +294,19 @@ export class KidcoreAudioManager {
     this._activeEffects.add(audio);
     const cleanup = () => {
       this._activeEffects.delete(audio);
-      audio.removeEventListener('ended', cleanup);
-      audio.removeEventListener('error', cleanup);
+      audio.removeEventListener("ended", cleanup);
+      audio.removeEventListener("error", cleanup);
       cleanupAudio(audio);
     };
 
-    audio.addEventListener('ended', cleanup);
-    audio.addEventListener('error', cleanup);
+    audio.addEventListener("ended", cleanup);
+    audio.addEventListener("error", cleanup);
   }
 
   _playAudio(audio) {
     try {
       const result = audio.play();
-      if (result && typeof result.catch === 'function') {
+      if (result && typeof result.catch === "function") {
         result.catch((error) => {
           this._rememberError(error);
         });
@@ -325,7 +323,7 @@ export class KidcoreAudioManager {
       startFrequency: 920,
       endFrequency: 760,
       duration: 0.05,
-      waveform: 'triangle',
+      waveform: "triangle",
       gain: 0.045,
       filterFrequency: 2400,
     });
@@ -333,7 +331,7 @@ export class KidcoreAudioManager {
       startFrequency: 1480,
       endFrequency: 1260,
       duration: 0.028,
-      waveform: 'sine',
+      waveform: "sine",
       gain: 0.016,
       delay: 0.012,
       filterFrequency: 5000,
@@ -347,7 +345,7 @@ export class KidcoreAudioManager {
       startFrequency: 640,
       endFrequency: 920,
       duration: 0.09,
-      waveform: 'sine',
+      waveform: "sine",
       gain: 0.05,
       filterFrequency: 1800,
     });
@@ -355,7 +353,7 @@ export class KidcoreAudioManager {
       startFrequency: 1180,
       endFrequency: 860,
       duration: 0.055,
-      waveform: 'triangle',
+      waveform: "triangle",
       gain: 0.022,
       delay: 0.02,
       filterFrequency: 4300,
@@ -368,7 +366,7 @@ export class KidcoreAudioManager {
       startFrequency: 1040,
       endFrequency: 780,
       duration: 0.048,
-      waveform: 'triangle',
+      waveform: "triangle",
       gain: 0.038,
       filterFrequency: 3200,
     });
@@ -376,7 +374,7 @@ export class KidcoreAudioManager {
       startFrequency: 1520,
       endFrequency: 1240,
       duration: 0.024,
-      waveform: 'sine',
+      waveform: "sine",
       gain: 0.015,
       delay: 0.012,
       filterFrequency: 5600,
@@ -389,7 +387,7 @@ export class KidcoreAudioManager {
       startFrequency: 720,
       endFrequency: 1040,
       duration: 0.07,
-      waveform: 'triangle',
+      waveform: "triangle",
       gain: 0.038,
       filterFrequency: 3600,
     });
@@ -397,7 +395,7 @@ export class KidcoreAudioManager {
       startFrequency: 960,
       endFrequency: 1280,
       duration: 0.07,
-      waveform: 'sine',
+      waveform: "sine",
       gain: 0.03,
       delay: 0.05,
       filterFrequency: 4800,
@@ -415,7 +413,7 @@ export class KidcoreAudioManager {
       startFrequency: 260,
       endFrequency: 160,
       duration: 0.14,
-      waveform: 'sawtooth',
+      waveform: "sawtooth",
       gain: 0.03,
       filterFrequency: 900,
       filterQ: 1.8,
@@ -424,7 +422,7 @@ export class KidcoreAudioManager {
       startFrequency: 180,
       endFrequency: 120,
       duration: 0.09,
-      waveform: 'square',
+      waveform: "square",
       gain: 0.02,
       delay: 0.018,
       filterFrequency: 700,
@@ -452,7 +450,7 @@ export class KidcoreAudioManager {
     source.loop = true;
     source.playbackRate.value = 0.94;
 
-    filter.type = 'lowpass';
+    filter.type = "lowpass";
     filter.frequency.value = 1600;
     filter.Q.value = 0.65;
 
@@ -499,11 +497,11 @@ export class KidcoreAudioManager {
       return true;
     }
 
-    if (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext)) {
+    if (typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext)) {
       return this._startAmbientMusic();
     }
 
-    if (typeof Audio === 'undefined') {
+    if (typeof Audio === "undefined") {
       return false;
     }
 
@@ -516,10 +514,10 @@ export class KidcoreAudioManager {
     }
 
     this._music = createAudioElement(this._assets.music, { loop: true, volume: 0.18 });
-    this._music.addEventListener('ended', () => {
+    this._music.addEventListener("ended", () => {
       this._musicPlaying = false;
     });
-    this._music.addEventListener('pause', () => {
+    this._music.addEventListener("pause", () => {
       this._musicPlaying = false;
     });
     return this._music;
@@ -538,7 +536,10 @@ export class KidcoreAudioManager {
       try {
         if (context && this._musicGainNode) {
           this._musicGainNode.gain.cancelScheduledValues(context.currentTime);
-          this._musicGainNode.gain.setValueAtTime(Math.max(this._musicGainNode.gain.value, 0.0001), context.currentTime);
+          this._musicGainNode.gain.setValueAtTime(
+            Math.max(this._musicGainNode.gain.value, 0.0001),
+            context.currentTime,
+          );
           this._musicGainNode.gain.exponentialRampToValueAtTime(0.0001, stopAt);
         }
         this._musicSource.stop(stopAt);
@@ -636,7 +637,7 @@ export class KidcoreAudioManager {
   }
 
   playEffect(effectName, options = {}) {
-    if (this._sfxMuted || typeof Audio === 'undefined') {
+    if (this._sfxMuted || typeof Audio === "undefined") {
       return false;
     }
 
@@ -660,20 +661,23 @@ export class KidcoreAudioManager {
   }
 
   playClick() {
-    return this._playSynthClick() || this.playEffect('click', { volume: EFFECT_VOLUME.click });
+    return this._playSynthClick() || this.playEffect("click", { volume: EFFECT_VOLUME.click });
   }
 
   playSend() {
-    return this._playSynthSend() || this.playEffect('send', { volume: EFFECT_VOLUME.send });
+    return this._playSynthSend() || this.playEffect("send", { volume: EFFECT_VOLUME.send });
   }
 
   playChunk() {
-    return this._playSynthChunk() || this.playEffect('click', { volume: 0.26, playbackRate: 1.08 });
+    return this._playSynthChunk() || this.playEffect("click", { volume: 0.26, playbackRate: 1.08 });
   }
 
   playMessageComplete() {
     const synthPlayed = this._playSynthComplete();
-    const filePlayed = this.playEffect('complete', { volume: EFFECT_VOLUME.complete, playbackRate: 1.02 });
+    const filePlayed = this.playEffect("complete", {
+      volume: EFFECT_VOLUME.complete,
+      playbackRate: 1.02,
+    });
     return synthPlayed || filePlayed;
   }
 
@@ -683,7 +687,10 @@ export class KidcoreAudioManager {
 
   playError() {
     const synthPlayed = this._playSynthError();
-    const filePlayed = this.playEffect('error', { volume: EFFECT_VOLUME.error, playbackRate: 0.96 });
+    const filePlayed = this.playEffect("error", {
+      volume: EFFECT_VOLUME.error,
+      playbackRate: 0.96,
+    });
     return synthPlayed || filePlayed;
   }
 
@@ -697,8 +704,8 @@ export class KidcoreAudioManager {
   destroy() {
     this.stopAll();
 
-    if (this._visibilityHandler && typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this._visibilityHandler);
+    if (this._visibilityHandler && typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this._visibilityHandler);
     }
 
     this._visibilityHandler = null;
@@ -708,6 +715,6 @@ export class KidcoreAudioManager {
 
 export const audioManager = new KidcoreAudioManager();
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.kidcoreAudioManager = audioManager;
 }

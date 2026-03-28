@@ -59,6 +59,14 @@ class ReasoningBlock:
 
 
 @dataclass
+class TextBlock:
+    """Record of a contiguous visible text block within a message."""
+
+    content: str
+    sequence: int = 0
+
+
+@dataclass
 class Message:
     """Single exchange turn with optional embedding and token counts."""
 
@@ -74,6 +82,7 @@ class Message:
     reasoning_tokens: int = 0
     reasoning_content: str = ""  # Persisted reasoning/thinking content (legacy)
     reasoning_blocks: list[ReasoningBlock] | None = None  # Interleaved reasoning blocks
+    text_blocks: list[TextBlock] | None = None  # Ordered visible text segments
     tool_calls: list[ToolCallRecord] | None = None
     streaming: bool = False
 
@@ -261,6 +270,18 @@ class SessionManager:
                         for rb in reasoning_blocks_data
                     ]
 
+                # Convert dict text_blocks to TextBlock objects
+                text_blocks_data = msg_data.get("text_blocks") or msg_data.get("textBlocks")
+                text_blocks = None
+                if text_blocks_data:
+                    text_blocks = [
+                        TextBlock(
+                            content=tb["content"],
+                            sequence=tb.get("sequence", 0),
+                        )
+                        for tb in text_blocks_data
+                    ]
+
                 # Handle timestamp - older sessions may not have it
                 timestamp_str = msg_data.get("timestamp")
                 if timestamp_str:
@@ -289,6 +310,7 @@ class SessionManager:
                     reasoning_tokens=msg_data.get("reasoning_tokens", 0),
                     reasoning_content=msg_data.get("reasoning_content", ""),
                     reasoning_blocks=reasoning_blocks,
+                    text_blocks=text_blocks,
                     tool_calls=tool_calls,
                     streaming=bool(msg_data.get("streaming", False)),
                 )
@@ -484,6 +506,14 @@ class SessionManager:
             }
             if msg.embedding is not None:
                 msg_dict["embedding"] = msg.embedding
+            if msg.text_blocks:
+                msg_dict["text_blocks"] = [
+                    {
+                        "content": tb.content,
+                        "sequence": tb.sequence,
+                    }
+                    for tb in msg.text_blocks
+                ]
             if msg.tool_calls:
                 # tool_calls are always ToolCallRecord objects (converted at load edge)
                 msg_dict["tool_calls"] = [
@@ -516,6 +546,7 @@ class SessionManager:
         Skips embedding during streaming (any active streaming message defers all embeddings).
         """
         import time
+
         persist_start = time.perf_counter()
 
         # Build metadata if session meta provided (used for both paths)
@@ -537,12 +568,13 @@ class SessionManager:
             save_time = time.perf_counter() - save_start
             total_time = time.perf_counter() - persist_start
             from alfred.observability import TRACE
+
             logger.log(
                 TRACE,
                 f"[SESSION_PERSIST_STREAMING] session_id={session_id} "
-                f"total_time={total_time*1000:.2f}ms "
-                f"save_time={save_time*1000:.2f}ms "
-                f"messages={len(messages)} (embeddings deferred)"
+                f"total_time={total_time * 1000:.2f}ms "
+                f"save_time={save_time * 1000:.2f}ms "
+                f"messages={len(messages)} (embeddings deferred)",
             )
             return
 
@@ -569,14 +601,15 @@ class SessionManager:
 
         total_time = time.perf_counter() - persist_start
         from alfred.observability import TRACE
+
         logger.log(
             TRACE,
             f"[SESSION_PERSIST] session_id={session_id} "
-            f"total_time={total_time*1000:.2f}ms "
-            f"save_time={save_time*1000:.2f}ms "
+            f"total_time={total_time * 1000:.2f}ms "
+            f"save_time={save_time * 1000:.2f}ms "
             f"embeddings={embedding_count} "
-            f"embedding_time={embedding_time*1000:.2f}ms "
-            f"messages={len(messages)}"
+            f"embedding_time={embedding_time * 1000:.2f}ms "
+            f"messages={len(messages)}",
         )
         if total_time > 0.1:  # 100ms threshold
             logger.warning(

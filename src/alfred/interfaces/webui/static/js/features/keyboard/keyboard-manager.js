@@ -5,7 +5,7 @@
  * with support for modifier keys and context awareness.
  */
 
-import { getAllFlat } from './shortcuts.js';
+import { getAllFlat } from "./shortcuts.js";
 
 class KeyboardManager {
   constructor() {
@@ -21,14 +21,14 @@ class KeyboardManager {
    * @private
    */
   attachListeners() {
-    document.addEventListener('keydown', this.handleKeydown);
+    document.addEventListener("keydown", this.handleKeydown);
   }
 
   /**
    * Detach global keyboard listeners
    */
   detachListeners() {
-    document.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener("keydown", this.handleKeydown);
   }
 
   /**
@@ -39,22 +39,23 @@ class KeyboardManager {
   getCurrentContext() {
     const activeElement = document.activeElement;
 
-    if (!activeElement) return 'global';
+    if (!activeElement) return "global";
 
     // Check if focused on input/textarea
-    if (activeElement.tagName === 'INPUT' ||
-        activeElement.tagName === 'TEXTAREA' ||
-        activeElement.contentEditable === 'true') {
-      return 'input-focused';
+    if (
+      activeElement.tagName === "INPUT" ||
+      activeElement.tagName === "TEXTAREA" ||
+      activeElement.contentEditable === "true"
+    ) {
+      return "input-focused";
     }
 
     // Check if focused on a message element
-    if (activeElement.closest('.message') ||
-        activeElement.classList.contains('message')) {
-      return 'message-focused';
+    if (activeElement.closest(".message") || activeElement.classList.contains("message")) {
+      return "message-focused";
     }
 
-    return 'global';
+    return "global";
   }
 
   /**
@@ -66,8 +67,8 @@ class KeyboardManager {
    */
   matchesShortcut(shortcut, e) {
     // Check key
-    const keyMatches = e.key.toLowerCase() === shortcut.key ||
-                       e.code.toLowerCase() === shortcut.key;
+    const keyMatches =
+      e.key.toLowerCase() === shortcut.key || e.code.toLowerCase() === shortcut.key;
 
     if (!keyMatches) return false;
 
@@ -93,7 +94,7 @@ class KeyboardManager {
 
     for (const shortcut of shortcuts) {
       // Check if shortcut matches context
-      if (shortcut.context !== 'global' && shortcut.context !== currentContext) {
+      if (shortcut.context !== "global" && shortcut.context !== currentContext) {
         continue;
       }
 
@@ -131,6 +132,6 @@ class KeyboardManager {
 // Export for ESM and browser
 export { KeyboardManager };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.KeyboardManager = KeyboardManager;
 }

@@ -10,8 +10,9 @@
   background: var(--bg-primary, #1e1e1e);
   border: 1px solid var(--border-color, #3e3e3e);
   border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4),
-              0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
   padding: 6px 0;
   animation: context-menu-appear 100ms ease-out;
   outline: none;
@@ -38,7 +39,7 @@
   border: none;
   background: transparent;
   color: var(--text-primary, #e0e0e0);
-  font-size: 14px;
+  font-size: var(--text-base);
   text-align: left;
   cursor: pointer;
   transition: background-color 80ms ease;
@@ -65,7 +66,7 @@
 
 /* Icon */
 .context-menu-icon {
-  font-size: 16px;
+  font-size: var(--text-md);
   width: 20px;
   text-align: center;
   flex-shrink: 0;
@@ -81,8 +82,8 @@
 
 /* Shortcut */
 .context-menu-shortcut {
-  font-family: var(--font-mono, 'SF Mono', Monaco, monospace);
-  font-size: 12px;
+  font-family: var(--font-mono, "SF Mono", Monaco, monospace);
+  font-size: var(--text-xs);
   padding: 2px 6px;
   background: var(--bg-tertiary, #3e3e3e);
   border: 1px solid var(--border-color, #4e4e4e);
@@ -103,7 +104,7 @@
   .context-menu {
     animation: none;
   }
-  
+
   .context-menu-item {
     transition: none;
   }

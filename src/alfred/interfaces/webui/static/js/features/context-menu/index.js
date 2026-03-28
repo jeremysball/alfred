@@ -17,24 +17,22 @@
  *   CodeContextMenu.attachToAllCodeBlocks();
  */
 
-// Import from window globals (loaded via script tags)
-const ContextMenu = window.ContextMenu;
-const MessageContextMenu = window.MessageContextMenu;
-const CodeContextMenu = window.CodeContextMenu;
+// Import from window globals set up by individual modules
+const ContextMenu = window.ContextMenu || class {};
+const MessageContextMenu = window.MessageContextMenu || {};
+const CodeContextMenu = window.CodeContextMenu || {};
 
 // Re-export everything
-const ContextMenuModule = {
+const ContextMenuLib = {
   ContextMenu,
   MessageContextMenu,
-  CodeContextMenu
+  CodeContextMenu,
 };
 
 // Export for ES modules
-export { ContextMenu };
-export { MessageContextMenu };
-export { CodeContextMenu };
+export { CodeContextMenu, ContextMenu, ContextMenuLib, MessageContextMenu };
 
 // Also expose on window
-if (typeof window !== 'undefined') {
-  window.ContextMenuLib = ContextMenuModule;
+if (typeof window !== "undefined") {
+  window.ContextMenuLib = ContextMenuLib;
 }

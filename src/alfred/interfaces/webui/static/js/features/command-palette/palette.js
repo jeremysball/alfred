@@ -5,8 +5,9 @@
  * Handles keyboard navigation and command execution.
  */
 
-import { search } from './fuzzy-search.js';
-import { getAll } from './commands.js';
+import { getBinding, matchesBinding } from "../keyboard/keymap.js";
+import { getAll } from "./commands.js";
+import { search } from "./fuzzy-search.js";
 
 /**
  * @typedef {Object} PaletteConfig
@@ -20,8 +21,8 @@ class CommandPalette {
    */
   constructor(config = {}) {
     this.config = {
-      containerId: config.containerId || 'command-palette',
-      placeholder: config.placeholder || 'Type a command...'
+      containerId: config.containerId || "command-palette",
+      placeholder: config.placeholder || "Type a command...",
     };
 
     this.isOpen = false;
@@ -51,43 +52,43 @@ class CommandPalette {
    */
   createDOM() {
     // Container
-    this.container = document.createElement('div');
+    this.container = document.createElement("div");
     this.container.id = this.config.containerId;
-    this.container.className = 'command-palette';
-    this.container.setAttribute('role', 'dialog');
-    this.container.setAttribute('aria-modal', 'true');
-    this.container.setAttribute('aria-label', 'Command Palette');
-    this.container.style.display = 'none';
+    this.container.className = "command-palette";
+    this.container.setAttribute("role", "dialog");
+    this.container.setAttribute("aria-modal", "true");
+    this.container.setAttribute("aria-label", "Command Palette");
+    this.container.style.display = "none";
 
     // Backdrop
-    this.backdrop = document.createElement('div');
-    this.backdrop.className = 'command-palette-backdrop';
-    this.backdrop.addEventListener('click', this.close);
+    this.backdrop = document.createElement("div");
+    this.backdrop.className = "command-palette-backdrop";
+    this.backdrop.addEventListener("click", this.close);
 
     // Modal content
-    const modal = document.createElement('div');
-    modal.className = 'command-palette-modal';
+    const modal = document.createElement("div");
+    modal.className = "command-palette-modal";
 
     // Search input
-    this.input = document.createElement('input');
-    this.input.type = 'text';
-    this.input.className = 'command-palette-input';
+    this.input = document.createElement("input");
+    this.input.type = "text";
+    this.input.className = "command-palette-input";
     this.input.placeholder = this.config.placeholder;
-    this.input.setAttribute('aria-label', 'Search commands');
-    this.input.setAttribute('autocomplete', 'off');
-    this.input.setAttribute('autocorrect', 'off');
-    this.input.setAttribute('autocapitalize', 'off');
-    this.input.setAttribute('spellcheck', 'false');
-    this.input.addEventListener('input', this.handleInput);
+    this.input.setAttribute("aria-label", "Search commands");
+    this.input.setAttribute("autocomplete", "off");
+    this.input.setAttribute("autocorrect", "off");
+    this.input.setAttribute("autocapitalize", "off");
+    this.input.setAttribute("spellcheck", "false");
+    this.input.addEventListener("input", this.handleInput);
 
     // Results container
-    const resultsContainer = document.createElement('div');
-    resultsContainer.className = 'command-palette-results-container';
+    const resultsContainer = document.createElement("div");
+    resultsContainer.className = "command-palette-results-container";
 
-    this.resultsList = document.createElement('ul');
-    this.resultsList.className = 'command-palette-results';
-    this.resultsList.setAttribute('role', 'listbox');
-    this.resultsList.setAttribute('aria-label', 'Command results');
+    this.resultsList = document.createElement("ul");
+    this.resultsList.className = "command-palette-results";
+    this.resultsList.setAttribute("role", "listbox");
+    this.resultsList.setAttribute("aria-label", "Command results");
 
     resultsContainer.appendChild(this.resultsList);
 
@@ -106,9 +107,10 @@ class CommandPalette {
    * @private
    */
   attachGlobalListeners() {
-    document.addEventListener('keydown', (e) => {
-      // Ctrl+K or Cmd+K to open
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    document.addEventListener("keydown", (e) => {
+      // Use keymap binding for command palette
+      const binding = getBinding("commandPalette.open");
+      if (binding && matchesBinding(e, binding)) {
         e.preventDefault();
         this.open();
       }
@@ -122,19 +124,19 @@ class CommandPalette {
     if (this.isOpen) return;
 
     this.isOpen = true;
-    this.container.style.display = 'block';
-    this.input.value = '';
+    this.container.style.display = "block";
+    this.input.value = "";
     this.input.focus();
     this.selectedIndex = 0;
 
     // Initial render with all commands
-    this.performSearch('');
+    this.performSearch("");
 
     // Add document keydown listener for this instance
-    document.addEventListener('keydown', this.handleKeydown);
+    document.addEventListener("keydown", this.handleKeydown);
 
     // Dispatch event
-    window.dispatchEvent(new CustomEvent('command-palette:open'));
+    window.dispatchEvent(new CustomEvent("command-palette:open"));
   }
 
   /**
@@ -144,14 +146,14 @@ class CommandPalette {
     if (!this.isOpen) return;
 
     this.isOpen = false;
-    this.container.style.display = 'none';
+    this.container.style.display = "none";
     this.input.blur();
 
     // Remove document keydown listener
-    document.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener("keydown", this.handleKeydown);
 
     // Dispatch event
-    window.dispatchEvent(new CustomEvent('command-palette:close'));
+    window.dispatchEvent(new CustomEvent("command-palette:close"));
   }
 
   /**
@@ -163,27 +165,27 @@ class CommandPalette {
     if (!this.isOpen) return;
 
     switch (e.key) {
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         this.close();
         break;
 
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         this.moveSelection(1);
         break;
 
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         this.moveSelection(-1);
         break;
 
-      case 'Enter':
+      case "Enter":
         e.preventDefault();
         this.executeSelected();
         break;
 
-      case 'Tab':
+      case "Tab":
         // Allow tab to cycle between input and results
         if (e.shiftKey && document.activeElement === this.input) {
           e.preventDefault();
@@ -211,7 +213,7 @@ class CommandPalette {
    * @private
    */
   handleResultClick(e) {
-    const item = e.target.closest('.command-palette-result');
+    const item = e.target.closest(".command-palette-result");
     if (item) {
       const index = parseInt(item.dataset.index, 10);
       this.executeCommand(index);
@@ -235,48 +237,45 @@ class CommandPalette {
    * @private
    */
   renderResults() {
-    this.resultsList.innerHTML = '';
+    this.resultsList.innerHTML = "";
 
     if (this.results.length === 0) {
-      const empty = document.createElement('li');
-      empty.className = 'command-palette-empty';
-      empty.textContent = 'No commands found';
+      const empty = document.createElement("li");
+      empty.className = "command-palette-empty";
+      empty.textContent = "No commands found";
       this.resultsList.appendChild(empty);
       return;
     }
 
     this.results.forEach((result, index) => {
-      const item = document.createElement('li');
-      item.className = 'command-palette-result';
+      const item = document.createElement("li");
+      item.className = "command-palette-result";
       item.dataset.index = index;
-      item.setAttribute('role', 'option');
-      item.setAttribute('aria-selected', index === this.selectedIndex ? 'true' : 'false');
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", index === this.selectedIndex ? "true" : "false");
 
       if (index === this.selectedIndex) {
-        item.classList.add('selected');
+        item.classList.add("selected");
       }
 
       // Build highlighted title
-      const title = this.highlightText(
-        result.command.title,
-        result.highlightIndices
-      );
+      const title = this.highlightText(result.command.title, result.highlightIndices);
 
       // Title element
-      const titleEl = document.createElement('span');
-      titleEl.className = 'command-palette-result-title';
+      const titleEl = document.createElement("span");
+      titleEl.className = "command-palette-result-title";
       titleEl.innerHTML = title;
 
       // Shortcut element (if present)
       if (result.command.shortcut) {
-        const shortcutEl = document.createElement('kbd');
-        shortcutEl.className = 'command-palette-result-shortcut';
+        const shortcutEl = document.createElement("kbd");
+        shortcutEl.className = "command-palette-result-shortcut";
         shortcutEl.textContent = result.command.shortcut;
         item.appendChild(shortcutEl);
       }
 
       item.appendChild(titleEl);
-      item.addEventListener('click', this.handleResultClick);
+      item.addEventListener("click", this.handleResultClick);
 
       this.resultsList.appendChild(item);
     });
@@ -292,7 +291,7 @@ class CommandPalette {
   highlightText(text, indices) {
     if (!indices || indices.length === 0) return text;
 
-    let result = '';
+    let result = "";
     let lastIndex = 0;
 
     // Sort indices to process in order
@@ -334,9 +333,9 @@ class CommandPalette {
    * @private
    */
   scrollSelectedIntoView() {
-    const selected = this.resultsList.querySelector('.selected');
+    const selected = this.resultsList.querySelector(".selected");
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest' });
+      selected.scrollIntoView({ block: "nearest" });
     }
   }
 
@@ -357,14 +356,16 @@ class CommandPalette {
     if (index < 0 || index >= this.results.length) return;
 
     const result = this.results[index];
-    if (result && result.command && result.command.action) {
+    if (result?.command?.action) {
       this.close();
       result.command.action();
 
       // Dispatch event
-      window.dispatchEvent(new CustomEvent('command-palette:execute', {
-        detail: { command: result.command }
-      }));
+      window.dispatchEvent(
+        new CustomEvent("command-palette:execute", {
+          detail: { command: result.command },
+        }),
+      );
     }
   }
 
@@ -373,7 +374,7 @@ class CommandPalette {
    * @private
    */
   focusResults() {
-    const firstResult = this.resultsList.querySelector('.command-palette-result');
+    const firstResult = this.resultsList.querySelector(".command-palette-result");
     if (firstResult) {
       firstResult.focus();
     }
@@ -384,7 +385,7 @@ class CommandPalette {
    */
   destroy() {
     this.close();
-    if (this.container && this.container.parentNode) {
+    if (this.container?.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
   }
@@ -393,6 +394,6 @@ class CommandPalette {
 // Export for ESM and browser
 export { CommandPalette };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.CommandPalette = CommandPalette;
 }

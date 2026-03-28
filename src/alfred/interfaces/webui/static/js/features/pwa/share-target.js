@@ -9,17 +9,17 @@
  */
 export function parseShareFromURL() {
   const params = new URLSearchParams(window.location.search);
-  const shareParam = params.get('share');
-  
+  const shareParam = params.get("share");
+
   if (!shareParam) return null;
-  
+
   // Parse the share query string
   const shareParams = new URLSearchParams(shareParam);
-  
+
   return {
-    title: shareParams.get('title') || '',
-    text: shareParams.get('text') || '',
-    url: shareParams.get('url') || '',
+    title: shareParams.get("title") || "",
+    text: shareParams.get("text") || "",
+    url: shareParams.get("url") || "",
   };
 }
 
@@ -38,20 +38,20 @@ export function hasShareData() {
  */
 function formatShareContent(shareData) {
   const parts = [];
-  
+
   if (shareData.title) {
     parts.push(`**${shareData.title}**`);
   }
-  
+
   if (shareData.text) {
     parts.push(shareData.text);
   }
-  
+
   if (shareData.url) {
     parts.push(shareData.url);
   }
-  
-  return parts.join('\n\n');
+
+  return parts.join("\n\n");
 }
 
 /**
@@ -62,46 +62,46 @@ function formatShareContent(shareData) {
  */
 export function handleShareTarget(getComposerFn) {
   const shareData = parseShareFromURL();
-  
+
   if (!shareData) return false;
-  
+
   // Wait for composer to be available
   const tryPopulate = () => {
-    const composer = getComposerFn ? getComposerFn() : document.getElementById('user-input');
-    
+    const composer = getComposerFn ? getComposerFn() : document.getElementById("user-input");
+
     if (!composer) {
       // Retry after a short delay
       setTimeout(tryPopulate, 100);
       return;
     }
-    
+
     // Populate composer
     const content = formatShareContent(shareData);
-    
-    if (composer.tagName === 'TEXTAREA' || composer.tagName === 'INPUT') {
+
+    if (composer.tagName === "TEXTAREA" || composer.tagName === "INPUT") {
       composer.value = content;
     } else {
       // ContentEditable
       composer.textContent = content;
     }
-    
+
     // Focus and trigger input event
     composer.focus();
-    composer.dispatchEvent(new Event('input', { bubbles: true }));
-    
+    composer.dispatchEvent(new Event("input", { bubbles: true }));
+
     // Clear URL params without reloading
     if (window.history.replaceState) {
       const url = new URL(window.location.href);
-      url.searchParams.delete('share');
+      url.searchParams.delete("share");
       window.history.replaceState({}, document.title, url.toString());
     }
-    
-    console.log('[ShareTarget] Populated composer with shared content');
+
+    console.log("[ShareTarget] Populated composer with shared content");
   };
-  
+
   // Start trying
   tryPopulate();
-  
+
   return true;
 }
 
@@ -115,9 +115,9 @@ export function initShareTarget(options = {}) {
   if (hasShareData()) {
     handleShareTarget(options.getComposer);
   }
-  
+
   // Also check on URL changes (for SPA navigation)
-  window.addEventListener('popstate', () => {
+  window.addEventListener("popstate", () => {
     if (hasShareData()) {
       handleShareTarget(options.getComposer);
     }

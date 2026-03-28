@@ -360,13 +360,13 @@ def test_context_command_uses_shared_context_display() -> None:
         response = websocket.receive_json()
 
     assert response["type"] == "context.info"
-    assert response["payload"]["systemPrompt"]["totalTokens"] == 12
-    assert response["payload"]["blockedContextFiles"] == ["SOUL.md"]
+    assert response["payload"]["system_prompt"]["total_tokens"] == 12
+    assert response["payload"]["blocked_context_files"] == ["SOUL.md"]
     assert response["payload"]["warnings"] == ["Blocked context files: SOUL.md"]
     assert response["payload"]["memories"]["displayed"] == 1
-    assert response["payload"]["sessionHistory"]["count"] == 1
-    assert response["payload"]["toolCalls"]["count"] == 1
-    assert response["payload"]["totalTokens"] == 32
+    assert response["payload"]["session_history"]["count"] == 1
+    assert response["payload"]["tool_calls"]["count"] == 1
+    assert response["payload"]["total_tokens"] == 32
     mock_get_context.assert_awaited_once_with(fake_alfred)
 
 

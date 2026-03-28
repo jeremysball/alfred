@@ -61,7 +61,7 @@ class LongPressDetector {
    */
   attachToElement(element) {
     if (!element || !(element instanceof HTMLElement)) {
-      console.error('LongPressDetector: Invalid element provided');
+      console.error("LongPressDetector: Invalid element provided");
       return false;
     }
 
@@ -70,10 +70,10 @@ class LongPressDetector {
     this._element = element;
 
     // Use passive listeners for better scroll performance
-    element.addEventListener('touchstart', this._handleTouchStart, { passive: true });
-    element.addEventListener('touchmove', this._handleTouchMove, { passive: true });
-    element.addEventListener('touchend', this._handleTouchEnd, { passive: true });
-    element.addEventListener('touchcancel', this._handleTouchCancel, { passive: true });
+    element.addEventListener("touchstart", this._handleTouchStart, { passive: true });
+    element.addEventListener("touchmove", this._handleTouchMove, { passive: true });
+    element.addEventListener("touchend", this._handleTouchEnd, { passive: true });
+    element.addEventListener("touchcancel", this._handleTouchCancel, { passive: true });
 
     return true;
   }
@@ -84,10 +84,10 @@ class LongPressDetector {
   detach() {
     if (!this._element) return;
 
-    this._element.removeEventListener('touchstart', this._handleTouchStart);
-    this._element.removeEventListener('touchmove', this._handleTouchMove);
-    this._element.removeEventListener('touchend', this._handleTouchEnd);
-    this._element.removeEventListener('touchcancel', this._handleTouchCancel);
+    this._element.removeEventListener("touchstart", this._handleTouchStart);
+    this._element.removeEventListener("touchmove", this._handleTouchMove);
+    this._element.removeEventListener("touchend", this._handleTouchEnd);
+    this._element.removeEventListener("touchcancel", this._handleTouchCancel);
 
     this._cancelPress();
     this._element = null;
@@ -147,7 +147,7 @@ class LongPressDetector {
    * Handle touch end
    * @param {TouchEvent} event
    */
-  _handleTouchEnd(event) {
+  _handleTouchEnd(_event) {
     if (!this._isPressing) return;
 
     const duration = Date.now() - this._startTime;
@@ -166,7 +166,7 @@ class LongPressDetector {
    * Handle touch cancel (e.g., interrupted by system)
    * @param {TouchEvent} event
    */
-  _handleTouchCancel(event) {
+  _handleTouchCancel(_event) {
     if (!this._isPressing) return;
 
     this._cancelPress();
@@ -192,7 +192,7 @@ class LongPressDetector {
   _applyVisualFeedback(element) {
     if (!element) return;
 
-    element.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
+    element.style.transition = "transform 0.15s ease, opacity 0.15s ease";
     element.style.transform = `scale(${this.VISUAL_SCALE})`;
     element.style.opacity = String(this.VISUAL_OPACITY);
   }
@@ -204,9 +204,9 @@ class LongPressDetector {
   _resetVisualState(element) {
     if (!element) return;
 
-    element.style.transform = '';
-    element.style.transition = '';
-    element.style.opacity = '';
+    element.style.transform = "";
+    element.style.transition = "";
+    element.style.opacity = "";
   }
 
   /**
@@ -271,6 +271,6 @@ class LongPressDetector {
 // Export for ESM and browser usage
 export { LongPressDetector };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.LongPressDetector = LongPressDetector;
 }

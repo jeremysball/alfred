@@ -208,6 +208,87 @@ async def test_leader_help_keyboard_help(websocket_server, page_helper):
 
 
 @pytest.mark.asyncio
+async def test_help_sheet_lists_the_same_chord_paths_as_which_key(websocket_server, page_helper):
+    """Test keyboard help and WhichKey use the same leader-path vocabulary."""
+    page = page_helper
+
+    await page.wait_for_function(
+        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
+        timeout=5000,
+    )
+
+    original_binding = await page.evaluate("() => window.KeymapManager.getBinding('search.open')")
+    original_path_text = await page.evaluate(
+        """
+        () => {
+          const binding = window.KeymapManager.getBinding('search.open');
+          return window.KeymapManager.formatLeaderBreadcrumb(binding.leader.path);
+        }
+        """,
+    )
+    original_prefix_text = await page.evaluate(
+        """
+        () => {
+          const binding = window.KeymapManager.getBinding('search.open');
+          return window.KeymapManager.formatLeaderBreadcrumb(binding.leader.path.slice(0, 1));
+        }
+        """,
+    )
+
+    try:
+        await page.focus("#message-input")
+        await page.keyboard.press("Control+s")
+        which_key = page.locator(".which-key")
+        await expect(which_key).to_be_visible()
+        await page.keyboard.press("S")
+        await expect(which_key.locator(".which-key-header")).to_contain_text(original_prefix_text)
+        await page.keyboard.press("Escape")
+        await expect(which_key).not_to_be_visible()
+
+        await page.evaluate(
+            """
+            () => {
+              window.alfredHelpSheet = window.alfredHelpSheet ?? new window.HelpSheet();
+              window.alfredHelpSheet.show();
+            }
+            """,
+        )
+        await page.wait_for_function(
+            "() => window.alfredHelpSheet?.sheet?.isOpen === true",
+            timeout=5000,
+        )
+
+        help_sheet = page.locator(".keyboard-help-content")
+        await expect(help_sheet).to_contain_text(original_path_text)
+        updated_path_text = await page.evaluate(
+            """
+            () => {
+              window.KeymapManager.setBinding('search.open', {
+                leader: {
+                  path: [
+                    { key: 's', label: 'Search', description: 'Search and navigation' },
+                    { key: 'z', label: 'Messages', description: 'Search in conversation' },
+                  ],
+                },
+              });
+              const binding = window.KeymapManager.getBinding('search.open');
+              return window.KeymapManager.formatLeaderBreadcrumb(binding.leader.path);
+            }
+            """,
+        )
+
+        await expect(help_sheet).to_contain_text(updated_path_text)
+        await expect(help_sheet).not_to_contain_text(original_path_text)
+    finally:
+        await page.evaluate(
+            """
+            (binding) => window.KeymapManager.setBinding('search.open', binding)
+            """,
+            original_binding,
+        )
+
+
+@pytest.mark.asyncio
 async def test_leader_cancel_streaming(websocket_server, page_helper):
     """Test Leader > X > C calls cancel streaming."""
     page = page_helper

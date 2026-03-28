@@ -7,7 +7,9 @@
 /* Drop Zone Container */
 .drag-drop-zone {
   position: relative;
-  transition: background-color 200ms ease, border-color 200ms ease;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
 }
 
 /* Active Drop State */
@@ -47,7 +49,7 @@
 
 /* Drop Text */
 .drag-drop-text {
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 500;
   color: #e0e0e0;
   text-align: center;
@@ -55,7 +57,7 @@
 
 /* Drop Subtext */
 .drag-drop-subtext {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: #808080;
   margin-top: 8px;
   text-align: center;
@@ -63,7 +65,7 @@
 
 /* File Types Hint */
 .drag-drop-hint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: #606060;
   margin-top: 16px;
   text-align: center;
@@ -80,11 +82,11 @@
 /* Mobile Adjustments */
 @media (max-width: 768px) {
   .drag-drop-text {
-    font-size: 16px;
+    font-size: var(--text-md);
   }
 
   .drag-drop-subtext {
-    font-size: 12px;
+    font-size: var(--text-xs);
   }
 
   .drag-drop-icon {
@@ -124,7 +126,7 @@
 }
 
 .upload-progress-text {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted, #808080);
   min-width: 60px;
 }

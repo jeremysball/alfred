@@ -1,0 +1,21 @@
+{
+  "name": "alfred-assistant-webui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Alfred Web UI - JavaScript quality tooling",
+  "scripts": {
+    "js:check": "biome check src/alfred/interfaces/webui/static/js/",
+    "js:check:fix": "biome check --write src/alfred/interfaces/webui/static/js/",
+    "js:format": "biome format src/alfred/interfaces/webui/static/js/",
+    "js:format:fix": "biome format --write src/alfred/interfaces/webui/static/js/",
+    "js:lint": "biome lint src/alfred/interfaces/webui/static/js/",
+    "js:lint:fix": "biome lint --write src/alfred/interfaces/webui/static/js/",
+    "js:deadcode": "knip",
+    "js:ci": "npm run js:check && npm run js:deadcode"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "knip": "^6.0.6"
+  }
+}

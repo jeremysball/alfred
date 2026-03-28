@@ -25,20 +25,20 @@ class PullIndicator {
    */
   constructor(options = {}) {
     this.container = options.container || document.body;
-    this.id = options.id || 'pull-indicator';
+    this.id = options.id || "pull-indicator";
 
     // Text labels
     this.text = {
-      pulling: options.text?.pulling || 'Pull to reconnect',
-      ready: options.text?.ready || 'Release to reconnect',
-      refreshing: options.text?.refreshing || 'Reconnecting...',
+      pulling: options.text?.pulling || "Pull to reconnect",
+      ready: options.text?.ready || "Release to reconnect",
+      refreshing: options.text?.refreshing || "Reconnecting...",
     };
 
     // DOM element reference
     this.element = null;
 
     // Current state
-    this.state = 'hidden'; // 'hidden', 'pulling', 'ready', 'refreshing', 'success', 'error'
+    this.state = "hidden"; // 'hidden', 'pulling', 'ready', 'refreshing', 'success', 'error'
     this.progress = 0;
 
     // Create the DOM element
@@ -57,16 +57,16 @@ class PullIndicator {
     }
 
     // Create container
-    this.element = document.createElement('div');
+    this.element = document.createElement("div");
     this.element.id = this.id;
-    this.element.className = 'ptr-indicator ptr--hidden';
-    this.element.setAttribute('role', 'status');
-    this.element.setAttribute('aria-live', 'polite');
-    this.element.setAttribute('aria-label', this.text.pulling);
+    this.element.className = "ptr-indicator ptr--hidden";
+    this.element.setAttribute("role", "status");
+    this.element.setAttribute("aria-live", "polite");
+    this.element.setAttribute("aria-label", this.text.pulling);
 
     // Create spinner with arrow icon
-    const spinner = document.createElement('div');
-    spinner.className = 'ptr-spinner';
+    const spinner = document.createElement("div");
+    spinner.className = "ptr-spinner";
     spinner.innerHTML = `
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
@@ -74,8 +74,8 @@ class PullIndicator {
     `;
 
     // Create text label
-    const text = document.createElement('span');
-    text.className = 'ptr-text';
+    const text = document.createElement("span");
+    text.className = "ptr-text";
     text.textContent = this.text.pulling;
 
     // Assemble
@@ -92,16 +92,16 @@ class PullIndicator {
   show() {
     if (!this.element) return;
 
-    this.state = 'pulling';
-    this.element.classList.remove('ptr--hidden');
-    this.element.classList.add('ptr--pulling');
-    this.element.classList.remove('ptr--ready', 'ptr--refreshing', 'ptr--success', 'ptr--error');
+    this.state = "pulling";
+    this.element.classList.remove("ptr--hidden");
+    this.element.classList.add("ptr--pulling");
+    this.element.classList.remove("ptr--ready", "ptr--refreshing", "ptr--success", "ptr--error");
 
     // Reset CSS custom properties
     this._updateCSSVariables(0, 0);
 
     // Update ARIA label
-    this.element.setAttribute('aria-label', this.text.pulling);
+    this.element.setAttribute("aria-label", this.text.pulling);
   }
 
   /**
@@ -112,10 +112,10 @@ class PullIndicator {
     if (!this.element) return;
 
     const doHide = () => {
-      this.state = 'hidden';
+      this.state = "hidden";
       this.progress = 0;
-      this.element.classList.add('ptr--hidden');
-      this.element.classList.remove('ptr--pulling', 'ptr--ready', 'ptr--refreshing');
+      this.element.classList.add("ptr--hidden");
+      this.element.classList.remove("ptr--pulling", "ptr--ready", "ptr--refreshing");
       this._updateCSSVariables(0, 0);
     };
 
@@ -139,8 +139,8 @@ class PullIndicator {
     this.progress = Math.max(0, Math.min(1, progress));
 
     // Update state based on progress
-    const newState = this.progress >= 1 ? 'ready' : 'pulling';
-    if (newState !== this.state && this.state !== 'refreshing') {
+    const newState = this.progress >= 1 ? "ready" : "pulling";
+    if (newState !== this.state && this.state !== "refreshing") {
       this.setState(newState);
     }
 
@@ -160,12 +160,12 @@ class PullIndicator {
 
     // Remove all state classes
     this.element.classList.remove(
-      'ptr--pulling',
-      'ptr--ready',
-      'ptr--refreshing',
-      'ptr--success',
-      'ptr--error',
-      'ptr--hidden'
+      "ptr--pulling",
+      "ptr--ready",
+      "ptr--refreshing",
+      "ptr--success",
+      "ptr--error",
+      "ptr--hidden",
     );
 
     // Add current state class
@@ -176,17 +176,17 @@ class PullIndicator {
       pulling: this.text.pulling,
       ready: this.text.ready,
       refreshing: this.text.refreshing,
-      success: 'Connected!',
-      error: 'Failed to connect',
+      success: "Connected!",
+      error: "Failed to connect",
     };
 
     if (labels[state]) {
-      this.element.setAttribute('aria-label', labels[state]);
+      this.element.setAttribute("aria-label", labels[state]);
     }
 
     // Update text content for states that don't use CSS content
-    const textEl = this.element.querySelector('.ptr-text');
-    if (textEl && (state === 'success' || state === 'error')) {
+    const textEl = this.element.querySelector(".ptr-text");
+    if (textEl && (state === "success" || state === "error")) {
       textEl.textContent = labels[state];
     }
   }
@@ -196,7 +196,7 @@ class PullIndicator {
    * @param {number} hideDelay - Delay before hiding (default: 1500ms)
    */
   showSuccess(hideDelay = 1500) {
-    this.setState('success');
+    this.setState("success");
     if (hideDelay > 0) {
       this.hide(hideDelay);
     }
@@ -207,7 +207,7 @@ class PullIndicator {
    * @param {number} hideDelay - Delay before hiding (default: 2000ms)
    */
   showError(hideDelay = 2000) {
-    this.setState('error');
+    this.setState("error");
     if (hideDelay > 0) {
       this.hide(hideDelay);
     }
@@ -223,10 +223,10 @@ class PullIndicator {
   _updateCSSVariables(progress, distance) {
     if (!this.element) return;
 
-    this.element.style.setProperty('--ptr-progress', String(progress));
-    this.element.style.setProperty('--ptr-distance', `${distance}px`);
-    this.element.style.setProperty('--ptr-opacity', String(progress));
-    this.element.style.setProperty('--ptr-translate', `${(1 - progress) * -40}px`);
+    this.element.style.setProperty("--ptr-progress", String(progress));
+    this.element.style.setProperty("--ptr-distance", `${distance}px`);
+    this.element.style.setProperty("--ptr-opacity", String(progress));
+    this.element.style.setProperty("--ptr-translate", `${(1 - progress) * -40}px`);
   }
 
   /**
@@ -234,7 +234,9 @@ class PullIndicator {
    * @returns {boolean}
    */
   isVisible() {
-    return this.state !== 'hidden' && this.element && !this.element.classList.contains('ptr--hidden');
+    return (
+      this.state !== "hidden" && this.element && !this.element.classList.contains("ptr--hidden")
+    );
   }
 
   /**
@@ -257,11 +259,11 @@ class PullIndicator {
    * Destroy the indicator and clean up
    */
   destroy() {
-    if (this.element && this.element.parentNode) {
+    if (this.element?.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }
     this.element = null;
-    this.state = 'hidden';
+    this.state = "hidden";
     this.progress = 0;
   }
 }
@@ -288,48 +290,47 @@ function createPullIndicator(detector, options = {}) {
   // Wire up indicator to detector callbacks
   detector.onPullStart = (detail) => {
     indicator.show();
-    if (typeof originalCallbacks.onPullStart === 'function') {
+    if (typeof originalCallbacks.onPullStart === "function") {
       originalCallbacks.onPullStart(detail);
     }
   };
 
   detector.onPullMove = (detail) => {
     indicator.update(detail.progress, detail.displayDistance);
-    if (typeof originalCallbacks.onPullMove === 'function') {
+    if (typeof originalCallbacks.onPullMove === "function") {
       originalCallbacks.onPullMove(detail);
     }
   };
 
   detector.onPullEnd = (detail) => {
     if (detail.refreshed) {
-      indicator.setState('refreshing');
+      indicator.setState("refreshing");
     } else {
       indicator.hide();
     }
-    if (typeof originalCallbacks.onPullEnd === 'function') {
+    if (typeof originalCallbacks.onPullEnd === "function") {
       originalCallbacks.onPullEnd(detail);
     }
   };
 
   detector.onPullCancel = (detail) => {
     indicator.hide();
-    if (typeof originalCallbacks.onPullCancel === 'function') {
+    if (typeof originalCallbacks.onPullCancel === "function") {
       originalCallbacks.onPullCancel(detail);
     }
   };
 
   detector.onRefresh = async (detail) => {
-    indicator.setState('refreshing');
+    indicator.setState("refreshing");
 
     try {
       // Call original callback and await if it's async
-      if (typeof originalCallbacks.onRefresh === 'function') {
+      if (typeof originalCallbacks.onRefresh === "function") {
         await originalCallbacks.onRefresh(detail);
       }
 
       // Success - show connected state
       indicator.showSuccess(1500);
-
     } catch (error) {
       // Failure - show error state
       indicator.showError(2000);
@@ -347,9 +348,9 @@ function createPullIndicator(detector, options = {}) {
 }
 
 // Export for ESM and browser usage
-export { PullIndicator, createPullIndicator };
+export { createPullIndicator, PullIndicator };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.PullIndicator = PullIndicator;
   window.createPullIndicator = createPullIndicator;
 }

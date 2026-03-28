@@ -33,17 +33,17 @@ class ContextMenu {
    * @private
    */
   createDOM() {
-    this.container = document.createElement('div');
-    this.container.className = 'context-menu';
-    this.container.setAttribute('role', 'menu');
-    this.container.setAttribute('aria-label', 'Context menu');
-    this.container.style.display = 'none';
-    this.container.style.position = 'fixed';
-    this.container.style.zIndex = '10001';
+    this.container = document.createElement("div");
+    this.container.className = "context-menu";
+    this.container.setAttribute("role", "menu");
+    this.container.setAttribute("aria-label", "Context menu");
+    this.container.style.display = "none";
+    this.container.style.position = "fixed";
+    this.container.style.zIndex = "10001";
 
     // Backdrop for detecting outside clicks
-    this.backdrop = document.createElement('div');
-    this.backdrop.className = 'context-menu-backdrop';
+    this.backdrop = document.createElement("div");
+    this.backdrop.className = "context-menu-backdrop";
     this.backdrop.style.cssText = `
       position: fixed;
       top: 0;
@@ -69,7 +69,7 @@ class ContextMenu {
     // Close any existing menu
     this.close();
 
-    this.items = items.filter(item => item.visible !== false);
+    this.items = items.filter((item) => item.visible !== false);
     this.triggerElement = triggerElement;
     this.selectedIndex = -1;
 
@@ -77,17 +77,17 @@ class ContextMenu {
     this.render();
     this.position(x, y);
 
-    this.container.style.display = 'block';
+    this.container.style.display = "block";
     this.isOpen = true;
 
     // Add event listeners
-    document.addEventListener('keydown', this.handleKeydown);
-    this.backdrop.addEventListener('click', this.handleOutsideClick);
+    document.addEventListener("keydown", this.handleKeydown);
+    this.backdrop.addEventListener("click", this.handleOutsideClick);
 
     // Focus the menu for keyboard navigation
     this.container.focus();
 
-    window.dispatchEvent(new CustomEvent('context-menu:open'));
+    window.dispatchEvent(new CustomEvent("context-menu:open"));
   }
 
   /**
@@ -127,10 +127,10 @@ class ContextMenu {
    * @private
    */
   render() {
-    this.container.innerHTML = '';
+    this.container.innerHTML = "";
 
     this.items.forEach((item, index) => {
-      if (item.type === 'separator') {
+      if (item.type === "separator") {
         this.renderSeparator(index);
       } else {
         this.renderItem(item, index);
@@ -145,47 +145,47 @@ class ContextMenu {
    * @private
    */
   renderItem(item, index) {
-    const element = document.createElement('button');
-    element.className = 'context-menu-item';
-    element.setAttribute('role', 'menuitem');
-    element.setAttribute('tabindex', '-1');
+    const element = document.createElement("button");
+    element.className = "context-menu-item";
+    element.setAttribute("role", "menuitem");
+    element.setAttribute("tabindex", "-1");
     element.dataset.index = index;
 
     if (item.disabled) {
-      element.classList.add('disabled');
-      element.setAttribute('aria-disabled', 'true');
+      element.classList.add("disabled");
+      element.setAttribute("aria-disabled", "true");
     }
 
     // Icon
     if (item.icon) {
-      const iconSpan = document.createElement('span');
-      iconSpan.className = 'context-menu-icon';
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "context-menu-icon";
       iconSpan.textContent = item.icon;
       element.appendChild(iconSpan);
     }
 
     // Label
-    const labelSpan = document.createElement('span');
-    labelSpan.className = 'context-menu-label';
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "context-menu-label";
     labelSpan.textContent = item.label;
     element.appendChild(labelSpan);
 
     // Shortcut
     if (item.shortcut) {
-      const shortcutSpan = document.createElement('kbd');
-      shortcutSpan.className = 'context-menu-shortcut';
+      const shortcutSpan = document.createElement("kbd");
+      shortcutSpan.className = "context-menu-shortcut";
       shortcutSpan.textContent = item.shortcut;
       element.appendChild(shortcutSpan);
     }
 
     // Click handler
     if (!item.disabled) {
-      element.addEventListener('click', (e) => {
+      element.addEventListener("click", (e) => {
         e.stopPropagation();
         this.selectItem(index);
       });
 
-      element.addEventListener('mouseenter', () => {
+      element.addEventListener("mouseenter", () => {
         this.selectIndex(index);
       });
     }
@@ -199,9 +199,9 @@ class ContextMenu {
    * @private
    */
   renderSeparator(index) {
-    const separator = document.createElement('div');
-    separator.className = 'context-menu-separator';
-    separator.setAttribute('role', 'separator');
+    const separator = document.createElement("div");
+    separator.className = "context-menu-separator";
+    separator.setAttribute("role", "separator");
     separator.dataset.index = index;
     this.container.appendChild(separator);
   }
@@ -213,17 +213,17 @@ class ContextMenu {
    */
   selectIndex(index) {
     // Remove previous selection
-    const prev = this.container.querySelector('.context-menu-item.selected');
+    const prev = this.container.querySelector(".context-menu-item.selected");
     if (prev) {
-      prev.classList.remove('selected');
+      prev.classList.remove("selected");
     }
 
     this.selectedIndex = index;
 
     // Add selection to new item
-    const items = this.container.querySelectorAll('.context-menu-item:not(.disabled)');
+    const items = this.container.querySelectorAll(".context-menu-item:not(.disabled)");
     if (items[index]) {
-      items[index].classList.add('selected');
+      items[index].classList.add("selected");
       items[index].focus();
     }
   }
@@ -249,15 +249,15 @@ class ContextMenu {
   handleKeydown(e) {
     if (!this.isOpen) return;
 
-    const items = this.container.querySelectorAll('.context-menu-item:not(.disabled)');
+    const items = this.container.querySelectorAll(".context-menu-item:not(.disabled)");
 
     switch (e.key) {
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         this.close();
         break;
 
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         if (this.selectedIndex < items.length - 1) {
           this.selectIndex(this.selectedIndex + 1);
@@ -266,7 +266,7 @@ class ContextMenu {
         }
         break;
 
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         if (this.selectedIndex > 0) {
           this.selectIndex(this.selectedIndex - 1);
@@ -275,25 +275,25 @@ class ContextMenu {
         }
         break;
 
-      case 'Enter':
-      case ' ':
+      case "Enter":
+      case " ":
         e.preventDefault();
         if (this.selectedIndex >= 0) {
           this.selectItem(this.selectedIndex);
         }
         break;
 
-      case 'Home':
+      case "Home":
         e.preventDefault();
         this.selectIndex(0);
         break;
 
-      case 'End':
+      case "End":
         e.preventDefault();
         this.selectIndex(items.length - 1);
         break;
 
-      case 'Tab':
+      case "Tab":
         e.preventDefault();
         if (e.shiftKey) {
           if (this.selectedIndex > 0) {
@@ -329,21 +329,21 @@ class ContextMenu {
     this.isOpen = false;
 
     // Remove event listeners
-    document.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener("keydown", this.handleKeydown);
     if (this.backdrop) {
-      this.backdrop.removeEventListener('click', this.handleOutsideClick);
+      this.backdrop.removeEventListener("click", this.handleOutsideClick);
     }
 
     // Remove DOM elements
-    if (this.container && this.container.parentNode) {
+    if (this.container?.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
-    if (this.backdrop && this.backdrop.parentNode) {
+    if (this.backdrop?.parentNode) {
       this.backdrop.parentNode.removeChild(this.backdrop);
     }
 
     // Return focus to trigger element
-    if (this.triggerElement && this.triggerElement.focus) {
+    if (this.triggerElement?.focus) {
       this.triggerElement.focus();
     }
 
@@ -352,7 +352,7 @@ class ContextMenu {
     this.items = [];
     this.selectedIndex = -1;
 
-    window.dispatchEvent(new CustomEvent('context-menu:close'));
+    window.dispatchEvent(new CustomEvent("context-menu:close"));
   }
 
   /**
@@ -367,6 +367,6 @@ class ContextMenu {
 // Export for ESM and browser usage
 export { ContextMenu };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.ContextMenu = ContextMenu;
 }

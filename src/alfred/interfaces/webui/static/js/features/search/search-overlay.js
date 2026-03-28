@@ -25,7 +25,7 @@ class SearchOverlay {
         },
         onClose: () => {
           SearchOverlay._instance.close();
-        }
+        },
       });
     }
     return SearchOverlay._instance;
@@ -48,7 +48,7 @@ class SearchOverlay {
     this.searchInput = null;
     this.matchCounter = null;
     this.isOpen = false;
-    this.currentQuery = '';
+    this.currentQuery = "";
     this.currentMatch = 0;
     this.totalMatches = 0;
 
@@ -71,7 +71,7 @@ class SearchOverlay {
     this.isOpen = true;
     this.searchInput?.focus();
     // Note: select() may not be available in all environments (tests)
-    if (this.searchInput && typeof this.searchInput.select === 'function') {
+    if (this.searchInput && typeof this.searchInput.select === "function") {
       this.searchInput.select();
     }
   }
@@ -85,7 +85,7 @@ class SearchOverlay {
     this.detachEvents();
     this.destroy();
     this.isOpen = false;
-    this.currentQuery = '';
+    this.currentQuery = "";
     this.currentMatch = 0;
     this.totalMatches = 0;
 
@@ -99,51 +99,51 @@ class SearchOverlay {
    */
   render() {
     // Create overlay container
-    this.element = document.createElement('div');
-    this.element.className = 'search-overlay';
-    this.element.setAttribute('role', 'search');
-    this.element.setAttribute('aria-label', 'Search in conversation');
+    this.element = document.createElement("div");
+    this.element.className = "search-overlay";
+    this.element.setAttribute("role", "search");
+    this.element.setAttribute("aria-label", "Search in conversation");
 
     // Create search input
-    this.searchInput = document.createElement('input');
-    this.searchInput.type = 'text';
-    this.searchInput.className = 'search-input';
-    this.searchInput.placeholder = 'Search...';
-    this.searchInput.setAttribute('aria-label', 'Search query');
+    this.searchInput = document.createElement("input");
+    this.searchInput.type = "text";
+    this.searchInput.className = "search-input";
+    this.searchInput.placeholder = "Search...";
+    this.searchInput.setAttribute("aria-label", "Search query");
 
     // Create navigation buttons container
-    const navButtons = document.createElement('div');
-    navButtons.className = 'search-nav-buttons';
+    const navButtons = document.createElement("div");
+    navButtons.className = "search-nav-buttons";
 
     // Previous button
-    this.prevButton = document.createElement('button');
-    this.prevButton.className = 'search-nav-btn search-prev-btn';
-    this.prevButton.innerHTML = '↑';
-    this.prevButton.setAttribute('aria-label', 'Previous match');
-    this.prevButton.addEventListener('click', () => this.navigate('previous'));
+    this.prevButton = document.createElement("button");
+    this.prevButton.className = "search-nav-btn search-prev-btn";
+    this.prevButton.innerHTML = "↑";
+    this.prevButton.setAttribute("aria-label", "Previous match");
+    this.prevButton.addEventListener("click", () => this.navigate("previous"));
 
     // Next button
-    this.nextButton = document.createElement('button');
-    this.nextButton.className = 'search-nav-btn search-next-btn';
-    this.nextButton.innerHTML = '↓';
-    this.nextButton.setAttribute('aria-label', 'Next match');
-    this.nextButton.addEventListener('click', () => this.navigate('next'));
+    this.nextButton = document.createElement("button");
+    this.nextButton.className = "search-nav-btn search-next-btn";
+    this.nextButton.innerHTML = "↓";
+    this.nextButton.setAttribute("aria-label", "Next match");
+    this.nextButton.addEventListener("click", () => this.navigate("next"));
 
     navButtons.appendChild(this.prevButton);
     navButtons.appendChild(this.nextButton);
 
     // Create match counter
-    this.matchCounter = document.createElement('span');
-    this.matchCounter.className = 'search-match-counter';
-    this.matchCounter.textContent = '';
-    this.matchCounter.setAttribute('aria-live', 'polite');
+    this.matchCounter = document.createElement("span");
+    this.matchCounter.className = "search-match-counter";
+    this.matchCounter.textContent = "";
+    this.matchCounter.setAttribute("aria-live", "polite");
 
     // Create close button
-    this.closeButton = document.createElement('button');
-    this.closeButton.className = 'search-close-btn';
-    this.closeButton.innerHTML = '×';
-    this.closeButton.setAttribute('aria-label', 'Close search');
-    this.closeButton.addEventListener('click', () => this.close());
+    this.closeButton = document.createElement("button");
+    this.closeButton.className = "search-close-btn";
+    this.closeButton.innerHTML = "×";
+    this.closeButton.setAttribute("aria-label", "Close search");
+    this.closeButton.addEventListener("click", () => this.close());
 
     // Assemble overlay
     this.element.appendChild(this.searchInput);
@@ -159,7 +159,7 @@ class SearchOverlay {
    * Destroy overlay DOM elements
    */
   destroy() {
-    if (this.element && this.element.parentNode) {
+    if (this.element?.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }
     this.element = null;
@@ -175,18 +175,18 @@ class SearchOverlay {
    */
   attachEvents() {
     // Keyboard events (global for Escape, local for others)
-    document.addEventListener('keydown', this.handleKeydown);
+    document.addEventListener("keydown", this.handleKeydown);
 
     // Search input
-    this.searchInput?.addEventListener('input', this.handleSearchInput);
+    this.searchInput?.addEventListener("input", this.handleSearchInput);
   }
 
   /**
    * Detach event listeners
    */
   detachEvents() {
-    document.removeEventListener('keydown', this.handleKeydown);
-    this.searchInput?.removeEventListener('input', this.handleSearchInput);
+    document.removeEventListener("keydown", this.handleKeydown);
+    this.searchInput?.removeEventListener("input", this.handleSearchInput);
   }
 
   /**
@@ -197,16 +197,16 @@ class SearchOverlay {
     if (!this.isOpen) return;
 
     switch (event.key) {
-      case 'Escape':
+      case "Escape":
         event.preventDefault();
         this.close();
         break;
-      case 'Enter':
+      case "Enter":
         event.preventDefault();
         if (event.shiftKey) {
-          this.navigate('previous');
+          this.navigate("previous");
         } else {
-          this.navigate('next');
+          this.navigate("next");
         }
         break;
     }
@@ -265,13 +265,13 @@ class SearchOverlay {
   navigate(direction) {
     if (!this.currentQuery) return;
 
-    const backwards = direction === 'previous';
+    const backwards = direction === "previous";
 
     // Use window.find to navigate
     const found = window.find(this.currentQuery, false, backwards, true);
 
     if (found) {
-      if (direction === 'next') {
+      if (direction === "next") {
         this.currentMatch = Math.min(this.currentMatch + 1, this.totalMatches);
       } else {
         this.currentMatch = Math.max(this.currentMatch - 1, 1);
@@ -293,7 +293,7 @@ class SearchOverlay {
     if (!this.matchCounter) return;
 
     if (total === 0) {
-      this.matchCounter.textContent = 'No matches';
+      this.matchCounter.textContent = "No matches";
     } else {
       this.matchCounter.textContent = `${current} of ${total}`;
     }
@@ -306,6 +306,6 @@ SearchOverlay._instance = null;
 // Export for ESM and browser usage
 export { SearchOverlay };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.SearchOverlay = SearchOverlay;
 }

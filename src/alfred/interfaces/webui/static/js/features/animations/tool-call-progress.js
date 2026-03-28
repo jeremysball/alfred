@@ -12,14 +12,14 @@ export class ToolCallProgress {
    * @returns {HTMLElement} Progress bar container
    */
   static create({ indeterminate = false, progress = 0 } = {}) {
-    const container = document.createElement('div');
-    container.className = 'tool-call-progress';
+    const container = document.createElement("div");
+    container.className = "tool-call-progress";
 
-    const bar = document.createElement('div');
-    bar.className = 'tool-call-progress__bar';
+    const bar = document.createElement("div");
+    bar.className = "tool-call-progress__bar";
 
     if (indeterminate) {
-      bar.classList.add('tool-call-progress__bar--indeterminate');
+      bar.classList.add("tool-call-progress__bar--indeterminate");
     } else {
       bar.style.transform = `scaleX(${progress / 100})`;
     }
@@ -34,9 +34,9 @@ export class ToolCallProgress {
    * @param {number} progress - Progress value (0-100)
    */
   static update(container, progress) {
-    const bar = container.querySelector('.tool-call-progress__bar');
+    const bar = container.querySelector(".tool-call-progress__bar");
     if (bar) {
-      bar.classList.remove('tool-call-progress__bar--indeterminate');
+      bar.classList.remove("tool-call-progress__bar--indeterminate");
       bar.style.transform = `scaleX(${Math.min(100, Math.max(0, progress)) / 100})`;
     }
   }
@@ -46,7 +46,7 @@ export class ToolCallProgress {
    * @param {HTMLElement} element - Tool call element to animate
    */
   static markExecuting(element) {
-    element.classList.add('tool-call--executing');
+    element.classList.add("tool-call--executing");
   }
 
   /**
@@ -54,7 +54,7 @@ export class ToolCallProgress {
    * @param {HTMLElement} element - Tool call element
    */
   static markComplete(element) {
-    element.classList.remove('tool-call--executing');
+    element.classList.remove("tool-call--executing");
   }
 
   /**
@@ -64,20 +64,20 @@ export class ToolCallProgress {
    * @returns {HTMLElement} Complete tool call element
    */
   static createToolCallUI(toolName, { indeterminate = true } = {}) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'tool-call';
+    const wrapper = document.createElement("div");
+    wrapper.className = "tool-call";
 
-    const header = document.createElement('div');
-    header.className = 'tool-call__header';
+    const header = document.createElement("div");
+    header.className = "tool-call__header";
     header.textContent = `Running ${toolName}...`;
 
-    const progress = this.create({ indeterminate });
+    const progress = ToolCallProgress.create({ indeterminate });
 
     wrapper.appendChild(header);
     wrapper.appendChild(progress);
 
     if (indeterminate) {
-      this.markExecuting(wrapper);
+      ToolCallProgress.markExecuting(wrapper);
     }
 
     return wrapper;

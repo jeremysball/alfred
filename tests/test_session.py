@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from alfred.session import Message, Role, Session, SessionManager, SessionMeta
+from alfred.session import Message, Role, Session, SessionManager, SessionMeta, TextBlock
 
 
 class MockStorage:
@@ -124,6 +124,22 @@ class TestMessage:
         msg = Message(idx=0, role=Role.USER, content="Hello", embedding=[0.1, 0.2, 0.3])
 
         assert msg.embedding == [0.1, 0.2, 0.3]
+
+    def test_message_with_text_blocks(self):
+        """Message can store ordered text blocks."""
+        msg = Message(
+            idx=0,
+            role=Role.ASSISTANT,
+            content="Hello world",
+            text_blocks=[
+                TextBlock(content="Hello ", sequence=0),
+                TextBlock(content="world", sequence=2),
+            ],
+        )
+
+        assert msg.text_blocks is not None
+        assert [block.content for block in msg.text_blocks] == ["Hello ", "world"]
+        assert [block.sequence for block in msg.text_blocks] == [0, 2]
 
 
 class TestSessionMeta:
@@ -272,6 +288,42 @@ class TestSessionManager:
         assert messages[0].content == "First"
         assert messages[1].content == "Second"
         assert messages[2].content == "Third"
+
+    def test_text_blocks_round_trip_through_serialization(self, initialized_manager: SessionManager):
+        """text_blocks should persist through session serialization."""
+        initialized_manager.start_session()
+        session = initialized_manager.get_messages()
+        assert isinstance(session, list)
+
+        message = Message(
+            idx=1,
+            role=Role.ASSISTANT,
+            content="Before tool After tool",
+            text_blocks=[
+                TextBlock(content="Before tool ", sequence=0),
+                TextBlock(content="After tool", sequence=2),
+            ],
+        )
+        serialized = SessionManager._serialize_messages([message])
+
+        assert serialized[0]["text_blocks"] == [
+            {"content": "Before tool ", "sequence": 0},
+            {"content": "After tool", "sequence": 2},
+        ]
+
+        restored = initialized_manager._create_session_from_data(
+            "session-test",
+            {
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+                "messages": serialized,
+                "metadata": {},
+            },
+        )
+
+        assert restored.messages[0].text_blocks is not None
+        assert [block.content for block in restored.messages[0].text_blocks] == ["Before tool ", "After tool"]
+        assert [block.sequence for block in restored.messages[0].text_blocks] == [0, 2]
 
     def test_get_messages_empty_session(self, initialized_manager: SessionManager):
         """get_messages returns empty list for new session."""

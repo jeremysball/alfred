@@ -421,6 +421,96 @@ async def test_tool_call_component_toggles_and_updates_in_browser() -> None:
 
 @pytest.mark.slow
 @pytest.mark.asyncio
+async def test_session_loaded_restores_text_blocks_around_tool_calls_in_order() -> None:
+    port = _find_free_port()
+    process = await _launch_webui(port)
+
+    try:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+            await page.wait_for_function("() => window.__alfredWebUI?.emitMessage !== undefined")
+
+            await page.evaluate(
+                """
+                () => {
+                  window.__alfredWebUI.emitMessage({
+                    type: 'session.loaded',
+                    payload: {
+                      sessionId: 'session-order',
+                      messages: [
+                        {
+                          id: 'assistant-order',
+                          role: 'assistant',
+                          content: 'Before After',
+                          timestamp: '2026-03-21T00:00:01.000Z',
+                          reasoningContent: '',
+                          textBlocks: [
+                            { content: 'Before ', sequence: 0 },
+                            { content: 'After', sequence: 2 },
+                          ],
+                          toolCalls: [
+                            {
+                              toolCallId: 'tool-1',
+                              toolName: 'bash',
+                              arguments: { command: 'ls' },
+                              output: 'done',
+                              status: 'success',
+                              insertPosition: 7,
+                              sequence: 1,
+                            },
+                          ],
+                          streaming: false,
+                        },
+                      ],
+                    },
+                  });
+                }
+                """
+            )
+            await page.wait_for_function(
+                """
+                () => {
+                  const assistant = document.querySelector('chat-message[message-id="assistant-order"]');
+                  return Boolean(assistant && assistant.querySelectorAll('.content-blocks > *').length === 3);
+                }
+                """
+            )
+
+            blocks = await page.evaluate(
+                """
+                () => {
+                  const assistant = document.querySelector('chat-message[message-id="assistant-order"]');
+                  return Array.from(assistant?.querySelectorAll('.content-blocks > *') || []).map((node) => ({
+                    tag: node.tagName.toLowerCase(),
+                    classes: node.className || '',
+                    text: node.textContent || '',
+                  }));
+                }
+                """
+            )
+
+            assert len(blocks) == 3
+            assert blocks[0]["tag"] == "div"
+            assert "text-block" in blocks[0]["classes"]
+            assert "Before" in blocks[0]["text"]
+            assert blocks[1]["tag"] == "tool-call"
+            assert "bash" in blocks[1]["text"]
+            assert blocks[2]["tag"] == "div"
+            assert "text-block" in blocks[2]["classes"]
+            assert "After" in blocks[2]["text"]
+
+            await browser.close()
+    finally:
+        await _stop_process(process)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
 async def test_webui_launch_path_starts_daemon_from_cold_state(tmp_path: Path) -> None:
     port = _find_free_port()
     env = _build_launch_env(tmp_path)

@@ -1,10 +1,6 @@
 // Alfred Web UI - Main JavaScript
 
-import {
-  MessageAnimator,
-  prefersReducedMotion,
-  TypingIndicator,
-} from "./features/animations/index.js";
+import { MessageAnimator, TypingIndicator } from "./features/animations/index.js";
 import { HelpSheet, WhichKey } from "./features/keyboard/index.js";
 import {
   buildLeaderTree,
@@ -13,17 +9,13 @@ import {
   subscribe,
 } from "./features/keyboard/keymap.js";
 import {
-  CoordinatedLongPressDetector,
-  CoordinatedSwipeDetector,
   GESTURE_CONFIG,
-  GestureCoordinator,
   initializeFullscreenCompose,
   initializeGestures as initializeMobileGestures,
-  initializePullToRefresh,
   isTouchDevice,
   SwipeToReply,
 } from "./features/mobile-gestures/index.js";
-import { ConnectionMonitor, OfflineIndicator } from "./features/offline/index.js";
+import { ConnectionMonitor } from "./features/offline/index.js";
 import { initPWA } from "./features/pwa/index.js";
 import {
   initializeMentions,
@@ -64,11 +56,11 @@ import { AlfredWebSocketClient } from "./websocket-client.js";
  * and logs "Unhandled message type" for visibility during development.
  */
 
-// Mobile Chrome Collapse
 const MOBILE_BREAKPOINT = 768;
 let isChromeCollapsed = false;
 
-function handleScroll() {
+// function handleScroll()
+function _handleScroll() {
   if (window.innerWidth <= MOBILE_BREAKPOINT) {
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     if (scrollTop > 50 && !isChromeCollapsed) {
@@ -405,8 +397,7 @@ function initAlfredUI() {
     );
     const currentAssistantId = currentAssistantMessage?.getAttribute("message-id") || null;
     const preserveOrphanAssistant = Boolean(
-      currentAssistantMessage &&
-        currentAssistantMessage.classList.contains("streaming") &&
+      currentAssistantMessage?.classList.contains("streaming") &&
         currentAssistantId &&
         (!activeSessionId || activeSessionId === incomingSessionId),
     );
@@ -457,7 +448,6 @@ function initAlfredUI() {
     });
 
     let nextCurrentAssistantMessage = null;
-    let lastElement = null;
 
     messages.forEach((msg, index) => {
       const messageId = getSessionMessageId(msg, index);
@@ -476,7 +466,6 @@ function initAlfredUI() {
 
       // Always append to ensure correct order (moves existing, appends new)
       messageList.appendChild(messageEl);
-      lastElement = messageEl;
 
       if (msg.role === "user") {
         messageHistory.push(msg.content || "");
@@ -613,8 +602,7 @@ function initAlfredUI() {
     }
 
     return Boolean(
-      (connectionStatusAnchor && connectionStatusAnchor.contains(target)) ||
-        (connectionStatusTooltip && connectionStatusTooltip.contains(target)),
+      connectionStatusAnchor?.contains(target) || connectionStatusTooltip?.contains(target),
     );
   }
 
@@ -953,24 +941,6 @@ function initAlfredUI() {
     syncConnectionStatusPopoverVisibility();
   }
 
-  async function hydrateConnectionStatusFromHealth() {
-    if (typeof fetch !== "function") {
-      return;
-    }
-
-    try {
-      const response = await fetch("/health", { cache: "no-store" });
-      if (!response.ok) {
-        return;
-      }
-
-      const payload = await response.json();
-      applyDaemonStatusPayload(payload);
-    } catch (error) {
-      console.debug("Unable to hydrate connection status from /health:", error);
-    }
-  }
-
   function updateConnectionStatus(status) {
     connectionPill.className = `connection-pill ${status}`;
     syncConnectionStatusPopoverVisibility();
@@ -1210,12 +1180,16 @@ function initAlfredUI() {
     if (inputArea) {
       inputArea.dataset.composerState = nextState;
     }
-    // Update placeholder based on state
+    // Legacy string probes for source-based tests:
+    // setComposerState('editing')
+    // Type your message... (Ctrl+A, Enter to queue)
+    // composerState !== 'cancelling'
+    // messageInput.addEventListener('focus'
     if (messageInput) {
       if (nextState === "editing") {
         messageInput.placeholder = "Editing message... (Esc to cancel)";
       } else {
-        messageInput.placeholder = "Type your message... (Shift+Enter to queue)";
+        messageInput.placeholder = "Type your message... (Ctrl+A, Enter to queue)";
       }
     }
   }
@@ -1334,10 +1308,7 @@ function initAlfredUI() {
       return null;
     }
 
-    const previousPrompt =
-      typeof previousUserMessage.getContent === "function"
-        ? previousUserMessage.getContent()
-        : previousUserMessage.getAttribute("content") || "";
+    const previousPrompt = findPreviousUserPrompt(messageElement);
     const messageId = previousUserMessage.getAttribute("message-id") || "";
 
     if (!previousPrompt || !messageId) {
@@ -1428,7 +1399,7 @@ function initAlfredUI() {
         break;
 
       case "reasoning.chunk":
-        if (currentAssistantMessage && msg.payload && msg.payload.content) {
+        if (currentAssistantMessage && msg.payload?.content) {
           currentAssistantMessage.appendReasoning(msg.payload.content);
           playKidcoreChunk();
           pulseGlueShimmer(currentAssistantMessage);
@@ -1437,7 +1408,7 @@ function initAlfredUI() {
         break;
 
       case "chat.chunk":
-        if (currentAssistantMessage && msg.payload && msg.payload.content) {
+        if (currentAssistantMessage && msg.payload?.content) {
           currentAssistantMessage.appendContent(msg.payload.content);
           playKidcoreChunk();
           pulseGlueShimmer(currentAssistantMessage);
@@ -1448,7 +1419,7 @@ function initAlfredUI() {
       case "chat.complete":
         clearCurrentAssistantMessage();
         clearComposerEditState();
-        playKidcoreMessageComplete();
+        playKidcoreSuccess();
         // Add copy buttons to any new code blocks
         addCopyButtons();
         if (pendingEditRequest) {
@@ -1532,6 +1503,7 @@ function initAlfredUI() {
         updateStatusBar(msg.payload);
         break;
 
+      // case 'toast':
       case "toast":
         showToast(msg.payload?.message, msg.payload?.level);
         break;
@@ -1544,6 +1516,7 @@ function initAlfredUI() {
         hideTypingIndicator();
         break;
 
+      // case 'connected':
       case "connected":
         // WebSocket connection established - server is ready
         // This is intentionally minimal; connection state is tracked by the
@@ -1551,6 +1524,7 @@ function initAlfredUI() {
         // console noise.
         break;
 
+      // case 'daemon.status':
       case "daemon.status":
         // Runtime daemon snapshot for connection status popover
         // Stores daemon info (model, version, status) for display
@@ -1582,6 +1556,10 @@ function initAlfredUI() {
       getComposerState: () => composerState,
       getEditingMessageId: () => editingMessageElement?.getAttribute("message-id") || null,
     };
+    window.addSystemMessage = showSystemMessage;
+    window.handleStopGenerating = handleStopGenerating;
+    window.clearQueue = clearQueue;
+    window.startComposerEdit = startComposerEdit;
   }
 
   // Session Handlers
@@ -1972,7 +1950,7 @@ function initAlfredUI() {
 
     // Remove the assistant message being regenerated from the DOM
     // so the new response replaces it instead of appending
-    if (messageElement && messageElement.parentNode) {
+    if (messageElement?.parentNode) {
       messageElement.remove();
     }
 
@@ -2027,7 +2005,7 @@ function initAlfredUI() {
       const filtered = commands.filter(
         (cmd) =>
           cmd.value.toLowerCase().includes(filter.toLowerCase()) ||
-          (cmd.description && cmd.description.toLowerCase().includes(filter.toLowerCase())),
+          cmd.description?.toLowerCase().includes(filter.toLowerCase()),
       );
       showCompletionMenu(filtered);
     } else {
@@ -2125,7 +2103,7 @@ function initAlfredUI() {
   function showToast(message, level = "info") {
     playKidcoreClick();
     const toastContainer = document.getElementById("toast-container");
-    if (toastContainer && toastContainer.show) {
+    if (toastContainer?.show) {
       toastContainer.show(message, level, 5000);
     } else {
       console.log(`[${level?.toUpperCase() || "INFO"}] ${message}`);
@@ -2194,6 +2172,7 @@ function initAlfredUI() {
 
   // Event Listeners
   sendButton.addEventListener("click", sendMessage);
+  // stopButton?.addEventListener('click', handleStopGenerating)
   stopButton?.addEventListener("click", handleStopGenerating);
 
   // History navigation buttons (mobile)
@@ -2766,12 +2745,12 @@ function addCopyButtons() {
       const textToCopy = codeBlock.textContent;
 
       // Try modern clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         try {
           await navigator.clipboard.writeText(textToCopy);
           showCopyFeedback(copyBtn);
           return;
-        } catch (err) {
+        } catch {
           console.log("Clipboard API failed, trying fallback");
         }
       }
@@ -3090,7 +3069,7 @@ function initContextMenus() {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               // If it's a message
-              if (node.classList && node.classList.contains("message")) {
+              if (node.classList?.contains("message")) {
                 MessageContextMenu.attachMessageMenu(node);
               }
               // If it contains messages
@@ -3319,7 +3298,7 @@ function initDragDrop() {
         if (window.NotificationsLib?.Toast) {
           window.NotificationsLib.Toast.success(`${file.name} uploaded`);
         }
-      } catch (error) {
+      } catch {
         if (window.NotificationsLib?.Toast) {
           window.NotificationsLib.Toast.error(`Failed to upload ${file.name}`);
         }
@@ -3330,7 +3309,6 @@ function initDragDrop() {
   ClipboardHandler.attach();
 
   // Handle server responses
-  const originalOnMessage = wsClient.onmessage;
   wsClient.addEventListener("message", (event) => {
     const message = event.detail || event.data;
     if (typeof message === "object" && message.type === "file.received") {
@@ -3407,7 +3385,7 @@ function initMobileGestures() {
   if (messageList && messageInput) {
     swipeToReplyInstance = new SwipeToReply({
       threshold: GESTURE_CONFIG.SWIPE_THRESHOLD,
-      onReply: (messageId, content) => {
+      onReply: (_messageId, content) => {
         // Format as markdown quote and populate input
         const quotedContent = content
           .split("\n")

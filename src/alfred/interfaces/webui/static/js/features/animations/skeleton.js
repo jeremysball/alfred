@@ -10,16 +10,16 @@ export class Skeleton {
    * @param {Object} options - Additional options
    * @returns {HTMLElement} Skeleton element
    */
-  static create(variant = 'text', { width, height } = {}) {
-    const skeleton = document.createElement('div');
+  static create(variant = "text", { width, height } = {}) {
+    const skeleton = document.createElement("div");
     skeleton.className = `skeleton skeleton--${variant}`;
 
     if (width) {
-      skeleton.style.width = typeof width === 'number' ? `${width}px` : width;
+      skeleton.style.width = typeof width === "number" ? `${width}px` : width;
     }
 
     if (height) {
-      skeleton.style.height = typeof height === 'number' ? `${height}px` : height;
+      skeleton.style.height = typeof height === "number" ? `${height}px` : height;
     }
 
     return skeleton;
@@ -31,13 +31,13 @@ export class Skeleton {
    * @param {number} count - Number of skeleton items
    * @param {string} variant - Skeleton variant
    */
-  static show(container, count = 3, variant = 'text') {
+  static show(container, count = 3, variant = "text") {
     // Clear existing content
-    container.innerHTML = '';
-    container.classList.add('skeleton-container');
+    container.innerHTML = "";
+    container.classList.add("skeleton-container");
 
     for (let i = 0; i < count; i++) {
-      const skeleton = this.create(variant);
+      const skeleton = Skeleton.create(variant);
       container.appendChild(skeleton);
     }
   }
@@ -47,8 +47,8 @@ export class Skeleton {
    * @param {HTMLElement} container - Container with skeletons
    */
   static hide(container) {
-    container.innerHTML = '';
-    container.classList.remove('skeleton-container');
+    container.innerHTML = "";
+    container.classList.remove("skeleton-container");
   }
 
   /**
@@ -56,8 +56,8 @@ export class Skeleton {
    * @returns {HTMLElement} Session list item skeleton
    */
   static createSessionItem() {
-    const item = document.createElement('div');
-    item.className = 'skeleton skeleton--session-item';
+    const item = document.createElement("div");
+    item.className = "skeleton skeleton--session-item";
     item.style.cssText = `
       display: flex;
       align-items: center;
@@ -66,13 +66,13 @@ export class Skeleton {
       margin-bottom: 8px;
     `;
 
-    const avatar = this.create('avatar');
-    const content = document.createElement('div');
-    content.style.cssText = 'flex: 1;';
+    const avatar = Skeleton.create("avatar");
+    const content = document.createElement("div");
+    content.style.cssText = "flex: 1;";
 
-    const title = this.create('title');
-    const text = this.create('text');
-    text.style.width = '80%';
+    const title = Skeleton.create("title");
+    const text = Skeleton.create("text");
+    text.style.width = "80%";
 
     content.appendChild(title);
     content.appendChild(text);
@@ -89,10 +89,10 @@ export class Skeleton {
    * @param {number} count - Number of skeleton items
    */
   static showSessionList(container, count = 5) {
-    container.innerHTML = '';
+    container.innerHTML = "";
 
     for (let i = 0; i < count; i++) {
-      const item = this.createSessionItem();
+      const item = Skeleton.createSessionItem();
       container.appendChild(item);
     }
   }

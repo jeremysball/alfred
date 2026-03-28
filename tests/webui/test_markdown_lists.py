@@ -71,8 +71,8 @@ async def _render_markdown_message(page, theme: str) -> None:
         () => {
           const message = document.querySelector('#message-list chat-message[role="assistant"]');
           return Boolean(
-            message?.querySelector('.message-content ul') &&
-            message?.querySelector('.message-content ol')
+            message?.querySelector('.text-block ul') &&
+            message?.querySelector('.text-block ol')
           );
         }
         """
@@ -84,8 +84,8 @@ async def _measure_list_containment(page) -> dict[str, object]:
         """
         () => {
           const message = document.querySelector('#message-list chat-message[role="assistant"]');
-          const bubble = message?.querySelector('.message-bubble');
-          const content = message?.querySelector('.message-content');
+          const bubble = message?.querySelector('.message');
+          const content = message?.querySelector('.text-block');
 
           if (!bubble || !content) {
             return null;

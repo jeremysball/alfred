@@ -23,11 +23,11 @@ class DropZoneVisual {
    */
   _createOverlay() {
     // Add drag-drop-zone class to container
-    this.container.classList.add('drag-drop-zone');
+    this.container.classList.add("drag-drop-zone");
 
     // Create overlay element
-    this.overlay = document.createElement('div');
-    this.overlay.className = 'drag-drop-overlay';
+    this.overlay = document.createElement("div");
+    this.overlay.className = "drag-drop-overlay";
     this.overlay.innerHTML = `
       <div class="drag-drop-icon">📎</div>
       <div class="drag-drop-text">Drop files here</div>
@@ -45,7 +45,7 @@ class DropZoneVisual {
   show() {
     if (this.isVisible) return;
 
-    this.container.classList.add('drag-active');
+    this.container.classList.add("drag-active");
     this.isVisible = true;
   }
 
@@ -55,7 +55,7 @@ class DropZoneVisual {
   hide() {
     if (!this.isVisible) return;
 
-    this.container.classList.remove('drag-active');
+    this.container.classList.remove("drag-active");
     this.isVisible = false;
   }
 
@@ -65,11 +65,11 @@ class DropZoneVisual {
   destroy() {
     this.hide();
 
-    if (this.overlay && this.overlay.parentNode) {
+    if (this.overlay?.parentNode) {
       this.overlay.parentNode.removeChild(this.overlay);
     }
 
-    this.container.classList.remove('drag-drop-zone');
+    this.container.classList.remove("drag-drop-zone");
     this.overlay = null;
     this.container = null;
   }
@@ -82,11 +82,11 @@ class DropZoneVisual {
   setText(text, subtext = null) {
     if (!this.overlay) return;
 
-    const textEl = this.overlay.querySelector('.drag-drop-text');
+    const textEl = this.overlay.querySelector(".drag-drop-text");
     if (textEl) textEl.textContent = text;
 
     if (subtext) {
-      const subtextEl = this.overlay.querySelector('.drag-drop-subtext');
+      const subtextEl = this.overlay.querySelector(".drag-drop-subtext");
       if (subtextEl) subtextEl.textContent = subtext;
     }
   }
@@ -98,14 +98,14 @@ class DropZoneVisual {
   showError(errorMessage) {
     if (!this.overlay) return;
 
-    this.overlay.style.borderColor = '#f85149';
-    this.setText('❌ Cannot upload', errorMessage);
+    this.overlay.style.borderColor = "#f85149";
+    this.setText("❌ Cannot upload", errorMessage);
 
     // Reset after 2 seconds
     setTimeout(() => {
       if (this.overlay) {
-        this.overlay.style.borderColor = '';
-        this.setText('Drop files here', 'Images, text files, code');
+        this.overlay.style.borderColor = "";
+        this.setText("Drop files here", "Images, text files, code");
       }
     }, 2000);
   }
@@ -114,6 +114,6 @@ class DropZoneVisual {
 // Export for ESM and browser usage
 export { DropZoneVisual };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.DropZoneVisual = DropZoneVisual;
 }

@@ -15,26 +15,34 @@ const FileValidation = {
   // Allowed MIME types
   ALLOWED_MIME_TYPES: [
     // Images
-    'image/png',
-    'image/jpeg',
-    'image/jpg',
-    'image/gif',
-    'image/webp',
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/gif",
+    "image/webp",
     // Text files
-    'text/plain',
-    'text/markdown',
-    'text/x-python',
-    'application/javascript',
-    'application/json',
-    'text/javascript',
-    'text/json',
-    'text/x-python-script',
+    "text/plain",
+    "text/markdown",
+    "text/x-python",
+    "application/javascript",
+    "application/json",
+    "text/javascript",
+    "text/json",
+    "text/x-python-script",
   ],
 
   // Allowed extensions (as fallback)
   ALLOWED_EXTENSIONS: [
-    '.png', '.jpg', '.jpeg', '.gif', '.webp',
-    '.txt', '.md', '.py', '.js', '.json',
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".txt",
+    ".md",
+    ".py",
+    ".js",
+    ".json",
   ],
 
   /**
@@ -52,7 +60,7 @@ const FileValidation = {
 
     // Fallback: check extension
     const name = file.name.toLowerCase();
-    return this.ALLOWED_EXTENSIONS.some(ext => name.endsWith(ext));
+    return this.ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
   },
 
   /**
@@ -72,7 +80,7 @@ const FileValidation = {
    */
   validateFile(file) {
     if (!file) {
-      return { valid: false, error: 'No file provided' };
+      return { valid: false, error: "No file provided" };
     }
 
     // Check type
@@ -123,7 +131,7 @@ const FileValidation = {
    */
   isImage(file) {
     if (!file) return false;
-    return file.type.startsWith('image/');
+    return file.type.startsWith("image/");
   },
 
   /**
@@ -132,17 +140,17 @@ const FileValidation = {
    * @returns {string}
    */
   formatFileSize(bytes) {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
   },
 };
 
 // Export for ESM and browser usage
 export { FileValidation };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.FileValidation = FileValidation;
 }

@@ -39,7 +39,7 @@ def build_bordered_box(
         remaining = content_width - title_visible_len
         if remaining < 0:
             # Title too long, truncate
-            title = title[:content_width - 3] + "..."
+            title = title[: content_width - 3] + "..."
             title_text = f"{BOLD}{title}{RESET}"
             title_visible_len = len(title)
             remaining = content_width - title_visible_len
@@ -57,7 +57,7 @@ def build_bordered_box(
     for line in lines:
         # Truncate or pad content to fit
         if len(line) > content_width:
-            content = line[:content_width - 3] + "..."
+            content = line[: content_width - 3] + "..."
         else:
             if center:
                 padding = content_width - len(line)

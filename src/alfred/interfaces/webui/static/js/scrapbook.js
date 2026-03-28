@@ -1,26 +1,26 @@
 (() => {
-  const ACTIVE_THEMES = new Set(['kidcore-playground', 'spacejam-neocities']);
-  const UPDATE_STORAGE_KEY = 'alfred-kidcore-updates';
-  const EXPORTED_FILENAME_PREFIX = 'alfred-scrapbook';
+  const _ACTIVE_THEMES = new Set(["kidcore-playground", "spacejam-neocities"]);
+  const UPDATE_STORAGE_KEY = "alfred-kidcore-updates";
+  const EXPORTED_FILENAME_PREFIX = "alfred-scrapbook";
 
   const DEFAULT_UPDATE_ENTRIES = Object.freeze([
     {
-      id: 'seed-update-1',
-      title: 'retro tools',
-      message: 'search, nav, export, and notes are alive',
-      createdAt: '2026-03-01T09:00:00.000Z',
+      id: "seed-update-1",
+      title: "retro tools",
+      message: "search, nav, export, and notes are alive",
+      createdAt: "2026-03-01T09:00:00.000Z",
     },
     {
-      id: 'seed-update-2',
-      title: 'button polish',
-      message: 'the scrapbook now feels more like a tiny personal site than a widget drawer',
-      createdAt: '2026-03-04T14:30:00.000Z',
+      id: "seed-update-2",
+      title: "button polish",
+      message: "the scrapbook now feels more like a tiny personal site than a widget drawer",
+      createdAt: "2026-03-04T14:30:00.000Z",
     },
     {
-      id: 'seed-update-3',
-      title: 'neon pass',
-      message: 'the interface leans harder into loud retro browser energy',
-      createdAt: '2026-03-08T18:15:00.000Z',
+      id: "seed-update-3",
+      title: "neon pass",
+      message: "the interface leans harder into loud retro browser energy",
+      createdAt: "2026-03-08T18:15:00.000Z",
     },
   ]);
 
@@ -48,11 +48,11 @@
 
   function escapeHtml(value) {
     return String(value)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function uid(prefix) {
@@ -67,15 +67,15 @@
     try {
       return new Date(value).toLocaleString();
     } catch {
-      return String(value || '');
+      return String(value || "");
     }
   }
 
   function normalizeUpdateEntry(entry) {
     return {
-      id: entry?.id || uid('update'),
-      title: String(entry?.title || 'Untitled update').trim() || 'Untitled update',
-      message: String(entry?.message || '').trim(),
+      id: entry?.id || uid("update"),
+      title: String(entry?.title || "Untitled update").trim() || "Untitled update",
+      message: String(entry?.message || "").trim(),
       createdAt: entry?.createdAt || new Date().toISOString(),
     };
   }
@@ -85,7 +85,9 @@
       return true;
     }
 
-    return String(value || '').toLowerCase().includes(query);
+    return String(value || "")
+      .toLowerCase()
+      .includes(query);
   }
 
   function collectGuestbookEntries() {
@@ -98,19 +100,16 @@
   }
 
   function collectUpdateEntries(userEntries) {
-    return [
-      ...DEFAULT_UPDATE_ENTRIES,
-      ...userEntries.map(normalizeUpdateEntry),
-    ];
+    return [...DEFAULT_UPDATE_ENTRIES, ...userEntries.map(normalizeUpdateEntry)];
   }
 
   function downloadJson(filename, payload) {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
+    const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = filename;
-    anchor.rel = 'noreferrer';
+    anchor.rel = "noreferrer";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -120,20 +119,22 @@
   class ScrapbookEnhancer {
     constructor(root) {
       this.root = root;
-      this.searchInput = root.querySelector('#kidcore-homeboard-search');
-      this.clearSearchButton = root.querySelector('#kidcore-homeboard-clear-search');
-      this.exportButton = root.querySelector('#kidcore-homeboard-export');
-      this.searchSummary = root.querySelector('#kidcore-homeboard-search-summary');
-      this.guestbookList = root.querySelector('#kidcore-guestbook-entries');
-      this.updatesList = root.querySelector('#kidcore-updates-list');
-      this.updatesSummary = root.querySelector('#kidcore-updates-summary');
-      this.updateForm = root.querySelector('#kidcore-update-form');
-      this.updateTitle = root.querySelector('#kidcore-update-title');
-      this.updateMessage = root.querySelector('#kidcore-update-message');
-      this.updateSubmit = root.querySelector('#kidcore-update-submit');
+      this.searchInput = root.querySelector("#kidcore-homeboard-search");
+      this.clearSearchButton = root.querySelector("#kidcore-homeboard-clear-search");
+      this.exportButton = root.querySelector("#kidcore-homeboard-export");
+      this.searchSummary = root.querySelector("#kidcore-homeboard-search-summary");
+      this.guestbookList = root.querySelector("#kidcore-guestbook-entries");
+      this.updatesList = root.querySelector("#kidcore-updates-list");
+      this.updatesSummary = root.querySelector("#kidcore-updates-summary");
+      this.updateForm = root.querySelector("#kidcore-update-form");
+      this.updateTitle = root.querySelector("#kidcore-update-title");
+      this.updateMessage = root.querySelector("#kidcore-update-message");
+      this.updateSubmit = root.querySelector("#kidcore-update-submit");
       const storedUpdates = readJSON(UPDATE_STORAGE_KEY, []);
-      this.updateEntries = Array.isArray(storedUpdates) ? storedUpdates.map(normalizeUpdateEntry) : [];
-      this.searchQuery = '';
+      this.updateEntries = Array.isArray(storedUpdates)
+        ? storedUpdates.map(normalizeUpdateEntry)
+        : [];
+      this.searchQuery = "";
       this.filterQueued = false;
 
       this.guestbookObserver = new MutationObserver(() => this.scheduleFilter());
@@ -147,32 +148,32 @@
     }
 
     bindEvents() {
-      this.searchInput?.addEventListener('input', () => {
+      this.searchInput?.addEventListener("input", () => {
         this.searchQuery = this.searchInput.value.trim().toLowerCase();
         this.applyFilters();
       });
 
-      this.searchInput?.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
+      this.searchInput?.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
           event.preventDefault();
           this.clearSearch();
         }
       });
 
-      this.clearSearchButton?.addEventListener('click', () => {
+      this.clearSearchButton?.addEventListener("click", () => {
         this.clearSearch();
       });
 
-      this.exportButton?.addEventListener('click', () => {
+      this.exportButton?.addEventListener("click", () => {
         this.exportSnapshot();
       });
 
-      this.updateForm?.addEventListener('submit', (event) => {
+      this.updateForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         this.handleUpdateSubmit();
       });
 
-      this.updateSubmit?.addEventListener('click', () => {
+      this.updateSubmit?.addEventListener("click", () => {
         // Leave submit handling to the form, but keep the button reachable from tests.
       });
     }
@@ -182,9 +183,9 @@
     }
 
     clearSearch() {
-      this.searchQuery = '';
+      this.searchQuery = "";
       if (this.searchInput) {
-        this.searchInput.value = '';
+        this.searchInput.value = "";
       }
       this.applyFilters();
     }
@@ -212,16 +213,18 @@
         return;
       }
 
-      const entries = Array.from(this.guestbookList.querySelectorAll('.kidcore-guestbook-entry'));
+      const entries = Array.from(this.guestbookList.querySelectorAll(".kidcore-guestbook-entry"));
       const data = collectGuestbookEntries();
       const query = this.searchQuery;
 
       entries.forEach((entryEl, index) => {
         const entryData = data[index];
-        const searchable = entryData ? `${entryData.name || ''} ${entryData.message || ''}` : entryEl.textContent || '';
+        const searchable = entryData
+          ? `${entryData.name || ""} ${entryData.message || ""}`
+          : entryEl.textContent || "";
         const matches = matchesQuery(searchable, query);
         entryEl.hidden = !matches;
-        entryEl.setAttribute('aria-hidden', String(!matches));
+        entryEl.setAttribute("aria-hidden", String(!matches));
       });
     }
 
@@ -230,7 +233,7 @@
         return;
       }
 
-      const entries = Array.from(this.updatesList.querySelectorAll('.kidcore-update-entry'));
+      const entries = Array.from(this.updatesList.querySelectorAll(".kidcore-update-entry"));
       const query = this.searchQuery;
       const data = collectUpdateEntries(this.updateEntries);
 
@@ -241,10 +244,10 @@
 
       entries.forEach((entryEl, index) => {
         const entryData = data[index];
-        const searchable = `${entryData.title || ''} ${entryData.message || ''}`;
+        const searchable = `${entryData.title || ""} ${entryData.message || ""}`;
         const matches = matchesQuery(searchable, query);
         entryEl.hidden = !matches;
-        entryEl.setAttribute('aria-hidden', String(!matches));
+        entryEl.setAttribute("aria-hidden", String(!matches));
       });
     }
 
@@ -254,25 +257,25 @@
       }
 
       if (!this.searchQuery) {
-        this.searchSummary.textContent = 'browse guestbook notes, updates, and links.';
+        this.searchSummary.textContent = "browse guestbook notes, updates, and links.";
         if (this.updatesSummary) {
-          this.updatesSummary.textContent = `${this.updateEntries.length} local ${this.updateEntries.length === 1 ? 'update' : 'updates'}`;
+          this.updatesSummary.textContent = `${this.updateEntries.length} local ${this.updateEntries.length === 1 ? "update" : "updates"}`;
         }
         return;
       }
 
       const query = this.searchQuery;
       const guestbookMatches = collectGuestbookEntries().filter((entry) =>
-        matchesQuery(`${entry.name || ''} ${entry.message || ''}`, query)
+        matchesQuery(`${entry.name || ""} ${entry.message || ""}`, query),
       ).length;
       const updateMatches = collectUpdateEntries(this.updateEntries).filter((entry) =>
-        matchesQuery(`${entry.title || ''} ${entry.message || ''}`, query)
+        matchesQuery(`${entry.title || ""} ${entry.message || ""}`, query),
       ).length;
 
-      this.searchSummary.textContent = `${guestbookMatches} matching guestbook ${guestbookMatches === 1 ? 'entry' : 'entries'} and ${updateMatches} matching update ${updateMatches === 1 ? 'entry' : 'entries'} for "${query}".`;
+      this.searchSummary.textContent = `${guestbookMatches} matching guestbook ${guestbookMatches === 1 ? "entry" : "entries"} and ${updateMatches} matching update ${updateMatches === 1 ? "entry" : "entries"} for "${query}".`;
 
       if (this.updatesSummary) {
-        this.updatesSummary.textContent = `${this.updateEntries.length} local ${this.updateEntries.length === 1 ? 'update' : 'updates'}`;
+        this.updatesSummary.textContent = `${this.updateEntries.length} local ${this.updateEntries.length === 1 ? "update" : "updates"}`;
       }
     }
 
@@ -286,8 +289,8 @@
 
       this.updatesList.innerHTML = entries
         .map((entry) => {
-          const matches = matchesQuery(`${entry.title || ''} ${entry.message || ''}`, query);
-          const hiddenAttr = matches ? '' : ' hidden aria-hidden="true"';
+          const matches = matchesQuery(`${entry.title || ""} ${entry.message || ""}`, query);
+          const hiddenAttr = matches ? "" : ' hidden aria-hidden="true"';
 
           return `
             <li class="kidcore-update-entry" data-update-id="${escapeHtml(entry.id)}"${hiddenAttr}>
@@ -295,62 +298,64 @@
                 <strong class="kidcore-update-title">${escapeHtml(entry.title)}</strong>
                 <span class="kidcore-update-time">${escapeHtml(formatTimestamp(entry.createdAt))}</span>
               </div>
-              <p class="kidcore-update-message">${escapeHtml(entry.message || '')}</p>
+              <p class="kidcore-update-message">${escapeHtml(entry.message || "")}</p>
             </li>
           `;
         })
-        .join('');
+        .join("");
 
       this.renderSearchSummary();
       this.filterGuestbookEntries();
     }
 
     handleUpdateSubmit() {
-      const title = this.updateTitle?.value.trim() || 'Untitled update';
-      const message = this.updateMessage?.value.trim() || '';
+      const title = this.updateTitle?.value.trim() || "Untitled update";
+      const message = this.updateMessage?.value.trim() || "";
 
       if (!message) {
-        this.toast('Update details cannot be empty.', 'warning');
+        this.toast("Update details cannot be empty.", "warning");
         return;
       }
 
-      this.updateEntries.unshift(normalizeUpdateEntry({
-        id: uid('update'),
-        title,
-        message,
-        createdAt: new Date().toISOString(),
-      }));
+      this.updateEntries.unshift(
+        normalizeUpdateEntry({
+          id: uid("update"),
+          title,
+          message,
+          createdAt: new Date().toISOString(),
+        }),
+      );
       writeJSON(UPDATE_STORAGE_KEY, this.updateEntries);
       if (this.updateMessage) {
-        this.updateMessage.value = '';
+        this.updateMessage.value = "";
       }
       if (this.updateTitle) {
-        this.updateTitle.value = '';
+        this.updateTitle.value = "";
       }
       this.renderUpdates();
-      this.toast('Update posted.', 'success');
+      this.toast("Update posted.", "success");
     }
 
     exportSnapshot() {
       const payload = {
         exportedAt: new Date().toISOString(),
-        theme: document.documentElement.getAttribute('data-theme') || '',
+        theme: document.documentElement.getAttribute("data-theme") || "",
         guestbookEntries: collectGuestbookEntries(),
         updates: collectUpdateEntries(this.updateEntries),
         searchQuery: this.searchQuery,
       };
       downloadJson(`${EXPORTED_FILENAME_PREFIX}-${Date.now()}.json`, payload);
-      this.toast('Scrapbook exported as JSON.', 'success');
+      this.toast("Scrapbook exported as JSON.", "success");
     }
 
-    toast(message, level = 'info') {
-      const toastContainer = document.getElementById('toast-container');
+    toast(message, level = "info") {
+      const toastContainer = document.getElementById("toast-container");
       if (toastContainer?.show) {
         toastContainer.show(message, level, 4000);
         return;
       }
 
-      if (level === 'error') {
+      if (level === "error") {
         console.error(message);
       } else {
         console.log(message);
@@ -359,7 +364,7 @@
   }
 
   function initScrapbook() {
-    const root = document.getElementById('kidcore-homeboard');
+    const root = document.getElementById("kidcore-homeboard");
     if (!root) {
       return;
     }
@@ -373,8 +378,8 @@
     window.__alfredKidcoreHomeboard = enhancer;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initScrapbook, { once: true });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initScrapbook, { once: true });
   } else {
     initScrapbook();
   }

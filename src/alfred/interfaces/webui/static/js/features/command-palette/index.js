@@ -23,23 +23,17 @@
  *   // Press Ctrl+K to open
  */
 
-import {
-  register,
-  getAll,
-  getById,
-  unregister,
-  clear
-} from './commands.js';
+import { clear, getAll, getById, register, unregister } from "./commands.js";
 
 import {
-  search,
   benchmark,
   calculateScore,
+  getHighlightIndices,
   isFuzzyMatch,
-  getHighlightIndices
-} from './fuzzy-search.js';
+  search,
+} from "./fuzzy-search.js";
 
-import { CommandPalette } from './palette.js';
+import { CommandPalette } from "./palette.js";
 
 // Command Registry API
 const CommandRegistry = {
@@ -47,7 +41,7 @@ const CommandRegistry = {
   getAll,
   getById,
   unregister,
-  clear
+  clear,
 };
 
 // Fuzzy Search API
@@ -56,15 +50,15 @@ const FuzzySearch = {
   benchmark,
   calculateScore,
   isFuzzyMatch,
-  getHighlightIndices
+  getHighlightIndices,
 };
 
 // Create library namespace on window
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.CommandPaletteLib = {
     CommandPalette,
     CommandRegistry,
-    FuzzySearch
+    FuzzySearch,
   };
 }
 

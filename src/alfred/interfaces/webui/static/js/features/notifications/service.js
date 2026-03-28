@@ -5,7 +5,7 @@
  * while the tab is not focused.
  */
 
-import { isGranted, isSupported } from './permissions.js';
+import { isGranted, isSupported } from "./permissions.js";
 
 /**
  * Show a browser notification
@@ -18,11 +18,11 @@ import { isGranted, isSupported } from './permissions.js';
  * @returns {Promise<Notification|null>} The notification object or null
  */
 async function show({
-  title = 'Alfred',
+  title = "Alfred",
   body,
-  icon = '/static/icons/icon-192x192.png',
-  tag = 'alfred-response',
-  data = {}
+  icon = "/static/icons/icon-192x192.png",
+  tag = "alfred-response",
+  data = {},
 } = {}) {
   if (!isSupported || !isGranted()) {
     return null;
@@ -35,7 +35,7 @@ async function show({
       tag,
       data,
       requireInteraction: false,
-      silent: false
+      silent: false,
     });
 
     // Handle click - focus the window
@@ -44,9 +44,11 @@ async function show({
       notification.close();
 
       // Dispatch event for other handlers
-      window.dispatchEvent(new CustomEvent('notification:click', {
-        detail: { notification, data }
-      }));
+      window.dispatchEvent(
+        new CustomEvent("notification:click", {
+          detail: { notification, data },
+        }),
+      );
     };
 
     // Auto-close after 10 seconds
@@ -56,7 +58,7 @@ async function show({
 
     return notification;
   } catch (err) {
-    console.error('Failed to show notification:', err);
+    console.error("Failed to show notification:", err);
     return null;
   }
 }
@@ -67,16 +69,16 @@ async function show({
  * @param {Object} [options] - Additional options
  */
 async function showResponseComplete(preview, options = {}) {
-  const title = options.title || 'Response ready from Alfred';
+  const title = options.title || "Response ready from Alfred";
   const body = preview
-    ? preview.slice(0, 100) + (preview.length > 100 ? '...' : '')
-    : 'Your message has been answered';
+    ? preview.slice(0, 100) + (preview.length > 100 ? "..." : "")
+    : "Your message has been answered";
 
   return await show({
     title,
     body,
-    tag: 'alfred-response-' + Date.now(),
-    data: { type: 'response-complete', ...options.data }
+    tag: `alfred-response-${Date.now()}`,
+    data: { type: "response-complete", ...options.data },
   });
 }
 
@@ -108,8 +110,8 @@ function isDoNotDisturbEnabled() {
   // There's no standard API for DND, but we can check if notifications
   // were recently denied or if the user has a preference set
   try {
-    const dnd = localStorage.getItem('alfred_dnd_mode');
-    return dnd === 'true';
+    const dnd = localStorage.getItem("alfred_dnd_mode");
+    return dnd === "true";
   } catch {
     return false;
   }
@@ -121,27 +123,21 @@ function isDoNotDisturbEnabled() {
  */
 function setDoNotDisturb(enabled) {
   try {
-    localStorage.setItem('alfred_dnd_mode', enabled ? 'true' : 'false');
+    localStorage.setItem("alfred_dnd_mode", enabled ? "true" : "false");
   } catch (err) {
-    console.warn('Failed to save DND state:', err);
+    console.warn("Failed to save DND state:", err);
   }
 }
 
 // Export for ESM and browser
-export {
-  show,
-  showResponseComplete,
-  notifyIfHidden,
-  isDoNotDisturbEnabled,
-  setDoNotDisturb
-};
+export { isDoNotDisturbEnabled, notifyIfHidden, setDoNotDisturb, show, showResponseComplete };
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.NotificationService = {
     show,
     showResponseComplete,
     notifyIfHidden,
     isDoNotDisturbEnabled,
-    setDoNotDisturb
+    setDoNotDisturb,
   };
 }
