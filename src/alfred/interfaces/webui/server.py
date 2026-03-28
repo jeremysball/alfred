@@ -1507,14 +1507,27 @@ async def _handle_session_command(
         status = getattr(current_session, "status", getattr(meta, "status", "active"))
         session_id = _session_identifier(current_session)
 
-        # Try to get session summary if available
-        summary_text = None
+        # Try to get the latest session summary if available.
+        # The daemon writes these summaries, so this remains the source of truth
+        # for the /session command surface.
+        summary_payload = None
         summarizer = getattr(alfred_instance.core, "summarizer", None)
         if summarizer is not None:
             try:
                 summary = await summarizer.load_summary(session_id)
                 if summary is not None:
-                    summary_text = summary.text
+                    summary_created_at = getattr(summary, "created_at", None)
+                    summary_message_count = int(getattr(summary, "message_count", 0) or 0)
+                    summary_payload = {
+                        "summaryId": getattr(summary, "summary_id", None),
+                        "text": getattr(summary, "text", ""),
+                        "createdAt": summary_created_at.isoformat()
+                        if isinstance(summary_created_at, datetime)
+                        else None,
+                        "messageCount": summary_message_count,
+                        "deltaMessages": max(message_count - summary_message_count, 0),
+                        "version": int(getattr(summary, "version", 1) or 1),
+                    }
             except Exception:
                 # Summary not available, continue without it
                 pass
@@ -1525,9 +1538,8 @@ async def _handle_session_command(
             "created": created_at.isoformat() if isinstance(created_at, datetime) else datetime.now(UTC).isoformat(),
             "lastActive": last_active.isoformat() if isinstance(last_active, datetime) else datetime.now(UTC).isoformat(),
             "status": status,
+            "summary": summary_payload,
         }
-        if summary_text is not None:
-            payload["summary"] = summary_text
 
         await websocket.send_json(
             {

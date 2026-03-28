@@ -1730,16 +1730,18 @@ completion-menu {
 }
 
 /* ============================================
-   SESSION LIST
+   SESSION LIST / VIEWER
    ============================================ */
 
-.session-list-message {
+.session-list-message,
+.session-viewer-message {
   width: 100%;
   margin: 1rem 0;
   padding: 0;
 }
 
-.message-list .session-list-message {
+.message-list .session-list-message,
+.message-list .session-viewer-message {
   width: 100vw;
   max-width: 1600px;
   margin-left: 50%;
@@ -1747,7 +1749,8 @@ completion-menu {
   padding: 0 1rem;
 }
 
-session-list {
+session-list,
+session-viewer {
   display: block;
   width: 100%;
 }

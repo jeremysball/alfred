@@ -1629,22 +1629,20 @@ function initAlfredUI() {
   }
 
   function handleSessionInfo(payload) {
-    let content = "Current Session:\n\n";
-    content += `ID: ${payload.sessionId}\n`;
-    content += `Status: ${payload.status || "unknown"}\n`;
-    content += `Messages: ${payload.messageCount}\n`;
-    if (payload.created) {
-      content += `Created: ${new Date(payload.created).toLocaleString()}\n`;
-    }
-    if (payload.lastActive) {
-      content += `Last Active: ${new Date(payload.lastActive).toLocaleString()}\n`;
-    }
-    if (payload.summary) {
-      content += `\nSummary: ${payload.summary}\n`;
-    }
+    const container = document.createElement("div");
+    container.className = "session-viewer-message";
 
+    const sessionViewer = document.createElement("session-viewer");
+    sessionViewer.setAttribute("data-session", JSON.stringify(payload));
+    sessionViewer.addEventListener("session-refresh", () => {
+      wsClient.sendCommand("/session");
+    });
+
+    container.appendChild(sessionViewer);
+    messageList.appendChild(container);
+
+    scrollToBottom();
     clearComposerEditState();
-    showSystemMessage(content);
     enableInput();
   }
 
@@ -2898,6 +2896,24 @@ function initCommandPalette() {
       if (confirm("Start a new session? Current conversation will be archived.")) {
         window.location.reload();
       }
+    },
+  });
+
+  CommandRegistry.register({
+    id: "view-sessions",
+    title: "View Sessions",
+    keywords: ["sessions", "session list", "history", "archive"],
+    action: () => {
+      wsClient.sendCommand("/sessions");
+    },
+  });
+
+  CommandRegistry.register({
+    id: "current-session",
+    title: "Show Current Session",
+    keywords: ["session", "current", "summary", "details", "info"],
+    action: () => {
+      wsClient.sendCommand("/session");
     },
   });
 

@@ -1,5 +1,7 @@
 """WebSocket protocol tests for Alfred Web UI."""
 
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -633,6 +635,52 @@ class TestWebSocketCommandsWithMockedAlfred:
             assert data["payload"]["sessionId"] == "session-1"
             assert "messageCount" in data["payload"]
             assert "created" in data["payload"]
+
+    def test_command_session_info_includes_latest_summary_metadata(self):
+        """/session should expose the latest daemon summary metadata."""
+        session = make_session(
+            "session-1",
+            messages=[
+                make_message("user", "first"),
+                make_message("assistant", "second"),
+                make_message("user", "third"),
+                make_message("assistant", "fourth"),
+                make_message("user", "fifth"),
+            ],
+        )
+        mock_alfred = MockAlfred(sessions=[session])
+        summary_created_at = datetime.now(UTC) - timedelta(minutes=42)
+        mock_alfred.core = SimpleNamespace(
+            session_manager=mock_alfred.core.session_manager,
+            summarizer=SimpleNamespace(
+                load_summary=AsyncMock(
+                    return_value=SimpleNamespace(
+                        summary_id="summary-2",
+                        text="Refined summary",
+                        created_at=summary_created_at,
+                        message_count=2,
+                        version=2,
+                    )
+                )
+            ),
+        )
+        app = create_app(alfred_instance=mock_alfred)
+        client = TestClient(app)
+
+        with client.websocket_connect("/ws") as websocket:
+            _connect_and_skip_initial_messages(websocket)
+            websocket.send_json({"type": "command.execute", "payload": {"command": "/session"}})
+
+            data = websocket.receive_json()
+
+        assert data["type"] == "session.info"
+        assert data["payload"]["sessionId"] == "session-1"
+        assert data["payload"]["summary"]["summaryId"] == "summary-2"
+        assert data["payload"]["summary"]["text"] == "Refined summary"
+        assert data["payload"]["summary"]["messageCount"] == 2
+        assert data["payload"]["summary"]["deltaMessages"] == 3
+        assert data["payload"]["summary"]["version"] == 2
+        assert data["payload"]["summary"]["createdAt"] == summary_created_at.isoformat()
 
     def test_command_resume_session(self):
         """Test /resume command resumes a session."""

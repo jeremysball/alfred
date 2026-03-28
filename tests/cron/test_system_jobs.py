@@ -32,6 +32,14 @@ class TestSystemJobRegistry:
         result = get_system_job_code("nonexistent_job")
         assert result is None
 
+    def test_session_summarizer_increments_summary_version(self) -> None:
+        """Session summaries should advance version so the latest row wins."""
+        result = get_system_job_code("session_summarizer")
+        assert result is not None
+
+        _, code = result
+        assert "summary.version = (existing_summary.version + 1) if existing_summary else 1" in code
+
 
 class TestSystemJobRegistration:
     """Tests for registering system jobs with scheduler."""

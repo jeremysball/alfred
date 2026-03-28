@@ -1587,9 +1587,17 @@ class SQLiteStore:
             aiosqlite.connect(self.db_path) as db,
             db.execute(
                 """
+                WITH latest_summaries AS (
+                    SELECT session_id, MAX(version) AS version
+                    FROM session_summaries
+                    GROUP BY session_id
+                )
                 SELECT s.session_id
                 FROM sessions s
-                LEFT JOIN session_summaries sm ON s.session_id = sm.session_id
+                LEFT JOIN latest_summaries ls ON s.session_id = ls.session_id
+                LEFT JOIN session_summaries sm
+                    ON sm.session_id = ls.session_id
+                    AND sm.version = ls.version
                 WHERE s.message_count - COALESCE(sm.message_count, 0) >= ?
                 """,
                 (threshold,),

@@ -109,7 +109,21 @@ def test_index_html_includes_components():
 
     # Verify component scripts are included
     assert "chat-message.js" in content
+    assert "session-viewer.js" in content
     # Note: websocket-client.js is imported as an ES module in main.js, not via script tag
+
+
+def test_command_palette_includes_session_commands():
+    """Verify command palette registers session and sessions commands."""
+    app = create_app()
+    client = TestClient(app)
+
+    main_js = client.get("/static/js/main.js").text
+
+    assert 'id: "view-sessions"' in main_js
+    assert 'id: "current-session"' in main_js
+    assert 'wsClient.sendCommand("/sessions")' in main_js
+    assert 'wsClient.sendCommand("/session")' in main_js
 
 
 def test_chat_styles_exist():

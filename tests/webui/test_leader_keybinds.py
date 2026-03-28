@@ -1,5 +1,9 @@
 """Tests for leader key bindings functionality."""
 
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
 from playwright.async_api import expect
 
@@ -179,6 +183,69 @@ async def test_leader_palette_command_palette(websocket_server, page_helper):
 
     await page.keyboard.press("Escape")
     await expect(page.locator(".command-palette")).not_to_be_visible()
+
+
+@pytest.mark.asyncio
+async def test_command_palette_searches_session_commands(websocket_server, page_helper):
+    """Command palette search should match both session commands."""
+    page = page_helper
+
+    await page.wait_for_function(
+        "() => window.alfredCommandPalette?.open !== undefined",
+        timeout=5000,
+    )
+
+    await page.evaluate("() => window.alfredCommandPalette.open()")
+    palette_input = page.locator(".command-palette-input")
+    await expect(palette_input).to_be_visible()
+
+    await palette_input.fill("session")
+    await page.wait_for_timeout(100)
+    session_titles = await page.locator(".command-palette-result-title").all_text_contents()
+    assert any("Show Current Session" in title for title in session_titles)
+    assert any("View Sessions" in title for title in session_titles)
+
+    await palette_input.fill("sessions")
+    await page.wait_for_timeout(100)
+    session_titles = await page.locator(".command-palette-result-title").all_text_contents()
+    assert any("View Sessions" in title for title in session_titles)
+
+
+@pytest.mark.asyncio
+async def test_session_viewer_uses_the_shared_sheet_surface(websocket_server, page_helper):
+    """/session should render in the same structured sheet language as /context."""
+    page = page_helper
+
+    summary_created_at = datetime.now(UTC) - timedelta(hours=1, minutes=12)
+    summary = SimpleNamespace(
+        summary_id="summary-2",
+        text="Refined session summary",
+        created_at=summary_created_at,
+        message_count=2,
+        version=2,
+    )
+
+    websocket_server.alfred.core = SimpleNamespace(
+        session_manager=websocket_server.alfred.core.session_manager,
+        summarizer=SimpleNamespace(load_summary=AsyncMock(return_value=summary)),
+    )
+
+    await page.wait_for_function(
+        "() => window.alfredWebSocketClient?.isConnected === true",
+        timeout=5000,
+    )
+
+    await page.evaluate("() => window.alfredWebSocketClient.sendCommand('/session')")
+
+    session_viewer = page.locator("session-viewer")
+    await expect(session_viewer).to_be_visible()
+    await expect(session_viewer).to_contain_text("Current Session")
+    await expect(session_viewer).to_contain_text("Session Overview")
+    await expect(session_viewer).to_contain_text("Latest Summary")
+    await expect(session_viewer).to_contain_text("Refined session summary")
+    await expect(session_viewer).to_contain_text("Last Summary:")
+    await expect(session_viewer).to_contain_text("Age:")
+    await expect(session_viewer).to_contain_text("Delta:")
 
 
 @pytest.mark.asyncio
