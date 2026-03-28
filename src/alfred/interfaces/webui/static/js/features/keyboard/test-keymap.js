@@ -142,7 +142,7 @@ function run() {
           leader: {
             path: [
               {
-                key: "x",
+                key: "u",
                 label: "Duplicate",
                 description: "Duplicate group",
               },
@@ -156,7 +156,7 @@ function run() {
           leader: {
             path: [
               {
-                key: "x",
+                key: "u",
                 label: "Duplicate",
                 description: "Duplicate group",
               },
@@ -164,7 +164,7 @@ function run() {
           },
         },
       }),
-    /Duplicate leader path: x/,
+    /Duplicate leader path: u/,
   );
 
   assert.throws(
@@ -208,13 +208,13 @@ function run() {
       buildLeaderTree({
         ...DEFAULT_KEYMAP,
         "prefix.leaf": {
-          key: "o",
+          key: "v",
           description: "Open group leaf",
           category: "Editor",
           leader: {
             path: [
               {
-                key: "o",
+                key: "v",
                 label: "Open",
                 description: "Open resources",
               },
@@ -228,7 +228,7 @@ function run() {
           leader: {
             path: [
               {
-                key: "o",
+                key: "v",
                 label: "Open",
                 description: "Open resources",
               },
@@ -241,7 +241,7 @@ function run() {
           },
         },
       }),
-    /Leader path collides with an existing leaf: o/,
+    /Leader path collides with an existing leaf: v/,
   );
 }
 

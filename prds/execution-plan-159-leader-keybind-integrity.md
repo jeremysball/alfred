@@ -7,7 +7,7 @@ Make the leader-mode keyboard path trustworthy by deriving the which-key tree, r
 
 This is a post-milestone follow-up to the completed PRD 159 core work.
 
-Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical leader-tree fixture test passes, and duplicate/conflict leader-path validation is covered.
+Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical leader-tree fixture test passes, duplicate/conflict leader-path validation is covered, and the derived leader tree now drives the renderer and runtime dispatcher.
 
 ---
 
@@ -34,16 +34,16 @@ Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical le
 - [x] Test: `test_which_key_header_shows_the_current_leader_path()` - the overlay header and breadcrumb path match the same chord vocabulary used by runtime actions
 - [x] Implement: refactor `which-key.js` to accept derived tree data and active path state only; remove tree construction and shortcut interpretation from the component
 - [x] Implement: keep `WhichKey` as a pure renderer with DOM, layout, and visibility responsibilities only
-- [ ] Run: `uv run pytest tests/webui/test_frontend.py::test_leader_popup_shows_legend_and_nested_submenu -v`
+- [x] Run: `uv run pytest tests/webui/test_frontend.py::test_leader_popup_shows_legend_and_nested_submenu -v`
 
 ### main.js Leader Dispatcher
 
-- [ ] Test: `test_ctrl_s_enters_leader_mode_and_executes_registry_backed_actions()` - `Ctrl+S` opens leader mode and representative paths such as `S -> M` still trigger the expected UI action
-- [ ] Test: `test_invalid_leader_key_exits_mode_without_dispatching()` - an unknown chord closes leader mode instead of falling through to stale bindings
-- [ ] Implement: remove the hardcoded `leaderBindings` tree from `main.js`
-- [ ] Implement: derive leader data from the keymap, build the tree once, and use the shared lookup helper for traversal and leaf dispatch
-- [ ] Implement: keep `main.js` responsible for mode transitions and action dispatch only; do not re-implement path matching there
-- [ ] Run: `uv run pytest tests/webui/test_leader_keybinds.py -v`
+- [x] Test: `test_ctrl_s_enters_leader_mode_and_executes_registry_backed_actions()` - `Ctrl+S` opens leader mode and representative paths such as `S -> M` still trigger the expected UI action
+- [x] Test: `test_invalid_leader_key_exits_mode_without_dispatching()` - an unknown chord closes leader mode instead of falling through to stale bindings
+- [x] Implement: remove the hardcoded `leaderBindings` tree from `main.js`
+- [x] Implement: derive leader data from the keymap, build the tree once, and use the shared lookup helper for traversal and leaf dispatch
+- [x] Implement: keep `main.js` responsible for mode transitions and action dispatch only; do not re-implement path matching there
+- [x] Run: `uv run pytest tests/webui/test_leader_keybinds.py -v`
 
 ---
 

@@ -52,6 +52,25 @@ const DEFAULT_KEYMAP = {
       ],
     },
   },
+  "theme.palette.open": {
+    key: "T",
+    description: "Open theme palette",
+    category: "Global",
+    leader: {
+      path: [
+        {
+          key: "t",
+          label: "Theme",
+          description: "Theme and appearance",
+        },
+        {
+          key: "t",
+          label: "Theme palette",
+          description: "Open theme palette",
+        },
+      ],
+    },
+  },
   "search.open": {
     key: "K",
     ctrl: true,
@@ -205,6 +224,44 @@ const DEFAULT_KEYMAP = {
       ],
     },
   },
+  "chat.clear": {
+    key: "C",
+    description: "Clear chat",
+    category: "Chat",
+    leader: {
+      path: [
+        {
+          key: "p",
+          label: "Palette",
+          description: "Command palette and commands",
+        },
+        {
+          key: "c",
+          label: "Clear chat",
+          description: "Clear all messages",
+        },
+      ],
+    },
+  },
+  "session.new": {
+    key: "N",
+    description: "Start a new session",
+    category: "Session",
+    leader: {
+      path: [
+        {
+          key: "p",
+          label: "Palette",
+          description: "Command palette and commands",
+        },
+        {
+          key: "n",
+          label: "New session",
+          description: "Start a new session",
+        },
+      ],
+    },
+  },
   "message.edit": {
     key: "e",
     description: "Edit message",
@@ -321,6 +378,63 @@ const DEFAULT_KEYMAP = {
           key: "End",
           label: "Last",
           description: "Last message",
+        },
+      ],
+    },
+  },
+  "chat.cancel": {
+    key: "C",
+    description: "Cancel streaming",
+    category: "Chat",
+    leader: {
+      path: [
+        {
+          key: "x",
+          label: "Cancel",
+          description: "Cancel and stop actions",
+        },
+        {
+          key: "c",
+          label: "Cancel streaming",
+          description: "Stop generating response",
+        },
+      ],
+    },
+  },
+  "queue.clear": {
+    key: "Q",
+    description: "Clear queue",
+    category: "Chat",
+    leader: {
+      path: [
+        {
+          key: "x",
+          label: "Cancel",
+          description: "Cancel and stop actions",
+        },
+        {
+          key: "q",
+          label: "Clear queue",
+          description: "Clear message queue",
+        },
+      ],
+    },
+  },
+  "tools.toggleAll": {
+    key: "T",
+    description: "Toggle all tool calls",
+    category: "Tools",
+    leader: {
+      path: [
+        {
+          key: "o",
+          label: "Tools",
+          description: "Tool calls and view options",
+        },
+        {
+          key: "t",
+          label: "Toggle all",
+          description: "Expand/collapse all tool calls",
         },
       ],
     },

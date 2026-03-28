@@ -1,21 +1,40 @@
 // Alfred Web UI - Main JavaScript
-import { AlfredWebSocketClient } from './websocket-client.js';
-import { applyThemeContrast } from './utils/contrast.js';
-import { MessageAnimator, TypingIndicator, prefersReducedMotion } from './features/animations/index.js';
-import { ConnectionMonitor, OfflineIndicator } from './features/offline/index.js';
+
 import {
+  MessageAnimator,
+  prefersReducedMotion,
+  TypingIndicator,
+} from "./features/animations/index.js";
+import { HelpSheet, WhichKey } from "./features/keyboard/index.js";
+import {
+  buildLeaderTree,
+  getKeymap,
+  getLeaderNodeForPath,
+  subscribe,
+} from "./features/keyboard/keymap.js";
+import {
+  CoordinatedLongPressDetector,
+  CoordinatedSwipeDetector,
+  GESTURE_CONFIG,
+  GestureCoordinator,
+  initializeFullscreenCompose,
+  initializeGestures as initializeMobileGestures,
+  initializePullToRefresh,
   isTouchDevice,
   SwipeToReply,
-  initializeFullscreenCompose,
-  initializePullToRefresh,
-  initializeGestures as initializeMobileGestures,
-  CoordinatedSwipeDetector,
-  CoordinatedLongPressDetector,
-  GestureCoordinator,
-  GESTURE_CONFIG
-} from './features/mobile-gestures/index.js';
-import { initializeSearch, initializeQuickSwitcher, initializeMentions } from './features/search/index.js';
-import { initPWA } from './features/pwa/index.js';
+} from "./features/mobile-gestures/index.js";
+import { ConnectionMonitor, OfflineIndicator } from "./features/offline/index.js";
+import { initPWA } from "./features/pwa/index.js";
+import {
+  initializeMentions,
+  initializeQuickSwitcher,
+  initializeSearch,
+  QuickSwitcher,
+  SearchOverlay,
+} from "./features/search/index.js";
+import { openThemePalette } from "./features/theme-palette.js";
+import { applyThemeContrast } from "./utils/contrast.js";
+import { AlfredWebSocketClient } from "./websocket-client.js";
 
 /**
  * WebSocket Message Contract
@@ -62,69 +81,69 @@ function handleScroll() {
 
 function collapseChrome() {
   isChromeCollapsed = true;
-  const header = document.querySelector('.app-header');
-  const inputArea = document.querySelector('.input-area');
-  if (header) header.classList.add('compact');
-  if (inputArea) inputArea.classList.add('compact');
+  const header = document.querySelector(".app-header");
+  const inputArea = document.querySelector(".input-area");
+  if (header) header.classList.add("compact");
+  if (inputArea) inputArea.classList.add("compact");
 }
 
 function restoreChrome() {
   isChromeCollapsed = false;
-  const header = document.querySelector('.app-header');
-  const inputArea = document.querySelector('.input-area');
-  if (header) header.classList.remove('compact');
-  if (inputArea) inputArea.classList.remove('compact');
+  const header = document.querySelector(".app-header");
+  const inputArea = document.querySelector(".input-area");
+  if (header) header.classList.remove("compact");
+  if (inputArea) inputArea.classList.remove("compact");
 }
 
 /**
  * Initialize the Alfred Web UI
  */
 function initAlfredUI() {
-  console.log('Initializing Alfred Web UI...');
+  console.log("Initializing Alfred Web UI...");
 
   // Apply initial contrast
   applyThemeContrast();
 
   // DOM Elements
-  const messageList = document.getElementById('message-list');
-  const messageInput = document.getElementById('message-input');
-  const sendButton = document.getElementById('send-button');
-  const stopButton = document.getElementById('stop-button');
-  const connectionPill = document.getElementById('connection-pill');
-  const connectionStatusAnchor = document.getElementById('connection-status-anchor');
-  const connectionStatusTooltip = document.getElementById('connection-status-tooltip');
-  const chatContainer = document.getElementById('chat-container');
-  const queueBadge = document.getElementById('queue-badge');
-  const inputArea = document.getElementById('input-area');
+  const messageList = document.getElementById("message-list");
+  const messageInput = document.getElementById("message-input");
+  const sendButton = document.getElementById("send-button");
+  const stopButton = document.getElementById("stop-button");
+  const connectionPill = document.getElementById("connection-pill");
+  const connectionStatusAnchor = document.getElementById("connection-status-anchor");
+  const connectionStatusTooltip = document.getElementById("connection-status-tooltip");
+  const chatContainer = document.getElementById("chat-container");
+  const queueBadge = document.getElementById("queue-badge");
+  const inputArea = document.getElementById("input-area");
 
-  const completionMenu = document.getElementById('completion-menu');
+  const completionMenu = document.getElementById("completion-menu");
 
   // Initialize mobile gestures on touch devices
   initializeMobileGestures();
 
   // Reset composer state on load to prevent stale streaming UI
   if (inputArea) {
-    inputArea.dataset.composerState = 'idle';
+    inputArea.dataset.composerState = "idle";
   }
   if (stopButton) {
     stopButton.hidden = true;
     stopButton.disabled = false;
-    stopButton.style.opacity = '';
+    stopButton.style.opacity = "";
   }
 
-  const kidcoreAudioControls = document.querySelector('.kidcore-audio-controls');
+  const kidcoreAudioControls = document.querySelector(".kidcore-audio-controls");
   const kidcoreAudioManager = window.kidcoreAudioManager ?? null;
-  const kidcoreMusicPlayButton = document.getElementById('kidcore-music-play');
-  const kidcoreMusicMuteButton = document.getElementById('kidcore-music-mute');
-  const kidcoreSfxToggleButton = document.getElementById('kidcore-sfx-toggle');
-  const kidcoreMusicStatus = document.getElementById('kidcore-music-status');
-  const kidcoreSfxStatus = document.getElementById('kidcore-sfx-status');
+  const kidcoreMusicPlayButton = document.getElementById("kidcore-music-play");
+  const kidcoreMusicMuteButton = document.getElementById("kidcore-music-mute");
+  const kidcoreSfxToggleButton = document.getElementById("kidcore-sfx-toggle");
+  const kidcoreMusicStatus = document.getElementById("kidcore-music-status");
+  const kidcoreSfxStatus = document.getElementById("kidcore-sfx-status");
 
-  const KIDCORE_THEME_ID = 'kidcore-playground';
+  const KIDCORE_THEME_ID = "kidcore-playground";
   let pendingKidcoreStreamingFx = null;
 
   function isKidcoreThemeActive() {
-    return document.documentElement.getAttribute('data-theme') === KIDCORE_THEME_ID;
+    return document.documentElement.getAttribute("data-theme") === KIDCORE_THEME_ID;
   }
 
   function playKidcoreClick() {
@@ -176,23 +195,45 @@ function initAlfredUI() {
     const isMusicPlaying = isKidcore && kidcoreAudioManager.isMusicPlaying;
     const isSfxMuted = isKidcore && kidcoreAudioManager.isSfxMuted;
 
-    kidcoreAudioControls.dataset.audioState = !isKidcore ? 'disabled' : isMusicMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
-    kidcoreAudioControls.dataset.musicState = !isKidcore ? 'disabled' : isMusicMuted ? 'muted' : isMusicPlaying ? 'playing' : 'idle';
-    kidcoreAudioControls.dataset.sfxState = !isKidcore ? 'disabled' : isSfxMuted ? 'muted' : 'on';
+    kidcoreAudioControls.dataset.audioState = !isKidcore
+      ? "disabled"
+      : isMusicMuted
+        ? "muted"
+        : isMusicPlaying
+          ? "playing"
+          : "idle";
+    kidcoreAudioControls.dataset.musicState = !isKidcore
+      ? "disabled"
+      : isMusicMuted
+        ? "muted"
+        : isMusicPlaying
+          ? "playing"
+          : "idle";
+    kidcoreAudioControls.dataset.sfxState = !isKidcore ? "disabled" : isSfxMuted ? "muted" : "on";
 
     if (kidcoreMusicStatus) {
-      kidcoreMusicStatus.textContent = !isKidcore ? 'Hidden' : isMusicMuted ? 'Muted' : isMusicPlaying ? 'Playing' : 'Ready';
+      kidcoreMusicStatus.textContent = !isKidcore
+        ? "Hidden"
+        : isMusicMuted
+          ? "Muted"
+          : isMusicPlaying
+            ? "Playing"
+            : "Ready";
     }
 
     if (kidcoreSfxStatus) {
-      kidcoreSfxStatus.textContent = !isKidcore ? 'Hidden' : isSfxMuted ? 'Muted' : 'On';
+      kidcoreSfxStatus.textContent = !isKidcore ? "Hidden" : isSfxMuted ? "Muted" : "On";
     }
 
-    kidcoreMusicPlayButton?.setAttribute('aria-pressed', String(isKidcore && isMusicPlaying));
-    kidcoreMusicMuteButton?.setAttribute('aria-pressed', String(isKidcore && isMusicMuted));
-    kidcoreSfxToggleButton?.setAttribute('aria-pressed', String(isKidcore && isSfxMuted));
+    kidcoreMusicPlayButton?.setAttribute("aria-pressed", String(isKidcore && isMusicPlaying));
+    kidcoreMusicMuteButton?.setAttribute("aria-pressed", String(isKidcore && isMusicMuted));
+    kidcoreSfxToggleButton?.setAttribute("aria-pressed", String(isKidcore && isSfxMuted));
     if (kidcoreSfxToggleButton) {
-      kidcoreSfxToggleButton.textContent = !isKidcore ? '🔊 SFX' : isSfxMuted ? '🔇 SFX Off' : '🔊 SFX On';
+      kidcoreSfxToggleButton.textContent = !isKidcore
+        ? "🔊 SFX"
+        : isSfxMuted
+          ? "🔇 SFX Off"
+          : "🔊 SFX On";
     }
   }
 
@@ -209,35 +250,35 @@ function initAlfredUI() {
   }
 
   function applyGlueShimmerEffect(messageEl) {
-    if (pendingKidcoreStreamingFx !== 'glue-shimmer' || !messageEl) {
+    if (pendingKidcoreStreamingFx !== "glue-shimmer" || !messageEl) {
       return;
     }
 
-    messageEl.classList.add('glue-shimmer');
-    messageEl.setAttribute('data-stream-fx', 'glue-shimmer');
+    messageEl.classList.add("glue-shimmer");
+    messageEl.setAttribute("data-stream-fx", "glue-shimmer");
   }
 
   function pulseGlueShimmer(messageEl) {
-    if (pendingKidcoreStreamingFx !== 'glue-shimmer' || !messageEl) {
+    if (pendingKidcoreStreamingFx !== "glue-shimmer" || !messageEl) {
       return;
     }
 
-    const bubble = messageEl.querySelector('.message-bubble');
+    const bubble = messageEl.querySelector(".message-bubble");
     if (!bubble) {
       return;
     }
 
-    bubble.classList.remove('glue-shimmer-pulse');
+    bubble.classList.remove("glue-shimmer-pulse");
     void bubble.offsetWidth;
-    bubble.classList.add('glue-shimmer-pulse');
+    bubble.classList.add("glue-shimmer-pulse");
   }
 
   function clearGlueShimmerEffect(messageEl) {
     if (messageEl) {
-      messageEl.classList.remove('glue-shimmer');
-      messageEl.removeAttribute('data-stream-fx');
-      const bubble = messageEl.querySelector('.message-bubble');
-      bubble?.classList.remove('glue-shimmer-pulse');
+      messageEl.classList.remove("glue-shimmer");
+      messageEl.removeAttribute("data-stream-fx");
+      const bubble = messageEl.querySelector(".message-bubble");
+      bubble?.classList.remove("glue-shimmer-pulse");
     }
     pendingKidcoreStreamingFx = null;
   }
@@ -249,20 +290,23 @@ function initAlfredUI() {
     }
     syncKidcoreAudioControls();
   });
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
 
-  kidcoreMusicPlayButton?.addEventListener('click', () => {
+  kidcoreMusicPlayButton?.addEventListener("click", () => {
     resumeKidcoreMusic();
     playKidcoreClick();
   });
 
-  kidcoreMusicMuteButton?.addEventListener('click', () => {
+  kidcoreMusicMuteButton?.addEventListener("click", () => {
     playKidcoreClick();
     kidcoreAudioManager?.muteMusic?.();
     syncKidcoreAudioControls();
   });
 
-  kidcoreSfxToggleButton?.addEventListener('click', () => {
+  kidcoreSfxToggleButton?.addEventListener("click", () => {
     const wasMuted = Boolean(kidcoreAudioManager?.isSfxMuted);
     kidcoreAudioManager?.toggleSfxMute?.();
     if (wasMuted) {
@@ -273,61 +317,76 @@ function initAlfredUI() {
 
   syncKidcoreAudioControls();
 
-  function getSessionMessageId(msg, fallbackIndex = '') {
+  function getSessionMessageId(msg, fallbackIndex = "") {
     return String(msg?.id ?? msg?.messageId ?? msg?.idx ?? fallbackIndex);
   }
 
-  function applySessionMessageState(messageEl, msg, { preserveExistingAssistantContent = false } = {}) {
+  function applySessionMessageState(
+    messageEl,
+    msg,
+    { preserveExistingAssistantContent = false } = {},
+  ) {
     if (!messageEl || !msg) {
       return;
     }
 
-    const role = msg.role || 'user';
+    const role = msg.role || "user";
     const messageId = getSessionMessageId(msg);
-    const loadedContent = msg.content || '';
+    const loadedContent = msg.content || "";
     const loadedTimestamp = msg.timestamp || msg.createdAt || new Date().toISOString();
-    const existingContent = typeof messageEl.getContent === 'function'
-      ? messageEl.getContent()
-      : (messageEl.getAttribute('content') || '');
-    const contentToSet = preserveExistingAssistantContent && role === 'assistant' && existingContent.length > loadedContent.length
-      ? existingContent
-      : loadedContent;
-    const existingReasoning = typeof messageEl.getReasoning === 'function'
-      ? messageEl.getReasoning()
-      : (messageEl.getAttribute('reasoning') || '');
-    const loadedReasoning = msg.reasoningContent || '';
+    const existingContent =
+      typeof messageEl.getContent === "function"
+        ? messageEl.getContent()
+        : messageEl.getAttribute("content") || "";
+    const contentToSet =
+      preserveExistingAssistantContent &&
+      role === "assistant" &&
+      existingContent.length > loadedContent.length
+        ? existingContent
+        : loadedContent;
+    const existingReasoning =
+      typeof messageEl.getReasoning === "function"
+        ? messageEl.getReasoning()
+        : messageEl.getAttribute("reasoning") || "";
+    const loadedReasoning = msg.reasoningContent || "";
 
-    messageEl.setAttribute('data-session-message', 'true');
-    messageEl.setAttribute('role', role);
-    messageEl.setAttribute('content', contentToSet);
-    messageEl.setAttribute('timestamp', loadedTimestamp);
+    messageEl.setAttribute("data-session-message", "true");
+    messageEl.setAttribute("role", role);
+    messageEl.setAttribute("content", contentToSet);
+    messageEl.setAttribute("timestamp", loadedTimestamp);
 
     if (messageId) {
-      messageEl.setAttribute('message-id', messageId);
+      messageEl.setAttribute("message-id", messageId);
     } else {
-      messageEl.removeAttribute('message-id');
+      messageEl.removeAttribute("message-id");
     }
 
-    if (role === 'assistant' && msg.streaming) {
-      setMessageState(messageEl, 'streaming');
+    if (role === "assistant" && msg.streaming) {
+      setMessageState(messageEl, "streaming");
     } else {
-      setMessageState(messageEl, 'idle');
+      setMessageState(messageEl, "idle");
     }
 
     // Handle interleaved reasoning blocks (new format) or legacy reasoningContent
-    if (role === 'assistant') {
+    if (role === "assistant") {
       if (Array.isArray(msg.reasoningBlocks) && msg.reasoningBlocks.length > 0) {
         // New format: interleaved reasoning blocks with sequences
         messageEl.setReasoningBlocks(msg.reasoningBlocks);
       } else if (loadedReasoning || !preserveExistingAssistantContent) {
         // Legacy format: single reasoning string
-        if (!preserveExistingAssistantContent || loadedReasoning.length >= existingReasoning.length) {
+        if (
+          !preserveExistingAssistantContent ||
+          loadedReasoning.length >= existingReasoning.length
+        ) {
           messageEl.setReasoning(loadedReasoning);
         }
       }
     }
 
-    if (Array.isArray(msg.toolCalls) && (msg.toolCalls.length > 0 || !preserveExistingAssistantContent)) {
+    if (
+      Array.isArray(msg.toolCalls) &&
+      (msg.toolCalls.length > 0 || !preserveExistingAssistantContent)
+    ) {
       // Sort tool calls by sequence to preserve original ordering
       const sortedToolCalls = [...msg.toolCalls].sort((a, b) => {
         const seqA = a.sequence !== undefined ? a.sequence : 0;
@@ -341,23 +400,27 @@ function initAlfredUI() {
   function reconcileSessionLoaded(payload) {
     const messages = Array.isArray(payload?.messages) ? payload.messages : [];
     const incomingSessionId = payload?.sessionId || null;
-    const incomingMessageIds = new Set(messages.map((msg, index) => getSessionMessageId(msg, index)));
-    const currentAssistantId = currentAssistantMessage?.getAttribute('message-id') || null;
+    const incomingMessageIds = new Set(
+      messages.map((msg, index) => getSessionMessageId(msg, index)),
+    );
+    const currentAssistantId = currentAssistantMessage?.getAttribute("message-id") || null;
     const preserveOrphanAssistant = Boolean(
       currentAssistantMessage &&
-      currentAssistantMessage.classList.contains('streaming') &&
-      currentAssistantId &&
-      (!activeSessionId || activeSessionId === incomingSessionId)
+        currentAssistantMessage.classList.contains("streaming") &&
+        currentAssistantId &&
+        (!activeSessionId || activeSessionId === incomingSessionId),
     );
 
-    const existingSessionMessages = Array.from(messageList.querySelectorAll('chat-message[data-session-message="true"]'));
+    const existingSessionMessages = Array.from(
+      messageList.querySelectorAll('chat-message[data-session-message="true"]'),
+    );
     const existingById = new Map();
 
     // Remove ephemeral UI-only messages before we rebuild the loaded session state.
     // This prevents duplication of loading indicators, toasts, etc.
     Array.from(messageList.children).forEach((child) => {
       // Keep chat-message elements (they're handled below)
-      if (child.matches?.('chat-message')) {
+      if (child.matches?.("chat-message")) {
         return;
       }
       // Remove all other ephemeral elements
@@ -369,7 +432,7 @@ function initAlfredUI() {
     activeToolCalls.clear();
 
     existingSessionMessages.forEach((messageEl) => {
-      const messageId = messageEl.getAttribute('message-id');
+      const messageId = messageEl.getAttribute("message-id");
       if (messageId) {
         existingById.set(messageId, messageEl);
       }
@@ -377,7 +440,7 @@ function initAlfredUI() {
 
     // Remove messages that are no longer in the incoming set
     existingSessionMessages.forEach((messageEl) => {
-      const messageId = messageEl.getAttribute('message-id');
+      const messageId = messageEl.getAttribute("message-id");
       if (!messageId) {
         if (!(messageEl === currentAssistantMessage && preserveOrphanAssistant)) {
           messageEl.remove();
@@ -385,7 +448,10 @@ function initAlfredUI() {
         return;
       }
 
-      if (!incomingMessageIds.has(messageId) && (!preserveOrphanAssistant || messageId !== currentAssistantId)) {
+      if (
+        !incomingMessageIds.has(messageId) &&
+        (!preserveOrphanAssistant || messageId !== currentAssistantId)
+      ) {
         messageEl.remove();
       }
     });
@@ -404,7 +470,7 @@ function initAlfredUI() {
         });
       } else {
         // Create new message element
-        messageEl = document.createElement('chat-message');
+        messageEl = document.createElement("chat-message");
         applySessionMessageState(messageEl, msg);
       }
 
@@ -412,30 +478,41 @@ function initAlfredUI() {
       messageList.appendChild(messageEl);
       lastElement = messageEl;
 
-      if (msg.role === 'user') {
-        messageHistory.push(msg.content || '');
+      if (msg.role === "user") {
+        messageHistory.push(msg.content || "");
       }
 
-      if (msg.role === 'assistant' && msg.streaming) {
+      if (msg.role === "assistant" && msg.streaming) {
         nextCurrentAssistantMessage = messageEl;
       }
     });
 
-    if (preserveOrphanAssistant && currentAssistantMessage && currentAssistantId && !incomingMessageIds.has(currentAssistantId)) {
-      applySessionMessageState(currentAssistantMessage, {
-        role: 'assistant',
-        content: typeof currentAssistantMessage.getContent === 'function'
-          ? currentAssistantMessage.getContent()
-          : (currentAssistantMessage.getAttribute('content') || ''),
-        id: currentAssistantId,
-        timestamp: currentAssistantMessage.getAttribute('timestamp') || new Date().toISOString(),
-        reasoningContent: typeof currentAssistantMessage.getReasoning === 'function'
-          ? currentAssistantMessage.getReasoning()
-          : '',
-        streaming: true,
-      }, {
-        preserveExistingAssistantContent: true,
-      });
+    if (
+      preserveOrphanAssistant &&
+      currentAssistantMessage &&
+      currentAssistantId &&
+      !incomingMessageIds.has(currentAssistantId)
+    ) {
+      applySessionMessageState(
+        currentAssistantMessage,
+        {
+          role: "assistant",
+          content:
+            typeof currentAssistantMessage.getContent === "function"
+              ? currentAssistantMessage.getContent()
+              : currentAssistantMessage.getAttribute("content") || "",
+          id: currentAssistantId,
+          timestamp: currentAssistantMessage.getAttribute("timestamp") || new Date().toISOString(),
+          reasoningContent:
+            typeof currentAssistantMessage.getReasoning === "function"
+              ? currentAssistantMessage.getReasoning()
+              : "",
+          streaming: true,
+        },
+        {
+          preserveExistingAssistantContent: true,
+        },
+      );
       messageList.appendChild(currentAssistantMessage);
       nextCurrentAssistantMessage = currentAssistantMessage;
     }
@@ -453,7 +530,7 @@ function initAlfredUI() {
   let activeSessionId = null;
   let pendingEditRequest = null;
   let pendingChatSendRequest = null;
-  let composerState = 'idle';
+  let composerState = "idle";
   let editingMessageElement = null;
   const activeToolCalls = new Map();
   let allToolsExpanded = false;
@@ -467,26 +544,29 @@ function initAlfredUI() {
 
   // Available Commands
   const commands = [
-    { value: '/new', description: 'Start new session' },
-    { value: '/resume', description: 'Resume a session' },
-    { value: '/sessions', description: 'List recent sessions' },
-    { value: '/session', description: 'Show current session info' },
-    { value: '/context', description: 'Show system context (use /context toggle <section> [on|off])' },
-    { value: '/debug', description: 'Show debug diagnostics (all|session|messages|websocket)' },
-    { value: '/help', description: 'Show available commands' }
+    { value: "/new", description: "Start new session" },
+    { value: "/resume", description: "Resume a session" },
+    { value: "/sessions", description: "List recent sessions" },
+    { value: "/session", description: "Show current session info" },
+    {
+      value: "/context",
+      description: "Show system context (use /context toggle <section> [on|off])",
+    },
+    { value: "/debug", description: "Show debug diagnostics (all|session|messages|websocket)" },
+    { value: "/help", description: "Show available commands" },
   ];
 
   // Connection Status Handler
   const CONNECTION_STATUS_MOBILE_BREAKPOINT = 769;
-  const CONNECTION_STATUS_PORTAL_ROOT_ID = 'connection-status-portal-root';
+  const CONNECTION_STATUS_PORTAL_ROOT_ID = "connection-status-portal-root";
   const CONNECTION_STATUS_VIEWPORT_PADDING = 12;
   const CONNECTION_STATUS_TRIGGER_OVERLAP = 4;
 
   const connectionStatusState = {
-    daemonStatus: 'unknown',
+    daemonStatus: "unknown",
     daemonPid: null,
-    webUiStatus: 'ready',
-    webUiVersion: 'unknown',
+    webUiStatus: "ready",
+    webUiVersion: "unknown",
   };
 
   const connectionStatusVisibility = {
@@ -500,18 +580,18 @@ function initAlfredUI() {
   function ensureConnectionStatusPortalRoot() {
     let portalRoot = document.getElementById(CONNECTION_STATUS_PORTAL_ROOT_ID);
     if (!portalRoot) {
-      portalRoot = document.createElement('div');
+      portalRoot = document.createElement("div");
       portalRoot.id = CONNECTION_STATUS_PORTAL_ROOT_ID;
-      portalRoot.className = 'connection-status-portal-root';
-      portalRoot.setAttribute('aria-hidden', 'true');
+      portalRoot.className = "connection-status-portal-root";
+      portalRoot.setAttribute("aria-hidden", "true");
       document.body.appendChild(portalRoot);
     }
 
-    let overlay = portalRoot.querySelector('.connection-status-overlay');
+    let overlay = portalRoot.querySelector(".connection-status-overlay");
     if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'connection-status-overlay';
-      overlay.setAttribute('aria-hidden', 'true');
+      overlay = document.createElement("div");
+      overlay.className = "connection-status-overlay";
+      overlay.setAttribute("aria-hidden", "true");
       portalRoot.appendChild(overlay);
     }
 
@@ -523,7 +603,9 @@ function initAlfredUI() {
   }
 
   const connectionStatusPortalRoot = ensureConnectionStatusPortalRoot();
-  const connectionStatusOverlay = connectionStatusPortalRoot?.querySelector('.connection-status-overlay');
+  const connectionStatusOverlay = connectionStatusPortalRoot?.querySelector(
+    ".connection-status-overlay",
+  );
 
   function isConnectionStatusHoverTarget(target) {
     if (!target) {
@@ -532,19 +614,19 @@ function initAlfredUI() {
 
     return Boolean(
       (connectionStatusAnchor && connectionStatusAnchor.contains(target)) ||
-      (connectionStatusTooltip && connectionStatusTooltip.contains(target))
+        (connectionStatusTooltip && connectionStatusTooltip.contains(target)),
     );
   }
 
   function escapeConnectionStatusText(value) {
-    const div = document.createElement('div');
-    div.textContent = String(value ?? '');
+    const div = document.createElement("div");
+    div.textContent = String(value ?? "");
     return div.innerHTML;
   }
 
   function formatConnectionStatusAge(timestamp) {
     if (!timestamp) {
-      return 'n/a';
+      return "n/a";
     }
 
     const elapsedMs = Math.max(Date.now() - timestamp, 0);
@@ -567,7 +649,7 @@ function initAlfredUI() {
   }
 
   function getConnectionSnapshot() {
-    if (typeof wsClient.getConnectionSnapshot === 'function') {
+    if (typeof wsClient.getConnectionSnapshot === "function") {
       return wsClient.getConnectionSnapshot();
     }
 
@@ -576,12 +658,12 @@ function initAlfredUI() {
       url: wsClient.url,
       isConnected: wsClient.isConnected,
       connectionState: wsClient.isConnected
-        ? 'connected'
+        ? "connected"
         : readyState === WebSocket.CONNECTING
-          ? 'connecting'
+          ? "connecting"
           : wsClient.reconnectAttempts > 0
-            ? 'reconnecting'
-            : 'disconnected',
+            ? "reconnecting"
+            : "disconnected",
       readyState,
       reconnectAttempts: wsClient.reconnectAttempts,
       pingIntervalActive: Boolean(wsClient.pingInterval),
@@ -590,7 +672,7 @@ function initAlfredUI() {
       lastPingLatencyMs: wsClient.lastPingLatencyMs ?? null,
       lastCloseAt: wsClient.lastCloseAt ?? null,
       lastCloseCode: wsClient.lastCloseCode ?? null,
-      lastCloseReason: wsClient.lastCloseReason ?? '',
+      lastCloseReason: wsClient.lastCloseReason ?? "",
       lastCloseWasClean: wsClient.lastCloseWasClean ?? null,
       debugEnabled: Boolean(wsClient.debugEnabled),
       debugSummary: wsClient.debugStats?.summary?.() ?? null,
@@ -602,18 +684,18 @@ function initAlfredUI() {
       return snapshot.connectionState;
     }
     if (snapshot?.isConnected) {
-      return 'connected';
+      return "connected";
     }
     if (snapshot?.readyState === WebSocket.CONNECTING) {
-      return 'connecting';
+      return "connecting";
     }
     if (snapshot?.readyState === WebSocket.CLOSING) {
-      return 'closing';
+      return "closing";
     }
     if ((snapshot?.reconnectAttempts || 0) > 0) {
-      return 'reconnecting';
+      return "reconnecting";
     }
-    return 'disconnected';
+    return "disconnected";
   }
 
   function getLastCloseLabel(snapshot, debugSummary) {
@@ -622,7 +704,7 @@ function initAlfredUI() {
     const wasClean = snapshot?.lastCloseWasClean ?? debugSummary?.wasClean;
 
     if (closeCode === null || closeCode === undefined) {
-      return 'none';
+      return "none";
     }
 
     const parts = [`code ${closeCode}`];
@@ -630,22 +712,28 @@ function initAlfredUI() {
       parts.push(closeReason);
     }
     if (wasClean !== null && wasClean !== undefined) {
-      parts.push(wasClean ? 'clean' : 'unclean');
+      parts.push(wasClean ? "clean" : "unclean");
     }
-    return parts.join(' · ');
+    return parts.join(" · ");
   }
 
   function getKeepaliveLabel(snapshot) {
     if (!snapshot?.pingIntervalActive) {
-      return 'idle';
+      return "idle";
     }
 
-    const pongAge = snapshot.lastPongAt ? formatConnectionStatusAge(snapshot.lastPongAt) : 'no pong yet';
+    const pongAge = snapshot.lastPongAt
+      ? formatConnectionStatusAge(snapshot.lastPongAt)
+      : "no pong yet";
     return `active · last pong ${pongAge}`;
   }
 
   function isConnectionStatusOpen() {
-    return connectionStatusVisibility.hovered || connectionStatusVisibility.focused || connectionStatusVisibility.pinned;
+    return (
+      connectionStatusVisibility.hovered ||
+      connectionStatusVisibility.focused ||
+      connectionStatusVisibility.pinned
+    );
   }
 
   function refreshConnectionStatusTooltip() {
@@ -677,38 +765,43 @@ function initAlfredUI() {
   }
 
   function positionConnectionStatusTooltip() {
-    if (!connectionStatusPortalRoot || !connectionStatusTooltip || !connectionStatusAnchor || !connectionPill) {
+    if (
+      !connectionStatusPortalRoot ||
+      !connectionStatusTooltip ||
+      !connectionStatusAnchor ||
+      !connectionPill
+    ) {
       return;
     }
 
     const isOpen = isConnectionStatusOpen();
     const isMobileLayout = window.innerWidth < CONNECTION_STATUS_MOBILE_BREAKPOINT;
 
-    connectionStatusPortalRoot.dataset.layout = isMobileLayout ? 'sheet' : 'popover';
+    connectionStatusPortalRoot.dataset.layout = isMobileLayout ? "sheet" : "popover";
     connectionStatusPortalRoot.dataset.open = String(isOpen);
-    connectionStatusPortalRoot.setAttribute('aria-hidden', String(!isOpen));
-    connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
+    connectionStatusPortalRoot.setAttribute("aria-hidden", String(!isOpen));
+    connectionStatusTooltip.setAttribute("aria-hidden", String(!isOpen));
     connectionStatusAnchor.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
-    connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
-    connectionPill.setAttribute('aria-expanded', String(isOpen));
+    connectionStatusAnchor.setAttribute("aria-expanded", String(isOpen));
+    connectionPill.setAttribute("aria-expanded", String(isOpen));
 
     if (!isOpen) {
       return;
     }
 
     if (isMobileLayout) {
-      connectionStatusTooltip.style.top = 'auto';
-      connectionStatusTooltip.style.right = '0';
-      connectionStatusTooltip.style.bottom = '0';
-      connectionStatusTooltip.style.left = '0';
+      connectionStatusTooltip.style.top = "auto";
+      connectionStatusTooltip.style.right = "0";
+      connectionStatusTooltip.style.bottom = "0";
+      connectionStatusTooltip.style.left = "0";
       return;
     }
 
-    connectionStatusTooltip.style.top = '0px';
-    connectionStatusTooltip.style.right = 'auto';
-    connectionStatusTooltip.style.bottom = 'auto';
-    connectionStatusTooltip.style.left = '0px';
+    connectionStatusTooltip.style.top = "0px";
+    connectionStatusTooltip.style.right = "auto";
+    connectionStatusTooltip.style.bottom = "auto";
+    connectionStatusTooltip.style.left = "0px";
 
     const anchorRect = connectionStatusAnchor.getBoundingClientRect();
     const tooltipRect = connectionStatusTooltip.getBoundingClientRect();
@@ -722,7 +815,10 @@ function initAlfredUI() {
       window.innerHeight - tooltipRect.height - CONNECTION_STATUS_VIEWPORT_PADDING,
     );
     const top = Math.min(
-      Math.max(anchorRect.bottom - CONNECTION_STATUS_TRIGGER_OVERLAP, CONNECTION_STATUS_VIEWPORT_PADDING),
+      Math.max(
+        anchorRect.bottom - CONNECTION_STATUS_TRIGGER_OVERLAP,
+        CONNECTION_STATUS_VIEWPORT_PADDING,
+      ),
       maxTop,
     );
 
@@ -739,9 +835,9 @@ function initAlfredUI() {
     connectionStatusPortalRoot.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.open = String(isOpen);
     connectionStatusAnchor.dataset.pinned = String(connectionStatusVisibility.pinned);
-    connectionStatusAnchor.setAttribute('aria-expanded', String(isOpen));
-    connectionStatusTooltip.setAttribute('aria-hidden', String(!isOpen));
-    connectionPill.setAttribute('aria-expanded', String(isOpen));
+    connectionStatusAnchor.setAttribute("aria-expanded", String(isOpen));
+    connectionStatusTooltip.setAttribute("aria-hidden", String(!isOpen));
+    connectionPill.setAttribute("aria-expanded", String(isOpen));
 
     refreshConnectionStatusTooltip();
 
@@ -760,16 +856,17 @@ function initAlfredUI() {
     const snapshot = getConnectionSnapshot();
     const debugSummary = snapshot.debugSummary || null;
     const websocketState = getWebSocketStateLabel(snapshot);
-    const websocketEndpoint = snapshot.url || 'n/a';
+    const websocketEndpoint = snapshot.url || "n/a";
     const reconnectAttempts = snapshot.reconnectAttempts ?? 0;
     const lastClose = getLastCloseLabel(snapshot, debugSummary);
     const keepalive = getKeepaliveLabel(snapshot);
-    const debugState = snapshot.debugEnabled ? 'enabled' : 'off';
-    const lastPing = snapshot.lastPingAt ? formatConnectionStatusAge(snapshot.lastPingAt) : 'n/a';
-    const lastPong = snapshot.lastPongAt ? formatConnectionStatusAge(snapshot.lastPongAt) : 'n/a';
-    const latency = snapshot.lastPingLatencyMs !== null && snapshot.lastPingLatencyMs !== undefined
-      ? `${snapshot.lastPingLatencyMs}ms`
-      : 'n/a';
+    const debugState = snapshot.debugEnabled ? "enabled" : "off";
+    const lastPing = snapshot.lastPingAt ? formatConnectionStatusAge(snapshot.lastPingAt) : "n/a";
+    const lastPong = snapshot.lastPongAt ? formatConnectionStatusAge(snapshot.lastPongAt) : "n/a";
+    const latency =
+      snapshot.lastPingLatencyMs !== null && snapshot.lastPingLatencyMs !== undefined
+        ? `${snapshot.lastPingLatencyMs}ms`
+        : "n/a";
 
     connectionStatusTooltip.innerHTML = `
       <div class="connection-status-tooltip-title">Connection details</div>
@@ -794,9 +891,9 @@ function initAlfredUI() {
         <div class="connection-status-tooltip-section-title">Daemon: ${escapeConnectionStatusText(connectionStatusState.daemonStatus)}</div>
         <div class="connection-status-tooltip-row">
           <span class="connection-status-tooltip-label">PID</span>
-          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(connectionStatusState.daemonPid ?? 'n/a')}</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(connectionStatusState.daemonPid ?? "n/a")}</span>
         </div>
-        <div class="connection-status-tooltip-note">PID: ${escapeConnectionStatusText(connectionStatusState.daemonPid ?? 'n/a')}</div>
+        <div class="connection-status-tooltip-note">PID: ${escapeConnectionStatusText(connectionStatusState.daemonPid ?? "n/a")}</div>
       </div>
       <div class="connection-status-tooltip-section">
         <div class="connection-status-tooltip-section-title">Web UI: ${escapeConnectionStatusText(connectionStatusState.webUiStatus)}</div>
@@ -824,11 +921,11 @@ function initAlfredUI() {
         <div class="connection-status-tooltip-section-title">Debug: ${escapeConnectionStatusText(debugState)}</div>
         <div class="connection-status-tooltip-row">
           <span class="connection-status-tooltip-label">Last incoming</span>
-          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(debugSummary?.lastIncomingType || 'n/a')}</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(debugSummary?.lastIncomingType || "n/a")}</span>
         </div>
         <div class="connection-status-tooltip-row">
           <span class="connection-status-tooltip-label">Last outgoing</span>
-          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(debugSummary?.lastOutgoingType || 'n/a')}</span>
+          <span class="connection-status-tooltip-value">${escapeConnectionStatusText(debugSummary?.lastOutgoingType || "n/a")}</span>
         </div>
       </div>
     `;
@@ -840,30 +937,29 @@ function initAlfredUI() {
     }
 
     if (payload.daemonStatus !== undefined) {
-      connectionStatusState.daemonStatus = String(payload.daemonStatus || 'unknown');
+      connectionStatusState.daemonStatus = String(payload.daemonStatus || "unknown");
     }
     if (payload.daemonPid !== undefined) {
       connectionStatusState.daemonPid = payload.daemonPid;
     }
     if (payload.status !== undefined) {
-      connectionStatusState.webUiStatus = payload.status === 'ok'
-        ? 'ready'
-        : String(payload.status || 'unknown');
+      connectionStatusState.webUiStatus =
+        payload.status === "ok" ? "ready" : String(payload.status || "unknown");
     }
     if (payload.version !== undefined) {
-      connectionStatusState.webUiVersion = String(payload.version || 'unknown');
+      connectionStatusState.webUiVersion = String(payload.version || "unknown");
     }
 
     syncConnectionStatusPopoverVisibility();
   }
 
   async function hydrateConnectionStatusFromHealth() {
-    if (typeof fetch !== 'function') {
+    if (typeof fetch !== "function") {
       return;
     }
 
     try {
-      const response = await fetch('/health', { cache: 'no-store' });
+      const response = await fetch("/health", { cache: "no-store" });
       if (!response.ok) {
         return;
       }
@@ -871,7 +967,7 @@ function initAlfredUI() {
       const payload = await response.json();
       applyDaemonStatusPayload(payload);
     } catch (error) {
-      console.debug('Unable to hydrate connection status from /health:', error);
+      console.debug("Unable to hydrate connection status from /health:", error);
     }
   }
 
@@ -880,12 +976,12 @@ function initAlfredUI() {
     syncConnectionStatusPopoverVisibility();
   }
 
-  connectionStatusAnchor?.addEventListener('pointerenter', () => {
+  connectionStatusAnchor?.addEventListener("pointerenter", () => {
     connectionStatusVisibility.hovered = true;
     syncConnectionStatusPopoverVisibility();
   });
 
-  connectionStatusAnchor?.addEventListener('pointerleave', (event) => {
+  connectionStatusAnchor?.addEventListener("pointerleave", (event) => {
     if (isConnectionStatusHoverTarget(event.relatedTarget)) {
       return;
     }
@@ -896,12 +992,12 @@ function initAlfredUI() {
     }
   });
 
-  connectionStatusTooltip?.addEventListener('pointerenter', () => {
+  connectionStatusTooltip?.addEventListener("pointerenter", () => {
     connectionStatusVisibility.hovered = true;
     syncConnectionStatusPopoverVisibility();
   });
 
-  connectionStatusTooltip?.addEventListener('pointerleave', (event) => {
+  connectionStatusTooltip?.addEventListener("pointerleave", (event) => {
     if (isConnectionStatusHoverTarget(event.relatedTarget)) {
       return;
     }
@@ -912,13 +1008,17 @@ function initAlfredUI() {
     }
   });
 
-  connectionStatusAnchor?.addEventListener('focusin', () => {
+  connectionStatusAnchor?.addEventListener("focusin", () => {
     connectionStatusVisibility.focused = true;
     syncConnectionStatusPopoverVisibility();
   });
 
-  connectionStatusAnchor?.addEventListener('focusout', (event) => {
-    if (connectionStatusAnchor && event.relatedTarget && connectionStatusAnchor.contains(event.relatedTarget)) {
+  connectionStatusAnchor?.addEventListener("focusout", (event) => {
+    if (
+      connectionStatusAnchor &&
+      event.relatedTarget &&
+      connectionStatusAnchor.contains(event.relatedTarget)
+    ) {
       return;
     }
 
@@ -928,7 +1028,7 @@ function initAlfredUI() {
     }
   });
 
-  connectionStatusAnchor?.addEventListener('click', (event) => {
+  connectionStatusAnchor?.addEventListener("click", (event) => {
     if (!connectionStatusAnchor.contains(event.target)) {
       return;
     }
@@ -946,8 +1046,8 @@ function initAlfredUI() {
     event.preventDefault();
   });
 
-  connectionStatusAnchor?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
+  connectionStatusAnchor?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       connectionStatusVisibility.pinned = !connectionStatusVisibility.pinned;
       if (connectionStatusVisibility.pinned) {
@@ -961,7 +1061,7 @@ function initAlfredUI() {
       syncConnectionStatusPopoverVisibility();
     }
 
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       connectionStatusVisibility.pinned = false;
       connectionStatusVisibility.focused = false;
       syncConnectionStatusPopoverVisibility();
@@ -969,7 +1069,7 @@ function initAlfredUI() {
     }
   });
 
-  connectionStatusOverlay?.addEventListener('click', () => {
+  connectionStatusOverlay?.addEventListener("click", () => {
     connectionStatusVisibility.pinned = false;
     connectionStatusVisibility.hovered = false;
     connectionStatusVisibility.focused = false;
@@ -977,12 +1077,19 @@ function initAlfredUI() {
     connectionStatusAnchor?.blur();
   });
 
-  document.addEventListener('click', (event) => {
-    if (!connectionStatusVisibility.pinned || !connectionStatusAnchor || !connectionStatusPortalRoot) {
+  document.addEventListener("click", (event) => {
+    if (
+      !connectionStatusVisibility.pinned ||
+      !connectionStatusAnchor ||
+      !connectionStatusPortalRoot
+    ) {
       return;
     }
 
-    if (connectionStatusAnchor.contains(event.target) || connectionStatusPortalRoot.contains(event.target)) {
+    if (
+      connectionStatusAnchor.contains(event.target) ||
+      connectionStatusPortalRoot.contains(event.target)
+    ) {
       return;
     }
 
@@ -992,32 +1099,36 @@ function initAlfredUI() {
     syncConnectionStatusPopoverVisibility();
   });
 
-  window.addEventListener('resize', () => {
-    if (!connectionStatusPortalRoot) {
-      return;
-    }
+  window.addEventListener(
+    "resize",
+    () => {
+      if (!connectionStatusPortalRoot) {
+        return;
+      }
 
-    positionConnectionStatusTooltip();
-  }, { passive: true });
+      positionConnectionStatusTooltip();
+    },
+    { passive: true },
+  );
 
-  wsClient.addEventListener('connected', () => {
-    updateConnectionStatus('connected');
+  wsClient.addEventListener("connected", () => {
+    updateConnectionStatus("connected");
   });
 
-  wsClient.addEventListener('disconnected', () => {
-    updateConnectionStatus('disconnected');
+  wsClient.addEventListener("disconnected", () => {
+    updateConnectionStatus("disconnected");
     // Always clean up on disconnect to ensure consistent state
     // Remove partial assistant message since we can't recover the stream
     if (currentAssistantMessage) {
       clearCurrentAssistantMessage({ remove: true });
     }
     // Reset composer state to idle
-    setComposerState('idle');
+    setComposerState("idle");
     // Reset stop button
     if (stopButton) {
       stopButton.hidden = true;
       stopButton.disabled = false;
-      stopButton.style.opacity = '';
+      stopButton.style.opacity = "";
     }
     // Clear any queued messages since we can't send them
     messageQueue.length = 0;
@@ -1033,8 +1144,8 @@ function initAlfredUI() {
     }
   });
 
-  wsClient.addEventListener('error', () => {
-    updateConnectionStatus('disconnected');
+  wsClient.addEventListener("error", () => {
+    updateConnectionStatus("disconnected");
   });
 
   // Note: hydrateConnectionStatusFromHealth() removed - Web UI now uses
@@ -1044,13 +1155,13 @@ function initAlfredUI() {
   // Streaming Indicator
   function showStreaming() {
     if (currentAssistantMessage) {
-      currentAssistantMessage.classList.add('streaming');
+      currentAssistantMessage.classList.add("streaming");
     }
   }
 
   function hideStreaming() {
     if (currentAssistantMessage) {
-      currentAssistantMessage.classList.remove('streaming');
+      currentAssistantMessage.classList.remove("streaming");
     }
   }
 
@@ -1061,15 +1172,15 @@ function initAlfredUI() {
     }
 
     hideStreaming();
-    assistantMessage.classList.remove('cancelling');
+    assistantMessage.classList.remove("cancelling");
     clearGlueShimmerEffect(assistantMessage);
     if (remove) {
       assistantMessage.remove();
-    } else if (typeof assistantMessage.setMessageState === 'function') {
-      assistantMessage.setMessageState('idle');
+    } else if (typeof assistantMessage.setMessageState === "function") {
+      assistantMessage.setMessageState("idle");
     } else {
-      assistantMessage.classList.remove('streaming', 'editing');
-      assistantMessage.dataset.messageState = 'idle';
+      assistantMessage.classList.remove("streaming", "editing");
+      assistantMessage.dataset.messageState = "idle";
     }
 
     currentAssistantMessage = null;
@@ -1082,35 +1193,35 @@ function initAlfredUI() {
       return;
     }
 
-    if (typeof messageElement.setMessageState === 'function') {
+    if (typeof messageElement.setMessageState === "function") {
       messageElement.setMessageState(state);
       return;
     }
 
-    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    const nextState = state === "streaming" || state === "editing" ? state : "idle";
     messageElement.dataset.messageState = nextState;
-    messageElement.classList.toggle('streaming', nextState === 'streaming');
-    messageElement.classList.toggle('editing', nextState === 'editing');
+    messageElement.classList.toggle("streaming", nextState === "streaming");
+    messageElement.classList.toggle("editing", nextState === "editing");
   }
 
   function setComposerState(state) {
-    const nextState = state === 'streaming' || state === 'editing' ? state : 'idle';
+    const nextState = state === "streaming" || state === "editing" ? state : "idle";
     composerState = nextState;
     if (inputArea) {
       inputArea.dataset.composerState = nextState;
     }
     // Update placeholder based on state
     if (messageInput) {
-      if (nextState === 'editing') {
-        messageInput.placeholder = 'Editing message... (Esc to cancel)';
+      if (nextState === "editing") {
+        messageInput.placeholder = "Editing message... (Esc to cancel)";
       } else {
-        messageInput.placeholder = 'Type your message... (Shift+Enter to queue)';
+        messageInput.placeholder = "Type your message... (Shift+Enter to queue)";
       }
     }
   }
 
   function createClientMessageId(prefix) {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
       return `${prefix}-${crypto.randomUUID()}`;
     }
 
@@ -1119,32 +1230,37 @@ function initAlfredUI() {
 
   function refreshEditableMessageState() {
     const userMessages = Array.from(
-      messageList.querySelectorAll('chat-message[data-session-message="true"]')
-    ).filter((messageElement) => messageElement.getAttribute('role') === 'user');
+      messageList.querySelectorAll('chat-message[data-session-message="true"]'),
+    ).filter((messageElement) => messageElement.getAttribute("role") === "user");
     const lastUserMessage = userMessages[userMessages.length - 1] || null;
-    const hasActiveStreamingTurn = composerState === 'streaming' || Boolean(currentAssistantMessage?.classList.contains('streaming'));
+    const hasActiveStreamingTurn =
+      composerState === "streaming" ||
+      Boolean(currentAssistantMessage?.classList.contains("streaming"));
 
     if (currentAssistantMessage) {
-      setMessageState(currentAssistantMessage, currentAssistantMessage.classList.contains('streaming') ? 'streaming' : 'idle');
+      setMessageState(
+        currentAssistantMessage,
+        currentAssistantMessage.classList.contains("streaming") ? "streaming" : "idle",
+      );
     }
 
     userMessages.forEach((messageElement) => {
       const shouldBeEditable = !hasActiveStreamingTurn && messageElement === lastUserMessage;
-      const nextState = messageElement === editingMessageElement ? 'editing' : 'idle';
-      if (typeof messageElement.setEditable === 'function') {
+      const nextState = messageElement === editingMessageElement ? "editing" : "idle";
+      if (typeof messageElement.setEditable === "function") {
         if (messageElement.getEditable?.() !== shouldBeEditable) {
           messageElement.setEditable(shouldBeEditable);
         }
       } else if (shouldBeEditable) {
-        messageElement.setAttribute('editable', 'true');
+        messageElement.setAttribute("editable", "true");
       } else {
-        messageElement.removeAttribute('editable');
+        messageElement.removeAttribute("editable");
       }
       setMessageState(messageElement, nextState);
     });
 
     if (editingMessageElement && !userMessages.includes(editingMessageElement)) {
-      setMessageState(editingMessageElement, 'editing');
+      setMessageState(editingMessageElement, "editing");
     }
   }
 
@@ -1152,14 +1268,14 @@ function initAlfredUI() {
     const previousEditingMessage = editingMessageElement;
     const wasEditing = previousEditingMessage !== null;
     if (previousEditingMessage) {
-      setMessageState(previousEditingMessage, 'idle');
+      setMessageState(previousEditingMessage, "idle");
     }
     editingMessageElement = null;
     if (inputArea) {
-      inputArea.removeAttribute('data-edit-message-id');
+      inputArea.removeAttribute("data-edit-message-id");
     }
     if (wasEditing) {
-      messageInput.value = '';
+      messageInput.value = "";
       autoResizeTextarea();
     }
     refreshEditableMessageState();
@@ -1181,23 +1297,24 @@ function initAlfredUI() {
   }
 
   function startComposerEdit(messageElement) {
-    if (!messageElement || messageElement.getAttribute('role') !== 'user') {
+    if (!messageElement || messageElement.getAttribute("role") !== "user") {
       return;
     }
 
-    const messageId = messageElement.getAttribute('message-id') || '';
+    const messageId = messageElement.getAttribute("message-id") || "";
     if (!messageId) {
       return;
     }
 
-    const content = typeof messageElement.getContent === 'function'
-      ? messageElement.getContent()
-      : messageElement.getAttribute('content') || '';
+    const content =
+      typeof messageElement.getContent === "function"
+        ? messageElement.getContent()
+        : messageElement.getAttribute("content") || "";
 
     pendingEditRequest = null;
     clearComposerEditState();
     editingMessageElement = messageElement;
-    setMessageState(messageElement, 'editing');
+    setMessageState(messageElement, "editing");
     if (inputArea) {
       inputArea.dataset.editMessageId = messageId;
     }
@@ -1205,7 +1322,7 @@ function initAlfredUI() {
     messageInput.value = content;
     autoResizeTextarea();
     enableInput();
-    setComposerState('editing');
+    setComposerState("editing");
     refreshEditableMessageState();
     messageInput.focus();
     messageInput.setSelectionRange(content.length, content.length);
@@ -1217,10 +1334,11 @@ function initAlfredUI() {
       return null;
     }
 
-    const previousPrompt = typeof previousUserMessage.getContent === 'function'
-      ? previousUserMessage.getContent()
-      : previousUserMessage.getAttribute('content') || '';
-    const messageId = previousUserMessage.getAttribute('message-id') || '';
+    const previousPrompt =
+      typeof previousUserMessage.getContent === "function"
+        ? previousUserMessage.getContent()
+        : previousUserMessage.getAttribute("content") || "";
+    const messageId = previousUserMessage.getAttribute("message-id") || "";
 
     if (!previousPrompt || !messageId) {
       return null;
@@ -1237,8 +1355,8 @@ function initAlfredUI() {
 
     while (previousMessage) {
       if (
-        previousMessage.matches?.('chat-message') &&
-        previousMessage.getAttribute('role') === 'user'
+        previousMessage.matches?.("chat-message") &&
+        previousMessage.getAttribute("role") === "user"
       ) {
         return previousMessage;
       }
@@ -1255,7 +1373,9 @@ function initAlfredUI() {
     }
 
     pendingEditRequest = null;
-    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes("glue shimmer")
+      ? "glue-shimmer"
+      : null;
     if (playSound) {
       playKidcoreSend();
     }
@@ -1270,42 +1390,44 @@ function initAlfredUI() {
 
     const { content } = pendingChatSendRequest;
     pendingChatSendRequest = null;
-    pendingKidcoreStreamingFx = content.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    pendingKidcoreStreamingFx = content.toLowerCase().includes("glue shimmer")
+      ? "glue-shimmer"
+      : null;
     wsClient.sendChat(content);
   }
 
-  setComposerState('idle');
+  setComposerState("idle");
   refreshEditableMessageState();
 
   // Message Handler
   function handleWebSocketMessage(msg) {
     switch (msg.type) {
-      case 'chat.started':
-        currentAssistantMessage = document.createElement('chat-message');
-        currentAssistantMessage.setAttribute('role', 'assistant');
-        currentAssistantMessage.setAttribute('content', '');
-        currentAssistantMessage.setAttribute('timestamp', new Date().toISOString());
-        currentAssistantMessage.setAttribute('message-id', msg.payload?.messageId || '');
-        currentAssistantMessage.setAttribute('data-session-message', 'true');
-        currentAssistantMessage.classList.add('streaming');
+      case "chat.started":
+        currentAssistantMessage = document.createElement("chat-message");
+        currentAssistantMessage.setAttribute("role", "assistant");
+        currentAssistantMessage.setAttribute("content", "");
+        currentAssistantMessage.setAttribute("timestamp", new Date().toISOString());
+        currentAssistantMessage.setAttribute("message-id", msg.payload?.messageId || "");
+        currentAssistantMessage.setAttribute("data-session-message", "true");
+        currentAssistantMessage.classList.add("streaming");
         messageList.appendChild(currentAssistantMessage);
-        setMessageState(currentAssistantMessage, 'streaming');
+        setMessageState(currentAssistantMessage, "streaming");
         applyGlueShimmerEffect(currentAssistantMessage);
         disableInput();
         showStreaming();
         scrollToBottom();
         // Animate message entrance
-        void MessageAnimator.animateEntrance(currentAssistantMessage, 'assistant');
+        void MessageAnimator.animateEntrance(currentAssistantMessage, "assistant");
         break;
 
-      case 'reasoning.start':
+      case "reasoning.start":
         // Signal to create a new reasoning block (for multiple reasoning segments)
         if (currentAssistantMessage) {
           currentAssistantMessage.startNewReasoningBlock();
         }
         break;
 
-      case 'reasoning.chunk':
+      case "reasoning.chunk":
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendReasoning(msg.payload.content);
           playKidcoreChunk();
@@ -1314,7 +1436,7 @@ function initAlfredUI() {
         }
         break;
 
-      case 'chat.chunk':
+      case "chat.chunk":
         if (currentAssistantMessage && msg.payload && msg.payload.content) {
           currentAssistantMessage.appendContent(msg.payload.content);
           playKidcoreChunk();
@@ -1323,7 +1445,7 @@ function initAlfredUI() {
         }
         break;
 
-      case 'chat.complete':
+      case "chat.complete":
         clearCurrentAssistantMessage();
         clearComposerEditState();
         playKidcoreMessageComplete();
@@ -1341,7 +1463,7 @@ function initAlfredUI() {
         }
         break;
 
-      case 'chat.cancelled':
+      case "chat.cancelled":
         clearCurrentAssistantMessage({ remove: true });
         clearComposerEditState();
         scrollToBottom();
@@ -1356,80 +1478,80 @@ function initAlfredUI() {
         }
         break;
 
-      case 'chat.error':
+      case "chat.error":
         clearCurrentAssistantMessage();
         pendingEditRequest = null;
         pendingChatSendRequest = null;
         clearComposerEditState();
         playKidcoreError();
-        showError(msg.payload?.error || 'An error occurred');
+        showError(msg.payload?.error || "An error occurred");
         enableInput();
         break;
 
-      case 'session.new':
+      case "session.new":
         handleSessionNew(msg.payload);
         break;
 
-      case 'session.loaded':
+      case "session.loaded":
         handleSessionLoaded(msg.payload);
         break;
 
-      case 'session.list':
+      case "session.list":
         handleSessionList(msg.payload);
         break;
 
-      case 'session.info':
+      case "session.info":
         handleSessionInfo(msg.payload);
         break;
 
-      case 'context.info':
+      case "context.info":
         handleContextInfo(msg.payload);
         break;
 
-      case 'debug.info':
+      case "debug.info":
         handleDebugInfo(msg.payload);
         break;
 
-      case 'tool.start':
+      case "tool.start":
         handleToolStart(msg.payload);
         break;
 
-      case 'tool.output':
+      case "tool.output":
         handleToolOutput(msg.payload);
         break;
 
-      case 'tool.end':
+      case "tool.end":
         handleToolEnd(msg.payload);
         break;
 
-      case 'completion.suggestions':
+      case "completion.suggestions":
         showCompletionMenu(msg.payload?.suggestions || []);
         break;
 
-      case 'status.update':
+      case "status.update":
         updateStatusBar(msg.payload);
         break;
 
-      case 'toast':
+      case "toast":
         showToast(msg.payload?.message, msg.payload?.level);
         break;
 
-      case 'typing.start':
+      case "typing.start":
         showTypingIndicator();
         break;
 
-      case 'typing.stop':
+      case "typing.stop":
         hideTypingIndicator();
         break;
 
-      case 'connected':
+      case "connected":
         // WebSocket connection established - server is ready
         // This is intentionally minimal; connection state is tracked by the
         // WebSocket client itself. We acknowledge receipt to avoid "unhandled"
         // console noise.
         break;
 
-      case 'daemon.status':
+      case "daemon.status":
         // Runtime daemon snapshot for connection status popover
         // Stores daemon info (model, version, status) for display
         // This replaces the /health fetch for live status
@@ -1437,30 +1559,35 @@ function initAlfredUI() {
         break;
 
       default:
-        console.log('Unhandled message type:', msg.type);
+        console.log("Unhandled message type:", msg.type);
     }
   }
 
-  wsClient.addEventListener('message', (event) => {
+  wsClient.addEventListener("message", (event) => {
     handleWebSocketMessage(event.detail);
   });
 
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     window.__alfredWebUI = {
       emitMessage: handleWebSocketMessage,
       syncKidcoreAudioControls,
       getCurrentAssistantMessage: () => currentAssistantMessage,
-      setCurrentAssistantMessage: (msg) => { currentAssistantMessage = msg; },
-      getCurrentAssistantMessageState: () => currentAssistantMessage?.getMessageState?.() || currentAssistantMessage?.getAttribute('data-message-state') || null,
+      setCurrentAssistantMessage: (msg) => {
+        currentAssistantMessage = msg;
+      },
+      getCurrentAssistantMessageState: () =>
+        currentAssistantMessage?.getMessageState?.() ||
+        currentAssistantMessage?.getAttribute("data-message-state") ||
+        null,
       getComposerState: () => composerState,
-      getEditingMessageId: () => editingMessageElement?.getAttribute('message-id') || null,
+      getEditingMessageId: () => editingMessageElement?.getAttribute("message-id") || null,
     };
   }
 
   // Session Handlers
   function handleSessionNew(payload) {
     // Clear message list and history for new session
-    messageList.innerHTML = '';
+    messageList.innerHTML = "";
     messageHistory.length = 0;
     historyIndex = -1;
     currentAssistantMessage = null;
@@ -1482,7 +1609,7 @@ function initAlfredUI() {
     showSystemMessage(`Session resumed: ${payload.sessionId}`);
     addCopyButtons();
     // Ensure clean UI state after loading session
-    if (currentAssistantMessage?.classList.contains('streaming')) {
+    if (currentAssistantMessage?.classList.contains("streaming")) {
       disableInput();
     } else {
       enableInput();
@@ -1494,21 +1621,21 @@ function initAlfredUI() {
 
     if (sessions.length === 0) {
       clearComposerEditState();
-      showSystemMessage('No recent sessions found.');
+      showSystemMessage("No recent sessions found.");
       enableInput();
       return;
     }
 
     // Create session list container (not using chat-message to avoid re-render issues)
-    const container = document.createElement('div');
-    container.className = 'session-list-message';
+    const container = document.createElement("div");
+    container.className = "session-list-message";
 
     // Create and append the session list component
-    const sessionList = document.createElement('session-list');
-    sessionList.setAttribute('sessions', JSON.stringify(sessions));
+    const sessionList = document.createElement("session-list");
+    sessionList.setAttribute("sessions", JSON.stringify(sessions));
 
     // Listen for session selection
-    sessionList.addEventListener('session-select', (e) => {
+    sessionList.addEventListener("session-select", (e) => {
       const sessionId = e.detail.sessionId;
       if (sessionId) {
         wsClient.sendCommand(`/resume ${sessionId}`);
@@ -1524,9 +1651,9 @@ function initAlfredUI() {
   }
 
   function handleSessionInfo(payload) {
-    let content = 'Current Session:\n\n';
+    let content = "Current Session:\n\n";
     content += `ID: ${payload.sessionId}\n`;
-    content += `Status: ${payload.status || 'unknown'}\n`;
+    content += `Status: ${payload.status || "unknown"}\n`;
     content += `Messages: ${payload.messageCount}\n`;
     if (payload.created) {
       content += `Created: ${new Date(payload.created).toLocaleString()}\n`;
@@ -1545,26 +1672,26 @@ function initAlfredUI() {
 
   function handleContextInfo(payload) {
     // Create context viewer container
-    const container = document.createElement('div');
-    container.className = 'context-viewer-message';
+    const container = document.createElement("div");
+    container.className = "context-viewer-message";
 
     // Create the context viewer component
-    const contextViewer = document.createElement('context-viewer');
-    contextViewer.setAttribute('data-context', JSON.stringify(payload));
+    const contextViewer = document.createElement("context-viewer");
+    contextViewer.setAttribute("data-context", JSON.stringify(payload));
 
     // Listen for refresh events
-    contextViewer.addEventListener('context-refresh', () => {
-      wsClient.sendCommand('/context');
+    contextViewer.addEventListener("context-refresh", () => {
+      wsClient.sendCommand("/context");
     });
 
     // Listen for toggle events
-    contextViewer.addEventListener('context-toggle', (e) => {
+    contextViewer.addEventListener("context-toggle", (e) => {
       const { section, enabled } = e.detail;
       console.log(`Context section ${section} toggled: ${enabled}`);
     });
 
     // Listen for command events to send to server
-    contextViewer.addEventListener('send-command', (e) => {
+    contextViewer.addEventListener("send-command", (e) => {
       const { command } = e.detail;
       if (command) {
         wsClient.sendCommand(command);
@@ -1580,31 +1707,35 @@ function initAlfredUI() {
   }
 
   function handleDebugInfo(payload) {
-    const debugPanel = document.getElementById('debug-panel');
+    const debugPanel = document.getElementById("debug-panel");
     if (!debugPanel) {
-      console.error('Debug panel not found');
+      console.error("Debug panel not found");
       return;
     }
 
     // Gather DOM message info
-    const domMessages = Array.from(messageList.querySelectorAll('chat-message')).map(msg => ({
-      id: msg.getAttribute('message-id') || 'NO-ID',
-      role: msg.getAttribute('role') || 'unknown',
-      content_length: (typeof msg.getContent === 'function' 
-        ? msg.getContent() 
-        : msg.getAttribute('content') || '').length,
-      is_streaming: msg.classList.contains('streaming')
+    const domMessages = Array.from(messageList.querySelectorAll("chat-message")).map((msg) => ({
+      id: msg.getAttribute("message-id") || "NO-ID",
+      role: msg.getAttribute("role") || "unknown",
+      content_length: (typeof msg.getContent === "function"
+        ? msg.getContent()
+        : msg.getAttribute("content") || ""
+      ).length,
+      is_streaming: msg.classList.contains("streaming"),
     }));
 
     // Gather current assistant info
-    const currentAssistant = currentAssistantMessage ? {
-      id: currentAssistantMessage.getAttribute('message-id') || 'NONE',
-      role: currentAssistantMessage.getAttribute('role') || 'NONE',
-      streaming: currentAssistantMessage.classList.contains('streaming'),
-      content_length: (typeof currentAssistantMessage.getContent === 'function' 
-        ? currentAssistantMessage.getContent() 
-        : currentAssistantMessage.getAttribute('content') || '').length
-    } : null;
+    const currentAssistant = currentAssistantMessage
+      ? {
+          id: currentAssistantMessage.getAttribute("message-id") || "NONE",
+          role: currentAssistantMessage.getAttribute("role") || "NONE",
+          streaming: currentAssistantMessage.classList.contains("streaming"),
+          content_length: (typeof currentAssistantMessage.getContent === "function"
+            ? currentAssistantMessage.getContent()
+            : currentAssistantMessage.getAttribute("content") || ""
+          ).length,
+        }
+      : null;
 
     // WebSocket snapshot
     const wsSnapshot = wsClient.getConnectionSnapshot ? wsClient.getConnectionSnapshot() : {};
@@ -1619,7 +1750,7 @@ function initAlfredUI() {
         message_queue_length: wsClient.messageQueue?.length || 0,
         active_connections: payload.websocket?.active_connections || 0,
         traffic_log: payload.websocket?.traffic_log || [],
-        snapshot: wsSnapshot
+        snapshot: wsSnapshot,
       },
       daemon: payload.daemon || { available: false },
       dom: {
@@ -1627,25 +1758,25 @@ function initAlfredUI() {
         has_current_assistant: !!currentAssistantMessage,
         composer_state: composerState,
         current_assistant: currentAssistant,
-        messages: domMessages
-      }
+        messages: domMessages,
+      },
     };
 
     debugPanel.open(debugData);
   }
 
   function showSystemMessage(content, options = {}) {
-    const systemMsg = document.createElement('chat-message');
-    systemMsg.setAttribute('role', 'system');
-    systemMsg.setAttribute('content', content);
+    const systemMsg = document.createElement("chat-message");
+    systemMsg.setAttribute("role", "system");
+    systemMsg.setAttribute("content", content);
     if (options.warning) {
-      systemMsg.setAttribute('data-warning', 'true');
+      systemMsg.setAttribute("data-warning", "true");
     } else {
-      systemMsg.removeAttribute('data-warning');
+      systemMsg.removeAttribute("data-warning");
     }
     messageList.appendChild(systemMsg);
     // Animate message entrance (use assistant style - fade in only)
-    void MessageAnimator.animateEntrance(systemMsg, 'assistant');
+    void MessageAnimator.animateEntrance(systemMsg, "assistant");
     scrollToBottom();
   }
 
@@ -1653,12 +1784,12 @@ function initAlfredUI() {
   function handleToolStart(payload) {
     if (!currentAssistantMessage) return;
 
-    const toolCall = document.createElement('tool-call');
-    toolCall.setAttribute('tool-call-id', payload.toolCallId);
-    toolCall.setAttribute('tool-name', payload.toolName);
-    toolCall.setAttribute('arguments', JSON.stringify(payload.arguments || {}));
-    toolCall.setAttribute('status', 'running');
-    toolCall.setAttribute('expanded', 'true');
+    const toolCall = document.createElement("tool-call");
+    toolCall.setAttribute("tool-call-id", payload.toolCallId);
+    toolCall.setAttribute("tool-name", payload.toolName);
+    toolCall.setAttribute("arguments", JSON.stringify(payload.arguments || {}));
+    toolCall.setAttribute("status", "running");
+    toolCall.setAttribute("expanded", "true");
 
     activeToolCalls.set(payload.toolCallId, toolCall);
     currentAssistantMessage.appendToolCall(toolCall);
@@ -1676,9 +1807,9 @@ function initAlfredUI() {
   function handleToolEnd(payload) {
     const toolCall = activeToolCalls.get(payload.toolCallId);
     if (toolCall) {
-      toolCall.setStatus(payload.success ? 'success' : 'error');
+      toolCall.setStatus(payload.success ? "success" : "error");
       if (payload.output) {
-        toolCall.setAttribute('output', payload.output);
+        toolCall.setAttribute("output", payload.output);
       }
       toolCall.collapse();
       if (!payload.success) {
@@ -1706,16 +1837,16 @@ function initAlfredUI() {
   function updateQueueBadge() {
     queueBadge.textContent = messageQueue.length;
     if (messageQueue.length === 0) {
-      queueBadge.classList.add('hidden');
+      queueBadge.classList.add("hidden");
     } else {
-      queueBadge.classList.remove('hidden');
+      queueBadge.classList.remove("hidden");
     }
   }
 
   function clearQueue() {
     messageQueue.length = 0;
     updateQueueBadge();
-    showToast('Queue cleared', 'info');
+    showToast("Queue cleared", "info");
   }
 
   // Message History
@@ -1727,7 +1858,7 @@ function initAlfredUI() {
   function navigateHistory(direction) {
     if (messageHistory.length === 0) return;
 
-    if (direction === 'up') {
+    if (direction === "up") {
       historyIndex = Math.max(0, historyIndex - 1);
     } else {
       historyIndex = Math.min(messageHistory.length, historyIndex + 1);
@@ -1736,7 +1867,7 @@ function initAlfredUI() {
     if (historyIndex < messageHistory.length) {
       messageInput.value = messageHistory[historyIndex];
     } else {
-      messageInput.value = '';
+      messageInput.value = "";
     }
 
     autoResizeTextarea();
@@ -1748,7 +1879,7 @@ function initAlfredUI() {
     if (!content) return;
 
     sendMessageContent(content);
-    messageInput.value = '';
+    messageInput.value = "";
     autoResizeTextarea();
   }
 
@@ -1766,14 +1897,14 @@ function initAlfredUI() {
     playKidcoreSend();
 
     // Send via WebSocket - commands use command.execute, chat uses chat.send
-    if (cleanContent.startsWith('/')) {
+    if (cleanContent.startsWith("/")) {
       pendingKidcoreStreamingFx = null;
 
       // Commands: show as system message, don't disable input
-      const cmdMsg = document.createElement('chat-message');
-      cmdMsg.setAttribute('role', 'system');
-      cmdMsg.setAttribute('content', `Command: ${cleanContent}`);
-      cmdMsg.setAttribute('timestamp', new Date().toISOString());
+      const cmdMsg = document.createElement("chat-message");
+      cmdMsg.setAttribute("role", "system");
+      cmdMsg.setAttribute("content", `Command: ${cleanContent}`);
+      cmdMsg.setAttribute("timestamp", new Date().toISOString());
       messageList.appendChild(cmdMsg);
       scrollToBottom();
 
@@ -1782,17 +1913,19 @@ function initAlfredUI() {
       return;
     }
 
-    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    pendingKidcoreStreamingFx = cleanContent.toLowerCase().includes("glue shimmer")
+      ? "glue-shimmer"
+      : null;
 
-    const userMessage = document.createElement('chat-message');
-    userMessage.setAttribute('role', 'user');
-    userMessage.setAttribute('content', cleanContent);
-    userMessage.setAttribute('timestamp', new Date().toISOString());
-    userMessage.setAttribute('message-id', createClientMessageId('user'));
-    userMessage.setAttribute('data-session-message', 'true');
+    const userMessage = document.createElement("chat-message");
+    userMessage.setAttribute("role", "user");
+    userMessage.setAttribute("content", cleanContent);
+    userMessage.setAttribute("timestamp", new Date().toISOString());
+    userMessage.setAttribute("message-id", createClientMessageId("user"));
+    userMessage.setAttribute("data-session-message", "true");
     messageList.appendChild(userMessage);
     // Animate message entrance
-    void MessageAnimator.animateEntrance(userMessage, 'user');
+    void MessageAnimator.animateEntrance(userMessage, "user");
 
     if (currentAssistantMessage) {
       pendingChatSendRequest = { content: cleanContent };
@@ -1812,30 +1945,30 @@ function initAlfredUI() {
 
     while (previousMessage) {
       if (
-        previousMessage.matches?.('chat-message') &&
-        previousMessage.getAttribute('role') === 'user'
+        previousMessage.matches?.("chat-message") &&
+        previousMessage.getAttribute("role") === "user"
       ) {
-        return typeof previousMessage.getContent === 'function'
+        return typeof previousMessage.getContent === "function"
           ? previousMessage.getContent()
-          : previousMessage.getAttribute('content') || '';
+          : previousMessage.getAttribute("content") || "";
       }
 
       previousMessage = previousMessage.previousElementSibling ?? null;
     }
 
-    return '';
+    return "";
   }
 
   function retryAssistantMessage(messageElement) {
     const retryRequest = getRetryRequest(messageElement);
     if (!retryRequest) {
-      showError('Could not find the previous user prompt to regenerate this reply.');
+      showError("Could not find the previous user prompt to regenerate this reply.");
       return;
     }
 
     const isCurrentStreamingAssistant =
       currentAssistantMessage === messageElement &&
-      currentAssistantMessage?.classList.contains('streaming');
+      currentAssistantMessage?.classList.contains("streaming");
 
     // Remove the assistant message being regenerated from the DOM
     // so the new response replaces it instead of appending
@@ -1853,7 +1986,7 @@ function initAlfredUI() {
       currentAssistantMessage = null;
     }
 
-    if (currentAssistantMessage?.classList.contains('streaming')) {
+    if (currentAssistantMessage?.classList.contains("streaming")) {
       pendingEditRequest = retryRequest;
       handleStopGenerating();
       return;
@@ -1864,7 +1997,7 @@ function initAlfredUI() {
 
   // Textarea Auto-Resize
   function autoResizeTextarea() {
-    messageInput.style.height = 'auto';
+    messageInput.style.height = "auto";
     const newHeight = Math.min(messageInput.scrollHeight, 200);
     messageInput.style.height = `${newHeight}px`;
   }
@@ -1885,15 +2018,16 @@ function initAlfredUI() {
 
     // Get text before cursor
     const textBeforeCursor = value.substring(0, cursorPosition);
-    const lines = textBeforeCursor.split('\n');
+    const lines = textBeforeCursor.split("\n");
     const currentLine = lines[lines.length - 1];
 
     // Check if we're at the start of a command
-    if (currentLine.startsWith('/')) {
+    if (currentLine.startsWith("/")) {
       const filter = currentLine.substring(1);
-      const filtered = commands.filter(cmd =>
-        cmd.value.toLowerCase().includes(filter.toLowerCase()) ||
-        (cmd.description && cmd.description.toLowerCase().includes(filter.toLowerCase()))
+      const filtered = commands.filter(
+        (cmd) =>
+          cmd.value.toLowerCase().includes(filter.toLowerCase()) ||
+          (cmd.description && cmd.description.toLowerCase().includes(filter.toLowerCase())),
       );
       showCompletionMenu(filtered);
     } else {
@@ -1904,8 +2038,8 @@ function initAlfredUI() {
   // Global Tool Toggle (Ctrl+T)
   function toggleAllTools() {
     allToolsExpanded = !allToolsExpanded;
-    const toolCalls = document.querySelectorAll('tool-call');
-    toolCalls.forEach(tool => {
+    const toolCalls = document.querySelectorAll("tool-call");
+    toolCalls.forEach((tool) => {
       if (allToolsExpanded) {
         tool.expand();
       } else {
@@ -1922,20 +2056,20 @@ function initAlfredUI() {
       stopButton.disabled = false;
       stopButton.hidden = false;
     }
-    setComposerState('streaming');
+    setComposerState("streaming");
     refreshEditableMessageState();
   }
 
   function setCancellingState() {
     if (stopButton) {
       stopButton.disabled = true;
-      stopButton.style.opacity = '0.6';
+      stopButton.style.opacity = "0.6";
     }
-    setComposerState('cancelling');
+    setComposerState("cancelling");
   }
 
   function handleStopGenerating() {
-    if (composerState === 'cancelling') {
+    if (composerState === "cancelling") {
       return;
     }
 
@@ -1957,9 +2091,9 @@ function initAlfredUI() {
     if (stopButton) {
       stopButton.hidden = true;
       stopButton.disabled = false;
-      stopButton.style.opacity = '';
+      stopButton.style.opacity = "";
     }
-    setComposerState('idle');
+    setComposerState("idle");
     refreshEditableMessageState();
     messageInput.focus();
   }
@@ -1980,21 +2114,21 @@ function initAlfredUI() {
   }
 
   function showError(message) {
-    const errorMsg = document.createElement('chat-message');
-    errorMsg.setAttribute('role', 'system');
-    errorMsg.setAttribute('content', `Error: ${message}`);
+    const errorMsg = document.createElement("chat-message");
+    errorMsg.setAttribute("role", "system");
+    errorMsg.setAttribute("content", `Error: ${message}`);
     messageList.appendChild(errorMsg);
     scrollToBottom();
   }
 
   // Toast notification
-  function showToast(message, level = 'info') {
+  function showToast(message, level = "info") {
     playKidcoreClick();
-    const toastContainer = document.getElementById('toast-container');
+    const toastContainer = document.getElementById("toast-container");
     if (toastContainer && toastContainer.show) {
       toastContainer.show(message, level, 5000);
     } else {
-      console.log(`[${level?.toUpperCase() || 'INFO'}] ${message}`);
+      console.log(`[${level?.toUpperCase() || "INFO"}] ${message}`);
     }
   }
 
@@ -2022,85 +2156,273 @@ function initAlfredUI() {
 
   // Status Bar Update
   function updateStatusBar(payload) {
-    const statusBar = document.getElementById('status-bar');
+    const statusBar = document.getElementById("status-bar");
     if (!statusBar) return;
 
     // Update model
     if (payload.model !== undefined) {
-      statusBar.setAttribute('model', payload.model);
+      statusBar.setAttribute("model", payload.model);
     }
 
     // Update tokens
     if (payload.inputTokens !== undefined || payload.outputTokens !== undefined) {
-      statusBar.setAttribute('inputtokens', payload.inputTokens || 0);
-      statusBar.setAttribute('outputtokens', payload.outputTokens || 0);
+      statusBar.setAttribute("inputtokens", payload.inputTokens || 0);
+      statusBar.setAttribute("outputtokens", payload.outputTokens || 0);
       if (payload.cacheReadTokens !== undefined) {
-        statusBar.setAttribute('cachedtokens', payload.cacheReadTokens);
+        statusBar.setAttribute("cachedtokens", payload.cacheReadTokens);
       }
       if (payload.reasoningTokens !== undefined) {
-        statusBar.setAttribute('reasoningtokens', payload.reasoningTokens);
+        statusBar.setAttribute("reasoningtokens", payload.reasoningTokens);
       }
       if (payload.contextTokens !== undefined) {
-        statusBar.setAttribute('contexttokens', payload.contextTokens);
+        statusBar.setAttribute("contexttokens", payload.contextTokens);
       }
     }
 
     // Update queue
     if (payload.queueLength !== undefined) {
-      statusBar.setAttribute('queue', payload.queueLength);
+      statusBar.setAttribute("queue", payload.queueLength);
     }
 
     // Update streaming status
     if (payload.isStreaming !== undefined) {
-      statusBar.setAttribute('streaming', payload.isStreaming);
+      statusBar.setAttribute("streaming", payload.isStreaming);
     }
 
     applyDaemonStatusPayload(payload);
   }
 
   // Event Listeners
-  sendButton.addEventListener('click', sendMessage);
-  stopButton?.addEventListener('click', handleStopGenerating);
+  sendButton.addEventListener("click", sendMessage);
+  stopButton?.addEventListener("click", handleStopGenerating);
 
   // History navigation buttons (mobile)
-  const historyUpBtn = document.getElementById('history-up');
-  const historyDownBtn = document.getElementById('history-down');
-  historyUpBtn?.addEventListener('click', () => navigateHistory('up'));
-  historyDownBtn?.addEventListener('click', () => navigateHistory('down'));
+  const historyUpBtn = document.getElementById("history-up");
+  const historyDownBtn = document.getElementById("history-down");
+  historyUpBtn?.addEventListener("click", () => navigateHistory("up"));
+  historyDownBtn?.addEventListener("click", () => navigateHistory("down"));
 
   // Textarea input handling
-  messageInput.addEventListener('input', () => {
+  messageInput.addEventListener("input", () => {
     autoResizeTextarea();
     checkForCompletionTrigger();
   });
 
+  // Leader key state (Emacs-style Ctrl+S prefix)
+  // Leader-only mode: ALL keyboard shortcuts go through the leader menu
+  let leaderMode = false;
+  let leaderPath = [];
+  let leaderTree = buildLeaderTree(getKeymap());
+  let whichKey = null;
+
+  const leaderActionHandlers = {
+    "search.open": () => SearchOverlay.getInstance().open(),
+    "quickSwitcher.open": () => QuickSwitcher.getInstance().open(),
+    "mentions.open": () => {
+      messageInput?.focus();
+      const cursorPos = messageInput.selectionStart;
+      const value = messageInput.value;
+      messageInput.value = `${value.slice(0, cursorPos)}@${value.slice(cursorPos)}`;
+      messageInput.selectionStart = cursorPos + 1;
+      messageInput.selectionEnd = cursorPos + 1;
+      messageInput.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    "composer.focus": () => messageInput?.focus(),
+    "composer.queue": () => {
+      const content = messageInput.value.trim();
+      if (!content) {
+        return;
+      }
+
+      if (currentAssistantMessage) {
+        addToQueue(content);
+      } else {
+        sendMessageContent(content);
+      }
+
+      messageInput.value = "";
+      autoResizeTextarea();
+    },
+    "commandPalette.open": () => window.alfredCommandPalette?.open?.(),
+    "composer.newline": () => {
+      const cursorPos = messageInput.selectionStart;
+      const value = messageInput.value;
+      messageInput.value = `${value.slice(0, cursorPos)}\n${value.slice(cursorPos)}`;
+      messageInput.selectionStart = cursorPos + 1;
+      messageInput.selectionEnd = cursorPos + 1;
+      autoResizeTextarea();
+      messageInput.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    "chat.clear": () => {
+      messageList.innerHTML = "";
+      window.addSystemMessage?.("Chat cleared");
+    },
+    "session.new": () => {
+      if (confirm("Start a new session? Current conversation will be archived.")) {
+        window.location.reload();
+      }
+    },
+    "message.edit": () => {
+      const lastUserMessage = messageList.querySelector('chat-message[role="user"]:last-of-type');
+      if (lastUserMessage) {
+        lastUserMessage.dispatchEvent(new CustomEvent("edit-message", { bubbles: true }));
+      }
+    },
+    "message.copy": () => {
+      const focused = document.activeElement?.closest?.("chat-message");
+      if (focused && typeof focused._copyToClipboard === "function") {
+        focused._copyToClipboard();
+      }
+    },
+    "navigation.up": () => window.alfredMessageNavigator?.previous?.(),
+    "navigation.down": () => window.alfredMessageNavigator?.next?.(),
+    "navigation.home": () => window.alfredMessageNavigator?.first?.(),
+    "navigation.end": () => window.alfredMessageNavigator?.last?.(),
+    "theme.palette.open": () => openThemePalette(),
+    "context.open": () => {
+      const wsClient = window.alfredWebSocketClient;
+      if (wsClient && typeof wsClient.sendCommand === "function") {
+        wsClient.sendCommand("/context");
+      }
+    },
+    "help.open": () => openKeyboardHelp(),
+    "chat.cancel": () => {
+      if (window.handleStopGenerating) {
+        window.handleStopGenerating();
+      }
+    },
+    "queue.clear": () => {
+      if (window.clearQueue) {
+        window.clearQueue();
+        window.addSystemMessage?.("Message queue cleared");
+      }
+    },
+    "tools.toggleAll": () => toggleAllTools(),
+  };
+
+  subscribe(() => {
+    leaderTree = buildLeaderTree(getKeymap());
+    if (whichKey) {
+      whichKey.setBindings(leaderTree);
+    }
+  });
+
+  function initWhichKey() {
+    if (!whichKey) {
+      whichKey = new WhichKey();
+    }
+
+    whichKey.setBindings(leaderTree);
+  }
+
+  function renderLeaderLegend() {
+    if (whichKey) {
+      whichKey.show(messageInput, leaderPath);
+    }
+  }
+
+  function openKeyboardHelp() {
+    if (window.alfredHelpSheet?.show) {
+      window.alfredHelpSheet.show();
+      return;
+    }
+
+    if (typeof window.HelpSheet !== "undefined") {
+      window.alfredHelpSheet = window.alfredHelpSheet ?? new HelpSheet();
+      window.alfredHelpSheet.show();
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent("help:open"));
+  }
+
+  function enterLeaderMode() {
+    initWhichKey();
+
+    leaderMode = true;
+    leaderPath = [];
+    messageInput.classList.add("leader-mode");
+    messageInput.placeholder =
+      "Leader: S=Search, C=Chat, M=Messages, P=Palette, T=Theme, H=Help, X=Cancel";
+
+    messageInput.focus();
+    renderLeaderLegend();
+  }
+
+  function exitLeaderMode() {
+    leaderMode = false;
+    leaderPath = [];
+    messageInput.classList.remove("leader-mode");
+    messageInput.placeholder = "Enter to send, Shift+Enter for newline, Alt+Enter to queue";
+    if (whichKey) {
+      whichKey.hide();
+    }
+  }
+
+  function handleLeaderKeydown(e) {
+    e.preventDefault();
+
+    if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) {
+      return;
+    }
+
+    if (e.key === "Escape") {
+      exitLeaderMode();
+      return;
+    }
+
+    const binding = getLeaderNodeForPath(leaderTree, [...leaderPath, e.key]);
+    if (!binding) {
+      exitLeaderMode();
+      return;
+    }
+
+    if (Array.isArray(binding.children) && binding.children.length > 0) {
+      leaderPath = [...leaderPath, binding.key];
+      renderLeaderLegend();
+      return;
+    }
+
+    exitLeaderMode();
+    const handler = leaderActionHandlers[binding.actionId];
+    if (handler) {
+      handler();
+    } else {
+      console.error(`No leader action handler registered for ${binding.actionId}`);
+    }
+  }
+
   // Keyboard handling
-  messageInput.addEventListener('keydown', (e) => {
+  messageInput.addEventListener("keydown", (e) => {
+    if (leaderMode) {
+      return;
+    }
+
     // Handle completion menu first (before other Enter handling)
     if (completionMenu.isVisible()) {
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         completionMenu.selectNext();
         return;
       }
-      if (e.key === 'ArrowUp') {
+      if (e.key === "ArrowUp") {
         e.preventDefault();
         completionMenu.selectPrevious();
         return;
       }
-      if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         completionMenu.selectCurrent();
         return;
       }
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         completionMenu.hide();
         return;
       }
     }
 
     // Shift+Enter: Queue message if streaming, otherwise send immediately
-    if (e.key === 'Enter' && e.shiftKey && composerState !== 'editing') {
+    if (e.key === "Enter" && e.shiftKey && composerState !== "editing") {
       e.preventDefault();
       const content = messageInput.value.trim();
       if (content) {
@@ -2109,81 +2431,77 @@ function initAlfredUI() {
         } else {
           sendMessageContent(content);
         }
-        messageInput.value = '';
+        messageInput.value = "";
         autoResizeTextarea();
       }
       return;
     }
 
     // Enter (without Shift): Send message
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
       return;
     }
 
     // History navigation
-    if (e.key === 'ArrowUp' && messageInput.selectionStart === 0) {
+    if (e.key === "ArrowUp" && messageInput.selectionStart === 0) {
       e.preventDefault();
-      navigateHistory('up');
+      navigateHistory("up");
       return;
     }
-    if (e.key === 'ArrowDown' && messageInput.selectionStart === messageInput.value.length) {
+    if (e.key === "ArrowDown" && messageInput.selectionStart === messageInput.value.length) {
       e.preventDefault();
-      navigateHistory('down');
+      navigateHistory("down");
       return;
     }
 
-    if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
+    if (e.key === "Escape" && currentAssistantMessage && composerState !== "cancelling") {
       e.preventDefault();
       handleStopGenerating();
       return;
     }
 
     // Ctrl+U: Clear input
-    if (e.ctrlKey && e.key === 'u') {
+    if (e.ctrlKey && e.key === "u") {
       e.preventDefault();
-      messageInput.value = '';
+      messageInput.value = "";
       autoResizeTextarea();
       return;
     }
   });
 
-  // Global keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    // Ctrl+T: Toggle all tool calls
-    if (e.ctrlKey && e.key === 't') {
-      e.preventDefault();
-      toggleAllTools();
-      return;
-    }
+  // Global keyboard shortcuts - Leader mode
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.ctrlKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        enterLeaderMode();
+        return;
+      }
 
-    // Escape: cancel active response or clear queued messages
-    if (e.key === 'Escape' && currentAssistantMessage && composerState !== 'cancelling') {
-      e.preventDefault();
-      handleStopGenerating();
-      return;
-    }
+      if (leaderMode) {
+        handleLeaderKeydown(e);
+      }
+    },
+    true,
+  );
 
-    if (e.key === 'Escape' && messageQueue.length > 0) {
-      clearQueue();
-    }
-  });
-
-  messageList.addEventListener('retry-message', (event) => {
-    const messageElement = event.target?.closest?.('chat-message');
-    if (!messageElement || messageElement.getAttribute('role') !== 'assistant') {
+  messageList.addEventListener("retry-message", (event) => {
+    const messageElement = event.target?.closest?.("chat-message");
+    if (!messageElement || messageElement.getAttribute("role") !== "assistant") {
       return;
     }
 
     retryAssistantMessage(messageElement);
   });
 
-  messageList.addEventListener('edit-message', (event) => {
+  messageList.addEventListener("edit-message", (event) => {
     // Inline editing is now handled within chat-message component
     // This event is kept for backward compatibility
-    const messageElement = event.target?.closest?.('chat-message');
-    if (!messageElement || messageElement.getAttribute('role') !== 'user') {
+    const messageElement = event.target?.closest?.("chat-message");
+    if (!messageElement || messageElement.getAttribute("role") !== "user") {
       return;
     }
     // Inline editing starts automatically when the edit button is clicked
@@ -2191,9 +2509,9 @@ function initAlfredUI() {
   });
 
   // Handle inline edit save
-  messageList.addEventListener('message-edited', (event) => {
+  messageList.addEventListener("message-edited", (event) => {
     const { messageId, newContent } = event.detail;
-    const messageElement = event.target?.closest?.('chat-message');
+    const messageElement = event.target?.closest?.("chat-message");
     if (!messageElement || !messageId || !newContent) {
       return;
     }
@@ -2213,26 +2531,28 @@ function initAlfredUI() {
     }
 
     // Send the edit request to the backend
-    pendingKidcoreStreamingFx = newContent.toLowerCase().includes('glue shimmer') ? 'glue-shimmer' : null;
+    pendingKidcoreStreamingFx = newContent.toLowerCase().includes("glue shimmer")
+      ? "glue-shimmer"
+      : null;
     scrollToBottom();
     sendChatEditRequest(messageId, newContent, { playSound: false });
   });
 
   // Completion menu selection
-  completionMenu.addEventListener('select', (e) => {
+  completionMenu.addEventListener("select", (e) => {
     const selected = e.detail;
     const value = messageInput.value;
     const cursorPosition = messageInput.selectionStart;
 
     // Replace current command with selected one
     const textBeforeCursor = value.substring(0, cursorPosition);
-    const lines = textBeforeCursor.split('\n');
+    const lines = textBeforeCursor.split("\n");
     const currentLineIndex = lines.length - 1;
     const currentLine = lines[currentLineIndex];
 
-    if (currentLine.startsWith('/')) {
-      lines[currentLineIndex] = selected.value + ' ';
-      const newTextBefore = lines.join('\n');
+    if (currentLine.startsWith("/")) {
+      lines[currentLineIndex] = `${selected.value} `;
+      const newTextBefore = lines.join("\n");
       const newValue = newTextBefore + value.substring(cursorPosition);
 
       messageInput.value = newValue;
@@ -2249,14 +2569,14 @@ function initAlfredUI() {
   const MOBILE_BREAKPOINT = 768;
   let isHeaderHidden = false;
   let lastScrollTop = chatContainer?.scrollTop || 0;
-  let scrollDirection = 'none';
+  let scrollDirection = "none";
   let scrollDistance = 0;
   let scrollTimeout = null;
 
   // Guard states for top/bottom bounce handling
-  let hasTopLeft = false;     // Must scroll down from top before header can hide
-  let hasBottomLeft = false;  // Must scroll up from bottom before header can show (when hidden)
-  let scrollHandlerInitialized = false;  // First scroll event just initializes state
+  let hasTopLeft = false; // Must scroll down from top before header can hide
+  let hasBottomLeft = false; // Must scroll up from bottom before header can show (when hidden)
+  let scrollHandlerInitialized = false; // First scroll event just initializes state
 
   function getScrollInfo() {
     const scrollTop = chatContainer.scrollTop;
@@ -2269,7 +2589,15 @@ function initAlfredUI() {
     const hideThreshold = Math.max(minThreshold, clientHeight * 0.08); // 8% to hide
     const showThreshold = Math.max(minThreshold * 0.5, clientHeight * 0.04); // 4% to show
     const edgeTolerance = Math.min(80, clientHeight * 0.12); // 12% tolerance for top/bottom
-    return { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance, clientHeight };
+    return {
+      scrollTop,
+      maxScroll,
+      distanceFromBottom,
+      hideThreshold,
+      showThreshold,
+      edgeTolerance,
+      clientHeight,
+    };
   }
 
   function handleScroll() {
@@ -2281,8 +2609,15 @@ function initAlfredUI() {
       return;
     }
 
-    const { scrollTop, maxScroll, distanceFromBottom, hideThreshold, showThreshold, edgeTolerance } = getScrollInfo();
-    
+    const {
+      scrollTop,
+      maxScroll,
+      distanceFromBottom,
+      hideThreshold,
+      showThreshold,
+      edgeTolerance,
+    } = getScrollInfo();
+
     // Always reset lastScrollTop on first real scroll to prevent jumpiness
     if (!scrollHandlerInitialized) {
       lastScrollTop = scrollTop;
@@ -2328,7 +2663,7 @@ function initAlfredUI() {
     }
 
     // Detect direction
-    const newDirection = delta > 0 ? 'down' : 'up';
+    const newDirection = delta > 0 ? "down" : "up";
 
     // Reset distance on direction change
     if (newDirection !== scrollDirection) {
@@ -2340,7 +2675,7 @@ function initAlfredUI() {
     scrollDistance += Math.abs(delta);
 
     // Handle scroll down - hide header after threshold (only if we've left the top)
-    if (scrollDirection === 'down' && !isHeaderHidden && hasTopLeft) {
+    if (scrollDirection === "down" && !isHeaderHidden && hasTopLeft) {
       if (scrollDistance > hideThreshold) {
         hideHeader();
         scrollDistance = 0;
@@ -2348,7 +2683,7 @@ function initAlfredUI() {
     }
 
     // Handle scroll up - show header after threshold (only if we've left the bottom)
-    if (scrollDirection === 'up' && isHeaderHidden && hasBottomLeft) {
+    if (scrollDirection === "up" && isHeaderHidden && hasBottomLeft) {
       if (scrollDistance > showThreshold) {
         showHeader();
         scrollDistance = 0;
@@ -2357,32 +2692,32 @@ function initAlfredUI() {
 
     // Reset scroll tracking after inactivity
     scrollTimeout = setTimeout(() => {
-      scrollDirection = 'none';
+      scrollDirection = "none";
       scrollDistance = 0;
     }, 200);
   }
 
   function hideHeader() {
-    const header = document.querySelector('.app-header');
+    const header = document.querySelector(".app-header");
     if (header) {
-      header.classList.add('hidden');
+      header.classList.add("hidden");
     }
     isHeaderHidden = true;
   }
 
   function showHeader() {
-    const header = document.querySelector('.app-header');
+    const header = document.querySelector(".app-header");
     if (header) {
-      header.classList.remove('hidden');
+      header.classList.remove("hidden");
     }
     isHeaderHidden = false;
   }
 
   // Attach scroll listener
-  chatContainer.addEventListener('scroll', handleScroll, { passive: true });
+  chatContainer.addEventListener("scroll", handleScroll, { passive: true });
 
   // Restore header when focusing the composer
-  messageInput.addEventListener('focus', () => {
+  messageInput.addEventListener("focus", () => {
     if (isHeaderHidden && window.innerWidth <= MOBILE_BREAKPOINT) {
       showHeader();
     }
@@ -2390,10 +2725,10 @@ function initAlfredUI() {
   });
 
   // Handle scroll for mobile chrome collapse
-  window.addEventListener('scroll', handleScroll);
+  window.addEventListener("scroll", handleScroll);
 
   // Handle window resize to reset hidden state on desktop
-  window.addEventListener('resize', () => {
+  window.addEventListener("resize", () => {
     if (window.innerWidth > MOBILE_BREAKPOINT && isHeaderHidden) {
       showHeader();
     }
@@ -2406,27 +2741,27 @@ function initAlfredUI() {
   // Focus input on load
   messageInput.focus();
 
-  console.log('Alfred Web UI initialized');
+  console.log("Alfred Web UI initialized");
 }
 
 // Add copy buttons to code blocks
 function addCopyButtons() {
-  const codeBlocks = document.querySelectorAll('pre code');
+  const codeBlocks = document.querySelectorAll("pre code");
   codeBlocks.forEach((codeBlock) => {
     // Skip if already wrapped
-    if (codeBlock.closest('.code-block-wrapper')) return;
+    if (codeBlock.closest(".code-block-wrapper")) return;
 
     const pre = codeBlock.parentElement;
-    const wrapper = document.createElement('div');
-    wrapper.className = 'code-block-wrapper';
+    const wrapper = document.createElement("div");
+    wrapper.className = "code-block-wrapper";
 
     // Create copy button - same icon as message copy
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'code-copy-btn';
-    copyBtn.innerHTML = '⧉';
-    copyBtn.title = 'Copy code';
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "code-copy-btn";
+    copyBtn.innerHTML = "⧉";
+    copyBtn.title = "Copy code";
 
-    copyBtn.addEventListener('click', async (e) => {
+    copyBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const textToCopy = codeBlock.textContent;
 
@@ -2437,32 +2772,32 @@ function addCopyButtons() {
           showCopyFeedback(copyBtn);
           return;
         } catch (err) {
-          console.log('Clipboard API failed, trying fallback');
+          console.log("Clipboard API failed, trying fallback");
         }
       }
 
       // Fallback: use execCommand
       try {
-        const textarea = document.createElement('textarea');
+        const textarea = document.createElement("textarea");
         textarea.value = textToCopy;
-        textarea.style.position = 'fixed';
-        textarea.style.left = '-9999px';
-        textarea.style.top = '0';
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
         document.body.appendChild(textarea);
         textarea.focus();
         textarea.select();
 
-        const successful = document.execCommand('copy');
+        const successful = document.execCommand("copy");
         document.body.removeChild(textarea);
 
         if (successful) {
           showCopyFeedback(copyBtn);
         } else {
-          console.error('execCommand copy failed');
+          console.error("execCommand copy failed");
           showCopyFailed(copyBtn);
         }
       } catch (err) {
-        console.error('Failed to copy:', err);
+        console.error("Failed to copy:", err);
         showCopyFailed(copyBtn);
       }
     });
@@ -2474,29 +2809,29 @@ function addCopyButtons() {
   });
 
   // Floating settings button (mobile) - triggers the settings-menu
-  const floatingSettingsBtn = document.getElementById('floating-settings-btn');
+  const floatingSettingsBtn = document.getElementById("floating-settings-btn");
   if (floatingSettingsBtn) {
     // Show floating button on mobile (remove hidden attribute)
     if (window.innerWidth <= 768) {
-      floatingSettingsBtn.removeAttribute('hidden');
+      floatingSettingsBtn.removeAttribute("hidden");
     }
 
     // Update visibility on resize
-    window.addEventListener('resize', () => {
+    window.addEventListener("resize", () => {
       if (window.innerWidth <= 768) {
-        floatingSettingsBtn.removeAttribute('hidden');
+        floatingSettingsBtn.removeAttribute("hidden");
       } else {
-        floatingSettingsBtn.setAttribute('hidden', '');
+        floatingSettingsBtn.setAttribute("hidden", "");
       }
     });
 
     // Click handler - open settings menu
-    floatingSettingsBtn.addEventListener('click', (event) => {
+    floatingSettingsBtn.addEventListener("click", (event) => {
       event.stopPropagation();
-      const settingsMenu = document.querySelector('settings-menu');
+      const settingsMenu = document.querySelector("settings-menu");
       if (settingsMenu) {
         // Toggle settings menu by clicking its toggle button
-        const toggleBtn = settingsMenu.querySelector('.settings-toggle');
+        const toggleBtn = settingsMenu.querySelector(".settings-toggle");
         if (toggleBtn) {
           toggleBtn.click();
         }
@@ -2508,22 +2843,22 @@ function addCopyButtons() {
 function showCopyFeedback(btn) {
   if (!btn) return;
   const originalText = btn.innerHTML;
-  btn.innerHTML = '✓';
-  btn.classList.add('copied');
+  btn.innerHTML = "✓";
+  btn.classList.add("copied");
   setTimeout(() => {
     btn.innerHTML = originalText;
-    btn.classList.remove('copied');
+    btn.classList.remove("copied");
   }, 800);
 }
 
 function showCopyFailed(btn) {
   if (!btn) return;
   const originalText = btn.innerHTML;
-  btn.innerHTML = '✗';
-  btn.classList.add('failed');
+  btn.innerHTML = "✗";
+  btn.classList.add("failed");
   setTimeout(() => {
     btn.innerHTML = originalText;
-    btn.classList.remove('failed');
+    btn.classList.remove("failed");
   }, 1500);
 }
 
@@ -2533,8 +2868,8 @@ function showCopyFailed(btn) {
 
 function initCommandPalette() {
   // Only initialize if the library is loaded
-  if (typeof window.CommandPaletteLib === 'undefined') {
-    console.warn('CommandPaletteLib not loaded, skipping palette initialization');
+  if (typeof window.CommandPaletteLib === "undefined") {
+    console.warn("CommandPaletteLib not loaded, skipping palette initialization");
     return;
   }
 
@@ -2542,65 +2877,65 @@ function initCommandPalette() {
 
   // Create palette instance
   const palette = new CommandPalette({
-    placeholder: 'Type a command...'
+    placeholder: "Type a command...",
   });
 
   // Register default commands
   CommandRegistry.register({
-    id: 'clear-chat',
-    title: 'Clear Chat',
-    keywords: ['reset', 'clean', 'delete'],
-    shortcut: 'Ctrl+Shift+C',
+    id: "clear-chat",
+    title: "Clear Chat",
+    keywords: ["reset", "clean", "delete"],
+    shortcut: "Ctrl+Shift+C",
     action: () => {
-      if (confirm('Clear all messages?')) {
-        const messageList = document.getElementById('message-list');
+      if (confirm("Clear all messages?")) {
+        const messageList = document.getElementById("message-list");
         if (messageList) {
-          messageList.innerHTML = '';
-          window.addSystemMessage?.('Chat cleared');
+          messageList.innerHTML = "";
+          window.addSystemMessage?.("Chat cleared");
         }
       }
-    }
+    },
   });
 
   CommandRegistry.register({
-    id: 'toggle-theme',
-    title: 'Toggle Theme',
-    keywords: ['dark', 'light', 'mode', 'color'],
-    shortcut: 'Ctrl+Shift+T',
+    id: "toggle-theme",
+    title: "Toggle Theme",
+    keywords: ["dark", "light", "mode", "color"],
+    shortcut: "Ctrl+Shift+T",
     action: () => {
-      const currentTheme = document.documentElement.getAttribute('data-theme');
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
+      const currentTheme = document.documentElement.getAttribute("data-theme");
+      const newTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", newTheme);
+      localStorage.setItem("theme", newTheme);
       window.addSystemMessage?.(`Theme changed to ${newTheme}`);
-    }
+    },
   });
 
   CommandRegistry.register({
-    id: 'new-session',
-    title: 'New Session',
-    keywords: ['create', 'start', 'reset'],
+    id: "new-session",
+    title: "New Session",
+    keywords: ["create", "start", "reset"],
     action: () => {
-      if (confirm('Start a new session? Current conversation will be archived.')) {
+      if (confirm("Start a new session? Current conversation will be archived.")) {
         window.location.reload();
       }
-    }
+    },
   });
 
   CommandRegistry.register({
-    id: 'focus-input',
-    title: 'Focus Input',
-    keywords: ['type', 'write', 'compose'],
-    shortcut: '/',
+    id: "focus-input",
+    title: "Focus Input",
+    keywords: ["type", "write", "compose"],
+    shortcut: "/",
     action: () => {
-      const input = document.getElementById('message-input');
+      const input = document.getElementById("message-input");
       if (input) {
         input.focus();
       }
-    }
+    },
   });
 
-  console.log('Command palette initialized with', CommandRegistry.getAll().length, 'commands');
+  console.log("Command palette initialized with", CommandRegistry.getAll().length, "commands");
 
   // Store palette instance globally for debugging
   window.alfredCommandPalette = palette;
@@ -2612,11 +2947,13 @@ function initCommandPalette() {
 
 function initKeyboardShortcuts() {
   // Only initialize if the library is loaded
-  if (typeof window.ShortcutRegistry === 'undefined' ||
-      typeof window.KeyboardManager === 'undefined' ||
-      typeof window.HelpModal === 'undefined' ||
-      typeof window.MessageNavigator === 'undefined') {
-    console.warn('Keyboard libraries not loaded, skipping keyboard shortcuts initialization');
+  if (
+    typeof window.ShortcutRegistry === "undefined" ||
+    typeof window.KeyboardManager === "undefined" ||
+    typeof window.HelpModal === "undefined" ||
+    typeof window.MessageNavigator === "undefined"
+  ) {
+    console.warn("Keyboard libraries not loaded, skipping keyboard shortcuts initialization");
     return;
   }
 
@@ -2635,56 +2972,56 @@ function initKeyboardShortcuts() {
 
   // Global shortcuts
   ShortcutRegistry.register({
-    id: 'show-help',
-    key: '?',
-    description: 'Show keyboard shortcuts',
-    category: 'Global',
-    action: () => helpModal.toggle()
+    id: "show-help",
+    key: "?",
+    description: "Show keyboard shortcuts",
+    category: "Global",
+    action: () => helpModal.toggle(),
   });
 
   ShortcutRegistry.register({
-    id: 'toggle-help',
-    key: 'Shift+/',
-    description: 'Show keyboard shortcuts',
-    category: 'Global',
-    action: () => helpModal.toggle()
+    id: "toggle-help",
+    key: "Shift+/",
+    description: "Show keyboard shortcuts",
+    category: "Global",
+    action: () => helpModal.toggle(),
   });
 
   // Navigation shortcuts
   ShortcutRegistry.register({
-    id: 'focus-previous-message',
-    key: 'ArrowUp',
-    description: 'Previous message',
-    category: 'Navigation',
-    context: 'message-focused',
-    action: () => messageNavigator.previous()
+    id: "focus-previous-message",
+    key: "ArrowUp",
+    description: "Previous message",
+    category: "Navigation",
+    context: "message-focused",
+    action: () => messageNavigator.previous(),
   });
 
   ShortcutRegistry.register({
-    id: 'focus-next-message',
-    key: 'ArrowDown',
-    description: 'Next message',
-    category: 'Navigation',
-    context: 'message-focused',
-    action: () => messageNavigator.next()
+    id: "focus-next-message",
+    key: "ArrowDown",
+    description: "Next message",
+    category: "Navigation",
+    context: "message-focused",
+    action: () => messageNavigator.next(),
   });
 
   ShortcutRegistry.register({
-    id: 'focus-first-message',
-    key: 'Home',
-    description: 'First message',
-    category: 'Navigation',
-    context: 'message-focused',
-    action: () => messageNavigator.first()
+    id: "focus-first-message",
+    key: "Home",
+    description: "First message",
+    category: "Navigation",
+    context: "message-focused",
+    action: () => messageNavigator.first(),
   });
 
   ShortcutRegistry.register({
-    id: 'focus-last-message',
-    key: 'End',
-    description: 'Last message',
-    category: 'Navigation',
-    context: 'message-focused',
-    action: () => messageNavigator.last()
+    id: "focus-last-message",
+    key: "End",
+    description: "Last message",
+    category: "Navigation",
+    context: "message-focused",
+    action: () => messageNavigator.last(),
   });
 
   // Make messages focusable when they're added
@@ -2696,11 +3033,11 @@ function initKeyboardShortcuts() {
   makeMessagesFocusable();
 
   // Watch for new messages
-  const messageList = document.getElementById('message-list');
+  const messageList = document.getElementById("message-list");
   if (messageList) {
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+        if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
           makeMessagesFocusable();
         }
       }
@@ -2708,7 +3045,11 @@ function initKeyboardShortcuts() {
     observer.observe(messageList, { childList: true });
   }
 
-  console.log('Keyboard shortcuts initialized with', ShortcutRegistry.getAllFlat().length, 'shortcuts');
+  console.log(
+    "Keyboard shortcuts initialized with",
+    ShortcutRegistry.getAllFlat().length,
+    "shortcuts",
+  );
 
   // Store instances globally for debugging
   window.alfredKeyboardManager = keyboardManager;
@@ -2722,10 +3063,12 @@ function initKeyboardShortcuts() {
 
 function initContextMenus() {
   // Only initialize if the library is loaded
-  if (typeof window.ContextMenuLib === 'undefined' ||
-      typeof window.MessageContextMenu === 'undefined' ||
-      typeof window.CodeContextMenu === 'undefined') {
-    console.warn('Context menu libraries not loaded, skipping context menu initialization');
+  if (
+    typeof window.ContextMenuLib === "undefined" ||
+    typeof window.MessageContextMenu === "undefined" ||
+    typeof window.CodeContextMenu === "undefined"
+  ) {
+    console.warn("Context menu libraries not loaded, skipping context menu initialization");
     return;
   }
 
@@ -2738,22 +3081,22 @@ function initContextMenus() {
   CodeContextMenu.attachToAllCodeBlocks();
 
   // Watch for new messages and code blocks
-  const messageList = document.getElementById('message-list');
+  const messageList = document.getElementById("message-list");
   if (messageList) {
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        if (mutation.type === 'childList') {
+        if (mutation.type === "childList") {
           // Check for new messages
-          mutation.addedNodes.forEach(node => {
+          mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               // If it's a message
-              if (node.classList && node.classList.contains('message')) {
+              if (node.classList && node.classList.contains("message")) {
                 MessageContextMenu.attachMessageMenu(node);
               }
               // If it contains messages
               if (node.querySelectorAll) {
-                const messages = node.querySelectorAll('.message');
-                messages.forEach(msg => MessageContextMenu.attachMessageMenu(msg));
+                const messages = node.querySelectorAll(".message");
+                messages.forEach((msg) => MessageContextMenu.attachMessageMenu(msg));
               }
             }
           });
@@ -2764,7 +3107,7 @@ function initContextMenus() {
   }
 
   // Watch for code blocks (they may be added when messages render)
-  const chatContainer = document.getElementById('chat-container');
+  const chatContainer = document.getElementById("chat-container");
   if (chatContainer) {
     const codeObserver = new MutationObserver(() => {
       CodeContextMenu.attachToAllCodeBlocks();
@@ -2772,7 +3115,7 @@ function initContextMenus() {
     codeObserver.observe(chatContainer, { childList: true, subtree: true });
   }
 
-  console.log('Context menus initialized');
+  console.log("Context menus initialized");
 }
 
 // ============================================
@@ -2781,17 +3124,13 @@ function initContextMenus() {
 
 function initNotifications() {
   // Only initialize if libraries are loaded
-  if (typeof window.NotificationsLib === 'undefined') {
-    console.warn('Notifications library not loaded, skipping notifications');
+  if (typeof window.NotificationsLib === "undefined") {
+    console.warn("Notifications library not loaded, skipping notifications");
     return;
   }
 
-  const {
-    NotificationPermissionManager,
-    NotificationService,
-    FaviconBadge,
-    Toast
-  } = window.NotificationsLib;
+  const { NotificationPermissionManager, NotificationService, FaviconBadge, Toast } =
+    window.NotificationsLib;
 
   // Initialize permission manager
   NotificationPermissionManager.init();
@@ -2800,7 +3139,7 @@ function initNotifications() {
   FaviconBadge.init();
 
   // Listen for WebSocket response completion
-  window.addEventListener('websocket:message-complete', async (e) => {
+  window.addEventListener("websocket:message-complete", async (e) => {
     const { message, preview } = e.detail || {};
 
     // Only notify if tab is hidden
@@ -2814,11 +3153,11 @@ function initNotifications() {
     // Try browser notification
     const permission = NotificationPermissionManager.getPermission();
 
-    if (permission === 'granted') {
+    if (permission === "granted") {
       await NotificationService.showResponseComplete(preview || message);
-    } else if (permission === 'denied') {
+    } else if (permission === "denied") {
       // Show in-app toast instead
-      Toast.info('New response from Alfred', { duration: 5000 });
+      Toast.info("New response from Alfred", { duration: 5000 });
     }
     // If permission is 'default', don't show anything (user hasn't decided)
   });
@@ -2826,13 +3165,13 @@ function initNotifications() {
   // Request permission on first message send
   const originalSendMessage = window.sendMessage;
   if (originalSendMessage) {
-    window.sendMessage = async function(...args) {
+    window.sendMessage = async function (...args) {
       // Request permission if needed
       if (NotificationPermissionManager.shouldAsk()) {
         const result = await NotificationPermissionManager.request();
-        if (result === 'denied') {
-          Toast.warning('Notifications denied. Enable in browser settings for background alerts.', {
-            duration: 8000
+        if (result === "denied") {
+          Toast.warning("Notifications denied. Enable in browser settings for background alerts.", {
+            duration: 8000,
           });
         }
       }
@@ -2840,14 +3179,14 @@ function initNotifications() {
     };
   }
 
-  console.log('Notifications initialized');
+  console.log("Notifications initialized");
 
   // Store globally
   window.alfredNotifications = {
     permission: NotificationPermissionManager,
     service: NotificationService,
     badge: FaviconBadge,
-    toast: Toast
+    toast: Toast,
   };
 }
 
@@ -2857,17 +3196,25 @@ function initNotifications() {
 
 function initDragDrop() {
   // Only initialize if libraries are loaded
-  if (typeof window.DragDropLib === 'undefined') {
-    console.warn('Drag-drop library not loaded, skipping drag-drop');
+  if (typeof window.DragDropLib === "undefined") {
+    console.warn("Drag-drop library not loaded, skipping drag-drop");
     return;
   }
 
-  const { DragDropManager, FileValidation, ImageCompression, FileUpload, ClipboardHandler, DropZoneVisual } = window.DragDropLib;
+  const {
+    DragDropManager,
+    FileValidation,
+    ImageCompression,
+    FileUpload,
+    ClipboardHandler,
+    DropZoneVisual,
+  } = window.DragDropLib;
 
   // Find chat container
-  const chatContainer = document.getElementById('chat-container') || document.getElementById('message-list');
+  const chatContainer =
+    document.getElementById("chat-container") || document.getElementById("message-list");
   if (!chatContainer) {
-    console.warn('Chat container not found, drag-drop disabled');
+    console.warn("Chat container not found, drag-drop disabled");
     return;
   }
 
@@ -2893,7 +3240,7 @@ function initDragDrop() {
 
     // Show errors for invalid files
     invalid.forEach(({ file, error }) => {
-      console.warn('Invalid file:', file.name, error);
+      console.warn("Invalid file:", file.name, error);
       if (window.NotificationsLib?.Toast) {
         window.NotificationsLib.Toast.error(error);
       }
@@ -2904,9 +3251,9 @@ function initDragDrop() {
     // Get WebSocket client
     const wsClient = window.alfredWebSocketClient;
     if (!wsClient) {
-      console.error('WebSocket client not available');
+      console.error("WebSocket client not available");
       if (window.NotificationsLib?.Toast) {
-        window.NotificationsLib.Toast.error('Cannot upload: not connected to server');
+        window.NotificationsLib.Toast.error("Cannot upload: not connected to server");
       }
       return;
     }
@@ -2931,10 +3278,9 @@ function initDragDrop() {
           window.NotificationsLib.Toast.success(`${file.name} uploaded`);
         }
 
-        console.log('Upload started:', result);
-
+        console.log("Upload started:", result);
       } catch (error) {
-        console.error('Upload failed:', file.name, error);
+        console.error("Upload failed:", file.name, error);
         if (window.NotificationsLib?.Toast) {
           window.NotificationsLib.Toast.error(`Failed to upload ${file.name}: ${error.message}`);
         }
@@ -2961,7 +3307,7 @@ function initDragDrop() {
     const wsClient = window.alfredWebSocketClient;
     if (!wsClient) {
       if (window.NotificationsLib?.Toast) {
-        window.NotificationsLib.Toast.error('Cannot upload: not connected to server');
+        window.NotificationsLib.Toast.error("Cannot upload: not connected to server");
       }
       return;
     }
@@ -2985,12 +3331,12 @@ function initDragDrop() {
 
   // Handle server responses
   const originalOnMessage = wsClient.onmessage;
-  wsClient.addEventListener('message', (event) => {
+  wsClient.addEventListener("message", (event) => {
     const message = event.detail || event.data;
-    if (typeof message === 'object' && message.type === 'file.received') {
+    if (typeof message === "object" && message.type === "file.received") {
       const result = FileUpload.handleResponse(message);
       if (result) {
-        if (result.status === 'accepted') {
+        if (result.status === "accepted") {
           if (window.NotificationsLib?.Toast) {
             window.NotificationsLib.Toast.success(`${result.file.name} ready`);
           }
@@ -3006,26 +3352,26 @@ function initDragDrop() {
   // Register upload command in palette
   if (window.registerCommand) {
     window.registerCommand({
-      id: 'upload-file',
-      title: 'Upload File',
-      keywords: ['upload', 'file', 'attach', 'image'],
+      id: "upload-file",
+      title: "Upload File",
+      keywords: ["upload", "file", "attach", "image"],
       action: () => {
         // Create hidden file input
-        const input = document.createElement('input');
-        input.type = 'file';
+        const input = document.createElement("input");
+        input.type = "file";
         input.multiple = true;
-        input.accept = FileValidation.ALLOWED_MIME_TYPES.join(',');
+        input.accept = FileValidation.ALLOWED_MIME_TYPES.join(",");
         input.onchange = (e) => {
           if (e.target.files.length > 0) {
             manager.onFilesDropped?.(Array.from(e.target.files));
           }
         };
         input.click();
-      }
+      },
     });
   }
 
-  console.log('Drag-drop initialized');
+  console.log("Drag-drop initialized");
 
   // Store globally
   window.alfredDragDrop = {
@@ -3048,15 +3394,15 @@ let swipeToReplyInstance = null;
 function initMobileGestures() {
   // Only initialize on touch devices
   if (!isTouchDevice()) {
-    console.log('[Gestures] Touch device not detected, skipping gesture initialization');
+    console.log("[Gestures] Touch device not detected, skipping gesture initialization");
     return;
   }
 
-  console.log('[Gestures] Initializing mobile gestures...');
+  console.log("[Gestures] Initializing mobile gestures...");
 
   // Initialize Swipe-to-Reply on message list
-  const messageList = document.getElementById('message-list');
-  const messageInput = document.getElementById('message-input');
+  const messageList = document.getElementById("message-list");
+  const messageInput = document.getElementById("message-input");
 
   if (messageList && messageInput) {
     swipeToReplyInstance = new SwipeToReply({
@@ -3064,43 +3410,43 @@ function initMobileGestures() {
       onReply: (messageId, content) => {
         // Format as markdown quote and populate input
         const quotedContent = content
-          .split('\n')
-          .map(line => `> ${line}`)
-          .join('\n');
+          .split("\n")
+          .map((line) => `> ${line}`)
+          .join("\n");
         messageInput.value = `${quotedContent}\n\n`;
         messageInput.focus();
 
         // Trigger input event to resize textarea
-        messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+        messageInput.dispatchEvent(new Event("input", { bubbles: true }));
 
         // Haptic feedback
         if (navigator.vibrate) {
           navigator.vibrate([20, 30, 20]);
         }
-      }
+      },
     });
 
     // Attach to existing messages
     swipeToReplyInstance.attachToAllMessages(messageList);
 
-    console.log('[Gestures] Swipe-to-reply initialized');
+    console.log("[Gestures] Swipe-to-reply initialized");
   }
 
   // Initialize fullscreen compose on mobile
   if (messageInput) {
     const fullscreenResult = initializeFullscreenCompose(messageInput, {
-      placeholder: 'Message Alfred...',
+      placeholder: "Message Alfred...",
       onSubmit: (content) => {
         // Send message via WebSocket
         const wsClient = window.alfredWebSocketClient;
-        if (wsClient && typeof wsClient.sendCommand === 'function') {
+        if (wsClient && typeof wsClient.sendCommand === "function") {
           wsClient.sendCommand(content);
         }
-      }
+      },
     });
 
     if (fullscreenResult) {
-      console.log('[Gestures] Fullscreen compose initialized');
+      console.log("[Gestures] Fullscreen compose initialized");
     }
   }
 
@@ -3113,7 +3459,7 @@ function initMobileGestures() {
     // Fullscreen compose cleanup is handled by its own destroy function
   };
 
-  console.log('[Gestures] Mobile gestures initialized');
+  console.log("[Gestures] Mobile gestures initialized");
 }
 
 /**
@@ -3123,9 +3469,9 @@ function initMobileGestures() {
 function initSearch() {
   try {
     initializeSearch();
-    console.log('[Search] In-conversation search initialized (Ctrl+F)');
+    console.log("[Search] In-conversation search initialized (Ctrl+F)");
   } catch (error) {
-    console.error('[Search] Failed to initialize search:', error);
+    console.error("[Search] Failed to initialize search:", error);
   }
 }
 
@@ -3136,9 +3482,9 @@ function initSearch() {
 function initQuickSwitcher() {
   try {
     initializeQuickSwitcher();
-    console.log('[QuickSwitcher] Quick session switcher initialized (Ctrl+Tab)');
+    console.log("[QuickSwitcher] Quick session switcher initialized (Ctrl+Tab)");
   } catch (error) {
-    console.error('[QuickSwitcher] Failed to initialize quick switcher:', error);
+    console.error("[QuickSwitcher] Failed to initialize quick switcher:", error);
   }
 }
 
@@ -3148,13 +3494,13 @@ function initQuickSwitcher() {
  */
 function initMentions() {
   try {
-    const composer = document.getElementById('message-input');
+    const composer = document.getElementById("message-input");
     if (composer) {
       initializeMentions({ composer });
-      console.log('[Mentions] @ mentions initialized');
+      console.log("[Mentions] @ mentions initialized");
     }
   } catch (error) {
-    console.error('[Mentions] Failed to initialize mentions:', error);
+    console.error("[Mentions] Failed to initialize mentions:", error);
   }
 }
 
@@ -3175,14 +3521,14 @@ function initAll() {
   initSearch();
   initQuickSwitcher();
   initMentions();
-  initPWA({ 
+  initPWA({
     debug: window.APP_CONFIG?.debug,
-    getComposer: () => document.getElementById('user-input'),
+    getComposer: () => document.getElementById("user-input"),
   });
   registerServiceWorker();
 
   // Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     if (mobileGesturesCleanup) {
       mobileGesturesCleanup();
     }
@@ -3194,10 +3540,10 @@ function initAll() {
  */
 function initOffline() {
   // Create offline indicator element if it doesn't exist
-  let offlineIndicator = document.getElementById('offline-indicator');
+  let offlineIndicator = document.getElementById("offline-indicator");
   if (!offlineIndicator) {
-    offlineIndicator = document.createElement('offline-indicator');
-    offlineIndicator.id = 'offline-indicator';
+    offlineIndicator = document.createElement("offline-indicator");
+    offlineIndicator.id = "offline-indicator";
     document.body.appendChild(offlineIndicator);
   }
 
@@ -3205,12 +3551,12 @@ function initOffline() {
   const monitor = new ConnectionMonitor();
 
   // Listen for connection state changes
-  monitor.addEventListener('statechange', (event) => {
+  monitor.addEventListener("statechange", (event) => {
     const { state, previousState } = event.detail;
 
     // Update offline indicator
     if (offlineIndicator) {
-      offlineIndicator.setAttribute('state', state);
+      offlineIndicator.setAttribute("state", state);
     }
 
     // Log for debugging
@@ -3232,17 +3578,17 @@ function initOffline() {
  */
 function initPullToRefresh() {
   const PullToRefreshDetector = window.PullToRefresh?.PullToRefreshDetector;
-  const chatContainer = document.getElementById('chat-container') || document.getElementById('message-list');
+  const chatContainer =
+    document.getElementById("chat-container") || document.getElementById("message-list");
 
   if (!PullToRefreshDetector || !chatContainer) {
     return;
   }
 
-  const isTouchCapable = (
-    'ontouchstart' in window ||
+  const isTouchCapable =
+    "ontouchstart" in window ||
     navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.('(pointer: coarse)')?.matches
-  );
+    window.matchMedia?.("(pointer: coarse)")?.matches;
 
   if (!isTouchCapable) {
     return;
@@ -3253,13 +3599,13 @@ function initPullToRefresh() {
     return;
   }
 
-  let indicator = document.getElementById('pull-to-refresh-indicator');
+  let indicator = document.getElementById("pull-to-refresh-indicator");
   if (!indicator) {
-    indicator = document.createElement('div');
-    indicator.id = 'pull-to-refresh-indicator';
-    indicator.setAttribute('role', 'status');
-    indicator.setAttribute('aria-live', 'polite');
-    indicator.setAttribute('aria-atomic', 'true');
+    indicator = document.createElement("div");
+    indicator.id = "pull-to-refresh-indicator";
+    indicator.setAttribute("role", "status");
+    indicator.setAttribute("aria-live", "polite");
+    indicator.setAttribute("aria-atomic", "true");
     indicator.style.cssText = `
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -3290,8 +3636,8 @@ function initPullToRefresh() {
     document.body.appendChild(indicator);
   }
 
-  const icon = indicator.querySelector('.pull-to-refresh-indicator__icon');
-  const label = indicator.querySelector('.pull-to-refresh-indicator__label');
+  const icon = indicator.querySelector(".pull-to-refresh-indicator__icon");
+  const label = indicator.querySelector(".pull-to-refresh-indicator__label");
   let refreshTimeout = null;
 
   function clearRefreshTimeout() {
@@ -3303,49 +3649,49 @@ function initPullToRefresh() {
 
   function renderIndicator(state, detail = null) {
     const progress = Math.max(0, Math.min(detail?.progress ?? 0, 1));
-    const visible = state !== 'idle';
+    const visible = state !== "idle";
 
     indicator.dataset.pullState = state;
     indicator.dataset.pullProgress = String(Math.round(progress * 100));
-    indicator.style.opacity = visible ? '1' : '0';
+    indicator.style.opacity = visible ? "1" : "0";
     indicator.style.transform = visible
-      ? 'translateX(-50%) translateY(0) scale(1)'
-      : 'translateX(-50%) translateY(-10px) scale(0.96)';
+      ? "translateX(-50%) translateY(0) scale(1)"
+      : "translateX(-50%) translateY(-10px) scale(0.96)";
 
     if (icon) {
-      icon.style.display = 'inline-flex';
-      icon.style.width = '1em';
-      icon.style.justifyContent = 'center';
-      icon.style.transition = state === 'refreshing' ? 'none' : 'transform 80ms linear';
-      icon.style.transform = state === 'refreshing'
-        ? 'rotate(0deg)'
-        : `rotate(${Math.round(progress * 180)}deg)`;
+      icon.style.display = "inline-flex";
+      icon.style.width = "1em";
+      icon.style.justifyContent = "center";
+      icon.style.transition = state === "refreshing" ? "none" : "transform 80ms linear";
+      icon.style.transform =
+        state === "refreshing" ? "rotate(0deg)" : `rotate(${Math.round(progress * 180)}deg)`;
     }
 
     if (label) {
-      label.textContent = state === 'refreshing'
-        ? 'Refreshing…'
-        : state === 'ready'
-          ? 'Release to refresh'
-          : 'Pull to refresh';
+      label.textContent =
+        state === "refreshing"
+          ? "Refreshing…"
+          : state === "ready"
+            ? "Release to refresh"
+            : "Pull to refresh";
     }
   }
 
   function resetIndicator() {
     clearRefreshTimeout();
-    renderIndicator('idle');
+    renderIndicator("idle");
   }
 
   function handleRefresh() {
     clearRefreshTimeout();
-    renderIndicator('refreshing');
+    renderIndicator("refreshing");
     refreshTimeout = window.setTimeout(() => {
       resetIndicator();
     }, 3000);
 
-    if (typeof wsClient.reconnect === 'function') {
+    if (typeof wsClient.reconnect === "function") {
       wsClient.reconnect();
-    } else if (typeof wsClient.connect === 'function') {
+    } else if (typeof wsClient.connect === "function") {
       wsClient.connect();
     }
   }
@@ -3354,8 +3700,8 @@ function initPullToRefresh() {
     threshold: 80,
     topThreshold: 10,
     resistance: 0.5,
-    onPullStart: (detail) => renderIndicator('pulling', detail),
-    onPullMove: (detail) => renderIndicator(detail.progress >= 1 ? 'ready' : 'pulling', detail),
+    onPullStart: (detail) => renderIndicator("pulling", detail),
+    onPullMove: (detail) => renderIndicator(detail.progress >= 1 ? "ready" : "pulling", detail),
     onPullEnd: (detail) => {
       if (!detail?.refreshed) {
         resetIndicator();
@@ -3369,7 +3715,7 @@ function initPullToRefresh() {
     return;
   }
 
-  wsClient.addEventListener('connected', () => {
+  wsClient.addEventListener("connected", () => {
     resetIndicator();
   });
 
@@ -3377,7 +3723,7 @@ function initPullToRefresh() {
     detector,
     indicator,
     resetIndicator,
-    getState: () => indicator.dataset.pullState || 'idle',
+    getState: () => indicator.dataset.pullState || "idle",
   };
 }
 
@@ -3385,45 +3731,46 @@ function initPullToRefresh() {
  * Register Service Worker for offline support
  */
 function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) {
-    console.log('[SW] Service Worker not supported');
+  if (!("serviceWorker" in navigator)) {
+    console.log("[SW] Service Worker not supported");
     return;
   }
 
-  navigator.serviceWorker.register('/static/service-worker.js', {
-    scope: '/'
-  })
+  navigator.serviceWorker
+    .register("/static/service-worker.js", {
+      scope: "/",
+    })
     .then((registration) => {
-      console.log('[SW] Registered:', registration.scope);
+      console.log("[SW] Registered:", registration.scope);
 
       // Handle updates
-      registration.addEventListener('updatefound', () => {
+      registration.addEventListener("updatefound", () => {
         const newWorker = registration.installing;
-        console.log('[SW] New version found');
+        console.log("[SW] New version found");
 
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
             // New version available, show update notification
-            showToast('Update available. Refresh to apply.', 'info');
+            showToast("Update available. Refresh to apply.", "info");
           }
         });
       });
     })
     .catch((error) => {
-      console.error('[SW] Registration failed:', error);
+      console.error("[SW] Registration failed:", error);
     });
 
   // Listen for messages from SW
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data?.type === 'SW_ACTIVATED') {
-      console.log('[SW] Activated and controlling');
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "SW_ACTIVATED") {
+      console.log("[SW] Activated and controlling");
     }
   });
 }
 
 // Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAll);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initAll);
 } else {
   initAll();
 }
