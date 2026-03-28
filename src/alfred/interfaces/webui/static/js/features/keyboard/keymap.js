@@ -9,13 +9,27 @@ const STORAGE_KEY = "alfred-keymap-v1";
 
 /**
  * Default keymap configuration
- * @type {Object.<string, {key: string, ctrl?: boolean, shift?: boolean, alt?: boolean, meta?: boolean, description: string, category: string}>}
+ * @type {Object.<string, {key: string, ctrl?: boolean, shift?: boolean, alt?: boolean, meta?: boolean, description: string, category: string, leader?: { path: Array<{key: string, label: string, description: string}> }}>}
  */
 const DEFAULT_KEYMAP = {
   "help.open": {
     key: "F1",
     description: "Open help",
     category: "Global",
+    leader: {
+      path: [
+        {
+          key: "h",
+          label: "Help",
+          description: "Help and information",
+        },
+        {
+          key: "h",
+          label: "Keyboard help",
+          description: "Open keyboard shortcuts help",
+        },
+      ],
+    },
   },
   "commandPalette.open": {
     key: "P",
@@ -23,6 +37,20 @@ const DEFAULT_KEYMAP = {
     alt: true,
     description: "Open command palette",
     category: "Global",
+    leader: {
+      path: [
+        {
+          key: "p",
+          label: "Palette",
+          description: "Command palette and commands",
+        },
+        {
+          key: "p",
+          label: "Command palette",
+          description: "Open command palette",
+        },
+      ],
+    },
   },
   "search.open": {
     key: "K",
@@ -30,6 +58,20 @@ const DEFAULT_KEYMAP = {
     alt: true,
     description: "Search messages",
     category: "Navigation",
+    leader: {
+      path: [
+        {
+          key: "s",
+          label: "Search",
+          description: "Search and navigation",
+        },
+        {
+          key: "m",
+          label: "Messages",
+          description: "Search in conversation",
+        },
+      ],
+    },
   },
   "quickSwitcher.open": {
     key: "O",
@@ -37,6 +79,20 @@ const DEFAULT_KEYMAP = {
     alt: true,
     description: "Quick switcher",
     category: "Navigation",
+    leader: {
+      path: [
+        {
+          key: "s",
+          label: "Search",
+          description: "Search and navigation",
+        },
+        {
+          key: "q",
+          label: "Quick Switcher",
+          description: "Switch sessions",
+        },
+      ],
+    },
   },
   "mentions.open": {
     key: "M",
@@ -44,6 +100,20 @@ const DEFAULT_KEYMAP = {
     alt: true,
     description: "Mention user/memory",
     category: "Composer",
+    leader: {
+      path: [
+        {
+          key: "s",
+          label: "Search",
+          description: "Search and navigation",
+        },
+        {
+          key: "@",
+          label: "Mentions",
+          description: "Search for @mentions",
+        },
+      ],
+    },
   },
   "context.open": {
     key: "I",
@@ -51,29 +121,45 @@ const DEFAULT_KEYMAP = {
     alt: true,
     description: "Open system context",
     category: "Global",
+    leader: {
+      path: [
+        {
+          key: "h",
+          label: "Help",
+          description: "Help and information",
+        },
+        {
+          key: "i",
+          label: "System info",
+          description: "Show system context",
+        },
+      ],
+    },
   },
   "composer.focus": {
     key: "Escape",
     description: "Focus/unfocus composer",
     category: "Composer",
+    leader: {
+      path: [
+        {
+          key: "c",
+          label: "Chat",
+          description: "Chat and composer actions",
+        },
+        {
+          key: "f",
+          label: "Focus composer",
+          description: "Focus the message input",
+        },
+      ],
+    },
   },
   "composer.leader": {
     key: "S",
     ctrl: true,
     description: "Leader key (tmux-style prefix)",
     category: "Composer",
-  },
-  "help.open.leader.h": {
-    key: "h",
-    leader: true,
-    description: "Open help (Leader + h)",
-    category: "Global",
-  },
-  "help.open.leader.question": {
-    key: "?",
-    leader: true,
-    description: "Open help (Leader + ?)",
-    category: "Global",
   },
   "composer.send": {
     key: "Enter",
@@ -82,20 +168,61 @@ const DEFAULT_KEYMAP = {
   },
   "composer.queue": {
     key: "Enter",
-    leader: true,
     description: "Queue message (Ctrl+S, Enter)",
     category: "Composer",
+    leader: {
+      path: [
+        {
+          key: "c",
+          label: "Chat",
+          description: "Chat and composer actions",
+        },
+        {
+          key: "Enter",
+          label: "Queue message",
+          description: "Queue message",
+        },
+      ],
+    },
   },
   "composer.newline": {
     key: "Enter",
     shift: true,
     description: "New line in composer",
     category: "Composer",
+    leader: {
+      path: [
+        {
+          key: "c",
+          label: "Chat",
+          description: "Chat and composer actions",
+        },
+        {
+          key: "n",
+          label: "New line",
+          description: "Insert newline in composer",
+        },
+      ],
+    },
   },
   "message.edit": {
     key: "e",
     description: "Edit message",
     category: "Message",
+    leader: {
+      path: [
+        {
+          key: "m",
+          label: "Messages",
+          description: "Message navigation and actions",
+        },
+        {
+          key: "e",
+          label: "Edit",
+          description: "Edit focused message",
+        },
+      ],
+    },
   },
   "message.delete": {
     key: "d",
@@ -107,26 +234,96 @@ const DEFAULT_KEYMAP = {
     ctrl: true,
     description: "Copy message",
     category: "Message",
+    leader: {
+      path: [
+        {
+          key: "m",
+          label: "Messages",
+          description: "Message navigation and actions",
+        },
+        {
+          key: "c",
+          label: "Copy",
+          description: "Copy focused message",
+        },
+      ],
+    },
   },
   "navigation.up": {
     key: "ArrowUp",
     description: "Previous message",
     category: "Navigation",
+    leader: {
+      path: [
+        {
+          key: "m",
+          label: "Messages",
+          description: "Message navigation and actions",
+        },
+        {
+          key: "ArrowUp",
+          label: "Previous",
+          description: "Previous message",
+        },
+      ],
+    },
   },
   "navigation.down": {
     key: "ArrowDown",
     description: "Next message",
     category: "Navigation",
+    leader: {
+      path: [
+        {
+          key: "m",
+          label: "Messages",
+          description: "Message navigation and actions",
+        },
+        {
+          key: "ArrowDown",
+          label: "Next",
+          description: "Next message",
+        },
+      ],
+    },
   },
   "navigation.home": {
     key: "Home",
     description: "First message",
     category: "Navigation",
+    leader: {
+      path: [
+        {
+          key: "m",
+          label: "Messages",
+          description: "Message navigation and actions",
+        },
+        {
+          key: "Home",
+          label: "First",
+          description: "First message",
+        },
+      ],
+    },
   },
   "navigation.end": {
     key: "End",
     description: "Last message",
     category: "Navigation",
+    leader: {
+      path: [
+        {
+          key: "m",
+          label: "Messages",
+          description: "Message navigation and actions",
+        },
+        {
+          key: "End",
+          label: "Last",
+          description: "Last message",
+        },
+      ],
+    },
   },
 };
 

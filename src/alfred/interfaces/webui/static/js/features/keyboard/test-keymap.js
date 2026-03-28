@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 
-import { buildLeaderTree, DEFAULT_KEYMAP, formatBinding } from "./keymap.js";
+import { buildLeaderTree, DEFAULT_KEYMAP, formatBinding, getLeaderNodeForPath } from "./keymap.js";
 
 function run() {
   const fixtureKeymap = {
-    ...DEFAULT_KEYMAP,
     "editor.archive": {
       key: "a",
       description: "Archive current conversation",
@@ -96,6 +95,37 @@ function run() {
       ],
     },
   ]);
+
+  const registryTree = buildLeaderTree(DEFAULT_KEYMAP);
+
+  assert.deepStrictEqual(DEFAULT_KEYMAP["help.open"].leader.path, [
+    {
+      key: "h",
+      label: "Help",
+      description: "Help and information",
+    },
+    {
+      key: "h",
+      label: "Keyboard help",
+      description: "Open keyboard shortcuts help",
+    },
+  ]);
+
+  assert.equal(DEFAULT_KEYMAP["help.open.leader.question"], undefined);
+
+  assert.deepStrictEqual(getLeaderNodeForPath(registryTree, ["h", "h"]), {
+    key: "h",
+    label: "Keyboard help",
+    description: "Open keyboard shortcuts help",
+    actionId: "help.open",
+  });
+
+  assert.deepStrictEqual(getLeaderNodeForPath(registryTree, ["c", "enter"]), {
+    key: "Enter",
+    label: "Queue message",
+    description: "Queue message",
+    actionId: "composer.queue",
+  });
 
   assert.throws(
     () =>
