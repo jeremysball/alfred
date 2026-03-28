@@ -7,7 +7,7 @@ Make the leader-mode keyboard path trustworthy by deriving the which-key tree, r
 
 This is a post-milestone follow-up to the completed PRD 159 core work.
 
-Checkpoint complete: `composer.leader` now formats as `Ctrl+S` and the canonical leader-tree fixture test passes.
+Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical leader-tree fixture test passes, and duplicate/conflict leader-path validation is covered.
 
 ---
 
@@ -17,7 +17,7 @@ Checkpoint complete: `composer.leader` now formats as `Ctrl+S` and the canonical
 
 - [x] Test: `test_keymap_manager_formats_composer_leader_as_ctrl_s()` - `window.KeymapManager.getBinding("composer.leader")` formats as `Ctrl+S`, not `Ctrl+A`
 - [x] Test: `test_keymap_manager_builds_nested_leader_tree_from_registry()` - a derived tree exposes the expected root groups, submenu leaves, and labels
-- [ ] Test: `test_keymap_manager_rejects_duplicate_or_conflicting_leader_paths()` - duplicate chord paths or conflicting labels fail fast before render time
+- [x] Test: `test_keymap_manager_rejects_duplicate_or_conflicting_leader_paths()` - duplicate chord paths or conflicting labels fail fast before render time
 - [x] Implement: update `composer.leader` to `Ctrl+S` and add focused formatter coverage
 - [ ] Implement: add declarative leader metadata to registry entries in `keymap.js`, including prefix binding, group labels, leaf labels, and chord paths
 - [x] Implement: add pure helpers in `keymap.js` for `buildLeaderTree()` and `getLeaderNodeForPath()` with deterministic ordering and validation

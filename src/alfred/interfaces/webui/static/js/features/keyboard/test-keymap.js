@@ -96,6 +96,119 @@ function run() {
       ],
     },
   ]);
+
+  assert.throws(
+    () =>
+      buildLeaderTree({
+        ...DEFAULT_KEYMAP,
+        "duplicate.one": {
+          key: "x",
+          description: "Duplicate one",
+          category: "Editor",
+          leader: {
+            path: [
+              {
+                key: "x",
+                label: "Duplicate",
+                description: "Duplicate group",
+              },
+            ],
+          },
+        },
+        "duplicate.two": {
+          key: "y",
+          description: "Duplicate two",
+          category: "Editor",
+          leader: {
+            path: [
+              {
+                key: "x",
+                label: "Duplicate",
+                description: "Duplicate group",
+              },
+            ],
+          },
+        },
+      }),
+    /Duplicate leader path: x/,
+  );
+
+  assert.throws(
+    () =>
+      buildLeaderTree({
+        ...DEFAULT_KEYMAP,
+        "conflict.one": {
+          key: "z",
+          description: "Conflict one",
+          category: "Editor",
+          leader: {
+            path: [
+              {
+                key: "z",
+                label: "Zoom",
+                description: "Zoom actions",
+              },
+            ],
+          },
+        },
+        "conflict.two": {
+          key: "z",
+          description: "Conflict two",
+          category: "Editor",
+          leader: {
+            path: [
+              {
+                key: "z",
+                label: "Zap",
+                description: "Zap actions",
+              },
+            ],
+          },
+        },
+      }),
+    /Conflicting leader metadata for z/,
+  );
+
+  assert.throws(
+    () =>
+      buildLeaderTree({
+        ...DEFAULT_KEYMAP,
+        "prefix.leaf": {
+          key: "o",
+          description: "Open group leaf",
+          category: "Editor",
+          leader: {
+            path: [
+              {
+                key: "o",
+                label: "Open",
+                description: "Open resources",
+              },
+            ],
+          },
+        },
+        "prefix.child": {
+          key: "f",
+          description: "Open nested file",
+          category: "Editor",
+          leader: {
+            path: [
+              {
+                key: "o",
+                label: "Open",
+                description: "Open resources",
+              },
+              {
+                key: "f",
+                label: "File",
+                description: "Open nested file",
+              },
+            ],
+          },
+        },
+      }),
+    /Leader path collides with an existing leaf: o/,
+  );
 }
 
 try {
