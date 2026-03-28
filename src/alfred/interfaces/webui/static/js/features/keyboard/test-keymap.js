@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { KeymapManager as KeyboardKeymapManager } from "./index.js";
 import { buildLeaderTree, DEFAULT_KEYMAP, formatBinding, getLeaderNodeForPath } from "./keymap.js";
 
 function run() {
@@ -97,6 +98,9 @@ function run() {
   ]);
 
   const registryTree = buildLeaderTree(DEFAULT_KEYMAP);
+
+  assert.equal(KeyboardKeymapManager.buildLeaderTree, buildLeaderTree);
+  assert.equal(KeyboardKeymapManager.getLeaderNodeForPath, getLeaderNodeForPath);
 
   assert.deepStrictEqual(DEFAULT_KEYMAP["help.open"].leader.path, [
     {

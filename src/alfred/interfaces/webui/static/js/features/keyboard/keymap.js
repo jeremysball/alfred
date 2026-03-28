@@ -770,6 +770,8 @@ if (typeof window !== "undefined") {
     resetBinding,
     resetAllBindings,
     getBindingsByCategory,
+    buildLeaderTree,
+    getLeaderNodeForPath,
     formatBinding,
     matchesBinding,
     subscribe,

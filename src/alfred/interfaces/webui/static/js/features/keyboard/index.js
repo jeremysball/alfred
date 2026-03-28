@@ -1,42 +1,59 @@
 /**
  * Keyboard Shortcuts Module
  *
- * Provides keyboard shortcut registration, help modal, and message navigation.
+ * Provides keyboard shortcut registration, help sheet, and message navigation.
  *
  * Usage:
- *   import { KeyboardManager, HelpModal, MessageNavigator, ShortcutRegistry } from './keyboard/index.js';
+ *   import { KeyboardManager, HelpSheet, MessageNavigator, ShortcutRegistry, KeymapManager } from './keyboard/index.js';
  *
- *   // Register shortcuts
- *   ShortcutRegistry.register({
- *     id: 'show-help',
- *     key: '?',
- *     description: 'Show keyboard shortcuts',
- *     category: 'Global',
- *     action: () => helpModal.show()
- *   });
- *
- *   // Initialize keyboard manager
+ *   // Initialize keyboard manager with persisted keymap
  *   const keyboardManager = new KeyboardManager();
  *
- *   // Create help modal
- *   const helpModal = new HelpModal();
+ *   // Create help sheet (opens with F1)
+ *   const helpSheet = new HelpSheet();
+ *
+ *   // Rebind a shortcut
+ *   KeymapManager.setBinding('commandPalette.open', { key: 'P', ctrl: true, shift: true });
  */
 
-// Import from window globals (loaded via script tags)
-const {
-  register,
+// Re-export from help.js
+import { HelpSheet } from "./help.js";
+// Re-export from keyboard-manager.js
+import { KeyboardManager } from "./keyboard-manager.js";
+// Re-export from keymap.js
+import {
+  buildLeaderTree,
+  DEFAULT_KEYMAP,
+  exportKeymap,
+  formatBinding,
+  getBinding,
+  getBindingsByCategory,
+  getKeymap,
+  getLeaderNodeForPath,
+  importKeymap,
+  loadKeymap,
+  matchesBinding,
+  resetAllBindings,
+  resetBinding,
+  saveKeymap,
+  setBinding,
+  subscribe,
+} from "./keymap.js";
+// Re-export from navigation.js
+import { MessageNavigator } from "./navigation.js";
+// Re-export from shortcuts.js
+import {
+  clear,
+  formatShortcut,
   getAll,
   getAllFlat,
   getById,
+  parseKeyCombo,
+  register,
   unregister,
-  clear,
-  formatShortcut,
-  parseKeyCombo
-} = window.ShortcutRegistry || {};
-
-const HelpModal = window.HelpModal;
-const KeyboardManager = window.KeyboardManager;
-const MessageNavigator = window.MessageNavigator;
+} from "./shortcuts.js";
+// Re-export from which-key.js
+import { WhichKey } from "./which-key.js";
 
 // ShortcutRegistry convenience object
 const ShortcutRegistry = {
@@ -47,8 +64,52 @@ const ShortcutRegistry = {
   unregister,
   clear,
   formatShortcut,
-  parseKeyCombo
+  parseKeyCombo,
 };
 
+// KeymapManager convenience object
+const KeymapManager = {
+  DEFAULT_KEYMAP,
+  loadKeymap,
+  saveKeymap,
+  getKeymap,
+  getBinding,
+  setBinding,
+  resetBinding,
+  resetAllBindings,
+  getBindingsByCategory,
+  buildLeaderTree,
+  getLeaderNodeForPath,
+  formatBinding,
+  matchesBinding,
+  subscribe,
+  exportKeymap,
+  importKeymap,
+};
+
+// Also expose registerShortcut as an alias for search module compatibility
+const registerShortcut = register;
+
 // Export for ES modules
-export { ShortcutRegistry, HelpModal, KeyboardManager, MessageNavigator };
+export {
+  buildLeaderTree,
+  getLeaderNodeForPath,
+  HelpSheet,
+  KeyboardManager,
+  KeymapManager,
+  MessageNavigator,
+  registerShortcut,
+  ShortcutRegistry,
+  WhichKey,
+};
+
+// Set up window globals for main.js
+if (typeof window !== "undefined") {
+  window.ShortcutRegistry = ShortcutRegistry;
+  window.KeymapManager = KeymapManager;
+  window.HelpSheet = HelpSheet;
+  window.KeyboardManager = KeyboardManager;
+  window.MessageNavigator = MessageNavigator;
+  window.registerShortcut = registerShortcut;
+  window.WhichKey = WhichKey;
+}

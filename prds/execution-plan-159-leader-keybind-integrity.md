@@ -21,7 +21,7 @@ Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical le
 - [x] Implement: update `composer.leader` to `Ctrl+S` and add focused formatter coverage
 - [x] Implement: add declarative leader metadata to registry entries in `keymap.js`, including prefix binding, group labels, leaf labels, and chord paths
 - [x] Implement: add pure helpers in `keymap.js` for `buildLeaderTree()` and `getLeaderNodeForPath()` with deterministic ordering and validation
-- [ ] Implement: export the new helpers through `features/keyboard/index.js` and `window.KeymapManager`
+- [x] Implement: export the new helpers through `features/keyboard/index.js` and `window.KeymapManager`
 - [x] Run: `node src/alfred/interfaces/webui/static/js/features/keyboard/test-keymap.js && npm run js:check`
 
 ---
