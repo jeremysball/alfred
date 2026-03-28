@@ -30,7 +30,7 @@ Checkpoint complete: `composer.leader` now formats as `Ctrl+S`, the canonical le
 
 ### WhichKey
 
-- [ ] Test: `test_which_key_renders_the_derived_tree_without_registry_logic()` - opening leader mode shows the nested tree from derived data, not a hardcoded binding array
+- [x] Test: `test_which_key_renders_the_derived_tree_without_registry_logic()` - opening leader mode shows the nested tree from derived data, not a hardcoded binding array
 - [ ] Test: `test_which_key_header_shows_the_current_leader_path()` - the overlay header and breadcrumb path match the same chord vocabulary used by runtime actions
 - [ ] Implement: refactor `which-key.js` to accept derived tree data and active path state only; remove tree construction and shortcut interpretation from the component
 - [ ] Implement: keep `WhichKey` as a pure renderer with DOM, layout, and visibility responsibilities only
