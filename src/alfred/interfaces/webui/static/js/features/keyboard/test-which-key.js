@@ -170,44 +170,45 @@ function test(name, fn) {
   }
 }
 
+const derivedTreeFixture = [
+  {
+    key: "S",
+    label: "Search",
+    description: "Search tools",
+    children: [
+      {
+        key: "M",
+        label: "Messages",
+        description: "Open messages",
+        actionId: "search.messages",
+      },
+      {
+        key: "Q",
+        label: "Quick Switcher",
+        description: "Open quick switcher",
+        actionId: "search.quick-switcher",
+      },
+    ],
+  },
+  {
+    key: "H",
+    label: "Help",
+    description: "Help tools",
+    children: [
+      {
+        key: "H",
+        label: "Keyboard help",
+        description: "Open keyboard help",
+        actionId: "help.open",
+      },
+    ],
+  },
+];
+
 test("WhichKey renders a derived leader tree fixture without registry imports", () => {
   const whichKey = new WhichKey();
-  const derivedTree = [
-    {
-      key: "S",
-      label: "Search",
-      description: "Search tools",
-      children: [
-        {
-          key: "M",
-          label: "Messages",
-          description: "Open messages",
-          actionId: "search.messages",
-        },
-        {
-          key: "Q",
-          label: "Quick Switcher",
-          description: "Open quick switcher",
-          actionId: "search.quick-switcher",
-        },
-      ],
-    },
-    {
-      key: "H",
-      label: "Help",
-      description: "Help tools",
-      children: [
-        {
-          key: "H",
-          label: "Keyboard help",
-          description: "Open keyboard help",
-          actionId: "help.open",
-        },
-      ],
-    },
-  ];
 
-  whichKey.setBindings(derivedTree);
+  whichKey.setBindings(derivedTreeFixture);
   whichKey.render();
 
   const rootGrid = whichKey.container.querySelector(".which-key-grid");
@@ -238,4 +239,15 @@ test("WhichKey renders a derived leader tree fixture without registry imports", 
     label: "Quick Switcher",
     description: "Open quick switcher",
   });
+});
+
+test("WhichKey header shows the current leader path", () => {
+  const whichKey = new WhichKey();
+
+  whichKey.setBindings(derivedTreeFixture);
+  whichKey.activePath = ["S"];
+  whichKey.render();
+
+  const header = whichKey.container.querySelector(".which-key-header");
+  assert.equal(header.textContent, "Leader + S");
 });
