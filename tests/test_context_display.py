@@ -43,7 +43,8 @@ async def test_get_context_display_reports_blocked_context_warning_and_omits_blo
                 "soul": blocked_soul,
                 "user": active_user,
             }
-        )
+        ),
+        get_disabled_sections=lambda: [],
     )
     fake_session_manager = SimpleNamespace(
         has_active_session=lambda: False,
@@ -120,7 +121,8 @@ async def test_get_context_display_includes_self_model() -> None:
     )
 
     fake_context_loader = SimpleNamespace(
-        load_all=AsyncMock(return_value={})
+        load_all=AsyncMock(return_value={}),
+        get_disabled_sections=lambda: [],
     )
     fake_session_manager = SimpleNamespace(
         has_active_session=lambda: False,

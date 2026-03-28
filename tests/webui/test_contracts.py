@@ -39,10 +39,15 @@ def test_webui_contract_protocols_are_runtime_checkable() -> None:
         def summarizer(self):
             return None
 
+    class _ContextLoader:
+        def toggle_section(self, section: str, enabled: bool) -> bool:
+            return True
+
     class _Alfred:
         def __init__(self) -> None:
             self.core = _Core()
             self.token_tracker = TokenTracker()
+            self.context_loader = _ContextLoader()
             self.model_name = "kimi/test"
 
         async def chat_stream(

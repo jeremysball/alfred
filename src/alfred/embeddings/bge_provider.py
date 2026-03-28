@@ -271,7 +271,7 @@ class BGEProvider(EmbeddingProvider):
             logger.log(
                 TRACE,
                 f"[EMBED_BATCH] count={len(texts)} total_chars={total_chars} "
-                f"dim={self.dimension} time={elapsed_ms:.2f}ms avg_per_item={avg_per_item:.2f}ms"
+                f"dim={self.dimension} time={elapsed_ms:.2f}ms avg_per_item={avg_per_item:.2f}ms",
             )
             return embeddings
         finally:

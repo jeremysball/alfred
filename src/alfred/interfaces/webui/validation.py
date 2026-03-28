@@ -342,6 +342,15 @@ class ToastMessage(BaseModel):
     payload: ToastPayload
 
 
+class TextBlock(BaseModel):
+    """A contiguous visible text block within a session message."""
+
+    content: str = Field(..., description="Text block content")
+    sequence: int = Field(..., ge=0, description="Ordering sequence")
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
 class SessionMessage(BaseModel):
     """A message in a session."""
 
@@ -349,6 +358,7 @@ class SessionMessage(BaseModel):
     role: Literal["user", "assistant", "system"] = Field(..., description="Message role")
     content: str = Field(..., description="Message content")
     reasoning_content: str = Field(default="", alias="reasoningContent")
+    text_blocks: list[TextBlock] = Field(default_factory=list, alias="textBlocks")
     tool_calls: list[dict[str, object]] = Field(default_factory=list, alias="toolCalls")
     streaming: bool = Field(default=False)
 

@@ -43,7 +43,7 @@ def test_run_webui_server_bootstraps_daemon_before_starting_uvicorn(monkeypatch)
         bootstrap_calls += 1
         return bootstrap_result
 
-    def fake_create_app(*, alfred_instance):
+    def fake_create_app(*, alfred_instance, debug: bool = False):
         app = SimpleNamespace(state=SimpleNamespace())
         app.state.alfred = alfred_instance
         return app

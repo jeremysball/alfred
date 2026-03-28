@@ -204,9 +204,46 @@ For TUI or CLI changes:
 
 Docs-only changes do not need code validation unless behavior changed.
 
+### Dual Workflow Rule
+
+The repository has two independent quality workflows. **Choose one per commit** based on what you changed:
+
+| Workflow | Files | Validation Command |
+|----------|-------|-------------------|
+| **Python** | `src/**/*.py`, `tests/**/*.py` | `uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest -m "not slow"` |
+| **JavaScript** | `src/alfred/interfaces/webui/static/js/**/*.js` | `npm run js:check` |
+
+**Rules:**
+1. Python-only changes → Run Python workflow only
+2. JavaScript-only changes → Run JavaScript workflow only  
+3. Both changed → Run both workflows
+4. Never run both workflows "just to be safe"
+
+**JavaScript setup (first time):**
+```bash
+npm install
+npm run js:check      # Validate lint + format
+npm run js:check:fix  # Auto-fix issues
+```
+
+**Knip (dead code detection):**
+```bash
+npm run js:deadcode   # Informational only — does not block CI
+```
+
 ---
 
 ## Tooling Rules
+
+### Use ESM for All JavaScript
+
+All JavaScript code must use ES Modules (ESM) syntax exclusively:
+- Use `import` / `export` instead of `require` / `module.exports`
+- Browser-facing code in `src/alfred/interfaces/webui/static/js/` must be native ESM
+- Node.js JavaScript utilities should use `.mjs` extension or `"type": "module"` in package.json
+- Never mix CommonJS and ESM in the same module graph
+
+See PRD #164 for the full migration rationale and implementation details.
 
 ### Use `uv`, Never `pip`
 
@@ -237,6 +274,33 @@ Use Playwright for development, debugging, and verification of browser behavior.
 ### Use Serper for Web Search
 
 When you need web search, use the Serper API rather than relying on training data.
+
+### Viewing User Screenshots from Image Hosting Services
+
+Users often share screenshots via indirect links (gallery pages) rather than direct image URLs. To view these images:
+
+**postimg.cc links:**
+1. The user-provided URL (e.g., `https://postimg.cc/qNkrWMV3`) is an HTML page, not the image
+2. Fetch the HTML page and extract the direct image URL:
+   ```bash
+   curl -s "https://postimg.cc/qNkrWMV3" | grep -oE 'https://i\.postimg\.cc/[^"]+\.png'
+   ```
+3. Download and view the extracted direct URL:
+   ```bash
+   curl -L -o /tmp/screenshot.png "https://i.postimg.cc/bwnvDsm3/untitled.png"
+   ```
+
+**imgur links:**
+1. Gallery URLs (e.g., `https://imgur.com/abc123`) need to be converted to direct links
+2. The direct URL format is: `https://i.imgur.com/abc123.png` (or `.jpg`)
+3. For Imgur, append the extension or use the `i.imgur.com` subdomain with original extension
+
+**General pattern:**
+- Always try to extract the direct image URL from the HTML page source
+- Look for `meta` tags with `og:image` or similar properties
+- When in doubt, fetch the page HTML and parse for image URLs
+
+Then use the `read` tool on the downloaded file to view the image.
 
 ### Notify on Long-Running or Blocking Events
 

@@ -8,10 +8,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Callable
 
 import pytest
 
+from alfred.agent import ToolEvent
 from alfred.alfred import Alfred, ContextSummary
 from alfred.config import Config
 from alfred.session import Message, Role, Session, SessionMeta
@@ -59,6 +60,7 @@ class FakeContextLoader:
         memories: list[Any],
         session_messages: list[tuple[str, str]] | None = None,
         session_messages_with_tools: list[Any] | None = None,
+        alfred: Any | None = None,
     ) -> tuple[str, int]:
         self.calls.append(
             {
@@ -66,11 +68,24 @@ class FakeContextLoader:
                 "memories_count": len(memories),
                 "session_messages_count": len(session_messages or []),
                 "session_messages_with_tools_count": len(session_messages_with_tools or []),
+                "alfred": alfred,
             }
         )
         if self.fail_with is not None:
             raise self.fail_with
         return "## SYSTEM\n\nObservability test system prompt", 2
+
+    async def assemble_with_self_model(
+        self,
+        alfred: Any,
+        memories: list[Any] | None = None,
+    ) -> SimpleNamespace:
+        """Return assembled context with self-model for non-streaming chat tests."""
+        return SimpleNamespace(
+            system_prompt="## SYSTEM\n\nObservability test system prompt",
+            memories=memories or [],
+            self_model=None,
+        )
 
 
 @dataclass
@@ -390,3 +405,68 @@ async def test_chat_stream_logs_core_turn_cancelled_when_task_is_cancelled(
     assert any("boundary=agent" in message for message in core_messages)
     assert any("duration_ms=" in message for message in core_messages)
     assert not any(message.startswith("core.turn.completed") for message in core_messages)
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_records_ordered_text_blocks_around_tool_calls(
+    tmp_path: Path,
+) -> None:
+    """Ordered text blocks should survive tool calls and reasoning boundaries."""
+
+    from alfred.agent import ToolEnd, ToolStart
+
+    class OrderedPartAgent:
+        """Minimal agent fake that emits reasoning, text, and tool events."""
+
+        async def run_stream(
+            self,
+            messages: list[Any],
+            system_prompt: str,
+            usage_callback: Any | None = None,
+            tool_callback: Callable[[ToolEvent], None] | None = None,
+        ):
+            if usage_callback is not None:
+                usage_callback({"prompt_tokens": 12, "completion_tokens": 8})
+
+            stream_parts: list[str | ToolEvent] = [
+                "[REASONING]thinking",
+                "[/REASONING]",
+                "Before ",
+                ToolStart(
+                    tool_call_id="call-1",
+                    tool_name="bash",
+                    arguments={"command": "ls"},
+                ),
+                "After ",
+                ToolEnd(
+                    tool_call_id="call-1",
+                    tool_name="bash",
+                    result="done",
+                    is_error=False,
+                ),
+            ]
+
+            for part in stream_parts:
+                if isinstance(part, str):
+                    yield part
+                elif tool_callback is not None:
+                    tool_callback(part)
+
+    alfred, _, _, session_manager = _make_alfred(tmp_path)
+    alfred.agent = OrderedPartAgent()
+
+    chunks = [chunk async for chunk in alfred.chat_stream("hello world")]
+
+    assert chunks == ["[REASONING]thinking", "[/REASONING]", "Before ", "After "]
+
+    assistant_message = session_manager.session.messages[-1]
+    assert assistant_message.role == Role.ASSISTANT
+    assert assistant_message.content == "Before After "
+    assert assistant_message.reasoning_blocks is not None
+    assert assistant_message.text_blocks is not None
+    assert assistant_message.tool_calls is not None
+    assert [block.content for block in assistant_message.text_blocks] == ["Before ", "After "]
+    assert [block.sequence for block in assistant_message.text_blocks] == [1, 3]
+    assert assistant_message.tool_calls[0].sequence == 2
+    assert assistant_message.reasoning_blocks[0].sequence == 0
+    assert assistant_message.reasoning_blocks[0].content == "thinking"

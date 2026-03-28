@@ -1,0 +1,110 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "maxSize": 1048576
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noConsole": "off",
+        "useIterableCallbackReturn": "off"
+      },
+      "style": {
+        "useConst": "warn",
+        "noParameterAssign": "off",
+        "noDescendingSpecificity": "off"
+      },
+      "correctness": {
+        "noConstructorReturn": "off",
+        "noUnusedVariables": "warn"
+      },
+      "complexity": {
+        "noStaticOnlyClass": "off",
+        "noImportantStyles": "off"
+      }
+    }
+  },
+  "javascript": {
+    "globals": [
+      "document",
+      "window",
+      "navigator",
+      "console",
+      "fetch",
+      "localStorage",
+      "sessionStorage",
+      "WebSocket",
+      "EventSource",
+      "requestAnimationFrame",
+      "setTimeout",
+      "setInterval",
+      "clearTimeout",
+      "clearInterval",
+      "customElements",
+      "HTMLElement",
+      "CustomEvent",
+      "MutationObserver",
+      "IntersectionObserver",
+      "ResizeObserver",
+      "URL",
+      "URLSearchParams",
+      "Blob",
+      "File",
+      "FileReader",
+      "FormData",
+      "Headers",
+      "Request",
+      "Response",
+      "Event",
+      "KeyboardEvent",
+      "MouseEvent",
+      "TouchEvent",
+      "PointerEvent",
+      "DragEvent",
+      "ClipboardEvent",
+      "Notification",
+      "speechSynthesis",
+      "SpeechSynthesisUtterance",
+      "SpeechRecognition",
+      "webkitSpeechRecognition",
+      "MediaRecorder",
+      "AudioContext",
+      "webkitAudioContext",
+      "AudioBuffer",
+      "AudioBufferSourceNode",
+      "GainNode",
+      "AnalyserNode"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.min.js"],
+      "linter": { "enabled": false },
+      "formatter": { "enabled": false }
+    },
+    {
+      "includes": ["**/test-*.js"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    }
+  ]
+}

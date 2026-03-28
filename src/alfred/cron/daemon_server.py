@@ -11,6 +11,7 @@ import logging
 import os
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from alfred.cron.scheduler import CronScheduler
 from alfred.cron.socket_protocol import (
@@ -198,7 +199,7 @@ class DaemonSocketServer:
             return QueryJobsResponse(
                 request_id=request.request_id,
                 jobs=[],
-                error=str(e),
+                recent_failures=[{"error": str(e)}],
             )
 
     async def _handle_submit_job(self, request: SubmitJobRequest) -> SubmitJobResponse:
@@ -216,11 +217,7 @@ class DaemonSocketServer:
                 message=f"Job '{request.name}' submitted successfully",
             )
         except Exception as e:
-            return SubmitJobResponse(
-                request_id=request.request_id,
-                success=False,
-                job_id="",
-                message=f"Failed to submit job: {e}")
+            return SubmitJobResponse(request_id=request.request_id, success=False, job_id="", message=f"Failed to submit job: {e}")
 
     async def _handle_approve_job(self, request: ApproveJobRequest) -> ApproveJobResponse:
         """Handle job approval request."""
@@ -239,7 +236,8 @@ class DaemonSocketServer:
                 success=False,
                 job_id=request.job_identifier,
                 job_name="",
-                message=f"Failed to approve job: {e}")
+                message=f"Failed to approve job: {e}",
+            )
 
     async def _handle_reject_job(self, request: RejectJobRequest) -> RejectJobResponse:
         """Handle job rejection request."""
@@ -259,13 +257,12 @@ class DaemonSocketServer:
                 request_id=request.request_id,
                 success=False,
                 job_id=request.job_identifier,
-                message=f"Job not found: {request.job_identifier}")
+                message=f"Job not found: {request.job_identifier}",
+            )
         except Exception as e:
             return RejectJobResponse(
-                request_id=request.request_id,
-                success=False,
-                job_id=request.job_identifier,
-                message=f"Failed to reject job: {e}")
+                request_id=request.request_id, success=False, job_id=request.job_identifier, message=f"Failed to reject job: {e}"
+            )
 
     async def _send_response(self, writer: asyncio.StreamWriter, response: SocketMessage) -> None:
         """Send a response to a client."""
@@ -301,22 +298,26 @@ class DaemonSocketServer:
 
     async def notify_job_completed(self, job_id: str, job_name: str, duration_ms: int, stdout_preview: str = "") -> None:
         """Broadcast job completed notification."""
-        await self._broadcast(JobCompletedMessage(
-            job_id=job_id,
-            job_name=job_name,
-            duration_ms=duration_ms,
-            stdout_preview=stdout_preview,
-        ))
+        await self._broadcast(
+            JobCompletedMessage(
+                job_id=job_id,
+                job_name=job_name,
+                duration_ms=duration_ms,
+                stdout_preview=stdout_preview,
+            )
+        )
 
     async def notify_job_failed(self, job_id: str, job_name: str, error: str, duration_ms: int) -> None:
         """Broadcast job failed notification."""
-        await self._broadcast(JobFailedMessage(
-            job_id=job_id,
-            job_name=job_name,
-            error=error,
-            duration_ms=duration_ms,
-        ))
+        await self._broadcast(
+            JobFailedMessage(
+                job_id=job_id,
+                job_name=job_name,
+                error=error,
+                duration_ms=duration_ms,
+            )
+        )
 
-    async def notify(self, message: str, level: str = "info") -> None:
+    async def notify(self, message: str, level: Literal["info", "warning", "error"] = "info") -> None:
         """Broadcast a toast notification."""
         await self._broadcast(NotifyMessage(message=message, level=level))

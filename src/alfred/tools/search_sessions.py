@@ -43,14 +43,8 @@ class SearchSessionsToolParams(BaseModel):
     query: str = Field("", description="Search query to find relevant sessions")
     top_k: int = Field(3, description="Maximum number of sessions to search")
     messages_per_session: int = Field(3, description="Maximum messages to return per session")
-    after: str | None = Field(
-        None,
-        description="Filter sessions after this date/time (ISO 8601 format)"
-    )
-    before: str | None = Field(
-        None,
-        description="Filter sessions before this date/time (ISO 8601 format)"
-    )
+    after: str | None = Field(None, description="Filter sessions after this date/time (ISO 8601 format)")
+    before: str | None = Field(None, description="Filter sessions before this date/time (ISO 8601 format)")
 
 
 class SessionSummarizer:
@@ -254,9 +248,7 @@ class SearchSessionsTool(Tool):
             raise RuntimeError("SQLiteStore not configured for search")
 
         # Search summaries with optional date filtering
-        return await self.summarizer.store.search_summaries(
-            query_embedding, top_k, after=after, before=before
-        )
+        return await self.summarizer.store.search_summaries(query_embedding, top_k, after=after, before=before)
 
     async def _search_session_messages(self, session_id: str, query_embedding: list[float], top_k: int = 3) -> list[dict[str, Any]]:
         """Stage 2: Search messages within a session.
@@ -369,13 +361,11 @@ class SearchSessionsTool(Tool):
             query_embedding = await self.embedder.embed(query)
             logger.debug(f"Query embedded, dim={len(query_embedding)}")
 
-            relevant_summaries = await self._find_relevant_sessions(
-                query_embedding, top_k, after=after, before=before
-            )
+            relevant_summaries = await self._find_relevant_sessions(query_embedding, top_k, after=after, before=before)
             logger.debug(f"Found {len(relevant_summaries)} summaries")
             for s in relevant_summaries:
-                sid = s.get('session_id', '')
-                sim = s.get('similarity', 0)
+                sid = s.get("session_id", "")
+                sim = s.get("similarity", 0)
                 logger.debug(f"  Summary: {sid[:8]}... sim={sim:.3f}")
 
             # If no summaries found, fall back to direct message search
@@ -417,10 +407,7 @@ class SearchSessionsTool(Tool):
                 return
 
             # Filter summaries by similarity threshold
-            filtered_summaries = [
-                s for s in relevant_summaries
-                if s.get("similarity", 0) >= self.min_similarity
-            ]
+            filtered_summaries = [s for s in relevant_summaries if s.get("similarity", 0) >= self.min_similarity]
 
             # If summaries found but all below threshold, fall back to message search
             if not filtered_summaries:

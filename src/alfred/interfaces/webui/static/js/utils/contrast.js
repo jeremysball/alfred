@@ -15,23 +15,29 @@ function getLuminance(r, g, b) {
   const gsRGB = g / 255;
   const bsRGB = b / 255;
 
-  const rLinear = rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
-  const gLinear = gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
-  const bLinear = bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
+  const rLinear = rsRGB <= 0.03928 ? rsRGB / 12.92 : ((rsRGB + 0.055) / 1.055) ** 2.4;
+  const gLinear = gsRGB <= 0.03928 ? gsRGB / 12.92 : ((gsRGB + 0.055) / 1.055) ** 2.4;
+  const bLinear = bsRGB <= 0.03928 ? bsRGB / 12.92 : ((bsRGB + 0.055) / 1.055) ** 2.4;
 
   return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
 }
 
 function hexToRgb(hex) {
-  const normalized = hex.replace('#', '').trim();
+  const normalized = hex.replace("#", "").trim();
 
   if (normalized.length === 3) {
-    const expanded = normalized.split('').map((c) => c + c).join('');
+    const expanded = normalized
+      .split("")
+      .map((c) => c + c)
+      .join("");
     return hexToRgb(`#${expanded}`);
   }
 
   if (normalized.length === 4) {
-    const expanded = normalized.split('').map((c) => c + c).join('');
+    const expanded = normalized
+      .split("")
+      .map((c) => c + c)
+      .join("");
     return hexToRgb(`#${expanded}`);
   }
 
@@ -62,21 +68,21 @@ function parseRgb(rgb) {
 function getRgb(color) {
   const normalized = color.trim().toLowerCase();
 
-  if (normalized.startsWith('#')) {
+  if (normalized.startsWith("#")) {
     return hexToRgb(normalized);
   }
 
-  if (normalized.startsWith('rgb')) {
+  if (normalized.startsWith("rgb")) {
     return parseRgb(normalized);
   }
 
-  if (typeof document === 'undefined') {
+  if (typeof document === "undefined") {
     return [0, 0, 0, 1];
   }
 
-  const temp = document.createElement('div');
+  const temp = document.createElement("div");
   temp.style.color = normalized;
-  temp.style.display = 'none';
+  temp.style.display = "none";
   document.body.appendChild(temp);
   const computed = getComputedStyle(temp).color;
   temp.remove();
@@ -99,11 +105,11 @@ export function getContrastText(bgColor) {
   const whiteContrast = getContrastRatio(bgLuminance, 1);
   const blackContrast = getContrastRatio(bgLuminance, 0);
 
-  return whiteContrast >= blackContrast ? '#ffffff' : '#000000';
+  return whiteContrast >= blackContrast ? "#ffffff" : "#000000";
 }
 
-export function getContrastTextFromVar(cssVar, fallback = '#1a1a1a') {
-  if (typeof document === 'undefined') {
+export function getContrastTextFromVar(cssVar, fallback = "#1a1a1a") {
+  if (typeof document === "undefined") {
     return getContrastText(fallback);
   }
 
@@ -113,17 +119,17 @@ export function getContrastTextFromVar(cssVar, fallback = '#1a1a1a') {
 }
 
 export const CONTRAST_PRESETS = {
-  '#e0e5ec': '#000000',
-  '#f5f5f5': '#000000',
-  '#ffffff': '#000000',
-  '#eeeeee': '#000000',
-  '#e8e2d9': '#1a1814',
-  '#000000': '#ffffff',
-  '#0a0a0a': '#ffffff',
-  '#1a1a1a': '#ffffff',
-  '#1a1814': '#e8e2d9',
-  '#1a202c': '#e2e8f0',
-  '#2d3748': '#e2e8f0',
+  "#e0e5ec": "#000000",
+  "#f5f5f5": "#000000",
+  "#ffffff": "#000000",
+  "#eeeeee": "#000000",
+  "#e8e2d9": "#1a1814",
+  "#000000": "#ffffff",
+  "#0a0a0a": "#ffffff",
+  "#1a1a1a": "#ffffff",
+  "#1a1814": "#e8e2d9",
+  "#1a202c": "#e2e8f0",
+  "#2d3748": "#e2e8f0",
 };
 
 export function getContrastTextFast(bgColor) {
@@ -141,8 +147,8 @@ function pickCssVar(root, vars, fallback) {
 
 export function getContrastPalette(bgColor, accentColor = null) {
   const text = getContrastTextFast(bgColor);
-  const muted = text === '#ffffff' ? '#b0b0b0' : '#4a4a4a';
-  const accent = accentColor || (text === '#ffffff' ? '#4fc3f7' : '#0066cc');
+  const muted = text === "#ffffff" ? "#b0b0b0" : "#4a4a4a";
+  const accent = accentColor || (text === "#ffffff" ? "#4fc3f7" : "#0066cc");
 
   return { text, muted, accent };
 }
@@ -162,45 +168,73 @@ function setContrastVars(root, prefix, bgColor, accentColor = null) {
  * the results as CSS custom properties.
  */
 export function applyThemeContrast(root = document.documentElement) {
-  if (typeof document === 'undefined') {
+  if (typeof document === "undefined") {
     return;
   }
 
-  const settingsBg = pickCssVar(root, ['--settings-bg', '--surface-panel-bg', '--surface-bg'], '#1a1a1a');
-  const toolBg = pickCssVar(root, ['--tool-bg', '--surface-tool-bg', '--surface-elevated-bg'], settingsBg);
-  const composerBg = pickCssVar(root, ['--composer-bg', '--message-input-bg', '--surface-input-bg'], settingsBg);
-  const statusBg = pickCssVar(root, ['--status-bg', '--surface-footer-bg', '--surface-bg'], settingsBg);
-  const sendBg = pickCssVar(root, ['--send-button-bg', '--surface-accent-bg'], composerBg);
-  const statusSuccessBg = pickCssVar(root, ['--status-success-bg', '--status-connected-bg', '--accent-success-bg', '--md-accent-success'], sendBg);
-  const statusErrorBg = pickCssVar(root, ['--status-error-bg', '--status-disconnected-bg', '--accent-error-bg', '--md-accent-danger'], sendBg);
-  const statusRunningBg = pickCssVar(root, ['--status-running-bg', '--status-connecting-bg', '--accent-warning-bg', '--md-accent-warning'], sendBg);
+  const settingsBg = pickCssVar(
+    root,
+    ["--settings-bg", "--surface-panel-bg", "--surface-bg"],
+    "#1a1a1a",
+  );
+  const toolBg = pickCssVar(
+    root,
+    ["--tool-bg", "--surface-tool-bg", "--surface-elevated-bg"],
+    settingsBg,
+  );
+  const composerBg = pickCssVar(
+    root,
+    ["--composer-bg", "--message-input-bg", "--surface-input-bg"],
+    settingsBg,
+  );
+  const statusBg = pickCssVar(
+    root,
+    ["--status-bg", "--surface-footer-bg", "--surface-bg"],
+    settingsBg,
+  );
+  const sendBg = pickCssVar(root, ["--send-button-bg", "--surface-accent-bg"], composerBg);
+  const statusSuccessBg = pickCssVar(
+    root,
+    ["--status-success-bg", "--status-connected-bg", "--accent-success-bg", "--md-accent-success"],
+    sendBg,
+  );
+  const statusErrorBg = pickCssVar(
+    root,
+    ["--status-error-bg", "--status-disconnected-bg", "--accent-error-bg", "--md-accent-danger"],
+    sendBg,
+  );
+  const statusRunningBg = pickCssVar(
+    root,
+    ["--status-running-bg", "--status-connecting-bg", "--accent-warning-bg", "--md-accent-warning"],
+    sendBg,
+  );
 
-  setContrastVars(root, 'settings', settingsBg);
-  setContrastVars(root, 'tool', toolBg);
-  setContrastVars(root, 'tool-running', pickCssVar(root, ['--tool-running-bg'], toolBg));
-  setContrastVars(root, 'tool-success', pickCssVar(root, ['--tool-success-bg'], toolBg));
-  setContrastVars(root, 'tool-error', pickCssVar(root, ['--tool-error-bg'], toolBg));
-  setContrastVars(root, 'composer', composerBg);
-  setContrastVars(root, 'status', statusBg);
-  setContrastVars(root, 'status-success', statusSuccessBg);
-  setContrastVars(root, 'status-error', statusErrorBg);
-  setContrastVars(root, 'status-running', statusRunningBg);
-  setContrastVars(root, 'send', sendBg);
+  setContrastVars(root, "settings", settingsBg);
+  setContrastVars(root, "tool", toolBg);
+  setContrastVars(root, "tool-running", pickCssVar(root, ["--tool-running-bg"], toolBg));
+  setContrastVars(root, "tool-success", pickCssVar(root, ["--tool-success-bg"], toolBg));
+  setContrastVars(root, "tool-error", pickCssVar(root, ["--tool-error-bg"], toolBg));
+  setContrastVars(root, "composer", composerBg);
+  setContrastVars(root, "status", statusBg);
+  setContrastVars(root, "status-success", statusSuccessBg);
+  setContrastVars(root, "status-error", statusErrorBg);
+  setContrastVars(root, "status-running", statusRunningBg);
+  setContrastVars(root, "send", sendBg);
 
   // Compatibility fallbacks used by existing selectors.
   const settingsText = getContrastTextFast(settingsBg);
-  root.style.setProperty('--contrast-text', settingsText);
-  root.style.setProperty('--contrast-muted', settingsText === '#ffffff' ? '#a0a0a0' : '#606060');
-  root.style.setProperty('--contrast-accent', settingsText === '#ffffff' ? '#4fc3f7' : '#0066cc');
+  root.style.setProperty("--contrast-text", settingsText);
+  root.style.setProperty("--contrast-muted", settingsText === "#ffffff" ? "#a0a0a0" : "#606060");
+  root.style.setProperty("--contrast-accent", settingsText === "#ffffff" ? "#4fc3f7" : "#0066cc");
 }
 
 export function applyAutoContrast() {
-  if (typeof document === 'undefined') {
+  if (typeof document === "undefined") {
     return;
   }
 
-  document.querySelectorAll('[data-auto-contrast]').forEach((el) => {
-    const bgVar = el.dataset.autoContrast || '--bg-color';
+  document.querySelectorAll("[data-auto-contrast]").forEach((el) => {
+    const bgVar = el.dataset.autoContrast || "--bg-color";
     const textColor = getContrastTextFromVar(bgVar);
     el.style.color = textColor;
   });
@@ -209,5 +243,5 @@ export function applyAutoContrast() {
 export function getIconContrastFilter(baseColor) {
   const [r, g, b] = getRgb(baseColor);
   const luminance = getLuminance(r, g, b);
-  return luminance > 0.5 ? 'brightness(0)' : 'brightness(0) invert(1)';
+  return luminance > 0.5 ? "brightness(0)" : "brightness(0) invert(1)";
 }

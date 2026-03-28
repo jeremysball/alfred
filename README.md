@@ -9,8 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jeremysball/alfred/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/jeremysball/alfred/ci.yml?branch=main&label=tests&style=flat-square" alt="Tests">
+  <a href="https://github.com/jeremysball/alfred/actions/workflows/ci/python.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/jeremysball/alfred/ci/python.yml?branch=main&label=python&style=flat-square" alt="Python CI">
+  </a>
+  <a href="https://github.com/jeremysball/alfred/actions/workflows/ci/javascript.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/jeremysball/alfred/ci/javascript.yml?branch=main&label=javascript&style=flat-square" alt="JavaScript CI">
   </a>
   <a href="https://github.com/jeremysball/alfred/releases">
     <img src="https://img.shields.io/github/v/release/jeremysball/alfred?style=flat-square" alt="Version">
@@ -122,6 +125,14 @@ alfred --log debug webui --log debug
 
 When logging is enabled, console output uses surface prefixes such as `[core]`, `[webui-server]`, `[webui-client]`, `[llm]`, `[tools]`, and `[storage]` so live streams are easy to scan. In a TTY those prefixes are colorized; in non-TTY output and log files they stay plain, and file logs include `surface=...` fields so they stay grep-friendly.
 
+**WebSocket Debug Logs:** When Web UI debug logging is enabled (`alfred webui --log debug`), the browser console shows `[websocket]` prefixed logs for connection lifecycle events:
+- Connection open/close with close codes
+- Reconnect attempts with exponential backoff
+- Message queue flushes
+- Ping/pong latency timings
+
+These logs are debug-gated and do not appear in normal operation. See [docs/websocket-protocol.md](docs/websocket-protocol.md) for the complete debugging guide.
+
 ### Web UI Features
 
 - **Real-time streaming** — Watch responses appear token-by-token
@@ -231,6 +242,28 @@ For TOML-based configuration (`~/.config/alfred/config.toml`), see [docs/EMBEDDI
    uv run mypy src/
    uv run pytest
    ```
+
+### Code Quality Workflows
+
+The repository maintains two independent quality workflows in `.github/workflows/ci/`:
+
+| Workflow | Scope | Command | CI Status |
+|----------|-------|---------|-----------|
+| **Python** | `src/**/*.py`, `tests/**/*.py` | `uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest` | Required |
+| **JavaScript** | `src/alfred/interfaces/webui/static/js/**/*.js` | `npm run js:check` | Required |
+
+**JavaScript setup (one-time):**
+```bash
+npm install
+npm run js:check        # Lint and format check
+npm run js:check:fix    # Auto-fix issues
+npm run js:deadcode     # Find unused code (informational)
+```
+
+**Commit rule:** Choose the workflow that matches your changes. Do not run both workflows for a single commit.
+- Python changes only → Run Python workflow
+- JavaScript changes only → Run JavaScript workflow
+- Both changed → Run both workflows
 
 ### Terminal Tool Development
 

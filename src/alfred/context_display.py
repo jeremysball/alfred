@@ -114,18 +114,18 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
 
     session_tokens = sum(_estimate_tokens(m["content"]) for m in display_messages)
 
-    # Format memories - show first 5 with counts
+    # Format all memories with full content (no truncation)
     memory_display = []
-    for mem in all_memories[:5]:
+    for mem in all_memories:
         memory_display.append(
             {
-                "content": mem.content[:100] + "..." if len(mem.content) > 100 else mem.content,
+                "content": mem.content,
                 "role": mem.role,
                 "timestamp": mem.timestamp.isoformat()[:10],  # Just date
             }
         )
 
-    memory_tokens = sum(_estimate_tokens(m.content) for m in all_memories[:5])
+    memory_tokens = sum(_estimate_tokens(m.content) for m in all_memories)
 
     # Get self-model for display
     logger.debug("get_context_display: building self-model for context display")
@@ -163,8 +163,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     total_tokens = total_system_tokens + memory_tokens + session_tokens + tool_call_tokens
 
     logger.debug(
-        "get_context_display: complete - system_tokens=%d, memory_tokens=%d, "
-        "session_tokens=%d, tool_tokens=%d, total=%d",
+        "get_context_display: complete - system_tokens=%d, memory_tokens=%d, session_tokens=%d, tool_tokens=%d, total=%d",
         total_system_tokens,
         memory_tokens,
         session_tokens,
@@ -185,6 +184,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             "total": len(all_memories),
             "items": memory_display,
             "tokens": memory_tokens,
+            "all_shown": len(memory_display) == len(all_memories),
         },
         "session_history": {
             "count": len(display_messages),

@@ -60,7 +60,7 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--em-text-primary);
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
 }
 
 [data-theme="element-modern"] .connection-pill.connected {
@@ -121,7 +121,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 [data-theme="element-modern"] .message.user .message-avatar {
@@ -134,7 +134,7 @@
 }
 
 [data-theme="element-modern"] .message-role {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--em-text-muted);
@@ -142,7 +142,7 @@
 }
 
 [data-theme="element-modern"] .message-time {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--em-text-muted);
   margin-left: auto;
 }
@@ -150,7 +150,7 @@
 [data-theme="element-modern"] .message-content {
   color: var(--em-text-primary);
   line-height: 1.7;
-  font-size: 0.9375rem;
+  font-size: var(--text-md);
 }
 
 /* Reasoning Section - Glassmorphism */
@@ -185,7 +185,7 @@
 }
 
 [data-theme="element-modern"] .reasoning-label {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   color: var(--em-accent-primary);
@@ -205,7 +205,7 @@
 [data-theme="element-modern"] .reasoning-content {
   padding: 0 1rem 1rem;
   font-family: var(--em-font-mono);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--em-text-secondary);
   line-height: 1.6;
 }
@@ -251,7 +251,7 @@
   border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   transition: all 0.2s ease;
 }
 
@@ -322,14 +322,14 @@
 
 [data-theme="element-modern"] .tool-name {
   font-family: var(--em-font-mono);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--tool-name);
   letter-spacing: 0.02em;
 }
 
 [data-theme="element-modern"] .tool-status {
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
@@ -384,7 +384,7 @@
   padding: 0.125rem 0.375rem;
   border-radius: 0;
   font-family: var(--em-font-mono);
-  font-size: 0.875em;
+  font-size: var(--text-sm);
 }
 
 [data-theme="element-modern"] .message-content pre code {

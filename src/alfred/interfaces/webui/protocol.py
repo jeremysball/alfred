@@ -304,6 +304,7 @@ class SessionMessage(TypedDict):
     role: Literal["user", "assistant", "system"]
     content: str
     reasoningContent: NotRequired[str]
+    textBlocks: NotRequired[list[JsonObject]]
     toolCalls: NotRequired[list[JsonObject]]
     streaming: NotRequired[bool]
 

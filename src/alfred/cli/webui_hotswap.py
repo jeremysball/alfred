@@ -117,7 +117,7 @@ def _has_relevant_python_change(changes: Iterable[tuple[object, str]]) -> bool:
     return any(_is_relevant_python_file(path) for _change, path in changes)
 
 
-def _build_server_controller(host: str, port: int) -> _ServerController:
+def _build_server_controller(host: str, port: int, debug: bool = False) -> _ServerController:
     """Create a new Uvicorn-backed WebUI server controller."""
     import uvicorn
 
@@ -136,7 +136,7 @@ def _build_server_controller(host: str, port: int) -> _ServerController:
 
     asyncio.run(_start_alfred())
 
-    app = create_app(alfred_instance=cast(Any, alfred))
+    app = create_app(alfred_instance=cast(Any, alfred), debug=debug)
     app.state.webui_bootstrap_result = bootstrap_result
 
     server = uvicorn.Server(
@@ -155,10 +155,10 @@ def _build_server_controller(host: str, port: int) -> _ServerController:
     return _UvicornServerController(server)
 
 
-def run_webui_server(*, host: str, port: int, open_browser: bool) -> None:
+def run_webui_server(*, host: str, port: int, open_browser: bool, debug: bool = False) -> None:
     """Run the Web UI server once until it exits."""
     logger.info("Starting WebUI server", extra={"surface": "webui-server"})
-    controller = _build_server_controller(host=host, port=port)
+    controller = _build_server_controller(host=host, port=port, debug=debug)
     controller.start()
     _wait_for_started(controller)
 
@@ -181,6 +181,7 @@ def run_webui_hotswap(
     host: str,
     port: int,
     open_browser: bool,
+    debug: bool = False,
     watch_root: Path | None = None,
     stop_event: threading.Event | None = None,
     server_factory: Callable[[], _ServerController] | None = None,
@@ -191,7 +192,7 @@ def run_webui_hotswap(
     watch_path = watch_root or DEFAULT_WEBUI_STATIC_ROOT
     python_watch_path = DEFAULT_WEBUI_SRC_ROOT
     local_stop_event = stop_event or threading.Event()
-    create_server = server_factory or (lambda: _build_server_controller(host=host, port=port))
+    create_server = server_factory or (lambda: _build_server_controller(host=host, port=port, debug=debug))
     browser_opened = False
 
     while not local_stop_event.is_set():

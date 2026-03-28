@@ -183,10 +183,7 @@ class TemplateManager:
 
         # Keep runtime placeholders intact for later resolution in the prompt loader.
         runtime_placeholders = [match.group(0) for match in re.finditer(re.escape(CURRENT_TIME_PLACEHOLDER), content)]
-        runtime_placeholders.extend(
-            match.group(0)
-            for match in SINGLE_BRACE_VOLATILE_PLACEHOLDER_PATTERN.finditer(content)
-        )
+        runtime_placeholders.extend(match.group(0) for match in SINGLE_BRACE_VOLATILE_PLACEHOLDER_PATTERN.finditer(content))
         for i, ph in enumerate(runtime_placeholders, start=len(sentinel_map)):
             sentinel = f"___RUNTIME_PLACEHOLDER_{i}___"
             sentinel_map[sentinel] = ph

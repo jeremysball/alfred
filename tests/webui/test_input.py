@@ -191,7 +191,7 @@ def test_composer_placeholder_changes_for_edit_mode():
     content = response.text
 
     assert "Editing message... (Esc to cancel)" in content
-    assert "Type your message... (Shift+Enter to queue)" in content
+    assert "Type your message... (Ctrl+A, Enter to queue)" in content
 
 
 def test_pencil_button_exists_in_chat_message():

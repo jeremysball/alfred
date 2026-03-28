@@ -106,8 +106,7 @@ class RuntimeSelfModel(BaseModel):
         suitable for inclusion in system prompts.
         """
         logger.debug(
-            "Serializing self-model to prompt section: interface=%s, session=%s, "
-            "tools=%d, memory=%s, search=%s",
+            "Serializing self-model to prompt section: interface=%s, session=%s, tools=%d, memory=%s, search=%s",
             self.runtime.interface.value if self.runtime.interface else None,
             self.runtime.session_id,
             len(self.capabilities.tools_available),
@@ -189,11 +188,7 @@ def build_runtime_self_model(
     detected_interface = interface
     if detected_interface is None:
         # Check if Telegram bot is initialized (not None)
-        detected_interface = (
-            InterfaceType.WEBUI
-            if getattr(alfred, "_telegram_bot", None) is not None
-            else InterfaceType.CLI
-        )
+        detected_interface = InterfaceType.WEBUI if getattr(alfred, "_telegram_bot", None) is not None else InterfaceType.CLI
         logger.debug("Auto-detected interface: %s", detected_interface.value)
 
     # Get session ID
@@ -217,9 +212,7 @@ def build_runtime_self_model(
     if context_summary is not None:
         message_count = getattr(context_summary, "session_messages", 0)
         memory_count = getattr(context_summary, "memories_count", 0)
-        logger.debug(
-            "Context pressure from summary: messages=%d, memories=%d", message_count, memory_count
-        )
+        logger.debug("Context pressure from summary: messages=%d, memories=%d", message_count, memory_count)
     else:
         logger.debug("No context_summary found on Alfred instance")
 
@@ -269,8 +262,7 @@ def build_runtime_self_model(
     )
 
     logger.debug(
-        "Self-model built: interface=%s, session=%s, tools=%d, memory=%s, search=%s, "
-        "messages=%d, memories=%d, tokens=%s",
+        "Self-model built: interface=%s, session=%s, tools=%d, memory=%s, search=%s, messages=%d, memories=%d, tokens=%s",
         detected_interface.value if detected_interface else None,
         current_session_id,
         len(tools_available),

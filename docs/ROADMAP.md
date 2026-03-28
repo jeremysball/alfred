@@ -221,6 +221,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | M20 | Unified SQLite Storage - All storage (sessions, memories, cron) in single SQLite database with ACID transactions (PRD #117) |
 | 143 | Cosine Similarity Migration for Memory and Session Search | Migrate vector search semantics to cosine similarity across memory and session retrieval, with safe rebuild support (PRD #143) |
 | 145 | Spacejam and Kidcore Theme Overhaul | Rework theme message surfaces, backgrounds, and subtle thinking blocks for the kidcore and spacejam themes (PRD #145) |
+| 159 | ✅ Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
 
 ### In Progress / Next Up 🔨
 
@@ -235,6 +236,8 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 
 | # | Milestone | Description |
 |---|-----------|-------------|
+| 164 | Repo-wide ESM Migration for JavaScript | Convert all JavaScript from CommonJS to ES Modules, fixing Web UI initialization failure (PRD #164) |
+| 162 | Web UI WebSocket-first Status and Debug Instrumentation | Make live Web UI state and message delivery WebSocket-first, keep /health for readiness only, and add explicit server/client debug logs (PRD #162) |
 | 160 | Dictation Support and Voice Mode | Bidirectional voice support for Web UI—speech-to-text input and text-to-speech responses with local and cloud options (PRD #160) |
 | 155 | Interleaved Tool Calls and Thinking Blocks | Display tool calls and thinking blocks inline at their trigger point in conversation (PRD #155) |
 | 156 | Playwright Browser Control | Agent can control browser programmatically with real-time preview (PRD #156) |
@@ -255,7 +258,6 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 140 | PyPiTUI v2 Adoption + Alfred Runtime Rewrite | Make PyPiTUI usable as a real runtime dependency and rewrite Alfred to consume it directly end-to-end (PRD #140) |
 | 151 | Web UI Compose, Cancel, and Edit While Streaming | Add cancel/edit streaming UX in the Web UI (PRD #151) |
 | 157 | Migrate to Pygments+Mistune | Replace Rich with Pygments+Mistune for 2-5x faster TUI markdown rendering (PRD #157) |
-| 159 | Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
 | 161 | Documentation Refresh | Update ARCHITECTURE.md and related docs to reflect SQLite storage, PyPiTUI/Web UI interfaces, and AlfredCore (PRD #161) |
 
 ### Medium-term 📅

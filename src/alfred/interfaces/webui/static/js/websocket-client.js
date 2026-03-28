@@ -1,6 +1,6 @@
 /**
  * WebSocket Client for Alfred Web UI
- * 
+ *
  * Manages WebSocket connection, message handling, and reconnection logic.
  * Includes keepalive ping/pong and visibility handling for mobile browser switching.
  */
@@ -15,12 +15,12 @@ class WebSocketDebugStats {
     this.totalBytesSent = 0;
     this.maxIncomingBytes = 0;
     this.maxOutgoingBytes = 0;
-    this.maxIncomingType = '';
-    this.maxOutgoingType = '';
-    this.lastIncomingType = '';
-    this.lastOutgoingType = '';
+    this.maxIncomingType = "";
+    this.maxOutgoingType = "";
+    this.lastIncomingType = "";
+    this.lastOutgoingType = "";
     this.closeCode = null;
-    this.closeReason = '';
+    this.closeReason = "";
     this.wasClean = null;
   }
 
@@ -33,7 +33,7 @@ class WebSocketDebugStats {
   }
 
   recordIncoming(messageType, rawText) {
-    const type = messageType || 'unknown';
+    const type = messageType || "unknown";
     const bytes = this._byteLength(rawText);
     this._increment(this.incomingCounts, type);
     this.totalBytesReceived += bytes;
@@ -45,7 +45,7 @@ class WebSocketDebugStats {
   }
 
   recordOutgoing(messageType, rawText) {
-    const type = messageType || 'unknown';
+    const type = messageType || "unknown";
     const bytes = this._byteLength(rawText);
     this._increment(this.outgoingCounts, type);
     this.totalBytesSent += bytes;
@@ -58,7 +58,7 @@ class WebSocketDebugStats {
 
   recordClose(event) {
     this.closeCode = event.code;
-    this.closeReason = event.reason || '';
+    this.closeReason = event.reason || "";
     this.wasClean = event.wasClean;
   }
 
@@ -88,7 +88,10 @@ class WebSocketDebugStats {
 class AlfredWebSocketClient extends EventTarget {
   constructor(url = null) {
     super();
-    this.url = url || `ws://${window.location.host}/ws`;
+    const { protocol, host } = window.location;
+    // protocol === 'https:' ? 'wss' : 'ws'
+    const scheme = protocol === "https:" ? "wss" : "ws";
+    this.url = url || `${scheme}://${host}/ws`;
     this.ws = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10; // Increased for mobile
@@ -105,13 +108,36 @@ class AlfredWebSocketClient extends EventTarget {
     this.lastPingLatencyMs = null;
     this.lastCloseAt = null;
     this.lastCloseCode = null;
-    this.lastCloseReason = '';
+    this.lastCloseReason = "";
     this.lastCloseWasClean = null;
+    this._pendingManualReconnect = false;
+    // Lifecycle handler tracking to prevent duplicate listeners on reconnect
+    this._freezeHandler = null;
+    this._resumeHandler = null;
+    this._pagehideHandler = null;
+    this._pageshowHandler = null;
   }
 
   connect() {
+    // Idempotent connect: guard against all active states
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
+      if (this.debugEnabled) {
+        console.log("[websocket] Already connected");
+      }
+      return;
+    }
+
+    if (this.ws?.readyState === WebSocket.CONNECTING) {
+      if (this.debugEnabled) {
+        console.log("[websocket] Connection in progress");
+      }
+      return;
+    }
+
+    if (this.ws?.readyState === WebSocket.CLOSING) {
+      if (this.debugEnabled) {
+        console.log("[websocket] Closing, will reconnect when closed");
+      }
       return;
     }
 
@@ -119,57 +145,74 @@ class AlfredWebSocketClient extends EventTarget {
       this.debugStats = new WebSocketDebugStats();
     }
 
-    console.log('Connecting to WebSocket:', this.url);
+    if (this.debugEnabled) {
+      console.log("[websocket] Connecting to:", this.url);
+    }
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = (event) => {
-      console.log('WebSocket connected');
+      if (this.debugEnabled) {
+        console.log("[websocket] WebSocket connected");
+      }
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this._startPing();
       this._flushMessageQueue();
-      this.dispatchEvent(new CustomEvent('connected', { detail: event }));
+      this.dispatchEvent(new CustomEvent("connected", { detail: event }));
     };
 
     this.ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (this.debugStats) {
-          this.debugStats.recordIncoming(message.type || 'unknown', event.data);
+          this.debugStats.recordIncoming(message.type || "unknown", event.data);
         }
         // Handle pong responses
-        if (message.type === 'pong') {
+        if (message.type === "pong") {
           this.lastPongAt = Date.now();
           if (this.lastPingAt !== null) {
             this.lastPingLatencyMs = this.lastPongAt - this.lastPingAt;
           }
+          if (this.debugEnabled) {
+            console.log(`[websocket] Pong received, latency: ${this.lastPingLatencyMs}ms`);
+          }
           this._clearPingTimeout();
           return;
         }
-        this.dispatchEvent(new CustomEvent('message', { detail: message }));
+        this.dispatchEvent(new CustomEvent("message", { detail: message }));
       } catch (error) {
         if (this.debugStats) {
-          this.debugStats.recordIncoming('parse_error', String(event.data));
+          this.debugStats.recordIncoming("parse_error", String(event.data));
         }
-        console.error('Failed to parse WebSocket message:', error);
-        this.dispatchEvent(new CustomEvent('error', { detail: error }));
+        // console.error('Failed to parse WebSocket message:', error)
+        console.error("Failed to parse WebSocket message:", error);
+        this.dispatchEvent(new CustomEvent("error", { detail: error }));
       }
     };
 
     this.ws.onclose = (event) => {
       if (this.debugStats) {
         this.debugStats.recordClose(event);
-        console.info('[WebSocket debug] close summary', this.debugStats.summary());
       }
-      console.log('WebSocket closed:', event.code, event.reason);
+      if (this.debugEnabled) {
+        console.log(
+          `[websocket] WebSocket closed: code=${event.code}, reason="${event.reason || ""}", clean=${event.wasClean}`,
+        );
+      }
       this.isConnected = false;
       this.lastCloseAt = Date.now();
       this.lastCloseCode = event.code;
-      this.lastCloseReason = event.reason || '';
+      this.lastCloseReason = event.reason || "";
       this.lastCloseWasClean = event.wasClean;
       this._stopPing();
-      this.dispatchEvent(new CustomEvent('disconnected', { detail: event }));
-      
+      this.dispatchEvent(new CustomEvent("disconnected", { detail: event }));
+
+      if (this._pendingManualReconnect) {
+        this._pendingManualReconnect = false;
+        this.connect();
+        return;
+      }
+
       // Always try to reconnect unless explicitly disconnected
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this._scheduleReconnect();
@@ -177,8 +220,9 @@ class AlfredWebSocketClient extends EventTarget {
     };
 
     this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      this.dispatchEvent(new CustomEvent('error', { detail: error }));
+      // console.error('WebSocket error:', error)
+      console.error("WebSocket error:", error);
+      this.dispatchEvent(new CustomEvent("error", { detail: error }));
     };
 
     // Setup visibility handling for mobile browser switching
@@ -186,15 +230,43 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   _setupVisibilityHandling() {
+    // Clean up existing listeners to prevent duplicates on reconnect
     if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      document.removeEventListener("visibilitychange", this.visibilityHandler);
     }
-    
+    if (this._freezeHandler) {
+      document.removeEventListener("freeze", this._freezeHandler);
+    }
+    if (this._resumeHandler) {
+      document.removeEventListener("resume", this._resumeHandler);
+    }
+    if (this._pagehideHandler) {
+      window.removeEventListener("pagehide", this._pagehideHandler);
+    }
+    if (this._pageshowHandler) {
+      window.removeEventListener("pageshow", this._pageshowHandler);
+    }
+
     this.visibilityHandler = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('Page visible, checking WebSocket connection');
+      const isVisible = document.visibilityState === "visible";
+
+      // Send visibility state to server
+      this.send({
+        type: "client.visibility",
+        payload: {
+          isVisible: isVisible,
+          timestamp: Date.now(),
+        },
+      });
+
+      if (isVisible) {
+        if (this.debugEnabled) {
+          console.log("[websocket] Page visible, checking connection");
+        }
         if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) {
-          console.log('Reconnecting on visibility change');
+          if (this.debugEnabled) {
+            console.log("[websocket] Reconnecting on visibility change");
+          }
           this.reconnectAttempts = 0; // Reset for user-initiated reconnect
           this.connect();
         }
@@ -204,39 +276,50 @@ class AlfredWebSocketClient extends EventTarget {
         this._sendKeepalive();
       }
     };
-    
-    document.addEventListener('visibilitychange', this.visibilityHandler);
-    
+
+    document.addEventListener("visibilitychange", this.visibilityHandler);
+
     // Page Lifecycle API for more granular control (Chrome/Android)
-    if ('onfreeze' in document) {
-      document.addEventListener('freeze', () => {
-        console.log('Page frozen by OS');
+    if ("onfreeze" in document) {
+      this._freezeHandler = () => {
+        if (this.debugEnabled) {
+          console.log("[websocket] Page frozen by OS");
+        }
         this._stopPing();
-      });
-      document.addEventListener('resume', () => {
-        console.log('Page resumed from frozen state');
+      };
+      this._resumeHandler = () => {
+        if (this.debugEnabled) {
+          console.log("[websocket] Page resumed from frozen state");
+        }
         this.reconnectAttempts = 0;
         this.connect();
-      });
+      };
+      document.addEventListener("freeze", this._freezeHandler);
+      document.addEventListener("resume", this._resumeHandler);
     }
-    
+
     // Handle pagehide/pageshow for iOS Safari
-    window.addEventListener('pagehide', (e) => {
+    this._pagehideHandler = (e) => {
       if (e.persisted) {
         // Page is going into bfcache - connection will be suspended
-        console.log('Page entering bfcache');
+        if (this.debugEnabled) {
+          console.log("[websocket] Page entering bfcache");
+        }
         this._stopPing();
       }
-    });
-    
-    window.addEventListener('pageshow', (e) => {
+    };
+    this._pageshowHandler = (e) => {
       if (e.persisted) {
         // Page restored from bfcache - connection is dead, reconnect
-        console.log('Page restored from bfcache, reconnecting');
+        if (this.debugEnabled) {
+          console.log("[websocket] Page restored from bfcache, reconnecting");
+        }
         this.reconnectAttempts = 0;
         this.connect();
       }
-    });
+    };
+    window.addEventListener("pagehide", this._pagehideHandler);
+    window.addEventListener("pageshow", this._pageshowHandler);
   }
 
   _sendKeepalive() {
@@ -244,12 +327,12 @@ class AlfredWebSocketClient extends EventTarget {
     // This may keep the connection alive a bit longer on some mobile browsers
     if (this.ws?.readyState === WebSocket.OPEN) {
       try {
-        const pingMessage = JSON.stringify({ type: 'ping', ts: Date.now() });
+        const pingMessage = JSON.stringify({ type: "ping", ts: Date.now() });
         this.ws.send(pingMessage);
         if (this.debugStats) {
-          this.debugStats.recordOutgoing('ping', pingMessage);
+          this.debugStats.recordOutgoing("ping", pingMessage);
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore errors on hidden page
       }
     }
@@ -260,37 +343,43 @@ class AlfredWebSocketClient extends EventTarget {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const pingIntervalMs = isMobile ? 3000 : 5000;
     const pongTimeoutMs = isMobile ? 2000 : 3000;
-    
+
     this.pingInterval = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
-        const pingMessage = JSON.stringify({ type: 'ping' });
+        const pingMessage = JSON.stringify({ type: "ping" });
         this.lastPingAt = Date.now();
         this.ws.send(pingMessage);
         if (this.debugStats) {
-          this.debugStats.recordOutgoing('ping', pingMessage);
+          this.debugStats.recordOutgoing("ping", pingMessage);
         }
         // Expect pong within timeout window
         this.pingTimeout = setTimeout(() => {
-          console.log('Ping timeout, closing connection');
+          if (this.debugEnabled) {
+            console.log("[websocket] Ping timeout, closing connection");
+          }
           this.ws?.close();
         }, pongTimeoutMs);
       }
     }, pingIntervalMs);
-    
+
     // Listen for online/offline events
     this._onlineHandler = () => {
-      console.log('Network online');
+      if (this.debugEnabled) {
+        console.log("[websocket] Network online");
+      }
       if (!this.isConnected) {
         this.reconnectAttempts = 0;
         this.connect();
       }
     };
     this._offlineHandler = () => {
-      console.log('Network offline');
+      if (this.debugEnabled) {
+        console.log("[websocket] Network offline");
+      }
       this._stopPing();
     };
-    window.addEventListener('online', this._onlineHandler);
-    window.addEventListener('offline', this._offlineHandler);
+    window.addEventListener("online", this._onlineHandler);
+    window.addEventListener("offline", this._offlineHandler);
   }
 
   _clearPingTimeout() {
@@ -307,11 +396,11 @@ class AlfredWebSocketClient extends EventTarget {
     }
     this._clearPingTimeout();
     if (this._onlineHandler) {
-      window.removeEventListener('online', this._onlineHandler);
+      window.removeEventListener("online", this._onlineHandler);
       this._onlineHandler = null;
     }
     if (this._offlineHandler) {
-      window.removeEventListener('offline', this._offlineHandler);
+      window.removeEventListener("offline", this._offlineHandler);
       this._offlineHandler = null;
     }
   }
@@ -319,7 +408,7 @@ class AlfredWebSocketClient extends EventTarget {
   disconnect() {
     // Clean up all event listeners
     if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      document.removeEventListener("visibilitychange", this.visibilityHandler);
       this.visibilityHandler = null;
     }
     this._stopPing();
@@ -330,8 +419,21 @@ class AlfredWebSocketClient extends EventTarget {
     }
   }
 
+  reconnect() {
+    this._pendingManualReconnect = true;
+    this.reconnectAttempts = 0;
+
+    if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+      this._pendingManualReconnect = false;
+      this.connect();
+      return;
+    }
+
+    this.ws.close();
+  }
+
   send(message) {
-    const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+    const messageStr = typeof message === "string" ? message : JSON.stringify(message);
 
     if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
       if (this.debugStats) {
@@ -339,17 +441,19 @@ class AlfredWebSocketClient extends EventTarget {
       }
       this.ws.send(messageStr);
     } else {
-      console.log('Queueing message until connection is ready');
+      if (this.debugEnabled) {
+        console.log("[websocket] Queueing message until connection is ready");
+      }
       this.messageQueue.push(messageStr);
     }
   }
 
   sendChat(message, sessionId = null) {
     const payload = {
-      type: 'chat.send',
+      type: "chat.send",
       payload: {
-        content: message
-      }
+        content: message,
+      },
     };
     if (sessionId) {
       payload.payload.session_id = sessionId;
@@ -359,47 +463,49 @@ class AlfredWebSocketClient extends EventTarget {
 
   sendCancel() {
     this.send({
-      type: 'chat.cancel'
+      type: "chat.cancel",
     });
   }
 
   sendChatEdit(messageId, content) {
     this.send({
-      type: 'chat.edit',
+      type: "chat.edit",
       payload: {
         messageId,
         content,
-      }
+      },
     });
   }
 
   sendCommand(command) {
-    console.log('[WebSocket] Sending command:', command);
+    if (this.debugEnabled) {
+      console.log("[websocket] Sending command:", command);
+    }
     this.send({
-      type: 'command.execute',
+      type: "command.execute",
       payload: {
-        command: command
-      }
+        command: command,
+      },
     });
   }
 
   sendAck(messageId) {
     this.send({
-      type: 'ack',
-      ref_id: messageId
+      type: "ack",
+      ref_id: messageId,
     });
   }
 
   getConnectionSnapshot() {
     const readyState = this.ws?.readyState;
-    let connectionState = 'disconnected';
+    let connectionState = "disconnected";
 
     if (this.isConnected && readyState === WebSocket.OPEN) {
-      connectionState = 'connected';
+      connectionState = "connected";
     } else if (readyState === WebSocket.CONNECTING) {
-      connectionState = 'connecting';
+      connectionState = "connecting";
     } else if (this.reconnectAttempts > 0) {
-      connectionState = 'reconnecting';
+      connectionState = "reconnecting";
     }
 
     return {
@@ -424,29 +530,37 @@ class AlfredWebSocketClient extends EventTarget {
   }
 
   _getMessageType(messageStr, originalMessage = null) {
-    if (originalMessage && typeof originalMessage !== 'string' && originalMessage.type) {
+    if (originalMessage && typeof originalMessage !== "string" && originalMessage.type) {
       return originalMessage.type;
     }
 
     try {
       const parsed = JSON.parse(messageStr);
-      return parsed.type || 'unknown';
+      return parsed.type || "unknown";
     } catch {
-      return typeof originalMessage === 'string' ? 'text' : 'unknown';
+      return typeof originalMessage === "string" ? "text" : "unknown";
     }
   }
 
   _scheduleReconnect() {
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
+    const delay = this.reconnectDelay * 2 ** (this.reconnectAttempts - 1);
+    if (this.debugEnabled) {
+      console.log(
+        `[websocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+      );
+    }
+
     setTimeout(() => {
       this.connect();
     }, delay);
   }
 
   _flushMessageQueue() {
+    const count = this.messageQueue.length;
+    if (this.debugEnabled && count > 0) {
+      console.log(`[websocket] Flushing ${count} queued message(s)`);
+    }
     while (this.messageQueue.length > 0) {
       const message = this.messageQueue.shift();
       if (this.debugStats) {
@@ -457,7 +571,9 @@ class AlfredWebSocketClient extends EventTarget {
   }
 }
 
-// Export for module usage if supported
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AlfredWebSocketClient };
+// Export for ESM and browser usage
+export { AlfredWebSocketClient };
+
+if (typeof window !== "undefined") {
+  window.AlfredWebSocketClient = AlfredWebSocketClient;
 }

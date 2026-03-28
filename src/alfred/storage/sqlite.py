@@ -26,6 +26,26 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_json_string(value: str) -> str:
+    """Sanitize a string to remove invalid UTF-8 surrogates.
+
+    Surrogates (U+D800-U+DFFF) can exist in Python strings but can't be
+    encoded as UTF-8. This removes them to prevent encoding errors.
+    """
+    return value.encode("utf-8", errors="surrogatepass").decode("utf-8", errors="replace")
+
+
+def _sanitize_json_data(data: Any) -> Any:
+    """Recursively sanitize all strings in JSON data to remove surrogates."""
+    if isinstance(data, str):
+        return _sanitize_json_string(data)
+    if isinstance(data, dict):
+        return {k: _sanitize_json_data(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [_sanitize_json_data(item) for item in data]
+    return data
+
+
 class SQLiteStore:
     """Unified SQLite storage for sessions, cron jobs, and memories.
 
@@ -777,8 +797,8 @@ class SQLiteStore:
                     "session_id": row["session_id"],
                     "created_at": row["created_at"],
                     "updated_at": row["updated_at"],
-                    "messages": json.loads(row["messages"]),
-                    "metadata": json.loads(row["metadata"]),
+                    "messages": _sanitize_json_data(json.loads(row["messages"])),
+                    "metadata": _sanitize_json_data(json.loads(row["metadata"])),
                 }
 
     async def list_sessions(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -805,8 +825,8 @@ class SQLiteStore:
                         "session_id": row["session_id"],
                         "created_at": row["created_at"],
                         "updated_at": row["updated_at"],
-                        "messages": json.loads(row["messages"]),
-                        "metadata": json.loads(row["metadata"]),
+                        "messages": _sanitize_json_data(json.loads(row["messages"])),
+                        "metadata": _sanitize_json_data(json.loads(row["metadata"])),
                     }
                     for row in rows
                 ]
@@ -1567,9 +1587,17 @@ class SQLiteStore:
             aiosqlite.connect(self.db_path) as db,
             db.execute(
                 """
+                WITH latest_summaries AS (
+                    SELECT session_id, MAX(version) AS version
+                    FROM session_summaries
+                    GROUP BY session_id
+                )
                 SELECT s.session_id
                 FROM sessions s
-                LEFT JOIN session_summaries sm ON s.session_id = sm.session_id
+                LEFT JOIN latest_summaries ls ON s.session_id = ls.session_id
+                LEFT JOIN session_summaries sm
+                    ON sm.session_id = ls.session_id
+                    AND sm.version = ls.version
                 WHERE s.message_count - COALESCE(sm.message_count, 0) >= ?
                 """,
                 (threshold,),

@@ -30,6 +30,10 @@
 
   --surface-bg: var(--bg-primary);
   --surface-panel-bg: var(--bg-secondary);
+  --surface-panel-border: #ff7bd4;
+  --surface-panel-header-bg: linear-gradient(135deg, #ff6f00 0%, #ffef5d 100%);
+  --surface-panel-header-text: #130027;
+  --surface-panel-shadow: 0 18px 40px rgba(0, 0, 0, 0.52);
   --surface-elevated-bg: var(--bg-tertiary);
   --surface-input-bg: #fff5fd;
   --surface-footer-bg: var(--bg-footer);
@@ -191,7 +195,7 @@
 [data-theme="spacejam-neocities"] .app-header h1 {
   color: #fff9fe;
   font-family: var(--font-primary);
-  font-size: 1.5rem;
+  font-size: var(--text-2xl);
   font-weight: 900;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -394,7 +398,7 @@
 
 @media (max-width: 700px) {
   [data-theme="spacejam-neocities"] .app-header h1 {
-    font-size: 1.18rem;
+    font-size: var(--text-lg);
     letter-spacing: 0.12em;
   }
 

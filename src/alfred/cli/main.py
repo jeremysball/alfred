@@ -226,6 +226,12 @@ def webui_callback(
         "--hotswap",
         help="Restart the Web UI server when static web assets change",
     ),
+    log: str | None = typer.Option(
+        None,
+        "--log",
+        "-l",
+        help="Set Web UI log level: 'debug' enables browser/client instrumentation. Default: warnings only.",
+    ),
 ) -> None:
     """Launch Alfred Web UI server."""
     if ctx.invoked_subcommand is not None:
@@ -234,7 +240,8 @@ def webui_callback(
     from alfred.cli.webui_hotswap import run_webui_hotswap, run_webui_server
 
     runner = run_webui_hotswap if hotswap else run_webui_server
-    runner(host=host, port=port, open_browser=open_browser)
+    debug = log == "debug"
+    runner(host=host, port=port, open_browser=open_browser, debug=debug)
 
 
 app.add_typer(webui_app)

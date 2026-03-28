@@ -1,0 +1,296 @@
+/**
+ * Animations Feature - CSS Styles
+ * GPU-accelerated animations using only transform and opacity
+ */
+
+/* ============================================
+   Message Entrance Animations
+   ============================================ */
+
+.message-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 150ms ease-out;
+  will-change: transform, opacity;
+}
+
+.message-enter--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* User messages: slide from right */
+.message-enter--user {
+  transform: translateX(8px);
+}
+
+.message-enter--user.message-enter--visible {
+  transform: translateX(0);
+}
+
+/* Assistant messages: fade in (no horizontal movement) */
+.message-enter--assistant {
+  transform: none;
+}
+
+/* ============================================
+   Button Press Micro-interactions
+   ============================================ */
+
+.btn-press,
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  transition: transform 100ms ease;
+}
+
+.btn-press:active,
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+/* Icon buttons */
+.icon-btn {
+  transition:
+    transform 100ms ease,
+    background-color 150ms ease;
+}
+
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   Smooth Scroll
+   ============================================ */
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* iOS momentum scrolling */
+@supports (-webkit-overflow-scrolling: touch) {
+  .momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ============================================
+   Skeleton Loading States
+   ============================================ */
+
+.skeleton {
+  background-color: var(--bg-secondary, #f0f0f0);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Dark mode shimmer */
+@media (prefers-color-scheme: dark) {
+  .skeleton::after {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+  }
+}
+
+/* Skeleton variants */
+.skeleton--text {
+  height: 1em;
+  margin-bottom: 0.5em;
+}
+
+.skeleton--title {
+  height: 1.5em;
+  width: 60%;
+  margin-bottom: 0.75em;
+}
+
+.skeleton--avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton--card {
+  height: 80px;
+  border-radius: 8px;
+}
+
+/* ============================================
+   Typing Indicator
+   ============================================ */
+
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+}
+
+.typing-indicator__dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--text-secondary, #888);
+  border-radius: 50%;
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
+.typing-indicator__dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator__dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator__dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ============================================
+   Tool Call Progress
+   ============================================ */
+
+.tool-call-progress {
+  position: relative;
+  height: 4px;
+  background-color: var(--bg-secondary, #e0e0e0);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tool-call-progress__bar {
+  height: 100%;
+  background-color: var(--accent-color, #007bff);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 200ms ease-out;
+}
+
+.tool-call-progress__bar--indeterminate {
+  animation: progress-indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: scaleX(0.3) translateX(-100%);
+  }
+  50% {
+    transform: scaleX(0.3) translateX(0%);
+  }
+  100% {
+    transform: scaleX(0.3) translateX(200%);
+  }
+}
+
+.tool-call--executing {
+  animation: tool-call-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tool-call-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+
+  .message-enter,
+  .message-enter--user,
+  .message-enter--assistant {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .skeleton::after {
+    animation: none;
+    transform: none;
+    opacity: 0.5;
+  }
+
+  .typing-indicator__dot {
+    animation: none;
+    opacity: 0.5;
+  }
+
+  .tool-call-progress__bar--indeterminate,
+  .tool-call--executing {
+    animation: none;
+  }
+}
+
+/* ============================================
+   Performance Optimizations
+   ============================================ */
+
+/* Ensure GPU layer promotion for animated elements */
+.message-enter,
+.skeleton,
+.typing-indicator,
+.tool-call-progress__bar {
+  contain: layout style;
+}
+
+/* Remove will-change after animation completes */
+.message-enter--visible {
+  will-change: auto;
+}

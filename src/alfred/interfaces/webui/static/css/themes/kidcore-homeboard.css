@@ -44,7 +44,7 @@
 
 [data-theme="kidcore-playground"] .app-header h1 {
   color: #2b1533;
-  font-size: 1.45rem;
+  font-size: var(--text-2xl);
   letter-spacing: 0.14em;
   text-shadow:
     2px 2px 0 rgba(255, 255, 255, 0.92),
@@ -105,7 +105,7 @@
   border: 2px solid #281736;
   border-radius: 9999px;
   box-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7);
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 900;
   letter-spacing: 0.12em;
   line-height: 1;
@@ -146,7 +146,7 @@
   color: #281736;
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.14);
   font-family: inherit;
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -220,7 +220,7 @@
   background: linear-gradient(135deg, #ffef5d 0%, #ffb2d6 100%);
   color: #281736;
   box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.16);
-  font-size: 0.95rem;
+  font-size: var(--text-md);
   line-height: 1;
 }
 
@@ -233,7 +233,7 @@
 [data-theme="kidcore-playground"] .kidcore-window-title {
   overflow: hidden;
   color: #fff;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 900;
   letter-spacing: 0.14em;
   text-overflow: ellipsis;
@@ -245,7 +245,7 @@
 [data-theme="kidcore-playground"] .kidcore-window-subtitle {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.86);
-  font-size: 0.58rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-overflow: ellipsis;
@@ -259,27 +259,30 @@
   gap: 0.28rem;
 }
 
-[data-theme="kidcore-playground"] .kidcore-window-control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: 2px solid #281736;
-  border-radius: 0.38rem;
-  background: linear-gradient(180deg, #f8f8f8 0%, #cfcfcf 100%);
+[data-theme="kidcore-playground"] .kidcore-window-control,
+[data-theme="kidcore-playground"] .kidcore-window-controls button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  padding: 0 !important;
+  border: 2px solid #281736 !important;
+  border-radius: 0.38rem !important;
+  background: linear-gradient(180deg, #f8f8f8 0%, #cfcfcf 100%) !important;
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.85),
-    2px 2px 0 rgba(0, 0, 0, 0.16);
-  color: #281736;
-  font-size: 0.88rem;
-  font-weight: 900;
-  line-height: 1;
+    2px 2px 0 rgba(0, 0, 0, 0.16) !important;
+  color: #281736 !important;
+  font-size: var(--text-sm);
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 
-[data-theme="kidcore-playground"] .kidcore-window-control:hover {
+[data-theme="kidcore-playground"] .kidcore-window-control:hover,
+[data-theme="kidcore-playground"] .kidcore-window-controls button:hover {
   transform: translateY(-1px);
   filter: saturate(1.05) brightness(1.02);
 }
@@ -321,7 +324,7 @@
   background: linear-gradient(135deg, #ffef5d 0%, #d8fbff 100%);
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.18);
   color: #281736;
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -389,14 +392,14 @@
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.78);
   color: #2b1533;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 [data-theme="kidcore-playground"] .kidcore-homeboard-caption {
   color: #6a5578;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-style: italic;
 }
 
@@ -417,7 +420,7 @@
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.14);
   background: linear-gradient(135deg, #fff3cf 0%, #ffd0ea 100%);
   color: #281736;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -463,14 +466,14 @@
 
 [data-theme="kidcore-playground"] .kidcore-panel-heading h2 {
   color: #281736;
-  font-size: 1rem;
+  font-size: var(--text-md);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 [data-theme="kidcore-playground"] .kidcore-panel-heading p {
   color: #6a5578;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
 }
 
 [data-theme="kidcore-playground"] .kidcore-homeboard-status,
@@ -483,7 +486,7 @@
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.72);
   color: #6a5578;
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -500,7 +503,7 @@
   display: grid;
   gap: 0.35rem;
   color: #2b1533;
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -520,7 +523,7 @@
   color: #2b1533;
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.12);
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
 }
 
 [data-theme="kidcore-playground"] .kidcore-field textarea {
@@ -569,6 +572,27 @@
   display: grid;
   gap: 0.55rem;
   list-style: none;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+[data-theme="kidcore-playground"] .kidcore-guestbook-entries::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-theme="kidcore-playground"] .kidcore-guestbook-entries::-webkit-scrollbar-track {
+  background: rgba(40, 23, 54, 0.1);
+  border-radius: 3px;
+}
+
+[data-theme="kidcore-playground"] .kidcore-guestbook-entries::-webkit-scrollbar-thumb {
+  background: rgba(40, 23, 54, 0.3);
+  border-radius: 3px;
+}
+
+[data-theme="kidcore-playground"] .kidcore-guestbook-entries::-webkit-scrollbar-thumb:hover {
+  background: rgba(40, 23, 54, 0.5);
 }
 
 [data-theme="kidcore-playground"] .kidcore-guestbook-entry {
@@ -590,12 +614,12 @@
 
 [data-theme="kidcore-playground"] .kidcore-entry-name {
   color: #2b1533;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
 }
 
 [data-theme="kidcore-playground"] .kidcore-entry-time {
   color: #7b658a;
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -628,7 +652,7 @@
 
 [data-theme="kidcore-playground"] .kidcore-webring-card h3 {
   color: #281736;
-  font-size: 1rem;
+  font-size: var(--text-md);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -650,7 +674,7 @@
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.74);
   color: #7c4dff;
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: lowercase;
 }
@@ -694,7 +718,7 @@
 
 [data-theme="kidcore-playground"] .kidcore-link-card h3 {
   color: #281736;
-  font-size: 1rem;
+  font-size: var(--text-md);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -776,11 +800,11 @@
   [data-theme="kidcore-playground"] .kidcore-window-icon {
     width: 1.2rem;
     height: 1.2rem;
-    font-size: 0.78rem;
+    font-size: var(--text-sm);
   }
 
   [data-theme="kidcore-playground"] .kidcore-window-title {
-    font-size: 0.62rem;
+    font-size: var(--text-xs);
     letter-spacing: 0.11em;
   }
 
@@ -789,10 +813,11 @@
     letter-spacing: 0.08em;
   }
 
-  [data-theme="kidcore-playground"] .kidcore-window-control {
-    width: 1.25rem;
-    height: 1.25rem;
-    font-size: 0.72rem;
+  [data-theme="kidcore-playground"] .kidcore-window-control,
+  [data-theme="kidcore-playground"] .kidcore-window-controls button {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    font-size: var(--text-xs);
   }
 
   [data-theme="kidcore-playground"] .kidcore-homeboard-launcher {
@@ -907,7 +932,7 @@
   }
 
   [data-theme="kidcore-playground"] .kidcore-homeboard-caption {
-    font-size: 0.62rem;
+    font-size: var(--text-xs);
   }
 
   [data-theme="kidcore-playground"] .kidcore-homeboard-tabs {
@@ -948,7 +973,7 @@
   }
 
   [data-theme="kidcore-playground"] .kidcore-field {
-    font-size: 0.58rem;
+    font-size: var(--text-xs);
   }
 
   [data-theme="kidcore-playground"] .kidcore-field-message {
@@ -1006,7 +1031,7 @@
   [data-theme="kidcore-playground"] .kidcore-links-note,
   [data-theme="kidcore-playground"] .kidcore-webring-url,
   [data-theme="kidcore-playground"] .kidcore-links-url {
-    font-size: 0.58rem;
+    font-size: var(--text-xs);
   }
 
   [data-theme="kidcore-playground"] .kidcore-webring-actions,
@@ -1075,7 +1100,7 @@
   background: linear-gradient(135deg, #ffef5d 0%, #ffb2d6 100%);
   color: #281736;
   font-family: inherit;
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1085,7 +1110,7 @@
 [data-theme="kidcore-playground"] .kidcore-homeboard-search-summary {
   grid-column: 1 / -1;
   color: #5b456e;
-  font-size: 0.74rem;
+  font-size: var(--text-xs);
   line-height: 1.35;
 }
 

@@ -1,0 +1,79 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 3,
+      "startServerCommand": "uv run python -m alfred --webui --port 8080",
+      "startServerReadyPattern": "Uvicorn running",
+      "startServerReadyTimeout": 60000,
+      "url": [
+        "http://localhost:8080/static/index.html"
+      ],
+      "settings": {
+        "preset": "desktop",
+        "chromeFlags": "--no-sandbox --disable-dev-shm-usage"
+      }
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "categories:pwa": [
+          "error",
+          {
+            "minScore": 0.9
+          }
+        ],
+        "categories:performance": [
+          "warn",
+          {
+            "minScore": 0.8
+          }
+        ],
+        "categories:accessibility": [
+          "warn",
+          {
+            "minScore": 0.9
+          }
+        ],
+        "categories:best-practices": [
+          "warn",
+          {
+            "minScore": 0.9
+          }
+        ],
+        "categories:seo": [
+          "warn",
+          {
+            "minScore": 0.9
+          }
+        ],
+        "installable-manifest": "error",
+        "service-worker": "error",
+        "viewport": "error",
+        "is-on-https": "error",
+        "manifest-exists": "error",
+        "apple-touch-icon": "warn",
+        "maskable-icon": "warn",
+        "splash-screen": "warn",
+        "themed-omnibox": "warn",
+        "content-width": "warn",
+        "without-javascript": "warn",
+        "first-contentful-paint": [
+          "warn",
+          {
+            "maxNumericValue": 2000
+          }
+        ],
+        "interactive": [
+          "warn",
+          {
+            "maxNumericValue": 3500
+          }
+        ]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage",
+      "githubStatusContextSuffix": "- lighthouse"
+    }
+  }
+}

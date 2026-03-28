@@ -794,10 +794,106 @@ For streaming display:
 
 Token counts in `status.update` are approximate (4 characters ≈ 1 token for English text). Exact counts are provided in `chat.complete`.
 
+## Debugging and Troubleshooting
+
+### Enabling Debug Logging
+
+The Web UI supports structured debug logging to help diagnose connection issues. Enable debug mode by starting the Web UI with the `--log debug` flag:
+
+```bash
+# Enable Web UI client debug logs only
+alfred webui --log debug
+
+# Enable both Alfred server logs and Web UI client logs
+alfred --log debug webui --log debug
+```
+
+**Note:** The root `--log` flag (before `webui`) controls server-side logging. The `webui --log` flag (after `webui`) controls browser/client debug instrumentation.
+
+### Understanding `[websocket]` Logs
+
+When debug logging is enabled, the browser console shows structured lifecycle events with the `[websocket]` prefix:
+
+| Log Message | Description |
+|-------------|-------------|
+| `[websocket] Connecting to: ws://...` | Connection attempt initiated |
+| `[websocket] WebSocket connected` | Connection established successfully |
+| `[websocket] WebSocket closed: code=..., reason="...", clean=...` | Connection closed with details |
+| `[websocket] Reconnecting in ${delay}ms (attempt ${n}/${max})` | Reconnect scheduled with backoff |
+| `[websocket] Flushing ${n} queued message(s)` | Queued messages being sent |
+| `[websocket] Pong received, latency: ${ms}ms` | Keepalive round-trip time |
+
+### Common Connection Scenarios
+
+**Normal startup sequence:**
+```
+[websocket] Connecting to: ws://localhost:8080/ws
+[websocket] WebSocket connected
+[websocket] Pong received, latency: 45ms
+```
+
+**Transient disconnect and recovery:**
+```
+[websocket] WebSocket closed: code=1006, reason="", clean=false
+[websocket] Reconnecting in 1000ms (attempt 1/10)
+[websocket] Connecting to: ws://localhost:8080/ws
+[websocket] WebSocket connected
+[websocket] Pong received, latency: 52ms
+```
+
+**Message queue during disconnect:**
+```
+[websocket] Queueing message until connection is ready
+[websocket] Reconnecting in 2000ms (attempt 2/10)
+[websocket] Connecting to: ws://localhost:8080/ws
+[websocket] WebSocket connected
+[websocket] Flushing 1 queued message(s)
+```
+
+### Health Endpoint vs Live State
+
+The `/health` endpoint is for ops/readiness checks only. Do not use it for live UI state:
+
+```bash
+# Use for monitoring/ops (returns 200 when server is ready)
+curl http://localhost:8080/health
+
+# Do NOT poll for live connection status — use WebSocket state instead
+```
+
+The Web UI derives all live connection status from the WebSocket itself:
+- Connection state: WebSocket `readyState`
+- Daemon status: `daemon.status` message payload
+- Reconnect state: Client-side reconnect attempt counter
+
+### Troubleshooting Guide
+
+**Connection immediately closes:**
+- Check server is running: `curl http://localhost:8080/health`
+- Verify port is correct in WebSocket URL
+- Check browser console for `[websocket]` connection logs
+
+**Frequent reconnects:**
+- Look for `[websocket] WebSocket closed` log — check close code
+- Code `1006` (abnormal closure): Often proxy/firewall timeout
+- Code `1001` (going away): Page refresh or navigation
+- Check `[websocket] Pong received` latency — high latency may trigger timeouts
+
+**Messages not sending:**
+- Verify `[websocket] WebSocket connected` appears in logs
+- Check for `[websocket] Queueing message` — indicates disconnect
+- Look for `[websocket] Flushing` — queued messages should send on reconnect
+
+**No debug logs appearing:**
+- Confirm `alfred webui --log debug` was used
+- Check browser console filter is not hiding `[websocket]` prefixed logs
+- Verify `window.__ALFRED_WEBUI_CONFIG__.debug` is `true` in console
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 0.1.2 | 2026-03-27 | Added debugging and troubleshooting section |
 | 0.1.1 | 2026-03-23 | Added `chat.cancel`, `chat.edit`, `chat.cancelled`, and streaming control flow examples |
 | 0.1.0 | 2026-03-20 | Initial protocol specification |
 

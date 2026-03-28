@@ -153,7 +153,7 @@ def test_run_webui_hotswap_uses_the_same_bootstrap_path(monkeypatch, tmp_path: P
         bootstrap_calls += 1
         return bootstrap_result
 
-    def fake_create_app(*, alfred_instance):
+    def fake_create_app(*, alfred_instance, debug: bool = False):
         app = SimpleNamespace(state=SimpleNamespace())
         app.state.alfred = alfred_instance
         return app

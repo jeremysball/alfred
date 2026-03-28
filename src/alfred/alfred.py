@@ -16,7 +16,7 @@ from alfred.context import ContextLoader
 from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
 from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
-from alfred.session import Message, ReasoningBlock, Role, Session, ToolCallRecord
+from alfred.session import Message, ReasoningBlock, Role, Session, TextBlock, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
 
@@ -433,7 +433,38 @@ class Alfred:
             full_response: list[str] = []
             reasoning_blocks: list[ReasoningBlock] = []  # Interleaved reasoning blocks
             current_reasoning_block: ReasoningBlock | None = None
+            text_blocks: list[TextBlock] = []  # Ordered visible text segments
+            current_text_block: TextBlock | None = None
             sequence_counter = 0  # Shared sequence counter for interleaving
+
+            def _build_text_blocks_snapshot() -> list[TextBlock] | None:
+                if not text_blocks:
+                    return None
+
+                return [
+                    TextBlock(
+                        content=tb.content,
+                        sequence=tb.sequence,
+                    )
+                    for tb in text_blocks
+                ]
+
+            def _build_reasoning_blocks_snapshot() -> list[ReasoningBlock] | None:
+                snapshot = [
+                    ReasoningBlock(
+                        content=rb.content,
+                        sequence=rb.sequence,
+                    )
+                    for rb in reasoning_blocks
+                ]
+                if current_reasoning_block is not None:
+                    snapshot.append(
+                        ReasoningBlock(
+                            content=current_reasoning_block.content,
+                            sequence=current_reasoning_block.sequence,
+                        )
+                    )
+                return snapshot or None
 
             def _build_tool_calls_snapshot() -> list[ToolCallRecord] | None:
                 if not tool_calls_accumulator:
@@ -454,7 +485,7 @@ class Alfred:
 
             def _tool_callback_wrapper(event: ToolEvent) -> None:
                 """Wrapper to capture tool calls while still calling external callback."""
-                nonlocal full_response, sequence_counter, reasoning_blocks, current_reasoning_block
+                nonlocal full_response, sequence_counter, reasoning_blocks, current_reasoning_block, current_text_block
 
                 # Call external callback if provided
                 if tool_callback:
@@ -466,6 +497,10 @@ class Alfred:
                     if current_reasoning_block is not None:
                         reasoning_blocks.append(current_reasoning_block)
                         current_reasoning_block = None
+
+                    # Tool calls break the current text segment so the next text chunk
+                    # starts a fresh block after the tool call.
+                    current_text_block = None
 
                     # Calculate insert position based on current response length
                     insert_position = len("".join(full_response))
@@ -500,6 +535,8 @@ class Alfred:
 
                 if persist_partial and assistant_msg_obj is not None:
                     assistant_msg_obj.tool_calls = _build_tool_calls_snapshot()
+                    assistant_msg_obj.reasoning_blocks = _build_reasoning_blocks_snapshot()
+                    assistant_msg_obj.text_blocks = _build_text_blocks_snapshot()
 
             chunk_times: list[float] = []
             last_chunk_time = perf_counter()
@@ -530,24 +567,48 @@ class Alfred:
                     else:
                         current_reasoning_block.content += reasoning_chunk
 
+                    # Reasoning boundaries break the current visible text segment.
+                    current_text_block = None
+
                     if assistant_msg_obj is not None:
                         assistant_msg_obj.reasoning_content += reasoning_chunk
+                        assistant_msg_obj.reasoning_blocks = _build_reasoning_blocks_snapshot()
+                        assistant_msg_obj.text_blocks = _build_text_blocks_snapshot()
                         assistant_msg_obj.streaming = True
                 elif chunk.startswith("[/REASONING]"):
                     # End current reasoning block
                     if current_reasoning_block is not None:
                         reasoning_blocks.append(current_reasoning_block)
                         current_reasoning_block = None
+
+                    # Keep the next visible text chunk in a fresh block.
+                    current_text_block = None
+
+                    if assistant_msg_obj is not None:
+                        assistant_msg_obj.reasoning_blocks = _build_reasoning_blocks_snapshot()
+                        assistant_msg_obj.text_blocks = _build_text_blocks_snapshot()
                 else:
                     full_response.append(chunk)
+                    if current_text_block is None:
+                        current_text_block = TextBlock(
+                            content=chunk,
+                            sequence=sequence_counter,
+                        )
+                        sequence_counter += 1
+                        text_blocks.append(current_text_block)
+                    else:
+                        current_text_block.content += chunk
+
                     if assistant_msg_obj is not None:
                         assistant_msg_obj.content = "".join(full_response)
+                        assistant_msg_obj.text_blocks = _build_text_blocks_snapshot()
+                        assistant_msg_obj.reasoning_blocks = _build_reasoning_blocks_snapshot()
                         assistant_msg_obj.streaming = True
                 chunk_count += 1
 
                 # Log slow chunks (>100ms) at debug level
                 if chunk_latency > 0.1:
-                    logger.debug(f"[STREAM_SLOW_CHUNK] chunk={chunk_count} latency={chunk_latency*1000:.2f}ms chars={len(chunk)}")
+                    logger.debug(f"[STREAM_SLOW_CHUNK] chunk={chunk_count} latency={chunk_latency * 1000:.2f}ms chars={len(chunk)}")
 
                 yield chunk
 
@@ -559,10 +620,10 @@ class Alfred:
                 min_chunk_latency = min(chunk_times[1:])  # Exclude first chunk (includes request setup)
                 logger.debug(
                     f"[STREAM_PERF] chunks={chunk_count} "
-                    f"total_time={total_stream_time*1000:.2f}ms "
-                    f"avg_latency={avg_chunk_latency*1000:.2f}ms "
-                    f"min_latency={min_chunk_latency*1000:.2f}ms "
-                    f"max_latency={max_chunk_latency*1000:.2f}ms"
+                    f"total_time={total_stream_time * 1000:.2f}ms "
+                    f"avg_latency={avg_chunk_latency * 1000:.2f}ms "
+                    f"min_latency={min_chunk_latency * 1000:.2f}ms "
+                    f"max_latency={max_chunk_latency * 1000:.2f}ms"
                 )
 
             # Finalize any pending reasoning block
@@ -597,12 +658,14 @@ class Alfred:
                     tool_calls=tool_calls,
                     reasoning_content=reasoning_text,
                     reasoning_blocks=reasoning_blocks if reasoning_blocks else None,
+                    text_blocks=text_blocks if text_blocks else None,
                 )
                 session.messages.append(assistant_msg_obj)
             else:
                 assistant_msg_obj.content = assistant_message
                 assistant_msg_obj.reasoning_content = reasoning_text
                 assistant_msg_obj.reasoning_blocks = reasoning_blocks if reasoning_blocks else None
+                assistant_msg_obj.text_blocks = text_blocks if text_blocks else None
                 assistant_msg_obj.tool_calls = tool_calls
                 assistant_msg_obj.streaming = False
 
@@ -767,8 +830,7 @@ You can then continue the conversation with the tool results.
         logger.debug("Alfred.build_self_model: building self-model snapshot")
         model = build_runtime_self_model(self)
         logger.debug(
-            "Alfred.build_self_model: self-model ready - interface=%s, tools=%d, "
-            "memory=%s, search=%s, messages=%d",
+            "Alfred.build_self_model: self-model ready - interface=%s, tools=%d, memory=%s, search=%s, messages=%d",
             model.runtime.interface.value if model.runtime.interface else None,
             len(model.capabilities.tools_available),
             model.capabilities.memory_enabled,

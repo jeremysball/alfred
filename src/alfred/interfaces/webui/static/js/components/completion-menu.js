@@ -18,29 +18,29 @@ class CompletionMenu extends HTMLElement {
     this._items = [];
     this._selectedIndex = -1;
     this._visible = false;
-    this._filter = '';
+    this._filter = "";
   }
 
   static get observedAttributes() {
-    return ['items', 'selected-index', 'visible'];
+    return ["items", "selected-index", "visible"];
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return;
 
     switch (name) {
-      case 'items':
+      case "items":
         try {
-          this._items = JSON.parse(newValue || '[]');
+          this._items = JSON.parse(newValue || "[]");
         } catch {
           this._items = [];
         }
         break;
-      case 'selected-index':
+      case "selected-index":
         this._selectedIndex = parseInt(newValue, 10) || -1;
         break;
-      case 'visible':
-        this._visible = newValue === 'true';
+      case "visible":
+        this._visible = newValue === "true";
         break;
     }
     this._render();
@@ -48,15 +48,15 @@ class CompletionMenu extends HTMLElement {
 
   connectedCallback() {
     this._render();
-    this.addEventListener('click', this._handleClick);
+    this.addEventListener("click", this._handleClick);
   }
 
   disconnectedCallback() {
-    this.removeEventListener('click', this._handleClick);
+    this.removeEventListener("click", this._handleClick);
   }
 
   _handleClick = (e) => {
-    const item = e.target.closest('.completion-item');
+    const item = e.target.closest(".completion-item");
     if (item) {
       const index = parseInt(item.dataset.index, 10);
       this.selectItem(index);
@@ -65,29 +65,34 @@ class CompletionMenu extends HTMLElement {
 
   _render() {
     if (!this._visible || this._items.length === 0) {
-      this.innerHTML = '';
-      this.style.display = 'none';
+      this.innerHTML = "";
+      this.style.display = "none";
       return;
     }
 
-    this.style.display = 'block';
+    this.style.display = "block";
 
     const filteredItems = this._filter
-      ? this._items.filter(item =>
-          item.value.toLowerCase().includes(this._filter.toLowerCase()) ||
-          (item.description && item.description.toLowerCase().includes(this._filter.toLowerCase()))
+      ? this._items.filter(
+          (item) =>
+            item.value.toLowerCase().includes(this._filter.toLowerCase()) ||
+            item.description?.toLowerCase().includes(this._filter.toLowerCase()),
         )
       : this._items;
 
-    const itemsHtml = filteredItems.map((item, index) => `
+    const itemsHtml = filteredItems
+      .map(
+        (item, index) => `
       <div
-        class="completion-item ${index === this._selectedIndex ? 'selected' : ''}"
+        class="completion-item ${index === this._selectedIndex ? "selected" : ""}"
         data-index="${index}"
       >
         <span class="completion-value">${this._escapeHtml(item.value)}</span>
-        ${item.description ? `<span class="completion-description">${this._escapeHtml(item.description)}</span>` : ''}
+        ${item.description ? `<span class="completion-description">${this._escapeHtml(item.description)}</span>` : ""}
       </div>
-    `).join('');
+    `,
+      )
+      .join("");
 
     this.innerHTML = `
       <div class="completion-menu">
@@ -97,7 +102,7 @@ class CompletionMenu extends HTMLElement {
   }
 
   _escapeHtml(text) {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
@@ -105,19 +110,19 @@ class CompletionMenu extends HTMLElement {
   // Public API
   show() {
     this._visible = true;
-    this.setAttribute('visible', 'true');
+    this.setAttribute("visible", "true");
   }
 
   hide() {
     this._visible = false;
-    this.setAttribute('visible', 'false');
+    this.setAttribute("visible", "false");
     this._selectedIndex = -1;
-    this._filter = '';
+    this._filter = "";
   }
 
   setItems(items) {
     this._items = items;
-    this.setAttribute('items', JSON.stringify(items));
+    this.setAttribute("items", JSON.stringify(items));
   }
 
   setFilter(filter) {
@@ -128,26 +133,26 @@ class CompletionMenu extends HTMLElement {
   selectNext() {
     const filteredCount = this._getFilteredCount();
     this._selectedIndex = (this._selectedIndex + 1) % filteredCount;
-    this.setAttribute('selected-index', this._selectedIndex.toString());
+    this.setAttribute("selected-index", this._selectedIndex.toString());
     this._scrollToSelected();
   }
 
   selectPrevious() {
     const filteredCount = this._getFilteredCount();
-    this._selectedIndex = this._selectedIndex <= 0
-      ? filteredCount - 1
-      : this._selectedIndex - 1;
-    this.setAttribute('selected-index', this._selectedIndex.toString());
+    this._selectedIndex = this._selectedIndex <= 0 ? filteredCount - 1 : this._selectedIndex - 1;
+    this.setAttribute("selected-index", this._selectedIndex.toString());
     this._scrollToSelected();
   }
 
   selectItem(index) {
     const filteredItems = this._getFilteredItems();
     if (index >= 0 && index < filteredItems.length) {
-      this.dispatchEvent(new CustomEvent('select', {
-        detail: filteredItems[index],
-        bubbles: true
-      }));
+      this.dispatchEvent(
+        new CustomEvent("select", {
+          detail: filteredItems[index],
+          bubbles: true,
+        }),
+      );
       this.hide();
     }
   }
@@ -163,9 +168,10 @@ class CompletionMenu extends HTMLElement {
 
   _getFilteredItems() {
     if (!this._filter) return this._items;
-    return this._items.filter(item =>
-      item.value.toLowerCase().includes(this._filter.toLowerCase()) ||
-      (item.description && item.description.toLowerCase().includes(this._filter.toLowerCase()))
+    return this._items.filter(
+      (item) =>
+        item.value.toLowerCase().includes(this._filter.toLowerCase()) ||
+        item.description?.toLowerCase().includes(this._filter.toLowerCase()),
     );
   }
 
@@ -174,9 +180,9 @@ class CompletionMenu extends HTMLElement {
   }
 
   _scrollToSelected() {
-    const selected = this.querySelector('.completion-item.selected');
+    const selected = this.querySelector(".completion-item.selected");
     if (selected) {
-      selected.scrollIntoView({ block: 'nearest' });
+      selected.scrollIntoView({ block: "nearest" });
     }
   }
 
@@ -186,4 +192,4 @@ class CompletionMenu extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('completion-menu', CompletionMenu);
+customElements.define("completion-menu", CompletionMenu);

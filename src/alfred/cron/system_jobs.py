@@ -88,10 +88,13 @@ async def run():
                 print(f"Summarizing session {meta.session_id}")
                 session = await session_manager.get_or_create_session_async(meta.session_id)
                 if session and session.messages:
+                    existing_summary = await summarizer.load_summary(meta.session_id)
                     summary = await summarizer.generate_summary(session)
+                    summary.version = (existing_summary.version + 1) if existing_summary else 1
                     await summarizer.save_summary(summary)
                     # Update session metadata to track what was summarized
                     meta.last_summarized_count = meta.message_count
+                    meta.summary_version = summary.version
                     print(f"Saved summary for session {meta.session_id}")
                     summarized += 1
 

@@ -14,6 +14,13 @@ from alfred.token_tracker import TokenTracker
 
 
 @runtime_checkable
+class WebUIContextLoader(Protocol):
+    """Context loader methods the Web UI server uses."""
+
+    def toggle_section(self, section: str, enabled: bool) -> bool: ...
+
+
+@runtime_checkable
 class WebUISessionManager(Protocol):
     """Session manager methods the Web UI server uses."""
 
@@ -44,6 +51,7 @@ class WebUIAlfred(Protocol):
 
     core: WebUICore
     token_tracker: TokenTracker
+    context_loader: WebUIContextLoader
 
     @property
     def model_name(self) -> str: ...

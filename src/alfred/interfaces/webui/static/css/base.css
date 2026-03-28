@@ -14,10 +14,11 @@ html, body {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
     background: #1a1a1a;
     color: #e0e0e0;
-    line-height: 1.5;
+    line-height: var(--leading-normal);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -54,7 +55,7 @@ body {
 
 .app-header h1 {
     color: #4fc3f7;
-    font-size: 1.5rem;
+    font-size: var(--text-2xl);
     font-weight: 600;
 }
 
@@ -67,7 +68,7 @@ body {
     width: 0.85rem;
     height: 0.85rem;
     border-radius: 50%;
-    font-size: 0.55rem;
+    font-size: var(--text-xs);
     line-height: 1;
     font-weight: 900;
     cursor: help;
@@ -141,7 +142,7 @@ body {
     box-shadow: var(--connection-popover-shadow, 0 18px 40px rgba(0, 0, 0, 0.42));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    font-size: 0.78rem;
+    font-size: var(--text-sm);
     line-height: 1.35;
     visibility: hidden;
     opacity: 0;
@@ -196,7 +197,7 @@ body {
 
 .connection-status-tooltip-title {
     margin-bottom: 0.8rem;
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -216,7 +217,7 @@ body {
 }
 
 .connection-status-tooltip-section-title {
-    font-size: 0.72rem;
+    font-size: var(--text-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -228,7 +229,7 @@ body {
     align-items: baseline;
     justify-content: space-between;
     gap: 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .connection-status-tooltip-label {
@@ -242,7 +243,7 @@ body {
 }
 
 .connection-status-tooltip-note {
-    font-size: 0.78rem;
+    font-size: var(--text-sm);
     opacity: 0.84;
 }
 
@@ -280,7 +281,7 @@ body {
     color: #1a1a1a;
     padding: 0.25rem 0.625rem;
     border-radius: 1rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     font-weight: 600;
     min-width: 1.5rem;
     text-align: center;
@@ -388,7 +389,7 @@ chat-message.streaming .message-avatar {
     background: transparent;
     border: 1px dashed #555;
     align-self: center;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     color: #888;
     padding: 0.75rem 1rem;
     max-width: 95%;
@@ -417,12 +418,12 @@ chat-message[data-message-state="editing"] .message.user {
     align-items: center;
     gap: 0.25rem;
     margin-bottom: 0.25rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     opacity: 0.9;
 }
 
 .message-avatar {
-    font-size: 1rem;
+    font-size: var(--text-md);
     width: 2em;
     height: 2em;
     display: inline-flex;
@@ -474,7 +475,7 @@ chat-message[data-message-state="editing"] .message.user {
 }
 
 .message-time {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     opacity: 0.7;
 }
 
@@ -518,6 +519,60 @@ chat-message[data-message-state="editing"] .message.user {
     margin: 0.35rem 0;
 }
 
+/* Markdown Tables - Minimal Styling */
+.text-block table,
+.reasoning-content table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: var(--text-sm, 0.8125rem);
+    line-height: 1.5;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.text-block thead,
+.reasoning-content thead {
+    display: table-header-group;
+}
+
+.text-block th,
+.reasoning-content th,
+.text-block td,
+.reasoning-content td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--ui-panel-border, rgba(255, 255, 255, 0.1));
+}
+
+.text-block th,
+.reasoning-content th {
+    font-weight: 600;
+    color: var(--ui-panel-text, #e0e0e0);
+    border-bottom-width: 2px;
+}
+
+.text-block tr:last-child td,
+.reasoning-content tr:last-child td {
+    border-bottom: none;
+}
+
+/* Reset italic from reasoning on table content */
+.reasoning-content table,
+.reasoning-content table th,
+.reasoning-content table td {
+    font-style: normal;
+}
+
+/* Table row hover - subtle */
+.text-block tbody tr:hover,
+.reasoning-content tbody tr:hover {
+    background: var(--ui-panel-hover-bg, rgba(255, 255, 255, 0.03));
+}
+
 /* Reasoning Section */
 .reasoning-section {
     margin: 0.75rem 0;
@@ -547,7 +602,7 @@ chat-message[data-message-state="editing"] .message.user {
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     user-select: none;
     padding: 0.5rem 0.75rem;
     background: transparent;
@@ -560,7 +615,7 @@ chat-message[data-message-state="editing"] .message.user {
 }
 
 .reasoning-icon {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: #c9a959;
     opacity: 0.8;
 }
@@ -582,14 +637,14 @@ chat-message.streaming .reasoning-icon {
 }
 
 .reasoning-toggle {
-    font-size: 1rem;
+    font-size: var(--text-md);
     font-weight: 600;
     color: #4fc3f7;
 }
 
 .reasoning-content {
     padding: 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     color: #b8b0a3;
     font-style: italic;
     white-space: pre-wrap;
@@ -597,7 +652,6 @@ chat-message.streaming .reasoning-icon {
     overflow-wrap: break-word;
     max-height: 300px;
     overflow-y: auto;
-    scroll-behavior: smooth;
     line-height: 1.6;
     background: transparent;
     font-family: inherit;
@@ -701,7 +755,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: 0.375rem;
     background: transparent;
     color: #aaa;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     cursor: pointer;
     transition: all 0.1s ease;
 }
@@ -732,7 +786,7 @@ chat-message.streaming .reasoning-icon {
     width: 1.75em;
     height: 1.75em;
     padding: 0;
-    font-size: 1rem;
+    font-size: var(--text-md);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -765,7 +819,7 @@ chat-message.streaming .reasoning-icon {
     background: #1a1a1a;
     color: #e0e0e0;
     font-family: inherit;
-    font-size: 0.9375rem;
+    font-size: var(--text-md);
     line-height: 1.6;
     resize: vertical;
     outline: none;
@@ -789,7 +843,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: 0.375rem;
     background: transparent;
     color: #aaa;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -863,7 +917,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: var(--composer-radius, 0.5rem);
     background: var(--composer-bg, #1a1a1a);
     color: var(--contrast-composer-text, #e0e0e0);
-    font-size: 16px; /* Prevent iOS zoom - must be >= 16px */
+    font-size: var(--text-md); /* Prevent iOS zoom - must be >= 16px */
     font-family: inherit;
     resize: none;
     overflow-y: hidden;
@@ -878,6 +932,18 @@ chat-message.streaming .reasoning-icon {
     box-shadow: var(--composer-focus-shadow, 0 0 0 2px rgba(79, 195, 247, 0.15));
 }
 
+/* Leader mode (tmux-style Ctrl+A prefix) */
+.message-input.leader-mode {
+    border-color: var(--composer-leader-border, #ff9800);
+    box-shadow: var(--composer-leader-shadow, 0 0 0 3px rgba(255, 152, 0, 0.25));
+    animation: leader-pulse 1s ease-in-out infinite;
+}
+
+@keyframes leader-pulse {
+    0%, 100% { box-shadow: var(--composer-leader-shadow, 0 0 0 3px rgba(255, 152, 0, 0.25)); }
+    50% { box-shadow: var(--composer-leader-shadow, 0 0 0 5px rgba(255, 152, 0, 0.4)); }
+}
+
 .message-input::placeholder {
     color: var(--contrast-composer-muted, #666);
 }
@@ -888,7 +954,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: var(--composer-send-radius, 0.5rem);
     background: var(--send-button-bg, #4fc3f7);
     color: var(--contrast-send-text, #1a1a1a);
-    font-size: 0.9375rem;
+    font-size: var(--text-md);
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, box-shadow 0.2s;
@@ -966,7 +1032,7 @@ chat-message.streaming .reasoning-icon {
     gap: 1rem;
     justify-content: center;
     margin-top: 0.5rem;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: #666;
 }
 
@@ -976,7 +1042,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: 4px;
     border: 1px solid #444;
     font-family: monospace;
-    font-size: 0.6875rem;
+    font-size: var(--text-xs);
 }
 
 /* Mobile History Controls */
@@ -1001,7 +1067,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: 0.375rem;
     background: transparent;
     color: var(--history-btn-text, #aaa);
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     cursor: pointer;
     transition: all 0.15s ease;
     display: flex;
@@ -1077,11 +1143,11 @@ chat-message.streaming .reasoning-icon {
     right: 0;
     max-height: 70vh;
     overflow-y: auto;
-    background: var(--settings-bg, #1a1a1a);
+    background: var(--settings-bg, var(--surface-panel-bg, #1a1a1a));
     border-radius: var(--settings-radius, 1rem 1rem 0 0);
-    border: var(--settings-border, 2px solid #555);
+    border: var(--settings-border, 2px solid var(--surface-panel-border, #555));
     border-bottom: none;
-    box-shadow: var(--settings-shadow, 0 -8px 32px rgba(0, 0, 0, 0.8));
+    box-shadow: var(--settings-shadow, var(--surface-panel-shadow, 0 -8px 32px rgba(0, 0, 0, 0.8)));
     z-index: 9999;
 }
 
@@ -1095,13 +1161,13 @@ chat-message.streaming .reasoning-icon {
 
 .settings-section-header {
     padding: 0.75rem 1rem;
-    font-size: 0.6875rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--contrast-settings-text, var(--contrast-accent, var(--settings-header-text, #888)));
-    background: var(--settings-header-bg, #1a1a1a);
-    border-bottom: var(--settings-header-border, 1px solid #333);
+    color: var(--contrast-settings-text, var(--surface-panel-header-text, var(--contrast-accent, var(--settings-header-text, #888))));
+    background: var(--settings-header-bg, var(--surface-panel-header-bg, #1a1a1a));
+    border-bottom: var(--settings-header-border, 1px solid var(--surface-panel-border, #333));
 }
 
 .theme-option {
@@ -1138,7 +1204,7 @@ chat-message.streaming .reasoning-icon {
 
 .theme-name,
 [data-theme] .theme-name {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     font-weight: 500;
     color: var(--theme-option-text, var(--contrast-settings-text, var(--contrast-text, var(--theme-name-text, #e0e0e0)))) !important;
 }
@@ -1150,7 +1216,7 @@ chat-message.streaming .reasoning-icon {
 
 .theme-description,
 [data-theme] .theme-description {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--theme-option-muted, var(--contrast-settings-muted, var(--contrast-muted, var(--theme-description-text, #888)))) !important;
 }
 
@@ -1189,7 +1255,7 @@ chat-message.streaming .reasoning-icon {
 }
 
 .font-option-name {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     font-weight: 500;
     color: var(--font-option-text, var(--contrast-settings-text, var(--contrast-text, #e0e0e0))) !important;
 }
@@ -1199,7 +1265,7 @@ chat-message.streaming .reasoning-icon {
 }
 
 .font-option-description {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--font-option-muted, var(--contrast-settings-muted, var(--contrast-muted, var(--font-description-text, #888)))) !important;
 }
 
@@ -1219,11 +1285,120 @@ chat-message.streaming .reasoning-icon {
 }
 
 .font-option[data-font-family="mono"] .font-option-name {
-    font-family: 'JetBrains Mono', 'Fira Code', Monaco, monospace;
+    font-family: var(--font-mono);
 }
 
 .font-option[data-font-family="sans"] .font-option-name {
     font-family: Inter, Helvetica, Arial, sans-serif;
+}
+
+/* Keybinds in Settings */
+.keybinds-container {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0.5rem 0;
+}
+
+.keybinds-unavailable {
+    padding: 1rem;
+    color: var(--text-muted, #888);
+    font-style: italic;
+    text-align: center;
+}
+
+.keybind-category {
+    margin-bottom: 1rem;
+}
+
+.keybind-category-header {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--contrast-settings-muted, var(--text-muted, #888));
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.keybind-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.keybind-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    gap: 1rem;
+    cursor: default;
+    transition: background 0.15s ease;
+    border-radius: 0.25rem;
+}
+
+.keybind-item:hover {
+    background: var(--ui-hover-bg, rgba(128, 128, 128, 0.1));
+}
+
+.keybind-description {
+    font-size: var(--text-base);
+    color: var(--contrast-settings-text, var(--text-primary, #e0e0e0));
+}
+
+.keybind-key {
+    font-family: var(--font-family-mono, 'JetBrains Mono', monospace);
+    font-size: var(--text-xs);
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-tertiary, #2a2a2a);
+    border: 1px solid var(--border-subtle, #444);
+    border-radius: 0.25rem;
+    color: var(--contrast-settings-text, var(--text-primary, #e0e0e0));
+    white-space: nowrap;
+}
+
+.keybinds-footer {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--settings-section-border, #333);
+    margin-top: 0.5rem;
+}
+
+.keybinds-reset-btn,
+.keybinds-help-btn {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border: 1px solid var(--border-color, #444);
+    border-radius: 0.375rem;
+    background: var(--bg-secondary, #1a1a1a);
+    color: var(--text-primary, #e0e0e0);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.keybinds-reset-btn:hover,
+.keybinds-help-btn:hover {
+    background: var(--ui-hover-bg, rgba(128, 128, 128, 0.15));
+    border-color: var(--ui-panel-accent, var(--accent-primary, #4fc3f7));
+}
+
+.keybinds-reset-btn:focus-visible,
+.keybinds-help-btn:focus-visible {
+    outline: var(--ui-focus-ring, 2px solid var(--accent-primary, #4fc3f7));
+    outline-offset: 2px;
+}
+
+.keybinds-help-btn {
+    background: var(--ui-panel-accent, var(--accent-primary, #4fc3f7));
+    color: var(--accent-on-primary, #000);
+    border-color: transparent;
+}
+
+.keybinds-help-btn:hover {
+    filter: brightness(1.1);
 }
 
 /* Auto-contrast utility classes
@@ -1248,7 +1423,7 @@ chat-message.streaming .reasoning-icon {
     align-items: center;
     gap: 0.5rem;
     padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     font-family: inherit;
     background: transparent;
     border: 1px solid transparent;
@@ -1273,7 +1448,7 @@ chat-message.streaming .reasoning-icon {
 
 /* Status colors on the icon */
 .tool-status-icon {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     width: 1rem;
     text-align: center;
 }
@@ -1322,7 +1497,7 @@ chat-message.streaming .reasoning-icon {
 }
 
 .tool-args {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--text-muted, #888);
     opacity: 0.8;
     max-width: 200px;
@@ -1332,7 +1507,7 @@ chat-message.streaming .reasoning-icon {
 }
 
 .tool-toggle {
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     color: var(--text-muted, #888);
     margin-left: 0.25rem;
 }
@@ -1366,7 +1541,7 @@ chat-message.streaming .reasoning-icon {
     display: block;
     margin-bottom: 0.5rem;
     color: #888;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .tool-arguments pre,
@@ -1377,14 +1552,14 @@ chat-message.streaming .reasoning-icon {
     border: 1px solid var(--tool-code-border, rgba(255, 255, 255, 0.08));
     border-radius: 0.75rem 1rem 0.85rem 1.15rem;
     overflow-x: auto;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     line-height: 1.4;
     box-shadow: inset 0 1px 0 var(--tool-code-shadow, rgba(255, 255, 255, 0.04));
 }
 
 .tool-arguments code,
 .tool-output code {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: var(--font-mono);
     color: var(--tool-code-text, #e0e0e0);
 }
 
@@ -1398,8 +1573,8 @@ chat-message.streaming .reasoning-icon {
     padding: 0.125rem 0.45rem;
     border: 1px solid rgba(79, 195, 247, 0.22);
     border-radius: 0.25rem 0.65rem 0.45rem 0.2rem;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.875em;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -1427,6 +1602,13 @@ chat-message.streaming .reasoning-icon {
     font-style: italic;
 }
 
+/* Horizontal Rule */
+.message-content hr {
+    margin: 1.25rem 0;
+    border: 0;
+    border-top: 1px solid var(--border-color, #333);
+}
+
 .code-block-wrapper {
     position: relative;
     margin: 0.9rem 0;
@@ -1440,6 +1622,11 @@ chat-message.streaming .reasoning-icon {
     background: rgba(20, 20, 20, 0.96);
     overflow-x: auto;
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    font-size: var(--text-sm);
+}
+
+.code-block-wrapper pre code {
+    font-size: inherit;
 }
 
 .code-copy-btn {
@@ -1453,7 +1640,7 @@ chat-message.streaming .reasoning-icon {
     border-radius: 0.375rem;
     background: #252525;
     color: #aaa;
-    font-size: 1rem;
+    font-size: var(--text-md);
     cursor: pointer;
     opacity: 0;
     transition: all 0.15s ease;
@@ -1532,27 +1719,29 @@ completion-menu {
 }
 
 .completion-value {
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: var(--font-mono);
     font-weight: 500;
     color: #4fc3f7;
 }
 
 .completion-description {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     color: #888;
 }
 
 /* ============================================
-   SESSION LIST
+   SESSION LIST / VIEWER
    ============================================ */
 
-.session-list-message {
+.session-list-message,
+.session-viewer-message {
   width: 100%;
   margin: 1rem 0;
   padding: 0;
 }
 
-.message-list .session-list-message {
+.message-list .session-list-message,
+.message-list .session-viewer-message {
   width: 100vw;
   max-width: 1600px;
   margin-left: 50%;
@@ -1560,7 +1749,8 @@ completion-menu {
   padding: 0 1rem;
 }
 
-session-list {
+session-list,
+session-viewer {
   display: block;
   width: 100%;
 }
@@ -1575,14 +1765,14 @@ session-list {
 }
 
 .session-list-header h3 {
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--session-header-text, #e0e0e0);
   margin: 0;
 }
 
 .session-count {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--session-meta-text, #888);
   background: var(--session-card-bg, #252525);
   padding: 0.25rem 0.625rem;
@@ -1638,13 +1828,13 @@ session-list {
 
 .session-id {
   font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--session-accent, #4fc3f7);
   font-weight: 500;
 }
 
 .session-time {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--session-meta-text, #888);
 }
 
@@ -1656,12 +1846,12 @@ session-list {
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--session-body-text, #aaa);
 }
 
 .message-icon {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   opacity: 0.8;
 }
 
@@ -1671,7 +1861,7 @@ session-list {
 }
 
 .session-action {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--session-action-text, #666);
   transition: color 0.15s ease;
 }
@@ -1694,7 +1884,7 @@ session-list {
 }
 
 .session-list-empty p {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   margin: 0;
 }
 
@@ -1713,7 +1903,7 @@ session-list {
     }
 
     .app-header h1 {
-        font-size: 0.875rem;
+        font-size: var(--text-base);
     }
 
     .header-status {
@@ -1739,11 +1929,11 @@ session-list {
     }
 
     .message-role {
-        font-size: 0.625rem;
+        font-size: var(--text-xs);
     }
 
     .message-time {
-        font-size: 0.6875rem;
+        font-size: var(--text-xs);
     }
 
     .app-footer {
@@ -1764,7 +1954,7 @@ session-list {
 
     .send-button {
         padding: 0.5rem 0.875rem;
-        font-size: 0.875rem;
+        font-size: var(--text-base);
     }
 
     .message-actions {
@@ -1779,7 +1969,7 @@ session-list {
     .message-action.icon-only {
         width: 2rem;
         height: 2rem;
-        font-size: 1rem;
+        font-size: var(--text-md);
     }
 
     completion-menu {
@@ -1869,7 +2059,7 @@ status-bar {
     width: 100%;
     background: var(--status-bg, #1a1a1a);
     border-top: 1px solid var(--status-border, #333);
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--contrast-status-text, #888);
 }
 
@@ -1898,7 +2088,7 @@ status-bar {
 }
 
 .status-label {
-    font-size: 0.65rem;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--contrast-status-muted, #555);
@@ -1908,7 +2098,7 @@ status-bar {
 .status-value {
     font-family: var(--font-mono, 'SF Mono', Monaco, 'Courier New', monospace);
     color: var(--contrast-status-muted, #999);
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
 }
 
 /* Streaming section - first on left */
@@ -1925,14 +2115,14 @@ status-bar {
 }
 
 .throbber {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     line-height: 1;
     width: 1rem;
     text-align: center;
 }
 
 .streaming-text {
-    font-size: 0.65rem;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
@@ -1963,23 +2153,23 @@ status-bar {
     .status-bar {
         padding: 0.375rem 0.75rem;
         gap: 1rem;
-        font-size: 0.7rem;
+        font-size: var(--text-xs);
     }
 
     .status-label {
-        font-size: 0.6rem;
+        font-size: var(--text-xs);
     }
 
     .status-value {
-        font-size: 0.7rem;
+        font-size: var(--text-xs);
     }
 
     .throbber {
-        font-size: 0.8rem;
+        font-size: var(--text-sm);
     }
 
     .streaming-text {
-        font-size: 0.6rem;
+        font-size: var(--text-xs);
     }
 }
 
@@ -2011,7 +2201,7 @@ status-bar {
     }
 
     .app-header .header-title-row h1 {
-        font-size: 0.875rem;
+        font-size: var(--text-base);
         margin: 0;
         line-height: 1;
     }
@@ -2058,25 +2248,25 @@ status-bar {
         min-height: 2.75rem;
         max-height: 200px;
         padding: 0.875rem 1rem;
-        font-size: 16px; /* Prevent iOS zoom - must be >= 16px */
+        font-size: var(--text-md); /* Prevent iOS zoom - must be >= 16px */
     }
 
     /* Prevent iOS zoom on all inputs - force 16px minimum */
     input, textarea {
-        font-size: 16px !important;
+        font-size: var(--text-md) !important;
     }
 
     /* Mobile: larger send button for touch */
     .input-area .send-button {
         padding: 0.75rem 1.5rem;
-        font-size: 1rem;
+        font-size: var(--text-md);
     }
 
     /* Compact history controls */
     .input-area .history-btn {
         width: 1.75rem;
         height: 1.75rem;
-        font-size: 0.75rem;
+        font-size: var(--text-xs);
     }
 
     /* Show stop button during streaming even when compact */
@@ -2101,7 +2291,7 @@ status-bar {
     .app-footer .status-bar {
         padding: 0.25rem 0;
         gap: 0.75rem;
-        font-size: 0.65rem;
+        font-size: var(--text-xs);
     }
 
     /* Floating settings button - always visible on mobile since header settings are hidden */
@@ -2211,6 +2401,8 @@ html.font-family-serif,
 :root.font-family-serif {
     --font-family-override: Georgia, 'Times New Roman', Times, serif;
     font-family: var(--font-family-override);
+    /* Serif fonts appear smaller, so bump up base size */
+    font-size: 17px;
 }
 
 html.font-family-serif body,
@@ -2311,7 +2503,7 @@ html.font-family-sans,
 
 .tool-output-body {
     color: #e0e0e0;
-    font-size: 0.9375rem;
+    font-size: var(--text-md);
     line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -2321,8 +2513,8 @@ html.font-family-sans,
     margin: 0;
     padding: 0;
     background: transparent;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
     line-height: 1.5;
     color: #e0e0e0;
 }
@@ -2377,7 +2569,7 @@ html.font-family-sans,
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0.25rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .tool-arg-label {
@@ -2387,7 +2579,7 @@ html.font-family-sans,
 
 .tool-arg-value {
     color: #e0e0e0;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .tool-arg-value.tool-path {
@@ -2404,7 +2596,7 @@ html.font-family-sans,
     padding: 0.5rem 0.75rem;
     background: rgba(0, 0, 0, 0.2);
     border-left: 2px solid rgba(255, 255, 255, 0.15);
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
     overflow-x: auto;
 }
 
@@ -2417,7 +2609,7 @@ html.font-family-sans,
 .tool-edit-new {
     padding: 0.5rem 0.75rem;
     border-left: 2px solid;
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
 }
 
 .tool-edit-old {
@@ -2431,7 +2623,7 @@ html.font-family-sans,
 }
 
 .tool-edit-label {
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     opacity: 0.7;
@@ -2442,12 +2634,12 @@ html.font-family-sans,
 .tool-edit-arrow {
     color: #888;
     padding: 0.25rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 /* Tool badges - minimal */
 .tool-badge {
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 0.125rem 0.375rem;
@@ -2466,14 +2658,14 @@ html.font-family-sans,
     padding: 0.5rem 0.75rem;
     border-left: 2px solid #81c784;
     background: rgba(76, 175, 80, 0.05);
-    font-size: 0.9375rem;
+    font-size: var(--text-md);
     line-height: 1.5;
 }
 
 /* Clean remember tool styling */
 .tool-remember-content {
     color: #e0e0e0;
-    font-size: 0.9375rem;
+    font-size: var(--text-md);
     line-height: 1.5;
     padding: 0.5rem 0;
     border-left: 2px solid #4caf50;
@@ -2484,8 +2676,8 @@ html.font-family-sans,
 /* Flat tool arguments - minimal styling */
 .tool-read-path {
     color: #81c784;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
     padding: 0.25rem 0;
 }
 
@@ -2495,7 +2687,7 @@ html.font-family-sans,
     padding: 0.5rem 0.75rem;
     background: rgba(0, 0, 0, 0.2);
     border-left: 2px solid rgba(255, 255, 255, 0.2);
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
     overflow-x: auto;
 }
 
@@ -2509,7 +2701,7 @@ html.font-family-sans,
     padding: 0.5rem 0.75rem;
     border-left: 2px solid #e57373;
     background: rgba(244, 67, 54, 0.05);
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
     color: #e0e0e0;
 }
 
@@ -2517,13 +2709,13 @@ html.font-family-sans,
     padding: 0.5rem 0.75rem;
     border-left: 2px solid #81c784;
     background: rgba(76, 175, 80, 0.05);
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
     color: #e0e0e0;
 }
 
 /* Simple tool status indicators */
 .tool-status {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -2593,7 +2785,7 @@ debug-panel:not([open]) {
 }
 
 .debug-panel-header h2 {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
     font-weight: 600;
     margin: 0;
 }
@@ -2604,7 +2796,7 @@ debug-panel:not([open]) {
     border: none;
     background: transparent;
     color: #888;
-    font-size: 1.5rem;
+    font-size: var(--text-2xl);
     cursor: pointer;
     border-radius: 6px;
     display: flex;
@@ -2631,7 +2823,7 @@ debug-panel:not([open]) {
     border: none;
     background: transparent;
     color: #888;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     cursor: pointer;
     border-radius: 6px;
     white-space: nowrap;
@@ -2668,7 +2860,7 @@ debug-panel:not([open]) {
     color: #ccc;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .debug-panel-footer button:hover {
@@ -2692,7 +2884,7 @@ debug-panel:not([open]) {
     background: #252525;
     color: #e0e0e0;
     border-radius: 6px;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .debug-search:focus {
@@ -2705,7 +2897,7 @@ debug-panel:not([open]) {
     align-items: center;
     gap: 0.5rem;
     color: #888;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     cursor: pointer;
 }
 
@@ -2731,7 +2923,7 @@ debug-panel:not([open]) {
 }
 
 .debug-stat-label {
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #888;
@@ -2739,7 +2931,7 @@ debug-panel:not([open]) {
 }
 
 .debug-stat-value {
-    font-size: 1.125rem;
+    font-size: var(--text-lg);
     font-weight: 500;
     color: #e0e0e0;
 }
@@ -2754,7 +2946,7 @@ debug-panel:not([open]) {
 
 .debug-stat-value.code {
     font-family: 'SF Mono', Monaco, monospace;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     word-break: break-all;
 }
 
@@ -2795,7 +2987,7 @@ debug-panel:not([open]) {
 .debug-message-role {
     padding: 0.125rem 0.5rem;
     border-radius: 4px;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     font-weight: 500;
     text-transform: uppercase;
     background: #333;
@@ -2819,13 +3011,13 @@ debug-panel:not([open]) {
 
 .debug-message-id {
     font-family: 'SF Mono', Monaco, monospace;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: #666;
     flex: 1;
 }
 
 .debug-message-tools {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .debug-message-expand {
@@ -2834,7 +3026,7 @@ debug-panel:not([open]) {
     border: none;
     background: transparent;
     color: #888;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     cursor: pointer;
     border-radius: 4px;
 }
@@ -2845,7 +3037,7 @@ debug-panel:not([open]) {
 
 .debug-message-preview {
     padding: 0.75rem 1rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     color: #ccc;
     background: #1a1a1a;
     white-space: pre-wrap;
@@ -2866,7 +3058,7 @@ debug-panel:not([open]) {
     padding: 0.75rem;
     background: #1a1a1a;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     overflow-x: auto;
 }
 
@@ -2876,7 +3068,7 @@ debug-panel:not([open]) {
 }
 
 .debug-section h3 {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     font-weight: 500;
     color: #888;
     margin-bottom: 0.75rem;
@@ -2897,32 +3089,32 @@ debug-panel:not([open]) {
     padding: 0.5rem 0.75rem;
     background: #252525;
     border-radius: 6px;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
 }
 
 .debug-dom-role {
     width: 80px;
     text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: #888;
 }
 
 .debug-dom-id {
     flex: 1;
     font-family: 'SF Mono', Monaco, monospace;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     color: #666;
 }
 
 .debug-dom-length {
     color: #888;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
 }
 
 /* JSON Tree */
 .json-tree {
     font-family: 'SF Mono', Monaco, monospace;
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
 }
 
 .json-toggle {
@@ -2933,7 +3125,7 @@ debug-panel:not([open]) {
     justify-content: center;
     cursor: pointer;
     color: #888;
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     margin-right: 0.25rem;
 }
 
@@ -3023,7 +3215,7 @@ debug-panel:not([open]) {
     gap: 0.75rem;
     padding: 0.5rem 0.75rem;
     background: #252525;
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
 }
 
 .debug-traffic-direction {
@@ -3047,13 +3239,13 @@ debug-panel:not([open]) {
 
 .debug-traffic-time {
     color: #666;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
 }
 
 .debug-traffic-payload {
     padding: 0.5rem 0.75rem;
     background: #1a1a1a;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
     max-height: 150px;
     overflow: auto;
 }
@@ -3079,7 +3271,7 @@ debug-panel:not([open]) {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.8125rem;
+    font-size: var(--text-sm);
     color: #ccc;
     cursor: pointer;
 }
@@ -3091,4 +3283,107 @@ debug-panel:not([open]) {
 /* Debug Success State */
 .debug-stat-value.success {
     color: #81c784;
+}
+
+/* Theme Palette - Fuzzy finder for theme selection */
+.theme-palette-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 15vh;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.theme-palette-container {
+    background: var(--bg-primary, #1a1a1a);
+    border: 1px solid var(--border-color, #333);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.theme-palette-input {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    border: none;
+    border-bottom: 1px solid var(--border-color, #333);
+    background: var(--bg-primary, #1a1a1a);
+    color: var(--text-primary, #fff);
+    font-size: var(--text-lg, 1.125rem);
+    outline: none;
+}
+
+.theme-palette-input::placeholder {
+    color: var(--text-muted, #888);
+}
+
+.theme-palette-results {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.theme-palette-item {
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color, #333);
+    transition: background 0.15s ease;
+}
+
+.theme-palette-item:last-child {
+    border-bottom: none;
+}
+
+.theme-palette-item:hover,
+.theme-palette-item.selected {
+    background: var(--bg-secondary, #2a2a2a);
+}
+
+.theme-palette-name {
+    font-size: var(--text-base, 1rem);
+    font-weight: 500;
+    color: var(--text-primary, #fff);
+    margin-bottom: 0.25rem;
+}
+
+.theme-palette-name mark {
+    background: var(--accent-color, #4fc3f7);
+    color: var(--bg-primary, #1a1a1a);
+    padding: 0 0.125rem;
+    border-radius: 2px;
+}
+
+.theme-palette-description {
+    font-size: var(--text-sm, 0.875rem);
+    color: var(--text-muted, #888);
+}
+
+.theme-palette-empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted, #888);
+}
+
+.theme-palette-hints {
+    display: flex;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border-color, #333);
+    background: var(--bg-secondary, #2a2a2a);
+    font-size: var(--text-xs, 0.75rem);
+    color: var(--text-muted, #888);
+}
+
+.theme-palette-hints span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 }

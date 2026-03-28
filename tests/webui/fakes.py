@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from alfred.agent import ToolEvent
 from alfred.interfaces.webui.contracts import WebUISessionManager
-from alfred.session import Message, Role, Session, SessionMeta, ToolCallRecord
+from alfred.session import Message, Role, Session, SessionMeta, TextBlock, ToolCallRecord
 from alfred.token_tracker import TokenTracker
 
 DEFAULT_MODEL_NAME = "kimi/k2-test"
@@ -82,12 +82,27 @@ def make_message(
     cached_tokens: int = 0,
     reasoning_tokens: int = 0,
     reasoning_content: str = "",
+    text_blocks: list[dict[str, Any] | TextBlock] | None = None,
     tool_calls: list[ToolCallRecord] | None = None,
     streaming: bool = False,
 ) -> Message:
     """Create a real Message."""
 
     role_enum = role if isinstance(role, Role) else Role(role)
+    converted_text_blocks: list[TextBlock] | None = None
+    if text_blocks is not None:
+        converted_text_blocks = []
+        for block in text_blocks:
+            if isinstance(block, TextBlock):
+                converted_text_blocks.append(block)
+            else:
+                converted_text_blocks.append(
+                    TextBlock(
+                        content=block.get("content", ""),
+                        sequence=block.get("sequence", 0),
+                    )
+                )
+
     return Message(
         idx=idx,
         role=role_enum,
@@ -99,6 +114,7 @@ def make_message(
         cached_tokens=cached_tokens,
         reasoning_tokens=reasoning_tokens,
         reasoning_content=reasoning_content,
+        text_blocks=converted_text_blocks,
         tool_calls=tool_calls,
         streaming=streaming,
     )
@@ -291,6 +307,21 @@ class FakeSessionManager:
         return session
 
 
+class FakeContextLoader:
+    """Context loader fake for Web UI tests."""
+
+    def __init__(self) -> None:
+        self.sections: dict[str, bool] = {}
+        self.toggle_called_with: list[tuple[str, bool]] = []
+
+    def toggle_section(self, section: str, enabled: bool) -> bool:
+        """Toggle a context section on/off."""
+        self.toggle_called_with.append((section, enabled))
+        was_enabled = self.sections.get(section, True)
+        self.sections[section] = enabled
+        return was_enabled != enabled
+
+
 class FakeAlfred:
     """Top-level Alfred fake for Web UI tests."""
 
@@ -308,6 +339,7 @@ class FakeAlfred:
     ) -> None:
         self.core = FakeCore(FakeSessionManager(sessions))
         self.token_tracker = TokenTracker()
+        self.context_loader = FakeContextLoader()
         self.socket_client = FakeSocketClient()
         self._socket_client = self.socket_client
         self.model_name = model_name

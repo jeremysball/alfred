@@ -388,6 +388,7 @@ class _BroadcastChunkBatcher:
         payload[self._payload_key] = content
 
         import time
+
         flush_start = time.perf_counter()
         await _broadcast_json(
             {
@@ -424,7 +425,8 @@ async def _send_json(
         debug_stats.record_outgoing(message, phase=phase)
     # Log to traffic introspection log
     msg_type = str(message.get("type", "unknown"))
-    payload = message.get("payload") if isinstance(message.get("payload"), dict) else None
+    raw_payload = message.get("payload")
+    payload: dict[str, Any] | None = raw_payload if isinstance(raw_payload, dict) else None
     _log_websocket_traffic("out", msg_type, payload, connection_id)
     try:
         if send_lock is None:
@@ -535,26 +537,73 @@ async def _close_all_connections() -> None:
 
 def _serialize_tool_call(tool_call: object) -> dict[str, object]:
     """Serialize a persisted tool call for WebSocket transport."""
-    arguments = getattr(tool_call, "arguments", {})
+    if isinstance(tool_call, dict):
+        arguments = tool_call.get("arguments", {})
+        tool_call_id = tool_call.get("tool_call_id", "")
+        tool_name = tool_call.get("tool_name", "")
+        output = tool_call.get("output", "")
+        status = tool_call.get("status", "success")
+        insert_position = tool_call.get("insert_position", 0)
+        sequence = tool_call.get("sequence", 0)
+    else:
+        arguments = getattr(tool_call, "arguments", {})
+        tool_call_id = getattr(tool_call, "tool_call_id", "")
+        tool_name = getattr(tool_call, "tool_name", "")
+        output = getattr(tool_call, "output", "")
+        status = getattr(tool_call, "status", "success")
+        insert_position = getattr(tool_call, "insert_position", 0)
+        sequence = getattr(tool_call, "sequence", 0)
+
     if not isinstance(arguments, dict):
         arguments = {}
 
     return {
-        "toolCallId": str(getattr(tool_call, "tool_call_id", "")),
-        "toolName": str(getattr(tool_call, "tool_name", "")),
+        "toolCallId": _sanitize_string(str(tool_call_id)),
+        "toolName": _sanitize_string(str(tool_name)),
         "arguments": arguments,
-        "output": str(getattr(tool_call, "output", "")),
-        "status": str(getattr(tool_call, "status", "success")),
-        "insertPosition": int(getattr(tool_call, "insert_position", 0)),
-        "sequence": int(getattr(tool_call, "sequence", 0)),
+        "output": _sanitize_string(str(output)),
+        "status": _sanitize_string(str(status)),
+        "insertPosition": int(insert_position),
+        "sequence": int(sequence),
     }
+
+
+def _sanitize_string(value: str) -> str:
+    """Sanitize a string to ensure it's valid UTF-8 for JSON serialization.
+
+    Removes or replaces invalid surrogate characters that can't be encoded as UTF-8.
+    """
+    # Use surrogatepass to handle any surrogates, then replace invalid ones
+    return value.encode("utf-8", errors="surrogatepass").decode("utf-8", errors="replace")
 
 
 def _serialize_reasoning_block(block: object) -> dict[str, object]:
     """Serialize a reasoning block for WebSocket transport."""
+    if isinstance(block, dict):
+        content = block.get("content", "")
+        sequence = block.get("sequence", 0)
+    else:
+        content = getattr(block, "content", "")
+        sequence = getattr(block, "sequence", 0)
+
     return {
-        "content": str(getattr(block, "content", "")),
-        "sequence": int(getattr(block, "sequence", 0)),
+        "content": _sanitize_string(str(content)),
+        "sequence": int(sequence),
+    }
+
+
+def _serialize_text_block(block: object) -> dict[str, object]:
+    """Serialize an ordered text block for WebSocket transport."""
+    if isinstance(block, dict):
+        content = block.get("content", "")
+        sequence = block.get("sequence", 0)
+    else:
+        content = getattr(block, "content", "")
+        sequence = getattr(block, "sequence", 0)
+
+    return {
+        "content": _sanitize_string(str(content)),
+        "sequence": int(sequence),
     }
 
 
@@ -570,11 +619,15 @@ def _serialize_message(message: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "id": str(message_id),
         "role": role_value,
-        "content": str(getattr(message, "content", "")),
+        "content": _sanitize_string(str(getattr(message, "content", ""))),
         "timestamp": (timestamp.isoformat() if isinstance(timestamp, datetime) else datetime.now(UTC).isoformat()),
-        "reasoningContent": str(getattr(message, "reasoning_content", "")),
+        "reasoningContent": _sanitize_string(str(getattr(message, "reasoning_content", ""))),
         "streaming": bool(getattr(message, "streaming", False)),
     }
+
+    text_blocks = getattr(message, "text_blocks", None)
+    if isinstance(text_blocks, (list, tuple)) and text_blocks:
+        payload["textBlocks"] = [_serialize_text_block(block) for block in text_blocks]
 
     tool_calls = getattr(message, "tool_calls", None)
     if isinstance(tool_calls, (list, tuple)) and tool_calls:
@@ -706,20 +759,22 @@ def _sync_token_tracker_from_session(alfred_instance: object | None, session_id:
 
 
 def _build_context_payload(context_data: dict[str, object]) -> dict[str, object]:
-    """Convert shared context display data to WebSocket-friendly camelCase."""
+    """Build WebSocket context payload with snake_case keys matching context-viewer contract."""
     system_prompt = cast(dict[str, object], context_data["system_prompt"])
 
     return {
-        "systemPrompt": {
+        "system_prompt": {
             "sections": system_prompt["sections"],
-            "totalTokens": system_prompt["total_tokens"],
+            "total_tokens": system_prompt["total_tokens"],
         },
-        "blockedContextFiles": context_data.get("blocked_context_files", []),
+        "blocked_context_files": context_data.get("blocked_context_files", []),
+        "disabled_sections": context_data.get("disabled_sections", []),
         "warnings": context_data.get("warnings", []),
         "memories": context_data["memories"],
-        "sessionHistory": context_data["session_history"],
-        "toolCalls": context_data["tool_calls"],
-        "totalTokens": context_data["total_tokens"],
+        "session_history": context_data["session_history"],
+        "tool_calls": context_data["tool_calls"],
+        "self_model": context_data.get("self_model", {}),
+        "total_tokens": context_data["total_tokens"],
     }
 
 
@@ -1026,6 +1081,7 @@ async def _handle_chat_message(
 
         # Performance timing instrumentation
         import time
+
         chunk_times = []
         last_chunk_time = time.perf_counter()
         chunks_count = 0
@@ -1451,14 +1507,27 @@ async def _handle_session_command(
         status = getattr(current_session, "status", getattr(meta, "status", "active"))
         session_id = _session_identifier(current_session)
 
-        # Try to get session summary if available
-        summary_text = None
+        # Try to get the latest session summary if available.
+        # The daemon writes these summaries, so this remains the source of truth
+        # for the /session command surface.
+        summary_payload = None
         summarizer = getattr(alfred_instance.core, "summarizer", None)
         if summarizer is not None:
             try:
                 summary = await summarizer.load_summary(session_id)
                 if summary is not None:
-                    summary_text = summary.text
+                    summary_created_at = getattr(summary, "created_at", None)
+                    summary_message_count = int(getattr(summary, "message_count", 0) or 0)
+                    summary_payload = {
+                        "summaryId": getattr(summary, "summary_id", None),
+                        "text": getattr(summary, "text", ""),
+                        "createdAt": summary_created_at.isoformat()
+                        if isinstance(summary_created_at, datetime)
+                        else None,
+                        "messageCount": summary_message_count,
+                        "deltaMessages": max(message_count - summary_message_count, 0),
+                        "version": int(getattr(summary, "version", 1) or 1),
+                    }
             except Exception:
                 # Summary not available, continue without it
                 pass
@@ -1469,9 +1538,8 @@ async def _handle_session_command(
             "created": created_at.isoformat() if isinstance(created_at, datetime) else datetime.now(UTC).isoformat(),
             "lastActive": last_active.isoformat() if isinstance(last_active, datetime) else datetime.now(UTC).isoformat(),
             "status": status,
+            "summary": summary_payload,
         }
-        if summary_text is not None:
-            payload["summary"] = summary_text
 
         await websocket.send_json(
             {
@@ -1536,6 +1604,7 @@ async def _handle_context_command(
                 )
             # Refresh context display after toggle
             from alfred.context_display import get_context_display
+
             context_data = await get_context_display(cast(Any, alfred_instance))
             await websocket.send_json(
                 {
@@ -1705,6 +1774,38 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
             media_type="application/javascript",
             headers={"Cache-Control": "no-store"},
         )
+
+    @app.get("/manifest.json")
+    async def manifest() -> Response:
+        """Serve PWA manifest.json for install prompts."""
+        manifest_path = static_dir / "manifest.json"
+        if manifest_path.exists():
+            content = manifest_path.read_text()
+            return Response(
+                content=content,
+                media_type="application/manifest+json",
+                headers={"Cache-Control": "public, max-age=3600"},
+            )
+        return Response(content="{}", media_type="application/manifest+json")
+
+    @app.post("/share")
+    async def share_target(
+        title: str = "",
+        text: str = "",
+        url: str = "",
+    ) -> RedirectResponse:
+        """Handle Web Share Target API submissions."""
+        # Build query params for the composer
+        params = []
+        if text:
+            params.append(f"text={text}")
+        if url:
+            params.append(f"url={url}")
+        if title:
+            params.append(f"title={title}")
+
+        query = "&".join(params)
+        return RedirectResponse(url=f"/static/index.html?share={query}")
 
     @app.get("/health")
     async def health_check() -> dict[str, object]:
@@ -2129,11 +2230,7 @@ def create_app(alfred_instance: WebUIAlfred | None = None, debug: bool = False) 
             # The task will handle WebSocket errors gracefully and finish streaming to session
             active_chat_task = connection_state.active_chat_task
             # Only cancel if explicitly requested (user clicked stop), not on disconnect
-            if (
-                active_chat_task is not None
-                and not active_chat_task.done()
-                and connection_state.cancel_requested_message_id is not None
-            ):
+            if active_chat_task is not None and not active_chat_task.done() and connection_state.cancel_requested_message_id is not None:
                 active_chat_task.cancel()
                 with suppress(asyncio.CancelledError, WebSocketDisconnect):
                     await active_chat_task

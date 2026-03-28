@@ -1,5 +1,6 @@
 """Tests for frontend Web Components and WebSocket client."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from alfred.interfaces.webui import create_app
@@ -52,7 +53,7 @@ def test_websocket_client_has_connection_logic():
 
     # Verify WebSocket connection logic
     assert "WebSocket" in content
-    assert "ws://" in content or "wss://" in content
+    assert "protocol === 'https:' ? 'wss' : 'ws'" in content
 
 
 def test_chat_message_component_exposes_edit_state_and_websocket_client_helpers():
@@ -108,7 +109,21 @@ def test_index_html_includes_components():
 
     # Verify component scripts are included
     assert "chat-message.js" in content
-    assert "websocket-client.js" in content
+    assert "session-viewer.js" in content
+    # Note: websocket-client.js is imported as an ES module in main.js, not via script tag
+
+
+def test_command_palette_includes_session_commands():
+    """Verify command palette registers session and sessions commands."""
+    app = create_app()
+    client = TestClient(app)
+
+    main_js = client.get("/static/js/main.js").text
+
+    assert 'id: "view-sessions"' in main_js
+    assert 'id: "current-session"' in main_js
+    assert 'wsClient.sendCommand("/sessions")' in main_js
+    assert 'wsClient.sendCommand("/session")' in main_js
 
 
 def test_chat_styles_exist():
@@ -122,3 +137,70 @@ def test_chat_styles_exist():
     # Verify chat-related styles
     assert ".message" in content or "chat" in content.lower()
     assert ".user" in content.lower() or ".assistant" in content.lower()
+
+
+@pytest.mark.asyncio
+async def test_leader_popup_shows_legend_and_nested_submenu(websocket_server, page_helper):
+    """Verify leader mode shows the full keybind tree (leader-only mode)."""
+    from playwright.async_api import expect
+
+    page = page_helper
+
+    await page.wait_for_function(
+        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
+        timeout=5000,
+    )
+
+    await page.focus("#message-input")
+    await page.keyboard.press("Control+s")
+
+    which_key = page.locator(".which-key")
+    await expect(which_key).to_be_visible()
+
+    # Verify root-level categories (leader-only mode: all keybinds)
+    await expect(which_key).to_contain_text("S")
+    await expect(which_key).to_contain_text("Search")
+    await expect(which_key).to_contain_text("C")
+    await expect(which_key).to_contain_text("Chat")
+    await expect(which_key).to_contain_text("M")
+    await expect(which_key).to_contain_text("Messages")
+    await expect(which_key).to_contain_text("P")
+    await expect(which_key).to_contain_text("Palette")
+    await expect(which_key).to_contain_text("T")
+    await expect(which_key).to_contain_text("Theme")
+    await expect(which_key).to_contain_text("H")
+    await expect(which_key).to_contain_text("Help")
+    await expect(which_key).to_contain_text("X")
+    await expect(which_key).to_contain_text("Cancel")
+    await expect(which_key).to_contain_text("Esc")
+
+    # Verify popup is within viewport bounds
+    box = await which_key.bounding_box()
+    assert box is not None
+    assert box["y"] >= 0
+    assert box["y"] + box["height"] <= await page.evaluate("window.innerHeight")
+
+    # Navigate to Search > Messages
+    await page.keyboard.press("S")
+    await expect(which_key).to_contain_text("Leader + S")
+    await expect(which_key).to_contain_text("M")
+    await expect(which_key).to_contain_text("Messages")
+    await expect(which_key).to_contain_text("Q")
+    await expect(which_key).to_contain_text("Quick Switcher")
+
+    await page.keyboard.press("M")
+    await expect(page.locator(".search-overlay")).to_be_visible()
+
+    # Close search and test Help > Keyboard help
+    await page.keyboard.press("Escape")
+    await page.keyboard.press("Control+s")
+    await page.keyboard.press("H")  # Enter Help submenu
+
+    await expect(which_key).to_contain_text("Leader + H")
+    await expect(which_key).to_contain_text("Keyboard help")
+
+    await page.keyboard.press("H")  # Open keyboard help
+    await page.wait_for_function(
+        "() => window.alfredHelpSheet?.sheet?.isOpen === true",
+        timeout=5000,
+    )
