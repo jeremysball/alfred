@@ -33,7 +33,10 @@ class RememberTool(Tool, MemoryStoreMixin, TagParsingMixin, ContentTruncationMix
     """
 
     name = "remember"
-    description = "Save a memory to the unified memory store for future retrieval"
+    description = (
+        "Save a curated memory to the unified memory store for future retrieval. "
+        "Prefer selective, high-value memories over transient noise."
+    )
     param_model = RememberToolParams
 
     def __init__(self, memory_store: Any = None) -> None:

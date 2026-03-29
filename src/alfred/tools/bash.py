@@ -27,6 +27,8 @@ class BashTool(Tool):
     name = "bash"
     description = (
         "Execute a bash command in the current working directory. "
+        "Use this as the general fallback when no specialized tool exists but a safe shell command can do the job. "
+        "Do not refuse a task solely because there is no named tool for it. "
         "Commands run with a 60 second timeout by default (max 300 seconds). "
         "Large outputs are truncated."
     )

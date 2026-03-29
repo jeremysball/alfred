@@ -10,73 +10,32 @@ Search through past conversation sessions for context and information.
 - `before` (optional): Filter sessions created before this date/time (ISO 8601 format)
 
 **When to use:**
-- Looking for context from previous work sessions
-- Finding decisions made in past conversations
-- Recalling technical discussions
-- Locating previously written code or documentation
-- Narrowing results to a specific time period
-- Listing all recent sessions (use wildcard `*`)
+- The user asks about a prior discussion, decision, or work session
+- The request is time-bounded: "last Tuesday", "earlier today", "in March"
+- Memory search was insufficient and you need conversation history
+- You need to recover details from previous sessions rather than durable facts
 
 **Examples:**
 
 ```python
-# Search for previous work on a feature
-search_sessions(query="MessagePanel implementation details")
+search_sessions(query="OAuth callback debugging discussion")
 
-# Search for architectural decisions
-search_sessions(query="Why did we choose SQLite over PostgreSQL")
+search_sessions(query="why we chose SQLite", top_k=5)
 
-# Search with more results
-search_sessions(query="CHIP-8 emulator progress", top_k=5)
-
-# Search only sessions from the last week
 search_sessions(
     query="deployment issues",
-    after="2024-03-17"
+    after="2026-03-20",
 )
 
-# Search sessions from a specific date range
-search_sessions(
-    query="API design decisions",
-    after="2024-01-01",
-    before="2024-03-01"
-)
-
-# Search with datetime (ISO 8601 format)
-search_sessions(
-    query="critical bug fix",
-    after="2024-03-20T10:00:00"
-)
-
-# List all recent sessions (wildcard mode)
-search_sessions(query="*")
-
-# List sessions from the last week
-search_sessions(
-    query="*",
-    after="2024-03-17",
-    top_k=10
-)
+search_sessions(query="*", top_k=10)
 ```
 
 **Wildcard Mode (`*`):**
-- Use `query="*"` to list all sessions without semantic search
-- Useful for browsing recent conversation history
-- Combine with `after`/`before` to list sessions from a specific time period
-- Combine with `top_k` to control how many sessions to return
-- Wildcards accepted: `*`, `*.*`, `all`, `ALL`
-
-**Date Filter Formats:**
-- Date only: `"2024-03-20"` (searches from midnight UTC)
-- Date and time: `"2024-03-20T10:00:00"` or `"2024-03-20T10:00:00Z"`
-- With timezone: `"2024-03-20T10:00:00-05:00"`
+- Use `query="*"` to list sessions without semantic search
+- Combine with `after` or `before` to browse a time window
 
 **Tips:**
-- Uses semantic search (finds conceptually related sessions)
-- Returns session summaries and IDs
-- Good for finding context from days/weeks ago
-- Searches across all your conversation history
-- Use `after` to exclude old sessions and focus on recent work
-- Use `before` to find historical context before a specific point
-- Combine `after` and `before` to search within a specific period
-- Use wildcard `*` as the query to browse all sessions chronologically
+- Search memories first when you want durable facts or preferences
+- Search sessions when you need prior discussion, chronology, or exact recall
+- Use `after` and `before` to narrow noisy results
+- If the user references earlier work and memory search comes up short, this is the right next step

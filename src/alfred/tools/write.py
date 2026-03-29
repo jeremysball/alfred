@@ -22,7 +22,10 @@ class WriteTool(Tool):
     """Create or overwrite a file."""
 
     name = "write"
-    description = "Create or overwrite a file. Automatically creates parent directories if needed."
+    description = (
+        "Create or overwrite a file. Use for new files or full rewrites; prefer edit for precise changes to existing files. "
+        "Automatically creates parent directories if needed."
+    )
     param_model = WriteToolParams
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:

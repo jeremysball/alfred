@@ -171,7 +171,15 @@ async def test_show_context_command_reports_blocked_context_warning_and_omits_bl
             "total_tokens": 12,
         },
         "blocked_context_files": ["SOUL.md"],
-        "warnings": ["Blocked context files: SOUL.md"],
+        "conflicted_context_files": [
+            {
+                "id": "soul",
+                "name": "soul",
+                "label": "SOUL.md",
+                "reason": "Conflicted managed template SOUL.md is blocked",
+            }
+        ],
+        "warnings": [],
         "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
         "session_history": {"count": 1, "messages": [{"role": "user", "content": "hello"}], "tokens": 3},
         "tool_calls": {"count": 0, "items": [], "tokens": 0},
@@ -191,8 +199,89 @@ async def test_show_context_command_reports_blocked_context_warning_and_omits_bl
 
     assert rendered_messages
     rendered = rendered_messages[0]
-    assert rendered.startswith("WARNING:\n")
-    assert "Blocked context files: SOUL.md" in rendered
+    assert "CONFLICTED MANAGED TEMPLATES (1 file)" in rendered
+    assert "SOUL.md: Conflicted managed template SOUL.md is blocked" in rendered
     assert "SYSTEM PROMPT (12 tokens)" in rendered
     assert "AGENTS.md" in rendered
-    assert "SOUL.md" not in rendered.split("SYSTEM PROMPT", 1)[1]
+    assert "WARNING:" not in rendered.split("CONFLICTED MANAGED TEMPLATES", 1)[0]
+
+
+@pytest.mark.asyncio
+async def test_show_context_command_reports_preview_counts_and_compact_tool_outcomes() -> None:
+    """The /context command should show preview vs total counts and compact tool summaries."""
+    from alfred.interfaces.pypitui.commands.show_context import ShowContextCommand
+
+    rendered_messages: list[str] = []
+    fake_session_manager = SimpleNamespace(has_active_session=lambda: True)
+    fake_alfred = SimpleNamespace(core=SimpleNamespace(session_manager=fake_session_manager))
+    fake_tui = SimpleNamespace(
+        alfred=fake_alfred,
+        _add_system_message=rendered_messages.append,
+        _add_user_message=rendered_messages.append,
+    )
+    context_data = {
+        "system_prompt": {
+            "sections": [
+                {"id": "system", "name": "system", "label": "SYSTEM.md", "tokens": 12},
+                {"id": "agents", "name": "agents", "label": "AGENTS.md", "tokens": 34},
+                {"id": "tools", "name": "tools", "label": "TOOLS.md", "tokens": 8},
+            ],
+            "total_tokens": 54,
+        },
+        "blocked_context_files": [],
+        "warnings": [],
+        "memories": {"displayed": 1, "total": 2, "items": [{"content": "Memory", "role": "user", "timestamp": "2026-03-20"}], "tokens": 6},
+        "session_history": {
+            "count": 4,
+            "displayed": 5,
+            "total": 9,
+            "messages": [
+                {"role": "user", "content": "Preview 1"},
+                {"role": "assistant", "content": "Preview 2"},
+                {"role": "user", "content": "Preview 3"},
+                {"role": "assistant", "content": "Preview 4"},
+                {"role": "user", "content": "Preview 5"},
+            ],
+            "tokens": 21,
+        },
+        "tool_calls": {
+            "count": 2,
+            "displayed": 3,
+            "total": 4,
+            "items": [
+                {"tool_name": "bash", "summary": "bash: python -V exited 0 — Python 3.14.3", "tokens": 9},
+                {"tool_name": "read", "summary": "read: docs/roadmap.md", "tokens": 5},
+                {"tool_name": "edit", "summary": "edit: updated src/module.py", "tokens": 6},
+            ],
+            "tokens": 20,
+            "all_shown": False,
+        },
+        "self_model": {
+            "identity": {"name": "Alfred", "role": "Assistant"},
+            "runtime": {"interface": "cli", "daemon_mode": False},
+            "capabilities": {"memory_enabled": True, "search_enabled": True, "tools_count": 10},
+            "context_pressure": {"message_count": 5, "memory_count": 2, "approximate_tokens": 120},
+        },
+        "total_tokens": 101,
+    }
+
+    with patch("alfred.context_display.get_context_display", AsyncMock(return_value=context_data)):
+        command = ShowContextCommand()
+        assert command.execute(fake_tui, None) is True
+        await asyncio.sleep(0.01)
+
+    assert rendered_messages
+    rendered = rendered_messages[0]
+    assert "SYSTEM PROMPT (54 tokens)" in rendered
+    assert "SYSTEM.md: 12 tokens" in rendered
+    assert "AGENTS.md: 34 tokens" in rendered
+    assert "TOOLS.md: 8 tokens" in rendered
+    assert "SESSION HISTORY (5 displayed of 9 messages, 21 tokens)" in rendered
+    assert "Preview 5" in rendered
+    assert "RECENT TOOL OUTCOMES (3 displayed of 4 calls, 20 tokens)" in rendered
+    assert "bash: python -V exited 0 — Python 3.14.3" in rendered
+    assert "read: docs/roadmap.md" in rendered
+    assert "edit: updated src/module.py" in rendered
+    assert "command=" not in rendered
+    assert "arguments" not in rendered
+    assert "output" not in rendered

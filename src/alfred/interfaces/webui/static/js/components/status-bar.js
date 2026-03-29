@@ -9,7 +9,8 @@
  *   - outputtokens: Output token count
  *   - cachedtokens: Cache read token count
  *   - reasoningtokens: Reasoning/thinking token count
- *   - contexttokens: Total context window usage
+ *   - contexttokens: Current context usage
+ *   - contextwindowtokens: Total context window size
  *   - queue: Number of queued messages
  *   - streaming: Whether LLM is generating (true/false)
  */
@@ -22,6 +23,7 @@ class StatusBar extends HTMLElement {
     this._cachedTokens = 0;
     this._reasoningTokens = 0;
     this._contextTokens = 0;
+    this._contextWindowTokens = 0;
     this._queue = 0;
     this._streaming = false;
     this._throbberIndex = 0;
@@ -36,6 +38,7 @@ class StatusBar extends HTMLElement {
       "cachedtokens",
       "reasoningtokens",
       "contexttokens",
+      "contextwindowtokens",
       "queue",
       "streaming",
     ];
@@ -62,6 +65,9 @@ class StatusBar extends HTMLElement {
         break;
       case "contexttokens":
         this._contextTokens = parseInt(newValue, 10) || 0;
+        break;
+      case "contextwindowtokens":
+        this._contextWindowTokens = parseInt(newValue, 10) || 0;
         break;
       case "queue":
         this._queue = parseInt(newValue, 10) || 0;
@@ -119,6 +125,14 @@ class StatusBar extends HTMLElement {
 
     // Format token display
     const tokensDisplay = this._formatTokens();
+    const queueMarkup =
+      this._queue > 0
+        ? `
+        <div class="status-section queue-section ${queueClass}">
+          <span class="status-label">Queue</span>
+          <span class="status-value queue-count">${this._queue}</span>
+        </div>`
+        : "";
 
     this.innerHTML = `
       <div class="status-bar ${streamingClass}">
@@ -134,10 +148,11 @@ class StatusBar extends HTMLElement {
           <span class="status-label">Tokens</span>
           <span class="status-value tokens-display">${tokensDisplay}</span>
         </div>
-        <div class="status-section queue-section ${queueClass}">
-          <span class="status-label">Queue</span>
-          <span class="status-value queue-count">${this._queue}</span>
+        <div class="status-section context-section mobile-context-section">
+          <span class="status-label mobile-context-label">Ctx</span>
+          <span class="status-value context-display">${this._formatContextCompact()}</span>
         </div>
+        ${queueMarkup}
       </div>
     `;
   }
@@ -165,12 +180,23 @@ class StatusBar extends HTMLElement {
 
   _formatNumber(num) {
     if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(1)}M`;
+      const value = num / 1000000;
+      return value === Math.trunc(value) ? `${Math.trunc(value)}M` : `${value.toFixed(1)}M`;
     }
     if (num >= 1000) {
-      return `${(num / 1000).toFixed(1)}k`;
+      const value = num / 1000;
+      return value === Math.trunc(value) ? `${Math.trunc(value)}k` : `${value.toFixed(1)}k`;
     }
     return num.toString();
+  }
+
+  _formatContextCompact() {
+    if (this._contextWindowTokens <= 0) {
+      return this._contextTokens > 0 ? this._formatNumber(this._contextTokens) : "-";
+    }
+
+    const usedPercentage = (this._contextTokens / this._contextWindowTokens) * 100;
+    return `${usedPercentage.toFixed(1)}%/${this._formatNumber(this._contextWindowTokens)}`;
   }
 
   _escapeHtml(text) {
@@ -189,17 +215,19 @@ class StatusBar extends HTMLElement {
     return this._model;
   }
 
-  setTokens(input, output, cached = 0, reasoning = 0, context = 0) {
+  setTokens(input, output, cached = 0, reasoning = 0, context = 0, contextWindow = 0) {
     this._inputTokens = input;
     this._outputTokens = output;
     this._cachedTokens = cached;
     this._reasoningTokens = reasoning;
     this._contextTokens = context;
+    this._contextWindowTokens = contextWindow;
     this.setAttribute("inputtokens", input.toString());
     this.setAttribute("outputtokens", output.toString());
     this.setAttribute("cachedtokens", cached.toString());
     this.setAttribute("reasoningtokens", reasoning.toString());
     this.setAttribute("contexttokens", context.toString());
+    this.setAttribute("contextwindowtokens", contextWindow.toString());
   }
 
   getTokens() {
@@ -209,6 +237,7 @@ class StatusBar extends HTMLElement {
       cached: this._cachedTokens,
       reasoning: this._reasoningTokens,
       context: this._contextTokens,
+      contextWindow: this._contextWindowTokens,
     };
   }
 
@@ -254,6 +283,10 @@ class StatusBar extends HTMLElement {
     if (status.contextTokens !== undefined) {
       this._contextTokens = status.contextTokens;
       this.setAttribute("contexttokens", status.contextTokens.toString());
+    }
+    if (status.contextWindowTokens !== undefined) {
+      this._contextWindowTokens = status.contextWindowTokens;
+      this.setAttribute("contextwindowtokens", status.contextWindowTokens.toString());
     }
     if (status.queueLength !== undefined) {
       this._queue = status.queueLength;

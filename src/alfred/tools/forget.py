@@ -56,7 +56,7 @@ class ForgetTool(Tool):
 
     name = "forget"
     description = (
-        "Delete a memory by its exact ID. This tool requires two calls to execute: "
+        "Delete a memory by its exact ID. Use 'query' first to find candidates when needed. This tool requires two calls to execute: "
         "1) First call marks the memory for deletion and requests confirmation. "
         "2) Second call with the same memory_id executes the deletion. "
         "Alternatively, use 'query' to search for candidates without deleting."

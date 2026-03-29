@@ -10,12 +10,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from alfred.embeddings.provider import EmbeddingProvider
 from alfred.llm import LLMProvider
-from alfred.session import Session, SessionManager
+from alfred.session import Message, Session, SessionManager
 from alfred.storage.sqlite import SQLiteStore
 
 from .base import Tool
 
 logger = logging.getLogger(__name__)
+
+SUMMARY_CHUNK_SIZE = 10
+SUMMARY_MESSAGE_PREVIEW_LIMIT = 200
 
 
 class SessionSummary(BaseModel):
@@ -55,23 +58,66 @@ class SessionSummarizer:
         self.embedder = embedder
         self.store = store
 
+    def _split_messages(self, messages: list[Message], chunk_size: int) -> list[list[Message]]:
+        """Split messages into fixed-size chunks."""
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        return [messages[index : index + chunk_size] for index in range(0, len(messages), chunk_size)]
+
+    def _format_message_preview(self, messages: list[Message]) -> str:
+        """Format a compact preview for LLM summarization."""
+        preview_lines = []
+        for msg in messages:
+            role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            content = msg.content[:SUMMARY_MESSAGE_PREVIEW_LIMIT]
+            preview_lines.append(f"{role}: {content}")
+        return "\n".join(preview_lines)
+
+    @staticmethod
+    def _fallback_summary_from_preview(conversation_preview: str) -> str:
+        """Generate a deterministic summary fallback from preview text."""
+        lines = conversation_preview.strip().split("\n")
+        for line in lines:
+            if line.lower().startswith("user:"):
+                user_msg = line[5:].strip()
+                if len(user_msg) > 50:
+                    return f"Discussion about: {user_msg[:100]}..."
+                return f"Discussion about: {user_msg}"
+        return "Session with general conversation"
+
+    async def _generate_chunked_summary(self, messages: list[Message]) -> str:
+        """Generate a summary by summarizing message chunks first."""
+        chunks = self._split_messages(messages, SUMMARY_CHUNK_SIZE)
+        if len(chunks) == 1:
+            return await self._call_llm_for_summary(self._format_message_preview(chunks[0]))
+
+        chunk_summaries: list[str] = []
+        total_chunks = len(chunks)
+        for index, chunk in enumerate(chunks, start=1):
+            chunk_preview = self._format_message_preview(chunk)
+            chunk_summaries.append(
+                await self._call_llm_for_summary(
+                    f"Chunk {index} of {total_chunks}:\n\n{chunk_preview}",
+                )
+            )
+
+        combined_preview = "\n".join(
+            f"Chunk {index}: {summary}" for index, summary in enumerate(chunk_summaries, start=1)
+        )
+        return await self._call_llm_for_summary(f"Chunk summaries:\n\n{combined_preview}")
+
     async def generate_summary(self, session: Session) -> SessionSummary:
         """Generate LLM summary for a session.
 
         Creates a concise summary of the session using an LLM,
         then generates an embedding for semantic search.
         """
-        # Build conversation preview for LLM
-        preview_lines = []
-        for msg in session.messages[:10]:  # First 10 messages for context
-            role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            content = msg.content[:200]  # Truncate long messages
-            preview_lines.append(f"{role}: {content}")
-
-        preview = "\n".join(preview_lines)
-
-        # Generate summary via LLM
-        summary_text = await self._call_llm_for_summary(preview)
+        if not session.messages:
+            summary_text = "Session with no messages"
+        elif not self.llm_client:
+            summary_text = self._fallback_summary_from_preview(self._format_message_preview(session.messages))
+        else:
+            summary_text = await self._generate_chunked_summary(session.messages)
 
         # Generate embedding for the summary
         embedding = await self.embedder.embed(summary_text)
@@ -92,15 +138,7 @@ class SessionSummarizer:
         of the conversation topics and outcomes.
         """
         if not self.llm_client:
-            # Fallback if no LLM available
-            lines = conversation_preview.strip().split("\n")
-            for line in lines:
-                if line.lower().startswith("user:"):
-                    user_msg = line[5:].strip()
-                    if len(user_msg) > 50:
-                        return f"Discussion about: {user_msg[:100]}..."
-                    return f"Discussion about: {user_msg}"
-            return "Session with general conversation"
+            return self._fallback_summary_from_preview(conversation_preview)
 
         # Import here to avoid circular imports
         from alfred.llm import ChatMessage
@@ -133,14 +171,7 @@ class SessionSummarizer:
             # Fallback on LLM error
             logger = logging.getLogger(__name__)
             logger.warning(f"LLM summary generation failed: {e}, using fallback")
-            lines = conversation_preview.strip().split("\n")
-            for line in lines:
-                if line.lower().startswith("user:"):
-                    user_msg = line[5:].strip()
-                    if len(user_msg) > 50:
-                        return f"Discussion about: {user_msg[:100]}..."
-                    return f"Discussion about: {user_msg}"
-            return "Session with general conversation"
+            return self._fallback_summary_from_preview(conversation_preview)
 
     async def save_summary(self, summary: SessionSummary) -> None:
         """Save summary to SQLite.
@@ -208,7 +239,10 @@ class SearchSessionsTool(Tool):
     """Search through session archive with two-stage contextual retrieval."""
 
     name = "search_sessions"
-    description = "Search through your conversation history for past discussions"
+    description = (
+        "Search conversation history for prior discussions, time-bounded recall, or details that memories do not capture. "
+        "Use when memory search is not enough."
+    )
     param_model = SearchSessionsToolParams
 
     def __init__(

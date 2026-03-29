@@ -259,6 +259,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 151 | Web UI Compose, Cancel, and Edit While Streaming | Add cancel/edit streaming UX in the Web UI (PRD #151) |
 | 157 | Migrate to Pygments+Mistune | Replace Rich with Pygments+Mistune for 2-5x faster TUI markdown rendering (PRD #157) |
 | 161 | Documentation Refresh | Update ARCHITECTURE.md and related docs to reflect SQLite storage, PyPiTUI/Web UI interfaces, and AlfredCore (PRD #161) |
+| 165 | Selective Tool Outcomes and Context Viewer Fixes | Replace raw tool-call context with derived outcomes, make `/context` truthful, and fix the Web UI context component (PRD #165) |
 
 ### Medium-term 📅
 

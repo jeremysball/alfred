@@ -23,7 +23,10 @@ class ReadTool(Tool):
     """Read file contents. Supports text files and images."""
 
     name = "read"
-    description = "Read file contents. Supports text files (with optional line offset/limit) and images (jpg, png, gif, webp)."
+    description = (
+        "Read file contents before changing them or when inspecting workspace state. "
+        "Supports text files (with optional line offset/limit) and images (jpg, png, gif, webp)."
+    )
     param_model = ReadToolParams
 
     def execute(self, **kwargs: Any) -> str:

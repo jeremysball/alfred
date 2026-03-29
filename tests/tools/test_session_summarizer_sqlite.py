@@ -3,9 +3,11 @@
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from alfred.session import Message, Role, Session, SessionMeta
 from alfred.storage.sqlite import SQLiteStore
 from alfred.tools.search_sessions import SessionSummarizer, SessionSummary
 
@@ -157,6 +159,50 @@ class TestSessionSummarizerSQLite:
             row = await cursor.fetchone()
             stored = json.loads(row[0])
             assert stored == [0.9] * 768
+
+    @pytest.mark.asyncio
+    async def test_generate_summary_uses_message_chunks(self, sqlite_store, mock_embedder):
+        """Verify long sessions are summarized chunk by chunk."""
+
+        class RecordingLLM:
+            def __init__(self) -> None:
+                self.prompts: list[str] = []
+
+            async def chat(self, messages):
+                prompt = messages[1].content
+                self.prompts.append(prompt)
+                if "Chunk summaries:" in prompt:
+                    return SimpleNamespace(content="final summary")
+                if "message-10" in prompt:
+                    return SimpleNamespace(content="second chunk summary")
+                return SimpleNamespace(content="first chunk summary")
+
+        llm_client = RecordingLLM()
+        summarizer = SessionSummarizer(llm_client, mock_embedder, store=sqlite_store)
+
+        messages = [
+            Message(
+                idx=index,
+                role=Role.USER if index % 2 == 0 else Role.ASSISTANT,
+                content=f"message-{index}",
+            )
+            for index in range(11)
+        ]
+        session = Session(
+            meta=SessionMeta(
+                session_id="sess_chunked",
+                created_at=datetime(2026, 3, 7, 10, 0, 0, tzinfo=UTC),
+                last_active=datetime(2026, 3, 7, 10, 5, 0, tzinfo=UTC),
+                status="active",
+            ),
+            messages=messages,
+        )
+
+        summary = await summarizer.generate_summary(session)
+
+        assert summary.text == "final summary"
+        assert len(llm_client.prompts) == 3
+        assert any("message-10" in prompt for prompt in llm_client.prompts)
 
     @pytest.mark.asyncio
     async def test_save_summary_without_store_raises(self, mock_llm_client, mock_embedder):

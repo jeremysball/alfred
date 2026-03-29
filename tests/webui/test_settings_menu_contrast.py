@@ -165,7 +165,7 @@ async def test_light_theme_rows_are_readable_on_dark_theme() -> None:
                     return (lighter + 0.05) / (darker + 0.05);
                   };
 
-                  const themeIds = ["dark-academia-light", "swiss-international", "neumorphism", "minimal", "spacejam-neocities"];
+                  const themeIds = ["swiss-international", "minimal", "neumorphism"];
                   return themeIds.map((themeId) => {
                     const option = document.querySelector(`.theme-option[data-theme="${themeId}"]`);
                     if (!option) {

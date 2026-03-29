@@ -204,7 +204,7 @@ async def _send_message_and_wait_for_assistant(
     assistant_messages = page.locator('chat-message[role="assistant"]')
     await expect(assistant_messages).to_have_count(expected_assistant_count)
 
-    latest_assistant_content = assistant_messages.last.locator(".message-content")
+    latest_assistant_content = assistant_messages.last.locator(".text-block").last
     for substring in expected_substrings:
         await expect(latest_assistant_content).to_contain_text(substring)
 
@@ -259,7 +259,7 @@ async def test_webui_memory_recall_survives_reload_with_correct_similarity_seman
 
             restored_assistant_messages = page.locator('chat-message[role="assistant"]')
             await expect(restored_assistant_messages).to_have_count(2)
-            restored_recall_content = restored_assistant_messages.last.locator(".message-content")
+            restored_recall_content = restored_assistant_messages.last.locator(".text-block").last
             await expect(restored_recall_content).to_contain_text("my favorite color is blue")
             await expect(restored_recall_content).to_contain_text("sim: 100%")
 

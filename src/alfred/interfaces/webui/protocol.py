@@ -267,6 +267,7 @@ class StatusUpdatePayload(TypedDict):
 
     model: str
     contextTokens: int
+    contextWindowTokens: NotRequired[int | None]
     inputTokens: int
     outputTokens: int
     cacheReadTokens: int

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 
 from alfred.config import Config
+from alfred.context_outcomes import collect_tool_outcome_lines
 from alfred.embeddings import cosine_similarity
 from alfred.memory import MemoryEntry
 from alfred.placeholders import has_volatile_placeholder, resolve_all
@@ -65,13 +66,21 @@ class AssembledContext(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
-# Map context file names to template filenames
+# Stable order for the managed system prompt sections.
+SYSTEM_PROMPT_SECTION_ORDER = ("system", "agents", "tools", "soul", "user")
+
+# Map context file names to template filenames.
 CONTEXT_TO_TEMPLATE = {
     "system": "SYSTEM.md",
     "agents": "AGENTS.md",
     "tools": "TOOLS.md",
     "soul": "SOUL.md",
     "user": "USER.md",
+}
+
+SYSTEM_PROMPT_SECTION_LABELS = {
+    section_name: CONTEXT_TO_TEMPLATE[section_name]
+    for section_name in SYSTEM_PROMPT_SECTION_ORDER
 }
 
 
@@ -126,11 +135,13 @@ class ContextBuilder:
         memory_budget: int = 32000,
         min_similarity: float = 0.7,
         recency_half_life: int = 30,
+        workspace_dir: Path | None = None,
     ) -> None:
         self.store = store
         self.memory_budget = memory_budget
         self.min_similarity = min_similarity
         self.recency_half_life = recency_half_life
+        self.workspace_dir = workspace_dir or Path.cwd()
 
     async def search_memories(
         self,
@@ -254,24 +265,16 @@ class ContextBuilder:
         # Build memory section
         memory_section = self._format_memories(relevant, similarities, scores)
 
-        # Build session history section
-        session_section = self._format_session_messages(session_messages or [])
-
-        # Build tool calls section
-        tool_calls_section = ""
-        if tool_calls_enabled and session_messages_with_tools:
-            tool_calls_section = self._format_tool_calls(
-                session_messages_with_tools,
-                max_calls=tool_calls_max_calls,
-                include_output=tool_calls_include_output,
-                include_arguments=tool_calls_include_arguments,
-            )
+        # Build session history section, folding derived tool outcomes into the recent context.
+        session_section = self._format_session_messages(
+            session_messages or [],
+            session_messages_with_tools if tool_calls_enabled else [],
+            tool_calls_max_calls=tool_calls_max_calls,
+            tool_calls_max_tokens=tool_calls_max_tokens,
+        )
 
         # Combine parts
-        parts = [system_prompt, memory_section]
-        if tool_calls_section:
-            parts.append(tool_calls_section)
-        parts.extend([session_section, "## CURRENT CONVERSATION\n"])
+        parts = [system_prompt, memory_section, session_section, "## CURRENT CONVERSATION\n"]
 
         context = "\n\n".join(parts)
 
@@ -285,6 +288,8 @@ class ContextBuilder:
                 self.memory_budget,
                 similarities,
                 scores,
+                session_messages_with_tools=session_messages_with_tools if tool_calls_enabled else [],
+                tool_calls_max_calls=tool_calls_max_calls,
             )
             logger.warning(
                 "core.context.truncated memory_budget=%s token_count=%s "
@@ -309,53 +314,73 @@ class ContextBuilder:
         )
         return context, len(relevant)
 
-    def _format_session_messages(self, messages: list[tuple[str, str]]) -> str:
+    def _format_session_messages(
+        self,
+        messages: list[tuple[str, str]],
+        messages_with_tools: list[Any] | None = None,
+        *,
+        tool_calls_max_calls: int = 5,
+        tool_calls_max_tokens: int = 2000,
+        include_empty_placeholder: bool = True,
+    ) -> str:
         """Format session messages for context."""
-        if not messages:
-            return "## SESSION HISTORY\n\n_No previous messages in this session._"
+        if not messages and not messages_with_tools:
+            if include_empty_placeholder:
+                return "## SESSION HISTORY\n\n_No previous messages in this session._"
+            return ""
 
         lines = ["## SESSION HISTORY\n"]
         for role, content in messages:
             lines.append(f"{role.capitalize()}: {content}")
+
+        max_output_chars = min(120, max(16, tool_calls_max_tokens * 4))
+        tool_outcomes = collect_tool_outcome_lines(
+            messages_with_tools,
+            max_calls=tool_calls_max_calls,
+            workspace_dir=self.workspace_dir,
+            max_output_chars=max_output_chars,
+        )
+        if tool_outcomes:
+            lines.append("")
+            lines.append("Tool outcomes:")
+            for outcome in tool_outcomes:
+                lines.append(f"- {outcome}")
+
         return "\n".join(lines)
 
-    def _format_tool_calls(
+    def _select_session_messages_for_budget(
         self,
-        messages: list[Any],
-        max_calls: int = 5,
-        include_output: bool = True,
-        include_arguments: bool = True,
+        messages: list[tuple[str, str]],
+        messages_with_tools: list[Any] | None,
+        budget: int,
+        *,
+        tool_calls_max_calls: int = 5,
+        tool_calls_max_tokens: int = 2000,
     ) -> str:
-        """Format tool calls section for context."""
-        all_tool_calls = []
-        for msg in messages:
-            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                all_tool_calls.extend(msg.tool_calls)
-
-        if not all_tool_calls:
+        """Return the newest session message suffix that fits within budget."""
+        if budget <= 0:
             return ""
 
-        tool_calls = all_tool_calls[-max_calls:] if len(all_tool_calls) > max_calls else all_tool_calls
+        tool_messages = list(messages_with_tools or [])
+        selected_count = len(messages) if messages else len(tool_messages)
+        if selected_count == 0:
+            return ""
 
-        lines = ["## RECENT TOOL CALLS\n"]
-        for i, tc in enumerate(tool_calls, 1):
-            status_indicator = "✓" if tc.status == "success" else "✗"
-            if include_arguments and tc.arguments:
-                args_str = ", ".join(f"{k}={v}" for k, v in tc.arguments.items())
-                args_str = args_str[:100]
-                tool_line = f"{i}. {status_indicator} {tc.tool_name}: {args_str}"
-            else:
-                tool_line = f"{i}. {status_indicator} {tc.tool_name}"
-            lines.append(tool_line)
+        while selected_count > 0:
+            candidate_messages = messages[-selected_count:] if messages else []
+            candidate_tools = tool_messages[-selected_count:] if tool_messages else []
+            candidate_section = self._format_session_messages(
+                candidate_messages,
+                candidate_tools,
+                tool_calls_max_calls=tool_calls_max_calls,
+                tool_calls_max_tokens=tool_calls_max_tokens,
+                include_empty_placeholder=False,
+            )
+            if approximate_tokens(candidate_section) <= budget:
+                return candidate_section
+            selected_count -= 1
 
-            if include_output and tc.output:
-                output = tc.output.strip()
-                if len(output) > 200:
-                    output = output[:200] + "..."
-                for output_line in output.split("\n")[:5]:
-                    lines.append(f"   {output_line}")
-
-        return "\n".join(lines)
+        return ""
 
     def _format_memories(
         self,
@@ -394,56 +419,52 @@ class ContextBuilder:
         budget: int,
         similarities: dict[str, float] | None = None,
         scores: dict[str, float] | None = None,
+        session_messages_with_tools: list[Any] | None = None,
+        tool_calls_max_calls: int = 5,
+        tool_calls_max_tokens: int = 2000,
     ) -> tuple[str, int]:
         """Truncate memories and session messages to fit within token budget."""
         similarities = similarities or {}
         scores = scores or {}
-        reserved = approximate_tokens(system_prompt) + 300
-        available = budget - reserved
+        footer = "## CURRENT CONVERSATION\n"
 
-        if available <= 0:
-            return "\n\n".join([system_prompt, "## CURRENT CONVERSATION\n"]), 0
+        if approximate_tokens(system_prompt) + approximate_tokens(footer) >= budget:
+            return "\n\n".join([system_prompt, footer]), 0
 
-        # Include all session messages
-        session_lines = ["## SESSION HISTORY\n"]
-        for role, content in session_messages:
-            session_lines.append(f"{role.capitalize()}: {content}")
-        session_section = "\n".join(session_lines)
-        session_tokens = approximate_tokens(session_section)
-        available_for_memories = available - session_tokens - 100
-
-        if available_for_memories <= 0:
-            return "\n\n".join([system_prompt, session_section, "## CURRENT CONVERSATION\n"]), 0
-
-        # Include memories until budget exhausted
-        memory_lines = ["## RELEVANT MEMORIES\n"]
-        current_tokens = approximate_tokens("\n".join(memory_lines))
-
+        selected_memories: list[MemoryEntry] = []
+        memory_section = ""
         for memory in memories:
-            prefix = "User" if memory.role == "user" else "Assistant"
-            date = memory.timestamp.strftime("%Y-%m-%d")
-            content = memory.content[:200]
-            if len(memory.content) > 200:
-                content += "..."
-            sim = similarities.get(memory.entry_id, 0.0)
-            sim_pct = int(sim * 100)
-            scr = scores.get(memory.entry_id, 0.0)
-            scr_pct = int(scr * 100)
-            entry_id = memory.entry_id
-            line = f"- [{date}] {prefix}: {content} (sim: {sim_pct}%, score: {scr_pct}%, id: {entry_id})"
-            line_tokens = approximate_tokens(line)
-
-            if current_tokens + line_tokens > available_for_memories:
+            candidate_memories = selected_memories + [memory]
+            candidate_memory_section = self._format_memories(candidate_memories, similarities, scores)
+            candidate_parts = [system_prompt, candidate_memory_section, footer]
+            candidate_context = "\n\n".join(part for part in candidate_parts if part)
+            if approximate_tokens(candidate_context) <= budget:
+                selected_memories = candidate_memories
+                memory_section = candidate_memory_section
+            else:
                 break
 
-            memory_lines.append(line)
-            current_tokens += line_tokens
+        base_parts = [system_prompt]
+        if memory_section:
+            base_parts.append(memory_section)
+        base_parts.append(footer)
+        remaining_budget = budget - approximate_tokens("\n\n".join(base_parts))
+        session_section = self._select_session_messages_for_budget(
+            session_messages,
+            session_messages_with_tools if session_messages_with_tools is not None else [],
+            remaining_budget,
+            tool_calls_max_calls=tool_calls_max_calls,
+            tool_calls_max_tokens=tool_calls_max_tokens,
+        )
 
-        if len(memory_lines) == 1:
-            memory_lines.append("_No memories fit in context window._")
+        parts = [system_prompt]
+        if memory_section:
+            parts.append(memory_section)
+        if session_section:
+            parts.append(session_section)
+        parts.append(footer)
 
-        included_count = len(memory_lines) - 1
-        return "\n\n".join([system_prompt, "\n".join(memory_lines), session_section, "## CURRENT CONVERSATION\n"]), included_count
+        return "\n\n".join(parts), len(selected_memories)
 
 
 class ContextLoader:
@@ -465,6 +486,7 @@ class ContextLoader:
             self._context_builder = ContextBuilder(
                 store,
                 memory_budget=config.memory_budget,
+                workspace_dir=config.workspace_dir,
             )
 
     def toggle_section(self, name: str, enabled: bool) -> bool:
@@ -782,7 +804,7 @@ class ContextLoader:
     def _build_system_prompt(self, files: dict[str, ContextFile]) -> str:
         """Combine active context files into system prompt."""
         parts = []
-        for name in ["system", "agents", "tools", "soul", "user"]:
+        for name in SYSTEM_PROMPT_SECTION_ORDER:
             file = files.get(name)
             if file is None or file.is_blocked():
                 continue

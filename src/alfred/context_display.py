@@ -8,6 +8,9 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from alfred.context import SYSTEM_PROMPT_SECTION_LABELS, SYSTEM_PROMPT_SECTION_ORDER
+from alfred.context_outcomes import collect_tool_outcomes
+
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
 
@@ -28,6 +31,17 @@ def _context_file_name(file: Any) -> str:
     return f"{name}.md" if name and not str(name).endswith(".md") else str(name)
 
 
+def _context_file_identifier(file: Any) -> str:
+    """Return a stable identifier for a loaded context file."""
+    name = getattr(file, "name", "")
+    if name:
+        return str(name)
+    path = getattr(file, "path", None)
+    if path:
+        return Path(str(path)).stem
+    return ""
+
+
 async def get_context_display(alfred: "Alfred", session_id: str | None = None) -> dict[str, Any]:
     """Get current context information for /context command.
 
@@ -39,8 +53,8 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         Dictionary with context display data containing:
         - system_prompt: Breakdown of prompt sections with token counts
         - memories: Available memories with display limit info
-        - session_history: Recent session messages
-        - tool_calls: Recent tool calls from the session
+        - session_history: Bounded preview of session messages with displayed/total counts
+        - tool_calls: Compact derived tool outcomes from the session
         - total_tokens: Estimated total context size
     """
     logger.debug("get_context_display: gathering context for session=%s", session_id or "cli")
@@ -53,11 +67,22 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     context_files = await alfred.context_loader.load_all()
     logger.debug("get_context_display: loaded %d context files", len(context_files))
 
-    blocked_context_files = [_context_file_name(file) for file in context_files.values() if getattr(file, "is_blocked", lambda: False)()]
-    if blocked_context_files:
-        logger.debug("get_context_display: found %d blocked context files", len(blocked_context_files))
+    conflicted_context_files = [
+        {
+            "id": _context_file_identifier(file),
+            "name": _context_file_identifier(file),
+            "label": _context_file_name(file),
+            "reason": getattr(file, "blocked_reason", None) or "Blocked context file",
+        }
+        for file in context_files.values()
+        if getattr(file, "is_blocked", lambda: False)()
+    ]
+    if conflicted_context_files:
+        logger.debug("get_context_display: found %d conflicted context files", len(conflicted_context_files))
 
-    warnings = [f"Blocked context files: {', '.join(blocked_context_files)}"] if blocked_context_files else []
+    blocked_context_files = [file["label"] for file in conflicted_context_files]
+
+    warnings = []
 
     # Add warning about disabled sections
     if disabled_sections:
@@ -66,16 +91,18 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     # Build system prompt sections with token counts
     system_sections = []
     total_system_tokens = 0
-    for name in ["agents", "soul", "user", "tools"]:
-        file = context_files.get(name)
+    for section_id in SYSTEM_PROMPT_SECTION_ORDER:
+        file = context_files.get(section_id)
         if file is None or getattr(file, "is_blocked", lambda: False)():
             continue
 
-        content = file.content
-        tokens = _estimate_tokens(content)
+        label = SYSTEM_PROMPT_SECTION_LABELS.get(section_id, f"{section_id.upper()}.md")
+        tokens = _estimate_tokens(file.content)
         system_sections.append(
             {
-                "name": name.upper() + ".md",
+                "id": section_id,
+                "name": label,
+                "label": label,
                 "tokens": tokens,
             }
         )
@@ -85,26 +112,33 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     all_memories = await alfred.core.memory_store.get_all_entries()
 
     # Get session messages for display
-    session_messages = alfred.core.session_manager.get_messages_for_context(session_id)
-    full_messages = alfred.core.session_manager.get_session_messages(session_id) if alfred.core.session_manager.has_active_session() else []
+    session_manager = alfred.core.session_manager
+    session_messages = session_manager.get_messages_for_context(session_id)
+    if session_id is not None:
+        full_messages = session_manager.get_session_messages(session_id)
+    elif session_manager.has_active_session():
+        full_messages = session_manager.get_session_messages()
+    else:
+        full_messages = []
 
-    # Get recent tool calls from session
-    recent_tool_calls: list[dict[str, Any]] = []
-    tool_call_tokens = 0
-    for msg in full_messages:
-        if msg.tool_calls:
-            for tc in msg.tool_calls:
-                tc_data = {
-                    "tool_name": tc.tool_name,
-                    "arguments": tc.arguments,
-                    "output": tc.output[:200] + "..." if len(tc.output) > 200 else tc.output,
-                    "status": tc.status,
-                }
-                recent_tool_calls.append(tc_data)
-                tool_call_tokens += _estimate_tokens(str(tc_data))
-
-    # Limit to last 3 tool calls
-    recent_tool_calls = recent_tool_calls[-3:]
+    # Get recent compact tool outcomes from session
+    workspace_dir = getattr(getattr(alfred.context_loader, "config", None), "workspace_dir", None)
+    recent_tool_outcomes = collect_tool_outcomes(
+        full_messages,
+        max_calls=3,
+        workspace_dir=workspace_dir,
+        max_output_chars=120,
+    )
+    total_tool_calls = sum(len(getattr(msg, "tool_calls", []) or []) for msg in full_messages)
+    tool_call_tokens = sum(outcome.tokens for outcome in recent_tool_outcomes)
+    recent_tool_calls = [
+        {
+            "tool_name": outcome.tool_name,
+            "summary": outcome.summary,
+            "tokens": outcome.tokens,
+        }
+        for outcome in recent_tool_outcomes
+    ]
 
     # Format session messages for display
     display_messages = [
@@ -112,6 +146,7 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         for role, content in session_messages[-5:]  # Last 5 messages
     ]
 
+    session_included = len(session_messages)
     session_tokens = sum(_estimate_tokens(m["content"]) for m in display_messages)
 
     # Format all memories with full content (no truncation)
@@ -171,12 +206,16 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         total_tokens,
     )
 
+    session_displayed = len(display_messages)
+    session_total = len(full_messages)
+
     return {
         "system_prompt": {
             "sections": system_sections,
             "total_tokens": total_system_tokens,
         },
         "blocked_context_files": blocked_context_files,
+        "conflicted_context_files": conflicted_context_files,
         "disabled_sections": disabled_sections,
         "warnings": warnings,
         "memories": {
@@ -187,14 +226,20 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             "all_shown": len(memory_display) == len(all_memories),
         },
         "session_history": {
-            "count": len(display_messages),
+            "count": session_displayed,
+            "displayed": session_displayed,
+            "included": session_included,
+            "total": session_total,
             "messages": display_messages,
             "tokens": session_tokens,
         },
         "tool_calls": {
             "count": len(recent_tool_calls),
+            "displayed": len(recent_tool_calls),
+            "total": total_tool_calls,
             "items": recent_tool_calls,
             "tokens": tool_call_tokens,
+            "all_shown": len(recent_tool_calls) == total_tool_calls,
         },
         "self_model": self_model_display,
         "total_tokens": total_tokens,

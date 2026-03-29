@@ -195,8 +195,9 @@ def test_status_update_message_structure():
     message: StatusUpdateMessage = {
         "type": "status.update",
         "payload": {
-            "model": "kimi-latest",
+            "model": "kimi-k2-5",
             "contextTokens": 2450,
+            "contextWindowTokens": 272000,
             "inputTokens": 1200,
             "outputTokens": 850,
             "cacheReadTokens": 2000,
@@ -207,8 +208,9 @@ def test_status_update_message_structure():
     }
     assert message["type"] == "status.update"
     assert message["payload"] == {
-        "model": "kimi-latest",
+        "model": "kimi-k2-5",
         "contextTokens": 2450,
+        "contextWindowTokens": 272000,
         "inputTokens": 1200,
         "outputTokens": 850,
         "cacheReadTokens": 2000,

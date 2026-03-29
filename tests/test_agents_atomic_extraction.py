@@ -144,8 +144,9 @@ class TestAgentsAtomicExtraction:
         # Should have resolved content from atomic files
         assert "## Beta Product Notice" in context_file.content
         assert "## Pre-Flight Check" in context_file.content
-        assert "## Test-Driven Development" in context_file.content
+        assert "## Testing Guidance" in context_file.content
         assert "## Secrets and Authentication" in context_file.content
+        assert "## Rule Index" in context_file.content
 
     def test_atomic_files_are_self_contained(self, tmp_path: Path) -> None:
         """Each atomic file should make sense standalone without external references."""
@@ -176,8 +177,8 @@ class TestAgentsAtomicExtraction:
             # Should have substantial content (not just a heading)
             assert len(content) > 100, f"{filename} should have substantial content"
 
-    def test_rules_index_has_numbered_rules(self, tmp_path: Path) -> None:
-        """Rules index should contain numbered rules."""
+    def test_rules_index_has_core_rules(self, tmp_path: Path) -> None:
+        """Rules index should contain the core generic rules."""
         manager = TemplateManager(tmp_path)
         template_dir = manager.template_dir
         rules_file = template_dir / "prompts" / "agents" / "rules-index.md"
@@ -187,9 +188,12 @@ class TestAgentsAtomicExtraction:
         # Should have Rule Index heading
         assert "## Rule Index" in content
 
-        # Should have numbered rules (0-11)
-        for i in range(12):
-            assert f"### {i}." in content, f"Missing rule {i}"
+        # Should have the key generic rules we expect runtime to use
+        assert "### 1. Capability First" in content
+        assert "### 2. Use `bash` as the Fallback" in content
+        assert "### 4. Search Before Asking" in content
+        assert "### 5. Ask Before External or Irreversible Actions" in content
+        assert "### 6. Verify Meaningful Code Changes" in content
 
     def test_memory_system_md_exists_and_is_valid(self, tmp_path: Path) -> None:
         """Memory system guidance should exist and be valid."""

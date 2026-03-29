@@ -2,7 +2,7 @@
   "ci": {
     "collect": {
       "numberOfRuns": 3,
-      "startServerCommand": "uv run python -m alfred --webui --port 8080",
+      "startServerCommand": "uv run python -m alfred webui --port 8080",
       "startServerReadyPattern": "Uvicorn running",
       "startServerReadyTimeout": 60000,
       "url": [

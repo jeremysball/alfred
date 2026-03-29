@@ -1,56 +1,45 @@
 ### remember - Save a Memory
 
-Save an important fact, preference, or context to the memory store for future retrieval.
+Save a useful fact, preference, or piece of context for future retrieval.
 
 **Parameters:**
-- `content` (required): The distilled insight or fact to remember
-- `tags` (optional): Comma-separated list of category tags (e.g., "preferences,work,health")
-- `permanent` (optional): Mark as permanent (skip 90-day TTL), default: false
+- `content` (required): The distilled fact or insight to remember
+- `tags` (optional): Comma-separated list of category tags (for example `preferences,work,health`)
+- `permanent` (optional): Mark as permanent to skip normal expiration
 
 **When to use:**
-- User mentions personal facts (family, preferences, life events)
-- Technical decisions or project context
-- Recurring patterns, struggles, or goals
-- **DO NOT wait for permission - remember proactively**
+- Durable user preferences likely to matter again
+- Project decisions, stable context, or recurring technical setup
+- Personal facts or milestones that will help in future conversations
+- Ongoing issues, goals, or patterns likely to come back
+
+**Avoid using it for:**
+- Every transient error or one-off detail
+- Raw logs or noisy pasted output
+- Duplicate facts already saved elsewhere
+- Facts that belong in always-loaded identity files unless the user wants that update
 
 **Examples:**
 
 ```python
-# Remember a preference
 remember(
-    content="Prefers Go over Kotlin for job search due to higher remote pay",
-    tags="preferences,job-search"
+    content="Prefers concise responses with direct recommendations",
+    tags="preferences,communication",
 )
 
-# Remember a personal milestone
 remember(
-    content="Son was born on March 15, 2026",
-    tags="family,milestone,permanent",
-    permanent=True
+    content="Using PostgreSQL for the billing service",
+    tags="project,database,billing",
 )
 
-# Remember current struggle
 remember(
-    content="Currently struggling with async Rust lifetimes",
-    tags="rust,learning,active"
-)
-
-# Remember project context
-remember(
-    content="CHIP-8 emulator being built in C for learning",
-    tags="project,chip8,c,learning"
-)
-
-# Remember health info
-remember(
-    content="Has shoulder injury affecting exercise, in physical therapy",
-    tags="health,injury,active"
+    content="Currently debugging OAuth callback failures in staging",
+    tags="project,debugging,oauth,active",
 )
 ```
 
 **Tips:**
-- Use concise, searchable content
-- Add relevant tags for categorization
-- Mark truly permanent facts (birthdays, core preferences) with `permanent=True`
-- Default to remembering - don't ask "should I remember this?"
-- Content is searchable via `search_memories`
+- Prefer fewer, higher-value memories
+- Write concise, searchable content
+- Use `permanent=True` only for facts that should outlive normal memory turnover
+- Search memories before creating duplicates

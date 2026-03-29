@@ -262,6 +262,31 @@ async def test_pull_to_refresh_shows_indicator_and_triggers_reconnect() -> None:
             await page.evaluate(
                 """
                 () => {
+                  const client = window.alfredWebSocketClient;
+                  if (!client) return;
+
+                  window.__connectCalls = 0;
+                  window.__reconnectCalls = 0;
+
+                  client.connect = function() {
+                    window.__connectCalls += 1;
+                    this.isConnected = true;
+                  };
+
+                  client.reconnect = function() {
+                    window.__reconnectCalls += 1;
+                    this.isConnected = true;
+                    window.setTimeout(() => {
+                      this.dispatchEvent(new CustomEvent('connected', { detail: { stubbed: true } }));
+                    }, 0);
+                  };
+                }
+                """
+            )
+
+            await page.evaluate(
+                """
+                () => {
                   const element = document.getElementById('chat-container');
                   if (!element) return;
 

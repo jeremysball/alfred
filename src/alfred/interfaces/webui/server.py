@@ -72,6 +72,30 @@ CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.01  # 10ms for low-latency streaming
 CHUNK_BATCH_MAX_CHARS = 1024  # Larger batches to reduce overhead
 
 
+def _infer_context_window_tokens(model_name: str | None) -> int | None:
+    """Infer the model context window size from the model name."""
+    if not model_name:
+        return None
+
+    normalized = model_name.lower()
+    explicit_windows = (
+        ("272000", 272000),
+        ("272k", 272000),
+        ("128k", 128000),
+        ("32k", 32000),
+        ("8k", 8000),
+        ("4k", 4000),
+    )
+    for marker, size in explicit_windows:
+        if marker in normalized:
+            return size
+
+    if "k2.5" in normalized or "k2-5" in normalized:
+        return 272000
+
+    return None
+
+
 @dataclass
 class _WebSocketDebugStats:
     """Debug-only stats for diagnosing websocket disconnects on long turns."""
@@ -768,6 +792,7 @@ def _build_context_payload(context_data: dict[str, object]) -> dict[str, object]
             "total_tokens": system_prompt["total_tokens"],
         },
         "blocked_context_files": context_data.get("blocked_context_files", []),
+        "conflicted_context_files": context_data.get("conflicted_context_files", []),
         "disabled_sections": context_data.get("disabled_sections", []),
         "warnings": context_data.get("warnings", []),
         "memories": context_data["memories"],
@@ -833,6 +858,7 @@ async def _send_status_update(
     status: dict[str, StatusField] = {
         "model": "",
         "contextTokens": 0,
+        "contextWindowTokens": None,
         "inputTokens": 0,
         "outputTokens": 0,
         "cacheReadTokens": 0,
@@ -844,10 +870,12 @@ async def _send_status_update(
     if alfred_instance is not None:
         token_tracker = getattr(alfred_instance, "token_tracker", None)
         usage = getattr(token_tracker, "usage", None)
+        model_name = str(getattr(alfred_instance, "model_name", ""))
         status.update(
             {
-                "model": str(getattr(alfred_instance, "model_name", "")),
+                "model": model_name,
                 "contextTokens": _coerce_int(getattr(token_tracker, "context_tokens", 0)),
+                "contextWindowTokens": _infer_context_window_tokens(model_name),
                 "inputTokens": _coerce_int(getattr(usage, "input_tokens", 0)),
                 "outputTokens": _coerce_int(getattr(usage, "output_tokens", 0)),
                 "cacheReadTokens": _coerce_int(getattr(usage, "cache_read_tokens", 0)),

@@ -86,7 +86,7 @@ class ContextViewer extends HTMLElement {
   }
 
   _toggleContextSection(section, enabled) {
-    // Dispatch event to parent to handle context modification
+    // Dispatch event to parent to handle context modification.
     this.dispatchEvent(
       new CustomEvent("context-toggle", {
         bubbles: true,
@@ -94,15 +94,22 @@ class ContextViewer extends HTMLElement {
         detail: { section, enabled },
       }),
     );
+  }
 
-    // Also dispatch command event for direct server communication
-    this.dispatchEvent(
-      new CustomEvent("send-command", {
-        bubbles: true,
-        composed: true,
-        detail: { command: `/context toggle ${section} ${enabled ? "on" : "off"}` },
-      }),
-    );
+  _normalizeSectionId(section) {
+    const normalized = String(section ?? "").trim();
+    if (!normalized) {
+      return "";
+    }
+    return normalized.replace(/\.md$/i, "").toLowerCase();
+  }
+
+  _formatSectionLabel(section) {
+    const sectionId = this._normalizeSectionId(section);
+    if (!sectionId) {
+      return "";
+    }
+    return `${sectionId.toUpperCase()}.md`;
   }
 
   _refreshContext() {
@@ -127,6 +134,32 @@ class ContextViewer extends HTMLElement {
     return num?.toLocaleString() || "0";
   }
 
+  _asInt(value, fallback = 0) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  _formatSystemPromptBadge(system, disabledSections) {
+    const activeCount = system?.sections?.length || 0;
+    const disabledCount = disabledSections?.length || 0;
+    return `${activeCount} active / ${disabledCount} disabled`;
+  }
+
+  _formatSessionHistoryBadge(session) {
+    const displayed = this._asInt(
+      session?.displayed,
+      this._asInt(session?.count, session?.messages?.length || 0),
+    );
+    const included = this._asInt(session?.included, displayed);
+    const total = this._asInt(session?.total, included);
+
+    if (displayed === included && included === total) {
+      return `${displayed} messages`;
+    }
+
+    return `${displayed} displayed / ${included} included / ${total} total messages`;
+  }
+
   _render() {
     if (!this._data) {
       this.innerHTML = '<div class="context-viewer loading">Loading context...</div>';
@@ -142,13 +175,15 @@ class ContextViewer extends HTMLElement {
       total_tokens,
       warnings,
       blocked_context_files,
+      conflicted_context_files,
     } = this._data;
 
     this.innerHTML = `
       <div class="context-viewer">
         ${this._renderHeader()}
+        ${conflicted_context_files?.length ? this._renderConflictedFiles(conflicted_context_files) : ""}
         ${warnings?.length ? this._renderWarnings(warnings) : ""}
-        ${blocked_context_files?.length ? this._renderBlockedFiles(blocked_context_files) : ""}
+        ${!conflicted_context_files?.length && blocked_context_files?.length ? this._renderBlockedFiles(blocked_context_files) : ""}
         
         <div class="context-sections">
           ${this._renderSelfModel(self_model)}
@@ -185,6 +220,29 @@ class ContextViewer extends HTMLElement {
           <div class="context-warning">
             <span class="warning-icon">⚠</span>
             ${this._escapeHtml(w)}
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  _renderConflictedFiles(files) {
+    const count = files?.length || 0;
+    const noun = count === 1 ? "file" : "files";
+    return `
+      <div class="context-conflicted-files">
+        <div class="conflicted-header">
+          <span class="conflicted-title">Conflicted Managed Templates</span>
+          <span class="section-badge">${count} ${noun}</span>
+        </div>
+        ${files
+          .map(
+            (file) => `
+          <div class="conflicted-file">
+            <div class="conflicted-file-name">${this._escapeHtml(file.label || file.name || file.id || "Unknown")}</div>
+            <div class="conflicted-file-reason">${this._escapeHtml(file.reason || "Blocked context file")}</div>
           </div>
         `,
           )
@@ -383,16 +441,16 @@ class ContextViewer extends HTMLElement {
   }
 
   _renderSystemPrompt(system) {
-    if (!system?.sections?.length && !this._data?.disabledSections?.length) return "";
+    if (!system?.sections?.length && !this._data?.disabled_sections?.length) return "";
     const isExpanded = this._expandedSections.has("system-prompt");
-    const disabledSections = this._data?.disabledSections || [];
+    const disabledSections = this._data?.disabled_sections || [];
 
     return `
       <div class="context-section">
         <div class="context-section-header" data-section="system-prompt">
           <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
           <span class="section-title">System Prompt Sections</span>
-          <span class="section-badge">${system?.sections?.length || 0} active</span>
+          <span class="section-badge">${this._formatSystemPromptBadge(system, disabledSections)}</span>
         </div>
         ${
           isExpanded
@@ -405,10 +463,10 @@ class ContextViewer extends HTMLElement {
                     (s) => `
                 <div class="system-section-item enabled">
                   <label class="section-toggle-label">
-                    <input type="checkbox" class="context-toggle" data-section="${s.name}" checked>
+                    <input type="checkbox" class="context-toggle" data-section="${this._normalizeSectionId(s.id || s.name || s.label || "")}" checked>
                     <span class="toggle-slider"></span>
                   </label>
-                  <span class="section-name">${this._escapeHtml(s.name)}</span>
+                  <span class="section-name">${this._escapeHtml(s.label || this._formatSectionLabel(s.id || s.name || s.label || ""))}</span>
                   <span class="section-tokens">${this._formatNumber(s.tokens)} tokens</span>
                 </div>
               `,
@@ -420,10 +478,10 @@ class ContextViewer extends HTMLElement {
                   (name) => `
                 <div class="system-section-item disabled">
                   <label class="section-toggle-label">
-                    <input type="checkbox" class="context-toggle" data-section="${name}">
+                    <input type="checkbox" class="context-toggle" data-section="${this._normalizeSectionId(name)}">
                     <span class="toggle-slider"></span>
                   </label>
-                  <span class="section-name">${this._escapeHtml(name)}</span>
+                  <span class="section-name">${this._escapeHtml(this._formatSectionLabel(name))}</span>
                   <span class="section-status">(disabled)</span>
                 </div>
               `,
@@ -492,7 +550,7 @@ class ContextViewer extends HTMLElement {
         <div class="context-section-header" data-section="session-history">
           <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
           <span class="section-title">Session History</span>
-          <span class="section-badge">${session.count || 0} messages</span>
+          <span class="section-badge">${this._formatSessionHistoryBadge(session)}</span>
         </div>
         ${
           isExpanded
@@ -521,13 +579,15 @@ class ContextViewer extends HTMLElement {
   _renderToolCalls(tool_calls) {
     if (!tool_calls?.count) return "";
     const isExpanded = this._expandedSections.has("tool-calls");
+    const count = tool_calls.count || 0;
+    const noun = count === 1 ? "outcome" : "outcomes";
 
     return `
       <div class="context-section">
         <div class="context-section-header" data-section="tool-calls">
           <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
-          <span class="section-title">Recent Tool Calls</span>
-          <span class="section-badge">${tool_calls.count} calls</span>
+          <span class="section-title">Tool Activity</span>
+          <span class="section-badge">${count} ${noun}</span>
         </div>
         ${
           isExpanded
@@ -537,15 +597,11 @@ class ContextViewer extends HTMLElement {
               ${tool_calls.items
                 ?.map(
                   (tc) => `
-                <div class="tool-call-item ${tc.status}">
+                <div class="tool-call-item">
                   <div class="tool-call-header">
-                    <span class="tool-name">${this._escapeHtml(tc.tool_name)}</span>
-                    <span class="tool-status">${tc.status}</span>
+                    <span class="tool-name">${this._escapeHtml(tc.tool_name || "tool")}</span>
                   </div>
-                  <div class="tool-arguments">
-                    ${this._renderArguments(tc.arguments)}
-                  </div>
-                  <div class="tool-output">${this._escapeHtml(tc.output)}</div>
+                  <div class="tool-summary">${this._escapeHtml(tc.summary || `${tc.tool_name || "tool"} activity`)}</div>
                 </div>
               `,
                 )
@@ -555,27 +611,6 @@ class ContextViewer extends HTMLElement {
         `
             : ""
         }
-      </div>
-    `;
-  }
-
-  _renderArguments(args) {
-    if (!args || typeof args !== "object") return "";
-    const entries = Object.entries(args);
-    if (!entries.length) return "";
-
-    return `
-      <div class="args-list">
-        ${entries
-          .map(
-            ([k, v]) => `
-          <span class="arg-item">
-            <span class="arg-key">${k}:</span>
-            <span class="arg-value">${this._escapeHtml(String(v).slice(0, 50))}</span>
-          </span>
-        `,
-          )
-          .join("")}
       </div>
     `;
   }

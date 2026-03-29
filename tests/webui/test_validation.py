@@ -252,6 +252,7 @@ def test_status_update_message():
         "payload": {
             "model": "claude-3-sonnet",
             "contextTokens": 1000,
+            "contextWindowTokens": None,
             "inputTokens": 50,
             "outputTokens": 25,
             "cacheReadTokens": 100,

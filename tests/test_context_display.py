@@ -1,6 +1,7 @@
 """Tests for shared /context display data."""
 
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -11,8 +12,8 @@ from alfred.context_display import get_context_display
 
 
 @pytest.mark.asyncio
-async def test_get_context_display_reports_blocked_context_warning_and_omits_blocked_sections() -> None:
-    """Blocked managed context files should be omitted from the summary and warned about explicitly."""
+async def test_get_context_display_reports_conflicted_context_files_and_omits_blocked_sections() -> None:
+    """Blocked managed context files should be omitted from the summary and surfaced as structured conflicts."""
     active_agents = ContextFile(
         name="agents",
         path="/workspace/alfred/AGENTS.md",
@@ -81,13 +82,271 @@ async def test_get_context_display_reports_blocked_context_warning_and_omits_blo
     result = await get_context_display(fake_alfred)
 
     assert result["blocked_context_files"] == ["SOUL.md"]
-    assert result["warnings"] == ["Blocked context files: SOUL.md"]
+    assert result["conflicted_context_files"] == [
+        {
+            "id": "soul",
+            "name": "soul",
+            "label": "SOUL.md",
+            "reason": "Conflicted managed template SOUL.md is blocked",
+        }
+    ]
+    assert result["warnings"] == []
 
     sections = result["system_prompt"]["sections"]
     section_names = [section["name"] for section in sections]
     assert section_names == ["AGENTS.md", "USER.md"]
     assert "SOUL.md" not in section_names
     assert result["system_prompt"]["total_tokens"] == sum(section["tokens"] for section in sections)
+
+
+@pytest.mark.asyncio
+async def test_get_context_display_includes_system_md_and_matches_prompt_order() -> None:
+    """System prompt sections should include SYSTEM.md and follow prompt assembly order."""
+
+    active_system = ContextFile(
+        name="system",
+        path="/workspace/alfred/SYSTEM.md",
+        content="System body",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.ACTIVE,
+    )
+    active_agents = ContextFile(
+        name="agents",
+        path="/workspace/alfred/AGENTS.md",
+        content="Agents body",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.ACTIVE,
+    )
+    active_tools = ContextFile(
+        name="tools",
+        path="/workspace/alfred/TOOLS.md",
+        content="Tools body",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.ACTIVE,
+    )
+    active_soul = ContextFile(
+        name="soul",
+        path="/workspace/alfred/SOUL.md",
+        content="Soul body",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.ACTIVE,
+    )
+    active_user = ContextFile(
+        name="user",
+        path="/workspace/alfred/USER.md",
+        content="User body",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.ACTIVE,
+    )
+
+    fake_context_loader = SimpleNamespace(
+        load_all=AsyncMock(
+            return_value={
+                "system": active_system,
+                "agents": active_agents,
+                "tools": active_tools,
+                "soul": active_soul,
+                "user": active_user,
+            }
+        ),
+        get_disabled_sections=lambda: [],
+    )
+    fake_session_manager = SimpleNamespace(
+        has_active_session=lambda: False,
+        get_messages_for_context=lambda session_id=None: [],
+        get_session_messages=lambda session_id=None: [],
+    )
+    fake_memory_store = SimpleNamespace(get_all_entries=AsyncMock(return_value=[]))
+
+    from alfred.self_model import (
+        Capabilities,
+        ContextPressure,
+        Identity,
+        InterfaceType,
+        Runtime,
+        RuntimeSelfModel,
+        World,
+    )
+
+    fake_self_model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(interface=InterfaceType.CLI),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+    )
+
+    fake_alfred = SimpleNamespace(
+        context_loader=fake_context_loader,
+        core=SimpleNamespace(memory_store=fake_memory_store, session_manager=fake_session_manager),
+        build_self_model=lambda: fake_self_model,
+    )
+
+    result = await get_context_display(fake_alfred)
+
+    sections = result["system_prompt"]["sections"]
+    assert [section["id"] for section in sections] == ["system", "agents", "tools", "soul", "user"]
+    assert [section["label"] for section in sections] == ["SYSTEM.md", "AGENTS.md", "TOOLS.md", "SOUL.md", "USER.md"]
+    assert [section["name"] for section in sections] == ["SYSTEM.md", "AGENTS.md", "TOOLS.md", "SOUL.md", "USER.md"]
+    assert result["system_prompt"]["total_tokens"] == sum(section["tokens"] for section in sections)
+
+
+@pytest.mark.asyncio
+async def test_get_context_display_reports_session_history_preview_and_total() -> None:
+    """Session history should distinguish previewed messages from total messages."""
+
+    preview_messages = [("user", f"Preview {index}") for index in range(8)]
+    full_messages = [SimpleNamespace(tool_calls=None) for _ in range(9)]
+
+    fake_context_loader = SimpleNamespace(
+        load_all=AsyncMock(return_value={}),
+        get_disabled_sections=lambda: [],
+    )
+    fake_session_manager = SimpleNamespace(
+        has_active_session=lambda: False,
+        get_messages_for_context=lambda session_id=None: preview_messages,
+        get_session_messages=lambda session_id=None: full_messages,
+    )
+    fake_memory_store = SimpleNamespace(get_all_entries=AsyncMock(return_value=[]))
+
+    from alfred.self_model import (
+        Capabilities,
+        ContextPressure,
+        Identity,
+        InterfaceType,
+        Runtime,
+        RuntimeSelfModel,
+        World,
+    )
+
+    fake_self_model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(interface=InterfaceType.CLI),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+    )
+
+    fake_alfred = SimpleNamespace(
+        context_loader=fake_context_loader,
+        core=SimpleNamespace(memory_store=fake_memory_store, session_manager=fake_session_manager),
+        build_self_model=lambda: fake_self_model,
+    )
+
+    result = await get_context_display(fake_alfred, session_id="session-123")
+
+    session_history = result["session_history"]
+    assert session_history["displayed"] == 5
+    assert session_history["included"] == 8
+    assert session_history["total"] == 9
+    assert len(session_history["messages"]) == 5
+    assert [message["content"] for message in session_history["messages"]] == [
+        "Preview 3",
+        "Preview 4",
+        "Preview 5",
+        "Preview 6",
+        "Preview 7",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_context_display_reports_compact_tool_outcomes() -> None:
+    """Tool activity should be summarized compactly with preview and total counts."""
+
+    workspace_dir = Path("/workspace/alfred-prd")
+    tool_messages = [
+        SimpleNamespace(
+            tool_calls=[
+                SimpleNamespace(
+                    tool_name="read",
+                    arguments={"path": str(workspace_dir / "docs" / "roadmap.md")},
+                    output="roadmap contents",
+                    status="success",
+                ),
+            ]
+        ),
+        SimpleNamespace(
+            tool_calls=[
+                SimpleNamespace(
+                    tool_name="bash",
+                    arguments={"command": "python -V"},
+                    output="x" * 300,
+                    status="success",
+                ),
+            ]
+        ),
+        SimpleNamespace(
+            tool_calls=[
+                SimpleNamespace(
+                    tool_name="edit",
+                    arguments={"path": str(workspace_dir / "src" / "module.py")},
+                    output="updated file",
+                    status="success",
+                ),
+            ]
+        ),
+        SimpleNamespace(
+            tool_calls=[
+                SimpleNamespace(
+                    tool_name="write",
+                    arguments={"path": str(workspace_dir / "tests" / "module_test.py")},
+                    output="created file",
+                    status="success",
+                ),
+            ]
+        ),
+    ]
+
+    fake_context_loader = SimpleNamespace(
+        load_all=AsyncMock(return_value={}),
+        get_disabled_sections=lambda: [],
+        config=SimpleNamespace(workspace_dir=workspace_dir),
+    )
+    fake_session_manager = SimpleNamespace(
+        has_active_session=lambda: False,
+        get_messages_for_context=lambda session_id=None: [],
+        get_session_messages=lambda session_id=None: tool_messages,
+    )
+    fake_memory_store = SimpleNamespace(get_all_entries=AsyncMock(return_value=[]))
+
+    from alfred.self_model import (
+        Capabilities,
+        ContextPressure,
+        Identity,
+        InterfaceType,
+        Runtime,
+        RuntimeSelfModel,
+        World,
+    )
+
+    fake_self_model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(interface=InterfaceType.CLI),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+    )
+
+    fake_alfred = SimpleNamespace(
+        context_loader=fake_context_loader,
+        core=SimpleNamespace(memory_store=fake_memory_store, session_manager=fake_session_manager),
+        build_self_model=lambda: fake_self_model,
+    )
+
+    result = await get_context_display(fake_alfred, session_id="session-123")
+
+    tool_calls = result["tool_calls"]
+    assert tool_calls["count"] == 3
+    assert tool_calls["displayed"] == 3
+    assert tool_calls["total"] == 4
+    assert tool_calls["all_shown"] is False
+    assert tool_calls["tokens"] == sum(item["tokens"] for item in tool_calls["items"])
+    assert [item["tool_name"] for item in tool_calls["items"]] == ["bash", "edit", "write"]
+    assert tool_calls["items"][0]["summary"].startswith("bash: python -V exited 0")
+    assert tool_calls["items"][0]["summary"].endswith("…")
+    assert tool_calls["items"][1]["summary"] == "edit: updated src/module.py"
+    assert tool_calls["items"][2]["summary"] == "write: created tests/module_test.py"
+    assert all("arguments" not in item and "output" not in item for item in tool_calls["items"])
 
 
 @pytest.mark.asyncio

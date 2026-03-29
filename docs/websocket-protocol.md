@@ -555,6 +555,7 @@ Sent periodically during streaming to report current status.
   "payload": {
     "model": "kimi-k2-5",
     "contextTokens": 2048,
+    "contextWindowTokens": 272000,
     "inputTokens": 12,
     "outputTokens": 8,
     "cacheReadTokens": 0,
@@ -570,7 +571,8 @@ Sent periodically during streaming to report current status.
 | Field | Type | Description |
 |-------|------|-------------|
 | `model` | `string` | Current model name (e.g., `"kimi-k2-5"`, `"claude-3-opus"`) |
-| `contextTokens` | `number` | Total tokens in context window |
+| `contextTokens` | `number` | Current tokens in context window |
+| `contextWindowTokens` | `number | null` | Total context window size for the active model |
 | `inputTokens` | `number` | Tokens in user input |
 | `outputTokens` | `number` | Tokens generated so far |
 | `cacheReadTokens` | `number` | Tokens read from cache |
