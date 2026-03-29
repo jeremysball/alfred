@@ -87,9 +87,9 @@ Implement compact derived tool outcomes in prompt context, make `/context` truth
 
 ### Compact tool activity display
 
-- [ ] Test: `test_browser_context_viewer_shows_compact_tool_outcomes()` in `tests/webui/test_context_warning_browser.py` — verify the browser does not render raw argument blobs or long output dumps for tool activity.
-- [ ] Implement: render the derived tool-outcome summaries in the viewer and drop the raw tool-call panel.
-- [ ] Run: `uv run pytest tests/webui/test_context_warning_browser.py -v -m slow`
+- [x] Test: `test_browser_context_viewer_shows_compact_tool_outcomes()` in `tests/webui/test_context_warning_browser.py` — verify the browser does not render raw argument blobs or long output dumps for tool activity.
+- [x] Implement: render the derived tool-outcome summaries in the viewer and drop the raw tool-call panel.
+- [x] Run: `uv run pytest tests/webui/test_context_warning_browser.py -v -m slow`
 
 ### Toggle round trip
 

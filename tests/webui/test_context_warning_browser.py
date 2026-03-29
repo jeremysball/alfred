@@ -189,3 +189,111 @@ async def test_browser_context_viewer_renders_truthful_section_counts() -> None:
     finally:
         server.should_exit = True
         thread.join(timeout=5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
+    port = _find_free_port()
+    fake_alfred = FakeAlfred()
+    context_data = {
+        "system_prompt": {"sections": [], "total_tokens": 0},
+        "blocked_context_files": [],
+        "conflicted_context_files": [],
+        "disabled_sections": [],
+        "warnings": [],
+        "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "session_history": {
+            "count": 0,
+            "displayed": 0,
+            "included": 0,
+            "total": 0,
+            "messages": [],
+            "tokens": 0,
+        },
+        "tool_calls": {
+            "count": 2,
+            "displayed": 2,
+            "total": 2,
+            "items": [
+                {
+                    "tool_name": "bash",
+                    "summary": "bash: python -V exited 0 — Python 3.14.3",
+                    "tokens": 8,
+                    "status": "success",
+                    "arguments": {"command": "python -V"},
+                    "output": "RAW_TOOL_OUTPUT_SHOULD_NOT_SHOW",
+                },
+                {
+                    "tool_name": "write",
+                    "summary": "write: created tests/module_test.py",
+                    "tokens": 4,
+                    "status": "success",
+                    "arguments": {"path": "tests/module_test.py"},
+                    "output": "RAW_WRITE_OUTPUT_SHOULD_NOT_SHOW",
+                },
+            ],
+            "tokens": 12,
+            "all_shown": True,
+        },
+        "total_tokens": 12,
+    }
+
+    config = uvicorn.Config(
+        create_app(alfred_instance=fake_alfred, debug=True),
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+    )
+    server = uvicorn.Server(config)
+    thread = Thread(target=server.run, daemon=True)
+    thread.start()
+
+    try:
+        await _wait_for_server(port)
+
+        with patch("alfred.context_display.get_context_display", AsyncMock(return_value=context_data)):
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch()
+                page = await browser.new_page(viewport={"width": 1440, "height": 900})
+                await page.goto(f"http://127.0.0.1:{port}/static/index.html", wait_until="domcontentloaded")
+
+                await page.wait_for_function(
+                    "() => document.querySelector('#connection-pill')?.classList.contains('connected')",
+                    timeout=10000,
+                )
+
+                await page.fill('#message-input', '/context')
+                await page.click('#send-button')
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer').length === 1",
+                    timeout=10000,
+                )
+
+                viewer = page.locator('context-viewer').last
+                tool_header = viewer.locator('.context-section-header[data-section="tool-calls"]')
+                tool_items = viewer.locator('.tool-call-item')
+                tool_summaries = viewer.locator('.tool-summary')
+                tool_arguments = viewer.locator('.tool-arguments')
+                tool_outputs = viewer.locator('.tool-output')
+
+                await tool_header.click()
+                await tool_items.first.wait_for(state='attached', timeout=10000)
+
+                assert await tool_items.count() == 2
+                assert await tool_summaries.count() == 2
+                assert await tool_arguments.count() == 0
+                assert await tool_outputs.count() == 0
+
+                tool_text = await viewer.locator('.tool-calls-list').text_content()
+                assert tool_text is not None
+                assert 'bash: python -V exited 0' in tool_text
+                assert 'write: created tests/module_test.py' in tool_text
+                assert 'RAW_TOOL_OUTPUT_SHOULD_NOT_SHOW' not in tool_text
+                assert 'RAW_WRITE_OUTPUT_SHOULD_NOT_SHOW' not in tool_text
+                assert 'command:' not in tool_text
+                assert 'path:' not in tool_text
+                await browser.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)

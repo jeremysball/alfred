@@ -284,8 +284,8 @@ Validation: relevant Python workflow passes, including browser-facing tests need
 
 Progress note:
 - Phases 1-3 are complete: derived tool outcomes, session spillover ordering, truthful shared `/context` data, explicit conflict surfacing, and stable toggle ids are in place.
-- Remaining work is in Phase 4: the browser context viewer still needs compact tool-outcome presentation and a browser toggle round-trip regression.
-- Phase 5 is partially complete: Python and JS validation pass, and browser regression coverage exists for conflict surfacing and truthful counts, but compact tool-outcome presentation and a browser toggle-round-trip regression still need to land.
+- Remaining work is in Phase 4: the browser context viewer still needs a browser toggle round-trip regression.
+- Phase 5 is partially complete: Python and JS validation pass, and browser regression coverage exists for conflict surfacing, truthful counts, and compact tool-outcome presentation, but the browser toggle-round-trip regression still needs to land.
 
 ---
 

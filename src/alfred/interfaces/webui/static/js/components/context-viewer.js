@@ -579,13 +579,15 @@ class ContextViewer extends HTMLElement {
   _renderToolCalls(tool_calls) {
     if (!tool_calls?.count) return "";
     const isExpanded = this._expandedSections.has("tool-calls");
+    const count = tool_calls.count || 0;
+    const noun = count === 1 ? "outcome" : "outcomes";
 
     return `
       <div class="context-section">
         <div class="context-section-header" data-section="tool-calls">
           <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
-          <span class="section-title">Recent Tool Calls</span>
-          <span class="section-badge">${tool_calls.count} calls</span>
+          <span class="section-title">Tool Activity</span>
+          <span class="section-badge">${count} ${noun}</span>
         </div>
         ${
           isExpanded
@@ -595,15 +597,11 @@ class ContextViewer extends HTMLElement {
               ${tool_calls.items
                 ?.map(
                   (tc) => `
-                <div class="tool-call-item ${tc.status}">
+                <div class="tool-call-item">
                   <div class="tool-call-header">
-                    <span class="tool-name">${this._escapeHtml(tc.tool_name)}</span>
-                    <span class="tool-status">${tc.status}</span>
+                    <span class="tool-name">${this._escapeHtml(tc.tool_name || "tool")}</span>
                   </div>
-                  <div class="tool-arguments">
-                    ${this._renderArguments(tc.arguments)}
-                  </div>
-                  <div class="tool-output">${this._escapeHtml(tc.output)}</div>
+                  <div class="tool-summary">${this._escapeHtml(tc.summary || `${tc.tool_name || "tool"} activity`)}</div>
                 </div>
               `,
                 )
@@ -613,27 +611,6 @@ class ContextViewer extends HTMLElement {
         `
             : ""
         }
-      </div>
-    `;
-  }
-
-  _renderArguments(args) {
-    if (!args || typeof args !== "object") return "";
-    const entries = Object.entries(args);
-    if (!entries.length) return "";
-
-    return `
-      <div class="args-list">
-        ${entries
-          .map(
-            ([k, v]) => `
-          <span class="arg-item">
-            <span class="arg-key">${k}:</span>
-            <span class="arg-value">${this._escapeHtml(String(v).slice(0, 50))}</span>
-          </span>
-        `,
-          )
-          .join("")}
       </div>
     `;
   }
