@@ -93,9 +93,9 @@ Implement compact derived tool outcomes in prompt context, make `/context` truth
 
 ### Toggle round trip
 
-- [ ] Test: `test_browser_context_viewer_toggles_sections_and_refreshes()` in `tests/webui/test_context_warning_browser.py` — verify clicking a checkbox sends the correct command and the refreshed payload updates the UI state.
-- [ ] Implement: keep the context-toggle refresh path intact through the viewer and websocket command handler.
-- [ ] Run: `uv run pytest tests/webui/test_context_warning_browser.py -v -m slow`
+- [x] Test: `test_browser_context_viewer_toggles_sections_and_refreshes()` in `tests/webui/test_context_warning_browser.py` — verify clicking a checkbox sends the correct command and the refreshed payload updates the UI state.
+- [x] Implement: keep the context-toggle refresh path intact through the viewer and websocket command handler.
+- [x] Run: `uv run pytest tests/webui/test_context_warning_browser.py -v -m slow`
 
 ---
 

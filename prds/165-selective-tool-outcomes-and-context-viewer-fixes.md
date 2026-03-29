@@ -250,7 +250,7 @@ The viewer does not need to dump the entire session into one enormous panel by d
 - [x] Session messages are the final spillover layer and consume the remaining context budget.
 - [x] `/context` distinguishes displayed preview messages from prompt-included and total session messages.
 - [x] Web UI prompt section toggles work end to end.
-- [ ] Browser-level regression coverage proves the context component is functional.
+- [x] Browser-level regression coverage proves the context component is functional.
 - [x] The implementation passes the relevant Python validation workflow.
 
 ---
@@ -283,9 +283,9 @@ Add or update regression tests for context assembly, shared context-display data
 Validation: relevant Python workflow passes, including browser-facing tests needed for this change.
 
 Progress note:
-- Phases 1-3 are complete: derived tool outcomes, session spillover ordering, truthful shared `/context` data, explicit conflict surfacing, and stable toggle ids are in place.
-- Remaining work is in Phase 4: the browser context viewer still needs a browser toggle round-trip regression.
-- Phase 5 is partially complete: Python and JS validation pass, and browser regression coverage exists for conflict surfacing, truthful counts, and compact tool-outcome presentation, but the browser toggle-round-trip regression still needs to land.
+- Phases 1-4 are complete: derived tool outcomes, session spillover ordering, truthful shared `/context` data, explicit conflict surfacing, stable toggle ids, compact tool-outcome presentation, and browser toggle round-trip behavior are in place.
+- Phase 5 is complete: Python and JS validation pass, and browser regression coverage exists for conflict surfacing, truthful counts, compact tool-outcome presentation, and toggle round-trip interaction.
+- All checklist items are complete; PRD #165 is ready for /prd-done.
 
 ---
 

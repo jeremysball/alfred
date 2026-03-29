@@ -297,3 +297,138 @@ async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
     finally:
         server.should_exit = True
         thread.join(timeout=5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_browser_context_viewer_toggles_sections_and_refreshes() -> None:
+    port = _find_free_port()
+    fake_alfred = FakeAlfred()
+    first_context_data = {
+        "system_prompt": {
+            "sections": [
+                {"id": "system", "name": "SYSTEM.md", "label": "SYSTEM.md", "tokens": 12},
+                {"id": "agents", "name": "AGENTS.md", "label": "AGENTS.md", "tokens": 18},
+            ],
+            "total_tokens": 30,
+        },
+        "blocked_context_files": [],
+        "conflicted_context_files": [],
+        "disabled_sections": [],
+        "warnings": [],
+        "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "session_history": {
+            "count": 0,
+            "displayed": 0,
+            "included": 0,
+            "total": 0,
+            "messages": [],
+            "tokens": 0,
+        },
+        "tool_calls": {"count": 0, "displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "total_tokens": 30,
+    }
+    second_context_data = {
+        "system_prompt": {
+            "sections": [
+                {"id": "agents", "name": "AGENTS.md", "label": "AGENTS.md", "tokens": 18},
+            ],
+            "total_tokens": 18,
+        },
+        "blocked_context_files": [],
+        "conflicted_context_files": [],
+        "disabled_sections": ["SYSTEM"],
+        "warnings": ["Disabled sections: SYSTEM"],
+        "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "session_history": {
+            "count": 0,
+            "displayed": 0,
+            "included": 0,
+            "total": 0,
+            "messages": [],
+            "tokens": 0,
+        },
+        "tool_calls": {"count": 0, "displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "total_tokens": 18,
+    }
+
+    config = uvicorn.Config(
+        create_app(alfred_instance=fake_alfred, debug=True),
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+    )
+    server = uvicorn.Server(config)
+    thread = Thread(target=server.run, daemon=True)
+    thread.start()
+
+    try:
+        await _wait_for_server(port)
+
+        with patch(
+            "alfred.context_display.get_context_display",
+            AsyncMock(side_effect=[first_context_data, second_context_data]),
+        ):
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch()
+                page = await browser.new_page(viewport={"width": 1440, "height": 900})
+                await page.goto(f"http://127.0.0.1:{port}/static/index.html", wait_until="domcontentloaded")
+
+                await page.wait_for_function(
+                    "() => document.querySelector('#connection-pill')?.classList.contains('connected')",
+                    timeout=10000,
+                )
+
+                await page.fill('#message-input', '/context')
+                await page.click('#send-button')
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer').length === 1",
+                    timeout=10000,
+                )
+
+                first_viewer = page.locator('context-viewer').last
+                first_system_header = first_viewer.locator('.context-section-header[data-section="system-prompt"]')
+                await first_system_header.click()
+
+                first_system_badge = first_viewer.locator(
+                    '.context-section-header[data-section="system-prompt"] .section-badge'
+                )
+                first_system_checkbox = first_viewer.locator('input.context-toggle[data-section="system"]')
+                first_enabled_sections = first_viewer.locator('.system-section-item.enabled')
+                first_disabled_sections = first_viewer.locator('.system-section-item.disabled')
+
+                await first_system_checkbox.wait_for(state='attached', timeout=10000)
+                assert await first_system_checkbox.is_checked()
+                assert (await first_system_badge.text_content() or '').strip() == '2 active / 0 disabled'
+                assert await first_enabled_sections.count() == 2
+                assert await first_disabled_sections.count() == 0
+
+                await first_system_checkbox.evaluate("(el) => el.click()")
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer').length === 2",
+                    timeout=10000,
+                )
+
+                second_viewer = page.locator('context-viewer').last
+                second_system_header = second_viewer.locator('.context-section-header[data-section="system-prompt"]')
+                await second_system_header.click()
+
+                second_system_badge = second_viewer.locator(
+                    '.context-section-header[data-section="system-prompt"] .section-badge'
+                )
+                second_system_checkbox = second_viewer.locator('input.context-toggle[data-section="system"]')
+                second_enabled_sections = second_viewer.locator('.system-section-item.enabled')
+                second_disabled_sections = second_viewer.locator('.system-section-item.disabled')
+
+                await second_system_checkbox.wait_for(state='attached', timeout=10000)
+                assert not await second_system_checkbox.is_checked()
+                assert (await second_system_badge.text_content() or '').strip() == '1 active / 1 disabled'
+                assert await second_enabled_sections.count() == 1
+                assert await second_disabled_sections.count() == 1
+
+                disabled_name = second_disabled_sections.first.locator('.section-name')
+                assert (await disabled_name.text_content() or '').strip() == 'SYSTEM.md'
+                await browser.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
