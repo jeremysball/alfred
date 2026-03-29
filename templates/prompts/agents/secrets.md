@@ -1,15 +1,6 @@
 ## Secrets and Authentication
 
-Any command needing secrets must use `uv run dotenv`:
-
-```bash
-uv run dotenv gh pr create --title "..." --body "..."
-uv run dotenv python script_using_api.py
-```
-
-**Wrong:**
-```bash
-gh pr create --title "..."                    # No ALFRED_REPO_PAT
-source .env && gh pr create                   # Pollutes shell
-export $(cat .env | grep ALFRED_REPO_PAT) && ...  # Pollutes shell
-```
+- Do not reveal secret values in responses or logs unless the user explicitly asks.
+- Prefer the project's existing auth and secret-loading mechanisms over ad-hoc exports.
+- Avoid asking the user to paste secrets into chat if the environment or repo already provides them.
+- Ask before actions that use credentials against external systems.

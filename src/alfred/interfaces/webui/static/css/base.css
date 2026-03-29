@@ -2129,9 +2129,18 @@ status-bar {
 }
 
 /* Model section */
+.model-section {
+    min-width: 0;
+}
+
 .model-section .model-name {
     color: var(--contrast-status-accent, #4fc3f7);
     font-weight: 500;
+    display: inline-block;
+    max-width: min(24rem, 45vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
 }
 
 /* Tokens section */
@@ -2149,7 +2158,38 @@ status-bar {
     font-weight: 600;
 }
 
+.mobile-context-section {
+    display: none;
+}
+
+/* ============================================
+   MOBILE CHROME COLLAPSE
+   ============================================ */
+
+/* Mobile: Always compact by default, hide completely on scroll */
 @media (max-width: 768px) {
+    .tokens-section {
+        display: none;
+    }
+
+    .mobile-context-section {
+        display: flex;
+    }
+
+    .mobile-context-label,
+    .model-section .status-label {
+        display: none;
+    }
+
+    .mobile-context-section .context-display {
+        color: var(--contrast-status-accent, #81c784);
+        font-weight: 600;
+    }
+
+    .model-section .model-name {
+        max-width: min(11rem, 48vw);
+    }
+
     .status-bar {
         padding: 0.375rem 0.75rem;
         gap: 1rem;
@@ -2171,14 +2211,7 @@ status-bar {
     .streaming-text {
         font-size: var(--text-xs);
     }
-}
 
-/* ============================================
-   MOBILE CHROME COLLAPSE
-   ============================================ */
-
-/* Mobile: Always compact by default, hide completely on scroll */
-@media (max-width: 768px) {
     /* Mobile header is always compact (small) by default */
     .app-header {
         padding: 0.25rem 1rem;

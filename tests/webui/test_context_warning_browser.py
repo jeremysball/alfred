@@ -39,15 +39,68 @@ async def _wait_for_server(port: int, timeout: float = 20.0) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.slow
-async def test_browser_context_warning_renders_persistent_system_message() -> None:
+async def test_browser_context_viewer_renders_truthful_section_counts() -> None:
     port = _find_free_port()
     fake_alfred = FakeAlfred()
-    context_data = {
-        "system_prompt": {"sections": [{"name": "AGENTS.md", "tokens": 12}], "total_tokens": 12},
+    first_context_data = {
+        "system_prompt": {
+            "sections": [{"id": "system", "name": "SYSTEM.md", "label": "SYSTEM.md", "tokens": 12}],
+            "total_tokens": 12,
+        },
         "blocked_context_files": ["SOUL.md"],
-        "warnings": ["Blocked context files: SOUL.md"],
+        "conflicted_context_files": [
+            {
+                "id": "soul",
+                "name": "soul",
+                "label": "SOUL.md",
+                "reason": "Conflicted managed template SOUL.md is blocked",
+            }
+        ],
+        "disabled_sections": ["TOOLS"],
+        "warnings": [],
         "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
-        "session_history": {"count": 0, "messages": [], "tokens": 0},
+        "session_history": {
+            "count": 2,
+            "displayed": 2,
+            "included": 2,
+            "total": 2,
+            "messages": [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi"},
+            ],
+            "tokens": 6,
+        },
+        "tool_calls": {"count": 0, "items": [], "tokens": 0},
+        "total_tokens": 12,
+    }
+    second_context_data = {
+        "system_prompt": {
+            "sections": [{"id": "system", "name": "SYSTEM.md", "label": "SYSTEM.md", "tokens": 12}],
+            "total_tokens": 12,
+        },
+        "blocked_context_files": ["SOUL.md"],
+        "conflicted_context_files": [
+            {
+                "id": "soul",
+                "name": "soul",
+                "label": "SOUL.md",
+                "reason": "Conflicted managed template SOUL.md is blocked",
+            }
+        ],
+        "disabled_sections": ["TOOLS"],
+        "warnings": [],
+        "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "session_history": {
+            "count": 2,
+            "displayed": 2,
+            "included": 5,
+            "total": 8,
+            "messages": [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi"},
+            ],
+            "tokens": 6,
+        },
         "tool_calls": {"count": 0, "items": [], "tokens": 0},
         "total_tokens": 12,
     }
@@ -65,7 +118,10 @@ async def test_browser_context_warning_renders_persistent_system_message() -> No
     try:
         await _wait_for_server(port)
 
-        with patch("alfred.context_display.get_context_display", AsyncMock(return_value=context_data)):
+        with patch(
+            "alfred.context_display.get_context_display",
+            AsyncMock(side_effect=[first_context_data, second_context_data]),
+        ):
             async with async_playwright() as playwright:
                 browser = await playwright.chromium.launch()
                 page = await browser.new_page(viewport={"width": 1440, "height": 900})
@@ -78,14 +134,57 @@ async def test_browser_context_warning_renders_persistent_system_message() -> No
 
                 await page.fill('#message-input', '/context')
                 await page.click('#send-button')
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer').length === 1",
+                    timeout=10000,
+                )
 
-                warning_message = page.locator('chat-message[data-warning="true"]')
-                await warning_message.wait_for(state="attached", timeout=10000)
-                rendered = await warning_message.locator('.message-content').text_content()
+                first_viewer = page.locator('context-viewer').last
+                conflicted_files = first_viewer.locator('.context-conflicted-files')
+                system_header = first_viewer.locator('.context-section-header[data-section="system-prompt"]')
+                system_badge = system_header.locator('.section-badge')
+                session_badge = first_viewer.locator('.context-section-header[data-section="session-history"] .section-badge')
+                enabled_sections = first_viewer.locator('.system-section-item.enabled')
+                disabled_sections = first_viewer.locator('.system-section-item.disabled')
 
-                assert rendered is not None
-                assert rendered.startswith('WARNING:')
-                assert 'Blocked context files: SOUL.md' in rendered
+                await conflicted_files.wait_for(state='attached', timeout=10000)
+                await system_header.click()
+                await enabled_sections.first.wait_for(state='attached', timeout=10000)
+                await disabled_sections.first.wait_for(state='attached', timeout=10000)
+
+                assert (await system_badge.text_content() or "").strip() == "1 active / 1 disabled"
+                assert (await session_badge.text_content() or "").strip() == "2 messages"
+                assert await enabled_sections.count() == 1
+                assert await disabled_sections.count() == 1
+
+                enabled_text = await enabled_sections.first.text_content()
+                disabled_text = await disabled_sections.first.text_content()
+                conflicted_text = await conflicted_files.text_content()
+
+                assert enabled_text is not None and "SYSTEM.md" in enabled_text
+                assert disabled_text is not None and "TOOLS.md" in disabled_text
+                assert conflicted_text is not None
+                assert "Conflicted Managed Templates" in conflicted_text
+                assert "SOUL.md" in conflicted_text
+                assert "Conflicted managed template SOUL.md is blocked" in conflicted_text
+
+                await page.fill('#message-input', '/context')
+                await page.click('#send-button')
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer').length === 2",
+                    timeout=10000,
+                )
+
+                second_viewer = page.locator('context-viewer').last
+                second_system_badge = second_viewer.locator(
+                    '.context-section-header[data-section="system-prompt"] .section-badge'
+                )
+                second_session_badge = second_viewer.locator(
+                    '.context-section-header[data-section="session-history"] .section-badge'
+                )
+
+                assert (await second_system_badge.text_content() or "").strip() == "1 active / 1 disabled"
+                assert (await second_session_badge.text_content() or "").strip() == "2 displayed / 5 included / 8 total messages"
                 await browser.close()
     finally:
         server.should_exit = True

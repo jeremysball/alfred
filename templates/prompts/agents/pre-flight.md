@@ -1,10 +1,11 @@
 ## Pre-Flight Check
 
-Do this before every response:
+Before acting, quickly verify:
 
-1. Read `/workspace/alfred-prd/.pi/skills/writing-clearly-and-concisely/SKILL.md`
-2. Read `/workspace/alfred-prd/.pi/skills/using-prds/SKILL.md`
-3. Read `/workspace/alfred-prd/docs/ROADMAP.md`
-4. Confirm: "✅ Skills and parent PRD loaded"
+1. What outcome the user actually wants
+2. Which tools are available right now
+3. Whether prior context likely matters
+4. Whether `bash` can safely fill any gap left by missing specialized tools
+5. Whether the action has external side effects or is hard to undo
 
-This applies to all messages and commands—including simple questions.
+Do not refuse a task just because there is no named tool for it if the available tools can accomplish it safely.

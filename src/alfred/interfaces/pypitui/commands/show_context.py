@@ -9,6 +9,52 @@ from alfred.interfaces.pypitui.commands.base import Command
 logger = logging.getLogger(__name__)
 
 
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _preview_count_text(displayed: Any, total: Any, noun: str) -> str:
+    displayed_count = _as_int(displayed)
+    total_count = _as_int(total, displayed_count)
+    return f"{displayed_count} displayed of {total_count} {noun}"
+
+
+def _render_tool_outcome_lines(item: dict[str, Any], index: int) -> list[str]:
+    summary = item.get("summary")
+    if summary:
+        return [f"  {index}. {summary}"]
+
+    tool_name = str(item.get("tool_name", "tool"))
+    status_icon = "✓" if item.get("status") == "success" else "✗"
+    line = f"  {index}. {status_icon} {tool_name}"
+
+    arguments = item.get("arguments")
+    if isinstance(arguments, dict) and arguments:
+        args_str = ", ".join(f"{k}={v}" for k, v in arguments.items())
+        if len(args_str) > 50:
+            args_str = args_str[:47] + "..."
+        line += f": {args_str}"
+
+    lines = [line]
+    output = item.get("output")
+    if output:
+        output_text = str(output).replace("\n", " ")
+        if len(output_text) > 60:
+            output_text = output_text[:57] + "..."
+        lines.append(f"     → {output_text}")
+
+    return lines
+
+
+def _render_conflicted_context_lines(item: dict[str, Any], index: int) -> list[str]:
+    label = str(item.get("label") or item.get("name") or item.get("id") or "Unknown")
+    reason = str(item.get("reason") or "Blocked context file")
+    return [f"  {index}. {label}: {reason}"]
+
+
 class ShowContextCommand(Command):
     """Show current system context."""
 
@@ -30,12 +76,14 @@ class ShowContextCommand(Command):
                 # Get context data
                 logger.debug("ShowContextCommand: fetching context data from Alfred")
                 context_data = await get_context_display(tui.alfred)
+                session_history = context_data.get("session_history", {})
+                tool_calls = context_data.get("tool_calls", {})
                 logger.debug(
-                    "ShowContextCommand: context data fetched - total_tokens=%d, memories=%d, session_messages=%d, tool_calls=%d",
+                    "ShowContextCommand: context data fetched - total_tokens=%d, memories=%d, session_messages=%d, tool_outcomes=%d",
                     context_data.get("total_tokens", 0),
                     context_data.get("memories", {}).get("total", 0),
-                    context_data.get("session_history", {}).get("count", 0),
-                    context_data.get("tool_calls", {}).get("count", 0),
+                    session_history.get("displayed", session_history.get("count", 0)),
+                    tool_calls.get("displayed", tool_calls.get("count", 0)),
                 )
 
                 # Build display text
@@ -46,10 +94,23 @@ class ShowContextCommand(Command):
                     lines.append("")
 
                 warnings = [warning for warning in (context_data.get("warnings") or []) if warning]
-                if not warnings:
+                conflicted_context_files = context_data.get("conflicted_context_files") or []
+                if not conflicted_context_files:
                     blocked_context_files = context_data.get("blocked_context_files") or []
                     if blocked_context_files:
-                        warnings = [f"Blocked context files: {', '.join(blocked_context_files)}"]
+                        conflicted_context_files = [
+                            {"label": name, "reason": "Blocked context file"}
+                            for name in blocked_context_files
+                        ]
+
+                if conflicted_context_files:
+                    count = len(conflicted_context_files)
+                    noun = "file" if count == 1 else "files"
+                    lines.append(f"CONFLICTED MANAGED TEMPLATES ({count} {noun})")
+                    lines.append("─" * 40)
+                    for i, item in enumerate(conflicted_context_files, 1):
+                        lines.extend(_render_conflicted_context_lines(item, i))
+                    lines.append("")
 
                 if warnings:
                     lines.append("WARNING:")
@@ -63,7 +124,8 @@ class ShowContextCommand(Command):
                 lines.append(f"SYSTEM PROMPT ({sys_prompt['total_tokens']:,} tokens)")
                 lines.append("─" * 40)
                 for section in sys_prompt["sections"]:
-                    lines.append(f"  {section['name']}: {section['tokens']:,} tokens")
+                    section_label = section.get("label") or section.get("name") or "Unknown"
+                    lines.append(f"  {section_label}: {int(section.get('tokens', 0)):,} tokens")
                 lines.append("")
 
                 # Memories section
@@ -79,7 +141,12 @@ class ShowContextCommand(Command):
 
                 # Session history section
                 history = context_data["session_history"]
-                lines.append(f"SESSION HISTORY ({history['count']} messages, {history['tokens']:,} tokens)")
+                history_displayed = _as_int(history.get("displayed", history.get("count", 0)))
+                history_total = _as_int(history.get("total", history_displayed), history_displayed)
+                lines.append(
+                    f"SESSION HISTORY ({_preview_count_text(history_displayed, history_total, 'messages')}, "
+                    f"{int(history.get('tokens', 0)):,} tokens)"
+                )
                 lines.append("─" * 40)
                 for msg in history["messages"]:
                     role = msg["role"].capitalize()
@@ -88,20 +155,16 @@ class ShowContextCommand(Command):
 
                 # Tool calls section
                 tool_calls = context_data["tool_calls"]
-                if tool_calls["count"] > 0:
-                    lines.append(f"RECENT TOOL CALLS ({tool_calls['count']} calls, {tool_calls['tokens']:,} tokens)")
+                tool_displayed = _as_int(tool_calls.get("displayed", tool_calls.get("count", 0)))
+                tool_total = _as_int(tool_calls.get("total", tool_displayed), tool_displayed)
+                if tool_displayed > 0:
+                    lines.append(
+                        f"RECENT TOOL OUTCOMES ({_preview_count_text(tool_displayed, tool_total, 'calls')}, "
+                        f"{int(tool_calls.get('tokens', 0)):,} tokens)"
+                    )
                     lines.append("─" * 40)
                     for i, tc in enumerate(tool_calls["items"], 1):
-                        status_icon = "✓" if tc["status"] == "success" else "✗"
-                        args_str = ", ".join(f"{k}={v}" for k, v in tc["arguments"].items())
-                        if len(args_str) > 50:
-                            args_str = args_str[:47] + "..."
-                        lines.append(f"  {i}. {status_icon} {tc['tool_name']}: {args_str}")
-                        if tc["output"]:
-                            output = tc["output"].replace("\n", " ")
-                            if len(output) > 60:
-                                output = output[:57] + "..."
-                            lines.append(f"     → {output}")
+                        lines.extend(_render_tool_outcome_lines(tc, i))
                     lines.append("")
 
                 # Self-model section

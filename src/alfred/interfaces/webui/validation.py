@@ -308,6 +308,7 @@ class StatusUpdatePayload(BaseModel):
 
     model: str = Field(..., description="Current model name")
     context_tokens: int = Field(..., alias="contextTokens", ge=0)
+    context_window_tokens: int | None = Field(default=None, alias="contextWindowTokens")
     input_tokens: int = Field(..., alias="inputTokens", ge=0)
     output_tokens: int = Field(..., alias="outputTokens", ge=0)
     cache_read_tokens: int = Field(..., alias="cacheReadTokens", ge=0)

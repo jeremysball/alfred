@@ -924,12 +924,20 @@ function initAlfredUI() {
       return;
     }
 
-    if (payload.daemonStatus !== undefined) {
+    const daemon = payload.daemon && typeof payload.daemon === "object" ? payload.daemon : null;
+
+    if (daemon?.state !== undefined) {
+      connectionStatusState.daemonStatus = String(daemon.state || "unknown");
+    } else if (payload.daemonStatus !== undefined) {
       connectionStatusState.daemonStatus = String(payload.daemonStatus || "unknown");
     }
-    if (payload.daemonPid !== undefined) {
+
+    if (daemon?.pid !== undefined) {
+      connectionStatusState.daemonPid = daemon.pid;
+    } else if (payload.daemonPid !== undefined) {
       connectionStatusState.daemonPid = payload.daemonPid;
     }
+
     if (payload.status !== undefined) {
       connectionStatusState.webUiStatus =
         payload.status === "ok" ? "ready" : String(payload.status || "unknown");
@@ -1663,15 +1671,15 @@ function initAlfredUI() {
     // Listen for toggle events
     contextViewer.addEventListener("context-toggle", (e) => {
       const { section, enabled } = e.detail;
-      console.log(`Context section ${section} toggled: ${enabled}`);
-    });
-
-    // Listen for command events to send to server
-    contextViewer.addEventListener("send-command", (e) => {
-      const { command } = e.detail;
-      if (command) {
-        wsClient.sendCommand(command);
+      const sectionId = String(section ?? "")
+        .trim()
+        .toUpperCase();
+      if (!sectionId) {
+        return;
       }
+
+      console.log(`Context section ${sectionId} toggled: ${enabled}`);
+      wsClient.sendCommand(`/context toggle ${sectionId} ${enabled ? "on" : "off"}`);
     });
 
     container.appendChild(contextViewer);
@@ -1797,6 +1805,20 @@ function initAlfredUI() {
   }
 
   // Queue Management
+  function syncStatusBarQueue(serverQueueLength = null) {
+    const statusBar = document.getElementById("status-bar");
+    if (!statusBar) {
+      return;
+    }
+
+    const parsedServerQueue = Number.parseInt(serverQueueLength, 10);
+    const visibleQueueLength = Number.isNaN(parsedServerQueue)
+      ? messageQueue.length
+      : Math.max(messageQueue.length, parsedServerQueue);
+
+    statusBar.setAttribute("queue", visibleQueueLength.toString());
+  }
+
   function addToQueue(content) {
     messageQueue.push(content);
     updateQueueBadge();
@@ -1817,6 +1839,8 @@ function initAlfredUI() {
     } else {
       queueBadge.classList.remove("hidden");
     }
+
+    syncStatusBarQueue();
   }
 
   function clearQueue() {
@@ -2153,12 +2177,13 @@ function initAlfredUI() {
       if (payload.contextTokens !== undefined) {
         statusBar.setAttribute("contexttokens", payload.contextTokens);
       }
+      if (payload.contextWindowTokens !== undefined) {
+        statusBar.setAttribute("contextwindowtokens", payload.contextWindowTokens);
+      }
     }
 
     // Update queue
-    if (payload.queueLength !== undefined) {
-      statusBar.setAttribute("queue", payload.queueLength);
-    }
+    syncStatusBarQueue(payload.queueLength);
 
     // Update streaming status
     if (payload.isStreaming !== undefined) {

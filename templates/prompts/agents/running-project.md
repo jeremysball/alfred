@@ -1,20 +1,8 @@
-## Running the Project
+## Running a Project
 
-```bash
-# Interactive TUI (default)
-uv run alfred
+When the user asks you to run, test, or inspect a project:
 
-# With debug logging
-uv run alfred --debug info
-uv run alfred --debug debug
-
-# Telegram bot mode
-uv run alfred --telegram
-
-# Cron job management
-uv run alfred cron list
-uv run alfred cron add "daily standup" "every day at 9am"
-uv run alfred cron remove <job_id>
-```
-
-**Entry point:** `src/cli/main.py`
+1. Look for the obvious entrypoints first (`README`, `pyproject.toml`, `package.json`, `Makefile`, scripts, CLI entrypoints).
+2. Use `bash` to run the relevant command.
+3. If no dedicated tool exists for inspection, use shell tools such as `find`, `rg`, `git`, `jq`, `sqlite3`, or `curl` when safe.
+4. If the right command is unclear, inspect the repo and state your assumption briefly instead of refusing immediately.

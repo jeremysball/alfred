@@ -23,7 +23,10 @@ class SearchMemoriesTool(Tool, MemoryStoreMixin, SearchResultMixin, ErrorHandlin
     """Search through saved memories for relevant information."""
 
     name = "search_memories"
-    description = "Search through your memory store for relevant information"
+    description = (
+        "Search curated memories for durable facts, preferences, and prior context. "
+        "Use before asking the user to repeat themselves."
+    )
     param_model = SearchMemoriesToolParams
 
     def __init__(self, memory_store: Any = None) -> None:

@@ -21,8 +21,10 @@ def test_status_bar_renders_all_elements():
     # Verify observed attributes exist
     assert "model" in content, "Model attribute not supported"
     assert "tokens" in content or "inputTokens" in content, "Token attributes not supported"
+    assert "contextwindowtokens" in content, "Context window attribute not supported"
     assert "queue" in content or "queueLength" in content, "Queue attribute not supported"
     assert "streaming" in content or "isStreaming" in content, "Streaming attribute not supported"
+    assert "mobile-context-section" in content, "Mobile compact context render not supported"
 
     # Verify render method exists
     assert "_render" in content or "render" in content, "Render method not found"
@@ -39,7 +41,7 @@ def test_status_bar_attributes_observed():
     assert "observedAttributes" in content, "observedAttributes not defined"
 
     # Check that all status fields are observed
-    required_attrs = ["model", "queue", "streaming"]
+    required_attrs = ["model", "contextwindowtokens", "queue", "streaming"]
     for attr in required_attrs:
         assert attr in content, f"Attribute '{attr}' not observed"
 

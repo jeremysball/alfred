@@ -107,8 +107,9 @@ class TestTemplateLoading:
         rules_content = manager.load_template("prompts/agents/rules-index.md")
         assert rules_content is not None
         assert rules_content.startswith("## ")
-        # Rules should have numbered sections
-        assert "### 0." in rules_content
+        # Rules should have generic core sections
+        assert "### 1. Capability First" in rules_content
+        assert "### 2. Use `bash` as the Fallback" in rules_content
         assert "### 1." in rules_content
 
 
@@ -586,10 +587,10 @@ class TestTemplateContentValidation:
         assert content is not None
         assert "# System" in content
         assert "Memory Architecture" in content
-        assert "Files (USER.md, SOUL.md, SYSTEM.md, AGENTS.md)" in content
-        assert "Memories (remember tool)" in content
-        assert "Session Archive (search_sessions)" in content
-        assert "Decision Framework" in content
+        assert "Files (`USER.md`, `SOUL.md`, `SYSTEM.md`, `AGENTS.md`)" in content
+        assert "Memories (`remember`, `search_memories`)" in content
+        assert "Session Archive (`search_sessions`)" in content
+        assert "Retrieval Policy" in content
         assert "{current_time:*}" in content
 
     def test_system_md_is_valid(self, tmp_path: Path) -> None:
@@ -686,10 +687,11 @@ class TestSOULmdPersonality:
 
         # Essential personality elements
         assert "Who I Am" in content, "SOUL.md should have identity section"
-        assert "How I Speak" in content, "SOUL.md should have voice/tone section"
-        assert "Direct" in content, "SOUL.md should emphasize directness"
-        assert "Witty" in content, "SOUL.md should mention wit"
-        assert "not your assistant" in content.lower(), "SOUL.md should reject assistant framing"
+        assert "How I Work" in content, "SOUL.md should have behavior section"
+        assert "Tool Posture" in content, "SOUL.md should mention tool posture"
+        assert "Memory Posture" in content, "SOUL.md should mention memory posture"
+        assert "direct" in content.lower(), "SOUL.md should emphasize directness"
+        assert "memory partner" in content.lower(), "SOUL.md should keep the agent framing"
 
     def test_soul_md_has_self_model_section(self, tmp_path: Path) -> None:
         """Verify SOUL.md references the runtime self-model."""
@@ -699,8 +701,9 @@ class TestSOULmdPersonality:
         content = manager.load_template("SOUL.md")
 
         assert content is not None, "SOUL.md should exist"
-        assert "My Self-Model" in content, "SOUL.md should have self-model section"
-        assert "runtime state" in content.lower(), "SOUL.md should mention runtime state"
+        assert "Tool Posture" in content, "SOUL.md should mention the runtime tool posture"
+        assert "Memory Posture" in content, "SOUL.md should mention the runtime memory posture"
+        assert "bash" in content.lower(), "SOUL.md should mention bash fallback"
 
     def test_soul_md_has_personality_rules(self, tmp_path: Path) -> None:
         """Verify SOUL.md defines personality boundaries."""
@@ -710,5 +713,6 @@ class TestSOULmdPersonality:
         content = manager.load_template("SOUL.md")
 
         assert content is not None, "SOUL.md should exist"
-        assert "Personality Rules" in content or "When serious" in content, "SOUL.md should have boundaries"
-        assert "Never" in content, "SOUL.md should list anti-patterns"
+        assert "Tool Posture" in content, "SOUL.md should have a tool posture section"
+        assert "Memory Posture" in content, "SOUL.md should have a memory posture section"
+        assert "Search memories and sessions" in content or "search memories and sessions" in content.lower()

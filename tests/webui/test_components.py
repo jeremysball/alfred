@@ -234,6 +234,163 @@ async def test_status_bar_renders_live_updates_in_browser() -> None:
 
 @pytest.mark.slow
 @pytest.mark.asyncio
+async def test_status_bar_compacts_on_mobile_in_browser() -> None:
+    port = _find_free_port()
+    process = await _launch_webui(port)
+
+    try:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 390, "height": 844})
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+
+            await page.evaluate(
+                """
+                () => {
+                  const statusBar = document.querySelector('#status-bar');
+                  if (!statusBar) return;
+                  statusBar.setModel('kimi-k2-5');
+                  statusBar.setTokens(1200, 3456, 78, 9, 68272, 272000);
+                  statusBar.setQueue(0);
+                }
+                """
+            )
+            await page.wait_for_timeout(120)
+
+            data = await page.evaluate(
+                """
+                () => {
+                  const statusBar = document.querySelector('#status-bar');
+                  const modelSection = statusBar?.querySelector('.model-section');
+                  const modelName = modelSection?.querySelector('.model-name');
+                  const tokensSection = statusBar?.querySelector('.tokens-section');
+                  const contextSection = statusBar?.querySelector('.mobile-context-section');
+                  const contextDisplay = contextSection?.querySelector('.context-display');
+                  const queueSection = statusBar?.querySelector('.queue-section');
+
+                  return {
+                    modelDisplay: modelSection ? getComputedStyle(modelSection).display : '',
+                    modelText: modelName?.textContent || '',
+                    tokensDisplay: tokensSection ? getComputedStyle(tokensSection).display : '',
+                    contextDisplay: contextSection ? getComputedStyle(contextSection).display : '',
+                    contextText: contextDisplay?.textContent || '',
+                    queueExists: Boolean(queueSection),
+                  };
+                }
+                """
+            )
+
+            assert data["modelDisplay"] == "flex"
+            assert data["modelText"] == "kimi-k2-5"
+            assert data["tokensDisplay"] == "none"
+            assert data["contextDisplay"] == "flex"
+            assert data["contextText"] == "25.1%/272k"
+            assert data["queueExists"] is False
+
+            await browser.close()
+    finally:
+        await _stop_process(process)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
+async def test_status_bar_uses_local_queue_and_nested_daemon_status_payloads() -> None:
+    port = _find_free_port()
+    process = await _launch_webui(port)
+
+    try:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            page = await browser.new_page(viewport={"width": 1440, "height": 900})
+            await page.goto(
+                f"http://127.0.0.1:{port}/static/index.html",
+                wait_until="networkidle",
+            )
+            await page.wait_for_function("() => window.__alfredWebUI?.emitMessage !== undefined")
+
+            await page.evaluate(
+                """
+                () => {
+                  window.__alfredWebUI.emitMessage({
+                    type: 'daemon.status',
+                    payload: {
+                      daemon: {
+                        state: 'running',
+                        pid: 4242,
+                      },
+                    },
+                  });
+
+                  window.__alfredWebUI.emitMessage({
+                    type: 'status.update',
+                    payload: {
+                      model: 'kimi-k2-5',
+                      queueLength: 0,
+                      isStreaming: true,
+                      contextTokens: 68272,
+                      contextWindowTokens: 272000,
+                    },
+                  });
+
+                  window.__alfredWebUI.emitMessage({
+                    type: 'chat.started',
+                    payload: { messageId: 'assistant-1', role: 'assistant' },
+                  });
+                }
+                """
+            )
+
+            await page.fill("#message-input", "queued follow-up")
+            await page.press("#message-input", "Shift+Enter")
+            await page.wait_for_timeout(120)
+
+            await page.evaluate(
+                """
+                () => {
+                  window.__alfredWebUI.emitMessage({
+                    type: 'status.update',
+                    payload: {
+                      model: 'kimi-k2-5',
+                      queueLength: 0,
+                      isStreaming: true,
+                    },
+                  });
+                }
+                """
+            )
+            await page.wait_for_timeout(120)
+
+            data = await page.evaluate(
+                """
+                () => {
+                  const statusBar = document.querySelector('#status-bar');
+                  const tooltip = document.getElementById('connection-status-tooltip');
+                  return {
+                    model: statusBar?.querySelector('.model-name')?.textContent || '',
+                    queue: statusBar?.querySelector('.queue-count')?.textContent || '',
+                    queueBadge: document.getElementById('queue-badge')?.textContent || '',
+                    tooltipText: tooltip?.textContent || '',
+                  };
+                }
+                """
+            )
+
+            assert data["model"] == "kimi-k2-5"
+            assert data["queue"] == "1"
+            assert data["queueBadge"] == "1"
+            assert "Daemon: running" in data["tooltipText"]
+            assert "PID: 4242" in data["tooltipText"]
+
+            await browser.close()
+    finally:
+        await _stop_process(process)
+
+
+@pytest.mark.slow
+@pytest.mark.asyncio
 async def test_toast_container_shows_and_dismisses_toasts_in_browser() -> None:
     port = _find_free_port()
     process = await _launch_webui(port)

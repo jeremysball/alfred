@@ -23,7 +23,7 @@ class UpdateMemoryTool(Tool):
     """Update an existing memory's content. Requires confirmation."""
 
     name = "update_memory"
-    description = "Update an existing memory's content. Requires confirmation."
+    description = "Update an existing memory's content after locating it. Requires confirmation."
     param_model = UpdateMemoryToolParams
 
     def __init__(self, memory_store: Any = None) -> None:

@@ -1,11 +1,19 @@
 """WebSocket protocol tests for Alfred Web UI."""
 
+import asyncio
+import socket
+import time
+import urllib.request
 from datetime import UTC, datetime, timedelta
+from threading import Thread
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import uvicorn
 from fastapi.testclient import TestClient
+from playwright.async_api import async_playwright
 
 from alfred.interfaces.webui.server import create_app
 from tests.webui.fakes import FakeAlfred as MockAlfred
@@ -1027,3 +1035,132 @@ class TestWebUIHTTPEndpoints:
         # File exists or returns 200, or 404 if file doesn't exist
         # Mainly testing the static file mounting works
         assert response.status_code in [200, 404]
+
+
+def _find_free_port() -> int:
+    """Return an available local port for browser-driven Web UI tests."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return cast(int, sock.getsockname()[1])
+
+
+async def _wait_for_health(port: int, timeout: float = 20.0) -> None:
+    """Wait for the Web UI health endpoint to become available."""
+    deadline = time.time() + timeout
+    url = f"http://127.0.0.1:{port}/health"
+    last_error: Exception | None = None
+
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1) as response:
+                if response.status == 200:
+                    return
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+        await asyncio.sleep(0.25)
+
+    raise RuntimeError(f"server did not start: {last_error}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_command_context_toggle_uses_section_ids() -> None:
+    """The context viewer should send stable section ids when toggled."""
+    port = _find_free_port()
+    app = create_app(alfred_instance=MockAlfred())
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    thread = Thread(target=server.run, daemon=True)
+    thread.start()
+
+    try:
+        await _wait_for_health(port)
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            try:
+                page = await browser.new_page(viewport={"width": 1440, "height": 900})
+                await page.goto(f"http://127.0.0.1:{port}/static/index.html", wait_until="domcontentloaded")
+                await page.wait_for_function(
+                    "() => window.__alfredWebUI?.emitMessage !== undefined && window.alfredWebSocketClient?.sendCommand !== undefined"
+                )
+
+                await page.evaluate(
+                    """
+                    () => {
+                      window.__capturedCommands = [];
+                      window.alfredWebSocketClient.sendCommand = (command) => {
+                        window.__capturedCommands.push(command);
+                      };
+                    }
+                    """
+                )
+
+                await page.evaluate(
+                    """
+                    () => {
+                      window.__alfredWebUI.emitMessage({
+                        type: "context.info",
+                        payload: {
+                          system_prompt: {
+                            sections: [
+                              { id: "system", name: "SYSTEM.md", label: "SYSTEM.md", tokens: 12 },
+                              { id: "agents", name: "AGENTS.md", label: "AGENTS.md", tokens: 34 },
+                            ],
+                            total_tokens: 46,
+                          },
+                          blocked_context_files: ["SOUL.md"],
+                          conflicted_context_files: [
+                            {
+                              id: "soul",
+                              name: "soul",
+                              label: "SOUL.md",
+                              reason: "Conflicted managed template SOUL.md is blocked",
+                            },
+                          ],
+                          disabled_sections: [],
+                          warnings: [],
+                          memories: { displayed: 0, total: 0, items: [], tokens: 0 },
+                          session_history: {
+                            displayed: 1,
+                            total: 1,
+                            messages: [{ role: "user", content: "hello" }],
+                            tokens: 3,
+                          },
+                          tool_calls: { displayed: 0, total: 0, items: [], tokens: 0 },
+                          self_model: {
+                            identity: { name: "Alfred", role: "Assistant" },
+                            runtime: { interface: "cli", daemon_mode: false },
+                            capabilities: { memory_enabled: true, search_enabled: true, tools_count: 10 },
+                            context_pressure: { message_count: 1, memory_count: 0, approximate_tokens: 15 },
+                          },
+                          total_tokens: 64,
+                        },
+                      });
+                    }
+                    """
+                )
+
+                conflicted_files = page.locator('context-viewer .context-conflicted-files')
+                await conflicted_files.wait_for(state="attached")
+                conflicted_text = (await conflicted_files.text_content()) or ""
+                assert "Conflicted Managed Templates" in conflicted_text
+                assert "SOUL.md" in conflicted_text
+                assert "Conflicted managed template SOUL.md is blocked" in conflicted_text
+
+                await page.locator('context-viewer .context-section-header[data-section="system-prompt"]').click()
+                checkbox = page.locator('context-viewer input.context-toggle[data-section="system"]')
+                await checkbox.wait_for(state="attached")
+
+                section_name = page.locator("context-viewer .system-section-item.enabled").first.locator(".section-name")
+                assert (await section_name.text_content() or "").strip() == "SYSTEM.md"
+
+                await checkbox.evaluate("(el) => el.click()")
+                await page.wait_for_function("() => window.__capturedCommands.length >= 1")
+
+                commands = await page.evaluate("window.__capturedCommands")
+                assert commands == ["/context toggle SYSTEM off"]
+            finally:
+                await browser.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)

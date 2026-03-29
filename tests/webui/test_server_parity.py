@@ -6,6 +6,7 @@ shared test fakes instead of legacy root-level fixture shapes.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -205,6 +206,22 @@ def test_resume_command_syncs_historical_tokens_for_resumed_session() -> None:
     assert fake_alfred.synced_session_ids[-1] == "session-2"
 
 
+def test_status_update_includes_context_window_tokens_for_known_model() -> None:
+    """Status updates should include the inferred model context window."""
+
+    fake_alfred = FakeAlfred(model_name="kimi-k2-5", context_tokens=68272)
+    client = TestClient(create_app(alfred_instance=fake_alfred))
+
+    with client.websocket_connect("/ws") as websocket:
+        connected, session_loaded, status_update = _connect_and_consume_startup(websocket)
+
+    assert connected["type"] == "connected"
+    assert session_loaded["type"] == "session.loaded"
+    assert status_update["type"] == "status.update"
+    assert status_update["payload"]["contextTokens"] == 68272
+    assert status_update["payload"]["contextWindowTokens"] == 272000
+
+
 def test_new_command_resets_status_totals_for_fresh_session() -> None:
     """/new should mirror TUI behavior by clearing token totals."""
 
@@ -324,7 +341,15 @@ def test_context_command_uses_shared_context_display() -> None:
     context_data = {
         "system_prompt": {"sections": [{"name": "AGENTS.md", "tokens": 12}], "total_tokens": 12},
         "blocked_context_files": ["SOUL.md"],
-        "warnings": ["Blocked context files: SOUL.md"],
+        "conflicted_context_files": [
+            {
+                "id": "soul",
+                "name": "soul",
+                "label": "SOUL.md",
+                "reason": "Conflicted managed template SOUL.md is blocked",
+            }
+        ],
+        "warnings": [],
         "memories": {
             "displayed": 1,
             "total": 2,
@@ -362,12 +387,115 @@ def test_context_command_uses_shared_context_display() -> None:
     assert response["type"] == "context.info"
     assert response["payload"]["system_prompt"]["total_tokens"] == 12
     assert response["payload"]["blocked_context_files"] == ["SOUL.md"]
-    assert response["payload"]["warnings"] == ["Blocked context files: SOUL.md"]
+    assert response["payload"]["conflicted_context_files"] == [
+        {
+            "id": "soul",
+            "name": "soul",
+            "label": "SOUL.md",
+            "reason": "Conflicted managed template SOUL.md is blocked",
+        }
+    ]
+    assert response["payload"]["warnings"] == []
     assert response["payload"]["memories"]["displayed"] == 1
     assert response["payload"]["session_history"]["count"] == 1
     assert response["payload"]["tool_calls"]["count"] == 1
     assert response["payload"]["total_tokens"] == 32
     mock_get_context.assert_awaited_once_with(fake_alfred)
+
+
+def test_context_info_refresh_keeps_disabled_sections_in_sync() -> None:
+    """The refreshed /context payload should keep ids and labels aligned after toggles."""
+
+    fake_alfred = FakeAlfred()
+
+    class ToggleableContextLoader:
+        def __init__(self) -> None:
+            self._disabled_sections: set[str] = set()
+            self._files = {
+                "system": self._make_file("SYSTEM.md", "System prompt body"),
+                "agents": self._make_file("AGENTS.md", "Agents prompt body"),
+                "tools": self._make_file("TOOLS.md", "Tools prompt body"),
+                "soul": self._make_file("SOUL.md", "Soul prompt body"),
+                "user": self._make_file("USER.md", "User prompt body"),
+            }
+
+        @staticmethod
+        def _make_file(name: str, content: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                name=name,
+                path=f"/workspace/alfred/{name}",
+                content=content,
+                is_blocked=lambda: False,
+            )
+
+        def toggle_section(self, section: str, enabled: bool) -> bool:
+            section_id = section.upper()
+            was_enabled = section_id not in self._disabled_sections
+            if enabled:
+                self._disabled_sections.discard(section_id)
+            else:
+                self._disabled_sections.add(section_id)
+            return was_enabled != enabled
+
+        def get_disabled_sections(self) -> list[str]:
+            return sorted(self._disabled_sections)
+
+        async def load_all(self) -> dict[str, SimpleNamespace]:
+            return {
+                section_id: file
+                for section_id, file in self._files.items()
+                if section_id.upper() not in self._disabled_sections
+            }
+
+    def build_self_model() -> SimpleNamespace:
+        return SimpleNamespace(
+            identity=SimpleNamespace(name="Alfred", role="Assistant"),
+            runtime=SimpleNamespace(
+                interface=SimpleNamespace(value="cli"),
+                session_id="session-1",
+                daemon_mode=False,
+            ),
+            capabilities=SimpleNamespace(
+                memory_enabled=True,
+                search_enabled=True,
+                tools_available=["read", "write", "bash"],
+            ),
+            context_pressure=SimpleNamespace(
+                message_count=1,
+                memory_count=0,
+                approximate_tokens=15,
+            ),
+        )
+
+    fake_alfred.context_loader = ToggleableContextLoader()
+    fake_alfred.core.memory_store = SimpleNamespace(get_all_entries=AsyncMock(return_value=[]))
+    fake_alfred.build_self_model = build_self_model  # type: ignore[attr-defined]
+    client = TestClient(create_app(alfred_instance=fake_alfred))
+
+    with client.websocket_connect("/ws") as websocket:
+        _connect_and_consume_startup(websocket)
+
+        websocket.send_json({"type": "command.execute", "payload": {"command": "/context toggle SYSTEM off"}})
+        toast = websocket.receive_json()
+        response = websocket.receive_json()
+
+    assert toast["type"] == "toast"
+    assert response["type"] == "context.info"
+    assert response["payload"]["disabled_sections"] == ["SYSTEM"]
+    assert "disabledSections" not in response["payload"]
+    assert response["payload"]["warnings"] == ["Disabled sections: SYSTEM"]
+    assert [section["id"] for section in response["payload"]["system_prompt"]["sections"]] == [
+        "agents",
+        "tools",
+        "soul",
+        "user",
+    ]
+    assert [section["label"] for section in response["payload"]["system_prompt"]["sections"]] == [
+        "AGENTS.md",
+        "TOOLS.md",
+        "SOUL.md",
+        "USER.md",
+    ]
 
 
 def test_context_command_rejects_legacy_get_context_shape() -> None:

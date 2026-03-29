@@ -117,31 +117,12 @@ def register_builtin_tools(
     register_tool(EditTool())
     register_tool(BashTool())
 
-    # Register remember tool with memory store injected
-    remember_tool = RememberTool()
-    if memory_store:
-        remember_tool.set_memory_store(memory_store)
-    register_tool(remember_tool)
-
-    # Register search_memories tool with memory store injected
+    # Register retrieval tools before write/update tools so they stay prominent in the schema list.
     search_tool = SearchMemoriesTool()
     if memory_store:
         search_tool.set_memory_store(memory_store)
     register_tool(search_tool)
 
-    # Register update_memory tool with memory store injected
-    update_tool = UpdateMemoryTool()
-    if memory_store:
-        update_tool.set_memory_store(memory_store)
-    register_tool(update_tool)
-
-    # Register forget tool with memory store injected
-    forget_tool = ForgetTool()
-    if memory_store:
-        forget_tool.set_memory_store(memory_store)
-    register_tool(forget_tool)
-
-    # Register search_sessions tool with dependencies injected
     if session_manager and embedder:
         search_sessions_tool = SearchSessionsTool(
             session_manager=session_manager,
@@ -151,6 +132,22 @@ def register_builtin_tools(
         )
         register_tool(search_sessions_tool)
         logger.debug("Registered search_sessions tool")
+
+    # Register memory-write tools after retrieval tools.
+    remember_tool = RememberTool()
+    if memory_store:
+        remember_tool.set_memory_store(memory_store)
+    register_tool(remember_tool)
+
+    update_tool = UpdateMemoryTool()
+    if memory_store:
+        update_tool.set_memory_store(memory_store)
+    register_tool(update_tool)
+
+    forget_tool = ForgetTool()
+    if memory_store:
+        forget_tool.set_memory_store(memory_store)
+    register_tool(forget_tool)
 
     # Register cron tools with socket client injected
     if socket_client:
