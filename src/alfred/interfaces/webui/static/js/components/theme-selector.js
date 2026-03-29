@@ -22,7 +22,8 @@ class SettingsMenu extends HTMLElement {
   constructor() {
     super();
     // localStorage.getItem('alfred-theme')
-    this._currentTheme = localStorage.getItem("theme") || "dark-academia";
+    this._currentTheme =
+      localStorage.getItem("theme") || localStorage.getItem("alfred-theme") || "dark-academia";
     this._fontSize = localStorage.getItem("alfred-font-size") || "";
     this._fontFamily = localStorage.getItem("alfred-font-family") || "";
     this._themes = [
@@ -137,6 +138,7 @@ class SettingsMenu extends HTMLElement {
     document.documentElement.setAttribute("data-theme", themeId);
     // localStorage.setItem('alfred-theme', themeId)
     localStorage.setItem("theme", themeId);
+    localStorage.setItem("alfred-theme", themeId);
     this._currentTheme = themeId;
     applyThemeContrast();
   }
@@ -261,7 +263,8 @@ class SettingsMenu extends HTMLElement {
         if (themeId) {
           this._applyTheme(themeId);
         }
-        this._syncPortal();
+        this._isOpen = false;
+        this._render();
         return;
       }
 

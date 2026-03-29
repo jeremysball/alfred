@@ -471,7 +471,7 @@
   --ui-panel-header-bg: var(--swiss-bg-secondary);
   --ui-panel-header-text: var(--swiss-text-primary);
   --ui-panel-text: var(--swiss-text-primary);
-  --ui-panel-muted: var(--swiss-text-muted);
+  --ui-panel-muted: #666666;
   --ui-panel-accent: var(--swiss-red);
 
   --ui-focus-ring: 2px solid var(--swiss-red);

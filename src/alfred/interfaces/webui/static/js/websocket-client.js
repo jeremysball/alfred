@@ -574,6 +574,6 @@ class AlfredWebSocketClient extends EventTarget {
 // Export for ESM and browser usage
 export { AlfredWebSocketClient };
 
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && !window.AlfredWebSocketClient) {
   window.AlfredWebSocketClient = AlfredWebSocketClient;
 }

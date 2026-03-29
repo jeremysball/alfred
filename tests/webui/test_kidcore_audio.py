@@ -327,14 +327,16 @@ async def test_kidcore_streaming_chunks_bounce_and_sound() -> None:
                 """
                 () => {
                   const assistant = document.querySelector('chat-message.glue-shimmer');
-                  const bubble = assistant?.querySelector('.message-bubble');
+                  const animatedBlock =
+                    assistant?.querySelector('.text-block.glue-shimmer-pulse')
+                    || assistant?.querySelector('.text-block');
                   return {
                     theme: document.documentElement.getAttribute('data-theme'),
                     calls: window.__kidcoreAudioCalls,
                     hasAssistant: Boolean(assistant),
                     hasGlueClass: Boolean(assistant?.classList.contains('glue-shimmer')),
-                    bubbleText: bubble?.textContent || '',
-                    animationName: bubble ? getComputedStyle(bubble).animationName : '',
+                    bubbleText: animatedBlock?.textContent || '',
+                    animationName: animatedBlock ? getComputedStyle(animatedBlock).animationName : '',
                   };
                 }
                 """

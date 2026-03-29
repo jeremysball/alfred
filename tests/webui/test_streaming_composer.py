@@ -166,14 +166,14 @@ async def test_streaming_composer_keyboard_contract() -> None:
             await expect(last_user.locator('[data-action="edit"]')).to_be_visible()
 
             await last_user.locator('[data-action="edit"]').click()
-            await expect(page.locator('#input-area')).to_have_attribute('data-composer-state', 'editing')
-            await expect(last_user).to_have_attribute('data-message-state', 'editing')
-            await expect(page.locator('#input-area')).to_have_attribute('data-edit-message-id', last_user_id)
-            await expect(page.locator('#message-input')).to_have_value('steer now')
-            assert await page.evaluate("() => window.__alfredWebUI.getComposerState()") == 'editing'
+            inline_editor = last_user.locator('.inline-edit-textarea')
+            await expect(inline_editor).to_be_visible()
+            await expect(inline_editor).to_have_value('steer now')
+            await expect(page.locator('#input-area')).to_have_attribute('data-composer-state', 'idle')
+            assert await page.evaluate("() => window.__alfredWebUI.getComposerState()") == 'idle'
 
-            await page.fill('#message-input', 'steer now revised')
-            await page.keyboard.press('Enter')
+            await inline_editor.fill('steer now revised')
+            await inline_editor.press('Control+Enter')
             await page.wait_for_function(
                 """
                 () => window.__sentWebSocketMessages.some((message) => {

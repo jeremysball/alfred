@@ -669,7 +669,8 @@
   color: #fff7ff;
 }
 
-[data-theme="kidcore-playground"] chat-message.glue-shimmer .message-bubble {
+[data-theme="kidcore-playground"] chat-message.glue-shimmer .message-bubble,
+[data-theme="kidcore-playground"] chat-message.glue-shimmer .text-block {
   border-color: #8a5cf6;
   background:
     radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.48) 0, transparent 24%),
@@ -681,12 +682,14 @@
     0 0 28px rgba(255, 79, 216, 0.2);
 }
 
-[data-theme="kidcore-playground"] chat-message.glue-shimmer .message-content {
+[data-theme="kidcore-playground"] chat-message.glue-shimmer .message-content,
+[data-theme="kidcore-playground"] chat-message.glue-shimmer .text-block {
   color: #fff7ff;
   text-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
 }
 
-[data-theme="kidcore-playground"] .message-bubble.glue-shimmer-pulse {
+[data-theme="kidcore-playground"] .message-bubble.glue-shimmer-pulse,
+[data-theme="kidcore-playground"] .text-block.glue-shimmer-pulse {
   animation: kidcore-glue-bounce 260ms cubic-bezier(0.18, 0.89, 0.32, 1.35);
 }
 
@@ -1177,5 +1180,46 @@
   to {
     opacity: 0;
     transform: translateX(24px) scale(0.92);
+  }
+}
+
+@media (max-width: 768px) {
+  [data-theme="kidcore-playground"] .app-header {
+    padding: 0.2rem 0.75rem;
+  }
+
+  [data-theme="kidcore-playground"] .app-header .header-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+  }
+
+  [data-theme="kidcore-playground"] .app-header #queue-badge {
+    display: none !important;
+  }
+
+  [data-theme="kidcore-playground"] .app-header .kidcore-audio-controls {
+    display: inline-flex !important;
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    padding: 0.2rem 0.3rem;
+    box-shadow:
+      0 0 0 2px rgba(255, 79, 216, 0.16),
+      0 4px 0 rgba(0, 0, 0, 0.18);
+  }
+
+  [data-theme="kidcore-playground"] .app-header .kidcore-audio-chip {
+    flex-wrap: wrap;
+  }
+
+  [data-theme="kidcore-playground"] .app-header .kidcore-audio-control,
+  [data-theme="kidcore-playground"] .app-header .kidcore-audio-label,
+  [data-theme="kidcore-playground"] .app-header .kidcore-audio-status {
+    min-height: 1.8rem;
+    font-size: var(--text-xs);
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
   }
 }

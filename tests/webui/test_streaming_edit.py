@@ -1,325 +1,213 @@
-"""Browser tests for message editing functionality."""
+"""Browser tests for inline message editing."""
+
+from __future__ import annotations
 
 import pytest
+from playwright.async_api import Page, expect
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.slow]
 
 
-async def test_pencil_button_visible_on_last_user_message(
-    websocket_server, page_helper
-):
-    """Verify pencil button appears on the last user message."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    # Wait for WebSocket connection
+async def _wait_for_ui(page: Page) -> None:
     await page.wait_for_function(
         "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
+        timeout=5000,
     )
 
-    # Mock adding a user message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Test message');
-            userMsg.setAttribute('message-id', 'test-msg-1');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
 
-    # Verify pencil button is visible
+async def _append_message(
+    page: Page,
+    *,
+    role: str,
+    content: str,
+    message_id: str,
+    editable: bool = False,
+) -> None:
+    await page.evaluate(
+        """
+        ({ role, content, messageId, editable }) => {
+          const messageList = document.getElementById('message-list');
+          const message = document.createElement('chat-message');
+          message.setAttribute('role', role);
+          message.setAttribute('content', content);
+          message.setAttribute('message-id', messageId);
+          if (editable) {
+            message.setAttribute('editable', 'true');
+          }
+          messageList.appendChild(message);
+        }
+        """,
+        {
+            "role": role,
+            "content": content,
+            "messageId": message_id,
+            "editable": editable,
+        },
+    )
+
+
+async def test_pencil_button_visible_on_last_user_message(websocket_server, page_helper) -> None:
+    """Editable user messages should expose the inline edit control."""
+    page = page_helper
+    await _wait_for_ui(page)
+    await _append_message(
+        page,
+        role="user",
+        content="Test message",
+        message_id="test-msg-1",
+        editable=True,
+    )
+
     pencil_button = page.locator("chat-message[role='user'] [data-action='edit']")
     await expect(pencil_button).to_be_visible()
     await expect(pencil_button).to_have_attribute("aria-label", "Edit message")
 
 
-async def test_pencil_button_hidden_when_not_editable(
-    websocket_server, page_helper
-):
-    """Verify pencil button is hidden when message is not editable."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
+async def test_pencil_button_hidden_when_not_editable(websocket_server, page_helper) -> None:
+    """Non-editable user messages should not render the edit control."""
+    page = page_helper
+    await _wait_for_ui(page)
+    await _append_message(
+        page,
+        role="user",
+        content="Test message",
+        message_id="test-msg-2",
     )
 
-    # Add a user message without editable attribute
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Test message');
-            userMsg.setAttribute('message-id', 'test-msg-2');
-            // No editable attribute
-            messageList.appendChild(userMsg);
-        }
-    """)
-
-    # Verify pencil button is not visible
     pencil_button = page.locator("chat-message[message-id='test-msg-2'] [data-action='edit']")
     await expect(pencil_button).to_have_count(0)
 
 
-async def test_pencil_button_hidden_on_assistant_messages(
-    websocket_server, page_helper
-):
-    """Verify pencil button does not appear on assistant messages."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
+async def test_pencil_button_hidden_on_assistant_messages(websocket_server, page_helper) -> None:
+    """Assistant messages should not render the edit control."""
+    page = page_helper
+    await _wait_for_ui(page)
+    await _append_message(
+        page,
+        role="assistant",
+        content="Assistant response",
+        message_id="test-msg-3",
     )
 
-    # Add an assistant message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const assistantMsg = document.createElement('chat-message');
-            assistantMsg.setAttribute('role', 'assistant');
-            assistantMsg.setAttribute('content', 'Assistant response');
-            assistantMsg.setAttribute('message-id', 'test-msg-3');
-            messageList.appendChild(assistantMsg);
-        }
-    """)
-
-    # Verify pencil button is not present
     pencil_button = page.locator("chat-message[role='assistant'] [data-action='edit']")
     await expect(pencil_button).to_have_count(0)
 
 
-async def test_click_pencil_prefills_composer(
-    websocket_server, page_helper
-):
-    """Verify clicking pencil prefills the composer with message content."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
+async def test_click_pencil_shows_inline_editor(websocket_server, page_helper) -> None:
+    """Clicking edit should swap the message body for an inline editor."""
+    page = page_helper
+    await _wait_for_ui(page)
+    await _append_message(
+        page,
+        role="user",
+        content="Message to edit",
+        message_id="test-msg-4",
+        editable=True,
     )
 
-    # Add a user message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Message to edit');
-            userMsg.setAttribute('message-id', 'test-msg-4');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
-
-    # Click the pencil button
     await page.click("chat-message[message-id='test-msg-4'] [data-action='edit']")
 
-    # Verify composer is prefilled
-    message_input = page.locator("#message-input")
-    await expect(message_input).to_have_value("Message to edit")
+    textarea = page.locator("chat-message[message-id='test-msg-4'] .inline-edit-textarea")
+    await expect(textarea).to_be_visible()
+    await expect(textarea).to_have_value("Message to edit")
+    await expect(
+        page.locator("chat-message[message-id='test-msg-4'] .message.editing-inline"),
+    ).to_have_count(1)
 
 
-async def test_edit_mode_sets_composer_state(
-    websocket_server, page_helper
-):
-    """Verify edit mode sets data-composer-state to editing."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
+async def test_escape_cancels_inline_edit(websocket_server, page_helper) -> None:
+    """Escape should close inline edit mode without saving."""
+    page = page_helper
+    await _wait_for_ui(page)
+    await _append_message(
+        page,
+        role="user",
+        content="Cancelable content",
+        message_id="test-msg-5",
+        editable=True,
     )
 
-    # Add a user message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Test content');
-            userMsg.setAttribute('message-id', 'test-msg-5');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
-
-    # Click the pencil button
     await page.click("chat-message[message-id='test-msg-5'] [data-action='edit']")
+    await expect(
+        page.locator("chat-message[message-id='test-msg-5'] .inline-edit-textarea"),
+    ).to_be_visible()
 
-    # Verify composer state
-    input_area = page.locator("#input-area")
-    await expect(input_area).to_have_attribute("data-composer-state", "editing")
-
-
-async def test_edit_mode_highlights_message(
-    websocket_server, page_helper
-):
-    """Verify the message being edited gets a visual highlight."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
-    )
-
-    # Add a user message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Test content');
-            userMsg.setAttribute('message-id', 'test-msg-6');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
-
-    # Click the pencil button
-    await page.click("chat-message[message-id='test-msg-6'] [data-action='edit']")
-
-    # Verify message has editing state
-    message = page.locator("chat-message[message-id='test-msg-6']")
-    await expect(message).to_have_attribute("data-message-state", "editing")
-
-
-async def test_edit_placeholder_shows_cancel_hint(
-    websocket_server, page_helper
-):
-    """Verify placeholder shows 'Esc to cancel' hint when editing."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
-    )
-
-    # Add a user message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Test');
-            userMsg.setAttribute('message-id', 'test-msg-7');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
-
-    # Click the pencil button
-    await page.click("chat-message[message-id='test-msg-7'] [data-action='edit']")
-
-    # Verify placeholder
-    message_input = page.locator("#message-input")
-    await expect(message_input).to_have_attribute(
-        "placeholder",
-        "Editing message... (Esc to cancel)"
-    )
-
-
-async def test_esc_cancels_edit_mode(
-    websocket_server, page_helper
-):
-    """Verify pressing Esc cancels edit mode."""
-    from playwright.async_api import expect
-
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
-    )
-
-    # Add a user message and enter edit mode
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Test content');
-            userMsg.setAttribute('message-id', 'test-msg-8');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
-
-    # Enter edit mode
-    await page.click("chat-message[message-id='test-msg-8'] [data-action='edit']")
-
-    # Verify we're in edit mode
-    input_area = page.locator("#input-area")
-    await expect(input_area).to_have_attribute("data-composer-state", "editing")
-
-    # Press Escape
     await page.keyboard.press("Escape")
 
-    # Verify we're back to idle
-    await expect(input_area).to_have_attribute("data-composer-state", "idle")
-
-
-async def test_edit_event_dispatched_with_correct_detail(
-    websocket_server, page_helper
-):
-    """Verify edit-message event is dispatched with messageId and content."""
-    page = await page_helper(websocket_server)
-
-    await page.wait_for_function(
-        "() => window.__alfredWebUI?.getComposerState?.() !== undefined",
-        timeout=5000
+    await expect(
+        page.locator("chat-message[message-id='test-msg-5'] .inline-edit-textarea"),
+    ).to_have_count(0)
+    await expect(page.locator("chat-message[message-id='test-msg-5']")).to_have_attribute(
+        "content",
+        "Cancelable content",
     )
 
-    # Track edit events
-    await page.evaluate("""
+
+async def test_ctrl_enter_saves_inline_edit_and_dispatches_event(
+    websocket_server,
+    page_helper,
+) -> None:
+    """Saving inline edit should emit message-edited with the updated content."""
+    page = page_helper
+    await _wait_for_ui(page)
+
+    await page.evaluate(
+        """
         () => {
-            window.__editEvents = [];
-            document.addEventListener('edit-message', (e) => {
-                window.__editEvents.push({
-                    messageId: e.detail.messageId,
-                    content: e.detail.content
-                });
+          window.__editedEvents = [];
+          document.addEventListener('message-edited', (event) => {
+            window.__editedEvents.push({
+              messageId: event.detail.messageId,
+              oldContent: event.detail.oldContent,
+              newContent: event.detail.newContent,
             });
+          });
         }
-    """)
+        """,
+    )
 
-    # Add a user message
-    await page.evaluate("""
-        () => {
-            const messageList = document.getElementById('message-list');
-            const userMsg = document.createElement('chat-message');
-            userMsg.setAttribute('role', 'user');
-            userMsg.setAttribute('content', 'Event test content');
-            userMsg.setAttribute('message-id', 'event-test-msg');
-            userMsg.setAttribute('editable', 'true');
-            messageList.appendChild(userMsg);
-        }
-    """)
+    await _append_message(
+        page,
+        role="user",
+        content="Original content",
+        message_id="event-test-msg",
+        editable=True,
+    )
 
-    # Click the pencil button
     await page.click("chat-message[message-id='event-test-msg'] [data-action='edit']")
+    textarea = page.locator("chat-message[message-id='event-test-msg'] .inline-edit-textarea")
+    await expect(textarea).to_be_visible()
+    await textarea.fill("Updated content")
+    await textarea.press("Control+Enter")
 
-    # Check edit event was dispatched
-    edit_events = await page.evaluate("() => window.__editEvents")
+    await page.wait_for_function("() => (window.__editedEvents || []).length === 1")
+
+    edit_events = await page.evaluate("() => window.__editedEvents")
     assert len(edit_events) == 1
     assert edit_events[0]["messageId"] == "event-test-msg"
-    assert edit_events[0]["content"] == "Event test content"
+    assert edit_events[0]["oldContent"] == "Original content"
+    assert edit_events[0]["newContent"] == "Updated content"
+
+
+async def test_cancel_button_restores_non_editing_view(websocket_server, page_helper) -> None:
+    """The inline cancel button should exit edit mode and restore the original content."""
+    page = page_helper
+    await _wait_for_ui(page)
+    await _append_message(
+        page,
+        role="user",
+        content="Keep me",
+        message_id="test-msg-6",
+        editable=True,
+    )
+
+    await page.click("chat-message[message-id='test-msg-6'] [data-action='edit']")
+    await page.click("chat-message[message-id='test-msg-6'] [data-action='cancel-edit']")
+
+    await expect(
+        page.locator("chat-message[message-id='test-msg-6'] .inline-edit-textarea"),
+    ).to_have_count(0)
+    await expect(page.locator("chat-message[message-id='test-msg-6']")).to_have_attribute(
+        "content",
+        "Keep me",
+    )

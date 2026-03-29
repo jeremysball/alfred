@@ -255,22 +255,26 @@ function initAlfredUI() {
       return;
     }
 
-    const bubble = messageEl.querySelector(".message-bubble");
-    if (!bubble) {
+    const pulseTarget =
+      messageEl.querySelector(".text-block:last-of-type") ||
+      messageEl.querySelector(".message-bubble");
+    if (!pulseTarget) {
       return;
     }
 
-    bubble.classList.remove("glue-shimmer-pulse");
-    void bubble.offsetWidth;
-    bubble.classList.add("glue-shimmer-pulse");
+    pulseTarget.classList.remove("glue-shimmer-pulse");
+    void pulseTarget.offsetWidth;
+    pulseTarget.classList.add("glue-shimmer-pulse");
   }
 
   function clearGlueShimmerEffect(messageEl) {
     if (messageEl) {
       messageEl.classList.remove("glue-shimmer");
       messageEl.removeAttribute("data-stream-fx");
-      const bubble = messageEl.querySelector(".message-bubble");
-      bubble?.classList.remove("glue-shimmer-pulse");
+      const pulseTarget =
+        messageEl.querySelector(".text-block:last-of-type") ||
+        messageEl.querySelector(".message-bubble");
+      pulseTarget?.classList.remove("glue-shimmer-pulse");
     }
     pendingKidcoreStreamingFx = null;
   }
@@ -357,6 +361,10 @@ function initAlfredUI() {
       setMessageState(messageEl, "streaming");
     } else {
       setMessageState(messageEl, "idle");
+    }
+
+    if (role === "assistant" && Array.isArray(msg.textBlocks) && msg.textBlocks.length > 0) {
+      messageEl.setTextBlocks(msg.textBlocks);
     }
 
     // Handle interleaved reasoning blocks (new format) or legacy reasoningContent
@@ -513,7 +521,8 @@ function initAlfredUI() {
   }
 
   // WebSocket Client
-  const wsClient = new AlfredWebSocketClient();
+  const WebSocketClientClass = window.AlfredWebSocketClient ?? AlfredWebSocketClient;
+  const wsClient = new WebSocketClientClass();
   window.alfredWebSocketClient = wsClient;
   let currentAssistantMessage = null;
   let activeSessionId = null;
@@ -2099,6 +2108,9 @@ function initAlfredUI() {
   }
 
   function scrollToBottom() {
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      suppressNextMobileScroll = true;
+    }
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
@@ -2439,9 +2451,21 @@ function initAlfredUI() {
       return;
     }
 
-    // Enter (without Shift): Send message
+    const hasFullSelection =
+      messageInput.selectionStart === 0 && messageInput.selectionEnd === messageInput.value.length;
+
+    // Enter (without Shift): send immediately, unless the whole prompt is selected while
+    // streaming, which preserves the historical Ctrl+A then Enter queue shortcut.
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      const content = messageInput.value.trim();
+      if (content && currentAssistantMessage && hasFullSelection && composerState !== "editing") {
+        addToQueue(content);
+        messageInput.value = "";
+        autoResizeTextarea();
+        return;
+      }
+
       sendMessage();
       return;
     }
@@ -2574,11 +2598,24 @@ function initAlfredUI() {
   let scrollDirection = "none";
   let scrollDistance = 0;
   let scrollTimeout = null;
+  let focusRestoreTimeout = null;
 
   // Guard states for top/bottom bounce handling
   let hasTopLeft = false; // Must scroll down from top before header can hide
   let hasBottomLeft = false; // Must scroll up from bottom before header can show (when hidden)
   let scrollHandlerInitialized = false; // First scroll event just initializes state
+  let suppressNextMobileScroll = false;
+  let mobileHeaderScrollReady = false;
+
+  function resetMobileHeaderState() {
+    showHeader();
+    lastScrollTop = chatContainer?.scrollTop || 0;
+    scrollDirection = "none";
+    scrollDistance = 0;
+    hasTopLeft = false;
+    hasBottomLeft = false;
+    scrollHandlerInitialized = false;
+  }
 
   function getScrollInfo() {
     const scrollTop = chatContainer.scrollTop;
@@ -2611,6 +2648,10 @@ function initAlfredUI() {
       return;
     }
 
+    if (!mobileHeaderScrollReady) {
+      return;
+    }
+
     const {
       scrollTop,
       maxScroll,
@@ -2619,6 +2660,13 @@ function initAlfredUI() {
       showThreshold,
       edgeTolerance,
     } = getScrollInfo();
+
+    if (suppressNextMobileScroll) {
+      suppressNextMobileScroll = false;
+      lastScrollTop = scrollTop;
+      scrollHandlerInitialized = true;
+      return;
+    }
 
     // Always reset lastScrollTop on first real scroll to prevent jumpiness
     if (!scrollHandlerInitialized) {
@@ -2635,27 +2683,23 @@ function initAlfredUI() {
       return;
     }
 
-    const delta = scrollTop - lastScrollTop;
+    const previousScrollTop = lastScrollTop;
+    const previousDistanceFromBottom = Math.max(0, maxScroll - previousScrollTop);
+    const delta = scrollTop - previousScrollTop;
     lastScrollTop = scrollTop;
 
-    // Update guard states based on position
-    // At top: reset hasTopLeft, allow hasBottomLeft
+    // Update guard states only when we cross the protected edges. This prevents
+    // startup and programmatic scroll jumps from arming header collapse logic.
     if (scrollTop <= edgeTolerance) {
       hasTopLeft = false;
-      hasBottomLeft = true; // Can always show header when near top
-    }
-    // Past top tolerance: can now hide header
-    else if (scrollTop > edgeTolerance) {
+      hasBottomLeft = true;
+    } else if (previousScrollTop <= edgeTolerance && scrollTop > edgeTolerance) {
       hasTopLeft = true;
     }
 
-    // At bottom: reset hasBottomLeft, keep hasTopLeft
     if (distanceFromBottom <= edgeTolerance) {
       hasBottomLeft = false;
-      hasTopLeft = true; // Can always hide header when past top
-    }
-    // Past bottom tolerance: can now show header (if it was hidden)
-    else if (distanceFromBottom > edgeTolerance) {
+    } else if (previousDistanceFromBottom <= edgeTolerance && distanceFromBottom > edgeTolerance) {
       hasBottomLeft = true;
     }
 
@@ -2720,8 +2764,22 @@ function initAlfredUI() {
 
   // Restore header when focusing the composer
   messageInput.addEventListener("focus", () => {
-    if (isHeaderHidden && window.innerWidth <= MOBILE_BREAKPOINT) {
+    const wasHeaderHidden = isHeaderHidden;
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      if (wasHeaderHidden) {
+        if (focusRestoreTimeout) {
+          window.clearTimeout(focusRestoreTimeout);
+        }
+        mobileHeaderScrollReady = false;
+      }
       showHeader();
+      if (wasHeaderHidden) {
+        focusRestoreTimeout = window.setTimeout(() => {
+          focusRestoreTimeout = null;
+          mobileHeaderScrollReady = true;
+          resetMobileHeaderState();
+        }, 300);
+      }
     }
     restoreChrome();
   });
@@ -2729,19 +2787,39 @@ function initAlfredUI() {
   // Handle scroll for mobile chrome collapse
   window.addEventListener("scroll", handleScroll);
 
-  // Handle window resize to reset hidden state on desktop
+  // Handle window resize to reset hidden state on desktop. Avoid auto-scrolling on
+  // mobile, where initial resize/layout events can yank the chat container to the
+  // bottom and immediately hide the compact header before the user interacts.
   window.addEventListener("resize", () => {
-    if (window.innerWidth > MOBILE_BREAKPOINT && isHeaderHidden) {
-      showHeader();
+    if (window.innerWidth > MOBILE_BREAKPOINT) {
+      if (isHeaderHidden) {
+        showHeader();
+      }
+      scrollToBottom();
+      return;
     }
-    scrollToBottom();
+
+    resetMobileHeaderState();
   });
+
+  resetMobileHeaderState();
 
   // Connect WebSocket
   wsClient.connect();
 
-  // Focus input on load
-  messageInput.focus();
+  // Focus input on load for desktop only. On mobile, autofocus can trigger browser
+  // viewport jumps that immediately hide the compact header and obscure the top chrome.
+  if (window.innerWidth > MOBILE_BREAKPOINT) {
+    messageInput.focus();
+  }
+
+  // Initial layout work can auto-scroll the chat container on mobile; keep header
+  // collapse logic dormant briefly, then restore a visible baseline state once the
+  // startup layout settles.
+  window.setTimeout(() => {
+    mobileHeaderScrollReady = true;
+    resetMobileHeaderState();
+  }, 250);
 
   console.log("Alfred Web UI initialized");
 }
