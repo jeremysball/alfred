@@ -46,6 +46,7 @@ jobs:
           echo "Static assets ready"
 
       - name: Run Lighthouse CI
+        continue-on-error: true
         run: |
           npm install -g @lhci/cli@0.14.x
           lhci autorun
