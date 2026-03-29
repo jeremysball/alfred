@@ -51,6 +51,10 @@ jobs:
           lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          TELEGRAM_BOT_TOKEN: test
+          OPENAI_API_KEY: test
+          KIMI_API_KEY: test
+          KIMI_BASE_URL: https://api.kimi.com/coding/v1
 
       - name: Upload Lighthouse reports
         uses: actions/upload-artifact@v4
