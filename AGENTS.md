@@ -93,6 +93,15 @@ When improving a system:
 - shorten instructions when the same rule is repeated
 - move long examples into skills or docs when the main rule can stand on its own
 
+### Update Docs and Managed Prompts With Feature Work
+
+This rule applies to all feature and behavior changes.
+
+- update the relevant documentation as part of the same work
+- update managed prompts/templates when runtime behavior, memory behavior, or user-visible explanation changes
+- do not treat docs or prompts as optional follow-up cleanup
+- do not consider a feature complete until code, docs, and managed prompts agree
+
 ---
 
 ## Code Quality and Maintainability
@@ -179,11 +188,17 @@ Keep the default `uv run pytest -m "not slow"` run fast.
 
 ### Verify Before Done
 
-After code changes, run:
+After code changes, run the smallest tests that cover the surfaces you touched.
 
-```bash
-uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest -m "not slow"
-```
+- Prefer targeted unit, integration, browser, CLI, or TUI tests that exercise the changed path directly.
+- Be liberal in adding adjacent surface tests when they improve confidence.
+- Do **not** default to the full `uv run pytest -m "not slow"` sweep or the entire test suite.
+- Broaden only when the change crosses boundaries, the failure mode is unclear, or you need release-style coverage.
+
+When code changes require static checks, run the relevant one for the touched language:
+
+- Python: `uv run ruff check src/ && uv run mypy --strict src/`
+- JavaScript: `npm run js:check`
 
 If Ruff can fix issues automatically, run:
 
@@ -191,7 +206,7 @@ If Ruff can fix issues automatically, run:
 uv run ruff check src/ tests/ --fix
 ```
 
-Then re-run the full verification.
+Then re-run the relevant checks and the targeted tests for the touched surface.
 
 Run the full `uv run pytest` sweep only when you need slow coverage or final release-style verification.
 
@@ -210,8 +225,10 @@ The repository has two independent quality workflows. **Choose one per commit** 
 
 | Workflow | Files | Validation Command |
 |----------|-------|-------------------|
-| **Python** | `src/**/*.py`, `tests/**/*.py` | `uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest -m "not slow"` |
+| **Python** | `src/**/*.py`, `tests/**/*.py` | `uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest <targeted tests for touched surfaces>` |
 | **JavaScript** | `src/alfred/interfaces/webui/static/js/**/*.js` | `npm run js:check` |
+
+**Note:** For pytest, prefer targeted tests that cover the touched surface. Use the full suite only when the change is broad or you need release-style verification.
 
 **Rules:**
 1. Python-only changes → Run Python workflow only

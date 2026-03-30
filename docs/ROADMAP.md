@@ -259,6 +259,8 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 151 | Web UI Compose, Cancel, and Edit While Streaming | Add cancel/edit streaming UX in the Web UI (PRD #151) |
 | 157 | Migrate to Pygments+Mistune | Replace Rich with Pygments+Mistune for 2-5x faster TUI markdown rendering (PRD #157) |
 | 161 | Documentation Refresh | Update ARCHITECTURE.md and related docs to reflect SQLite storage, PyPiTUI/Web UI interfaces, and AlfredCore (PRD #161) |
+| 167 | Support Memory Foundation | Add typed session observations plus first-class projects, tasks, and open loops as Alfred's operational memory substrate (PRD #167) |
+| 168 | Adaptive Support Profile and Intervention Learning | Add a fixed support-dimension taxonomy, scoped runtime values, and intervention logging with bounded auto-adaptation (PRD #168) |
 | 165 | Selective Tool Outcomes and Context Viewer Fixes | Replace raw tool-call context with derived outcomes, make `/context` truthful, and fix the Web UI context component (PRD #165) |
 | 170 | Web UI Bootstrap and Script Loading Cleanup | Move Web UI startup to one deterministic app entrypoint and reduce `index.html` to a document shell (PRD #170) |
 | 171 | Web UI Browser Test Harness and Fixture Stabilization | Stabilize browser-facing fixtures, readiness seams, and targeted regressions for safe frontend refactors (PRD #171) |
@@ -277,6 +279,7 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
 | 26 | HTTP API + Cron | Local API for scheduled actions |
 | 139 | Web UI Test Fixture Realism | Replace bare MagicMock fixtures with explicit fakes and remove mock-aware Web UI shims (PRD #139) |
+| 169 | Reflection Reviews and Support Controls | Add bounded weekly/on-demand review cards plus user-visible inspection and correction of learned support memory (PRD #169) |
 | 177 | Web UI CSS Theme and Asset Ownership Cleanup | Define clear ownership for base, component, feature, theme, and asset layers in the Web UI (PRD #177) |
 | 178 | Web UI Auxiliary Subsystems Cleanup | Isolate kidcore, scrapbook, notifications, offline/PWA, drag-drop, and mobile gestures behind explicit subsystem boundaries (PRD #178) |
 
