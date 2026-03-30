@@ -17,6 +17,7 @@ class ContextViewer extends HTMLElement {
     super();
     this._data = null;
     this._expandedSections = new Set(["self-model", "token-breakdown"]);
+    this._renderSerial = 0;
   }
 
   static get observedAttributes() {
@@ -139,6 +140,42 @@ class ContextViewer extends HTMLElement {
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  _getScrollContainer() {
+    return this.querySelector(".context-viewer");
+  }
+
+  _captureScrollPosition() {
+    const scrollContainer = this._getScrollContainer();
+    if (!scrollContainer) {
+      return null;
+    }
+
+    return {
+      scrollLeft: scrollContainer.scrollLeft,
+      scrollTop: scrollContainer.scrollTop,
+    };
+  }
+
+  _restoreScrollPosition(scrollPosition, renderSerial) {
+    if (!scrollPosition) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (this._renderSerial !== renderSerial) {
+        return;
+      }
+
+      const scrollContainer = this._getScrollContainer();
+      if (!scrollContainer) {
+        return;
+      }
+
+      scrollContainer.scrollLeft = scrollPosition.scrollLeft;
+      scrollContainer.scrollTop = scrollPosition.scrollTop;
+    });
+  }
+
   _formatSystemPromptBadge(system, disabledSections) {
     const activeCount = system?.sections?.length || 0;
     const disabledCount = disabledSections?.length || 0;
@@ -160,6 +197,138 @@ class ContextViewer extends HTMLElement {
     return `${displayed} displayed / ${included} included / ${total} total messages`;
   }
 
+  _formatMemoryBadge(memories) {
+    const displayed = this._asInt(memories?.displayed, memories?.items?.length || 0);
+    const total = this._asInt(memories?.total, displayed);
+
+    if (displayed === total) {
+      return `${this._formatNumber(displayed)} ${displayed === 1 ? "memory" : "memories"}`;
+    }
+
+    return `${this._formatNumber(displayed)} displayed / ${this._formatNumber(total)} total memories`;
+  }
+
+  _formatToolCallsBadge(toolCalls) {
+    const displayed = this._asInt(
+      toolCalls?.displayed,
+      this._asInt(toolCalls?.count, toolCalls?.items?.length || 0),
+    );
+    const total = this._asInt(toolCalls?.total, displayed);
+
+    if (displayed === total) {
+      return `${this._formatNumber(displayed)} ${displayed === 1 ? "outcome" : "outcomes"}`;
+    }
+
+    return `${this._formatNumber(displayed)} displayed / ${this._formatNumber(total)} total outcomes`;
+  }
+
+  _previewText(text, maxLength = 120) {
+    const normalized = String(text ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!normalized) {
+      return "";
+    }
+
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+  }
+
+  _renderMemoryItem(memory) {
+    const preview = this._escapeHtml(
+      this._previewText(memory?.preview || memory?.content || "", 140),
+    );
+    const content = this._escapeHtml(memory?.content || "");
+    const role = this._escapeHtml(memory?.role || "unknown");
+    const timestamp = this._escapeHtml(memory?.timestamp || "");
+
+    return `
+      <details class="memory-item" open>
+        <summary class="memory-summary">
+          <div class="memory-summary-main">
+            <span class="memory-role">${role}</span>
+            <span class="memory-date">${timestamp}</span>
+          </div>
+          <div class="memory-preview">${preview}</div>
+        </summary>
+        <div class="memory-body">
+          <div class="memory-content">${content}</div>
+        </div>
+      </details>
+    `;
+  }
+
+  _renderSessionMessage(message) {
+    const preview = this._escapeHtml(this._previewText(message?.content || "", 140));
+    const role = this._escapeHtml(message?.role || "unknown");
+    const content = this._escapeHtml(message?.content || "");
+
+    return `
+      <details class="session-message ${this._escapeHtml(message?.role || "unknown")}" open>
+        <summary class="session-message-summary">
+          <div class="session-message-summary-main">
+            <span class="message-role-badge">${role}</span>
+          </div>
+          <div class="message-preview">${preview}</div>
+        </summary>
+        <div class="session-message-body">
+          <div class="message-content">${content}</div>
+        </div>
+      </details>
+    `;
+  }
+
+  _renderToolCallItem(toolCall) {
+    const status = String(toolCall?.status || "success").toLowerCase();
+    const summary = this._escapeHtml(
+      toolCall?.summary || `${toolCall?.tool_name || "tool"} activity`,
+    );
+    const toolName = this._escapeHtml(toolCall?.tool_name || "tool");
+    const argumentsValue = toolCall?.arguments || {};
+    const hasArguments = Boolean(argumentsValue && Object.keys(argumentsValue).length > 0);
+    const argumentJson = hasArguments
+      ? this._escapeHtml(JSON.stringify(argumentsValue, null, 2))
+      : "";
+    const output = this._escapeHtml(toolCall?.output || "");
+
+    return `
+      <details class="tool-call-item ${status}" open>
+        <summary class="tool-call-summary">
+          <div class="tool-call-summary-main">
+            <span class="tool-name">${toolName}</span>
+            <span class="tool-status">${this._escapeHtml(status)}</span>
+          </div>
+          <div class="tool-summary">${summary}</div>
+        </summary>
+        <div class="tool-call-body">
+          ${
+            hasArguments
+              ? `
+          <div class="tool-call-detail">
+            <div class="tool-call-detail-title">Arguments</div>
+            <div class="tool-arguments">${argumentJson}</div>
+          </div>
+        `
+              : ""
+          }
+          ${
+            output
+              ? `
+          <div class="tool-call-detail">
+            <div class="tool-call-detail-title">Output</div>
+            <div class="tool-output">${output}</div>
+          </div>
+        `
+              : ""
+          }
+        </div>
+      </details>
+    `;
+  }
+
   _render() {
     if (!this._data) {
       this.innerHTML = '<div class="context-viewer loading">Loading context...</div>';
@@ -177,6 +346,8 @@ class ContextViewer extends HTMLElement {
       blocked_context_files,
       conflicted_context_files,
     } = this._data;
+    const scrollPosition = this._captureScrollPosition();
+    const renderSerial = ++this._renderSerial;
 
     this.innerHTML = `
       <div class="context-viewer">
@@ -195,6 +366,8 @@ class ContextViewer extends HTMLElement {
         </div>
       </div>
     `;
+
+    this._restoreScrollPosition(scrollPosition, renderSerial);
   }
 
   _renderHeader() {
@@ -387,8 +560,8 @@ class ContextViewer extends HTMLElement {
   _renderTokenBreakdown(total, system, memories, session, tool_calls) {
     const isExpanded = this._expandedSections.has("token-breakdown");
     const systemTokens = system?.total_tokens || 0;
-    const memoryTokens = memories?.tokens || 0;
-    const sessionTokens = session?.tokens || 0;
+    const memoryTokens = memories?.tokens || memories?.displayed_tokens || 0;
+    const sessionTokens = session?.included_tokens ?? session?.tokens ?? 0;
     const toolTokens = tool_calls?.tokens || 0;
 
     return `
@@ -505,7 +678,7 @@ class ContextViewer extends HTMLElement {
         <div class="context-section-header" data-section="memories">
           <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
           <span class="section-title">Memories</span>
-          <span class="section-badge">${memories.displayed || 0} / ${memories.total || 0}</span>
+          <span class="section-badge">${this._formatMemoryBadge(memories)}</span>
         </div>
         ${
           isExpanded
@@ -517,19 +690,7 @@ class ContextViewer extends HTMLElement {
             <div class="memories-list">
               ${
                 memories.items?.length
-                  ? memories.items
-                      .map(
-                        (m) => `
-                <div class="memory-item">
-                  <div class="memory-content">${this._escapeHtml(m.content)}</div>
-                  <div class="memory-meta">
-                    <span class="memory-role">${m.role}</span>
-                    <span class="memory-date">${m.timestamp}</span>
-                  </div>
-                </div>
-              `,
-                      )
-                      .join("")
+                  ? memories.items.map((m) => this._renderMemoryItem(m)).join("")
                   : '<div class="empty-state">No memories loaded</div>'
               }
             </div>
@@ -557,16 +718,7 @@ class ContextViewer extends HTMLElement {
             ? `
           <div class="context-section-content">
             <div class="session-messages">
-              ${session.messages
-                .map(
-                  (m) => `
-                <div class="session-message ${m.role}">
-                  <span class="message-role-badge">${m.role}</span>
-                  <span class="message-content">${this._escapeHtml(m.content)}</span>
-                </div>
-              `,
-                )
-                .join("")}
+              ${session.messages.map((m) => this._renderSessionMessage(m)).join("")}
             </div>
           </div>
         `
@@ -577,35 +729,23 @@ class ContextViewer extends HTMLElement {
   }
 
   _renderToolCalls(tool_calls) {
-    if (!tool_calls?.count) return "";
+    if (!tool_calls?.count && !tool_calls?.items?.length) return "";
     const isExpanded = this._expandedSections.has("tool-calls");
-    const count = tool_calls.count || 0;
-    const noun = count === 1 ? "outcome" : "outcomes";
+    const badgeText = this._formatToolCallsBadge(tool_calls);
 
     return `
       <div class="context-section">
         <div class="context-section-header" data-section="tool-calls">
           <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
           <span class="section-title">Tool Activity</span>
-          <span class="section-badge">${count} ${noun}</span>
+          <span class="section-badge">${badgeText}</span>
         </div>
         ${
           isExpanded
             ? `
           <div class="context-section-content">
             <div class="tool-calls-list">
-              ${tool_calls.items
-                ?.map(
-                  (tc) => `
-                <div class="tool-call-item">
-                  <div class="tool-call-header">
-                    <span class="tool-name">${this._escapeHtml(tc.tool_name || "tool")}</span>
-                  </div>
-                  <div class="tool-summary">${this._escapeHtml(tc.summary || `${tc.tool_name || "tool"} activity`)}</div>
-                </div>
-              `,
-                )
-                .join("")}
+              ${tool_calls.items?.map((tc) => this._renderToolCallItem(tc)).join("") || '<div class="empty-state">No tool activity recorded</div>'}
             </div>
           </div>
         `

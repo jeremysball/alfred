@@ -319,16 +319,6 @@ Users often share screenshots via indirect links (gallery pages) rather than dir
 
 Then use the `read` tool on the downloaded file to view the image.
 
-### Notify on Long-Running or Blocking Events
-
-Send ntfy notifications to `ntfy.sh/pi-agent-prometheus` for:
-- long-running task completion
-- user input needed
-- workflow milestones
-- blocking errors
-
-Do not notify for simple reads, quick acknowledgments, or intermediate progress noise.
-
 ---
 
 ## PRD Workflow

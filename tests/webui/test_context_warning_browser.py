@@ -193,23 +193,75 @@ async def test_browser_context_viewer_renders_truthful_section_counts() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.slow
-async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
+async def test_browser_context_viewer_uses_theme_tokens_and_exposes_full_details() -> None:
     port = _find_free_port()
     fake_alfred = FakeAlfred()
+    long_memory = (
+        "Remember that the context sheet should use the same panel language as the rest of the UI, "
+        "and that long content must stay readable without ellipses or clipped cards."
+    )
+    long_session_message = (
+        "The session preview needs to tell the truth about what is shown, what is included, and what is total. "
+        "The user should not have to guess whether the sheet is hiding anything."
+    )
+    long_tool_output = (
+        "Line one of output\n"
+        "Line two of output with a little more detail\n"
+        "Line three of output that would normally be truncated in a cramped sheet."
+    )
     context_data = {
-        "system_prompt": {"sections": [], "total_tokens": 0},
+        "system_prompt": {
+            "sections": [
+                {"id": "system", "name": "SYSTEM.md", "label": "SYSTEM.md", "tokens": 12},
+                {"id": "agents", "name": "AGENTS.md", "label": "AGENTS.md", "tokens": 18},
+            ],
+            "total_tokens": 30,
+        },
         "blocked_context_files": [],
         "conflicted_context_files": [],
-        "disabled_sections": [],
+        "disabled_sections": ["TOOLS"],
         "warnings": [],
-        "memories": {"displayed": 0, "total": 0, "items": [], "tokens": 0},
+        "memories": {
+            "displayed": 2,
+            "total": 2,
+            "displayed_tokens": 34,
+            "items": [
+                {
+                    "content": long_memory,
+                    "preview": long_memory[:120],
+                    "role": "user",
+                    "timestamp": "2026-03-29",
+                    "tokens": 34,
+                },
+                {
+                    "content": "A second memory that confirms the sheet should keep full output visible.",
+                    "preview": "A second memory that confirms the sheet should keep full output visible.",
+                    "role": "assistant",
+                    "timestamp": "2026-03-29",
+                    "tokens": 17,
+                },
+            ],
+            "tokens": 51,
+            "all_shown": True,
+        },
         "session_history": {
-            "count": 0,
-            "displayed": 0,
-            "included": 0,
-            "total": 0,
-            "messages": [],
-            "tokens": 0,
+            "count": 2,
+            "displayed": 2,
+            "displayed_tokens": 30,
+            "included": 5,
+            "included_tokens": 78,
+            "total": 8,
+            "messages": [
+                {"role": "user", "content": long_session_message},
+                {"role": "assistant", "content": "A short acknowledgement that still needs to be visible."},
+            ],
+            "tokens": 78,
+        },
+        "self_model": {
+            "identity": {"name": "Alfred", "role": "Assistant"},
+            "runtime": {"interface": "cli", "session_id": "browser-session", "daemon_mode": False},
+            "capabilities": {"memory_enabled": True, "search_enabled": True, "tools_count": 4, "tools": ["read", "write", "bash"]},
+            "context_pressure": {"message_count": 8, "memory_count": 2, "approximate_tokens": 482},
         },
         "tool_calls": {
             "count": 2,
@@ -222,7 +274,7 @@ async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
                     "tokens": 8,
                     "status": "success",
                     "arguments": {"command": "python -V"},
-                    "output": "RAW_TOOL_OUTPUT_SHOULD_NOT_SHOW",
+                    "output": long_tool_output,
                 },
                 {
                     "tool_name": "write",
@@ -230,13 +282,14 @@ async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
                     "tokens": 4,
                     "status": "success",
                     "arguments": {"path": "tests/module_test.py"},
-                    "output": "RAW_WRITE_OUTPUT_SHOULD_NOT_SHOW",
+                    "output": "Created tests/module_test.py successfully.",
                 },
             ],
             "tokens": 12,
+            "displayed_tokens": 12,
             "all_shown": True,
         },
-        "total_tokens": 12,
+        "total_tokens": 171,
     }
 
     config = uvicorn.Config(
@@ -263,6 +316,12 @@ async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
                     timeout=10000,
                 )
 
+                await page.evaluate("""
+                    () => {
+                      document.documentElement.setAttribute('data-theme', 'spacejam-neocities');
+                    }
+                """)
+
                 await page.fill('#message-input', '/context')
                 await page.click('#send-button')
                 await page.wait_for_function(
@@ -271,28 +330,222 @@ async def test_browser_context_viewer_shows_compact_tool_outcomes() -> None:
                 )
 
                 viewer = page.locator('context-viewer').last
-                tool_header = viewer.locator('.context-section-header[data-section="tool-calls"]')
+                system_badge = viewer.locator('.context-section-header[data-section="system-prompt"] .section-badge')
+                memories_badge = viewer.locator('.context-section-header[data-section="memories"] .section-badge')
+                session_badge = viewer.locator('.context-section-header[data-section="session-history"] .section-badge')
+                tool_badge = viewer.locator('.context-section-header[data-section="tool-calls"] .section-badge')
+                memory_items = viewer.locator('.memory-item')
+                session_messages = viewer.locator('.session-message')
                 tool_items = viewer.locator('.tool-call-item')
-                tool_summaries = viewer.locator('.tool-summary')
+                memory_summary_mains = viewer.locator('.memory-summary-main')
+                session_summary_mains = viewer.locator('.session-message-summary-main')
+                tool_summary_mains = viewer.locator('.tool-call-summary-main')
                 tool_arguments = viewer.locator('.tool-arguments')
                 tool_outputs = viewer.locator('.tool-output')
 
-                await tool_header.click()
-                await tool_items.first.wait_for(state='attached', timeout=10000)
+                assert (await system_badge.text_content() or '').strip() == '2 active / 1 disabled'
+                assert (await memories_badge.text_content() or '').strip() == '2 memories'
+                assert (await session_badge.text_content() or '').strip() == '2 displayed / 5 included / 8 total messages'
+                assert (await tool_badge.text_content() or '').strip() == '2 outcomes'
 
+                await page.evaluate(
+                    """
+                    () => {
+                      document.querySelector('context-viewer .context-section-header[data-section="memories"]')?.click();
+                    }
+                    """
+                )
+                await page.evaluate(
+                    """
+                    () => {
+                      document.querySelector('context-viewer .context-section-header[data-section="session-history"]')?.click();
+                    }
+                    """
+                )
+                await page.evaluate(
+                    """
+                    () => {
+                      document.querySelector('context-viewer .context-section-header[data-section="tool-calls"]')?.click();
+                    }
+                    """
+                )
+
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer .memory-item').length === 2",
+                    timeout=10000,
+                )
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer .session-message').length === 2",
+                    timeout=10000,
+                )
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('context-viewer .tool-call-item').length === 2",
+                    timeout=10000,
+                )
+
+                assert await memory_items.count() == 2
+                assert await session_messages.count() == 2
                 assert await tool_items.count() == 2
-                assert await tool_summaries.count() == 2
-                assert await tool_arguments.count() == 0
-                assert await tool_outputs.count() == 0
+                assert await memory_summary_mains.count() == 2
+                assert await session_summary_mains.count() == 2
+                assert await tool_summary_mains.count() == 2
+                assert await tool_arguments.count() == 2
+                assert await tool_outputs.count() == 2
 
+                first_tool_item = viewer.locator('.tool-call-item').first
+                first_tool_summary = first_tool_item.locator('.tool-call-summary')
+
+                assert await first_tool_item.get_attribute('open') is not None
+                await first_tool_summary.evaluate("(element) => element.click()")
+                await page.wait_for_function(
+                    "() => !document.querySelector('context-viewer .tool-call-item')?.hasAttribute('open')",
+                    timeout=10000,
+                )
+                await first_tool_summary.evaluate("(element) => element.click()")
+                await page.wait_for_function(
+                    "() => document.querySelector('context-viewer .tool-call-item')?.hasAttribute('open')",
+                    timeout=10000,
+                )
+
+                viewer_style = await page.evaluate(
+                    """
+                    () => {
+                      const probe = document.createElement('div');
+                      probe.style.cssText = 'position: fixed; left: -9999px; top: -9999px; background: var(--surface-panel-bg); border: 1px solid var(--surface-panel-border); color: var(--surface-panel-header-text);';
+                      document.body.appendChild(probe);
+
+                      const viewer = document.querySelector('context-viewer .context-viewer');
+                      const probeStyle = getComputedStyle(probe);
+                      const viewerStyle = viewer ? getComputedStyle(viewer) : null;
+
+                      return {
+                        probeBg: probeStyle.backgroundColor,
+                        probeBorder: probeStyle.borderTopColor,
+                        probeText: probeStyle.color,
+                        viewerBg: viewerStyle ? viewerStyle.backgroundColor : '',
+                        viewerBorder: viewerStyle ? viewerStyle.borderTopColor : '',
+                        viewerText: viewerStyle ? viewerStyle.color : '',
+                      };
+                    }
+                    """
+                )
+
+                assert viewer_style['viewerBg'] == viewer_style['probeBg']
+                assert viewer_style['viewerBorder'] == viewer_style['probeBorder']
+                assert viewer_style['viewerText'] == viewer_style['probeText']
+
+                tool_surface_style = await page.evaluate(
+                    """
+                    () => {
+                      const viewer = document.querySelector('context-viewer .context-viewer');
+                      const toolItem = viewer?.querySelector('.tool-call-item');
+                      const memoryItem = viewer?.querySelector('.memory-item');
+                      const sessionItem = viewer?.querySelector('.session-message');
+
+                      if (!viewer || !toolItem || !memoryItem || !sessionItem) {
+                        return null;
+                      }
+
+                      const metrics = (element, selector) => {
+                        const target = selector ? element.querySelector(selector) : element;
+                        if (!target) {
+                          return null;
+                        }
+
+                        const style = getComputedStyle(target);
+                        return {
+                          alignItems: style.alignItems,
+                          backgroundColor: style.backgroundColor,
+                          borderLeftWidth: style.borderLeftWidth,
+                          borderRadius: style.borderRadius,
+                          color: style.color,
+                          display: style.display,
+                          flexDirection: style.flexDirection,
+                          fontFamily: style.fontFamily,
+                          fontSize: style.fontSize,
+                          gap: style.gap,
+                          lineHeight: style.lineHeight,
+                          paddingBottom: style.paddingBottom,
+                          paddingLeft: style.paddingLeft,
+                          paddingRight: style.paddingRight,
+                          paddingTop: style.paddingTop,
+                        };
+                      };
+
+                      return {
+                        toolCard: metrics(toolItem),
+                        memoryCard: metrics(memoryItem),
+                        sessionCard: metrics(sessionItem),
+                        toolSummary: metrics(toolItem, '.tool-call-summary'),
+                        memorySummary: metrics(memoryItem, '.memory-summary'),
+                        sessionSummary: metrics(sessionItem, '.session-message-summary'),
+                        toolSummaryMain: metrics(toolItem, '.tool-call-summary-main'),
+                        memorySummaryMain: metrics(memoryItem, '.memory-summary-main'),
+                        sessionSummaryMain: metrics(sessionItem, '.session-message-summary-main'),
+                        toolBody: metrics(toolItem, '.tool-call-body'),
+                        memoryBody: metrics(memoryItem, '.memory-body'),
+                        sessionBody: metrics(sessionItem, '.session-message-body'),
+                        toolContent: metrics(toolItem, '.tool-output'),
+                        memoryContent: metrics(memoryItem, '.memory-content'),
+                        sessionContent: metrics(sessionItem, '.message-content'),
+                      };
+                    }
+                    """
+                )
+
+                assert tool_surface_style is not None
+
+                assert tool_surface_style['toolCard']['backgroundColor'] == tool_surface_style['memoryCard']['backgroundColor'] == tool_surface_style['sessionCard']['backgroundColor']
+                assert tool_surface_style['toolCard']['borderRadius'] == tool_surface_style['memoryCard']['borderRadius'] == tool_surface_style['sessionCard']['borderRadius']
+                assert tool_surface_style['toolCard']['borderLeftWidth'] == tool_surface_style['memoryCard']['borderLeftWidth'] == tool_surface_style['sessionCard']['borderLeftWidth'] == '3px'
+                assert tool_surface_style['toolCard']['display'] == tool_surface_style['memoryCard']['display'] == tool_surface_style['sessionCard']['display'] == 'block'
+                assert tool_surface_style['toolCard']['paddingTop'] == tool_surface_style['memoryCard']['paddingTop'] == tool_surface_style['sessionCard']['paddingTop'] == '0px'
+                assert tool_surface_style['toolCard']['paddingBottom'] == tool_surface_style['memoryCard']['paddingBottom'] == tool_surface_style['sessionCard']['paddingBottom'] == '0px'
+                assert tool_surface_style['toolCard']['paddingLeft'] == tool_surface_style['memoryCard']['paddingLeft'] == tool_surface_style['sessionCard']['paddingLeft'] == '0px'
+                assert tool_surface_style['toolCard']['paddingRight'] == tool_surface_style['memoryCard']['paddingRight'] == tool_surface_style['sessionCard']['paddingRight'] == '0px'
+
+                assert tool_surface_style['toolSummary']['backgroundColor'] == tool_surface_style['memorySummary']['backgroundColor'] == tool_surface_style['sessionSummary']['backgroundColor']
+                assert tool_surface_style['toolSummary']['color'] == tool_surface_style['memorySummary']['color'] == tool_surface_style['sessionSummary']['color']
+                assert tool_surface_style['toolSummary']['display'] == tool_surface_style['memorySummary']['display'] == tool_surface_style['sessionSummary']['display'] == 'flex'
+                assert tool_surface_style['toolSummary']['flexDirection'] == tool_surface_style['memorySummary']['flexDirection'] == tool_surface_style['sessionSummary']['flexDirection'] == 'column'
+                assert tool_surface_style['toolSummary']['alignItems'] == tool_surface_style['memorySummary']['alignItems'] == tool_surface_style['sessionSummary']['alignItems'] == 'stretch'
+                assert tool_surface_style['toolSummary']['gap'] == tool_surface_style['memorySummary']['gap'] == tool_surface_style['sessionSummary']['gap']
+                assert tool_surface_style['toolSummary']['paddingTop'] == tool_surface_style['memorySummary']['paddingTop'] == tool_surface_style['sessionSummary']['paddingTop']
+                assert tool_surface_style['toolSummary']['paddingBottom'] == tool_surface_style['memorySummary']['paddingBottom'] == tool_surface_style['sessionSummary']['paddingBottom']
+                assert tool_surface_style['toolSummary']['paddingLeft'] == tool_surface_style['memorySummary']['paddingLeft'] == tool_surface_style['sessionSummary']['paddingLeft']
+                assert tool_surface_style['toolSummary']['paddingRight'] == tool_surface_style['memorySummary']['paddingRight'] == tool_surface_style['sessionSummary']['paddingRight']
+
+                assert tool_surface_style['toolSummaryMain']['display'] == tool_surface_style['memorySummaryMain']['display'] == tool_surface_style['sessionSummaryMain']['display'] == 'flex'
+                assert tool_surface_style['toolSummaryMain']['alignItems'] == tool_surface_style['memorySummaryMain']['alignItems'] == tool_surface_style['sessionSummaryMain']['alignItems'] == 'center'
+                assert tool_surface_style['toolSummaryMain']['gap'] == tool_surface_style['memorySummaryMain']['gap'] == tool_surface_style['sessionSummaryMain']['gap']
+
+                assert tool_surface_style['toolBody']['display'] == tool_surface_style['memoryBody']['display'] == tool_surface_style['sessionBody']['display'] == 'flex'
+                assert tool_surface_style['toolBody']['flexDirection'] == tool_surface_style['memoryBody']['flexDirection'] == tool_surface_style['sessionBody']['flexDirection'] == 'column'
+                assert tool_surface_style['toolBody']['gap'] == tool_surface_style['memoryBody']['gap'] == tool_surface_style['sessionBody']['gap']
+                assert tool_surface_style['toolBody']['paddingTop'] == tool_surface_style['memoryBody']['paddingTop'] == tool_surface_style['sessionBody']['paddingTop']
+                assert tool_surface_style['toolBody']['paddingBottom'] == tool_surface_style['memoryBody']['paddingBottom'] == tool_surface_style['sessionBody']['paddingBottom']
+                assert tool_surface_style['toolBody']['paddingLeft'] == tool_surface_style['memoryBody']['paddingLeft'] == tool_surface_style['sessionBody']['paddingLeft']
+                assert tool_surface_style['toolBody']['paddingRight'] == tool_surface_style['memoryBody']['paddingRight'] == tool_surface_style['sessionBody']['paddingRight']
+
+                assert tool_surface_style['toolContent']['backgroundColor'] == tool_surface_style['memoryContent']['backgroundColor'] == tool_surface_style['sessionContent']['backgroundColor']
+                assert tool_surface_style['toolContent']['fontFamily'] == tool_surface_style['memoryContent']['fontFamily'] == tool_surface_style['sessionContent']['fontFamily']
+                assert tool_surface_style['toolContent']['fontSize'] == tool_surface_style['memoryContent']['fontSize'] == tool_surface_style['sessionContent']['fontSize']
+                assert tool_surface_style['toolContent']['lineHeight'] == tool_surface_style['memoryContent']['lineHeight'] == tool_surface_style['sessionContent']['lineHeight']
+                assert tool_surface_style['toolContent']['color'] == tool_surface_style['memoryContent']['color'] == tool_surface_style['sessionContent']['color']
+
+                memory_text = await viewer.locator('.memory-item').first.text_content()
+                session_text = await viewer.locator('.session-message').first.text_content()
                 tool_text = await viewer.locator('.tool-calls-list').text_content()
+
+                assert memory_text is not None
+                assert long_memory in memory_text
+                assert session_text is not None
+                assert long_session_message in session_text
                 assert tool_text is not None
-                assert 'bash: python -V exited 0' in tool_text
-                assert 'write: created tests/module_test.py' in tool_text
-                assert 'RAW_TOOL_OUTPUT_SHOULD_NOT_SHOW' not in tool_text
-                assert 'RAW_WRITE_OUTPUT_SHOULD_NOT_SHOW' not in tool_text
-                assert 'command:' not in tool_text
-                assert 'path:' not in tool_text
+                assert 'Line one of output' in tool_text
+                assert 'Line three of output that would normally be truncated in a cramped sheet.' in tool_text
+                assert '"command": "python -V"' in tool_text
+                assert '"path": "tests/module_test.py"' in tool_text
                 await browser.close()
     finally:
         server.should_exit = True

@@ -3420,3 +3420,126 @@ debug-panel:not([open]) {
     align-items: center;
     gap: 0.25rem;
 }
+
+/* ============================================
+   Rich output surfaces - theme-aware overrides
+   ============================================ */
+
+.session-list-header {
+    border-bottom: 1px solid var(--surface-panel-border, var(--session-border, #333));
+}
+
+.session-list-header h3 {
+    color: var(--surface-panel-header-text, var(--session-header-text, #e0e0e0));
+}
+
+.session-count {
+    background: var(--surface-panel-header-bg, var(--session-card-bg, #252525));
+    border: 1px solid var(--surface-panel-border, var(--session-border, #333));
+    color: var(--surface-panel-header-text, var(--session-meta-text, #888));
+}
+
+.session-card {
+    background: var(--surface-panel-bg, var(--session-card-bg, #252525));
+    border: 1px solid var(--surface-panel-border, var(--session-border, #333));
+    box-shadow: var(--surface-panel-shadow, none);
+}
+
+.session-card:hover,
+.session-card:focus {
+    background: var(--surface-panel-header-bg, var(--session-card-hover, #2a2a2a));
+    border-color: var(--surface-panel-border, var(--session-accent, #4fc3f7));
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--surface-panel-border, var(--session-accent, #4fc3f7)) 28%, transparent);
+}
+
+.session-id {
+    color: var(--surface-panel-header-text, var(--session-accent, #4fc3f7));
+}
+
+.session-time,
+.session-messages,
+.session-action,
+.session-list-empty {
+    color: var(--surface-panel-header-text, var(--session-meta-text, #888));
+}
+
+.session-card-footer .session-action {
+    color: var(--surface-panel-header-text, var(--session-action-text, #666));
+}
+
+.session-card:hover .session-action {
+    color: var(--surface-panel-header-text, var(--session-accent, #4fc3f7));
+}
+
+.tool-call {
+    background: var(--surface-panel-bg, var(--ui-panel-bg, var(--bg-secondary, #1e1e1e)));
+    border: 1px solid var(--surface-panel-border, var(--ui-panel-border, var(--border-color, #333)));
+    border-radius: 0.9rem;
+    box-shadow: var(--surface-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.18));
+    overflow: hidden;
+}
+
+.tool-call.running {
+    animation: none;
+}
+
+.tool-button {
+    width: 100%;
+    justify-content: space-between;
+    color: var(--surface-panel-header-text, var(--ui-panel-text, var(--text-primary, #e0e0e0)));
+    background: var(--surface-panel-header-bg, var(--ui-panel-header-bg, var(--bg-tertiary, #252525)));
+    border-color: var(--surface-panel-border, var(--ui-panel-border, var(--border-color, #333)));
+}
+
+.tool-button:hover,
+.tool-button:focus {
+    background: var(--ui-hover-bg, rgba(255, 255, 255, 0.08));
+    border-color: var(--surface-panel-border, var(--ui-panel-accent, #4fc3f7));
+}
+
+.tool-args,
+.tool-toggle,
+.tool-status-icon {
+    color: var(--surface-panel-header-text, var(--text-muted, #888));
+}
+
+.tool-call.running .tool-status-icon,
+.tool-call.success .tool-status-icon,
+.tool-call.error .tool-status-icon {
+    animation: none;
+}
+
+.tool-content {
+    background: var(--surface-panel-bg, var(--code-bg, rgba(0, 0, 0, 0.2)));
+    border-left-color: var(--surface-panel-border, var(--border-subtle, rgba(255, 255, 255, 0.1)));
+}
+
+.tool-arguments strong,
+.tool-output strong {
+    color: var(--surface-panel-header-text, #888);
+}
+
+.tool-arguments pre,
+.tool-output pre,
+.tool-write-content,
+.tool-bash-command,
+.tool-content-preview,
+.tool-edit-old,
+.tool-edit-new,
+.tool-fact-box,
+.tool-remember-content {
+    background: var(--surface-panel-bg, rgba(0, 0, 0, 0.2));
+    color: var(--surface-panel-header-text, #e0e0e0);
+    border-color: var(--surface-panel-border, rgba(255, 255, 255, 0.08));
+}
+
+.tool-badge {
+    background: var(--surface-panel-header-bg, rgba(255, 255, 255, 0.1));
+    color: var(--surface-panel-header-text, #e0e0e0);
+    border: 1px solid var(--surface-panel-border, rgba(255, 255, 255, 0.08));
+}
+
+.tool-badge-permanent {
+    background: color-mix(in srgb, var(--surface-panel-border, #4caf50) 20%, transparent);
+    color: var(--surface-panel-header-text, #81c784);
+}

@@ -5,7 +5,7 @@
  * Scope: Static asset caching only (message queuing deferred to post-MVP)
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE_NAME = `alfred-static-${CACHE_VERSION}`;
 
 /**

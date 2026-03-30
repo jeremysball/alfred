@@ -240,6 +240,10 @@ async def test_get_context_display_reports_session_history_preview_and_total() -
     assert session_history["included"] == 8
     assert session_history["total"] == 9
     assert len(session_history["messages"]) == 5
+    assert session_history["displayed_tokens"] == sum(len(content) // 4 for _, content in preview_messages[-5:])
+    assert session_history["included_tokens"] == sum(len(content) // 4 for _, content in preview_messages)
+    assert session_history["tokens"] == session_history["included_tokens"]
+    assert session_history["displayed_tokens"] < session_history["included_tokens"]
     assert [message["content"] for message in session_history["messages"]] == [
         "Preview 3",
         "Preview 4",
@@ -336,17 +340,25 @@ async def test_get_context_display_reports_compact_tool_outcomes() -> None:
     result = await get_context_display(fake_alfred, session_id="session-123")
 
     tool_calls = result["tool_calls"]
-    assert tool_calls["count"] == 3
-    assert tool_calls["displayed"] == 3
+    assert tool_calls["count"] == 4
+    assert tool_calls["displayed"] == 4
     assert tool_calls["total"] == 4
-    assert tool_calls["all_shown"] is False
+    assert tool_calls["all_shown"] is True
     assert tool_calls["tokens"] == sum(item["tokens"] for item in tool_calls["items"])
-    assert [item["tool_name"] for item in tool_calls["items"]] == ["bash", "edit", "write"]
-    assert tool_calls["items"][0]["summary"].startswith("bash: python -V exited 0")
-    assert tool_calls["items"][0]["summary"].endswith("…")
-    assert tool_calls["items"][1]["summary"] == "edit: updated src/module.py"
-    assert tool_calls["items"][2]["summary"] == "write: created tests/module_test.py"
-    assert all("arguments" not in item and "output" not in item for item in tool_calls["items"])
+    assert [item["tool_name"] for item in tool_calls["items"]] == ["read", "bash", "edit", "write"]
+    assert tool_calls["items"][0]["summary"] == "read: docs/roadmap.md"
+    assert tool_calls["items"][0]["arguments"]["path"].endswith("docs/roadmap.md")
+    assert tool_calls["items"][0]["output"] == "roadmap contents"
+    assert tool_calls["items"][1]["summary"].startswith("bash: python -V exited 0")
+    assert tool_calls["items"][1]["summary"].endswith("…")
+    assert tool_calls["items"][1]["arguments"]["command"] == "python -V"
+    assert tool_calls["items"][1]["output"] == "x" * 300
+    assert tool_calls["items"][2]["summary"] == "edit: updated src/module.py"
+    assert tool_calls["items"][2]["arguments"]["path"].endswith("src/module.py")
+    assert tool_calls["items"][2]["output"] == "updated file"
+    assert tool_calls["items"][3]["summary"] == "write: created tests/module_test.py"
+    assert tool_calls["items"][3]["arguments"]["path"].endswith("tests/module_test.py")
+    assert tool_calls["items"][3]["output"] == "created file"
 
 
 @pytest.mark.asyncio

@@ -37,6 +37,8 @@ class ContextMenu {
     this.container.className = "context-menu";
     this.container.setAttribute("role", "menu");
     this.container.setAttribute("aria-label", "Context menu");
+    this.container.setAttribute("tabindex", "-1");
+    this.container.dataset.layout = this._shouldUseSheetLayout() ? "sheet" : "popover";
     this.container.style.display = "none";
     this.container.style.position = "fixed";
     this.container.style.zIndex = "10001";
@@ -57,6 +59,14 @@ class ContextMenu {
     document.body.appendChild(this.container);
   }
 
+  _shouldUseSheetLayout() {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+
+    return window.matchMedia("(max-width: 640px)").matches;
+  }
+
   /**
    * Show the context menu
    * @param {Object} options
@@ -75,9 +85,11 @@ class ContextMenu {
 
     this.createDOM();
     this.render();
-    this.position(x, y);
 
     this.container.style.display = "block";
+    this.container.style.visibility = "hidden";
+    this.position(x, y);
+    this.container.style.visibility = "visible";
     this.isOpen = true;
 
     // Add event listeners
@@ -97,6 +109,16 @@ class ContextMenu {
    * @private
    */
   position(x, y) {
+    if (this.container.dataset.layout === "sheet") {
+      this.container.style.left = "0.5rem";
+      this.container.style.right = "0.5rem";
+      this.container.style.top = "auto";
+      this.container.style.bottom = "calc(0.5rem + env(safe-area-inset-bottom, 0px))";
+      this.container.style.width = "auto";
+      this.container.style.maxHeight = "min(68vh, 42rem)";
+      return;
+    }
+
     const menuRect = this.container.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -120,6 +142,9 @@ class ContextMenu {
 
     this.container.style.left = `${left}px`;
     this.container.style.top = `${top}px`;
+    this.container.style.right = "auto";
+    this.container.style.bottom = "auto";
+    this.container.style.maxHeight = "";
   }
 
   /**

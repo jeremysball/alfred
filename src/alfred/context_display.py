@@ -4,12 +4,14 @@ Provides functionality to gather and format system context information
 for user inspection via the /context command.
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from alfred.context import SYSTEM_PROMPT_SECTION_LABELS, SYSTEM_PROMPT_SECTION_ORDER
-from alfred.context_outcomes import collect_tool_outcomes
+from alfred.context_outcomes import summarize_tool_call_record
 
 if TYPE_CHECKING:
     from alfred.alfred import Alfred
@@ -20,6 +22,16 @@ logger = logging.getLogger(__name__)
 def _estimate_tokens(text: str) -> int:
     """Estimate token count from character count (4 chars ≈ 1 token)."""
     return len(text) // 4
+
+
+def _preview_text(text: str, max_length: int = 120) -> str:
+    """Return a compact preview of text for summary displays."""
+    normalized = " ".join(str(text or "").split()).strip()
+    if not normalized:
+        return ""
+    if len(normalized) <= max_length:
+        return normalized
+    return normalized[: max(0, max_length - 1)].rstrip() + "…"
 
 
 def _context_file_name(file: Any) -> str:
@@ -42,7 +54,7 @@ def _context_file_identifier(file: Any) -> str:
     return ""
 
 
-async def get_context_display(alfred: "Alfred", session_id: str | None = None) -> dict[str, Any]:
+async def get_context_display(alfred: Alfred, session_id: str | None = None) -> dict[str, Any]:
     """Get current context information for /context command.
 
     Args:
@@ -121,46 +133,60 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
     else:
         full_messages = []
 
-    # Get recent compact tool outcomes from session
-    workspace_dir = getattr(getattr(alfred.context_loader, "config", None), "workspace_dir", None)
-    recent_tool_outcomes = collect_tool_outcomes(
-        full_messages,
-        max_calls=3,
-        workspace_dir=workspace_dir,
-        max_output_chars=120,
-    )
-    total_tool_calls = sum(len(getattr(msg, "tool_calls", []) or []) for msg in full_messages)
-    tool_call_tokens = sum(outcome.tokens for outcome in recent_tool_outcomes)
-    recent_tool_calls = [
-        {
-            "tool_name": outcome.tool_name,
-            "summary": outcome.summary,
-            "tokens": outcome.tokens,
-        }
-        for outcome in recent_tool_outcomes
-    ]
-
-    # Format session messages for display
     display_messages = [
-        {"role": role, "content": content[:200] + "..." if len(content) > 200 else content}
+        {"role": role, "content": content}
         for role, content in session_messages[-5:]  # Last 5 messages
     ]
+    session_displayed_tokens = sum(_estimate_tokens(message["content"]) for message in display_messages)
+    session_included_tokens = sum(_estimate_tokens(content) for _, content in session_messages)
 
-    session_included = len(session_messages)
-    session_tokens = sum(_estimate_tokens(m["content"]) for m in display_messages)
+    # Collect all tool calls from the session for display. These are separate from the
+    # compact prompt-context tool outcomes and are allowed to show raw details.
+    tool_call_records: list[Any] = []
+    for message in full_messages:
+        message_tool_calls = getattr(message, "tool_calls", None) or []
+        tool_call_records.extend(message_tool_calls)
 
-    # Format all memories with full content (no truncation)
-    memory_display = []
-    for mem in all_memories:
-        memory_display.append(
+    tool_call_items = []
+    tool_call_tokens = 0
+    workspace_dir = getattr(getattr(alfred.context_loader, "config", None), "workspace_dir", None)
+    for tool_call in tool_call_records:
+        outcome = summarize_tool_call_record(
+            tool_call,
+            workspace_dir=workspace_dir,
+            max_output_chars=120,
+        )
+        tool_call_tokens += outcome.tokens
+        tool_call_items.append(
             {
-                "content": mem.content,
-                "role": mem.role,
-                "timestamp": mem.timestamp.isoformat()[:10],  # Just date
+                "tool_name": outcome.tool_name,
+                "summary": outcome.summary,
+                "tokens": outcome.tokens,
+                "status": getattr(tool_call, "status", "success"),
+                "arguments": getattr(tool_call, "arguments", {}) or {},
+                "output": getattr(tool_call, "output", "") or "",
+                "tool_call_id": getattr(tool_call, "tool_call_id", ""),
+                "sequence": getattr(tool_call, "sequence", 0),
             }
         )
 
-    memory_tokens = sum(_estimate_tokens(m.content) for m in all_memories)
+    total_tool_calls = len(tool_call_items)
+
+    # Format all memories with full content (no truncation)
+    memory_display = []
+    memory_tokens = 0
+    for mem in all_memories:
+        content = getattr(mem, "content", "") or ""
+        memory_tokens += _estimate_tokens(content)
+        memory_display.append(
+            {
+                "content": content,
+                "preview": _preview_text(content, 140),
+                "role": mem.role,
+                "timestamp": mem.timestamp.isoformat()[:10],  # Just date
+                "tokens": _estimate_tokens(content),
+            }
+        )
 
     # Get self-model for display
     logger.debug("get_context_display: building self-model for context display")
@@ -195,13 +221,13 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
         },
     }
 
-    total_tokens = total_system_tokens + memory_tokens + session_tokens + tool_call_tokens
+    total_tokens = total_system_tokens + memory_tokens + session_included_tokens + tool_call_tokens
 
     logger.debug(
         "get_context_display: complete - system_tokens=%d, memory_tokens=%d, session_tokens=%d, tool_tokens=%d, total=%d",
         total_system_tokens,
         memory_tokens,
-        session_tokens,
+        session_included_tokens,
         tool_call_tokens,
         total_tokens,
     )
@@ -223,23 +249,27 @@ async def get_context_display(alfred: "Alfred", session_id: str | None = None) -
             "total": len(all_memories),
             "items": memory_display,
             "tokens": memory_tokens,
+            "displayed_tokens": memory_tokens,
             "all_shown": len(memory_display) == len(all_memories),
         },
         "session_history": {
             "count": session_displayed,
             "displayed": session_displayed,
-            "included": session_included,
+            "included": len(session_messages),
             "total": session_total,
             "messages": display_messages,
-            "tokens": session_tokens,
+            "displayed_tokens": session_displayed_tokens,
+            "included_tokens": session_included_tokens,
+            "tokens": session_included_tokens,
         },
         "tool_calls": {
-            "count": len(recent_tool_calls),
-            "displayed": len(recent_tool_calls),
+            "count": len(tool_call_items),
+            "displayed": len(tool_call_items),
             "total": total_tool_calls,
-            "items": recent_tool_calls,
+            "items": tool_call_items,
             "tokens": tool_call_tokens,
-            "all_shown": len(recent_tool_calls) == total_tool_calls,
+            "displayed_tokens": tool_call_tokens,
+            "all_shown": len(tool_call_items) == total_tool_calls,
         },
         "self_model": self_model_display,
         "total_tokens": total_tokens,
