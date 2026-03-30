@@ -260,6 +260,13 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 157 | Migrate to Pygments+Mistune | Replace Rich with Pygments+Mistune for 2-5x faster TUI markdown rendering (PRD #157) |
 | 161 | Documentation Refresh | Update ARCHITECTURE.md and related docs to reflect SQLite storage, PyPiTUI/Web UI interfaces, and AlfredCore (PRD #161) |
 | 165 | Selective Tool Outcomes and Context Viewer Fixes | Replace raw tool-call context with derived outcomes, make `/context` truthful, and fix the Web UI context component (PRD #165) |
+| 170 | Web UI Bootstrap and Script Loading Cleanup | Move Web UI startup to one deterministic app entrypoint and reduce `index.html` to a document shell (PRD #170) |
+| 171 | Web UI Browser Test Harness and Fixture Stabilization | Stabilize browser-facing fixtures, readiness seams, and targeted regressions for safe frontend refactors (PRD #171) |
+| 172 | Web UI State and Event-Flow Extraction | Introduce a lightweight app state/event layer for session, composer, queue, and connection behavior (PRD #172) |
+| 173 | Web UI WebSocket and Connection Status Service Cleanup | Separate transport lifecycle and connection-status UI behind a cleaner app-facing service boundary (PRD #173) |
+| 174 | main.js Decomposition into Domain Controllers | Split the monolithic Web UI runtime into focused controllers with a thin top-level shell (PRD #174) |
+| 175 | Chat Message Component Decomposition | Break `chat-message` into smaller state, renderer, action, and adapter modules (PRD #175) |
+| 176 | Remove Web UI Window Globals and Implicit Dependencies | Replace implicit `window` coupling with explicit imports, adapters, and app context boundaries (PRD #176) |
 
 ### Medium-term 📅
 
@@ -270,6 +277,8 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 25 | Local Embedding Models | Support for MiniLM, Nomic, MPNet running locally (no API calls) |
 | 26 | HTTP API + Cron | Local API for scheduled actions |
 | 139 | Web UI Test Fixture Realism | Replace bare MagicMock fixtures with explicit fakes and remove mock-aware Web UI shims (PRD #139) |
+| 177 | Web UI CSS Theme and Asset Ownership Cleanup | Define clear ownership for base, component, feature, theme, and asset layers in the Web UI (PRD #177) |
+| 178 | Web UI Auxiliary Subsystems Cleanup | Isolate kidcore, scrapbook, notifications, offline/PWA, drag-drop, and mobile gestures behind explicit subsystem boundaries (PRD #178) |
 
 ### Long-term 🔮
 
