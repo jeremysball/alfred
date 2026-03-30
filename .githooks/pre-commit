@@ -10,9 +10,6 @@ uv run ruff check src/
 echo "Running mypy --strict..."
 uv run mypy --strict src/
 
-echo "Running basedpyright (warnings only)..."
-uv run basedpyright src/ || echo "⚠️  basedpyright found issues (non-blocking)"
-
 echo "Running completions sync check..."
 uv run python scripts/generate-static-completions.py --check
 

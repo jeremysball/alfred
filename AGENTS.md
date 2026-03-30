@@ -19,10 +19,8 @@
 Do this once per conversation/session:
 
 1. Read `/home/node/.pi/skills/skill-index/SKILL.md`.
-2. Read `/home/node/.pi/skills/using-prds/SKILL.md`.
-3. Read `/home/node/.pi/skills/commit/SKILL.md`.
-4. Read `/workspace/alfred-prd/docs/ROADMAP.md`.
-5. Confirm once: `✅ Skills and parent PRD loaded`
+2. Read `/workspace/alfred-prd/docs/ROADMAP.md`.
+3. Confirm once: `✅ Skills and parent PRD loaded`
 
 Only read `/home/node/.pi/skills/writing-clearly-and-concisely/SKILL.md` when the task is prose: docs, README text, commit messages, UI copy, reports, or other user-facing writing.
 
@@ -68,16 +66,6 @@ Before changing code:
 3. Get explicit confirmation before implementation.
 
 For prose edits or clearly mechanical changes, state intent briefly and proceed.
-
-### Never Commit or Push Without Explicit User Request
-
-Do not run `git commit` or `git push` unless the user explicitly asks.
-
-If the user asks to commit:
-- read the commit skill first
-- keep commits small and atomic
-- use conventional commits
-- prefer staging only the intended files or hunks
 
 ### Use the Right Planning Tool
 
@@ -288,10 +276,6 @@ Do not use `sed`, regex replacement, or plain grep-based rewriting for code modi
 
 Use Playwright for development, debugging, and verification of browser behavior.
 
-### Use Serper for Web Search
-
-When you need web search, use the Serper API rather than relying on training data.
-
 ### Viewing User Screenshots from Image Hosting Services
 
 Users often share screenshots via indirect links (gallery pages) rather than direct image URLs. To view these images:
@@ -357,33 +341,6 @@ Conventional commit types include:
 - `chore`
 
 Do not batch unrelated changes into one commit.
-
----
-
-## Project Commands
-
-Common commands:
-
-```bash
-# Interactive TUI
-uv run alfred
-
-# TUI with debug logging
-uv run alfred --debug info
-uv run alfred --debug debug
-
-# Telegram bot mode
-uv run alfred --telegram
-
-# Cron management
-uv run alfred cron list
-uv run alfred cron add "daily standup" "every day at 9am"
-uv run alfred cron remove <job_id>
-```
-
-Entry point:
-
-- `src/cli/main.py`
 
 ---
 
