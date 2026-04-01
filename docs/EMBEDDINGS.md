@@ -1,209 +1,183 @@
-# Embeddings and FAISS
+# Embeddings and Vector Search
 
-Alfred supports two embedding backends and two memory stores. This document covers setup, configuration, migration, and performance tuning.
+Alfred currently supports **two embedding providers** and uses **SQLite + sqlite-vec** for vector search.
+
+This is the current runtime shape:
+- embeddings can come from **OpenAI** or a **local BGE model**
+- vector search lives in SQLite-backed stores
+- the old JSONL / FAISS migration flow is no longer the current architecture
 
 ---
 
 ## Quick Summary
 
-| | Default | Local (BGE) |
+| | OpenAI | Local BGE |
 |---|---|---|
-| **Provider** | OpenAI API | BAAI/bge-base-en-v1.5 |
-| **Cost** | ~$0.02/1M tokens | Free |
-| **Query latency** | ~270ms | ~52ms |
-| **Store** | JSONL (linear scan) | FAISS (ANN index) |
-| **Search at 100K** | ~5 seconds | <100ms |
-| **RAM required** | Minimal | ~4 GB |
-| **Disk required** | Minimal | ~2 GB (model download) |
+| Provider | `OpenAIProvider` | `BGEProvider` |
+| Config value | `provider = "openai"` | `provider = "local"` |
+| Default model | `text-embedding-3-small` | `bge-base` |
+| Network | Remote API | Local model |
+| Cost | API usage | Local compute only |
+| Typical use | lowest setup friction | local-first retrieval |
 
 ---
 
-## Setup
+## Current Storage Model
 
-### New Installations
+Alfred's current embedding-backed retrieval uses SQLite-based storage.
 
-No extra steps. Dependencies install automatically:
+Relevant pieces:
+- `src/alfred/embeddings/` — embedding providers
+- `src/alfred/memory/sqlite_store.py` — memory-store adapter
+- `src/alfred/storage/sqlite.py` — sqlite-vec-backed vector tables and search
 
-```bash
-uv sync
+Important points:
+- `memory_store = "sqlite"` is the supported runtime backend
+- there is no current JSONL-vs-FAISS store choice in normal runtime configuration
+- vector schema drift is handled by runtime rebuild logic rather than a JSONL→FAISS migration command
+
+---
+
+## Configuration
+
+All settings live in `config.toml`.
+
+Default location:
+- `~/.config/alfred/config.toml`
+
+### Embeddings section
+
+```toml
+[embeddings]
+provider = "openai"          # or "local"
+model = "text-embedding-3-small"
+local_model = "bge-base"
 ```
 
-`sentence-transformers` and `faiss-cpu` are included in `pyproject.toml`. The BGE model downloads on first use (~400 MB).
+### Memory section
 
-### Switching from OpenAI to Local Embeddings
+```toml
+[memory]
+store = "sqlite"
+budget = 32000
+ttl_days = 90
+warning_threshold = 1000
+```
 
-1. **Edit `~/.config/alfred/config.toml`:**
+### Supported values
 
-   ```toml
-   [embeddings]
-   provider = "local"
-   local_model = "bge-base"   # or bge-small, bge-large
+#### `[embeddings]`
 
-   [memory]
-   store = "faiss"
-   ```
+| Key | Meaning |
+|-----|---------|
+| `provider` | `"openai"` or `"local"` |
+| `model` | OpenAI embedding model |
+| `local_model` | Local BGE variant: `bge-small`, `bge-base`, or `bge-large` |
 
-2. **Migrate existing memories:**
+#### `[memory]`
 
-   ```bash
-   alfred memory migrate
-   ```
-
-3. **Verify:**
-
-   ```bash
-   alfred memory status
-   ```
-
-`OPENAI_API_KEY` is still required for LLM calls but is no longer used for embeddings when `provider = "local"`.
+| Key | Meaning |
+|-----|---------|
+| `store` | supported runtime value is `"sqlite"` |
+| `budget` | memory token budget used during context assembly |
+| `ttl_days` | default TTL for non-permanent memories |
+| `warning_threshold` | warn when memory volume gets high |
 
 ---
 
-## Configuration Reference
+## Provider Selection
 
-All settings live in `~/.config/alfred/config.toml`.
+### OpenAI embeddings
 
-### `[embeddings]` section
+Use when you want the simplest setup:
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `provider` | string | `"openai"` | Embedding backend: `"openai"` or `"local"` |
-| `model` | string | `"text-embedding-3-small"` | OpenAI model (ignored when `provider = "local"`) |
-| `local_model` | string | `"bge-base"` | BGE variant: `"bge-small"`, `"bge-base"`, or `"bge-large"` |
+```toml
+[embeddings]
+provider = "openai"
+model = "text-embedding-3-small"
+```
 
-### `[memory]` section
+### Local embeddings
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `store` | string | `"jsonl"` | Memory backend: `"jsonl"` or `"faiss"` |
-| `budget` | int | `32000` | Max tokens of memory loaded into context |
-| `ttl_days` | int | `90` | Days before non-permanent memories expire |
-| `warning_threshold` | int | `1000` | Warn when memory count exceeds this |
-| `faiss_index_type` | string | `"auto"` | FAISS index: `"flat"`, `"ivf"`, or `"auto"` |
-| `faiss_ivf_threshold` | int | `10000` | Switch from Flat to IVF at this entry count |
-| `faiss_backup_jsonl` | bool | `true` | Keep JSONL backup when using FAISS store |
-
-### Full example
+Use when you want local-first retrieval:
 
 ```toml
 [embeddings]
 provider = "local"
 local_model = "bge-base"
-
-[memory]
-store = "faiss"
-ttl_days = 90
-warning_threshold = 1000
-faiss_index_type = "auto"
-faiss_ivf_threshold = 10000
-faiss_backup_jsonl = true
 ```
+
+Available local models:
+- `bge-small`
+- `bge-base`
+- `bge-large`
+
+The BGE model downloads on first use.
 
 ---
 
-## Migration Guide
+## Switching Providers
 
-For users upgrading from JSONL to FAISS.
+Switching providers can also change embedding dimensions.
 
-### What migration does
+Examples:
+- OpenAI `text-embedding-3-small` → 1536 dimensions
+- `bge-base` → 768 dimensions
 
-1. Reads all entries from `memories.jsonl`
-2. Re-embeds each entry using the new provider (BGE or OpenAI)
-3. Builds a FAISS index at `data/memory/faiss/`
-4. Renames the original file to `memories.jsonl.bak`
+Alfred's current runtime handles this by detecting vector-schema mismatch and rebuilding affected sqlite-vec tables automatically.
 
-All memory content and metadata (timestamps, tags, `permanent` flag) is preserved. Only embeddings are regenerated — this is required because BGE and OpenAI produce vectors of different dimensions (768 vs 1536).
+What that means in practice:
+- you do **not** use the old FAISS migration flow
+- you do **not** need a JSONL backup dance for the current runtime path
+- startup may take longer when Alfred needs to rebuild vector indexes
 
-### Run migration
+If Alfred logs a vec-schema mismatch and rebuild on startup, let the rebuild finish.
+
+---
+
+## Disk Layout
+
+By default Alfred uses XDG data paths.
+
+Typical locations:
+- `~/.local/share/alfred/alfred.db` — core SQLite store
+- `~/.local/share/alfred/memories.db` — memory store database
+- `~/.local/share/alfred/workspace/` — editable markdown context files
+
+If you override `XDG_DATA_HOME`, those files move with it.
+
+---
+
+## Operational Notes
+
+- Local embeddings reduce network dependence but increase local CPU/RAM usage.
+- OpenAI embeddings are simpler to start with but require API access.
+- The current `Config` model still expects `OPENAI_API_KEY`, even if embeddings are local.
+- Retrieval quality depends on the provider, model choice, and the quality of stored memory content.
+
+---
+
+## Verifying the Active Setup
+
+There is no dedicated `alfred memory migrate` or `alfred memory status` workflow in the current runtime.
+
+Useful ways to verify the active setup today:
+- inspect startup logs
+- use `/health` in the TUI to inspect runtime state
+- inspect `config.toml`
+- inspect the SQLite files in Alfred's XDG data directory
+
+Example:
 
 ```bash
-alfred memory migrate
-```
-
-Options:
-
-```bash
-alfred memory migrate --provider local     # Use BGE (default)
-alfred memory migrate --provider openai    # Use OpenAI for re-embedding
-alfred memory migrate --no-backup          # Skip creating .bak file
-alfred memory migrate --jsonl-path /path/to/memories.jsonl
-alfred memory migrate --faiss-path /path/to/faiss/dir
-```
-
-### After migration
-
-Update `config.toml` to use the FAISS store:
-
-```toml
-[memory]
-store = "faiss"
-```
-
-Without this change, Alfred continues reading from JSONL even after migration.
-
-### Roll back
-
-If you want to revert:
-
-1. Rename `memories.jsonl.bak` back to `memories.jsonl`
-2. Set `store = "jsonl"` in `config.toml`
-
----
-
-## Performance Tuning
-
-### Model selection
-
-| Model | Dimension | RAM | Speed | Quality |
-|-------|-----------|-----|-------|---------|
-| `bge-small` | 384 | ~1 GB | Fastest | Good |
-| `bge-base` | 768 | ~2 GB | Fast | Better (recommended) |
-| `bge-large` | 1024 | ~4 GB | Slower | Best |
-
-`bge-base` is the default. It delivers better retrieval quality than OpenAI `text-embedding-3-small` at ~52ms per query.
-
-Use `bge-small` on memory-constrained machines (less than 4 GB RAM available to Alfred). Use `bge-large` when retrieval precision matters more than latency.
-
-### FAISS index type
-
-| Scale | Index | Build time | Search speed | Notes |
-|-------|-------|------------|--------------|-------|
-| < 10K entries | `flat` | Instant | ~0.1ms | Exact nearest neighbour |
-| 10K–100K | `ivf` | ~1s | ~0.5ms | Approximate, saves RAM |
-| > 100K | `ivf` | ~3s | ~1ms | Required at this scale |
-
-`faiss_index_type = "auto"` (the default) starts with Flat and switches to IVF automatically at `faiss_ivf_threshold` entries. Set `faiss_index_type = "flat"` to force exact search regardless of size.
-
-### Startup time
-
-The BGE model loads once at startup and stays resident. On a modern CPU, cold load takes 5–15 seconds. Subsequent queries run at full speed (~52ms). If startup time matters, use `bge-small`.
-
-### Disk layout
-
-After migration, memory storage looks like this:
-
-```
-data/memory/
-├── memories.jsonl.bak     # Original backup (safe to delete after verification)
-└── faiss/
-    ├── index.faiss        # FAISS index (~30 MB for 10K entries)
-    └── metadata.json      # Entry metadata (timestamps, tags, content)
+sqlite3 "${XDG_DATA_HOME:-$HOME/.local/share}/alfred/memories.db" 'select count(*) from memories;'
 ```
 
 ---
 
-## CLI Reference
+## Related Docs
 
-```bash
-alfred memory status    # Show store type, entry count, config
-alfred memory migrate   # Convert JSONL → FAISS
-alfred memory prune     # Remove expired memories (dry-run by default)
-```
-
----
-
-## Related
-
-- [Memory System](MEMORY.md) — Three-layer memory architecture
-- [Architecture](ARCHITECTURE.md) — System design overview
-- [Roadmap](ROADMAP.md) — Development progress
+- [`MEMORY.md`](MEMORY.md)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- [`ROADMAP.md`](ROADMAP.md)
+- [`prds/132-dynamic-embedding-dimension-support.md`](prd/132-dynamic-embedding-dimension-support.md)

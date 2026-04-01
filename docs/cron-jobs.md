@@ -45,8 +45,8 @@ Examples:
 ### Registering a Job
 
 ```python
-from src.cron.scheduler import CronScheduler
-from src.cron.store import CronStore
+from alfred.cron.scheduler import CronScheduler
+from alfred.cron.store import CronStore
 
 # Create scheduler with persistence
 store = CronStore()

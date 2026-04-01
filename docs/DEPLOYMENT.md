@@ -56,24 +56,32 @@ KIMI_BASE_URL=https://api.kimi.com/coding/v1
 
 ### Application Configuration
 
-`config.json` (committed to repo):
+Alfred reads `config.toml` from the XDG config directory.
 
-```json
-{
-  "default_llm_provider": "kimi",
-  "chat_model": "kimi-k2-5",
-  "embedding_model": "text-embedding-3-small",
-  "memory_context_limit": 20,
-  "workspace_dir": "data",
-  "memory_dir": "data/memory",
-  "context_files": {
-    "agents": "data/AGENTS.md",
-    "soul": "data/SOUL.md",
-    "user": "data/USER.md",
-    "tools": "data/TOOLS.md"
-  }
-}
+Default path:
+- `~/.config/alfred/config.toml`
+
+Example:
+
+```toml
+[provider]
+default = "kimi"
+chat_model = "kimi-k2-5"
+
+[embeddings]
+provider = "openai"
+model = "text-embedding-3-small"
+local_model = "bge-base"
+
+[memory]
+store = "sqlite"
+budget = 32000
+ttl_days = 90
+warning_threshold = 1000
 ```
+
+Managed context files live under Alfred's workspace directory, which defaults to:
+- `~/.local/share/alfred/workspace/`
 
 ## Production Deployment
 
@@ -87,11 +95,14 @@ The project includes a multi-stage `Dockerfile` that builds a complete developme
 # Build the image
 docker build -t alfred:latest .
 
-# Run with environment file
+# Run with environment file and explicit XDG paths
 docker run -d \
   --name alfred \
   --env-file .env \
-  -v $(pwd)/data:/app/data \
+  -e XDG_CONFIG_HOME=/workspace/.config \
+  -e XDG_DATA_HOME=/workspace/.local/share \
+  -v $(pwd)/.config:/workspace/.config \
+  -v $(pwd)/.local/share:/workspace/.local/share \
   alfred:latest
 ```
 
@@ -193,10 +204,10 @@ spec:
             name: alfred-secrets
         volumeMounts:
         - name: config
-          mountPath: /app/config.json
-          subPath: config.json
+          mountPath: /home/node/.config/alfred/config.toml
+          subPath: config.toml
         - name: data
-          mountPath: /app/data
+          mountPath: /home/node/.local/share/alfred
         resources:
           requests:
             memory: "256Mi"
@@ -295,10 +306,10 @@ Configure logging level via CLI:
 
 ```bash
 # Debug logging
-alfred --debug debug
+alfred --log debug
 
 # Info logging
-alfred --debug info
+alfred --log info
 
 # Default: warnings only
 alfred
@@ -324,21 +335,21 @@ curl -s "https://api.telegram.org/bot<TOKEN>/getMe"
 
 **Memory issues:**
 ```bash
-# Check memory directory
-ls -la data/memory/
+# Check Alfred data directory
+ls -la "${XDG_DATA_HOME:-$HOME/.local/share}/alfred/"
 
 # View memory count
-wc -l data/memory/memories.jsonl
+sqlite3 "${XDG_DATA_HOME:-$HOME/.local/share}/alfred/memories.db" 'select count(*) from memories;'
 ```
 
 ### Debug Mode
 
 ```bash
 # Enable debug logging
-alfred --debug debug
+alfred --log debug
 
-# Or in Docker
-docker run -e DEBUG=debug alfred:latest
+# In containers, run Alfred with the same CLI flag
+# (for example via your docker-compose command or entrypoint override)
 ```
 
 ## Security Considerations

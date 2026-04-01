@@ -1,348 +1,340 @@
-# Alfred API Documentation
+# Alfred API Overview
 
-## Core Modules
+This document summarizes the main Python entrypoints used inside Alfred today.
 
-### Config (`src.config`)
-
-#### `Config`
-
-Application configuration with environment variable support.
-
-```python
-from src.config import Config, load_config
-
-# Load with defaults from config.json, override from env
-config = load_config(Path("config.json"))
-```
-
-**Attributes:**
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `telegram_bot_token` | `str` | Telegram Bot API token |
-| `openai_api_key` | `str` | OpenAI API key |
-| `kimi_api_key` | `str` | Kimi API key |
-| `kimi_base_url` | `str` | Kimi API base URL |
-| `default_llm_provider` | `str` | Provider to use ("kimi") |
-| `chat_model` | `str` | Model identifier |
-| `embedding_model` | `str` | Embedding model identifier |
-| `memory_context_limit` | `int` | Max memories to include |
-| `workspace_dir` | `Path` | Workspace directory |
-| `memory_dir` | `Path` | Memory storage directory |
-| `context_files` | `dict[str, Path]` | Map of context file names |
+It is a **developer-facing overview**, not a promise that every internal module is stable. When in doubt, prefer:
+- the `alfred` CLI for normal usage
+- high-level factories and models under `alfred.*`
+- the source code for exact signatures
 
 ---
 
-### Context (`src.context`)
+## Configuration
 
-#### `ContextLoader`
+Module: `alfred.config`
 
-Async context file loading and assembly.
+### `Config`
+
+Pydantic settings model for Alfred runtime configuration.
+
+Important fields include:
+- `default_llm_provider`
+- `chat_model`
+- `embedding_model`
+- `embedding_provider`
+- `local_embedding_model`
+- `memory_budget`
+- `memory_ttl_days`
+- `memory_warning_threshold`
+- `memory_store`
+- `data_dir`
+- `workspace_dir`
+- `memory_dir`
+- `context_files`
+- tool-call context controls (`tool_calls_enabled`, `tool_calls_max_calls`, etc.)
+
+### `load_config()`
+
+Loads configuration from:
+1. environment variables
+2. `.env`
+3. `config.toml`
+4. XDG defaults
 
 ```python
-from src.context import ContextLoader
-from src.config import load_config
+from pathlib import Path
+
+from alfred.config import Config, load_config
+
+config = load_config()
+custom = load_config(Path("/path/to/config.toml"))
+```
+
+### `config.toml` shape
+
+```toml
+[provider]
+default = "kimi"
+chat_model = "kimi-k2-5"
+
+[embeddings]
+provider = "openai"          # or "local"
+model = "text-embedding-3-small"
+local_model = "bge-base"
+
+[memory]
+store = "sqlite"
+budget = 32000
+ttl_days = 90
+warning_threshold = 1000
+
+[context.tool_calls]
+enabled = true
+max_calls = 5
+max_tokens = 2000
+include_output = true
+include_arguments = true
+```
+
+By default Alfred uses XDG paths:
+- config: `~/.config/alfred/config.toml`
+- data: `~/.local/share/alfred/`
+- cache: `~/.cache/alfred/`
+
+---
+
+## Context Assembly
+
+Module: `alfred.context`
+
+### Main models
+
+- `ContextFile` — one loaded context file with metadata and block state
+- `AssembledContext` — combined prompt context ready for the LLM
+- `ContextCache` — TTL cache for loaded context files
+- `ContextLoader` — orchestration layer for reading files and building prompt context
+
+### `ContextLoader`
+
+```python
+from alfred.config import load_config
+from alfred.context import ContextLoader
 
 config = load_config()
 loader = ContextLoader(config, cache_ttl=60)
 
-# Load single file (auto-creates from template if missing)
-file = await loader.load_file("soul", Path("data/SOUL.md"))
-
-# Load all configured files
 files = await loader.load_all()
-# Returns: {"agents": ContextFile, "soul": ContextFile, ...}
-
-# Assemble complete context
-context = await loader.assemble(memories=memory_list)
+assembled = await loader.assemble()
 ```
 
-**Methods:**
+Key methods:
+- `load_file(name, path)`
+- `load_all()`
+- `assemble(memories=None)`
+- `assemble_with_self_model(...)`
+- `assemble_with_search(...)`
+- `add_context_file(name, path)`
+- `remove_context_file(name)`
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `load_file(name, path)` | `ContextFile` | Load single file with caching, auto-create from template |
-| `load_all()` | `dict[str, ContextFile]` | Load all configured files concurrently |
-| `assemble(memories)` | `AssembledContext` | Build complete prompt context |
-| `add_context_file(name, path)` | `None` | Add custom context file |
-| `remove_context_file(name)` | `None` | Remove context file |
+### Managed context files
 
-#### `ContextCache`
+The default always-loaded context lives in the workspace directory and is centered on:
+- `SYSTEM.md`
+- `AGENTS.md`
+- `SOUL.md`
+- `USER.md`
 
-TTL-based file cache.
-
-```python
-from src.context import ContextCache
-
-cache = ContextCache(ttl_seconds=60)
-
-# Get cached file
-cached = cache.get("agents")
-if cached:
-    return cached
-
-# Set cache
-cache.set("agents", context_file)
-
-# Invalidate
-cache.invalidate("agents")
-
-# Clear all
-cache.clear()
-```
+Alfred can also load additional configured context sections when present.
 
 ---
 
-### LLM (`src.llm`)
+## LLM Providers
 
-#### `LLMProvider` (ABC)
+Module: `alfred.llm`
 
-Abstract base for LLM implementations.
+### Main types
 
-```python
-from src.llm import LLMProvider, ChatMessage, ChatResponse
+- `ChatMessage`
+- `ChatResponse`
+- `LLMProvider`
+- `KimiProvider`
+- `LLMFactory`
 
-class MyProvider(LLMProvider):
-    async def chat(self, messages: list[ChatMessage]) -> ChatResponse:
-        ...
-    
-    async def stream_chat(
-        self, messages: list[ChatMessage], system_prompt: str
-    ) -> AsyncIterator[str]:
-        ...
-```
-
-#### `KimiProvider`
-
-Kimi API implementation.
+### Example
 
 ```python
-from src.llm import KimiProvider, ChatMessage
-from src.config import load_config
-
-config = load_config()
-provider = KimiProvider(config)
-
-# Non-streaming chat
-response = await provider.chat([
-    ChatMessage(role="system", content="You are Alfred..."),
-    ChatMessage(role="user", content="Hello!"),
-])
-
-print(response.content)  # Assistant response
-print(response.model)    # Model used
-print(response.usage)    # Token counts
-
-# Streaming chat
-async for chunk in provider.stream_chat(messages, system_prompt):
-    print(chunk, end="")
-```
-
-#### `LLMFactory`
-
-Provider factory.
-
-```python
-from src.llm import LLMFactory
-from src.config import load_config
+from alfred.config import load_config
+from alfred.llm import ChatMessage, LLMFactory
 
 config = load_config()
 provider = LLMFactory.create(config)
+
+response = await provider.chat(
+    [ChatMessage(role="user", content="Summarize this repo")]
+)
+print(response.content)
 ```
 
-#### Exceptions
-
-| Exception | Description |
-|-----------|-------------|
-| `LLMError` | Base exception |
-| `RateLimitError` | Rate limit exceeded |
-| `APIError` | API returned error |
-| `TimeoutError` | Request timed out |
-
-#### Retry Decorator
+### Streaming
 
 ```python
-from src.llm import retry_with_backoff
-
-@retry_with_backoff(max_retries=3, base_delay=1.0)
-async def my_api_call():
-    # Retries on failure with exponential backoff
-    ...
+async for chunk in provider.stream_chat(
+    [ChatMessage(role="user", content="Think out loud")]
+):
+    print(chunk, end="")
 ```
 
-**Parameters:**
+### Errors
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `max_retries` | 3 | Max retry attempts |
-| `base_delay` | 1.0 | Initial delay (seconds) |
-| `max_delay` | 60.0 | Maximum delay (seconds) |
-| `exponential_base` | 2.0 | Exponential factor |
-| `jitter` | True | Add random jitter |
+Common exception types:
+- `LLMError`
+- `RateLimitError`
+- `APIError`
+- `TimeoutError`
 
 ---
 
-### Types (`src.types`)
+## Embeddings
 
-#### `MemoryEntry`
+Module: `alfred.embeddings`
 
-Single memory with metadata.
+### Main entrypoint
 
 ```python
-from src.types import MemoryEntry
-from datetime import datetime
+from alfred.config import load_config
+from alfred.embeddings import create_provider
 
-memory = MemoryEntry(
+config = load_config()
+embedder = create_provider(config)
+vector = await embedder.embed("important recurring context")
+```
+
+Current providers:
+- `OpenAIProvider`
+- `BGEProvider`
+
+Selection is driven by `config.embedding_provider`:
+- `"openai"`
+- `"local"`
+
+See [`EMBEDDINGS.md`](EMBEDDINGS.md) for the current storage and provider details.
+
+---
+
+## Memory Store
+
+Modules:
+- `alfred.memory`
+- `alfred.memory.base`
+
+### Main types
+
+- `MemoryEntry`
+- `MemoryStore`
+- `SQLiteMemoryStore`
+- `create_memory_store(config, embedder)`
+
+### Example
+
+```python
+from datetime import datetime
+from uuid import uuid4
+
+from alfred.config import load_config
+from alfred.embeddings import create_provider
+from alfred.memory import MemoryEntry, create_memory_store
+
+config = load_config()
+embedder = create_provider(config)
+store = create_memory_store(config, embedder)
+
+entry = MemoryEntry(
+    entry_id=str(uuid4()),
+    content="User prefers concise technical summaries.",
     timestamp=datetime.now(),
     role="assistant",
-    content="I'll help you with that...",
-    embedding=[0.1, 0.2, ...],  # Optional
-    tags=["coding", "python"],
+    tags=["preference"],
 )
+
+await store.add(entry)
+results, similarities, scores = await store.search("concise summaries")
 ```
 
-**Fields:**
+The current memory backend is SQLite-backed vector search. The config field `memory_store` remains for configuration compatibility, but the supported runtime backend is `"sqlite"`.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `timestamp` | `datetime` | When created |
-| `role` | `Literal["user", "assistant", "system"]` | Speaker role |
-| `content` | `str` | Message content |
-| `embedding` | `list[float] \| None` | Vector embedding |
-| `tags` | `list[str]` | Categorization tags |
-| `entry_id` | `str \| None` | Unique identifier |
+---
 
-#### `ContextFile`
+## Runtime Self-Model
 
-Loaded context file.
+Module: `alfred.self_model`
+
+### Main types
+
+- `RuntimeSelfModel`
+- `Identity`
+- `Runtime`
+- `World`
+- `Capabilities`
+- `ContextPressure`
+- `build_runtime_self_model()`
+
+### Example
 
 ```python
-from src.types import ContextFile
-from datetime import datetime
+from alfred.self_model import build_runtime_self_model
 
-file = ContextFile(
-    name="agents",
-    path="data/AGENTS.md",
-    content="# Agent Behavior Rules...",
-    last_modified=datetime.now(),
-)
+self_model = build_runtime_self_model(alfred_instance)
+print(self_model.to_prompt_section())
 ```
 
-#### `AssembledContext`
+The self-model is internal-first. It helps Alfred reason from current runtime facts such as:
+- interface
+- session id
+- tool availability
+- memory/search availability
+- current context pressure
 
-Complete context for LLM.
+See [`self-model.md`](self-model.md) for the product/runtime boundary.
+
+---
+
+## Cron
+
+Modules:
+- `alfred.cron.store`
+- `alfred.cron.scheduler`
+
+### `CronStore`
+
+Persistent store for cron jobs and execution history.
 
 ```python
-from src.types import AssembledContext
+from alfred.cron.store import CronStore
 
-context = AssembledContext(
-    agents="# Agent Behavior...",
-    soul="# Personality...",
-    user="# User Preferences...",
-    tools="# Available Tools...",
-    memories=[memory1, memory2],
-    system_prompt="# Combined prompt...",
-)
+store = CronStore()
+jobs = await store.load_jobs()
+```
+
+### `CronScheduler`
+
+Async scheduler that loads jobs, registers system jobs, and executes due work.
+
+```python
+from alfred.cron.scheduler import CronScheduler
+
+scheduler = CronScheduler(store=store)
+await scheduler.start()
+```
+
+Cron jobs remain a separate execution surface from tool calls. See [`cron-jobs.md`](cron-jobs.md) and [`job-api.md`](job-api.md) for the sandbox model.
+
+---
+
+## CLI Entrypoints
+
+Primary entrypoint:
+- `alfred.cli.main:app`
+
+Installed console scripts:
+- `alfred`
+- `alfred-cron-runner`
+
+Useful commands:
+
+```bash
+alfred
+alfred webui
+alfred cron list
+alfred config update
 ```
 
 ---
 
-## Usage Examples
+## Related Docs
 
-### Basic Chat Flow
-
-```python
-import asyncio
-from src.config import load_config
-from src.context import ContextLoader
-from src.llm import LLMFactory, ChatMessage
-
-async def chat():
-    # Initialize
-    config = load_config()
-    loader = ContextLoader(config)
-    provider = LLMFactory.create(config)
-    
-    # Assemble context
-    context = await loader.assemble()
-    
-    # Build messages
-    messages = [
-        ChatMessage(role="system", content=context.system_prompt),
-        ChatMessage(role="user", content="Hello Alfred!"),
-    ]
-    
-    # Get response
-    response = await provider.chat(messages)
-    return response.content
-
-asyncio.run(chat())
-```
-
-### Custom Context File
-
-```python
-# Add custom context
-loader.add_context_file("project", Path("PROJECT.md"))
-
-# Access in loader
-file = await loader.load_file("project", Path("PROJECT.md"))
-```
-
-### Error Handling
-
-```python
-from src.llm import RateLimitError, APIError, TimeoutError
-
-try:
-    response = await provider.chat(messages)
-except RateLimitError:
-    # Handle rate limit - wait and retry
-    await asyncio.sleep(60)
-except APIError as e:
-    # Log API error
-    logger.error(f"API error: {e}")
-except TimeoutError:
-    # Handle timeout
-    logger.warning("Request timed out")
-```
-
----
-
-## Configuration Reference
-
-### config.json
-
-```json
-{
-  "default_llm_provider": "kimi",
-  "chat_model": "kimi-k2-5",
-  "embedding_model": "text-embedding-3-small",
-  "memory_context_limit": 20,
-  "workspace_dir": "data",
-  "memory_dir": "data/memory",
-  "context_files": {
-    "agents": "data/AGENTS.md",
-    "soul": "data/SOUL.md",
-    "user": "data/USER.md",
-    "tools": "data/TOOLS.md"
-  }
-}
-```
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Yes | Telegram Bot API token |
-| `OPENAI_API_KEY` | Yes | OpenAI API key (embeddings) |
-| `KIMI_API_KEY` | Yes | Kimi API key |
-| `KIMI_BASE_URL` | Yes | Kimi API endpoint |
-
----
-
-## Related Documentation
-
-- [Architecture](ARCHITECTURE.md) — System design
-- [Deployment](DEPLOYMENT.md) — Production setup
-- [Cron Jobs](cron-jobs.md) — Scheduled tasks
+- [`README.md`](../README.md)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- [`MEMORY.md`](MEMORY.md)
+- [`EMBEDDINGS.md`](EMBEDDINGS.md)
+- [`self-model.md`](self-model.md)
+- [`cron-jobs.md`](cron-jobs.md)

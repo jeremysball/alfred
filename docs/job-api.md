@@ -15,7 +15,7 @@ Jobs execute arbitrary user-submitted Python code. To maintain security and stab
 
 | Function | Status | Description |
 |----------|--------|-------------|
-| `notify(message)` | ✅ Available | Send a notification message to the user (Telegram or CLI) |
+| `notify(message)` | ✅ Available | Send a notification through Alfred's configured notifier surface |
 | `print()` | ✅ Available | Output to job logs (captured and stored with execution history) |
 
 ### Built-in Python Functions
