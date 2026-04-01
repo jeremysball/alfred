@@ -1,7 +1,7 @@
 # Alfred
 
 <p align="center">
-  <img src="docs/assets/memory-moth-banner.png" alt="Alfred - The Rememberer" width="100%">
+  <img src="docs/assets/memory-moth-banner.png" alt="Alfred banner" width="100%">
 </p>
 
 <p align="center">

@@ -1,7 +1,7 @@
 [project]
 name = "alfred-assistant"
 dynamic = ["version"]
-description = "The Rememberer - A persistent memory-augmented LLM assistant"
+description = "A local-first relational support system with memory, tools, and continuity"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
@@ -14,8 +14,8 @@ keywords = [
   "telegram",
   "cli",
   "personal-growth",
-  "executive-assistant",
-  "adhd-aid",
+  "local-first",
+  "relational-support",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

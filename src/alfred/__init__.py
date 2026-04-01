@@ -1,6 +1,6 @@
-"""Alfred - The Rememberer.
+"""Alfred.
 
-A persistent memory-augmented LLM assistant.
+A local-first relational support system with memory, tools, and continuity.
 """
 
 __version__ = "0.1.0"

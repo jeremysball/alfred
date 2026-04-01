@@ -47,6 +47,13 @@ def test_runtime_self_model_includes_identity_runtime_and_world_sections():
     assert data["runtime"]["interface"] == "cli"
 
 
+def test_identity_defaults_to_relational_support_role() -> None:
+    """Default identity should reflect Alfred's current product framing."""
+    identity = Identity()
+
+    assert identity.role == "local-first relational support system"
+
+
 class FakeAlfred:
     """Test double for Alfred that exposes runtime state for self-model building."""
 

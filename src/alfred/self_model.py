@@ -35,7 +35,7 @@ class Identity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = "Alfred"
-    role: str = "persistent memory-augmented assistant"
+    role: str = "local-first relational support system"
     version: str | None = None  # From package metadata
 
 
