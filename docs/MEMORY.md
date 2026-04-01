@@ -1,189 +1,233 @@
 # Alfred Memory System
 
-This document explains Alfred's three-layer memory architecture to avoid confusion about where data lives and how it's searched.
+This document explains Alfred's memory model as it exists today and the planned support-memory extensions now being formalized by PRDs #167, #168, #169, and #179.
+
+## Status
+
+Alfred already has a durable memory foundation:
+- always-loaded markdown files
+- curated remembered facts
+- searchable session archive
+
+The next step is to turn that foundation into a **support memory system** rather than treating search alone as the product center.
 
 ---
 
-## Quick Reference
+## 1. Current memory foundation
 
-| Layer | What | Where | Search Tool |
-|-------|------|-------|-------------|
-| **1. Curated Memory** | Facts Alfred explicitly remembers | `data/memory/memories.jsonl` | `search_memories` |
-| **2. Session Summaries** | Narrative summaries of conversations | `data/sessions/{id}/summary.json` | `search_sessions` |
-| **3. Session Messages** | Raw conversation messages | `data/sessions/{id}/messages.jsonl` | Contextual retrieval (PRD #77) |
+### Always-loaded files
 
----
+These files are loaded every turn and provide durable, high-priority context:
+- `SYSTEM.md`
+- `AGENTS.md`
+- `SOUL.md`
+- `USER.md`
 
-## Storage Structure
+Use them for:
+- stable operating rules
+- Alfred's identity and voice
+- explicit durable user preferences and truths
 
-### Default (JSONL)
+These files are expensive but always available.
 
-```
-data/
-├── memory/
-│   └── memories.jsonl              # Curated facts only
-│
-└── sessions/
-    └── sess_abc123/                # One folder per session
-        ├── messages.jsonl          # All session messages with embeddings
-        └── summary.json            # Session summary + embedding
-```
+### Curated memory
 
-### With FAISS enabled
+Curated memory stores facts Alfred explicitly decides to remember.
 
-```
-data/
-├── memory/
-│   ├── memories.jsonl.bak          # Original backup (kept after migration)
-│   └── faiss/
-│       ├── index.faiss             # FAISS vector index
-│       └── metadata.json           # Entry metadata (timestamps, tags, content)
-│
-└── sessions/
-    └── sess_abc123/
-        ├── messages.jsonl
-        └── summary.json
-```
+Use it for:
+- durable user preferences
+- recurring project context
+- stable decisions likely to matter later
+- memorable facts worth retrieving semantically
 
-See [docs/EMBEDDINGS.md](EMBEDDINGS.md) to switch from JSONL to FAISS.
+Curated memory is not the same thing as raw conversation history.
+
+### Session archive
+
+The session archive stores searchable conversation history and tool-call provenance.
+
+Use it for:
+- recall requests
+- provenance and evidence lookup
+- time-bounded history
+- details too specific or temporary for curated memory
 
 ---
 
-## Layer 1: Curated Memory
+## 2. The architectural change in progress
 
-**What:** Facts that Alfred explicitly decides to remember using the `remember` tool.
+The current foundation is good for recall.
 
-**Where:** `data/memory/memories.jsonl`
+It is not yet enough for a support system that needs to answer questions like:
+- what is active right now?
+- what is blocked?
+- what decision is still open?
+- what kind of help works in this context?
+- what recurring pattern is Alfred noticing?
 
-**Characteristics:**
-- Not automatic — Alfred chooses what to remember
-- Has embeddings for semantic search
-- Optional `session_id` field can link to a source session
-- Searchable via `search_memories` tool
-
-**Example entry:**
-```json
-{
-  "timestamp": "2026-02-19T14:30:00Z",
-  "role": "assistant",
-  "content": "User prefers async/await over threads for Python concurrency",
-  "embedding": [0.023, -0.156, ...],
-  "tags": ["preference", "python"],
-  "session_id": "sess_abc123",
-  "entry_id": "a1b2c3d4e5f6g7h8"
-}
-```
+The new direction is:
+- keep archive and search
+- but make them supporting primitives rather than the whole runtime model
 
 ---
 
-## Layer 2: Session Summaries
+## 3. Target support-memory layers
 
-**What:** LLM-generated narrative summaries of entire conversations.
+The planned support-memory architecture adds structured layers on top of the current foundation.
 
-**Where:** `data/sessions/{session_id}/summary.json`
+### Layer 1: Raw archive
+What it is:
+- sessions
+- messages
+- tool outcomes
+- timestamps
+- raw provenance
 
-**How created:** Cron job runs every 5 minutes and summarizes sessions that are either:
-- Idle >30 minutes, OR
-- Have 20+ new messages since last summary
+Role:
+- evidence lookup
+- recall
+- debugging
+- auditability
 
-**Characteristics:**
-- Has embedding for semantic search
-- Versions increment on re-summarization (replaced, not appended)
-- Searchable via `search_sessions` tool
+### Layer 2: Typed episode evidence
+What it is:
+- structured interaction episodes inside sessions
+- one dominant context per episode
+- intervention and outcome traces
 
-**Example:**
-```json
-{
-  "id": "sum_abc123",
-  "session_id": "sess_xyz789",
-  "summary_text": "User and Alfred discussed database architecture options, decided on PostgreSQL with asyncpg...",
-  "embedding": [0.023, -0.156, ...],
-  "version": 1
-}
-```
+Role:
+- the main evidence substrate for later learning
+- finer-grained than one summary per session
 
----
+### Layer 3: Operational support memory
+What it is:
+- projects
+- tasks
+- open loops
+- blockers
+- decisions in flight
 
-## Layer 3: Session Messages
+Role:
+- the primary runtime state for active support
+- what Alfred should consult first when helping the user move or resume
 
-**What:** Raw conversation messages with embeddings.
+### Layer 4: Support and relational profile state
+What it is:
+- effective support values
+- effective relational values
+- intervention history
+- update events
 
-**Where:** `data/sessions/{session_id}/messages.jsonl`
+Role:
+- how Alfred learns what kind of help works
+- how Alfred learns how to show up across contexts
 
-**Characteristics:**
-- Every message has an embedding
-- Enables contextual retrieval (PRD #77)
-- Search within a session for higher precision
+### Layer 5: Pattern and review state
+What it is:
+- candidate patterns
+- confirmed patterns
+- review cards
+- correction history
 
-**Example entry:**
-```json
-{
-  "idx": 0,
-  "role": "user",
-  "content": "Let's talk about database options",
-  "timestamp": "2026-02-19T14:00:00Z",
-  "embedding": [0.023, -0.156, ...]
-}
-```
+Role:
+- bounded reflection
+- user-visible explanation and control
 
----
+### Layer 6: Durable explicit user truth
+What it is:
+- explicit user-provided or user-confirmed durable truths in `USER.md`
 
-## How Search Works
-
-### search_memories (Layer 1)
-Searches curated facts. Use for:
-- Specific facts Alfred has remembered
-- User preferences
-- Commands, configurations, precise details
-
-### search_sessions (Layer 2)
-Searches session summaries. Use for:
-- "What did we discuss about X?"
-- Finding past conversations by theme
-- Conversation arcs and decisions
-
-### Contextual Retrieval (Layer 3, PRD #77)
-Two-stage search:
-1. Find relevant sessions via summary similarity
-2. Search messages **within those sessions only**
-
-This gives higher precision than searching all messages globally.
+Role:
+- always-loaded identity-level preferences, values, and truths that should shape nearly every future conversation
 
 ---
 
-## Common Misconceptions
+## 4. Retrieval order
 
-### ❌ "Messages go in memories.jsonl"
-**Wrong.** `memories.jsonl` is for curated facts only. Messages live in session folders.
+### Current principle
+When prior context may matter:
+1. current conversation
+2. durable always-loaded files
+3. curated memory
+4. session archive
 
-### ❌ "Session summaries are in a separate file"
-**Wrong.** Summaries live in the session folder at `data/sessions/{id}/summary.json`.
+### Target support principle
+When Alfred is helping the user act, decide, review, or reflect:
+1. current conversation
+2. relevant operational support memory
+3. relevant support/relational profile state
+4. relevant typed episode evidence
+5. curated memory when appropriate
+6. session archive for provenance, recall, or fallback
 
-### ❌ "session_id on MemoryEntry stores the message"
-**Wrong.** `session_id` is just a link/reference. The actual messages are in the session folder.
+That changes the center of gravity from:
+- "what did we talk about?"
 
-### ❌ "All messages are automatically remembered"
-**Wrong.** Alfred decides what to remember via the `remember` tool. Most messages stay in session storage, not curated memory.
-
----
-
-## Implementation Status
-
-| Component | Status | PRD |
-|-----------|--------|-----|
-| Curated Memory (JSONL) | ✅ Implemented | — |
-| FAISS Vector Store | ✅ Implemented | #105 |
-| Local Embeddings (BGE) | ✅ Implemented | #105 |
-| Session Summaries | 🔲 Planning | #76 |
-| Session Messages | 🔲 Planning | #76 |
-| Contextual Retrieval | 🔲 Planning | #77 |
+to:
+- "what is active, what is unresolved, what kind of moment is this, and what kind of help works here?"
 
 ---
 
-## Related Documentation
+## 5. Promotion ladder
 
-- [Embeddings and FAISS](EMBEDDINGS.md) — Setup, configuration, migration, and performance tuning
-- [PRD #76: Session Summarization with Cron](../prds/76-session-summarization-cron.md)
-- [PRD #77: Contextual Retrieval System](../prds/77-contextual-retrieval-system.md)
-- [Architecture Overview](ARCHITECTURE.md)
-- [Roadmap](ROADMAP.md)
+Not every observation should become durable identity truth.
+
+The planned promotion ladder is:
+1. raw evidence
+2. typed episode evidence
+3. candidate pattern
+4. confirmed structured support memory
+5. explicit durable user truth in `USER.md`
+
+Key rule:
+- learning may silently improve narrow, scoped support behavior
+- learning may not silently redefine the user's identity
+
+That means:
+- project-scoped support updates can adapt quickly
+- context-scoped support updates can adapt with evidence
+- broader changes should be surfaced
+- identity themes and direction tensions should remain candidate-first until confirmed
+
+---
+
+## 6. What belongs where
+
+| Kind of information | Home |
+|---|---|
+| Alfred's operating philosophy | `SYSTEM.md` |
+| Alfred's identity and voice | `SOUL.md` |
+| Explicit user-confirmed durable truths | `USER.md` |
+| Stable remembered fact worth semantic retrieval | curated memory |
+| Raw past conversation | session archive |
+| Active project / task / open loop | structured support memory |
+| What support style works in a context | structured support memory |
+| Candidate identity theme | structured support memory until confirmed |
+| Durable user-endorsed identity truth | `USER.md` |
+
+---
+
+## 7. Reflection and correction
+
+The new memory model is not only about storage.
+
+It also supports:
+- explanation of why Alfred is helping a certain way
+- weekly and on-demand review
+- confirmation or rejection of learned patterns
+- resetting or editing support assumptions
+- promoting confirmed truths into `USER.md` only when appropriate
+
+That is what turns memory into a real support system instead of a search layer.
+
+---
+
+## 8. Related documents
+
+- [How Alfred Helps](how-alfred-helps.md)
+- [Relational Support Model](relational-support-model.md)
+- [Architecture](ARCHITECTURE.md)
+- [PRD #167: Support Memory Foundation](../prds/167-support-memory-foundation.md)
+- [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/168-adaptive-support-profile-and-intervention-learning.md)
+- [PRD #169: Reflection Reviews and Support Controls](../prds/169-reflection-reviews-and-support-controls.md)
+- [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)

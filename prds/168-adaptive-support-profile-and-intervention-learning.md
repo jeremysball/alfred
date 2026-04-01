@@ -9,115 +9,153 @@
 
 ## 1. Problem Statement
 
-Even with better memory of content, Alfred still lacks a durable model of **how to help**.
+Even with better operational memory, Alfred still lacks a durable model of **how to help** and **how to show up**.
 
 Today, support behavior depends too much on:
 - prompt wording
 - model interpretation
 - transient conversation context
+- ad hoc tone rather than explicit runtime state
 
-That creates four problems:
+That creates five problems:
 
 1. **Support style is too implicit**
    - Alfred can sound helpful without actually learning which interventions work.
    - Personalization is brittle because it lives mostly in prompts and recent context.
 
-2. **There is no structured user model for support behavior**
-   - Alfred may remember facts about the user, but not reliable, scoped defaults for planning depth, option count, recovery style, or time scaffolding.
+2. **Relational stance is too implicit**
+   - Alfred is meant to feel like a friend, peer, and sometimes mentor or coach.
+   - Without a structured relational model, those positions drift between turns and models.
 
-3. **Adaptation is hard to audit**
-   - If Alfred becomes more directive or more reflective over time, there is no durable, inspectable log of why that changed.
+3. **There is no clear split between product semantics and model phrasing**
+   - Terms like warmth, candor, authority, challenge, or companionship are meaningful product concepts.
+   - If the model invents their meaning at runtime, the system becomes inconsistent and hard to test.
 
-4. **The system risks mode explosion**
-   - A diagnosis-specific toggle such as "ADHD mode" would be too blunt.
-   - Alfred needs a general-purpose support model that adapts by context and evidence.
+4. **Adaptation is hard to audit**
+   - If Alfred becomes more direct, more companion-like, or more structured over time, there is no durable, inspectable log of why that changed.
+
+5. **The system risks mode explosion**
+   - Diagnosis toggles or separate personas would be too blunt.
+   - Alfred needs a general-purpose support system that adapts by context, evidence, and relationship rather than multiplying modes.
 
 ---
 
 ## 2. Goals
 
-1. Create a **fixed, versioned support-dimension taxonomy** for runtime personalization.
-2. Store per-user support values by **global**, **context**, and **project** scope.
-3. Log interventions and outcomes so Alfred can learn what support works.
-4. Allow bounded **auto-adaptation** with evidence-backed updates.
-5. Keep adaptation general-purpose rather than tied to diagnosis-specific modes.
-6. Make support learning inspectable, reversible, and testable.
-7. Treat **documentation and managed prompt/template updates** as part of feature completion so Alfred's runtime instructions reflect the support-profile model instead of leaving it implicit in code.
+1. Create a **fixed, versioned registry of relational dimensions** for how Alfred shows up.
+2. Create a **fixed, versioned registry of support dimensions** for how Alfred structures help.
+3. Store effective values by **global**, **context**, and **project** scope.
+4. Log interventions, response signals, and outcome signals durably so Alfred can learn what works.
+5. Add a **behavior compiler** that converts effective runtime values into a response contract for the model.
+6. Allow bounded, evidence-backed adaptation without letting the model invent new production dimensions.
+7. Keep adaptation general-purpose rather than tied to diagnosis-specific modes.
+8. Make support and relational learning inspectable, reversible, and testable.
+9. Treat documentation and managed prompt/template updates as part of feature completion so the model's runtime instructions reflect the support system explicitly.
 
 ---
 
 ## 3. Non-Goals
 
 - Diagnosing conditions or inferring psychiatric states.
-- Letting the LLM invent new production support dimensions at runtime.
+- Letting the LLM invent new production dimensions at runtime.
+- Building separate hard-coded friend, peer, mentor, coach, or analyst modes.
 - Building the weekly reflection UX itself.
-- Implementing unlimited or aggressive proactive behavior.
-- Replacing explicit user preferences with opaque model inference.
+- Allowing unlimited or opaque personality drift.
+- Replacing explicit user preferences with unreviewable model inference.
 
 ---
 
 ## 4. Proposed Solution
 
-### 4.1 Add a fixed support-dimension registry
+### 4.1 Add two fixed runtime registries
 
-Alfred should use a closed, versioned taxonomy of support dimensions.
+The product should distinguish between two registries.
 
-For v1, the registry should include:
+#### Relational registry — how Alfred shows up
+Recommended v1 dimensions:
+- `warmth`
+- `companionship`
+- `candor`
+- `challenge`
+- `authority`
+- `emotional_attunement`
+- `analytical_depth`
+- `momentum_pressure`
+
+#### Support registry — how Alfred structures help
+Recommended v1 dimensions:
 - `planning_granularity`
 - `option_bandwidth`
-- `prompt_shape`
-- `time_scaffolding`
 - `proactivity_level`
-- `recovery_style`
 - `accountability_style`
+- `recovery_style`
 - `reflection_depth`
+- `pacing`
+- `recommendation_forcefulness`
 
-The registry defines:
+The registries define:
 - allowed values
 - defaults
 - valid scopes
-- the runtime behaviors each dimension controls
+- the behavioral surfaces each dimension controls
+- any guardrails or incompatible combinations
 
-The registry is product-owned and schema-versioned.
+The registries are product-owned and schema-versioned.
 
-### 4.2 Learn runtime values, not runtime taxonomies
+### 4.2 Product defines semantics; runtime learns values
 
-Alfred may learn a value for a known dimension.
+The model should not be asked to invent the behavioral meaning of dimensions at runtime.
 
-It may not invent a new dimension during normal runtime.
+Instead:
+- the **product** defines what each dimension means behaviorally
+- the **runtime** learns which values work for this user, context, and project
+- the **LLM** composes final language and judgment inside that contract
 
-That means:
-- **compile-time / schema-time**: dimension keys and allowed values are fixed
-- **runtime**: Alfred can update per-user values, confidence, evidence, and scope
+Examples:
+- `candor = high` should have defined behavioral implications such as fewer hedges, clearer judgments, and permission to name contradiction
+- `companionship = high` should have defined implications such as stronger with-you language, relational continuity, and more explicit presence
+- `option_bandwidth = single` should mean Alfred narrows to one recommended path instead of generating a menu
 
-### 4.3 Scope support values
+This keeps the system consistent, testable, and portable across models.
 
-Support values should support at least three scopes:
+### 4.3 Prefer discrete values for v1
+
+V1 should use discrete values such as:
+- `low` / `medium` / `high`
+- `single` / `few` / `many`
+- `light` / `medium` / `deep`
+
+This is easier to explain, inspect, compare, and test than continuous floats.
+
+### 4.4 Scope support and relational values
+
+Values should support at least three scopes:
 
 1. **Global**
    - broad defaults for the user
 2. **Context**
-   - defaults for interaction types such as `admin_task`, `planning`, `review`, `strategy_discussion`
+   - defaults for contexts such as `plan`, `execute`, `decide`, `review`, `identity_reflect`, `direction_reflect`
 3. **Project**
-   - overrides for a specific active project or loop
+   - overrides for a specific active project, loop, or thread
 
-This keeps Alfred adaptive without forcing one mode across every situation.
+This keeps Alfred adaptive without forcing one stance or support style across every situation.
 
-### 4.4 Add an intervention log
+### 4.5 Add an intervention log at the episode level
 
-Every meaningful support attempt should be logged.
+Every meaningful support attempt should be logged against the episode in which it happened.
 
 Minimum v1 intervention fields:
 - `intervention_id`
+- `episode_id`
 - `timestamp`
-- `scope`
 - `context`
 - `project_id` when applicable
 - `intervention_type`
-- `support_dimensions_applied`
-- `prompt_variant` or structured action summary
-- `user_response_signal`
-- `outcome_signal`
+- `relational_values_applied`
+- `support_values_applied`
+- `behavior_contract_summary`
+- `user_response_signals`
+- `outcome_signals`
 - `evidence_refs`
 
 Example:
@@ -125,29 +163,37 @@ Example:
 ```json
 {
   "intervention_id": "int_55",
-  "context": "admin_task",
-  "project_id": "taxes_2026",
-  "intervention_type": "first_physical_step",
-  "support_dimensions_applied": {
-    "planning_granularity": "micro",
-    "option_bandwidth": "single",
-    "time_scaffolding": "light"
+  "episode_id": "ep_204",
+  "context": "direction_reflect",
+  "project_id": "studio_strategy_2026",
+  "intervention_type": "name_values_mismatch",
+  "relational_values_applied": {
+    "companionship": "high",
+    "candor": "high",
+    "authority": "medium"
   },
-  "user_response_signal": "accepted",
-  "outcome_signal": "started_in_session",
-  "evidence_refs": ["msg_445", "obs_812"]
+  "support_values_applied": {
+    "reflection_depth": "deep",
+    "option_bandwidth": "few",
+    "recommendation_forcefulness": "medium"
+  },
+  "behavior_contract_summary": "Be clearly companion-like, offer a real point of view, name one likely mismatch, do not force action planning.",
+  "user_response_signals": ["resonance", "deepening"],
+  "outcome_signals": ["theme_clarified"],
+  "evidence_refs": ["msg_445", "msg_448"]
 }
 ```
 
-### 4.5 Add support-profile records
+### 4.6 Add durable support-profile records
 
-Each learned support value should include:
+Each learned value should include:
+- registry type (`relational` or `support`)
 - dimension
 - scope
 - value
 - status (`observed`, `candidate`, `confirmed`)
 - confidence
-- source (`explicit`, `auto_adapted`, `imported`)
+- source (`explicit`, `auto_adapted`, `corrected`, `imported`)
 - evidence refs
 - timestamps
 
@@ -155,9 +201,10 @@ Example:
 
 ```json
 {
-  "dimension": "planning_granularity",
-  "scope": {"type": "context", "id": "admin_task"},
-  "value": "micro",
+  "registry": "support",
+  "dimension": "option_bandwidth",
+  "scope": {"type": "context", "id": "execute"},
+  "value": "single",
   "status": "observed",
   "confidence": 0.87,
   "source": "auto_adapted",
@@ -165,14 +212,56 @@ Example:
 }
 ```
 
-### 4.6 Bounded auto-adaptation
+### 4.7 Add a stance summary derived from relational values
+
+The system should retain explicit stance labels for explanation and readability:
+- friend
+- peer
+- mentor
+- coach
+- analyst
+
+However, these should be derived summaries from effective relational values, not top-level settings.
+
+That means the runtime can resolve something like:
+- friend/mentor blend in `direction_reflect`
+- coach/friend blend in `execute`
+- peer/analyst blend in `review`
+
+This gives the user and docs readable language without collapsing back into persona modes.
+
+### 4.8 Add a behavior compiler
+
+The runtime should compile effective relational and support values into a compact response contract for the model.
+
+The contract should state things like:
+- how direct Alfred should be
+- how many options to give
+- whether to recommend or merely frame
+- whether to challenge a contradiction if present
+- how much emotional presence to bring
+- how much action bias to bring
+- whether to convert reflection into an immediate next step
+
+Example contract:
+- be warm and clearly companion-like
+- speak with high candor and medium authority
+- name one likely contradiction if present
+- give one directional hypothesis and one follow-up question
+- do not turn this into a task plan unless the user asks
+
+The model remains responsible for natural expression, tact, and language-level composition inside that contract.
+
+### 4.9 Bound adaptation by scope and truth class
 
 Auto-adaptation is allowed, but must be constrained.
 
 Recommended rules:
 - **project-scoped** values can adapt fastest
 - **context-scoped** values require more evidence
-- **global** values require the strongest evidence and should be surfaced to the user
+- **global support values** require the strongest evidence and should be surfaced to the user
+- **global relational values** should adapt cautiously and remain reviewable
+- **identity and direction themes are not handled here as silent truth updates**; they remain candidate-first and belong in the reflection/control system
 - every automatic change creates a durable update event with evidence and rationale
 - all support-profile changes must be reversible
 
@@ -181,33 +270,37 @@ Example update event:
 ```json
 {
   "event_type": "support_profile_update",
-  "dimension": "option_bandwidth",
-  "scope": {"type": "context", "id": "admin_task"},
-  "old_value": "few",
-  "new_value": "single",
-  "reason": "single-option prompts produced higher acceptance and completion signals",
+  "registry": "relational",
+  "dimension": "candor",
+  "scope": {"type": "context", "id": "direction_reflect"},
+  "old_value": "medium",
+  "new_value": "high",
+  "reason": "Higher-candor direction reflection produced stronger resonance and deepening signals.",
   "confidence": 0.84
 }
 ```
 
-### 4.7 Runtime application
+### 4.10 Runtime application
 
 At runtime, Alfred should:
 1. infer the current context
 2. load relevant project/context/global support values
-3. apply the most specific relevant values first
-4. constrain response generation and intervention options accordingly
-5. log the intervention and resulting signals
+3. load relevant project/context/global relational values
+4. resolve the most specific effective values first
+5. derive a stance summary
+6. compile a behavior contract
+7. constrain intervention and response generation accordingly
+8. log interventions and resulting signals
 
 This turns support memory into an explicit control plane rather than a prompt-only behavior.
 
-### 4.8 Shadow observations are allowed for future taxonomy design
+### 4.11 Shadow observations remain allowed for research
 
-The LLM may emit freeform candidate observations for product review, but those do not become production support dimensions automatically.
+The LLM may emit freeform candidate observations for later product review, but those observations should not become production registries automatically.
 
-This creates a safe distinction between:
-- **runtime production schema**
-- **future taxonomy research inputs**
+This keeps a clean distinction between:
+- production runtime schema
+- future taxonomy research input
 
 ---
 
@@ -215,60 +308,63 @@ This creates a safe distinction between:
 
 Users should experience Alfred as a system that:
 - adapts how it helps, not just what it remembers
+- adapts how it shows up, not just what phrasing it happens to use
 - behaves differently across contexts when that improves outcomes
-- can explain why its support style changed
-- does not require an explicit ADHD or executive-function mode toggle
+- can explain why it is being more direct, more structured, or more companion-like in a given context
+- does not require separate friend, mentor, or coach mode toggles
 
 Examples:
-- use one-step plans for admin work
-- use richer analysis in strategy conversations
-- default to clean resets after drift
-- reduce options when multi-choice prompts perform poorly
+- use one-step prompts in `execute`
+- use richer tradeoff framing in `decide`
+- use deeper, more candid interpretation in `direction_reflect`
+- use a more companion-like tone during identity reflection
+- reduce options when multi-choice prompts repeatedly underperform
 
 ---
 
 ## 6. Success Criteria
 
-- [ ] Alfred stores support-profile values using a fixed, versioned dimension taxonomy.
-- [ ] Support-profile values can be scoped globally, by context, and by project.
-- [ ] Alfred logs interventions and outcome signals durably.
+- [ ] Alfred stores relational and support values using fixed, versioned registries.
+- [ ] Runtime values can be scoped globally, by context, and by project.
+- [ ] Alfred logs interventions, response signals, and outcome signals durably.
 - [ ] Alfred can auto-adapt low-risk scoped values and log every change.
-- [ ] Global support-profile changes require stronger evidence and are surfaced for user review.
-- [ ] Runtime support behavior is driven by structured support state rather than prompt wording alone.
+- [ ] Global support and relational changes are surfaced or reviewable.
+- [ ] Runtime support behavior is driven by structured state rather than prompt wording alone.
+- [ ] The system can explain both what it changed and why.
 
 ---
 
 ## 7. Milestones
 
-### Milestone 1: Define the support-dimension registry
-Implement the versioned support-dimension schema, allowed values, defaults, and scope rules.
+### Milestone 1: Define the relational and support registries
+Implement the versioned schemas, allowed values, defaults, and scope rules.
 
 Validation: targeted tests prove invalid dimensions or values are rejected and valid scoped records are accepted.
 
-### Milestone 2: Add support-profile storage and retrieval
-Implement durable storage for scoped support values, confidence, status, source, and evidence refs.
+### Milestone 2: Add profile storage and effective-value retrieval
+Implement durable storage for scoped relational/support values, confidence, status, source, and evidence refs.
 
-Validation: targeted tests prove Alfred can read the correct effective support values across global, context, and project scopes.
+Validation: targeted tests prove Alfred can resolve correct effective values across global, context, and project scopes.
 
-### Milestone 3: Add intervention logging
+### Milestone 3: Add episode-level intervention logging
 Implement structured logging for interventions, response signals, and outcome signals tied back to context and evidence.
 
-Validation: targeted tests prove intervention events are stored consistently and can be queried by project and context.
+Validation: targeted tests prove intervention events are stored consistently and can be queried by project, context, and dimension.
 
-### Milestone 4: Implement bounded auto-adaptation
-Add rules for automatic scoped updates, update-event logging, and stronger thresholds for global changes.
+### Milestone 4: Add the behavior compiler and runtime application
+Compile effective values into explicit response contracts and use those contracts at runtime.
 
-Validation: targeted tests prove project/context values can auto-update with evidence while global changes remain gated.
+Validation: targeted tests prove runtime behavior contracts reflect the correct scoped values in representative contexts.
 
-### Milestone 5: Drive runtime support behavior from the support profile
-Update runtime orchestration so support dimensions actively constrain next-step generation, option count, recovery behavior, and other supported intervention choices.
+### Milestone 5: Implement bounded adaptation
+Add rules for automatic scoped updates, update-event logging, and stronger thresholds for broad changes.
 
-Validation: targeted tests prove the runtime applies the right scoped values in representative contexts.
+Validation: targeted tests prove project/context values can auto-update with evidence while broad changes remain surfaced and reversible.
 
 ### Milestone 6: Regression coverage, documentation, and prompt/template updates
-Add or update tests, architecture docs, and managed prompt/template content for the support-profile model, intervention log, and adaptation contract.
+Add or update tests, docs, and managed prompt/template content for the registries, behavior compiler, and adaptation contract.
 
-Validation: relevant Python validation passes, docs explain the runtime learning model clearly, and managed prompt/template content reflects the support dimensions, adaptation boundaries, and explanation surfaces consistently.
+Validation: relevant Python validation passes, docs explain the runtime learning model clearly, and managed prompt/template content reflects the same registries and boundaries.
 
 ---
 
@@ -281,11 +377,10 @@ src/alfred/session.py                  # intervention and outcome signal capture
 
 docs/MEMORY.md
 docs/ARCHITECTURE.md
+docs/relational-support-model.md
 templates/SYSTEM.md
-templates/AGENTS.md
-templates/prompts/agents/memory-system.md
-templates/prompts/boundaries.md
-templates/prompts/voice.md
+templates/SOUL.md
+templates/USER.md
 prds/168-adaptive-support-profile-and-intervention-learning.md
 ```
 
@@ -295,10 +390,11 @@ prds/168-adaptive-support-profile-and-intervention-learning.md
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| The taxonomy is too large or too abstract | Medium | start with a small registry of behavior-changing dimensions only |
-| The LLM starts inventing unsupported traits | High | keep production dimensions fixed and versioned |
-| Auto-adaptation becomes hard to trust | High | log every update with evidence, confidence, and reversibility |
+| The registries are too large or too abstract | Medium | start with a small set of behavior-changing dimensions only |
+| The model starts inventing unsupported meanings for dimensions | High | keep production semantics product-owned and versioned |
+| Adaptation becomes hard to trust | High | log every update with evidence, confidence, and reversibility |
 | Context-specific adaptation leaks into all situations | Medium | support explicit scopes and test precedence rules |
+| Relational richness collapses back into mode toggles | Medium | keep stance labels derived and explanatory rather than primary runtime settings |
 
 ---
 
@@ -315,11 +411,12 @@ uv run pytest <targeted tests for touched memory, orchestration, and support-pro
 ```
 
 Docs and prompt/template updates should cover:
-- support-dimension registry
+- relational and support registries
 - scope precedence
+- behavior compiler semantics
 - intervention logging
 - auto-adaptation rules
-- how managed instructions describe support adaptation, logging, and user-visible explanation of support changes
+- how managed instructions describe adaptation, explanation, and correction surfaces
 
 ---
 
@@ -327,6 +424,7 @@ Docs and prompt/template updates should cover:
 
 - PRD #167: Support Memory Foundation
 - PRD #169: Reflection Reviews and Support Controls
+- PRD #179: Relational Support Operating Model
 
 ---
 
@@ -334,8 +432,9 @@ Docs and prompt/template updates should cover:
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-03-30 | Use a fixed, versioned support-dimension taxonomy | Runtime support behavior must stay structured and testable |
-| 2026-03-30 | Learn dimension values at runtime, not new taxonomies | Alfred should adapt without letting the ontology drift |
-| 2026-03-30 | Scope support values globally, by context, and by project | One user can need different support styles in different situations |
-| 2026-03-30 | Log interventions and support-profile updates durably | Adaptation must be explainable and auditable |
-| 2026-03-30 | Allow bounded auto-adaptation with stronger gates for global changes | Alfred should improve automatically without becoming opaque |
+| 2026-03-30 | Use fixed, versioned relational and support registries | Runtime behavior must stay structured and testable |
+| 2026-03-30 | Product defines semantics; runtime learns values; the model expresses them naturally | This keeps the system adaptive without semantic drift |
+| 2026-03-30 | Scope runtime values globally, by context, and by project | One user can need different help in different situations |
+| 2026-03-30 | Log interventions at the episode level | Support learning needs local, contextual evidence |
+| 2026-03-30 | Keep stance labels derived rather than primary runtime modes | Alfred should feel coherent without collapsing into persona switches |
+| 2026-03-30 | Broad changes must stay reviewable and reversible | Adaptation should improve Alfred without becoming opaque |

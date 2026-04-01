@@ -1,14 +1,16 @@
 ---
 title: "USER.md"
-summary: "User profile and preferences"
+summary: "Explicit user-provided and user-confirmed durable truths"
 read_when:
   - Every conversation start
   - When preferences change
 ---
 
-# USER.md - About Your Human
+# USER.md - Durable Truths About Your Human
 
-_Learn about the person you're helping. Update this as you go._
+_Keep this file for explicit user-provided or user-confirmed truths that should stay active across many future conversations._
+
+_Do not use this file for tentative interpretations, temporary task state, intervention logs, or silent support inferences._
 
 ## Identity
 
@@ -23,29 +25,44 @@ _Learn about the person you're helping. Update this as you go._
 - **Preferred response length:** (concise / detailed / contextual)
 - **Humor:** (yes / no / dry / sarcastic)
 - **Formality:** (casual / professional / mixed)
+- **How direct should Alfred be?:**
+- **When should Alfred push vs pause?:**
 
-## Context
+## How Alfred Should Show Up
 
-_(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)_
+- **Default relational feel:** (friend / peer / mentor / coach / analyst mix)
+- **How much challenge is welcome?:**
+- **How strong should recommendations be?:**
+- **How much companionship feels right?:**
+- **How much reflection is useful?:**
 
-### Current Projects
+## Values and Direction
+
+_(Use this for explicit user-endorsed values, long-running aims, and the kinds of life-direction truths that should stay visible.)_
+
+- **What matters most:**
+- **What tends to feel alive or aligned:**
+- **What tends to feel draining, dead, or false:**
+- **Long-running goals or directions:**
+
+## Major Ongoing Commitments
+
+_(Keep this section for durable projects, domains, and commitments. Do not turn it into a temporary task list.)_
 
 -
 
-### Interests & Hobbies
+## Durable Truths to Keep Active
+
+_(Only put explicit user-provided or user-confirmed truths here.)_
 
 -
 
-### Preferences
+## Important Personal Facts
 
--
-
-### Important Personal Facts
-
-_(Family, health considerations, accessibility needs, life events - anything that should always be in your context. Examples: "Has a son born on Monday", "Colorblind", "Prefers to avoid loud noises")_
+_(Family, health considerations, accessibility needs, major life events, hard constraints — anything that should remain easy to recall and consistently respected.)_
 
 -
 
 ---
 
-The more you know, the better you can help. But remember — you're learning about a person, not building a dossier. Respect the difference.
+The goal is not to build a dossier. The goal is to remember what helps you know this person well and support them honestly.

@@ -1,254 +1,242 @@
 # Alfred Architecture
 
-## Overview
+This document explains Alfred's current architecture and the planned support architecture now being formalized by PRD #179.
 
-Alfred is a persistent memory-augmented LLM assistant. He maintains conversation history, learns user preferences, and brings relevant context into every interaction.
+## Status
 
-## System Components
+Alfred already has:
+- persistent context files
+- curated memories
+- session archive and search
+- multiple interfaces
+- a runtime self-model and stronger personality layer
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         Telegram Bot                        │
-│                   (Single User Interface)                   │
-│              Each thread = fresh session                    │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Core Application                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Config     │  │   Context    │  │    Memory    │      │
-│  │   Manager    │  │   Loader     │  │    Store     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      LLM Provider Layer                     │
-│         ┌──────────────┐          ┌──────────────┐         │
-│         │    Kimi      │          │   OpenAI     │         │
-│         │   Provider   │          │  (Future)    │         │
-│         └──────────────┘          └──────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-```
+Alfred is now being extended into a **relational support system**.
 
-## Core Modules
+That planned layer is documented in:
+- [docs/relational-support-model.md](relational-support-model.md)
+- [prds/179-relational-support-operating-model.md](../prds/179-relational-support-operating-model.md)
 
-### 1. Configuration (`src/config.py`)
+This file keeps two things clear:
+1. what Alfred already has as a runtime foundation
+2. what the target support architecture adds on top
 
-Manages application settings with environment variable override.
+---
 
-**Key Features:**
-- Pydantic-based validation
-- Hierarchical config: `config.json` → `.env` → environment variables
-- Type-safe settings access
+## 1. Current runtime foundation
 
-**Configuration Sources (precedence high to low):**
-1. Environment variables
-2. `.env` file
-3. `config.json` file (source of truth for defaults)
+### Interfaces
 
-### 2. Context Management (`src/context.py`)
+Alfred currently runs through multiple surfaces:
+- terminal / TUI
+- Web UI
+- Telegram remains in the project, but the product direction is centered on the local interfaces
 
-Loads and assembles context files for LLM prompts.
+### Core runtime responsibilities
 
-**Components:**
-- `ContextCache`: TTL-based file caching (60 second default)
-- `ContextLoader`: Async file loading with concurrent operations
-- `AssembledContext`: Combined prompt ready for LLM
+The runtime already handles:
+- context assembly from managed markdown files
+- persistent memory retrieval
+- session storage and search
+- LLM orchestration
+- tool execution
+- streaming responses
+- scheduled jobs / cron infrastructure
+- runtime self-model assembly for internal context
 
-**Context Files:**
-| File | Purpose |
-|------|---------|
-| `data/AGENTS.md` | Agent behavior rules and instructions |
-| `data/SOUL.md` | Personality, voice, and identity definition |
-| `data/USER.md` | User preferences and patterns |
-| `data/TOOLS.md` | Available tools and usage guidelines |
-| `MEMORY.md` | Curated long-term memory |
+### Managed always-loaded files
 
-### Template System
+Alfred's durable markdown layer is built around:
+- `SYSTEM.md`
+- `AGENTS.md`
+- `SOUL.md`
+- `USER.md`
 
-Alfred uses templates for initial context files. On first run, missing files are copied from `templates/` to `data/`. Managed files are also reconciled through `TemplateManager.reconcile_template()` so restart-time template drift is handled consistently.
+These files are always loaded and shape behavior every turn.
 
-See [Template Sync and Conflict Recovery](template-sync.md) for the operator workflow.
+### Current storage foundation
 
-```
-templates/               # Built-in templates (read-only)
-├── AGENTS.md
-├── SOUL.md
-├── USER.md
-├── TOOLS.md
-└── MEMORY.md
+The memory foundation includes:
+- durable markdown files for always-loaded context
+- curated memory for selectively remembered facts
+- session archive for searchable history and provenance
 
-data/                    # User's runtime files
-├── AGENTS.md            # Copied from template if missing
-├── SOUL.md
-├── USER.md
-├── TOOLS.md
-├── MEMORY.md
-└── memory/              # JSONL memory storage
-    └── memories.jsonl
-```
+See [docs/MEMORY.md](MEMORY.md) for the memory model and the planned extensions.
 
-**Behavior:**
-- Alfred checks for missing context files on startup.
-- Missing files are auto-created from templates.
-- Existing managed files are reconciled on restart against the saved base snapshot.
-- Sync records are workspace-scoped, so another checkout cannot reuse them.
-- Conflicted files are written with standard git markers, blocked from context loading, and surfaced in `/context` and the WebUI.
-- User modifications persist; Alfred only refreshes clean matches or writes conflict markers when it cannot merge cleanly.
+---
 
-**Data Flow:**
-```
-config.json ──► ContextLoader ──► ContextCache ──► AssembledContext
-                                    │
-                    File changes ──►┘ (invalidates cache)
-```
+## 2. Architectural shift in progress
 
-### 3. LLM Provider (`src/llm.py`)
+The architecture is moving from:
+- memory-augmented assistant
 
-Abstracts LLM interactions with retry logic and error handling.
+toward:
+- relational support system
 
-**Architecture:**
-```
-LLMProvider (ABC)
-    ├── KimiProvider (implemented)
-    └── OpenAIProvider (future)
-```
+That shift changes the center of gravity.
 
-**Key Features:**
-- Exponential backoff with jitter for retries
-- Structured error types: `RateLimitError`, `APIError`, `TimeoutError`
-- Streaming and non-streaming chat interfaces
-- Comprehensive logging
+The core question is no longer only:
+- "what did we talk about?"
 
-**Retry Behavior:**
-- 3 max retries with exponential backoff
-- Base delay: 1s, max delay: 60s
-- Jitter: 0.5x to 1.5x randomization
-- No retry on programming errors (ValueError, TypeError)
+It becomes:
+- "what kind of moment is this?"
+- "what is active or unresolved?"
+- "how should Alfred show up?"
+- "what kind of help works here?"
+- "what did Alfred learn from this exchange?"
 
-### 4. Type System (`src/types.py`)
+This is the purpose of PRDs #167, #168, #169, and their umbrella PRD #179.
 
-Pydantic models for type safety across the application.
+---
 
-**Core Types:**
-- `MemoryEntry`: Single memory with embedding and metadata
-- `ContextFile`: Loaded file with metadata
-- `AssembledContext`: Complete prompt context
+## 3. Target support architecture
 
-## Data Flow
+The target support architecture adds seven primitives on top of the current runtime foundation:
 
-### Message Processing
+1. **Operational state**
+2. **Interaction context**
+3. **Relational stance**
+4. **Support profile**
+5. **Interventions**
+6. **Evidence and outcomes**
+7. **Review and control**
 
-```
-1. User Message
-        │
-        ▼
-2. ContextLoader.assemble()
-   - Load AGENTS.md, SOUL.md, USER.md, TOOLS.md
-   - Retrieve relevant memories
-   - Build system prompt
-        │
-        ▼
-3. LLMProvider.chat()
-   - Send to configured LLM (Kimi)
-   - Retry on transient failures
-        │
-        ▼
-4. Store Response
-   - Save to memory store with embedding
-        │
-        ▼
-5. Reply to User
-```
+### V1 context taxonomy
 
-### Memory Storage
+The planned v1 context taxonomy is:
+- `plan`
+- `execute`
+- `decide`
+- `review`
+- `identity_reflect`
+- `direction_reflect`
 
-Alfred uses a three-layer memory architecture:
+These are interaction contexts, not persona modes.
 
-```
-data/
-├── memory/
-│   └── memories.jsonl      # Layer 1: Curated facts (via remember tool)
-│
-└── sessions/
-    └── {session_id}/
-        ├── messages.jsonl  # Layer 3: Session messages with embeddings
-        └── summary.json    # Layer 2: Session summary + embedding
-```
+### Relational stance
 
-**Layer 1: Curated Memory** (`data/memory/memories.jsonl`)
-- Facts Alfred explicitly remembers via `remember` tool
-- Has embeddings for semantic search
-- Can link to sessions via optional `session_id` field
+Alfred should feel like some mix of:
+- friend
+- peer
+- mentor
+- coach
+- analyst
 
-**Layer 2: Session Summaries** (`data/sessions/{id}/summary.json`)
-- LLM-generated narrative summaries of conversations
-- Auto-created via cron job (30 min idle or 20 messages)
-- Has embeddings for semantic search
+Those are derived stance summaries, not hard-coded modes.
 
-**Layer 3: Session Messages** (`data/sessions/{id}/messages.jsonl`)
-- Raw conversation messages
-- Each message has embedding for contextual search
-- Enables "hyperweb retrieval": find session first, then search within
+The runtime should compose them from relational dimensions such as:
+- warmth
+- companionship
+- candor
+- challenge
+- authority
+- emotional attunement
+- analytical depth
+- momentum pressure
 
-Each memory entry contains:
-- Timestamp, role, content
-- OpenAI embedding vector
-- Entry ID for CRUD operations
-- Optional session_id for linking
+### Support shaping
 
-## Error Handling Strategy
+The runtime should also learn support dimensions such as:
+- planning granularity
+- option bandwidth
+- proactivity
+- accountability style
+- recovery style
+- reflection depth
+- pacing
+- recommendation forcefulness
 
-| Layer | Strategy | Behavior |
-|-------|----------|----------|
-| Config | Validation | Fail fast on missing required values |
-| Context | Fail fast | Raise on missing required files |
-| LLM | Retry + fallback | Exponential backoff, then error |
-| Memory | Graceful degradation | Log and continue on storage errors |
+Those values should be resolved by scope:
+- global
+- context
+- project
 
-## Technology Stack
+---
 
-| Component | Technology |
-|-----------|------------|
-| Language | Python 3.12+ |
-| Configuration | Pydantic Settings |
-| Async Runtime | asyncio |
-| HTTP Client | aiohttp |
-| LLM Client | OpenAI SDK |
-| Validation | Pydantic v2 |
-| Testing | pytest + pytest-asyncio |
-| Linting | ruff |
-| Type Checking | mypy (strict) |
+## 4. Target support runtime loop
 
-## Design Principles
+The planned runtime loop is:
 
-1. **Fail Fast**: Configuration and context errors fail immediately
-2. **Async First**: All I/O operations are async
-3. **Type Safety**: Strict mypy, Pydantic models throughout
-4. **Observability**: Structured logging at all layers
-5. **Modularity**: Clear interfaces, swappable implementations
+1. infer context
+2. load operational state
+3. load effective relational values
+4. load effective support values
+5. derive stance summary
+6. compile a behavior contract
+7. choose interventions
+8. respond or act
+9. log evidence and outcomes
+10. surface review or correction when appropriate
 
-## Alfred Design Philosophies
+Important design split:
+- the **product** defines what runtime dimensions mean
+- the **runtime** learns which values apply
+- the **model** expresses those values naturally in context
 
-### Model-Driven Decisions
+This keeps the system adaptive without letting core semantics drift.
 
-When making decisions—what to remember, when to summarize, how to respond—prefer prompting over programming. Let the LLM decide:
-- What deserves recording to memory
-- When context grows too long
-- How to structure responses
-- What matters in a conversation
+---
 
-### Memory Behavior
+## 5. Learning and reflection architecture
 
-- **Curated Memory**: Alfred autonomously decides what to remember using the `remember` tool, storing curated facts to `data/memory/memories.jsonl`
-- **Session Storage**: Conversations stored in `data/sessions/{session_id}/` with messages and auto-generated summaries (PRD #76)
-- **Contextual Retrieval**: PRD #77 enables searching within relevant sessions for higher precision
+The planned learning system should be **episode-based**, not only session-based.
 
-## Related Documentation
+### Why episodes
 
-- [API Reference](API.md) — Module documentation
-- [Deployment](DEPLOYMENT.md) — Production setup
-- [Cron Jobs](cron-jobs.md) — Scheduled tasks
-- [Roadmap](ROADMAP.md) — Development progress
+A single session may contain:
+- an execution exchange
+- a decision exchange
+- an identity reflection exchange
+
+One session-level blob is too coarse for reliable support learning.
+
+### Episode role
+
+Episodes should become the typed evidence layer between:
+- raw archive
+- operational support memory
+- support-profile updates
+- reflection/review surfaces
+
+### Reflection role
+
+Reflection should remain a separate user-facing layer with:
+- inline reflection when highly relevant
+- internal synthesis in the background
+- weekly and on-demand bounded review cards
+
+---
+
+## 6. Source-of-truth boundaries
+
+One major architectural goal is to stop smearing truth across markdown, search, and learned runtime state.
+
+### Ownership map
+
+| Surface | Owns | Must not own |
+|---|---|---|
+| `SYSTEM.md` | support operating model, retrieval order, promotion rules | Alfred's voice, user-specific durable truths |
+| `AGENTS.md` | execution and tool behavior rules | support ontology, relational identity |
+| `SOUL.md` | Alfred's identity, voice, and relational posture | storage and support semantics |
+| `USER.md` | explicit user-provided or user-confirmed durable truths | inferred support values, temporary candidate patterns |
+| Structured support memory | projects, tasks, open loops, episodes, support values, interventions, patterns | Alfred identity prose |
+| Session archive | raw provenance and recall | primary support truth |
+| Runtime self-model | Alfred's current runtime state | user/support memory truth |
+
+---
+
+## 7. Related documents
+
+### User-facing
+- [How Alfred Helps](how-alfred-helps.md)
+
+### Developer / architecture
+- [Relational Support Model](relational-support-model.md)
+- [Memory System](MEMORY.md)
+- [Self-Model & Introspection](self-model.md)
+
+### PRDs
+- [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)
+- [PRD #167: Support Memory Foundation](../prds/167-support-memory-foundation.md)
+- [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/168-adaptive-support-profile-and-intervention-learning.md)
+- [PRD #169: Reflection Reviews and Support Controls](../prds/169-reflection-reviews-and-support-controls.md)

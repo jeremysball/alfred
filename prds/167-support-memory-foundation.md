@@ -9,46 +9,48 @@
 
 ## 1. Problem Statement
 
-Alfred's current memory model is still organized around search and session recall rather than active support.
+Alfred's current memory model is still organized primarily around recall rather than active support.
 
 Three problems follow from that:
 
 1. **Active work is not first-class memory**
-   - Projects, tasks, and open loops are not the main runtime state.
-   - Alfred often has to reconstruct active work from session history instead of reading a durable work model.
+   - Projects, tasks, and open loops are not yet the main runtime state.
+   - Alfred often has to reconstruct what matters from session history instead of reading a durable operational model.
 
-2. **Cross-session evidence is too narrative and too implicit**
-   - Session summaries and raw search results are useful for recall, but they do not provide a small typed substrate for later support decisions.
-   - Alfred can find prior conversations, but it cannot reliably answer: what is the active project, what is blocked, and what is the next step?
+2. **Evidence for later learning is too coarse and too narrative**
+   - Raw sessions and summary search are useful for recall.
+   - They are too blunt to support reliable intervention learning, relational learning, or reflective synthesis.
+   - One blob per session is not enough for a system that moves between planning, execution, decision support, and reflection within a single conversation.
 
 3. **Session search is carrying too much product weight**
-   - Search is useful as provenance and evidence lookup.
-   - It is not a strong primary abstraction for longitudinal support.
-   - "Archive → search → hope for insight" is the wrong center of gravity.
+   - Search should remain valuable for provenance and recall.
+   - It should not remain the primary abstraction for active support, next-step selection, or structured learning.
 
-The result is a system that can remember conversations, but not yet maintain an operational model of what the user is trying to do.
+The result is a system that can remember conversations, but does not yet maintain a compact operational model of what the user is doing or a typed evidence layer for later support learning.
 
 ---
 
 ## 2. Goals
 
-1. Make **projects, tasks, and open loops** first-class memory objects.
-2. Add **structured session observations** as a typed bridge between raw sessions and durable support memory.
-3. Keep the **raw session archive and search** as an internal provenance layer rather than the main product abstraction.
-4. Improve Alfred's ability to resume active work without requiring the user to restate status.
-5. Keep the design general-purpose rather than tied to a diagnosis-specific mode.
-6. Create a foundation that later PRDs can use for support adaptation and reflection.
-7. Treat **documentation and managed prompt/template updates** as part of the feature so Alfred's runtime instructions and user-facing explanations match the new memory model.
+1. Make **projects, tasks, and open loops** first-class durable memory objects.
+2. Add **typed interaction episodes** as the core evidence unit between raw archive and later support learning.
+3. Add **session-level syntheses** derived from episode evidence when useful, without treating the session blob as the main learning unit.
+4. Keep the **raw session archive and search** as provenance and recall infrastructure rather than the main runtime abstraction.
+5. Improve Alfred's ability to resume active work, blocked work, pending decisions, and unresolved loops without requiring a recap.
+6. Keep the memory substrate general-purpose across action support, decision support, review, identity reflection, and direction reflection.
+7. Establish the foundation that PRDs #168 and #169 will use for support learning and reflection.
+8. Treat documentation and managed prompt/template updates as part of the feature so the memory model is explained consistently.
 
 ---
 
 ## 3. Non-Goals
 
-- Implementing support-profile adaptation logic.
-- Defining the intervention taxonomy or support-dimension update rules.
-- Building weekly reflection or review UX.
+- Implementing support-profile adaptation rules.
+- Defining the full relational/support-dimension registries.
+- Building review card UX or weekly reflection flows.
 - Replacing the archive or deleting session search.
-- Building a full task manager with arbitrary project-management features.
+- Building a full task-management product with arbitrary PM features.
+- Letting reflective themes silently become durable identity truth.
 
 ---
 
@@ -56,21 +58,27 @@ The result is a system that can remember conversations, but not yet maintain an 
 
 ### 4.1 Memory layers covered by this PRD
 
-This PRD establishes the first three layers of the new memory model:
+This PRD should establish the operational and evidentiary foundation for the relational support system.
+
+It covers four layers:
 
 1. **Raw archive**
    - Full session history, tool outcomes, timestamps, and search index.
-   - Retained for provenance, debugging, auditability, and evidence lookup.
+   - Retained for provenance, evidence lookup, debugging, recall, and auditability.
 
-2. **Session observations**
-   - Compact structured extraction written per session.
-   - Serves as typed evidence for downstream synthesis.
+2. **Interaction episodes**
+   - Typed slices of a session with one dominant context and explicit evidence refs.
+   - Becomes the primary unit for downstream learning.
 
-3. **Projects / tasks / open loops**
-   - Durable operational memory for what the user is actively trying to do.
-   - Becomes the primary runtime state for execution support.
+3. **Session syntheses**
+   - Compact rollups of a session derived from its episodes.
+   - Useful for search, review, and summarization, but not the only structured memory surface.
 
-Later PRDs will add the support profile and intervention learning on top of this foundation.
+4. **Projects / tasks / open loops**
+   - Durable operational memory for what the user is actively trying to do, decide, revisit, or resolve.
+   - Becomes the primary runtime state for support.
+
+Later PRDs add support profiles, intervention learning, pattern generation, review cards, and correction controls on top of this foundation.
 
 ### 4.2 Demote session search to an internal primitive
 
@@ -86,22 +94,28 @@ It should be used for:
 It should not be the main runtime abstraction for:
 - active work tracking
 - next-step selection
-- open-loop management
+- blocked-loop management
 - support-style decisions
+- reflective pattern generation
 
-### 4.3 Add structured session observations
+### 4.3 Add typed interaction episodes
 
-Each session should produce a small typed observation record.
+A session should be able to contain multiple typed episodes.
+
+Each episode should represent a locally coherent support exchange with one dominant context.
 
 Minimum v1 fields:
+- `episode_id`
 - `session_id`
 - `time_range`
-- `primary_context` (for example: admin task, planning, review, scheduling)
-- `intents`
+- `dominant_context`
+- `subject_refs`
 - `projects_touched`
 - `tasks_touched`
+- `open_loops_touched`
 - `blockers_observed`
 - `interventions_attempted`
+- `response_signals`
 - `outcome_signals`
 - `evidence_refs`
 
@@ -109,36 +123,52 @@ Example:
 
 ```json
 {
+  "episode_id": "ep_204",
   "session_id": "sess_812",
-  "primary_context": "admin_task",
-  "intents": ["file taxes"],
-  "projects_touched": ["taxes_2026"],
-  "tasks_touched": ["download_w2"],
-  "blockers_observed": ["task_initiation", "unclear_document_location"],
-  "interventions_attempted": ["first_physical_step", "five_minute_timer"],
-  "outcome_signals": ["task_started", "document_downloaded"],
-  "evidence_refs": ["msg_441", "tool_88"]
+  "dominant_context": "decide",
+  "subject_refs": ["startup_future", "prestige_vs_aliveness"],
+  "projects_touched": ["studio_strategy_2026"],
+  "tasks_touched": [],
+  "open_loops_touched": ["commit_to_direction_q2"],
+  "blockers_observed": ["value_misalignment", "fear_of_visibility"],
+  "interventions_attempted": ["tradeoff_frame", "name_values_mismatch"],
+  "response_signals": ["resonance", "deepening"],
+  "outcome_signals": ["decision_clarified"],
+  "evidence_refs": ["msg_441", "msg_446"]
 }
 ```
 
-The observation schema should be fixed and versioned.
+The episode schema should be fixed and versioned.
 
-### 4.4 Make projects, tasks, and open loops first-class memory
+### 4.4 Add session-level syntheses derived from episodes
 
-Alfred should maintain a durable work model with explicit objects for:
-- **projects**: larger ongoing outcomes
-- **tasks**: concrete actionable items
-- **open loops**: unresolved commitments, waits, blockers, or pending follow-up states
+Session-level summaries are still useful.
+
+However, they should be treated as derived rollups built from the episode layer rather than the sole structured substrate.
+
+Session syntheses can support:
+- search and recall
+- higher-level weekly review input
+- human-readable summaries of what changed
+
+But operational retrieval and later support learning should rely on episodes plus durable support memory, not summaries alone.
+
+### 4.5 Make projects, tasks, and open loops first-class memory
+
+Alfred should maintain a durable operational model with explicit objects for:
+- **projects** — larger ongoing outcomes or threads
+- **tasks** — concrete actionable items
+- **open loops** — unresolved commitments, waits, blockers, pending decisions, or reflective threads requiring return
 
 Minimum v1 expectations:
 - stable IDs
 - status
 - title
 - relationship links
-- next step
+- next step or current unresolved state
 - blockers
 - timestamps
-- evidence refs back to sessions
+- evidence refs back to sessions or episodes
 
 Example task record:
 
@@ -150,117 +180,135 @@ Example task record:
   "status": "active",
   "next_step": "Open payroll portal and locate tax forms page",
   "blocked_by": ["unclear_document_location"],
-  "source_refs": ["sess_812", "obs_812"]
+  "source_refs": ["sess_812", "ep_204"]
 }
 ```
 
-### 4.5 Retrieval should prioritize operational state over archive recall
+Example open-loop record:
 
-When Alfred is helping the user act, runtime retrieval should prefer:
+```json
+{
+  "open_loop_id": "commit_to_direction_q2",
+  "title": "Choose whether to keep pursuing the startup path",
+  "status": "pending_review",
+  "kind": "decision_thread",
+  "current_tension": "Prestige and aliveness keep pulling in different directions",
+  "source_refs": ["sess_812", "ep_204"]
+}
+```
+
+### 4.6 Retrieval should prioritize operational state over archive recall
+
+When Alfred is helping the user act, decide, review, or resume, runtime retrieval should prefer:
 1. relevant project/task/open-loop state
-2. recent session observations tied to that work
-3. archive/search hits only when evidence or history is needed
+2. recent episodes tied to that state
+3. session syntheses tied to those episodes
+4. archive/search hits only when evidence or history is needed
 
-That makes the main memory question:
-- not "what did we talk about?"
-- but "what is active, what is blocked, and what is the next move?"
+That changes the main question from:
+- "what did we talk about?"
 
-### 4.6 Keep work memory general-purpose
+to:
+- "what is active, what is unresolved, what is blocked, and what is the next move?"
 
-Projects and tasks should support all of Alfred's general capabilities, not just executive-function-heavy use cases.
+### 4.7 Keep the operational substrate general-purpose
+
+Projects, tasks, and open loops should support all of Alfred's general support contexts, not just execution-heavy use cases.
 
 Examples:
 - coding work
 - life admin
 - research threads
-- docs work
-- follow-ups with other people
-- decisions awaiting confirmation
+- collaboration follow-ups
+- pending decisions
+- reflective threads worth returning to
 
-The model should not require an explicit ADHD or coaching mode to use this structure.
+The substrate should not require a diagnosis-specific mode to be useful.
 
-### 4.7 Migration and coexistence
+### 4.8 Migration and coexistence
 
 The current memory system should not be rewritten all at once.
 
 Recommended rollout:
 1. keep archive and search intact
-2. add typed session observations
-3. add first-class project/task/open-loop storage
-4. update runtime retrieval to prefer the new operational layer
-5. keep search as provenance and fallback
+2. add typed episodes
+3. add session syntheses derived from episodes where useful
+4. add durable project/task/open-loop storage
+5. update runtime retrieval to prefer the operational layer
+6. keep archive search as provenance and fallback
 
 ---
 
 ## 5. User Experience Requirements
 
-Users should be able to experience Alfred as a system that:
-- knows their active work without asking for a recap every time
-- can tell the difference between a project, a task, and a blocked loop
-- can resume where they left off
-- can explain where a remembered work item came from
+Users should experience Alfred as a system that:
+- knows their active work and open loops without asking for a recap every time
+- can distinguish between a project, a task, a blocked loop, and a pending decision
+- can resume where they left off even when the prior conversation mixed multiple support contexts
+- can explain where a remembered work item or unresolved loop came from
 
 Examples of expected behavior:
 - "What am I actively working on right now?"
 - "What's blocked?"
+- "What decisions are still open?"
 - "What's the next step on taxes?"
-- "What open loops do I still have from last week?"
+- "What threads from last week still need attention?"
 
 ---
 
 ## 6. Success Criteria
 
 - [ ] Alfred stores projects, tasks, and open loops as first-class durable memory objects.
-- [ ] Alfred can answer active-work questions without relying only on session search.
-- [ ] Each session produces a structured observation record using a versioned schema.
-- [ ] Operational retrieval prefers project/task/open-loop state over raw archive hits.
+- [ ] Alfred stores typed interaction episodes as a versioned evidence layer.
+- [ ] Operational retrieval prefers project/task/open-loop state and relevant episodes over raw archive hits.
 - [ ] Session search remains available for provenance and recall flows.
-- [ ] The implementation keeps one clear source of truth for active work state.
+- [ ] Alfred can answer active-work and unresolved-loop questions without relying only on session search.
+- [ ] The implementation keeps one clear source of truth for operational support state.
 
 ---
 
 ## 7. Milestones
 
 ### Milestone 1: Define the support-memory foundation contract
-Document the new layer responsibilities and demote session search to an internal archive/provenance primitive rather than the primary product abstraction.
+Document the layer responsibilities for archive, episodes, session syntheses, and operational support memory.
 
-Validation: architecture/docs and tests agree on the role of archive, observations, and operational work memory.
+Validation: architecture/docs and tests agree on the role of each layer.
 
-### Milestone 2: Add typed session observations
-Implement a fixed observation schema and generate structured per-session records from recent session evidence.
+### Milestone 2: Add typed interaction episodes
+Implement a fixed episode schema and generate stable episode records from session evidence.
 
-Validation: targeted tests prove observation extraction creates stable, versioned records from session inputs.
+Validation: targeted tests prove episode extraction creates stable, versioned records from mixed-context session inputs.
 
 ### Milestone 3: Add first-class project, task, and open-loop models
-Implement durable storage and relationships for projects, tasks, and open loops with evidence links.
+Implement durable storage and relationships for operational support state with evidence links.
 
 Validation: targeted tests prove Alfred can create, update, and read operational work state independently of raw session search.
 
 ### Milestone 4: Switch runtime retrieval to operational-first memory
-Update runtime context assembly and assistant flows to prefer operational work state and recent observations before falling back to archive recall.
+Update runtime context assembly and assistant flows to prefer operational state and relevant episode evidence before falling back to archive recall.
 
 Validation: targeted tests prove active-work questions are answered from the operational layer first, with archive used for provenance or fallback.
 
 ### Milestone 5: Regression coverage, documentation, and prompt/template updates
 Add or update tests, docs, and managed prompt/template content for the support-memory foundation and its retrieval contract.
 
-Validation: relevant Python validation passes, memory architecture docs reflect the new runtime model, and managed prompt/template content explains the new operational memory behavior consistently.
+Validation: relevant Python validation passes, memory architecture docs reflect the new runtime model, and managed prompt/template content explains operational-first retrieval consistently.
 
 ---
 
 ## 8. Likely File Changes
 
 ```text
-src/alfred/memory/...                  # new or updated support-memory models and storage
+src/alfred/memory/...                  # support-memory models and storage
 src/alfred/context.py                  # retrieval priority updates
-src/alfred/session.py                  # session observation integration
+src/alfred/session.py                  # episode extraction and synthesis integration
 src/cli/main.py or related command UI  # if active-work inspection commands are added
 
 docs/MEMORY.md
 docs/ARCHITECTURE.md
+docs/relational-support-model.md
 templates/SYSTEM.md
 templates/AGENTS.md
-templates/prompts/agents/memory-system.md
 prds/167-support-memory-foundation.md
 ```
 
@@ -270,10 +318,11 @@ prds/167-support-memory-foundation.md
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| The work model turns into a full task-management product | Medium | keep v1 focused on projects, tasks, open loops, and next-step state |
-| Duplicate truths emerge between archive, observations, and work objects | High | make projects/tasks/open loops the operational source of truth and keep evidence refs explicit |
-| Session extraction becomes too freeform | Medium | use a fixed versioned observation schema |
+| The work model turns into a full task manager | Medium | keep v1 focused on projects, tasks, open loops, and next-step state |
+| Duplicate truths emerge between archive, episodes, and operational objects | High | make projects/tasks/open loops the operational source of truth and keep evidence refs explicit |
+| Episode extraction becomes too freeform | Medium | use a fixed, versioned episode schema |
 | Runtime retrieval still overuses archive recall | Medium | encode and test operational-first retrieval order |
+| Reflective threads have nowhere to live in the operational model | Medium | allow open loops to represent pending decisions and reflective return threads |
 
 ---
 
@@ -290,19 +339,20 @@ uv run pytest <targeted tests for touched memory and context surfaces>
 ```
 
 Docs and prompt/template updates should cover:
-- memory architecture
+- operational memory architecture
+- episode and synthesis roles
 - retrieval order
 - role of session search after demotion
-- how active projects/tasks/open loops are represented in Alfred's managed instructions and memory guidance
+- how projects/tasks/open loops are represented in Alfred's managed instructions and memory guidance
 
 ---
 
 ## 11. Related PRDs
 
-- PRD #102: Unified Memory System
-- PRD #117: Unified SQLite Storage System
-- PRD #135: Persistent Memory Context
-- PRD #167 depends on no new feature PRD, but establishes the substrate for #168 and #169
+- PRD #147: Alfred Self-Model and Personality
+- PRD #168: Adaptive Support Profile and Intervention Learning
+- PRD #169: Reflection Reviews and Support Controls
+- PRD #179: Relational Support Operating Model
 
 ---
 
@@ -311,6 +361,7 @@ Docs and prompt/template updates should cover:
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-03-30 | Keep raw session archive and search | They remain valuable for provenance, recall, and evidence lookup |
-| 2026-03-30 | Demote session search from product abstraction to internal primitive | Search alone is not a strong runtime model for active support |
+| 2026-03-30 | Use typed interaction episodes as the main evidence unit | Support learning needs finer structure than one session blob |
 | 2026-03-30 | Make projects, tasks, and open loops first-class memory | Alfred needs operational state, not just recall |
-| 2026-03-30 | Add typed session observations | They create a small structured bridge from conversations to durable support memory |
+| 2026-03-30 | Demote session search from product abstraction to internal primitive | Search alone is not a strong runtime model for active support |
+| 2026-03-30 | Allow open loops to cover pending decisions and reflective return threads | Operational support must cover more than task execution |

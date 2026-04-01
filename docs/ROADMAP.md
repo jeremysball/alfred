@@ -259,8 +259,9 @@ To migrate: Delete old AGENTS.md and TOOLS.md from your workspace. New templates
 | 151 | Web UI Compose, Cancel, and Edit While Streaming | Add cancel/edit streaming UX in the Web UI (PRD #151) |
 | 157 | Migrate to Pygments+Mistune | Replace Rich with Pygments+Mistune for 2-5x faster TUI markdown rendering (PRD #157) |
 | 161 | Documentation Refresh | Update ARCHITECTURE.md and related docs to reflect SQLite storage, PyPiTUI/Web UI interfaces, and AlfredCore (PRD #161) |
-| 167 | Support Memory Foundation | Add typed session observations plus first-class projects, tasks, and open loops as Alfred's operational memory substrate (PRD #167) |
-| 168 | Adaptive Support Profile and Intervention Learning | Add a fixed support-dimension taxonomy, scoped runtime values, and intervention logging with bounded auto-adaptation (PRD #168) |
+| 179 | Relational Support Operating Model | Formalize Alfred as one relational support system and align child PRDs, docs, and markdown ownership under shared primitives (PRD #179) |
+| 167 | Support Memory Foundation | Add typed interaction episodes plus first-class projects, tasks, and open loops as Alfred's operational memory substrate (PRD #167) |
+| 168 | Adaptive Support Profile and Intervention Learning | Add fixed relational/support registries, scoped runtime values, intervention logging, and bounded auto-adaptation (PRD #168) |
 | 165 | Selective Tool Outcomes and Context Viewer Fixes | Replace raw tool-call context with derived outcomes, make `/context` truthful, and fix the Web UI context component (PRD #165) |
 | 170 | Web UI Bootstrap and Script Loading Cleanup | Move Web UI startup to one deterministic app entrypoint and reduce `index.html` to a document shell (PRD #170) |
 | 171 | Web UI Browser Test Harness and Fixture Stabilization | Stabilize browser-facing fixtures, readiness seams, and targeted regressions for safe frontend refactors (PRD #171) |
