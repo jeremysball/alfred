@@ -19,6 +19,7 @@ from alfred.memory.support_memory import (
     ArcBlocker,
     ArcDecision,
     ArcOpenLoop,
+    ArcSnapshot,
     ArcTask,
     EvidenceRef,
     LifeDomain,
@@ -1587,6 +1588,15 @@ class SQLiteStore:
             )
             await db.commit()
 
+    async def _load_operational_arc(self, db: Any, arc_id: str) -> OperationalArc | None:
+        """Load one operational arc from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_operational_arcs WHERE arc_id = ?", (arc_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+
+        return OperationalArc.from_record(dict(row))
+
     async def get_operational_arc(self, arc_id: str) -> OperationalArc | None:
         """Load a durable operational arc by ID."""
         await self._init()
@@ -1597,12 +1607,7 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM support_operational_arcs WHERE arc_id = ?", (arc_id,)) as cursor:
-                row = await cursor.fetchone()
-                if row is None:
-                    return None
-
-            return OperationalArc.from_record(dict(row))
+            return await self._load_operational_arc(db, arc_id)
 
     async def list_resume_arcs_for_domain(self, domain_id: str) -> list[OperationalArc]:
         """List active and dormant arcs for one domain in resume-oriented order."""
@@ -1672,6 +1677,20 @@ class SQLiteStore:
             )
             await db.commit()
 
+    async def _load_arc_tasks(self, db: Any, arc_id: str) -> list[ArcTask]:
+        """Load all tasks linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_tasks
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, task_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcTask.from_record(dict(row)) for row in rows]
+
     async def list_arc_tasks(self, arc_id: str) -> list[ArcTask]:
         """List all tasks linked to an operational arc."""
         await self._init()
@@ -1682,17 +1701,7 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """
-                SELECT * FROM support_arc_tasks
-                WHERE arc_id = ?
-                ORDER BY created_at ASC, task_id ASC
-                """,
-                (arc_id,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-
-            return [ArcTask.from_record(dict(row)) for row in rows]
+            return await self._load_arc_tasks(db, arc_id)
 
     async def save_arc_blocker(self, blocker: ArcBlocker) -> None:
         """Save or update an arc-linked blocker."""
@@ -1731,6 +1740,20 @@ class SQLiteStore:
             )
             await db.commit()
 
+    async def _load_arc_blockers(self, db: Any, arc_id: str) -> list[ArcBlocker]:
+        """Load all blockers linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_blockers
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, blocker_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcBlocker.from_record(dict(row)) for row in rows]
+
     async def list_arc_blockers(self, arc_id: str) -> list[ArcBlocker]:
         """List all blockers linked to an operational arc."""
         await self._init()
@@ -1741,17 +1764,7 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """
-                SELECT * FROM support_arc_blockers
-                WHERE arc_id = ?
-                ORDER BY created_at ASC, blocker_id ASC
-                """,
-                (arc_id,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-
-            return [ArcBlocker.from_record(dict(row)) for row in rows]
+            return await self._load_arc_blockers(db, arc_id)
 
     async def save_arc_decision(self, decision: ArcDecision) -> None:
         """Save or update an arc-linked decision."""
@@ -1790,6 +1803,20 @@ class SQLiteStore:
             )
             await db.commit()
 
+    async def _load_arc_decisions(self, db: Any, arc_id: str) -> list[ArcDecision]:
+        """Load all decisions linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_decisions
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, decision_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcDecision.from_record(dict(row)) for row in rows]
+
     async def list_arc_decisions(self, arc_id: str) -> list[ArcDecision]:
         """List all decisions linked to an operational arc."""
         await self._init()
@@ -1800,17 +1827,7 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """
-                SELECT * FROM support_arc_decisions
-                WHERE arc_id = ?
-                ORDER BY created_at ASC, decision_id ASC
-                """,
-                (arc_id,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-
-            return [ArcDecision.from_record(dict(row)) for row in rows]
+            return await self._load_arc_decisions(db, arc_id)
 
     async def save_arc_open_loop(self, open_loop: ArcOpenLoop) -> None:
         """Save or update an arc-linked open loop."""
@@ -1849,6 +1866,20 @@ class SQLiteStore:
             )
             await db.commit()
 
+    async def _load_arc_open_loops(self, db: Any, arc_id: str) -> list[ArcOpenLoop]:
+        """Load all open loops linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_open_loops
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, open_loop_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcOpenLoop.from_record(dict(row)) for row in rows]
+
     async def list_arc_open_loops(self, arc_id: str) -> list[ArcOpenLoop]:
         """List all open loops linked to an operational arc."""
         await self._init()
@@ -1859,17 +1890,30 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """
-                SELECT * FROM support_arc_open_loops
-                WHERE arc_id = ?
-                ORDER BY created_at ASC, open_loop_id ASC
-                """,
-                (arc_id,),
-            ) as cursor:
-                rows = await cursor.fetchall()
+            return await self._load_arc_open_loops(db, arc_id)
 
-            return [ArcOpenLoop.from_record(dict(row)) for row in rows]
+    async def get_arc_snapshot(self, arc_id: str) -> ArcSnapshot | None:
+        """Load one composed operational-arc snapshot from structured storage only."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            arc = await self._load_operational_arc(db, arc_id)
+            if arc is None:
+                return None
+
+            return ArcSnapshot(
+                arc=arc,
+                tasks=await self._load_arc_tasks(db, arc_id),
+                blockers=await self._load_arc_blockers(db, arc_id),
+                decisions=await self._load_arc_decisions(db, arc_id),
+                open_loops=await self._load_arc_open_loops(db, arc_id),
+            )
 
     async def save_support_episode(self, episode: SupportEpisode) -> None:
         """Save or update a typed support episode and its evidence refs."""

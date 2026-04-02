@@ -181,7 +181,7 @@ Minimum v1 expectations:
 - timestamps
 - evidence refs back to sessions or episodes
 
-Example composed arc view (assembled from the persisted arc plus linked work-state records):
+Example composed arc view (assembled from the persisted arc plus linked work-state records). In code, this composed read may be exposed as an `ArcSnapshot` that wraps the authoritative `OperationalArc` plus its linked work-state objects:
 
 ```json
 {

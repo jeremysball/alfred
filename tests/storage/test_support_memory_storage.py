@@ -13,6 +13,7 @@ from alfred.memory.support_memory import (
     ArcBlocker,
     ArcDecision,
     ArcOpenLoop,
+    ArcSnapshot,
     ArcTask,
     EvidenceRef,
     LifeDomain,
@@ -489,6 +490,103 @@ async def test_arc_operational_state_round_trips_tasks_blockers_decisions_and_op
     assert await sqlite_store.list_arc_blockers(arc.arc_id) == [blocker]
     assert await sqlite_store.list_arc_decisions(arc.arc_id) == [decision]
     assert await sqlite_store.list_arc_open_loops(arc.arc_id) == [open_loop]
+
+    async with aiosqlite.connect(sqlite_store.db_path) as db, db.execute("SELECT COUNT(*) FROM sessions") as cursor:
+        row = await cursor.fetchone()
+        assert row[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_arc_snapshot_reads_structured_work_state_without_transcript_search(sqlite_store):
+    """One arc snapshot should compose structured work state without using session search."""
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.97,
+        created_at=datetime(2026, 3, 30, 14, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 5, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.95,
+        created_at=datetime(2026, 3, 30, 14, 10, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 20, tzinfo=UTC),
+        last_active_at=datetime(2026, 3, 30, 14, 19, tzinfo=UTC),
+        evidence_ref_ids=["ev-arc-1"],
+    )
+    earlier_task = ArcTask(
+        task_id="task-outline-bootstrap-boundary",
+        arc_id=arc.arc_id,
+        title="Outline bootstrap boundary",
+        status="todo",
+        created_at=datetime(2026, 3, 30, 14, 21, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 22, tzinfo=UTC),
+        next_step="List the current startup responsibilities",
+        evidence_ref_ids=["ev-451"],
+    )
+    later_task = ArcTask(
+        task_id="task-extract-runtime-boot",
+        arc_id=arc.arc_id,
+        title="Extract runtime boot",
+        status="in_progress",
+        created_at=datetime(2026, 3, 30, 14, 25, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 29, tzinfo=UTC),
+        next_step="Move boot orchestration into a dedicated module",
+        evidence_ref_ids=["ev-452"],
+    )
+    blocker = ArcBlocker(
+        blocker_id="blocker-app-structure-ambiguity",
+        arc_id=arc.arc_id,
+        title="App structure ambiguity",
+        status="active",
+        created_at=datetime(2026, 3, 30, 14, 23, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 27, tzinfo=UTC),
+        next_step="Pick a boundary before editing more files",
+        evidence_ref_ids=["ev-453"],
+    )
+    decision = ArcDecision(
+        decision_id="decision-runtime-boot-location",
+        arc_id=arc.arc_id,
+        title="Where runtime should boot",
+        status="pending_review",
+        created_at=datetime(2026, 3, 30, 14, 24, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 28, tzinfo=UTC),
+        current_tension="Keep the entrypoint thin without obscuring app wiring",
+        evidence_ref_ids=["ev-454"],
+    )
+    open_loop = ArcOpenLoop(
+        open_loop_id="open-loop-confirm-bootstrap-boundary",
+        arc_id=arc.arc_id,
+        title="Confirm bootstrap boundary",
+        status="waiting",
+        created_at=datetime(2026, 3, 30, 14, 26, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 14, 30, tzinfo=UTC),
+        current_tension="Need a crisp seam before changing startup flow",
+        evidence_ref_ids=["ev-455"],
+    )
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(later_task)
+    await sqlite_store.save_arc_task(earlier_task)
+    await sqlite_store.save_arc_blocker(blocker)
+    await sqlite_store.save_arc_decision(decision)
+    await sqlite_store.save_arc_open_loop(open_loop)
+
+    snapshot = await sqlite_store.get_arc_snapshot(arc.arc_id)
+
+    assert snapshot == ArcSnapshot(
+        arc=arc,
+        tasks=[earlier_task, later_task],
+        blockers=[blocker],
+        decisions=[decision],
+        open_loops=[open_loop],
+    )
 
     async with aiosqlite.connect(sqlite_store.db_path) as db, db.execute("SELECT COUNT(*) FROM sessions") as cursor:
         row = await cursor.fetchone()

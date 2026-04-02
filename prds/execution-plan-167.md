@@ -69,9 +69,9 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Arc snapshot composition
 
-- [ ] Test: `test_arc_snapshot_reads_structured_work_state_without_transcript_search()` - verify runtime can load one composed arc view with its tasks, blockers, open loops, and decisions without reconstructing from session history.
-- [ ] Implement: add a composed arc reader for context and session-start callers that assembles operational state from the new tables.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_arc_snapshot_reads_structured_work_state_without_transcript_search -v`
+- [x] Test: `test_arc_snapshot_reads_structured_work_state_without_transcript_search()` - verify runtime can load one composed arc view with its tasks, blockers, open loops, and decisions without reconstructing from session history.
+- [x] Implement: add a composed arc reader for context and session-start callers that assembles operational state from the new tables.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_arc_snapshot_reads_structured_work_state_without_transcript_search -v`
 
 ---
 

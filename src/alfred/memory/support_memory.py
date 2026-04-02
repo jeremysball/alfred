@@ -527,3 +527,14 @@ class ArcOpenLoop:
             current_tension=record.get("current_tension"),
             evidence_ref_ids=_load_str_list(record.get("evidence_ref_ids")),
         )
+
+
+@dataclass(eq=True)
+class ArcSnapshot:
+    """Composed structured view of one operational arc and its linked work state."""
+
+    arc: OperationalArc
+    tasks: list[ArcTask] = field(default_factory=list)
+    blockers: list[ArcBlocker] = field(default_factory=list)
+    decisions: list[ArcDecision] = field(default_factory=list)
+    open_loops: list[ArcOpenLoop] = field(default_factory=list)
