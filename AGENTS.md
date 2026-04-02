@@ -73,6 +73,39 @@ For prose edits or clearly mechanical changes, state intent briefly and proceed.
 - **Ad-hoc bug fixes or small follow-ups** — use the `todo` tool.
 - Create one todo per distinct ad-hoc change and mark it complete when finished.
 
+### Execution Plan Quality
+
+For PRD execution plans:
+- start from the public seam: define the observable behavior or success signal that proves the milestone works
+- define the intra-PRD phase contract before changing code: observable behavior, current repo constraints, validation workflow, and the docs or prompts that must stay aligned
+- name the current repo constraints and risks explicitly so the plan is grounded in today's globals, side effects, legacy hooks, and ordering assumptions
+- split refactors by boundary so each task covers one seam such as HTML shell, bootstrap path, app runtime, storage boundary, API contract, or optional feature layer
+- prefer observable behavior tests over internal implementation-shape checks unless the internal shape is itself the contract
+- include at least one task that proves each claimed milestone outcome or PRD success criterion the plan says it will satisfy
+- choose the validation workflow explicitly: Python, JavaScript, or both; do not leave mixed-surface work with only one side validated
+- use the smallest meaningful validation for each task; broaden only when the change crosses boundaries or the failure mode is unclear
+- when the abstract rules feel ambiguous, follow `docs/execution-plans/contract-first-examples.md`
+
+### Execution Plan Review Gate
+
+Before approving or executing a PRD execution plan, check:
+1. the phases map cleanly to the PRD milestones or to an explicit sub-slice of one milestone
+2. no catch-all smoke test combines unrelated surfaces when smaller boundary tests would isolate failures better
+3. no test only asserts exports, import order, file counts, or filenames unless those are the actual contract
+4. the listed validation matches the touched files under the dual workflow rule
+5. docs and managed prompts are included when runtime behavior, user-visible behavior, or explanation changes
+
+If a plan fails this review, revise the plan before implementation.
+
+### Planning Guidance Sync
+
+`AGENTS.md` contains repo-specific execution-plan rules. `prd-exec` contains the reusable planning workflow. `docs/execution-plans/contract-first-examples.md` contains the tracked examples for this repo.
+
+When changing execution-plan guidance:
+- update all three when the change affects how plans should be written and reviewed
+- keep them aligned so one does not require behavior the others omit
+- keep generic planning guidance in `prd-exec`, Alfred-specific enforcement in `AGENTS.md`, and concrete examples in the repo doc
+
 ### Prefer Deletion and Consolidation
 
 When improving a system:
@@ -314,6 +347,14 @@ Use the PRD workflow for feature work:
 - `prd-next` for the next task
 - `prd-update-progress` after completed work
 - `prd-done` when the PRD is fully implemented
+
+We use PRDs as the feature-level spec, and we execute each PRD phase contract-first.
+
+- define the phase contract before implementation: observable behavior, repo constraints, validation workflow, and the docs or prompts that must stay aligned
+- keep the PRD, execution plan, supporting docs, managed prompts, and shipped behavior aligned as the work evolves
+- treat drift between the contract, docs, prompts, and code as a real bug, not cleanup for later
+
+This keeps decisions consistent and reduces drift during aggressive refactors.
 
 When using `prd-create`, ask design questions before writing anything.
 
