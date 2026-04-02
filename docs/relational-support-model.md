@@ -4,9 +4,17 @@
 
 ## Overview
 
-Alfred is being formalized as a **relational support system** rather than a collection of narrow support features.
+Alfred is being formalized as a **relational support system for orientation, continuity, calibration, and action**.
 
-The aim is one system that can support many human situations through shared primitives instead of diagnosis-specific modes.
+The aim is not a diagnosis-specific helper or a pile of adjacent support features.
+
+The aim is one system that can:
+- re-orient the user when they are foggy
+- recover continuity across days and weeks of work
+- lower activation friction
+- help make decisions
+- surface honest reflection
+- hold up an evidence-backed mirror
 
 The model is intentionally relational:
 - Alfred should feel like a companion
@@ -19,16 +27,32 @@ The model is intentionally relational:
 Alfred should help through one shared support loop:
 1. understand what kind of moment this is
 2. load what matters operationally
-3. decide how to show up relationally
-4. decide how to shape help
-5. choose an intervention
-6. observe what happened
-7. learn from it
-8. surface important changes back to the user when appropriate
+3. recover recent continuity when needed
+4. decide how to show up relationally
+5. decide how to shape help
+6. choose an intervention
+7. observe what happened
+8. compare story to evidence when calibration matters
+9. learn from it
+10. surface important changes back to the user when appropriate
 
-## V1 contexts
+## Core jobs vs interaction contexts
 
-The v1 interaction taxonomy is:
+These are not the same thing.
+
+### Core jobs
+
+The user-facing jobs Alfred must be able to do are:
+- **orient**
+- **resume**
+- **activate**
+- **decide**
+- **reflect**
+- **calibrate**
+
+### V1 interaction contexts
+
+The current v1 interaction taxonomy remains:
 - `plan`
 - `execute`
 - `decide`
@@ -36,7 +60,11 @@ The v1 interaction taxonomy is:
 - `identity_reflect`
 - `direction_reflect`
 
-These are **interaction contexts**, not persona modes.
+Those contexts are implementation steering, not the whole product promise.
+
+Important point:
+- `orient`, `resume`, and `calibrate` cut across several contexts
+- they should remain first-class product requirements even if they do not yet appear as separate runtime labels
 
 ## Seven core primitives
 
@@ -65,6 +93,22 @@ The durable record of what Alfred tried and what happened.
 
 ### 7. Review and control
 The user-facing inspection, explanation, and correction layer.
+
+## Session search is a first-class capability
+
+Session search remains essential.
+
+It is not the whole product thesis, but it is one of the core capabilities that makes the larger system work.
+
+Alfred needs searchable session history for:
+- fast re-entry into the last day or week of work
+- provenance for pattern claims
+- calibration against prior statements, predictions, and decisions
+- evidence-backed review
+- avoiding pointless recap requests when the record already exists
+
+Structured support memory does not replace session search.
+It sits on top of it.
 
 ## Relational stance model
 
@@ -161,6 +205,29 @@ The runtime should distinguish at least five learning classes:
 
 These classes should not share the same promotion rules.
 
+## Calibration model
+
+Calibration should be explicit, not implied.
+
+Alfred should be able to compare:
+- what the user says matters versus what the record shows
+- what the user predicted versus what happened
+- what the user planned versus what later unfolded
+- what themes feel true versus what evidence supports
+
+When Alfred makes a stronger calibration claim, he should separate:
+- **observation**
+- **interpretation**
+- **recommendation**
+
+And he should preserve:
+- evidence refs where appropriate
+- uncertainty when confidence is limited
+- user correction paths
+
+The goal is not fake neutrality.
+The goal is disciplined honesty.
+
 ## Reflection model
 
 Reflection is the user-facing meaning-making layer. It is not the same thing as learning.
@@ -179,6 +246,7 @@ Recommended v1 production pattern types:
 - `direction_tension`
 - `recovery_pattern`
 - `value_signal`
+- `calibration_gap`
 
 ### Review cards
 Recommended v1 review-card types:
@@ -187,6 +255,7 @@ Recommended v1 review-card types:
 - relational-fit
 - identity-theme
 - direction-tension
+- calibration-gap
 
 Reviews should stay bounded to 1-3 cards and each card should include evidence plus an action, confirmation question, or correction path.
 
@@ -214,7 +283,7 @@ That means identity and direction themes stay candidate-first until the user con
 | `SOUL.md` | Alfred's identity, voice, and relational posture |
 | `USER.md` | explicit user-provided or user-confirmed durable truths |
 | Structured support memory | operational state, support values, interventions, patterns, evidence |
-| Session archive | provenance and recall |
+| Session archive | provenance, recall, resume support, calibration evidence |
 | Runtime self-model | Alfred's current interface/runtime state |
 
 ## Relational contract
@@ -237,14 +306,16 @@ Still required:
 The target runtime loop is:
 1. infer context
 2. load operational state
-3. load effective relational values
-4. load effective support values
-5. derive stance summary
-6. compile behavior contract
-7. choose interventions
-8. respond or act
-9. log evidence and outcomes
-10. surface review or correction when appropriate
+3. recover recent continuity when needed
+4. load effective relational values
+5. load effective support values
+6. derive stance summary
+7. compile behavior contract
+8. choose interventions
+9. respond or act
+10. log evidence and outcomes
+11. calibrate against the record when relevant
+12. surface review or correction when appropriate
 
 ## PRD map
 
@@ -266,6 +337,7 @@ What is still being formalized here is the next layer:
 - operational support memory
 - relational/support registries
 - episode-based learning
+- bounded calibration surfaces
 - review and correction surfaces
 
 That is the architecture this document is meant to make explicit.

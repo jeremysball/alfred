@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>A local-first relational support system for action, decisions, and reflection.</strong>
+  <strong>A local-first relational system for orientation, continuity, calibration, and action.</strong>
 </p>
 
 <p align="center">
@@ -30,9 +30,9 @@
 
 Alfred is an open-source AI companion with memory, tools, and continuity.
 
-He is being built to feel less like a disposable chat window and more like a persistent presence: someone who can help you **plan**, **execute**, **decide**, **review**, and **reflect** without starting from zero every time.
+He is being built to feel less like a disposable chat window and more like a persistent presence: someone who can help you **re-orient**, **resume**, **act**, **decide**, **reflect**, and **calibrate** without starting from zero every time.
 
-Today, Alfred already has a strong local foundation: durable context files, searchable memory, full session history, tools, a Web UI, a terminal interface, and a runtime self-model. The next layer now being formalized is what makes him more than a memory wrapper: a relational support system that can show up as a **friend**, **peer**, **mentor**, **coach**, or **analyst** without splitting into crude mode toggles.
+Today, Alfred already has a strong local foundation: durable context files, searchable memory, full session history, tools, a Web UI, a terminal interface, and a runtime self-model. The next layer now being formalized is what makes him more than a continuity tool: a relational system for **orientation**, **continuity**, **calibration**, and **action** that can show up as a **friend**, **peer**, **mentor**, **coach**, or **analyst** without splitting into crude mode toggles.
 
 > **Status:** Beta. Active development. Breaking changes are expected while the support model is being unified.
 
@@ -45,34 +45,40 @@ They forget:
 - what you were in the middle of
 - what usually helps when you get stuck
 - what patterns keep repeating
+- what the record actually shows over time
 - what kind of presence you actually want on the other side of the conversation
 
 Alfred is an attempt to fix that.
 
-The goal is not only better memory. The goal is a system that can hold:
-- **operational continuity** — projects, tasks, open loops, decisions
-- **relational continuity** — a real sense of ongoing companionship
-- **support continuity** — learning how to help you better over time
-- **reflective continuity** — noticing patterns without flattening you into a diagnosis or template
+The goal is not only better memory. The goal is better:
+- **orientation** — what is true right now?
+- **continuity** — what has been active across the last day, week, or work arc?
+- **calibration** — what does the record support, and where is your story off?
+- **action** — what is the next move, and how do you get into motion?
+- **reflection** — what patterns, tensions, and values keep repeating?
 
 ## What makes Alfred different
 
-### 1. Local-first memory you control
+### 1. Local-first continuity you control
 Alfred stores his support context locally: managed markdown files, remembered facts, and session history live in your Alfred data directory, not in some opaque hosted product memory layer.
 
-### 2. One system, many kinds of support
-Alfred is being designed around shared primitives rather than niche modes. The same system should handle:
-- action support
-- decision support
-- review
-- identity reflection
-- direction reflection
+### 2. One system, many kinds of help
+Alfred is being designed around shared primitives rather than niche modes. The same system should help you:
+- re-orient on bad days
+- get back into the last days or weeks of work quickly
+- lower action friction and restart momentum
+- compare paths and make decisions
+- reflect on identity and direction
+- get an evidence-backed mirror instead of pure vibe-reading
 
-### 3. Relational by design
-Alfred is not meant to sound like a sterile assistant. He is meant to feel like a companion: friend, peer, and sometimes mentor or coach, depending on the moment.
+### 3. Session search stays central
+Alfred is not just supposed to remember durable facts. He should also be able to search prior sessions, recover context fast, and ground pattern claims in real evidence.
 
-### 4. Learnable and correctable
-The long-term direction is not just "remember more." It is "learn what kind of help works, show your work, and let the user correct it."
+### 4. Relational by design
+Alfred is not meant to sound like a sterile assistant. He is meant to feel like a companion: friend, peer, and sometimes mentor, coach, or analyst, depending on the moment.
+
+### 5. Learnable and correctable
+The long-term direction is not just "remember more." It is "learn what kind of help works, surface insights clearly, show the evidence when it matters, and let the user correct it."
 
 ## Current foundation vs planned support model
 
@@ -111,13 +117,13 @@ More like a persistent companion who can do things like:
 > **You:** Which option feels more like me?  
 > **Alfred:** The safer path sounds more legible. The other one sounds more alive. If you want my honest read, I think you're trying to negotiate with a future you already don't want.
 
-### Review
-> **You:** What am I actually in the middle of right now?  
-> **Alfred:** Three active threads: the Web UI cleanup, the support-model docs sweep, and the startup-direction question you still haven't really closed.
+### Re-entry
+> **You:** What was I actually doing last week?  
+> **Alfred:** Three active threads dominated the week: the Web UI cleanup, the support-model docs sweep, and the startup-direction question you still haven't really closed. You made progress on the first two and kept circling the third.
 
-### Reflection
+### Calibration
 > **You:** What have you learned about how to help me?  
-> **Alfred:** In execution contexts, narrower prompts work better than menus. In reflection contexts, you go deeper when I act more like a candid peer than a formal advisor.
+> **Alfred:** In execution contexts, narrower prompts work better than menus. In reflection contexts, you go deeper when I act more like a candid peer than a formal advisor. The record also says drift tends to start when open questions stay unclosed for too long.
 
 ## Quick start
 
@@ -159,8 +165,7 @@ alfred webui             # Start the browser interface
 alfred --telegram        # Run Telegram mode
 alfred cron list         # List scheduled jobs
 alfred cron submit       # Submit a new scheduled job
-alfred memory status     # Show memory store status
-alfred memory migrate    # Migrate or rebuild memory storage
+alfred config update     # Refresh managed templates in the workspace
 ```
 
 ## Interfaces

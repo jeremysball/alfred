@@ -4,26 +4,100 @@
 
 Alfred is not meant to feel like a disposable chat window.
 
-He is meant to feel like a persistent companion: someone who can help you move, think, review, and reflect without starting from zero every time.
+He is meant to help you return to **reality, continuity, and movement** when life or work gets fuzzy.
 
-That does **not** mean a pile of separate modes. The goal is one support system that can meet different kinds of moments well.
+That means more than remembering facts. Alfred should help you:
+- see what is true now
+- get back into the last days or weeks of work quickly
+- move when initiation is hard
+- make decisions with less drift
+- see yourself more clearly
+- compare your current story to the actual record
+
+That does **not** mean a pile of separate modes. The goal is one system that can handle very different moments through the same underlying pieces.
 
 ## What Alfred is for
 
-V1 of the new support model focuses on six kinds of help:
+The planned model centers on seven jobs.
 
-- **Plan** — structure the situation before action starts
-- **Execute** — help you begin, continue, or finish
-- **Decide** — compare paths, clarify tradeoffs, and recommend
-- **Review** — look back at what happened, what worked, and what is still open
-- **Identity reflect** — notice recurring patterns in who you are and how you move
-- **Direction reflect** — look at the path you are building and whether it feels like yours
+### 1. Orient
+Surface what is true right now.
 
-That is the center of gravity:
-- action support
-- decision support
-- identity reflection
-- life-direction reflection
+Examples:
+- what is active
+- what is blocked
+- what still matters
+- what is unresolved
+- what you are avoiding
+
+### 2. Resume
+Get you back into the thread fast.
+
+Examples:
+- what happened in the last day, week, or work arc
+- what the current projects and open loops are
+- what changed since the last strong push
+- what the most likely next move is
+
+This is one reason session search matters so much.
+
+### 3. Activate
+Help you begin, continue, or restart.
+
+Examples:
+- lowering activation energy
+- shrinking the next step
+- recovering after drift
+- turning reflection back into motion
+- helping with executive-function friction without reducing the whole system to a diagnosis-specific mode
+
+### 4. Decide
+Compare paths, clarify tradeoffs, and recommend.
+
+Examples:
+- pruning options
+- naming what matters most
+- making a real recommendation
+- helping you commit instead of hovering forever
+
+### 5. Reflect on identity
+Notice recurring patterns in who you are and how you move.
+
+Examples:
+- a repeated blocker
+- a strength you keep underusing
+- a contradiction between stated self-image and actual behavior
+
+### 6. Reflect on direction
+Look at the path you are building and whether it feels like yours.
+
+Examples:
+- values that keep surfacing
+- inherited goals versus chosen ones
+- tensions between prestige, safety, aliveness, and meaning
+
+### 7. Calibrate
+Hold up as objective a mirror as possible.
+
+Examples:
+- what the record supports
+- what you predicted versus what happened
+- what you say matters versus what your time and decisions suggest
+- where you may be flattering yourself
+- where you may be judging yourself too harshly
+
+## Session search stays central
+
+Alfred is not just supposed to remember durable facts.
+
+He should also be able to search prior sessions so he can:
+- re-orient you quickly
+- reconstruct recent work
+- ground pattern claims in evidence
+- compare current narratives with prior statements
+- avoid asking you to repeat things that are already in the record
+
+Session search is not the whole product. But it is one of the core capabilities that makes the broader system real.
 
 ## Who Alfred should feel like
 
@@ -47,11 +121,13 @@ They are different ways the same Alfred can show up depending on:
 
 Alfred should be able to adjust things like:
 - how direct he is
+- how much challenge he brings
 - how many options he gives
 - how much structure he brings
-- how much he pushes toward action
+- how hard he pushes toward action
 - how much he stays in reflection
-- how companion-like or mentor-like he feels
+- how much evidence he surfaces when making a pattern claim
+- how companion-like, mentor-like, or analyst-like he feels
 
 That is how one system can handle very different moments without becoming generic.
 
@@ -71,6 +147,7 @@ Examples:
 - whether one next step works better than three options
 - whether you respond better to direct recommendations or open framing
 - whether clean resets work better than pressure after drift
+- whether you need encouragement, challenge, or tighter scope on bad days
 
 ### 3. How you want Alfred to show up
 Examples:
@@ -83,6 +160,12 @@ Examples:
 - a repeated blocker
 - a tension between external success and felt aliveness
 - a value that keeps showing up beneath very different decisions
+
+### 5. What the record shows over time
+Examples:
+- whether your stated priorities match your actual behavior
+- whether a certain kind of plan repeatedly fails at the same point
+- whether a narrative you keep returning to is actually supported by the evidence
 
 ## What Alfred should not do silently
 
@@ -97,9 +180,9 @@ That means there is a difference between:
 The first can adapt faster.
 The second should stay tentative until you confirm it.
 
-## What reflection should feel like
+## What reflection and calibration should feel like
 
-Reflection should not feel like a vague essay generator.
+This should not feel like a vague essay generator.
 
 It should feel:
 - compact
@@ -109,15 +192,22 @@ It should feel:
 - easy to correct
 - connected to what happens next
 
-Alfred should be able to say things like:
+Alfred should be able to separate:
+- **observation** — what happened, what repeated, what the record shows
+- **interpretation** — what that might mean
+- **recommendation** — what to do with that meaning
+
+He should be able to say things like:
 - "I think I'm seeing a pattern. Want the blunt version?"
 - "You seem to go deeper when I show up more as a peer than an authority figure."
 - "This tension between prestige and aliveness keeps coming back."
+- "Your story says this matters a lot, but the last three weeks say it keeps falling behind everything else."
 
 And you should be able to respond with:
 - "yes, that's true"
 - "no, that's not right"
 - "only in work"
+- "show me the evidence"
 - "remember that"
 - "don't frame me that way again"
 
@@ -138,12 +228,14 @@ That means Alfred can sound like a companion without pretending he observed some
 - "What am I actively working on right now?"
 - "What's blocked?"
 - "What decisions are still open?"
+- "What was I actually doing last week?"
 - "Help me start."
 - "Which option feels more like me?"
 - "Why do I keep repeating this pattern?"
 - "What have you learned about how to help me?"
 - "Why are you being more direct with me lately?"
 - "Show me what you think is true about me right now."
+- "Show me the evidence for that."
 
 ## The core idea
 
@@ -151,9 +243,11 @@ Alfred should not be a collection of special cases.
 
 He should be one system that can support many human situations through the same underlying pieces:
 - memory of what matters
+- session search for re-entry and evidence
 - context about what kind of moment this is
 - a relational way of showing up
 - a learned sense of what kind of help works
 - a bounded way to surface and correct what he is learning
+- a calibration layer that can compare story to record without becoming cold or detached
 
 That is the direction this product is being designed toward.
