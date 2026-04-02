@@ -15,6 +15,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+from alfred.memory.support_memory import EvidenceRef, SupportEpisode
 from alfred.observability import Surface, log_event
 
 # sqlite-vec is required for vector search
@@ -218,6 +219,7 @@ class SQLiteStore:
             await self._create_message_embeddings_table(db)
             await self._create_cron_tables(db)
             await self._create_memories_table(db)
+            await self._create_support_memory_tables(db)
 
             await db.commit()
             pending_vec_rebuild = self._pending_vec_rebuild
@@ -639,6 +641,62 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_memories_permanent
             ON memories(permanent) WHERE permanent = 0
+        """)
+
+    async def _create_support_memory_tables(self, db: Any) -> None:
+        """Create typed support-memory tables for episodes and evidence refs."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_episodes (
+                episode_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                started_at TIMESTAMP NOT NULL,
+                ended_at TIMESTAMP,
+                dominant_need TEXT NOT NULL,
+                dominant_context TEXT NOT NULL,
+                dominant_arc_id TEXT,
+                domain_ids JSON NOT NULL DEFAULT '[]',
+                subject_refs JSON NOT NULL DEFAULT '[]',
+                friction_signals JSON NOT NULL DEFAULT '[]',
+                interventions_attempted JSON NOT NULL DEFAULT '[]',
+                response_signals JSON NOT NULL DEFAULT '[]',
+                outcome_signals JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_episodes_session_started
+            ON support_episodes(session_id, started_at DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_episodes_arc
+            ON support_episodes(dominant_arc_id) WHERE dominant_arc_id IS NOT NULL
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_evidence_refs (
+                evidence_id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                message_start_idx INTEGER NOT NULL,
+                message_end_idx INTEGER,
+                excerpt TEXT,
+                timestamp TIMESTAMP NOT NULL,
+                domain_ids JSON NOT NULL DEFAULT '[]',
+                arc_ids JSON NOT NULL DEFAULT '[]',
+                claim_type TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                FOREIGN KEY (episode_id) REFERENCES support_episodes(episode_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_evidence_episode
+            ON support_evidence_refs(episode_id, message_start_idx, evidence_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_evidence_session
+            ON support_evidence_refs(session_id, timestamp DESC)
         """)
 
     # === Session Operations ===
@@ -1311,6 +1369,217 @@ class SQLiteStore:
             cursor = await db.execute("DELETE FROM memories WHERE entry_id = ?", (entry_id,))
             await db.commit()
             return cursor.rowcount > 0
+
+    # === Support Memory Operations ===
+
+    async def save_support_episode(self, episode: SupportEpisode) -> None:
+        """Save or update a typed support episode and its evidence refs."""
+        await self._init()
+
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.support_episode_save.start",
+            surface=Surface.STORAGE,
+            episode_id=episode.episode_id,
+            session_id=episode.session_id,
+            evidence_ref_count=len(episode.evidence_refs),
+        )
+
+        import aiosqlite
+
+        db: Any | None = None
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await self._load_extensions(db)
+                await db.execute("PRAGMA foreign_keys = ON")
+                await db.execute("BEGIN IMMEDIATE")
+
+                record = episode.to_record()
+                await db.execute(
+                    """
+                    INSERT INTO support_episodes (
+                        episode_id, session_id, schema_version, started_at, ended_at,
+                        dominant_need, dominant_context, dominant_arc_id,
+                        domain_ids, subject_refs, friction_signals,
+                        interventions_attempted, response_signals, outcome_signals
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(episode_id) DO UPDATE SET
+                        session_id = excluded.session_id,
+                        schema_version = excluded.schema_version,
+                        started_at = excluded.started_at,
+                        ended_at = excluded.ended_at,
+                        dominant_need = excluded.dominant_need,
+                        dominant_context = excluded.dominant_context,
+                        dominant_arc_id = excluded.dominant_arc_id,
+                        domain_ids = excluded.domain_ids,
+                        subject_refs = excluded.subject_refs,
+                        friction_signals = excluded.friction_signals,
+                        interventions_attempted = excluded.interventions_attempted,
+                        response_signals = excluded.response_signals,
+                        outcome_signals = excluded.outcome_signals
+                    """,
+                    (
+                        record["episode_id"],
+                        record["session_id"],
+                        record["schema_version"],
+                        record["started_at"],
+                        record["ended_at"],
+                        record["dominant_need"],
+                        record["dominant_context"],
+                        record["dominant_arc_id"],
+                        record["domain_ids"],
+                        record["subject_refs"],
+                        record["friction_signals"],
+                        record["interventions_attempted"],
+                        record["response_signals"],
+                        record["outcome_signals"],
+                    ),
+                )
+
+                await db.execute("DELETE FROM support_evidence_refs WHERE episode_id = ?", (episode.episode_id,))
+                for evidence_ref in episode.evidence_refs:
+                    if evidence_ref.episode_id != episode.episode_id:
+                        raise ValueError(
+                            f"Evidence ref {evidence_ref.evidence_id} points to episode {evidence_ref.episode_id}, "
+                            f"expected {episode.episode_id}"
+                        )
+                    if evidence_ref.session_id != episode.session_id:
+                        raise ValueError(
+                            f"Evidence ref {evidence_ref.evidence_id} points to session {evidence_ref.session_id}, "
+                            f"expected {episode.session_id}"
+                        )
+                    evidence_record = evidence_ref.to_record()
+                    await db.execute(
+                        """
+                        INSERT INTO support_evidence_refs (
+                            evidence_id, episode_id, session_id, message_start_idx, message_end_idx,
+                            excerpt, timestamp, domain_ids, arc_ids, claim_type, confidence
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            evidence_record["evidence_id"],
+                            evidence_record["episode_id"],
+                            evidence_record["session_id"],
+                            evidence_record["message_start_idx"],
+                            evidence_record["message_end_idx"],
+                            evidence_record["excerpt"],
+                            evidence_record["timestamp"],
+                            evidence_record["domain_ids"],
+                            evidence_record["arc_ids"],
+                            evidence_record["claim_type"],
+                            evidence_record["confidence"],
+                        ),
+                    )
+
+                await db.commit()
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.support_episode_save.completed",
+                surface=Surface.STORAGE,
+                episode_id=episode.episode_id,
+                session_id=episode.session_id,
+                evidence_ref_count=len(episode.evidence_refs),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
+        except Exception as e:
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    await db.rollback()
+            self._log_storage_failure(
+                "storage.support_episode_save.failed",
+                request_started_at,
+                episode_id=episode.episode_id,
+                session_id=episode.session_id,
+                evidence_ref_count=len(episode.evidence_refs),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving support episode {episode.episode_id}: {e}")
+            raise
+
+    async def _load_support_evidence_refs(
+        self,
+        db: Any,
+        episode_id: str,
+    ) -> list[EvidenceRef]:
+        """Load all evidence refs for a support episode."""
+        async with db.execute(
+            """
+            SELECT * FROM support_evidence_refs
+            WHERE episode_id = ?
+            ORDER BY message_start_idx ASC, evidence_id ASC
+            """,
+            (episode_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [EvidenceRef.from_record(dict(row)) for row in rows]
+
+    async def get_support_episode(self, episode_id: str) -> SupportEpisode | None:
+        """Load a support episode and its evidence refs by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM support_episodes WHERE episode_id = ?", (episode_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            evidence_refs = await self._load_support_evidence_refs(db, episode_id)
+            return SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs)
+
+    async def list_support_episodes(self, session_id: str) -> list[SupportEpisode]:
+        """List all support episodes for a transcript session."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                """
+                SELECT * FROM support_episodes
+                WHERE session_id = ?
+                ORDER BY started_at ASC, episode_id ASC
+                """,
+                (session_id,),
+            ) as cursor:
+                episode_rows = await cursor.fetchall()
+
+            if not episode_rows:
+                return []
+
+            async with db.execute(
+                """
+                SELECT * FROM support_evidence_refs
+                WHERE session_id = ?
+                ORDER BY episode_id ASC, message_start_idx ASC, evidence_id ASC
+                """,
+                (session_id,),
+            ) as cursor:
+                evidence_rows = await cursor.fetchall()
+
+            evidence_refs_by_episode: dict[str, list[EvidenceRef]] = {}
+            for row in evidence_rows:
+                evidence_ref = EvidenceRef.from_record(dict(row))
+                evidence_refs_by_episode.setdefault(evidence_ref.episode_id, []).append(evidence_ref)
+
+            return [
+                SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs_by_episode.get(row["episode_id"], []))
+                for row in episode_rows
+            ]
 
     async def prune_memories(
         self,

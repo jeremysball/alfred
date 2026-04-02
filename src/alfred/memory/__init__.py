@@ -7,12 +7,15 @@ from alfred.config import Config
 from alfred.embeddings.provider import EmbeddingProvider
 from alfred.memory.base import MemoryEntry, MemoryStore
 from alfred.memory.sqlite_store import SQLiteMemoryStore
+from alfred.memory.support_memory import EvidenceRef, SupportEpisode
 
 # Re-export for compatibility
 __all__ = [
+    "EvidenceRef",
     "MemoryEntry",
     "MemoryStore",
     "SQLiteMemoryStore",
+    "SupportEpisode",
     "create_memory_store",
 ]
 

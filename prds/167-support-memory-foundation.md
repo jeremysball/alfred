@@ -2,7 +2,7 @@
 
 **GitHub Issue**: [#167](https://github.com/jeremysball/alfred/issues/167)  
 **Priority**: High  
-**Status**: Draft  
+**Status**: In Progress
 **Created**: 2026-03-30
 
 ---
@@ -249,7 +249,32 @@ Example:
   "interventions_attempted": ["narrow_next_step", "state_recap"],
   "response_signals": ["resonance", "commitment"],
   "outcome_signals": ["next_step_chosen"],
-  "evidence_refs": ["msg_441", "msg_446"]
+  "evidence_refs": [
+    {
+      "evidence_id": "ev_441",
+      "episode_id": "ep_204",
+      "session_id": "sess_812",
+      "message_start_idx": 441,
+      "message_end_idx": 446,
+      "timestamp": "2026-03-30T10:14:00+00:00",
+      "domain_ids": ["work"],
+      "arc_ids": ["webui_cleanup"],
+      "claim_type": "stated_goal",
+      "confidence": 0.86
+    },
+    {
+      "evidence_id": "ev_442",
+      "episode_id": "ep_204",
+      "session_id": "sess_812",
+      "message_start_idx": 447,
+      "message_end_idx": 447,
+      "timestamp": "2026-03-30T10:16:00+00:00",
+      "domain_ids": ["work"],
+      "arc_ids": ["webui_cleanup"],
+      "claim_type": "stated_decision",
+      "confidence": 0.91
+    }
+  ]
 }
 ```
 
@@ -261,8 +286,11 @@ An `EvidenceRef` should be the bridge between structured support memory and the 
 
 Minimum v1 fields:
 - `evidence_id`
+- `episode_id`
 - `session_id`
-- `message_range` or excerpt pointer
+- `message_start_idx`
+- `message_end_idx` when the evidence spans multiple messages
+- `excerpt` when a short quote is useful
 - `timestamp`
 - `domain_ids`
 - `arc_ids`
@@ -409,8 +437,8 @@ Examples of expected behavior:
 - [ ] Alfred stores transcript sessions as provenance objects without relying on them as the sole continuity abstraction.
 - [ ] Alfred stores life domains and operational arcs as first-class durable memory objects.
 - [ ] Alfred stores projects, tasks, blockers, decisions, and open loops as first-class operational state.
-- [ ] Alfred stores typed interaction episodes as a versioned evidence layer.
-- [ ] Alfred stores explicit evidence refs that connect structured state back to the record.
+- [x] Alfred stores typed interaction episodes as a versioned evidence layer.
+- [x] Alfred stores explicit evidence refs that connect structured state back to the record.
 - [ ] Alfred can maintain and refresh `GlobalSituation` and `ArcSituation` snapshots.
 - [ ] Operational retrieval prefers domain/arc state and relevant episodes over raw archive hits.
 - [ ] Session search remains available for provenance and recall flows.
