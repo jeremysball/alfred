@@ -37,9 +37,9 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Session-backed evidence promotion
 
-- [ ] Test: `test_promoting_session_message_ranges_to_evidence_refs_keeps_session_archive_unchanged()` - verify creating evidence refs from persisted session messages uses transcript IDs or ranges as provenance and leaves the stored session payload unchanged.
-- [ ] Implement: add the minimal session-support helper that builds evidence refs from existing persisted message IDs or ranges without mutating the session archive contract.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_promoting_session_message_ranges_to_evidence_refs_keeps_session_archive_unchanged -v`
+- [x] Test: `test_promoting_session_message_ranges_to_evidence_refs_keeps_session_archive_unchanged()` - verify creating evidence refs from persisted session messages uses transcript IDs or ranges as provenance and leaves the stored session payload unchanged.
+- [x] Implement: add the minimal session-support helper that builds evidence refs from existing persisted message IDs or ranges without mutating the session archive contract.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_promoting_session_message_ranges_to_evidence_refs_keeps_session_archive_unchanged -v`
 
 ---
 
@@ -47,15 +47,15 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Domain and arc round-trip
 
-- [ ] Test: `test_life_domain_and_operational_arc_round_trip_without_session_search()` - verify a work domain and linked project arc can be created, updated, and reloaded without touching archive search paths.
-- [ ] Implement: add life-domain and operational-arc models, tables, and store methods with status, salience, timestamps, linked evidence refs, and domain relationships.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_life_domain_and_operational_arc_round_trip_without_session_search -v`
+- [x] Test: `test_life_domain_and_operational_arc_round_trip_without_session_search()` - verify a work domain and linked project arc can be created, updated, and reloaded without touching archive search paths.
+- [x] Implement: add life-domain and operational-arc models, tables, and store methods with status, salience, timestamps, linked evidence refs, and domain relationships.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_life_domain_and_operational_arc_round_trip_without_session_search -v`
 
 ### Resume-oriented arc listing
 
-- [ ] Test: `test_active_arcs_are_listed_in_resume_order_for_a_domain()` - verify structured state can list active or dormant arcs by salience and recent activity for resume and orient flows.
-- [ ] Implement: add the minimal query helper for domain-scoped active arcs and recent-activity ordering without introducing session-search fallback at this seam.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_active_arcs_are_listed_in_resume_order_for_a_domain -v`
+- [x] Test: `test_active_arcs_are_listed_in_resume_order_for_a_domain()` - verify structured state can list active or dormant arcs by salience and recent activity for resume and orient flows.
+- [x] Implement: add the minimal query helper for domain-scoped active arcs and recent-activity ordering without introducing session-search fallback at this seam.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_active_arcs_are_listed_in_resume_order_for_a_domain -v`
 
 ---
 
@@ -63,9 +63,9 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Operational work-state persistence
 
-- [ ] Test: `test_arc_operational_state_round_trips_tasks_blockers_decisions_and_open_loops()` - verify arc-linked work objects persist status, next step or tension, timestamps, and evidence refs.
-- [ ] Implement: add storage and typed records for tasks, blockers, decisions, and open loops linked to operational arcs.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_arc_operational_state_round_trips_tasks_blockers_decisions_and_open_loops -v`
+- [x] Test: `test_arc_operational_state_round_trips_tasks_blockers_decisions_and_open_loops()` - verify arc-linked work objects persist status, next step or tension, timestamps, and evidence refs.
+- [x] Implement: add storage and typed records for tasks, blockers, decisions, and open loops linked to operational arcs.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_arc_operational_state_round_trips_tasks_blockers_decisions_and_open_loops -v`
 
 ### Arc snapshot composition
 

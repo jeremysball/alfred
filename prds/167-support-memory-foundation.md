@@ -136,9 +136,9 @@ Each domain should support at minimum:
 - name
 - status
 - salience
-- linked arc IDs
 - linked pattern IDs
 - timestamps
+- derived linked arc IDs via operational arcs that point to the domain
 
 #### Operational arcs
 An `OperationalArc` should represent a resumable support target.
@@ -158,7 +158,7 @@ Each arc should support at minimum:
 - primary domain
 - status (`tentative`, `active`, `dormant`, `archived`)
 - salience
-- linked task/open-loop/blocker/decision state
+- links to task/open-loop/blocker/decision state
 - recent activity timestamps
 - evidence refs
 
@@ -181,7 +181,7 @@ Minimum v1 expectations:
 - timestamps
 - evidence refs back to sessions or episodes
 
-Example arc record:
+Example composed arc view (assembled from the persisted arc plus linked work-state records):
 
 ```json
 {
@@ -195,7 +195,7 @@ Example arc record:
   "open_loops": ["pick_bootstrap_boundary"],
   "tasks": ["split_bootstrap_flow"],
   "decisions": ["where_runtime_should_boot"],
-  "source_refs": ["sess_812", "ep_204"]
+  "evidence_ref_ids": ["ev_441", "ev_442"]
 }
 ```
 
@@ -209,7 +209,7 @@ Example open-loop record:
   "status": "pending_review",
   "kind": "decision_thread",
   "current_tension": "Prestige and aliveness keep pulling in different directions",
-  "source_refs": ["sess_812", "ep_204"]
+  "evidence_ref_ids": ["ev_441", "ev_442"]
 }
 ```
 
@@ -296,6 +296,8 @@ Minimum v1 fields:
 - `arc_ids`
 - `claim_type`
 - `confidence`
+
+`excerpt` may duplicate transcript text as a snapshot convenience field for inspection and audit. Transcript sessions remain authoritative for raw message content and order.
 
 Recommended v1 `claim_type` values:
 - `stated_priority`
@@ -435,8 +437,8 @@ Examples of expected behavior:
 ## 6. Success Criteria
 
 - [ ] Alfred stores transcript sessions as provenance objects without relying on them as the sole continuity abstraction.
-- [ ] Alfred stores life domains and operational arcs as first-class durable memory objects.
-- [ ] Alfred stores projects, tasks, blockers, decisions, and open loops as first-class operational state.
+- [x] Alfred stores life domains and operational arcs as first-class durable memory objects.
+- [x] Alfred stores projects, tasks, blockers, decisions, and open loops as first-class operational state.
 - [x] Alfred stores typed interaction episodes as a versioned evidence layer.
 - [x] Alfred stores explicit evidence refs that connect structured state back to the record.
 - [ ] Alfred can maintain and refresh `GlobalSituation` and `ArcSituation` snapshots.
@@ -556,5 +558,7 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Add life domains and operational arcs as first-class memory objects | Alfred needs broad context plus resumable continuity, not just recall |
 | 2026-03-30 | Keep projects, tasks, and open loops first-class inside the operational model | Alfred needs operational state, not just recall |
 | 2026-03-30 | Add explicit evidence refs | Reflection and calibration need inspectable grounding |
+| 2026-03-30 | Treat `EvidenceRef.excerpt` as a snapshot convenience field, not the transcript source of truth | Keeps transcript sessions authoritative for raw message content and order while preserving inspectable promoted evidence |
+| 2026-03-30 | Derive domain-to-arc linkage from operational arcs instead of storing duplicate linked arc IDs on domains | Keeps one authority for arc membership and reduces drift between related records |
 | 2026-03-30 | Maintain derived `GlobalSituation` and `ArcSituation` objects with freshness metadata | Runtime needs compact, refreshable situation views rather than constant full recomputation |
 | 2026-03-30 | Demote session search from product abstraction to internal primitive | Search alone is not a strong runtime model for active support |

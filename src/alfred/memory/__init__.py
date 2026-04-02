@@ -7,13 +7,28 @@ from alfred.config import Config
 from alfred.embeddings.provider import EmbeddingProvider
 from alfred.memory.base import MemoryEntry, MemoryStore
 from alfred.memory.sqlite_store import SQLiteMemoryStore
-from alfred.memory.support_memory import EvidenceRef, SupportEpisode
+from alfred.memory.support_memory import (
+    ArcBlocker,
+    ArcDecision,
+    ArcOpenLoop,
+    ArcTask,
+    EvidenceRef,
+    LifeDomain,
+    OperationalArc,
+    SupportEpisode,
+)
 
 # Re-export for compatibility
 __all__ = [
+    "ArcBlocker",
+    "ArcDecision",
+    "ArcOpenLoop",
+    "ArcTask",
     "EvidenceRef",
+    "LifeDomain",
     "MemoryEntry",
     "MemoryStore",
+    "OperationalArc",
     "SQLiteMemoryStore",
     "SupportEpisode",
     "create_memory_store",

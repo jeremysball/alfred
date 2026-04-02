@@ -15,7 +15,16 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from alfred.memory.support_memory import EvidenceRef, SupportEpisode
+from alfred.memory.support_memory import (
+    ArcBlocker,
+    ArcDecision,
+    ArcOpenLoop,
+    ArcTask,
+    EvidenceRef,
+    LifeDomain,
+    OperationalArc,
+    SupportEpisode,
+)
 from alfred.observability import Surface, log_event
 
 # sqlite-vec is required for vector search
@@ -644,7 +653,119 @@ class SQLiteStore:
         """)
 
     async def _create_support_memory_tables(self, db: Any) -> None:
-        """Create typed support-memory tables for episodes and evidence refs."""
+        """Create typed support-memory tables for domains, arcs, episodes, and evidence refs."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_life_domains (
+                domain_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                salience REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                linked_pattern_ids JSON NOT NULL DEFAULT '[]'
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_life_domains_status_salience
+            ON support_life_domains(status, salience DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_operational_arcs (
+                arc_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                primary_domain_id TEXT,
+                status TEXT NOT NULL,
+                salience REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                last_active_at TIMESTAMP,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (primary_domain_id) REFERENCES support_life_domains(domain_id) ON DELETE SET NULL
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_operational_arcs_domain_status_salience
+            ON support_operational_arcs(primary_domain_id, status, salience DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_operational_arcs_last_active
+            ON support_operational_arcs(last_active_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_tasks (
+                task_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                next_step TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_tasks_arc_status_updated
+            ON support_arc_tasks(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_blockers (
+                blocker_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                next_step TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_blockers_arc_status_updated
+            ON support_arc_blockers(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_decisions (
+                decision_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                current_tension TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_decisions_arc_status_updated
+            ON support_arc_decisions(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_open_loops (
+                open_loop_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                current_tension TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_open_loops_arc_status_updated
+            ON support_arc_open_loops(arc_id, status, updated_at DESC)
+        """)
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS support_episodes (
                 episode_id TEXT PRIMARY KEY,
@@ -1371,6 +1492,384 @@ class SQLiteStore:
             return cursor.rowcount > 0
 
     # === Support Memory Operations ===
+
+    async def save_life_domain(self, domain: LifeDomain) -> None:
+        """Save or update a durable life domain."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = domain.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_life_domains (
+                    domain_id, name, status, salience, created_at, updated_at, linked_pattern_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(domain_id) DO UPDATE SET
+                    name = excluded.name,
+                    status = excluded.status,
+                    salience = excluded.salience,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    linked_pattern_ids = excluded.linked_pattern_ids
+                """,
+                (
+                    record["domain_id"],
+                    record["name"],
+                    record["status"],
+                    record["salience"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["linked_pattern_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def get_life_domain(self, domain_id: str) -> LifeDomain | None:
+        """Load a durable life domain by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM support_life_domains WHERE domain_id = ?", (domain_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            return LifeDomain.from_record(dict(row))
+
+    async def save_operational_arc(self, arc: OperationalArc) -> None:
+        """Save or update a durable operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = arc.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_operational_arcs (
+                    arc_id, title, kind, primary_domain_id, status, salience,
+                    created_at, updated_at, last_active_at, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(arc_id) DO UPDATE SET
+                    title = excluded.title,
+                    kind = excluded.kind,
+                    primary_domain_id = excluded.primary_domain_id,
+                    status = excluded.status,
+                    salience = excluded.salience,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    last_active_at = excluded.last_active_at,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["arc_id"],
+                    record["title"],
+                    record["kind"],
+                    record["primary_domain_id"],
+                    record["status"],
+                    record["salience"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["last_active_at"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def get_operational_arc(self, arc_id: str) -> OperationalArc | None:
+        """Load a durable operational arc by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM support_operational_arcs WHERE arc_id = ?", (arc_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            return OperationalArc.from_record(dict(row))
+
+    async def list_resume_arcs_for_domain(self, domain_id: str) -> list[OperationalArc]:
+        """List active and dormant arcs for one domain in resume-oriented order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_operational_arcs
+                WHERE primary_domain_id = ?
+                  AND status IN ('active', 'dormant')
+                ORDER BY
+                    CASE status
+                        WHEN 'active' THEN 0
+                        WHEN 'dormant' THEN 1
+                        ELSE 2
+                    END ASC,
+                    salience DESC,
+                    COALESCE(last_active_at, updated_at, created_at) DESC,
+                    arc_id ASC
+                """,
+                (domain_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [OperationalArc.from_record(dict(row)) for row in rows]
+
+    async def save_arc_task(self, task: ArcTask) -> None:
+        """Save or update an arc-linked task."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = task.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_tasks (
+                    task_id, arc_id, title, status, created_at, updated_at, next_step, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    next_step = excluded.next_step,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["task_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["next_step"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def list_arc_tasks(self, arc_id: str) -> list[ArcTask]:
+        """List all tasks linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_arc_tasks
+                WHERE arc_id = ?
+                ORDER BY created_at ASC, task_id ASC
+                """,
+                (arc_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [ArcTask.from_record(dict(row)) for row in rows]
+
+    async def save_arc_blocker(self, blocker: ArcBlocker) -> None:
+        """Save or update an arc-linked blocker."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = blocker.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_blockers (
+                    blocker_id, arc_id, title, status, created_at, updated_at, next_step, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(blocker_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    next_step = excluded.next_step,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["blocker_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["next_step"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def list_arc_blockers(self, arc_id: str) -> list[ArcBlocker]:
+        """List all blockers linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_arc_blockers
+                WHERE arc_id = ?
+                ORDER BY created_at ASC, blocker_id ASC
+                """,
+                (arc_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [ArcBlocker.from_record(dict(row)) for row in rows]
+
+    async def save_arc_decision(self, decision: ArcDecision) -> None:
+        """Save or update an arc-linked decision."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = decision.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_decisions (
+                    decision_id, arc_id, title, status, created_at, updated_at, current_tension, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    current_tension = excluded.current_tension,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["decision_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["current_tension"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def list_arc_decisions(self, arc_id: str) -> list[ArcDecision]:
+        """List all decisions linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_arc_decisions
+                WHERE arc_id = ?
+                ORDER BY created_at ASC, decision_id ASC
+                """,
+                (arc_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [ArcDecision.from_record(dict(row)) for row in rows]
+
+    async def save_arc_open_loop(self, open_loop: ArcOpenLoop) -> None:
+        """Save or update an arc-linked open loop."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = open_loop.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_open_loops (
+                    open_loop_id, arc_id, title, status, created_at, updated_at, current_tension, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(open_loop_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    current_tension = excluded.current_tension,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["open_loop_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["current_tension"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def list_arc_open_loops(self, arc_id: str) -> list[ArcOpenLoop]:
+        """List all open loops linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_arc_open_loops
+                WHERE arc_id = ?
+                ORDER BY created_at ASC, open_loop_id ASC
+                """,
+                (arc_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [ArcOpenLoop.from_record(dict(row)) for row in rows]
 
     async def save_support_episode(self, episode: SupportEpisode) -> None:
         """Save or update a typed support episode and its evidence refs."""
