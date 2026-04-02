@@ -1559,6 +1559,8 @@ function initAlfredUI() {
   });
 
   if (typeof window !== "undefined") {
+    // Preserve bootstrap state if it exists (PRD #170)
+    const existingBootstrap = window.__alfredWebUI?.bootstrap;
     window.__alfredWebUI = {
       emitMessage: handleWebSocketMessage,
       syncKidcoreAudioControls,
@@ -1573,6 +1575,10 @@ function initAlfredUI() {
       getComposerState: () => composerState,
       getEditingMessageId: () => editingMessageElement?.getAttribute("message-id") || null,
     };
+    // Restore bootstrap state after main.js creates __alfredWebUI
+    if (existingBootstrap) {
+      window.__alfredWebUI.bootstrap = existingBootstrap;
+    }
     window.addSystemMessage = showSystemMessage;
     window.handleStopGenerating = handleStopGenerating;
     window.clearQueue = clearQueue;
