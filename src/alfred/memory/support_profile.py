@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
+from datetime import datetime
+from typing import Any, Literal, cast
 
 SupportProfileScopeType = Literal["global", "context", "arc"]
 SupportProfileRegistryKind = Literal["relational", "support"]
@@ -33,6 +36,38 @@ _RECOVERY_STYLE_VALUES: tuple[str, ...] = ("gentle", "steady", "directive")
 _REFLECTION_DEPTH_VALUES: tuple[str, ...] = ("light", "medium", "deep")
 _PACING_VALUES: tuple[str, ...] = ("brisk", "steady", "slow")
 _CANONICAL_SCOPE_TYPES: tuple[SupportProfileScopeType, ...] = ("global", "context", "arc")
+
+
+def _dump_datetime(value: datetime) -> str:
+    """Serialize a datetime to ISO-8601 text."""
+    return value.isoformat()
+
+
+def _load_datetime(value: Any) -> datetime:
+    """Parse a datetime value from a SQLite row or dict."""
+    if isinstance(value, datetime):
+        return value
+    if value is None:
+        raise ValueError("Expected a datetime value")
+    return datetime.fromisoformat(str(value))
+
+
+def _dump_str_tuple(values: tuple[str, ...]) -> str:
+    """Serialize a tuple of strings as JSON text."""
+    return json.dumps(list(values))
+
+
+def _load_str_tuple(value: Any) -> tuple[str, ...]:
+    """Deserialize a tuple of strings from SQLite storage."""
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        decoded: Any = json.loads(value)
+    else:
+        decoded = value
+    if decoded is None:
+        return ()
+    return tuple(str(item) for item in decoded)
 
 
 @dataclass(eq=True, frozen=True)
@@ -307,10 +342,19 @@ class SupportProfileValue:
     status: SupportProfileValueStatus
     confidence: float
     source: SupportProfileValueSource
+    created_at: datetime
+    updated_at: datetime
     evidence_refs: tuple[str, ...] = ()
+    schema_version: int = SUPPORT_PROFILE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         """Reject malformed scoped support-profile value records."""
+        if self.schema_version != SUPPORT_PROFILE_SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported support-profile schema version: {self.schema_version!r}. "
+                f"Expected {SUPPORT_PROFILE_SCHEMA_VERSION}",
+            )
+
         if not isinstance(self.scope, SupportProfileScope):
             raise ValueError("Support-profile value scope must be a SupportProfileScope")
 
@@ -335,8 +379,54 @@ class SupportProfileValue:
             raise ValueError("Support-profile confidence must be between 0.0 and 1.0")
         object.__setattr__(self, "confidence", float(self.confidence))
 
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"Support-profile created_at must be a datetime, got {actual_type}")
+        if not isinstance(self.updated_at, datetime):
+            actual_type = type(self.updated_at).__name__
+            raise ValueError(f"Support-profile updated_at must be a datetime, got {actual_type}")
+        if self.updated_at < self.created_at:
+            raise ValueError("Support-profile updated_at must be greater than or equal to created_at")
+
         if not isinstance(self.evidence_refs, tuple):
             raise ValueError("Support-profile evidence_refs must be a tuple of evidence ids")
         for evidence_ref in self.evidence_refs:
             if not isinstance(evidence_ref, str) or not evidence_ref or evidence_ref != evidence_ref.strip():
                 raise ValueError("Support-profile evidence refs must be non-empty trimmed strings")
+
+    def to_record(self) -> dict[str, Any]:
+        """Convert the support-profile value into a SQLite-ready record."""
+        return {
+            "schema_version": self.schema_version,
+            "registry": self.registry,
+            "dimension": self.dimension,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "value": self.value,
+            "status": self.status,
+            "confidence": self.confidence,
+            "source": self.source,
+            "evidence_refs": _dump_str_tuple(self.evidence_refs),
+            "created_at": _dump_datetime(self.created_at),
+            "updated_at": _dump_datetime(self.updated_at),
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportProfileValue:
+        """Build a support-profile value from a SQLite row or dict."""
+        return cls(
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            dimension=str(record["dimension"]),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            value=str(record["value"]),
+            status=cast(SupportProfileValueStatus, str(record["status"])),
+            confidence=float(record["confidence"]),
+            source=cast(SupportProfileValueSource, str(record["source"])),
+            created_at=_load_datetime(record["created_at"]),
+            updated_at=_load_datetime(record["updated_at"]),
+            evidence_refs=_load_str_tuple(record.get("evidence_refs")),
+            schema_version=int(record.get("schema_version", SUPPORT_PROFILE_SCHEMA_VERSION)),
+        )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import UTC, datetime
 
 import pytest
 
@@ -147,6 +148,9 @@ def test_support_registry_rejects_unknown_dimensions_and_invalid_values() -> Non
 
 def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_registry_mismatches() -> None:
     """Scoped support-profile values should validate registry, value, source, and evidence shape."""
+    created_at = datetime(2026, 3, 30, 10, 0, tzinfo=UTC)
+    updated_at = datetime(2026, 3, 30, 10, 5, tzinfo=UTC)
+
     support_value = SupportProfileValue(
         registry="support",
         dimension="option_bandwidth",
@@ -156,9 +160,12 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
         confidence=0.87,
         source="auto_adapted",
         evidence_refs=("int_55", "int_61", "int_64"),
+        created_at=created_at,
+        updated_at=updated_at,
     )
 
     assert asdict(support_value) == {
+        "schema_version": 1,
         "registry": "support",
         "dimension": "option_bandwidth",
         "scope": {"type": "context", "id": "execute"},
@@ -167,6 +174,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
         "confidence": 0.87,
         "source": "auto_adapted",
         "evidence_refs": ("int_55", "int_61", "int_64"),
+        "created_at": created_at,
+        "updated_at": updated_at,
     }
 
     relational_value = SupportProfileValue(
@@ -178,6 +187,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
         confidence=1.0,
         source="explicit",
         evidence_refs=(),
+        created_at=created_at,
+        updated_at=updated_at,
     )
     assert relational_value.value == "high"
 
@@ -191,6 +202,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 0.87,
             "source": "auto_adapted",
             "evidence_refs": ("int_55",),
+            "created_at": created_at,
+            "updated_at": updated_at,
         },
         {
             "registry": "support",
@@ -201,6 +214,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 0.87,
             "source": "auto_adapted",
             "evidence_refs": ("int_55",),
+            "created_at": created_at,
+            "updated_at": updated_at,
         },
         {
             "registry": "support",
@@ -211,6 +226,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 0.87,
             "source": "auto_adapted",
             "evidence_refs": ("int_55",),
+            "created_at": created_at,
+            "updated_at": updated_at,
         },
         {
             "registry": "support",
@@ -221,6 +238,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 0.87,
             "source": "auto_adapted",
             "evidence_refs": ("int_55",),
+            "created_at": created_at,
+            "updated_at": updated_at,
         },
         {
             "registry": "support",
@@ -231,6 +250,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 1.2,
             "source": "auto_adapted",
             "evidence_refs": ("int_55",),
+            "created_at": created_at,
+            "updated_at": updated_at,
         },
         {
             "registry": "support",
@@ -241,6 +262,8 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 0.87,
             "source": "inferred",
             "evidence_refs": ("int_55",),
+            "created_at": created_at,
+            "updated_at": updated_at,
         },
         {
             "registry": "support",
@@ -251,11 +274,58 @@ def test_support_profile_value_accepts_valid_scoped_records_and_rejects_cross_re
             "confidence": 0.87,
             "source": "auto_adapted",
             "evidence_refs": ("int_55", " "),
+            "created_at": created_at,
+            "updated_at": updated_at,
+        },
+        {
+            "registry": "support",
+            "dimension": "option_bandwidth",
+            "scope": SupportProfileScope(type="context", id="execute"),
+            "value": "single",
+            "status": "observed",
+            "confidence": 0.87,
+            "source": "auto_adapted",
+            "evidence_refs": ("int_55",),
+            "created_at": updated_at,
+            "updated_at": created_at,
         },
     )
     for invalid_record in invalid_records:
         with pytest.raises(ValueError):
             SupportProfileValue(**invalid_record)
+
+
+def test_support_profile_value_round_trips_through_storage_records() -> None:
+    """Persisted support-profile values should round-trip through SQLite-ready records."""
+    support_value = SupportProfileValue(
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="context", id="execute"),
+        value="single",
+        status="observed",
+        confidence=0.87,
+        source="auto_adapted",
+        evidence_refs=("int_55", "int_61", "int_64"),
+        created_at=datetime(2026, 3, 30, 10, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 10, 5, tzinfo=UTC),
+    )
+
+    assert support_value.to_record() == {
+        "schema_version": 1,
+        "registry": "support",
+        "dimension": "option_bandwidth",
+        "scope_type": "context",
+        "scope_id": "execute",
+        "value": "single",
+        "status": "observed",
+        "confidence": 0.87,
+        "source": "auto_adapted",
+        "evidence_refs": '["int_55", "int_61", "int_64"]',
+        "created_at": "2026-03-30T10:00:00+00:00",
+        "updated_at": "2026-03-30T10:05:00+00:00",
+    }
+
+    assert SupportProfileValue.from_record(support_value.to_record()) == support_value
 
 
 def test_memory_package_reexports_support_profile_contracts() -> None:
