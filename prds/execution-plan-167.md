@@ -101,14 +101,14 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Active-work regression alignment
 
-- [ ] Test: `test_active_work_questions_resolve_from_structured_operational_state()` - verify Alfred can answer active-work and unresolved-loop questions from domains, arcs, and work objects without raw session search being the only source.
-- [ ] Implement: close any remaining gaps in the structured retrieval path exposed by the regression while keeping session search as provenance and fallback only.
-- [ ] Run: `uv run pytest tests/test_support_memory_context.py::test_active_work_questions_resolve_from_structured_operational_state -v`
+- [x] Test: `test_active_work_questions_resolve_from_structured_operational_state()` - verify Alfred can answer active-work and unresolved-loop questions from domains, arcs, and work objects without raw session search being the only source.
+- [x] Implement: close any remaining gaps in the structured retrieval path exposed by the regression while keeping session search as provenance and fallback only.
+- [x] Run: `uv run pytest tests/test_support_memory_context.py::test_active_work_questions_resolve_from_structured_operational_state -v`
 
 ### Documentation and managed instruction alignment
 
-- [ ] Implement: update `docs/MEMORY.md`, `docs/ARCHITECTURE.md`, `docs/relational-support-model.md`, `templates/SYSTEM.md`, and `templates/AGENTS.md` to describe transcript sessions vs episodes vs arcs, operational-first retrieval, evidence refs, and session-search demotion consistently with the shipped behavior.
-- [ ] Run: `uv run ruff check src/ tests/storage/test_support_memory_storage.py tests/test_support_memory_context.py && uv run mypy --strict src/ && uv run pytest tests/storage/test_support_memory_storage.py tests/test_support_memory_context.py -v`
+- [x] Implement: update `docs/MEMORY.md`, `docs/ARCHITECTURE.md`, `docs/relational-support-model.md`, `templates/SYSTEM.md`, and `templates/AGENTS.md` to describe transcript sessions vs episodes vs arcs, operational-first retrieval, evidence refs, and session-search demotion consistently with the shipped behavior.
+- [x] Run: `uv run ruff check src/ tests/storage/test_support_memory_storage.py tests/test_support_memory_context.py && uv run mypy --strict src/ && uv run pytest tests/storage/test_support_memory_storage.py tests/test_support_memory_context.py -v`
 
 ---
 

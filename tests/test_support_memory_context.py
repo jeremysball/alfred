@@ -12,10 +12,12 @@ from alfred.memory.support_context import (
     get_fresh_arc_situation,
     get_session_start_orientation_context,
     get_session_start_resume_context,
+    get_support_operational_context,
 )
 from alfred.memory.support_memory import (
     ArcBlocker,
     ArcDecision,
+    ArcOpenLoop,
     ArcSituation,
     ArcSnapshot,
     ArcTask,
@@ -346,3 +348,124 @@ async def test_orientation_message_without_arc_match_uses_global_situation_befor
         ),
         top_arc_snapshots=[ArcSnapshot(arc=arc, tasks=[task], blockers=[blocker], decisions=[decision], open_loops=[])],
     )
+
+
+@pytest.mark.asyncio
+async def test_active_work_questions_resolve_from_structured_operational_state(sqlite_store):
+    """Active-work questions should resolve from structured state without archive search being required."""
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.99,
+        created_at=datetime(2026, 3, 30, 19, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 19, 5, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.97,
+        created_at=datetime(2026, 3, 30, 19, 10, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 19, 20, tzinfo=UTC),
+        last_active_at=datetime(2026, 3, 30, 19, 19, tzinfo=UTC),
+        evidence_ref_ids=["ev-arc-4"],
+    )
+    task = ArcTask(
+        task_id="task-bootstrap-boundary",
+        arc_id=arc.arc_id,
+        title="Pick bootstrap boundary",
+        status="in_progress",
+        created_at=datetime(2026, 3, 30, 19, 21, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 19, 24, tzinfo=UTC),
+        next_step="Choose the first module boundary to extract",
+        evidence_ref_ids=["ev-801"],
+    )
+    blocker = ArcBlocker(
+        blocker_id="blocker-app-structure-ambiguity",
+        arc_id=arc.arc_id,
+        title="App structure ambiguity",
+        status="active",
+        created_at=datetime(2026, 3, 30, 19, 22, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 19, 26, tzinfo=UTC),
+        next_step="Choose a seam before more edits",
+        evidence_ref_ids=["ev-802"],
+    )
+    open_loop = ArcOpenLoop(
+        open_loop_id="loop-bootstrap-seam",
+        arc_id=arc.arc_id,
+        title="Settle the bootstrap seam",
+        status="pending_review",
+        created_at=datetime(2026, 3, 30, 19, 23, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 19, 27, tzinfo=UTC),
+        current_tension="Need one clear runtime seam before splitting more files",
+        evidence_ref_ids=["ev-803"],
+    )
+    stale_global = GlobalSituation(
+        active_domains=["Old Domain"],
+        top_arcs=["Old Arc"],
+        unresolved_decisions=[],
+        top_blockers=["Old Blocker"],
+        drift_risks=[],
+        current_tensions=["Old Tension"],
+        computed_at=datetime(2026, 3, 30, 18, 0, tzinfo=UTC),
+        confidence=0.2,
+        staleness_seconds=300,
+        refresh_reason="cache_miss",
+    )
+    refresh_time = datetime(2026, 3, 30, 20, 0, tzinfo=UTC)
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(task)
+    await sqlite_store.save_arc_blocker(blocker)
+    await sqlite_store.save_arc_open_loop(open_loop)
+    await sqlite_store.save_global_situation(stale_global)
+
+    async def unexpected_archive_search(query: str) -> list[str]:
+        raise AssertionError(f"archive search should not run for active-work question: {query}")
+
+    operational_context = await get_support_operational_context(
+        sqlite_store,
+        "What's blocked and what open loops still need attention?",
+        now=refresh_time,
+        staleness_seconds=900,
+        search_archive=unexpected_archive_search,
+    )
+
+    assert operational_context == OrientationContext(
+        global_situation=GlobalSituation(
+            active_domains=["Work"],
+            top_arcs=["Web UI cleanup"],
+            unresolved_decisions=[],
+            top_blockers=["App structure ambiguity"],
+            drift_risks=[],
+            current_tensions=["Need one clear runtime seam before splitting more files"],
+            computed_at=refresh_time,
+            confidence=0.8,
+            staleness_seconds=900,
+            refresh_reason="stale_cache",
+        ),
+        top_arc_snapshots=[ArcSnapshot(arc=arc, tasks=[task], blockers=[blocker], decisions=[], open_loops=[open_loop])],
+    )
+
+
+@pytest.mark.asyncio
+async def test_operational_context_falls_back_to_archive_search_when_no_structured_match_exists(sqlite_store):
+    """Archive search should remain available when structured operational retrieval has no match."""
+    archive_queries: list[str] = []
+
+    async def archive_search(query: str) -> list[str]:
+        archive_queries.append(query)
+        return ["session-hit"]
+
+    operational_context = await get_support_operational_context(
+        sqlite_store,
+        "Can you remind me what we talked about last Tuesday?",
+        search_archive=archive_search,
+    )
+
+    assert operational_context is None
+    assert archive_queries == ["Can you remind me what we talked about last Tuesday?"]

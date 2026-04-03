@@ -110,6 +110,8 @@ Alfred needs searchable session history for:
 Structured support memory does not replace session search.
 It sits on top of it.
 
+Transcript sessions should remain the raw archive for provenance, replay, and recall. Active continuity should live in life domains, operational arcs, arc-linked work state, and fresh situation snapshots.
+
 ## Relational stance model
 
 The runtime should distinguish between:
@@ -282,8 +284,8 @@ That means identity and direction themes stay candidate-first until the user con
 | `AGENTS.md` | execution rules, tooling posture, safety/permission rules for work |
 | `SOUL.md` | Alfred's identity, voice, and relational posture |
 | `USER.md` | explicit user-provided or user-confirmed durable truths |
-| Structured support memory | operational state, support values, interventions, patterns, evidence |
-| Session archive | provenance, recall, resume support, calibration evidence |
+| Structured support memory | life domains, operational arcs, arc-linked work state, typed episodes, evidence refs, derived situations, support values, interventions, patterns |
+| Session archive | raw transcript provenance, recall, and calibration evidence |
 | Runtime self-model | Alfred's current interface/runtime state |
 
 ## Relational contract
@@ -331,12 +333,15 @@ Alfred already has important foundations:
 - always-loaded markdown context files
 - persistent memories
 - searchable session archive
+- typed episodes and evidence refs
+- life domains, operational arcs, and arc-linked work state
+- derived `ArcSituation` and `GlobalSituation` snapshots
+- operational-first support-context helpers for resume, orient, and active-work retrieval
 - self-model and personality work
 
 What is still being formalized here is the next layer:
-- operational support memory
 - relational/support registries
-- episode-based learning
+- behavior compilation
 - bounded calibration surfaces
 - review and correction surfaces
 

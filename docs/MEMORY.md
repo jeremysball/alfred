@@ -4,12 +4,15 @@ This document explains Alfred's memory model as it exists today and the planned 
 
 ## Status
 
-Alfred already has a durable memory foundation:
+Alfred now has a support-memory foundation:
 - always-loaded markdown files
 - curated remembered facts
+- typed support episodes and evidence refs
+- life domains, operational arcs, and arc-linked work state
+- derived `ArcSituation` and `GlobalSituation` snapshots
 - searchable session archive
 
-The next step is to turn that foundation into a **support memory system** rather than treating search alone as the product center.
+Search remains part of the system, but it is no longer the only continuity primitive.
 
 ---
 
@@ -45,6 +48,8 @@ Curated memory is not the same thing as raw conversation history.
 ### Session archive
 
 The session archive stores searchable conversation history and tool-call provenance.
+
+Treat transcript sessions as the raw archive for provenance, replay, debugging, and search. Do not treat them as the sole continuity abstraction.
 
 Use it for:
 - recall requests
@@ -94,22 +99,26 @@ What it is:
 - structured interaction episodes inside sessions
 - one dominant context per episode
 - intervention and outcome traces
+- explicit evidence refs back to transcript spans or messages
 
 Role:
 - the main evidence substrate for later learning
 - finer-grained than one summary per session
+- the evidence bridge between raw transcript sessions and operational state
 
 ### Layer 3: Operational support memory
 What it is:
-- projects
+- life domains
+- operational arcs
 - tasks
 - open loops
 - blockers
 - decisions in flight
+- fresh `ArcSituation` and `GlobalSituation` snapshots
 
 Role:
 - the primary runtime state for active support
-- what Alfred should consult first when helping the user move or resume
+- what Alfred should consult first when helping the user move, resume, or orient
 
 ### Layer 4: Support and relational profile state
 What it is:
@@ -151,12 +160,12 @@ When prior context may matter:
 3. curated memory
 4. session archive
 
-### Target support principle
-When Alfred is helping the user act, decide, review, or reflect:
+### Current support-first principle
+When Alfred is helping the user act, resume, orient, or answer active-work questions:
 1. current conversation
-2. relevant operational support memory
-3. relevant support/relational profile state
-4. relevant typed episode evidence
+2. relevant operational support memory such as life domains, operational arcs, tasks, blockers, decisions, and open loops
+3. fresh `ArcSituation` or `GlobalSituation` when available
+4. recent typed episode evidence tied to that state
 5. curated memory when appropriate
 6. session archive for provenance, recall, or fallback
 
@@ -164,7 +173,7 @@ That changes the center of gravity from:
 - "what did we talk about?"
 
 to:
-- "what is active, what is unresolved, what kind of moment is this, and what kind of help works here?"
+- "what is active, what is unresolved, what is blocked, and what is the next useful move?"
 
 ---
 

@@ -81,6 +81,12 @@ def _is_broad_orientation_message(opening_message: str) -> bool:
             "what s active right now",
             "what is active",
             "what s active",
+            "what is blocked",
+            "what s blocked",
+            "what open loops",
+            "what unresolved loops",
+            "what am i actively working on",
+            "what threads still need attention",
         )
     )
 
@@ -309,3 +315,37 @@ async def get_session_start_orientation_context(
         global_situation=global_situation,
         top_arc_snapshots=top_arc_snapshots,
     )
+
+
+async def get_support_operational_context(
+    store: SQLiteStore,
+    opening_message: str,
+    *,
+    now: datetime | None = None,
+    staleness_seconds: int = 900,
+    search_archive: Callable[[str], Awaitable[Sequence[str]]] | None = None,
+) -> ArcResumeContext | OrientationContext | None:
+    """Resolve the best structured operational context before consulting archive recall."""
+    resume_context = await get_session_start_resume_context(
+        store,
+        opening_message,
+        now=now,
+        staleness_seconds=staleness_seconds,
+        search_archive=None,
+    )
+    if resume_context is not None:
+        return resume_context
+
+    orientation_context = await get_session_start_orientation_context(
+        store,
+        opening_message,
+        now=now,
+        staleness_seconds=staleness_seconds,
+        search_archive=None,
+    )
+    if orientation_context is not None:
+        return orientation_context
+
+    if search_archive is not None:
+        await search_archive(opening_message)
+    return None

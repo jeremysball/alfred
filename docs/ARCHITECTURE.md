@@ -7,6 +7,9 @@ This document explains Alfred's current architecture and the planned support arc
 Alfred already has:
 - persistent context files
 - curated memories
+- typed support episodes and evidence refs
+- life domains, operational arcs, and arc-linked work state
+- derived `ArcSituation` and `GlobalSituation` snapshots
 - session archive and search
 - multiple interfaces
 - a runtime self-model and stronger personality layer
@@ -59,9 +62,19 @@ These files are always loaded and shape behavior every turn.
 The memory foundation includes:
 - durable markdown files for always-loaded context
 - curated memory for selectively remembered facts
-- session archive for searchable history and provenance
+- typed support episodes and evidence refs
+- life domains, operational arcs, and arc-linked work state
+- derived `ArcSituation` and `GlobalSituation` snapshots
+- session archive for raw searchable history and provenance
 
-See [docs/MEMORY.md](MEMORY.md) for the memory model and the planned extensions.
+See [docs/MEMORY.md](MEMORY.md) for the memory model and the next planned extensions.
+
+### Current operational-first seam
+
+`src/alfred/memory/support_context.py` is the current runtime seam for support-memory retrieval. It can:
+- refresh `ArcSituation` from structured arc state plus recent episode evidence
+- refresh `GlobalSituation` from active domains plus top arc snapshots
+- prefer structured resume and orientation context before archive fallback
 
 ---
 
@@ -219,8 +232,8 @@ One major architectural goal is to stop smearing truth across markdown, search, 
 | `AGENTS.md` | execution and tool behavior rules | support ontology, relational identity |
 | `SOUL.md` | Alfred's identity, voice, and relational posture | storage and support semantics |
 | `USER.md` | explicit user-provided or user-confirmed durable truths | inferred support values, temporary candidate patterns |
-| Structured support memory | projects, tasks, open loops, episodes, support values, interventions, patterns | Alfred identity prose |
-| Session archive | raw provenance and recall | primary support truth |
+| Structured support memory | life domains, operational arcs, tasks, blockers, decisions, open loops, typed episodes, evidence refs, derived situations, support values, interventions, patterns | Alfred identity prose |
+| Session archive | raw transcript provenance and recall | primary support truth |
 | Runtime self-model | Alfred's current runtime state | user/support memory truth |
 
 ---

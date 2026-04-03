@@ -2,7 +2,7 @@
 
 **GitHub Issue**: [#167](https://github.com/jeremysball/alfred/issues/167)  
 **Priority**: High  
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-03-30
 
 ---
@@ -436,16 +436,16 @@ Examples of expected behavior:
 
 ## 6. Success Criteria
 
-- [ ] Alfred stores transcript sessions as provenance objects without relying on them as the sole continuity abstraction.
+- [x] Alfred stores transcript sessions as provenance objects without relying on them as the sole continuity abstraction.
 - [x] Alfred stores life domains and operational arcs as first-class durable memory objects.
 - [x] Alfred stores projects, tasks, blockers, decisions, and open loops as first-class operational state.
 - [x] Alfred stores typed interaction episodes as a versioned evidence layer.
 - [x] Alfred stores explicit evidence refs that connect structured state back to the record.
 - [x] Alfred can maintain and refresh `GlobalSituation` and `ArcSituation` snapshots.
-- [ ] Operational retrieval prefers domain/arc state and relevant episodes over raw archive hits.
-- [ ] Session search remains available for provenance and recall flows.
-- [ ] Alfred can answer active-work and unresolved-loop questions without relying only on session search.
-- [ ] The implementation keeps one clear source of truth for operational support state.
+- [x] Operational retrieval prefers domain/arc state and relevant episodes over raw archive hits.
+- [x] Session search remains available for provenance and recall flows.
+- [x] Alfred can answer active-work and unresolved-loop questions without relying only on session search.
+- [x] The implementation keeps one clear source of truth for operational support state.
 
 ---
 
