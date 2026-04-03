@@ -455,6 +455,11 @@ class SQLiteStore:
 
         return (message_id, message_idx, role, timestamp, json.dumps(message))
 
+    @staticmethod
+    def _message_embedding_locator(session_id: str, message_id: str) -> str:
+        """Build the vec-table locator for one canonical transcript message."""
+        return f"{session_id}:{message_id}"
+
     async def _replace_session_messages(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
         """Replace one session's canonical transcript rows."""
         await db.execute("DELETE FROM session_messages WHERE session_id = ?", (session_id,))
@@ -514,16 +519,19 @@ class SQLiteStore:
         await self._ensure_vec0_dimension(db, "session_summaries_vec", "summary_id")
 
     async def _create_message_embeddings_table(self, db: Any) -> None:
-        """Create message_embeddings table with FK to sessions."""
+        """Create message_embeddings table with FK to canonical transcript rows."""
         await db.execute("""
             CREATE TABLE IF NOT EXISTS message_embeddings (
                 message_embedding_id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
+                message_id TEXT NOT NULL,
                 message_idx INTEGER NOT NULL,
                 role TEXT NOT NULL,
                 content_snippet TEXT,
                 embedding JSON NOT NULL,
-                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+                UNIQUE (session_id, message_id),
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_id) REFERENCES session_messages(session_id, message_id) ON DELETE CASCADE
             )
         """)
 
@@ -531,6 +539,10 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_message_embeddings_session
             ON message_embeddings(session_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_message_embeddings_session_message
+            ON message_embeddings(session_id, message_id)
         """)
 
         # Check if vec0 table exists with different dimension
@@ -1039,7 +1051,14 @@ class SQLiteStore:
 
     async def _delete_session_message_embeddings(self, db: Any, session_id: str) -> None:
         """Delete all message embeddings for a session before rebuilding them."""
-        await db.execute("DELETE FROM message_embeddings_vec WHERE message_embedding_id GLOB ?", (f"{session_id}_*",))
+        async with db.execute(
+            "SELECT message_embedding_id FROM message_embeddings WHERE session_id = ?",
+            (session_id,),
+        ) as cursor:
+            embedding_rows = await cursor.fetchall()
+
+        for row in embedding_rows:
+            await db.execute("DELETE FROM message_embeddings_vec WHERE message_embedding_id = ?", (row[0],))
         await db.execute("DELETE FROM message_embeddings WHERE session_id = ?", (session_id,))
 
     async def _index_message_embeddings(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
@@ -1047,30 +1066,29 @@ class SQLiteStore:
 
         Rebuilds the message embedding snapshot for the given session.
         """
-        for msg in messages:
+        for fallback_idx, msg in enumerate(messages):
             embedding = msg.get("embedding")
             if not embedding:
                 continue  # Skip messages without embeddings
 
-            message_idx = msg.get("idx", 0)
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")[:100]  # Snippet
+            message_id, message_idx, role, _timestamp, _payload_json = self._session_message_identity(msg, fallback_idx)
+            content = str(msg.get("content", ""))[:100]  # Snippet
 
-            # Generate unique ID
-            me_id = f"{session_id}_{message_idx}"
+            # Generate unique locator tied to canonical transcript identity
+            me_id = self._message_embedding_locator(session_id, message_id)
 
             try:
                 # Insert into message_embeddings
                 await db.execute(
                     """
                     INSERT INTO message_embeddings (
-                        message_embedding_id, session_id, message_idx,
+                        message_embedding_id, session_id, message_id, message_idx,
                         role, content_snippet, embedding
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(message_embedding_id) DO NOTHING
                     """,
-                    (me_id, session_id, message_idx, role, content, json.dumps(embedding)),
+                    (me_id, session_id, message_id, message_idx, role, content, json.dumps(embedding)),
                 )
 
                 # Insert into sqlite-vec virtual table

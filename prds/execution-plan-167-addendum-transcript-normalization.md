@@ -40,9 +40,9 @@ This addendum replaces JSON-blob transcript storage with canonical `session_mess
 
 ### Canonical message identity for embeddings and search
 
-- [ ] Test: `test_save_session_rebuilds_message_embeddings_with_canonical_message_ids()` - verify embeddings and vec rows rebuild against canonical transcript identity after a history rewrite without leaving stale rows behind.
-- [ ] Implement: rekey `message_embeddings` and vec storage to canonical transcript identity while preserving existing message-search results by `message_idx`, role, and snippet.
-- [ ] Run: `uv run pytest tests/storage/test_message_embeddings.py::TestMessageEmbeddingsIndexing::test_save_session_rebuilds_message_embeddings_with_canonical_message_ids -v`
+- [x] Test: `test_save_session_rebuilds_message_embeddings_with_canonical_message_ids()` - verify embeddings and vec rows rebuild against canonical transcript identity after a history rewrite without leaving stale rows behind.
+- [x] Implement: rekey `message_embeddings` and vec storage to canonical transcript identity while preserving existing message-search results by `message_idx`, role, and snippet.
+- [x] Run: `uv run pytest tests/storage/test_message_embeddings.py::TestMessageEmbeddingsIndexing::test_save_session_rebuilds_message_embeddings_with_canonical_message_ids -v`
 
 ### EvidenceRef message-ID span contract
 
