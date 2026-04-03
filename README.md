@@ -1,11 +1,11 @@
 # Alfred
 
 <p align="center">
-  <img src="docs/assets/memory-moth-banner.png" alt="Alfred - The Rememberer" width="100%">
+  <img src="docs/assets/memory-moth-banner.png" alt="Alfred banner" width="100%">
 </p>
 
 <p align="center">
-  <strong>Alfred remembers so you don't have to</strong>
+  <strong>A local-first relational system for orientation, continuity, calibration, and action.</strong>
 </p>
 
 <p align="center">
@@ -28,277 +28,280 @@
 
 ---
 
-Alfred is a persistent memory system for LLMs. He stores your conversations locally, searches them semantically, and injects relevant context into prompts automatically. Chat via Telegram or CLI.
+Alfred is an open-source AI companion with memory, tools, and continuity.
 
-## Quick Start
+He is being built to feel less like a disposable chat window and more like a persistent presence: someone who can help you **re-orient**, **resume**, **act**, **decide**, **reflect**, and **calibrate** without starting from zero every time.
+
+Today, Alfred already has a strong local foundation: durable context files, searchable memory, full session history, tools, a Web UI, a terminal interface, and a runtime self-model. The next layer now being formalized is what makes him more than a continuity tool: a relational system for **orientation**, **continuity**, **calibration**, and **action** that can show up as a **friend**, **peer**, **mentor**, **coach**, or **analyst** without splitting into crude mode toggles.
+
+> **Status:** Beta. Active development. Breaking changes are expected while the support model is being unified.
+
+## Why Alfred exists
+
+Most AI chat products are good at isolated turns and bad at continuity.
+
+They forget:
+- what matters to you
+- what you were in the middle of
+- what usually helps when you get stuck
+- what patterns keep repeating
+- what the record actually shows over time
+- what kind of presence you actually want on the other side of the conversation
+
+Alfred is an attempt to fix that.
+
+The goal is not only better memory. The goal is better:
+- **orientation** — what is true right now?
+- **continuity** — what has been active across the last day, week, or work arc?
+- **calibration** — what does the record support, and where is your story off?
+- **action** — what is the next move, and how do you get into motion?
+- **reflection** — what patterns, tensions, and values keep repeating?
+
+## What makes Alfred different
+
+### 1. Local-first continuity you control
+Alfred stores his support context locally: managed markdown files, remembered facts, and session history live in your Alfred data directory, not in some opaque hosted product memory layer.
+
+### 2. One system, many kinds of help
+Alfred is being designed around shared primitives rather than niche modes. The same system should help you:
+- re-orient on bad days
+- get back into the last days or weeks of work quickly
+- lower action friction and restart momentum
+- compare paths and make decisions
+- reflect on identity and direction
+- get an evidence-backed mirror instead of pure vibe-reading
+
+### 3. Session search stays central
+Alfred is not just supposed to remember durable facts. He should also be able to search prior sessions, recover context fast, and ground pattern claims in real evidence.
+
+### 4. Relational by design
+Alfred is not meant to sound like a sterile assistant. He is meant to feel like a companion: friend, peer, and sometimes mentor, coach, or analyst, depending on the moment.
+
+### 5. Learnable and correctable
+The long-term direction is not just "remember more." It is "learn what kind of help works, surface insights clearly, show the evidence when it matters, and let the user correct it."
+
+## Current foundation vs planned support model
+
+| Today | In progress / planned |
+|---|---|
+| Always-loaded context files (`SYSTEM.md`, `AGENTS.md`, `SOUL.md`, `USER.md`) | Operational support memory for projects, tasks, open loops, and decisions |
+| Curated remembered facts with semantic retrieval | Relational and support profiles that adapt by context and project |
+| Searchable session archive | Episode-based learning instead of coarse session-only learning |
+| Web UI and terminal interfaces | Bounded review cards and correction surfaces |
+| Tool use, cron, and runtime self-model | Richer relational stance composition: friend / peer / mentor / coach / analyst |
+
+See:
+- [How Alfred Helps](docs/how-alfred-helps.md)
+- [Relational Support Model](docs/relational-support-model.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## What Alfred should eventually feel like
+
+Not a chatbot that happens to remember a few facts.
+
+More like a persistent companion who can do things like:
+- help you start the annoying admin task you keep avoiding
+- tell you what is actually active and what is still open
+- compare two paths and make a real recommendation
+- notice when a goal sounds inherited rather than chosen
+- keep track of what kind of help works for you in different situations
+- surface patterns back to you in a way you can confirm, reject, or refine
+
+## Example interactions
+
+### Action support
+> **You:** Help me start this. I keep putting it off.  
+> **Alfred:** Don't solve the whole thing. Open the tab first. If the page loads, we've already broken the seal.
+
+### Decision support
+> **You:** Which option feels more like me?  
+> **Alfred:** The safer path sounds more legible. The other one sounds more alive. If you want my honest read, I think you're trying to negotiate with a future you already don't want.
+
+### Re-entry
+> **You:** What was I actually doing last week?  
+> **Alfred:** Three active threads dominated the week: the Web UI cleanup, the support-model docs sweep, and the startup-direction question you still haven't really closed. You made progress on the first two and kept circling the third.
+
+### Calibration
+> **You:** What have you learned about how to help me?  
+> **Alfred:** In execution contexts, narrower prompts work better than menus. In reflection contexts, you go deeper when I act more like a candid peer than a formal advisor. The record also says drift tends to start when open questions stay unclosed for too long.
+
+## Quick start
+
+### Install
 
 ```bash
-pip install alfred-assistant
+uv tool install alfred-assistant
+```
 
-# Set up environment
-export TELEGRAM_BOT_TOKEN=your_token
-export OPENAI_API_KEY=your_key
+### Configure
+
+Set the environment you need. Kimi is the default chat provider.
+
+```bash
 export KIMI_API_KEY=your_key
 export KIMI_BASE_URL=https://api.kimi.com/coding/v1
 
-# Start chatting
+# Optional: required only for OpenAI embeddings
+export OPENAI_API_KEY=your_key
+```
+
+### Run
+
+```bash
+# Terminal UI
 alfred
-```
 
-On first run, Alfred creates default context files in `data/` from built-in templates.
-
-## What It Does
-
-LLMs forget everything when you close the chat. Alfred solves this by:
-
-1. **Remembering** what matters — Alfred uses the `remember` tool to store important facts (90-day TTL, permanent option)
-2. **Searching** semantically — Find relevant memories via `search_memories`
-3. **Recalling** conversations — Search full session history via `search_sessions`
-4. **Context** across conversations — Session history maintains multi-turn dialogue
-
-**Three storage mechanisms:** Files (always loaded, durable), Memories (curated, 90-day TTL), and Session Archive (automatic, searchable). See [docs/ROADMAP.md](docs/ROADMAP.md) for architecture details.
-
-All local. No cloud. Your data stays in files you control.
-
-## Features
-
-- **Persistent Memory** — JSONL files with OpenAI embeddings
-- **Semantic Search** — Find relevant context instantly
-- **Web Interface** — Modern browser-based chat with real-time streaming
-- **Telegram Bot** — Chat anywhere
-- **CLI** — Terminal interface with streaming
-- **Scheduled Jobs** — "Remind me every morning at 8am"
-- **File Tools** — Read, write, edit, bash execution
-- **Human Approval** — Jobs require approval before running
-- **Auto-Setup** — Templates copy to `data/` on first run
-
-## CLI Commands
-
-```bash
-alfred                   # Start interactive chat
-alfred --telegram        # Run as Telegram bot
-alfred --log info        # Enable Alfred/core info logging
-alfred webui             # Start web interface
-alfred webui --log debug # Enable Web UI-specific debug logging
-alfred cron list         # List scheduled jobs
-alfred cron submit       # Submit a new job
-alfred memory migrate    # Convert JSONL memories to FAISS
-alfred memory status     # Show memory store info
-```
-
-## Web Interface
-
-Alfred includes a modern web-based interface as an alternative to the terminal UI. The Web UI provides the same persistent memory and streaming responses through a browser-based chat experience.
-
-### Starting the Web UI
-
-```bash
-# Start Web UI with defaults (localhost:8080)
+# Web UI
 alfred webui
-
-# Custom port
-alfred webui --port 3000
-
-# Custom host (0.0.0.0 for LAN access)
-alfred webui --host 0.0.0.0 --port 8080
-
-# Auto-open browser
-alfred webui --open
 ```
 
-### Logging
+On first run, Alfred creates his managed context files and local data directories automatically.
+
+## Core commands
+
+```bash
+alfred                   # Start interactive terminal chat
+alfred webui             # Start the browser interface
+alfred --telegram        # Run Telegram mode
+alfred cron list         # List scheduled jobs
+alfred cron submit       # Submit a new scheduled job
+alfred config update     # Refresh managed templates in the workspace
+```
+
+## Logging and debugging
 
 The root `--log` flag and the Web UI `--log` flag are separate.
 
+Use the root flag when you want Alfred-wide logs:
+
 ```bash
-# Alfred/core logging only
 alfred --log debug webui
+```
 
-# Web UI logging only
+Use the Web UI flag when you want Web UI server logs:
+
+```bash
 alfred webui --log debug
+```
 
-# Enable both
+Use both when you want both surfaces at debug level:
+
+```bash
 alfred --log debug webui --log debug
 ```
 
-**Important:** root options go before the subcommand, and Web UI options go after `webui`.
+TTY output uses readable surface prefixes like `[core]`, `[webui-server]`, `[webui-client]`, and `[websocket]`. non-TTY logs stay grep-friendly and include fields like `surface=...` for filtering in files and CI output.
 
-When logging is enabled, console output uses surface prefixes such as `[core]`, `[webui-server]`, `[webui-client]`, `[llm]`, `[tools]`, and `[storage]` so live streams are easy to scan. In a TTY those prefixes are colorized; in non-TTY output and log files they stay plain, and file logs include `surface=...` fields so they stay grep-friendly.
+For protocol-level Web UI debugging, see [WebSocket Protocol](docs/websocket-protocol.md).
 
-**WebSocket Debug Logs:** When Web UI debug logging is enabled (`alfred webui --log debug`), the browser console shows `[websocket]` prefixed logs for connection lifecycle events:
-- Connection open/close with close codes
-- Reconnect attempts with exponential backoff
-- Message queue flushes
-- Ping/pong latency timings
+## Interfaces
 
-These logs are debug-gated and do not appear in normal operation. See [docs/websocket-protocol.md](docs/websocket-protocol.md) for the complete debugging guide.
+### Web UI
+The Web UI is the easiest way to use Alfred if you want a modern chat surface with streaming, tool visibility, and persistent sessions.
 
-### Web UI Features
+Highlights:
+- real-time streaming
+- persistent sessions
+- reasoning and tool-call display
+- status bar, notifications, keyboard shortcuts
+- browser-based chat without losing Alfred's memory model
 
-- **Real-time streaming** — Watch responses appear token-by-token
-- **Persistent sessions** — Conversations survive page refreshes
-- **Session management** — Create, list, and resume sessions with `/new`, `/sessions`, `/resume`
-- **Markdown rendering** — Full markdown support with syntax highlighting
-- **Reasoning display** — Collapsible reasoning blocks for supported models
-- **Tool call visualization** — Expandable tool execution details
-- **Status bar** — Live token counts and model information
-- **Toast notifications** — Success, error, and info messages
-- **Dark/light themes** — Automatic system preference detection
-- **Keyboard shortcuts** — `Ctrl+Enter` to send, `Escape` to cancel
+Start it with:
 
-### Web UI Architecture
-
-The Web UI is built with modern web technologies:
-
-- **Backend:** FastAPI with WebSocket support
-- **Frontend:** Vanilla JavaScript with Web Components
-- **Styling:** CSS custom properties for theming
-- **Communication:** WebSocket protocol with JSON messages
-
-See [docs/websocket-protocol.md](docs/websocket-protocol.md) for the complete WebSocket protocol specification.
-
-## Data Storage
-
-```
-data/
-├── memory/
-│   └── memories.jsonl      # Curated facts Alfred remembers (90-day TTL)
-├── sessions/               # Full conversation archive (searchable)
-│   └── {session_id}/
-│       ├── messages.jsonl
-│       └── summary.json
-├── cron.jsonl              # Scheduled jobs
-├── cron_history.jsonl      # Job execution history
-├── cron_logs.jsonl         # Job output logs
-├── SYSTEM.md               # Memory system architecture + cron capabilities
-├── AGENTS.md               # Minimal behavior rules (references prompts/)
-├── USER.md                 # User preferences (may reference prompts/)
-├── SOUL.md                 # Alfred's personality (may reference prompts/)
-└── prompts/                # Modular prompt components
-    ├── communication-style.md
-    ├── voice.md
-    └── memory-guidance.md
+```bash
+alfred webui --open
 ```
 
-**Modular Prompts:** Files can include other files using `{{prompts/file.md}}` placeholders. This keeps core files minimal while allowing rich, reusable prompt components.
+### Terminal UI
+The terminal interface is for people who want Alfred close to their shell and workflow.
 
-## Configuration
+Highlights:
+- streaming responses
+- persistent sessions
+- strong keyboard flow
+- direct fit for local development and debugging
 
-Environment variables (required):
+### Telegram
+Telegram support still exists, but current product direction is centered on the local interfaces.
 
-| Variable | Description |
-|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot API token |
-| `KIMI_API_KEY` | Kimi API key |
-| `KIMI_BASE_URL` | Kimi API endpoint |
+## Memory at a glance
 
-Optional:
+Alfred's memory model is moving toward a full support system, but the current foundation is already useful.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_KEY` | — | Required when using OpenAI embeddings; not needed for local BGE |
-| `DEFAULT_LLM_PROVIDER` | `kimi` | LLM provider |
-| `EMBEDDING_MODEL` | `text-embedding-3-small` | OpenAI embedding model (ignored when using local) |
-| `CHAT_MODEL` | `kimi-k2-5` | Chat model |
-| `MEMORY_CONTEXT_LIMIT` | `20` | Max memories in context |
+### Always-loaded files
+These shape behavior every turn:
+- `SYSTEM.md`
+- `AGENTS.md`
+- `SOUL.md`
+- `USER.md`
 
-**System requirements for local embeddings (BGE):** ~4 GB RAM, ~2 GB disk (model download on first use).
+### Curated memory
+Facts Alfred deliberately remembers because they are likely to matter again.
 
-For TOML-based configuration (`~/.config/alfred/config.toml`), see [docs/EMBEDDINGS.md](docs/EMBEDDINGS.md).
+### Session archive
+Searchable history of prior conversations and tool outcomes.
 
-## Documentation
+### Planned support memory
+The next layer adds:
+- projects
+- tasks
+- open loops
+- relational/support preferences
+- episode-based learning
+- bounded reflection and correction
 
-- [Architecture](docs/ARCHITECTURE.md) — System design and components
-- [API Reference](docs/API.md) — Module documentation
-- [Deployment](docs/DEPLOYMENT.md) — Production setup
-- [Cron Jobs](docs/cron-jobs.md) — Scheduled tasks
-- [Embeddings and FAISS](docs/EMBEDDINGS.md) — Local embeddings, migration, performance tuning
-- [Memory System](docs/MEMORY.md) — Three-layer memory architecture
-- [Self-Model & Introspection](docs/self-model.md) — Alfred's internal self-awareness and `/context` command
-- [Template Sync and Conflict Recovery](docs/template-sync.md) — Conflict-recovery reference for template drift and manual repair
-- [WebSocket Protocol](docs/websocket-protocol.md) — Web UI real-time communication spec
-- [Roadmap](docs/ROADMAP.md) — Development progress
+For the current and planned model, see [docs/MEMORY.md](docs/MEMORY.md).
+
+## Documentation map
+
+### Start here
+- [How Alfred Helps](docs/how-alfred-helps.md) — user-facing view of the planned support model
+- [Relational Support Model](docs/relational-support-model.md) — developer-facing model of support, learning, and reflection
+- [Architecture](docs/ARCHITECTURE.md) — current foundation plus target support architecture
+- [Memory System](docs/MEMORY.md) — current memory foundation plus support-memory direction
+
+### Runtime and interfaces
+- [WebSocket Protocol](docs/websocket-protocol.md) — Web UI real-time communication
+- [Self-Model & Introspection](docs/self-model.md) — Alfred's internal self-model and `/context`
+- [Cron Jobs](docs/cron-jobs.md) — scheduled jobs and reminders
+- [Deployment](docs/DEPLOYMENT.md) — production setup
+
+### Project direction
+- [Roadmap](docs/ROADMAP.md) — current milestones and open PRDs
+- [Template Sync and Conflict Recovery](docs/template-sync.md) — canonical conflict-recovery reference for managed template drift and repair
+- [API Reference](docs/API.md) — module documentation
 
 ## Contributing
 
-### Development Setup
+Alfred is in active development. The architecture is still being cleaned up and unified. Small, clear changes are preferred over heroic rewrites.
 
-1. **Clone and install dependencies:**
-   ```bash
-   git clone https://github.com/jeremysball/alfred.git
-   cd alfred
-   uv sync
-   ```
+### Development setup
 
-2. **Install git hooks:**
-   ```bash
-   git config core.hooksPath .githooks
-   ```
-
-3. **Run quality checks:**
-   ```bash
-   uv run ruff check src/
-   uv run ruff format src/
-   uv run mypy src/
-   uv run pytest
-   ```
-
-### Code Quality Workflows
-
-The repository maintains two independent quality workflows in `.github/workflows/ci/`:
-
-| Workflow | Scope | Command | CI Status |
-|----------|-------|---------|-----------|
-| **Python** | `src/**/*.py`, `tests/**/*.py` | `uv run ruff check src/ && uv run mypy --strict src/ && uv run pytest` | Required |
-| **JavaScript** | `src/alfred/interfaces/webui/static/js/**/*.js` | `npm run js:check` | Required |
-
-**JavaScript setup (one-time):**
 ```bash
+git clone https://github.com/jeremysball/alfred.git
+cd alfred
+uv sync
 npm install
-npm run js:check        # Lint and format check
-npm run js:check:fix    # Auto-fix issues
-npm run js:deadcode     # Find unused code (informational)
 ```
 
-**Commit rule:** Choose the workflow that matches your changes. Do not run both workflows for a single commit.
-- Python changes only → Run Python workflow
-- JavaScript changes only → Run JavaScript workflow
-- Both changed → Run both workflows
+### Validation workflows
 
-### Terminal Tool Development
+#### Python changes
+```bash
+uv run ruff check src/
+uv run mypy --strict src/
+uv run pytest <targeted tests>
+```
 
-The terminal tool (`.pi/extensions/terminal.ts`) enables E2E testing of Alfred's TUI. To use it:
+#### JavaScript changes
+```bash
+npm run js:check
+```
 
-1. **Install VHS:**
-   ```bash
-   # Requires Go
-   go install github.com/charmbracelet/vhs@latest
-   
-   # Add to PATH (if not already)
-   export PATH="$PATH:$(go env GOPATH)/bin"
-   ```
-
-2. **Install ttyd and ffmpeg** (VHS dependencies):
-   ```bash
-   # Arch Linux
-   sudo pacman -S ttyd ffmpeg
-   
-   # macOS
-   brew install ttyd ffmpeg
-   
-   # Ubuntu/Debian
-   sudo apt install ttyd ffmpeg
-   ```
-
-3. **Set environment for containers:**
-   ```bash
-   export VHS_NO_SANDBOX=true
-   ```
-
-4. **Test the extension:**
-   ```bash
-   pi --no-session -e .pi/extensions/terminal.ts -p "test terminal tool"
-   ```
+Rule of thumb:
+- Python-only change → run the Python workflow
+- JavaScript-only change → run the JavaScript workflow
+- Both touched → run both
 
 ## Community
 
@@ -311,4 +314,4 @@ MIT
 
 ---
 
-<p align="center">Made with ❤️ and 🧠</p>
+<p align="center">Built for continuity, judgment, and companionship.</p>

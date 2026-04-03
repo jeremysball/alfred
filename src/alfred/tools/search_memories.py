@@ -24,8 +24,7 @@ class SearchMemoriesTool(Tool, MemoryStoreMixin, SearchResultMixin, ErrorHandlin
 
     name = "search_memories"
     description = (
-        "Search curated memories for durable facts, preferences, and prior context. "
-        "Use before asking the user to repeat themselves."
+        "Search curated memories for durable facts, preferences, and prior context. Use before asking the user to repeat themselves."
     )
     param_model = SearchMemoriesToolParams
 

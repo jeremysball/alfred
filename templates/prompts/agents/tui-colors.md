@@ -69,12 +69,12 @@ For colored code output, use placeholders outside the code block or use inline c
 
 ### Implementation
 
-The color system is in `src/interfaces/pypitui/ansi.py`. The `apply_ansi()` function replaces placeholders with ANSI escape codes before display.
+The color system is in `src/alfred/interfaces/ansi.py`. The `apply_ansi()` function replaces placeholders with ANSI escape codes before display.
 
 **Two approaches for different contexts:**
 
 1. **Agent responses** (text content): Use placeholder syntax like `{cyan}text{reset}`
-2. **TUI rendering code** (low-level display): Import constants from `ansi.py`:
+2. **TUI rendering code** (low-level display): Import constants from `alfred.interfaces.ansi`:
    ```python
-   from src.interfaces.pypitui.ansi import BRIGHT_BLACK, RESET, REVERSE
+   from alfred.interfaces.ansi import BRIGHT_BLACK, RESET
    ```

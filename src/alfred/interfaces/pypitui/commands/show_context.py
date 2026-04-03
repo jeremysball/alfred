@@ -98,10 +98,7 @@ class ShowContextCommand(Command):
                 if not conflicted_context_files:
                     blocked_context_files = context_data.get("blocked_context_files") or []
                     if blocked_context_files:
-                        conflicted_context_files = [
-                            {"label": name, "reason": "Blocked context file"}
-                            for name in blocked_context_files
-                        ]
+                        conflicted_context_files = [{"label": name, "reason": "Blocked context file"} for name in blocked_context_files]
 
                 if conflicted_context_files:
                     count = len(conflicted_context_files)

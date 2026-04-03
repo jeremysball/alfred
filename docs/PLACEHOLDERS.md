@@ -170,7 +170,7 @@ Bright backgrounds: `{on_bright_red}`, `{on_bright_green}`, etc.
 
 ```python
 from pathlib import Path
-from src.placeholders import resolve_all, resolve_file_includes, resolve_colors
+from alfred.placeholders import resolve_all, resolve_file_includes, resolve_colors
 
 # Resolve everything (recommended)
 content = resolve_all(text, base_dir=Path("/workspace"))
@@ -185,7 +185,7 @@ content = resolve_colors(text)
 ### Low-Level API
 
 ```python
-from src.placeholders import (
+from alfred.placeholders import (
     ResolutionContext,
     resolve_placeholders,
     FileIncludeResolver,

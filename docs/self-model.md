@@ -2,91 +2,118 @@
 
 ## Overview
 
-Alfred maintains an internal **self-model**—a runtime snapshot of his own state, capabilities, and environment. This self-awareness enables him to reason about himself as a system, understand his current operating context, and provide responses that are grounded in his actual configuration.
+Alfred maintains an internal **self-model**: a runtime snapshot of his own identity, capabilities, environment, and current context pressure.
 
-The self-model is **internal-only**—it informs Alfred's reasoning and appears in LLM prompts, but users interact with it only through the `/context` inspection command.
+The point of the self-model is not self-mythology. The point is grounding.
+
+It helps Alfred reason from what is actually true right now:
+- which interface he is using
+- which tools are available
+- whether memory/search are enabled
+- how much context is already loaded
+- what environment he is operating inside
+
+This keeps Alfred more honest, more inspectable, and less likely to bluff about his own runtime state.
+
+The self-model is **internal-first**. It informs prompt assembly and runtime reasoning. Users mainly encounter it through the `/context` inspection surface.
 
 ---
 
-## What Alfred Knows
+## What Alfred Knows Today
 
 ### Identity
 - **Name**: Alfred
-- **Role**: persistent memory-augmented assistant
-- **Version**: From package metadata
+- **Role label**: current runtime role string from the self-model
+- **Version**: package version when available
 
 ### Runtime State
-- **Interface**: CLI or WebUI (where the conversation is happening)
-- **Session ID**: Current session identifier
-- **Mode**: Interactive or daemon/background
+- **Interface**: CLI or Web UI
+- **Session ID**: current session identifier
+- **Mode**: interactive vs daemon/background
 
 ### Capabilities
-- **Tools Available**: Which tools Alfred can use (bash, read, write, search, etc.)
-- **Memory**: Whether memory storage is enabled
-- **Search**: Whether semantic memory search is available
+- **Tools available**: which tools Alfred can call in the current runtime
+- **Memory enabled**: whether durable memory storage is available
+- **Search enabled**: whether retrieval/search is available
 
 ### Context Pressure
-- **Message Count**: Messages in current session
-- **Memory Count**: Relevant memories loaded
-- **Approximate Tokens**: Estimated token usage
+- **Message count**: current session message volume
+- **Memory count**: currently loaded/retrieved memories
+- **Approximate tokens**: rough current token pressure when available
+
+### Environment
+- **Working directory**
+- **Python version**
+- **Platform**
+
+---
+
+## What the Self-Model Is Not
+
+The self-model is **not** the user model.
+
+It does not hold the user's identity, values, or life-direction truths. Those belong in the user-facing durable context and memory systems.
+
+It is also **not** a replacement for the broader relational support model. Today, the self-model is intentionally conservative: it is mostly about runtime grounding, not learned support-state introspection.
+
+As Alfred's relational support architecture grows, the self-model may eventually expose richer support-state facts. Until then, it should stay factual and compact.
 
 ---
 
 ## Inspecting the Self-Model
 
-Use the `/context` command in the TUI to view Alfred's current self-state:
+Use the `/context` command in the TUI to inspect Alfred's current runtime state:
 
-```
+```text
 /context
 ```
 
-The output includes an **ALFRED SELF-MODEL** section showing:
+The output includes an **ALFRED SELF-MODEL** section with a compact summary of:
+- identity
+- interface and mode
+- available capabilities
+- current context pressure
+- runtime environment
 
-```
-ALFRED SELF-MODEL
-────────────────────────────────────────
-  Identity: Alfred (persistent memory-augmented assistant)
-  Interface: cli | Mode: interactive
-  Capabilities: Memory ✓ | Search ✓ | 12 tools
-  Context: 5 messages | 3 memories | ~1,500 tokens
-```
-
-This is useful for:
-- Debugging which interface Alfred thinks he's using
-- Verifying capabilities are correctly detected
-- Understanding current context pressure
+Use it when you want to:
+- verify which interface Alfred thinks he is in
+- confirm whether memory/search are enabled
+- see which tools are currently registered
+- understand how much context is already loaded
+- debug mismatches between the runtime and the prompt behavior
 
 ---
 
-## Personality
+## Relationship to the Relational Support Model
 
-Alfred's self-model includes updated personality guidance in `templates/SOUL.md`:
+The self-model helps Alfred stay truthful about himself.
 
-- **Opinionated** — but not contrarian for sport
-- **Witty** — but not quippy every turn
-- **Playful** — but not unserious when the situation is serious
-- **Direct** — low-friction, gets to the point
-- **Self-aware** — without becoming corny about it
+The relational support model helps Alfred decide **how to help the user**.
 
-This personality should be present but not performative—it amplifies clarity rather than obstructing it.
+Those are related, but different:
+- the **self-model** is about Alfred's current runtime facts
+- the **support model** is about support context, stance, memory, learning, and reflection
+
+That separation matters. Alfred should feel present and relational, but he should not invent capabilities or pretend unimplemented support systems already exist.
 
 ---
 
 ## Privacy & Boundaries
 
-- **Internal-Only**: The full self-model is used in LLM prompts but never exposed directly to users in ordinary responses
-- **Compact Summary**: Only the terse summary in `/context` is user-facing
-- **No User Data**: The self-model contains only Alfred's own state—no personal user data or conversation content
-- **Fail-Closed**: If runtime facts are missing, Alfred omits them or marks them unknown—he does not invent information
+- **Internal-first**: the full self-model is for prompt assembly and runtime reasoning
+- **Compact inspection**: users see only a terse, practical view via `/context`
+- **No invented facts**: if a runtime fact is missing, Alfred should omit it or mark it unknown
+- **No user dossier**: the self-model is about Alfred's own state, not a hidden profile of the user
 
 ---
 
 ## For Developers
 
-The self-model is implemented in `src/alfred/self_model.py`:
+The self-model is implemented in `src/alfred/self_model.py`.
 
-- `RuntimeSelfModel` — Pydantic model with identity, runtime, world, capabilities, and context pressure
-- `build_runtime_self_model()` — Builder function that gathers facts from the live Alfred instance
-- `to_prompt_section()` — Serializes self-model to markdown for LLM prompts
+Key pieces:
+- `RuntimeSelfModel` — structured model of identity, runtime, environment, capabilities, and context pressure
+- `build_runtime_self_model()` — builds the snapshot from the live Alfred instance
+- `to_prompt_section()` — serializes the model into prompt-ready markdown
 
-The self-model is injected into context assembly via `ContextLoader.assemble_with_self_model()` and appears in the system prompt sent to the LLM.
+The self-model is injected during context assembly so the model can reason from live runtime facts instead of vague assumptions.

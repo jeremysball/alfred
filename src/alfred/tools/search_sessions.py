@@ -101,9 +101,7 @@ class SessionSummarizer:
                 )
             )
 
-        combined_preview = "\n".join(
-            f"Chunk {index}: {summary}" for index, summary in enumerate(chunk_summaries, start=1)
-        )
+        combined_preview = "\n".join(f"Chunk {index}: {summary}" for index, summary in enumerate(chunk_summaries, start=1))
         return await self._call_llm_for_summary(f"Chunk summaries:\n\n{combined_preview}")
 
     async def generate_summary(self, session: Session) -> SessionSummary:

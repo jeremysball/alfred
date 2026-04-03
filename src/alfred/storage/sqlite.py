@@ -15,6 +15,19 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+from alfred.memory.support_memory import (
+    ArcBlocker,
+    ArcDecision,
+    ArcOpenLoop,
+    ArcSituation,
+    ArcSnapshot,
+    ArcTask,
+    EvidenceRef,
+    GlobalSituation,
+    LifeDomain,
+    OperationalArc,
+    SupportEpisode,
+)
 from alfred.observability import Surface, log_event
 
 # sqlite-vec is required for vector search
@@ -218,6 +231,7 @@ class SQLiteStore:
             await self._create_message_embeddings_table(db)
             await self._create_cron_tables(db)
             await self._create_memories_table(db)
+            await self._create_support_memory_tables(db)
 
             await db.commit()
             pending_vec_rebuild = self._pending_vec_rebuild
@@ -639,6 +653,214 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_memories_permanent
             ON memories(permanent) WHERE permanent = 0
+        """)
+
+    async def _create_support_memory_tables(self, db: Any) -> None:
+        """Create typed support-memory tables for domains, arcs, episodes, and evidence refs."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_life_domains (
+                domain_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                salience REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                linked_pattern_ids JSON NOT NULL DEFAULT '[]'
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_life_domains_status_salience
+            ON support_life_domains(status, salience DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_operational_arcs (
+                arc_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                primary_domain_id TEXT,
+                status TEXT NOT NULL,
+                salience REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                last_active_at TIMESTAMP,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (primary_domain_id) REFERENCES support_life_domains(domain_id) ON DELETE SET NULL
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_operational_arcs_domain_status_salience
+            ON support_operational_arcs(primary_domain_id, status, salience DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_operational_arcs_last_active
+            ON support_operational_arcs(last_active_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_tasks (
+                task_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                next_step TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_tasks_arc_status_updated
+            ON support_arc_tasks(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_blockers (
+                blocker_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                next_step TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_blockers_arc_status_updated
+            ON support_arc_blockers(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_decisions (
+                decision_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                current_tension TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_decisions_arc_status_updated
+            ON support_arc_decisions(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_open_loops (
+                open_loop_id TEXT PRIMARY KEY,
+                arc_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                current_tension TEXT,
+                evidence_ref_ids JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_open_loops_arc_status_updated
+            ON support_arc_open_loops(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_situations (
+                arc_id TEXT PRIMARY KEY,
+                current_state TEXT NOT NULL,
+                recent_progress JSON NOT NULL DEFAULT '[]',
+                blockers JSON NOT NULL DEFAULT '[]',
+                next_moves JSON NOT NULL DEFAULT '[]',
+                linked_pattern_ids JSON NOT NULL DEFAULT '[]',
+                computed_at TIMESTAMP NOT NULL,
+                confidence REAL NOT NULL,
+                staleness_seconds INTEGER NOT NULL,
+                refresh_reason TEXT NOT NULL,
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_situations_computed_at
+            ON support_arc_situations(computed_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_global_situations (
+                situation_id TEXT PRIMARY KEY,
+                active_domains JSON NOT NULL DEFAULT '[]',
+                top_arcs JSON NOT NULL DEFAULT '[]',
+                unresolved_decisions JSON NOT NULL DEFAULT '[]',
+                top_blockers JSON NOT NULL DEFAULT '[]',
+                drift_risks JSON NOT NULL DEFAULT '[]',
+                current_tensions JSON NOT NULL DEFAULT '[]',
+                computed_at TIMESTAMP NOT NULL,
+                confidence REAL NOT NULL,
+                staleness_seconds INTEGER NOT NULL,
+                refresh_reason TEXT NOT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_global_situations_computed_at
+            ON support_global_situations(computed_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_episodes (
+                episode_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                started_at TIMESTAMP NOT NULL,
+                ended_at TIMESTAMP,
+                dominant_need TEXT NOT NULL,
+                dominant_context TEXT NOT NULL,
+                dominant_arc_id TEXT,
+                domain_ids JSON NOT NULL DEFAULT '[]',
+                subject_refs JSON NOT NULL DEFAULT '[]',
+                friction_signals JSON NOT NULL DEFAULT '[]',
+                interventions_attempted JSON NOT NULL DEFAULT '[]',
+                response_signals JSON NOT NULL DEFAULT '[]',
+                outcome_signals JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_episodes_session_started
+            ON support_episodes(session_id, started_at DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_episodes_arc
+            ON support_episodes(dominant_arc_id) WHERE dominant_arc_id IS NOT NULL
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_evidence_refs (
+                evidence_id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                message_start_idx INTEGER NOT NULL,
+                message_end_idx INTEGER,
+                excerpt TEXT,
+                timestamp TIMESTAMP NOT NULL,
+                domain_ids JSON NOT NULL DEFAULT '[]',
+                arc_ids JSON NOT NULL DEFAULT '[]',
+                claim_type TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                FOREIGN KEY (episode_id) REFERENCES support_episodes(episode_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_evidence_episode
+            ON support_evidence_refs(episode_id, message_start_idx, evidence_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_evidence_session
+            ON support_evidence_refs(session_id, timestamp DESC)
         """)
 
     # === Session Operations ===
@@ -1311,6 +1533,856 @@ class SQLiteStore:
             cursor = await db.execute("DELETE FROM memories WHERE entry_id = ?", (entry_id,))
             await db.commit()
             return cursor.rowcount > 0
+
+    # === Support Memory Operations ===
+
+    async def save_life_domain(self, domain: LifeDomain) -> None:
+        """Save or update a durable life domain."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = domain.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_life_domains (
+                    domain_id, name, status, salience, created_at, updated_at, linked_pattern_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(domain_id) DO UPDATE SET
+                    name = excluded.name,
+                    status = excluded.status,
+                    salience = excluded.salience,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    linked_pattern_ids = excluded.linked_pattern_ids
+                """,
+                (
+                    record["domain_id"],
+                    record["name"],
+                    record["status"],
+                    record["salience"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["linked_pattern_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def get_life_domain(self, domain_id: str) -> LifeDomain | None:
+        """Load a durable life domain by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM support_life_domains WHERE domain_id = ?", (domain_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            return LifeDomain.from_record(dict(row))
+
+    async def list_active_life_domains(self, limit: int = 4) -> list[LifeDomain]:
+        """List active life domains in orientation order."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_life_domains
+                WHERE status = 'active'
+                ORDER BY salience DESC, updated_at DESC, domain_id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [LifeDomain.from_record(dict(row)) for row in rows]
+
+    async def save_operational_arc(self, arc: OperationalArc) -> None:
+        """Save or update a durable operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = arc.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_operational_arcs (
+                    arc_id, title, kind, primary_domain_id, status, salience,
+                    created_at, updated_at, last_active_at, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(arc_id) DO UPDATE SET
+                    title = excluded.title,
+                    kind = excluded.kind,
+                    primary_domain_id = excluded.primary_domain_id,
+                    status = excluded.status,
+                    salience = excluded.salience,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    last_active_at = excluded.last_active_at,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["arc_id"],
+                    record["title"],
+                    record["kind"],
+                    record["primary_domain_id"],
+                    record["status"],
+                    record["salience"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["last_active_at"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def _load_operational_arc(self, db: Any, arc_id: str) -> OperationalArc | None:
+        """Load one operational arc from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_operational_arcs WHERE arc_id = ?", (arc_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+
+        return OperationalArc.from_record(dict(row))
+
+    async def get_operational_arc(self, arc_id: str) -> OperationalArc | None:
+        """Load a durable operational arc by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_operational_arc(db, arc_id)
+
+    async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]:
+        """List active and dormant arcs in resume-oriented order across domains."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_operational_arcs
+                WHERE status IN ('active', 'dormant')
+                ORDER BY
+                    CASE status
+                        WHEN 'active' THEN 0
+                        WHEN 'dormant' THEN 1
+                        ELSE 2
+                    END ASC,
+                    salience DESC,
+                    COALESCE(last_active_at, updated_at, created_at) DESC,
+                    arc_id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [OperationalArc.from_record(dict(row)) for row in rows]
+
+    async def list_resume_arcs_for_domain(self, domain_id: str) -> list[OperationalArc]:
+        """List active and dormant arcs for one domain in resume-oriented order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_operational_arcs
+                WHERE primary_domain_id = ?
+                  AND status IN ('active', 'dormant')
+                ORDER BY
+                    CASE status
+                        WHEN 'active' THEN 0
+                        WHEN 'dormant' THEN 1
+                        ELSE 2
+                    END ASC,
+                    salience DESC,
+                    COALESCE(last_active_at, updated_at, created_at) DESC,
+                    arc_id ASC
+                """,
+                (domain_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [OperationalArc.from_record(dict(row)) for row in rows]
+
+    async def save_arc_task(self, task: ArcTask) -> None:
+        """Save or update an arc-linked task."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = task.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_tasks (
+                    task_id, arc_id, title, status, created_at, updated_at, next_step, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    next_step = excluded.next_step,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["task_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["next_step"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def _load_arc_tasks(self, db: Any, arc_id: str) -> list[ArcTask]:
+        """Load all tasks linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_tasks
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, task_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcTask.from_record(dict(row)) for row in rows]
+
+    async def list_arc_tasks(self, arc_id: str) -> list[ArcTask]:
+        """List all tasks linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_arc_tasks(db, arc_id)
+
+    async def save_arc_blocker(self, blocker: ArcBlocker) -> None:
+        """Save or update an arc-linked blocker."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = blocker.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_blockers (
+                    blocker_id, arc_id, title, status, created_at, updated_at, next_step, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(blocker_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    next_step = excluded.next_step,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["blocker_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["next_step"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def _load_arc_blockers(self, db: Any, arc_id: str) -> list[ArcBlocker]:
+        """Load all blockers linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_blockers
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, blocker_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcBlocker.from_record(dict(row)) for row in rows]
+
+    async def list_arc_blockers(self, arc_id: str) -> list[ArcBlocker]:
+        """List all blockers linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_arc_blockers(db, arc_id)
+
+    async def save_arc_decision(self, decision: ArcDecision) -> None:
+        """Save or update an arc-linked decision."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = decision.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_decisions (
+                    decision_id, arc_id, title, status, created_at, updated_at, current_tension, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    current_tension = excluded.current_tension,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["decision_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["current_tension"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def _load_arc_decisions(self, db: Any, arc_id: str) -> list[ArcDecision]:
+        """Load all decisions linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_decisions
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, decision_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcDecision.from_record(dict(row)) for row in rows]
+
+    async def list_arc_decisions(self, arc_id: str) -> list[ArcDecision]:
+        """List all decisions linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_arc_decisions(db, arc_id)
+
+    async def save_arc_open_loop(self, open_loop: ArcOpenLoop) -> None:
+        """Save or update an arc-linked open loop."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = open_loop.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_open_loops (
+                    open_loop_id, arc_id, title, status, created_at, updated_at, current_tension, evidence_ref_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(open_loop_id) DO UPDATE SET
+                    arc_id = excluded.arc_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    current_tension = excluded.current_tension,
+                    evidence_ref_ids = excluded.evidence_ref_ids
+                """,
+                (
+                    record["open_loop_id"],
+                    record["arc_id"],
+                    record["title"],
+                    record["status"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["current_tension"],
+                    record["evidence_ref_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def _load_arc_open_loops(self, db: Any, arc_id: str) -> list[ArcOpenLoop]:
+        """Load all open loops linked to one operational arc from an existing connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_arc_open_loops
+            WHERE arc_id = ?
+            ORDER BY created_at ASC, open_loop_id ASC
+            """,
+            (arc_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [ArcOpenLoop.from_record(dict(row)) for row in rows]
+
+    async def list_arc_open_loops(self, arc_id: str) -> list[ArcOpenLoop]:
+        """List all open loops linked to an operational arc."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_arc_open_loops(db, arc_id)
+
+    async def get_arc_snapshot(self, arc_id: str) -> ArcSnapshot | None:
+        """Load one composed operational-arc snapshot from structured storage only."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            arc = await self._load_operational_arc(db, arc_id)
+            if arc is None:
+                return None
+
+            return ArcSnapshot(
+                arc=arc,
+                tasks=await self._load_arc_tasks(db, arc_id),
+                blockers=await self._load_arc_blockers(db, arc_id),
+                decisions=await self._load_arc_decisions(db, arc_id),
+                open_loops=await self._load_arc_open_loops(db, arc_id),
+            )
+
+    async def _load_arc_situation(self, db: Any, arc_id: str) -> ArcSituation | None:
+        """Load one persisted arc situation from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_arc_situations WHERE arc_id = ?", (arc_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+
+        return ArcSituation.from_record(dict(row))
+
+    async def save_arc_situation(self, situation: ArcSituation) -> None:
+        """Save or update a derived arc situation snapshot."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = situation.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_situations (
+                    arc_id, current_state, recent_progress, blockers, next_moves,
+                    linked_pattern_ids, computed_at, confidence, staleness_seconds, refresh_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(arc_id) DO UPDATE SET
+                    current_state = excluded.current_state,
+                    recent_progress = excluded.recent_progress,
+                    blockers = excluded.blockers,
+                    next_moves = excluded.next_moves,
+                    linked_pattern_ids = excluded.linked_pattern_ids,
+                    computed_at = excluded.computed_at,
+                    confidence = excluded.confidence,
+                    staleness_seconds = excluded.staleness_seconds,
+                    refresh_reason = excluded.refresh_reason
+                """,
+                (
+                    record["arc_id"],
+                    record["current_state"],
+                    record["recent_progress"],
+                    record["blockers"],
+                    record["next_moves"],
+                    record["linked_pattern_ids"],
+                    record["computed_at"],
+                    record["confidence"],
+                    record["staleness_seconds"],
+                    record["refresh_reason"],
+                ),
+            )
+            await db.commit()
+
+    async def get_arc_situation(self, arc_id: str) -> ArcSituation | None:
+        """Load one persisted arc situation by arc ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_arc_situation(db, arc_id)
+
+    async def _load_global_situation(self, db: Any) -> GlobalSituation | None:
+        """Load the persisted global situation from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_global_situations WHERE situation_id = 'global'") as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+
+        return GlobalSituation.from_record(dict(row))
+
+    async def save_global_situation(self, situation: GlobalSituation) -> None:
+        """Save or update the derived global situation snapshot."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = situation.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_global_situations (
+                    situation_id, active_domains, top_arcs, unresolved_decisions,
+                    top_blockers, drift_risks, current_tensions, computed_at,
+                    confidence, staleness_seconds, refresh_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(situation_id) DO UPDATE SET
+                    active_domains = excluded.active_domains,
+                    top_arcs = excluded.top_arcs,
+                    unresolved_decisions = excluded.unresolved_decisions,
+                    top_blockers = excluded.top_blockers,
+                    drift_risks = excluded.drift_risks,
+                    current_tensions = excluded.current_tensions,
+                    computed_at = excluded.computed_at,
+                    confidence = excluded.confidence,
+                    staleness_seconds = excluded.staleness_seconds,
+                    refresh_reason = excluded.refresh_reason
+                """,
+                (
+                    record["situation_id"],
+                    record["active_domains"],
+                    record["top_arcs"],
+                    record["unresolved_decisions"],
+                    record["top_blockers"],
+                    record["drift_risks"],
+                    record["current_tensions"],
+                    record["computed_at"],
+                    record["confidence"],
+                    record["staleness_seconds"],
+                    record["refresh_reason"],
+                ),
+            )
+            await db.commit()
+
+    async def get_global_situation(self) -> GlobalSituation | None:
+        """Load the persisted global situation snapshot."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_global_situation(db)
+
+    async def save_support_episode(self, episode: SupportEpisode) -> None:
+        """Save or update a typed support episode and its evidence refs."""
+        await self._init()
+
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.support_episode_save.start",
+            surface=Surface.STORAGE,
+            episode_id=episode.episode_id,
+            session_id=episode.session_id,
+            evidence_ref_count=len(episode.evidence_refs),
+        )
+
+        import aiosqlite
+
+        db: Any | None = None
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await self._load_extensions(db)
+                await db.execute("PRAGMA foreign_keys = ON")
+                await db.execute("BEGIN IMMEDIATE")
+
+                record = episode.to_record()
+                await db.execute(
+                    """
+                    INSERT INTO support_episodes (
+                        episode_id, session_id, schema_version, started_at, ended_at,
+                        dominant_need, dominant_context, dominant_arc_id,
+                        domain_ids, subject_refs, friction_signals,
+                        interventions_attempted, response_signals, outcome_signals
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(episode_id) DO UPDATE SET
+                        session_id = excluded.session_id,
+                        schema_version = excluded.schema_version,
+                        started_at = excluded.started_at,
+                        ended_at = excluded.ended_at,
+                        dominant_need = excluded.dominant_need,
+                        dominant_context = excluded.dominant_context,
+                        dominant_arc_id = excluded.dominant_arc_id,
+                        domain_ids = excluded.domain_ids,
+                        subject_refs = excluded.subject_refs,
+                        friction_signals = excluded.friction_signals,
+                        interventions_attempted = excluded.interventions_attempted,
+                        response_signals = excluded.response_signals,
+                        outcome_signals = excluded.outcome_signals
+                    """,
+                    (
+                        record["episode_id"],
+                        record["session_id"],
+                        record["schema_version"],
+                        record["started_at"],
+                        record["ended_at"],
+                        record["dominant_need"],
+                        record["dominant_context"],
+                        record["dominant_arc_id"],
+                        record["domain_ids"],
+                        record["subject_refs"],
+                        record["friction_signals"],
+                        record["interventions_attempted"],
+                        record["response_signals"],
+                        record["outcome_signals"],
+                    ),
+                )
+
+                await db.execute("DELETE FROM support_evidence_refs WHERE episode_id = ?", (episode.episode_id,))
+                for evidence_ref in episode.evidence_refs:
+                    if evidence_ref.episode_id != episode.episode_id:
+                        raise ValueError(
+                            f"Evidence ref {evidence_ref.evidence_id} points to episode {evidence_ref.episode_id}, "
+                            f"expected {episode.episode_id}"
+                        )
+                    if evidence_ref.session_id != episode.session_id:
+                        raise ValueError(
+                            f"Evidence ref {evidence_ref.evidence_id} points to session {evidence_ref.session_id}, "
+                            f"expected {episode.session_id}"
+                        )
+                    evidence_record = evidence_ref.to_record()
+                    await db.execute(
+                        """
+                        INSERT INTO support_evidence_refs (
+                            evidence_id, episode_id, session_id, message_start_idx, message_end_idx,
+                            excerpt, timestamp, domain_ids, arc_ids, claim_type, confidence
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            evidence_record["evidence_id"],
+                            evidence_record["episode_id"],
+                            evidence_record["session_id"],
+                            evidence_record["message_start_idx"],
+                            evidence_record["message_end_idx"],
+                            evidence_record["excerpt"],
+                            evidence_record["timestamp"],
+                            evidence_record["domain_ids"],
+                            evidence_record["arc_ids"],
+                            evidence_record["claim_type"],
+                            evidence_record["confidence"],
+                        ),
+                    )
+
+                await db.commit()
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.support_episode_save.completed",
+                surface=Surface.STORAGE,
+                episode_id=episode.episode_id,
+                session_id=episode.session_id,
+                evidence_ref_count=len(episode.evidence_refs),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
+        except Exception as e:
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    await db.rollback()
+            self._log_storage_failure(
+                "storage.support_episode_save.failed",
+                request_started_at,
+                episode_id=episode.episode_id,
+                session_id=episode.session_id,
+                evidence_ref_count=len(episode.evidence_refs),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving support episode {episode.episode_id}: {e}")
+            raise
+
+    async def _load_support_evidence_refs(
+        self,
+        db: Any,
+        episode_id: str,
+    ) -> list[EvidenceRef]:
+        """Load all evidence refs for a support episode."""
+        async with db.execute(
+            """
+            SELECT * FROM support_evidence_refs
+            WHERE episode_id = ?
+            ORDER BY message_start_idx ASC, evidence_id ASC
+            """,
+            (episode_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [EvidenceRef.from_record(dict(row)) for row in rows]
+
+    async def get_support_episode(self, episode_id: str) -> SupportEpisode | None:
+        """Load a support episode and its evidence refs by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM support_episodes WHERE episode_id = ?", (episode_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            evidence_refs = await self._load_support_evidence_refs(db, episode_id)
+            return SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs)
+
+    async def list_support_episodes(self, session_id: str) -> list[SupportEpisode]:
+        """List all support episodes for a transcript session."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                """
+                SELECT * FROM support_episodes
+                WHERE session_id = ?
+                ORDER BY started_at ASC, episode_id ASC
+                """,
+                (session_id,),
+            ) as cursor:
+                episode_rows = await cursor.fetchall()
+
+            if not episode_rows:
+                return []
+
+            async with db.execute(
+                """
+                SELECT * FROM support_evidence_refs
+                WHERE session_id = ?
+                ORDER BY episode_id ASC, message_start_idx ASC, evidence_id ASC
+                """,
+                (session_id,),
+            ) as cursor:
+                evidence_rows = await cursor.fetchall()
+
+            evidence_refs_by_episode: dict[str, list[EvidenceRef]] = {}
+            for row in evidence_rows:
+                evidence_ref = EvidenceRef.from_record(dict(row))
+                evidence_refs_by_episode.setdefault(evidence_ref.episode_id, []).append(evidence_ref)
+
+            return [
+                SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs_by_episode.get(row["episode_id"], []))
+                for row in episode_rows
+            ]
+
+    async def list_support_episodes_for_arc(self, arc_id: str, limit: int = 3) -> list[SupportEpisode]:
+        """List recent support episodes linked to one operational arc."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                """
+                SELECT * FROM support_episodes
+                WHERE dominant_arc_id = ?
+                ORDER BY started_at DESC, episode_id DESC
+                LIMIT ?
+                """,
+                (arc_id, limit),
+            ) as cursor:
+                episode_rows = await cursor.fetchall()
+
+            episodes: list[SupportEpisode] = []
+            for row in episode_rows:
+                evidence_refs = await self._load_support_evidence_refs(db, row["episode_id"])
+                episodes.append(SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs))
+
+            return episodes
 
     async def prune_memories(
         self,

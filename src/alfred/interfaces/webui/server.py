@@ -1549,9 +1549,7 @@ async def _handle_session_command(
                     summary_payload = {
                         "summaryId": getattr(summary, "summary_id", None),
                         "text": getattr(summary, "text", ""),
-                        "createdAt": summary_created_at.isoformat()
-                        if isinstance(summary_created_at, datetime)
-                        else None,
+                        "createdAt": summary_created_at.isoformat() if isinstance(summary_created_at, datetime) else None,
                         "messageCount": summary_message_count,
                         "deltaMessages": max(message_count - summary_message_count, 0),
                         "version": int(getattr(summary, "version", 1) or 1),
