@@ -37,9 +37,9 @@ This phase adds durable intervention records linked to support episodes after tr
 
 ### Persisted intervention record round-trip
 
-- [ ] Test: `test_support_intervention_round_trips_through_storage_records()` - verify intervention records serialize and deserialize with applied values, signals, evidence refs, and timestamps intact.
-- [ ] Implement: add `to_record()` / `from_record()` support for intervention logs using the existing support-memory persistence style.
-- [ ] Run: `uv run pytest tests/test_support_intervention.py::test_support_intervention_round_trips_through_storage_records -v`
+- [x] Test: `test_support_intervention_round_trips_through_storage_records()` - verify intervention records serialize and deserialize with applied values, signals, evidence refs, and timestamps intact.
+- [x] Implement: add `to_record()` / `from_record()` support for intervention logs using the existing support-memory persistence style with JSON-serialized maps, signal lists, and message-span refs.
+- [x] Run: `uv run pytest tests/test_support_intervention.py::test_support_intervention_round_trips_through_storage_records -v`
 
 ### SQLite support intervention storage
 

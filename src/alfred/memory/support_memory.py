@@ -50,6 +50,26 @@ def _load_str_list(value: Any) -> list[str]:
     return [str(item) for item in decoded]
 
 
+def _dump_str_dict(values: Mapping[str, str]) -> str:
+    """Serialize a mapping of strings as JSON text."""
+    return json.dumps(dict(values))
+
+
+def _load_str_dict(value: Any) -> dict[str, str]:
+    """Deserialize a JSON object of strings from SQLite storage."""
+    if value is None:
+        return {}
+    if isinstance(value, str):
+        decoded: Any = json.loads(value)
+    else:
+        decoded = value
+    if decoded is None:
+        return {}
+    if not isinstance(decoded, Mapping):
+        raise ValueError("Expected a JSON object of string values")
+    return {str(key): str(item) for key, item in decoded.items()}
+
+
 def _validate_trimmed_string(value: Any, *, label: str) -> str:
     """Require a non-empty trimmed string field."""
     if not isinstance(value, str):
@@ -258,6 +278,23 @@ class SupportInterventionMessageRef:
             _validate_trimmed_string(self.message_end_id, label="message_end_id"),
         )
 
+    def to_record(self) -> dict[str, Any]:
+        """Convert the message span ref into a JSON-ready record."""
+        return {
+            "session_id": self.session_id,
+            "message_start_id": self.message_start_id,
+            "message_end_id": self.message_end_id,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportInterventionMessageRef:
+        """Build a message span ref from a JSON-decoded record."""
+        return cls(
+            session_id=str(record["session_id"]),
+            message_start_id=str(record["message_start_id"]),
+            message_end_id=str(record["message_end_id"]),
+        )
+
 
 @dataclass(eq=True)
 class SupportIntervention:
@@ -333,6 +370,60 @@ class SupportIntervention:
         first_session_id = self.evidence_refs[0].session_id
         if any(evidence_ref.session_id != first_session_id for evidence_ref in self.evidence_refs[1:]):
             raise ValueError("evidence_refs must all point to the same session_id")
+
+    def to_record(self) -> dict[str, Any]:
+        """Convert the intervention into a SQLite-ready record."""
+        return {
+            "schema_version": self.schema_version,
+            "intervention_id": self.intervention_id,
+            "episode_id": self.episode_id,
+            "timestamp": _dump_datetime(self.timestamp),
+            "context": self.context,
+            "arc_id": self.arc_id,
+            "intervention_type": self.intervention_type,
+            "relational_values_applied": _dump_str_dict(self.relational_values_applied),
+            "support_values_applied": _dump_str_dict(self.support_values_applied),
+            "behavior_contract_summary": self.behavior_contract_summary,
+            "user_response_signals": _dump_str_list(self.user_response_signals),
+            "outcome_signals": _dump_str_list(self.outcome_signals),
+            "evidence_refs": json.dumps([evidence_ref.to_record() for evidence_ref in self.evidence_refs]),
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportIntervention:
+        """Build a support intervention from a SQLite row or dict."""
+        raw_evidence_refs = record.get("evidence_refs")
+        if isinstance(raw_evidence_refs, str):
+            decoded_evidence_refs: Any = json.loads(raw_evidence_refs)
+        else:
+            decoded_evidence_refs = raw_evidence_refs
+        if decoded_evidence_refs is None:
+            decoded_evidence_refs = []
+        if not isinstance(decoded_evidence_refs, list):
+            raise ValueError("Support intervention evidence_refs must deserialize to a list of records")
+
+        evidence_refs: list[SupportInterventionMessageRef] = []
+        for decoded_evidence_ref in decoded_evidence_refs:
+            if not isinstance(decoded_evidence_ref, Mapping):
+                raise ValueError("Support intervention evidence_refs must contain mapping records")
+            evidence_refs.append(SupportInterventionMessageRef.from_record(decoded_evidence_ref))
+
+        arc_id = record.get("arc_id")
+        return cls(
+            intervention_id=str(record["intervention_id"]),
+            episode_id=str(record["episode_id"]),
+            timestamp=_load_datetime(record["timestamp"]),
+            context=str(record["context"]),
+            intervention_type=str(record["intervention_type"]),
+            behavior_contract_summary=str(record["behavior_contract_summary"]),
+            relational_values_applied=_load_str_dict(record.get("relational_values_applied")),
+            support_values_applied=_load_str_dict(record.get("support_values_applied")),
+            user_response_signals=_load_str_list(record.get("user_response_signals")),
+            outcome_signals=_load_str_list(record.get("outcome_signals")),
+            evidence_refs=evidence_refs,
+            schema_version=int(record.get("schema_version", 1)),
+            arc_id=None if arc_id is None else str(arc_id),
+        )
 
 
 @dataclass(eq=True)
