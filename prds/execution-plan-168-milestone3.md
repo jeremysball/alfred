@@ -49,15 +49,15 @@ This phase adds durable intervention records linked to support episodes after tr
 
 ### Arc and context query surfaces
 
-- [ ] Test: `test_sqlite_store_lists_support_interventions_by_arc_and_context()` - verify intervention records can be queried for one arc or one context in deterministic order.
-- [ ] Implement: add minimal query helpers that filter persisted interventions by `arc_id` and `context` without introducing runtime compiler logic.
-- [ ] Run: `uv run pytest tests/storage/test_support_intervention_storage.py::test_sqlite_store_lists_support_interventions_by_arc_and_context -v`
+- [x] Test: `test_sqlite_store_lists_support_interventions_by_arc_and_context()` - verify intervention records can be queried for one arc or one context in deterministic order.
+- [x] Implement: add minimal query helpers that filter persisted interventions by `arc_id` and `context` without introducing runtime compiler logic.
+- [x] Run: `uv run pytest tests/storage/test_support_intervention_storage.py::test_sqlite_store_lists_support_interventions_by_arc_and_context -v`
 
 ### Applied-dimension query surface
 
-- [ ] Test: `test_sqlite_store_lists_support_interventions_by_applied_dimension()` - verify Alfred can find interventions that used a specific relational or support dimension.
-- [ ] Implement: add the smallest persisted dimension index or lookup path needed to query intervention records by applied dimension while preserving the validated typed record as the source of truth.
-- [ ] Run: `uv run pytest tests/storage/test_support_intervention_storage.py::test_sqlite_store_lists_support_interventions_by_applied_dimension -v`
+- [x] Test: `test_sqlite_store_lists_support_interventions_by_applied_dimension()` - verify Alfred can find interventions that used a specific relational or support dimension.
+- [x] Implement: add the smallest persisted dimension index or lookup path needed to query intervention records by applied dimension while preserving the validated typed record as the source of truth.
+- [x] Run: `uv run pytest tests/storage/test_support_intervention_storage.py::test_sqlite_store_lists_support_interventions_by_applied_dimension -v`
 
 ---
 

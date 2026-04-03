@@ -31,7 +31,12 @@ from alfred.memory.support_memory import (
     SupportIntervention,
     SupportInterventionMessageRef,
 )
-from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
+from alfred.memory.support_profile import (
+    SupportProfileRegistryKind,
+    SupportProfileScope,
+    SupportProfileValue,
+    get_registry_dimension,
+)
 from alfred.observability import Surface, log_event
 
 # sqlite-vec is required for vector search
@@ -2728,6 +2733,13 @@ class SQLiteStore:
 
         return [SupportInterventionMessageRef.from_record(dict(row)) for row in rows]
 
+    async def _hydrate_support_intervention(self, db: Any, row: Any) -> SupportIntervention:
+        """Build a typed support intervention from one SQLite row."""
+        evidence_refs = await self._load_support_intervention_message_refs(db, str(row["intervention_id"]))
+        record = dict(row)
+        record["evidence_refs"] = json.dumps([evidence_ref.to_record() for evidence_ref in evidence_refs])
+        return SupportIntervention.from_record(record)
+
     async def get_support_intervention(self, intervention_id: str) -> SupportIntervention | None:
         """Load one support intervention by ID."""
         await self._init()
@@ -2746,10 +2758,7 @@ class SQLiteStore:
                 if row is None:
                     return None
 
-            evidence_refs = await self._load_support_intervention_message_refs(db, intervention_id)
-            record = dict(row)
-            record["evidence_refs"] = json.dumps([evidence_ref.to_record() for evidence_ref in evidence_refs])
-            return SupportIntervention.from_record(record)
+            return await self._hydrate_support_intervention(db, row)
 
     async def list_support_interventions_for_episode(self, episode_id: str) -> list[SupportIntervention]:
         """List all support interventions for one episode in deterministic order."""
@@ -2773,10 +2782,97 @@ class SQLiteStore:
 
             interventions: list[SupportIntervention] = []
             for row in intervention_rows:
-                evidence_refs = await self._load_support_intervention_message_refs(db, row["intervention_id"])
-                record = dict(row)
-                record["evidence_refs"] = json.dumps([evidence_ref.to_record() for evidence_ref in evidence_refs])
-                interventions.append(SupportIntervention.from_record(record))
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def list_support_interventions_for_arc(self, arc_id: str) -> list[SupportIntervention]:
+        """List support interventions for one arc in reverse-chronological order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_interventions
+                WHERE arc_id = ?
+                ORDER BY timestamp DESC, intervention_id DESC
+                """,
+                (arc_id,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def list_support_interventions_for_context(self, context: str) -> list[SupportIntervention]:
+        """List support interventions for one context in reverse-chronological order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_interventions
+                WHERE context = ?
+                ORDER BY timestamp DESC, intervention_id DESC
+                """,
+                (context,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def list_support_interventions_by_applied_dimension(
+        self,
+        registry: SupportProfileRegistryKind,
+        dimension: str,
+    ) -> list[SupportIntervention]:
+        """List support interventions that applied one specific validated profile dimension."""
+        await self._init()
+
+        definition = get_registry_dimension(registry, dimension)
+        column_name = (
+            "relational_values_applied"
+            if definition.registry == "relational"
+            else "support_values_applied"
+        )
+        json_path = f"$.{definition.dimension}"
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                f"""
+                SELECT * FROM support_interventions
+                WHERE json_extract({column_name}, ?) IS NOT NULL
+                ORDER BY timestamp DESC, intervention_id DESC
+                """,
+                (json_path,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
 
             return interventions
 
