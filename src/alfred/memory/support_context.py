@@ -8,7 +8,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from alfred.memory.support_memory import ArcSituation, ArcSnapshot, OperationalArc, SupportEpisode
+from alfred.memory.support_memory import (
+    ArcSituation,
+    ArcSnapshot,
+    GlobalSituation,
+    LifeDomain,
+    OperationalArc,
+    SupportEpisode,
+)
 
 if TYPE_CHECKING:
     from alfred.storage.sqlite import SQLiteStore
@@ -21,6 +28,14 @@ class ArcResumeContext:
     arc_snapshot: ArcSnapshot
     arc_situation: ArcSituation
     recent_episodes: list[SupportEpisode] = field(default_factory=list)
+
+
+@dataclass(eq=True)
+class OrientationContext:
+    """Structured orientation payload for broad fresh-session openings."""
+
+    global_situation: GlobalSituation
+    top_arc_snapshots: list[ArcSnapshot] = field(default_factory=list)
 
 
 def _dedupe_preserve_order(values: list[str]) -> list[str]:
@@ -51,6 +66,23 @@ def _find_strong_resume_arc_match(opening_message: str, arcs: Sequence[Operation
         if normalized_title and normalized_title in normalized_message:
             return arc
     return None
+
+
+def _is_broad_orientation_message(opening_message: str) -> bool:
+    """Return True when the opening message asks for broad operational orientation."""
+    normalized_message = _normalize_resume_text(opening_message)
+    if not normalized_message:
+        return False
+
+    return any(
+        phrase in normalized_message
+        for phrase in (
+            "what is active right now",
+            "what s active right now",
+            "what is active",
+            "what s active",
+        )
+    )
 
 
 def derive_arc_situation(
@@ -98,6 +130,57 @@ def derive_arc_situation(
     )
 
 
+def derive_global_situation(
+    active_domains: list[LifeDomain],
+    top_arc_snapshots: list[ArcSnapshot],
+    *,
+    now: datetime,
+    staleness_seconds: int,
+    refresh_reason: str,
+) -> GlobalSituation:
+    """Derive a refreshable broad operational situation from structured state."""
+    unresolved_decisions: list[str] = []
+    top_blockers: list[str] = []
+    drift_risks: list[str] = []
+    current_tensions: list[str] = []
+
+    for snapshot in top_arc_snapshots:
+        if snapshot.arc.status == "dormant":
+            drift_risks.append(snapshot.arc.title)
+
+        for blocker in snapshot.blockers:
+            if blocker.status in {"resolved", "archived"}:
+                continue
+            top_blockers.append(blocker.title)
+
+        for decision in snapshot.decisions:
+            if decision.status in {"resolved", "archived"}:
+                continue
+            unresolved_decisions.append(decision.title)
+            if decision.current_tension:
+                current_tensions.append(decision.current_tension)
+
+        for open_loop in snapshot.open_loops:
+            if open_loop.status in {"resolved", "archived"}:
+                continue
+            if open_loop.current_tension:
+                current_tensions.append(open_loop.current_tension)
+
+    has_structured_state = bool(active_domains or top_arc_snapshots)
+    return GlobalSituation(
+        active_domains=_dedupe_preserve_order([domain.name for domain in active_domains]),
+        top_arcs=_dedupe_preserve_order([snapshot.arc.title for snapshot in top_arc_snapshots]),
+        unresolved_decisions=_dedupe_preserve_order(unresolved_decisions),
+        top_blockers=_dedupe_preserve_order(top_blockers),
+        drift_risks=_dedupe_preserve_order(drift_risks),
+        current_tensions=_dedupe_preserve_order(current_tensions),
+        computed_at=now,
+        confidence=0.8 if has_structured_state else 0.6,
+        staleness_seconds=staleness_seconds,
+        refresh_reason=refresh_reason,
+    )
+
+
 async def get_fresh_arc_situation(
     store: SQLiteStore,
     arc_id: str,
@@ -125,6 +208,38 @@ async def get_fresh_arc_situation(
         refresh_reason="cache_miss" if cached is None else "stale_cache",
     )
     await store.save_arc_situation(refreshed)
+    return refreshed
+
+
+async def get_fresh_global_situation(
+    store: SQLiteStore,
+    *,
+    now: datetime | None = None,
+    staleness_seconds: int = 900,
+) -> GlobalSituation:
+    """Return a fresh global situation, refreshing persisted state when the cache is stale."""
+    effective_now = now if now is not None else datetime.now(UTC)
+
+    cached = await store.get_global_situation()
+    if cached is not None and not cached.is_stale(effective_now):
+        return cached
+
+    active_domains = await store.list_active_life_domains(limit=4)
+    candidate_arcs = await store.list_resume_arcs(limit=5)
+    top_arc_snapshots: list[ArcSnapshot] = []
+    for arc in candidate_arcs:
+        snapshot = await store.get_arc_snapshot(arc.arc_id)
+        if snapshot is not None:
+            top_arc_snapshots.append(snapshot)
+
+    refreshed = derive_global_situation(
+        active_domains,
+        top_arc_snapshots,
+        now=effective_now,
+        staleness_seconds=staleness_seconds,
+        refresh_reason="cache_miss" if cached is None else "stale_cache",
+    )
+    await store.save_global_situation(refreshed)
     return refreshed
 
 
@@ -162,4 +277,35 @@ async def get_session_start_resume_context(
         arc_snapshot=arc_snapshot,
         arc_situation=arc_situation,
         recent_episodes=recent_episodes,
+    )
+
+
+async def get_session_start_orientation_context(
+    store: SQLiteStore,
+    opening_message: str,
+    *,
+    now: datetime | None = None,
+    staleness_seconds: int = 900,
+    search_archive: Callable[[str], Awaitable[Sequence[str]]] | None = None,
+) -> OrientationContext | None:
+    """Load broad structured orientation context for a fresh-session opening message."""
+    if not _is_broad_orientation_message(opening_message):
+        if search_archive is not None:
+            await search_archive(opening_message)
+        return None
+
+    global_situation = await get_fresh_global_situation(
+        store,
+        now=now,
+        staleness_seconds=staleness_seconds,
+    )
+    top_arc_snapshots: list[ArcSnapshot] = []
+    for arc in await store.list_resume_arcs(limit=3):
+        snapshot = await store.get_arc_snapshot(arc.arc_id)
+        if snapshot is not None:
+            top_arc_snapshots.append(snapshot)
+
+    return OrientationContext(
+        global_situation=global_situation,
+        top_arc_snapshots=top_arc_snapshots,
     )

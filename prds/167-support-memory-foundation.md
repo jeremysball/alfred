@@ -441,7 +441,7 @@ Examples of expected behavior:
 - [x] Alfred stores projects, tasks, blockers, decisions, and open loops as first-class operational state.
 - [x] Alfred stores typed interaction episodes as a versioned evidence layer.
 - [x] Alfred stores explicit evidence refs that connect structured state back to the record.
-- [ ] Alfred can maintain and refresh `GlobalSituation` and `ArcSituation` snapshots.
+- [x] Alfred can maintain and refresh `GlobalSituation` and `ArcSituation` snapshots.
 - [ ] Operational retrieval prefers domain/arc state and relevant episodes over raw archive hits.
 - [ ] Session search remains available for provenance and recall flows.
 - [ ] Alfred can answer active-work and unresolved-loop questions without relying only on session search.

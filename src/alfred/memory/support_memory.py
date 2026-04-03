@@ -589,3 +589,55 @@ class ArcSituation:
             staleness_seconds=int(record["staleness_seconds"]),
             refresh_reason=str(record["refresh_reason"]),
         )
+
+
+@dataclass(eq=True)
+class GlobalSituation:
+    """Derived, refreshable runtime summary across active domains and arcs."""
+
+    computed_at: datetime
+    confidence: float
+    staleness_seconds: int
+    refresh_reason: str
+    active_domains: list[str] = field(default_factory=list)
+    top_arcs: list[str] = field(default_factory=list)
+    unresolved_decisions: list[str] = field(default_factory=list)
+    top_blockers: list[str] = field(default_factory=list)
+    drift_risks: list[str] = field(default_factory=list)
+    current_tensions: list[str] = field(default_factory=list)
+
+    def is_stale(self, now: datetime) -> bool:
+        """Return True when the situation should be refreshed before reuse."""
+        return now >= self.computed_at + timedelta(seconds=self.staleness_seconds)
+
+    def to_record(self) -> dict[str, Any]:
+        """Convert the global situation into a SQLite-ready record."""
+        return {
+            "situation_id": "global",
+            "active_domains": _dump_str_list(self.active_domains),
+            "top_arcs": _dump_str_list(self.top_arcs),
+            "unresolved_decisions": _dump_str_list(self.unresolved_decisions),
+            "top_blockers": _dump_str_list(self.top_blockers),
+            "drift_risks": _dump_str_list(self.drift_risks),
+            "current_tensions": _dump_str_list(self.current_tensions),
+            "computed_at": _dump_datetime(self.computed_at),
+            "confidence": self.confidence,
+            "staleness_seconds": self.staleness_seconds,
+            "refresh_reason": self.refresh_reason,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> GlobalSituation:
+        """Build a global situation from a SQLite row or dict."""
+        return cls(
+            active_domains=_load_str_list(record.get("active_domains")),
+            top_arcs=_load_str_list(record.get("top_arcs")),
+            unresolved_decisions=_load_str_list(record.get("unresolved_decisions")),
+            top_blockers=_load_str_list(record.get("top_blockers")),
+            drift_risks=_load_str_list(record.get("drift_risks")),
+            current_tensions=_load_str_list(record.get("current_tensions")),
+            computed_at=_load_datetime(record["computed_at"]),
+            confidence=float(record["confidence"]),
+            staleness_seconds=int(record["staleness_seconds"]),
+            refresh_reason=str(record["refresh_reason"]),
+        )

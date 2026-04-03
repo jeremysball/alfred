@@ -91,9 +91,9 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Broad orientation fallback
 
-- [ ] Test: `test_orientation_message_without_arc_match_uses_global_situation_before_archive_recall()` - verify a broad orientation opening such as "what is active right now?" uses `GlobalSituation` first and only reaches for session search when provenance is needed.
-- [ ] Implement: add `GlobalSituation` derivation or refresh and integrate it into the same operational-first retrieval seam without narrating internal bookkeeping.
-- [ ] Run: `uv run pytest tests/test_support_memory_context.py::test_orientation_message_without_arc_match_uses_global_situation_before_archive_recall -v`
+- [x] Test: `test_orientation_message_without_arc_match_uses_global_situation_before_archive_recall()` - verify a broad orientation opening such as "what is active right now?" uses `GlobalSituation` first and only reaches for session search when provenance is needed.
+- [x] Implement: add `GlobalSituation` derivation or refresh and integrate it into the same operational-first retrieval seam without narrating internal bookkeeping.
+- [x] Run: `uv run pytest tests/test_support_memory_context.py::test_orientation_message_without_arc_match_uses_global_situation_before_archive_recall -v`
 
 ---
 

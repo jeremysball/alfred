@@ -23,6 +23,7 @@ from alfred.memory.support_memory import (
     ArcSnapshot,
     ArcTask,
     EvidenceRef,
+    GlobalSituation,
     LifeDomain,
     OperationalArc,
     SupportEpisode,
@@ -786,6 +787,26 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_arc_situations_computed_at
             ON support_arc_situations(computed_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_global_situations (
+                situation_id TEXT PRIMARY KEY,
+                active_domains JSON NOT NULL DEFAULT '[]',
+                top_arcs JSON NOT NULL DEFAULT '[]',
+                unresolved_decisions JSON NOT NULL DEFAULT '[]',
+                top_blockers JSON NOT NULL DEFAULT '[]',
+                drift_risks JSON NOT NULL DEFAULT '[]',
+                current_tensions JSON NOT NULL DEFAULT '[]',
+                computed_at TIMESTAMP NOT NULL,
+                confidence REAL NOT NULL,
+                staleness_seconds INTEGER NOT NULL,
+                refresh_reason TEXT NOT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_global_situations_computed_at
+            ON support_global_situations(computed_at DESC)
         """)
 
         await db.execute("""
@@ -1567,6 +1588,31 @@ class SQLiteStore:
 
             return LifeDomain.from_record(dict(row))
 
+    async def list_active_life_domains(self, limit: int = 4) -> list[LifeDomain]:
+        """List active life domains in orientation order."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_life_domains
+                WHERE status = 'active'
+                ORDER BY salience DESC, updated_at DESC, domain_id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [LifeDomain.from_record(dict(row)) for row in rows]
+
     async def save_operational_arc(self, arc: OperationalArc) -> None:
         """Save or update a durable operational arc."""
         await self._init()
@@ -2031,6 +2077,72 @@ class SQLiteStore:
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
             return await self._load_arc_situation(db, arc_id)
+
+    async def _load_global_situation(self, db: Any) -> GlobalSituation | None:
+        """Load the persisted global situation from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_global_situations WHERE situation_id = 'global'") as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+
+        return GlobalSituation.from_record(dict(row))
+
+    async def save_global_situation(self, situation: GlobalSituation) -> None:
+        """Save or update the derived global situation snapshot."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = situation.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_global_situations (
+                    situation_id, active_domains, top_arcs, unresolved_decisions,
+                    top_blockers, drift_risks, current_tensions, computed_at,
+                    confidence, staleness_seconds, refresh_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(situation_id) DO UPDATE SET
+                    active_domains = excluded.active_domains,
+                    top_arcs = excluded.top_arcs,
+                    unresolved_decisions = excluded.unresolved_decisions,
+                    top_blockers = excluded.top_blockers,
+                    drift_risks = excluded.drift_risks,
+                    current_tensions = excluded.current_tensions,
+                    computed_at = excluded.computed_at,
+                    confidence = excluded.confidence,
+                    staleness_seconds = excluded.staleness_seconds,
+                    refresh_reason = excluded.refresh_reason
+                """,
+                (
+                    record["situation_id"],
+                    record["active_domains"],
+                    record["top_arcs"],
+                    record["unresolved_decisions"],
+                    record["top_blockers"],
+                    record["drift_risks"],
+                    record["current_tensions"],
+                    record["computed_at"],
+                    record["confidence"],
+                    record["staleness_seconds"],
+                    record["refresh_reason"],
+                ),
+            )
+            await db.commit()
+
+    async def get_global_situation(self) -> GlobalSituation | None:
+        """Load the persisted global situation snapshot."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_global_situation(db)
 
     async def save_support_episode(self, episode: SupportEpisode) -> None:
         """Save or update a typed support episode and its evidence refs."""

@@ -8,14 +8,18 @@ import pytest
 
 from alfred.memory.support_context import (
     ArcResumeContext,
+    OrientationContext,
     get_fresh_arc_situation,
+    get_session_start_orientation_context,
     get_session_start_resume_context,
 )
 from alfred.memory.support_memory import (
     ArcBlocker,
+    ArcDecision,
     ArcSituation,
     ArcSnapshot,
     ArcTask,
+    GlobalSituation,
     LifeDomain,
     OperationalArc,
     SupportEpisode,
@@ -239,4 +243,106 @@ async def test_fresh_session_resume_context_prefers_arc_state_and_episodes_befor
             refresh_reason="stale_cache",
         ),
         recent_episodes=[episode],
+    )
+
+
+@pytest.mark.asyncio
+async def test_orientation_message_without_arc_match_uses_global_situation_before_archive_recall(sqlite_store):
+    """A broad orientation opening should refresh structured global state before archive recall."""
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.99,
+        created_at=datetime(2026, 3, 30, 18, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 18, 5, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.97,
+        created_at=datetime(2026, 3, 30, 18, 10, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 18, 20, tzinfo=UTC),
+        last_active_at=datetime(2026, 3, 30, 18, 19, tzinfo=UTC),
+        evidence_ref_ids=["ev-arc-3"],
+    )
+    task = ArcTask(
+        task_id="task-runtime-boundary",
+        arc_id=arc.arc_id,
+        title="Choose runtime boundary",
+        status="in_progress",
+        created_at=datetime(2026, 3, 30, 18, 21, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 18, 24, tzinfo=UTC),
+        next_step="Pick the runtime entrypoint before further splitting modules",
+        evidence_ref_ids=["ev-701"],
+    )
+    blocker = ArcBlocker(
+        blocker_id="blocker-app-structure-ambiguity",
+        arc_id=arc.arc_id,
+        title="App structure ambiguity",
+        status="active",
+        created_at=datetime(2026, 3, 30, 18, 22, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 18, 26, tzinfo=UTC),
+        next_step="Choose one startup seam",
+        evidence_ref_ids=["ev-702"],
+    )
+    decision = ArcDecision(
+        decision_id="decision-runtime-entrypoint",
+        arc_id=arc.arc_id,
+        title="Where should runtime boot?",
+        status="pending",
+        created_at=datetime(2026, 3, 30, 18, 23, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 18, 27, tzinfo=UTC),
+        current_tension="Keep startup simple while preserving flexibility",
+        evidence_ref_ids=["ev-703"],
+    )
+    stale_global = GlobalSituation(
+        active_domains=["Old Domain"],
+        top_arcs=["Old Arc"],
+        unresolved_decisions=["Old Decision"],
+        top_blockers=["Old Blocker"],
+        drift_risks=["Old Risk"],
+        current_tensions=["Old Tension"],
+        computed_at=datetime(2026, 3, 30, 17, 0, tzinfo=UTC),
+        confidence=0.2,
+        staleness_seconds=300,
+        refresh_reason="cache_miss",
+    )
+    refresh_time = datetime(2026, 3, 30, 19, 0, tzinfo=UTC)
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(task)
+    await sqlite_store.save_arc_blocker(blocker)
+    await sqlite_store.save_arc_decision(decision)
+    await sqlite_store.save_global_situation(stale_global)
+
+    async def unexpected_archive_search(query: str) -> list[str]:
+        raise AssertionError(f"archive search should not run for broad orientation: {query}")
+
+    orientation_context = await get_session_start_orientation_context(
+        sqlite_store,
+        "What is active right now?",
+        now=refresh_time,
+        staleness_seconds=900,
+        search_archive=unexpected_archive_search,
+    )
+
+    assert orientation_context == OrientationContext(
+        global_situation=GlobalSituation(
+            active_domains=["Work"],
+            top_arcs=["Web UI cleanup"],
+            unresolved_decisions=["Where should runtime boot?"],
+            top_blockers=["App structure ambiguity"],
+            drift_risks=[],
+            current_tensions=["Keep startup simple while preserving flexibility"],
+            computed_at=refresh_time,
+            confidence=0.8,
+            staleness_seconds=900,
+            refresh_reason="stale_cache",
+        ),
+        top_arc_snapshots=[ArcSnapshot(arc=arc, tasks=[task], blockers=[blocker], decisions=[decision], open_loops=[])],
     )
