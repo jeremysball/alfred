@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from alfred.memory.support_memory import ArcSituation, ArcSnapshot, SupportEpisode
+from alfred.memory.support_memory import ArcSituation, ArcSnapshot, OperationalArc, SupportEpisode
 
 if TYPE_CHECKING:
     from alfred.storage.sqlite import SQLiteStore
+
+
+@dataclass(eq=True)
+class ArcResumeContext:
+    """Structured resume payload for a fresh session that matches an existing arc."""
+
+    arc_snapshot: ArcSnapshot
+    arc_situation: ArcSituation
+    recent_episodes: list[SupportEpisode] = field(default_factory=list)
 
 
 def _dedupe_preserve_order(values: list[str]) -> list[str]:
@@ -21,6 +33,24 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
         seen.add(value)
         deduped.append(value)
     return deduped
+
+
+def _normalize_resume_text(text: str) -> str:
+    """Normalize user text or arc titles for deterministic strong-match checks."""
+    return " ".join(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _find_strong_resume_arc_match(opening_message: str, arcs: Sequence[OperationalArc]) -> OperationalArc | None:
+    """Return the best strong arc match for a fresh-session opening message."""
+    normalized_message = _normalize_resume_text(opening_message)
+    if not normalized_message:
+        return None
+
+    for arc in arcs:
+        normalized_title = _normalize_resume_text(arc.title)
+        if normalized_title and normalized_title in normalized_message:
+            return arc
+    return None
 
 
 def derive_arc_situation(
@@ -96,3 +126,40 @@ async def get_fresh_arc_situation(
     )
     await store.save_arc_situation(refreshed)
     return refreshed
+
+
+async def get_session_start_resume_context(
+    store: SQLiteStore,
+    opening_message: str,
+    *,
+    now: datetime | None = None,
+    staleness_seconds: int = 900,
+    search_archive: Callable[[str], Awaitable[Sequence[str]]] | None = None,
+) -> ArcResumeContext | None:
+    """Load structured resume context for a fresh-session opening message when an arc strongly matches."""
+    candidate_arcs = await store.list_resume_arcs()
+    matched_arc = _find_strong_resume_arc_match(opening_message, candidate_arcs)
+    if matched_arc is None:
+        if search_archive is not None:
+            await search_archive(opening_message)
+        return None
+
+    arc_snapshot = await store.get_arc_snapshot(matched_arc.arc_id)
+    if arc_snapshot is None:
+        return None
+
+    arc_situation = await get_fresh_arc_situation(
+        store,
+        matched_arc.arc_id,
+        now=now,
+        staleness_seconds=staleness_seconds,
+    )
+    if arc_situation is None:
+        return None
+
+    recent_episodes = await store.list_support_episodes_for_arc(matched_arc.arc_id, limit=3)
+    return ArcResumeContext(
+        arc_snapshot=arc_snapshot,
+        arc_situation=arc_situation,
+        recent_episodes=recent_episodes,
+    )

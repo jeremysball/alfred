@@ -1630,6 +1630,39 @@ class SQLiteStore:
             db.row_factory = aiosqlite.Row
             return await self._load_operational_arc(db, arc_id)
 
+    async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]:
+        """List active and dormant arcs in resume-oriented order across domains."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_operational_arcs
+                WHERE status IN ('active', 'dormant')
+                ORDER BY
+                    CASE status
+                        WHEN 'active' THEN 0
+                        WHEN 'dormant' THEN 1
+                        ELSE 2
+                    END ASC,
+                    salience DESC,
+                    COALESCE(last_active_at, updated_at, created_at) DESC,
+                    arc_id ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+            return [OperationalArc.from_record(dict(row)) for row in rows]
+
     async def list_resume_arcs_for_domain(self, domain_id: str) -> list[OperationalArc]:
         """List active and dormant arcs for one domain in resume-oriented order."""
         await self._init()

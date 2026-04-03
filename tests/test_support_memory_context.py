@@ -6,10 +6,15 @@ from datetime import UTC, datetime
 
 import pytest
 
-from alfred.memory.support_context import get_fresh_arc_situation
+from alfred.memory.support_context import (
+    ArcResumeContext,
+    get_fresh_arc_situation,
+    get_session_start_resume_context,
+)
 from alfred.memory.support_memory import (
     ArcBlocker,
     ArcSituation,
+    ArcSnapshot,
     ArcTask,
     LifeDomain,
     OperationalArc,
@@ -134,3 +139,104 @@ async def test_stale_arc_situation_refreshes_from_arc_state_and_recent_episodes(
 
     reloaded = await sqlite_store.get_arc_situation(arc.arc_id)
     assert reloaded == refreshed
+
+
+@pytest.mark.asyncio
+async def test_fresh_session_resume_context_prefers_arc_state_and_episodes_before_session_search(sqlite_store):
+    """A strong arc resume match should load structured state before archive recall is consulted."""
+    session_id = "sess-resume-context"
+    await sqlite_store.save_session(session_id, [], {"topic": "resume-support-context"})
+
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.98,
+        created_at=datetime(2026, 3, 30, 17, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 17, 5, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.96,
+        created_at=datetime(2026, 3, 30, 17, 10, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 17, 20, tzinfo=UTC),
+        last_active_at=datetime(2026, 3, 30, 17, 19, tzinfo=UTC),
+        evidence_ref_ids=["ev-arc-2"],
+    )
+    task = ArcTask(
+        task_id="task-split-bootstrap-flow",
+        arc_id=arc.arc_id,
+        title="Split bootstrap flow",
+        status="in_progress",
+        created_at=datetime(2026, 3, 30, 17, 21, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 17, 25, tzinfo=UTC),
+        next_step="Extract the startup wiring from the view layer",
+        evidence_ref_ids=["ev-601"],
+    )
+    episode = SupportEpisode(
+        episode_id="ep-resume-context",
+        session_id=session_id,
+        schema_version=1,
+        started_at=datetime(2026, 3, 30, 17, 40, tzinfo=UTC),
+        ended_at=datetime(2026, 3, 30, 17, 46, tzinfo=UTC),
+        dominant_need="activate",
+        dominant_context="execute",
+        dominant_arc_id=arc.arc_id,
+        domain_ids=[domain.domain_id],
+        subject_refs=["startup_wiring"],
+        friction_signals=["scope_blur"],
+        interventions_attempted=["state_recap"],
+        response_signals=["focus"],
+        outcome_signals=["resume_ready"],
+    )
+    stale_situation = ArcSituation(
+        arc_id=arc.arc_id,
+        current_state="tentative",
+        recent_progress=["old_progress"],
+        blockers=[],
+        next_moves=["old move"],
+        linked_pattern_ids=[],
+        computed_at=datetime(2026, 3, 30, 16, 0, tzinfo=UTC),
+        confidence=0.2,
+        staleness_seconds=300,
+        refresh_reason="cache_miss",
+    )
+    refresh_time = datetime(2026, 3, 30, 18, 0, tzinfo=UTC)
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(task)
+    await sqlite_store.save_support_episode(episode)
+    await sqlite_store.save_arc_situation(stale_situation)
+
+    async def unexpected_archive_search(query: str) -> list[str]:
+        raise AssertionError(f"archive search should not run for strong arc match: {query}")
+
+    resume_context = await get_session_start_resume_context(
+        sqlite_store,
+        "I'm resuming the Web UI cleanup thread.",
+        now=refresh_time,
+        staleness_seconds=900,
+        search_archive=unexpected_archive_search,
+    )
+
+    assert resume_context == ArcResumeContext(
+        arc_snapshot=ArcSnapshot(arc=arc, tasks=[task], blockers=[], decisions=[], open_loops=[]),
+        arc_situation=ArcSituation(
+            arc_id=arc.arc_id,
+            current_state="active",
+            recent_progress=["resume_ready"],
+            blockers=[],
+            next_moves=["Extract the startup wiring from the view layer"],
+            linked_pattern_ids=[],
+            computed_at=refresh_time,
+            confidence=0.85,
+            staleness_seconds=900,
+            refresh_reason="stale_cache",
+        ),
+        recent_episodes=[episode],
+    )

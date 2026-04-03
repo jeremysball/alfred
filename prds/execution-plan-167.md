@@ -85,9 +85,9 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Session-start resume retrieval
 
-- [ ] Test: `test_fresh_session_resume_context_prefers_arc_state_and_episodes_before_session_search()` - verify a new session opening message that matches an existing arc gets operational state and recent episode evidence loaded before archive recall is consulted.
-- [ ] Implement: add an operational-first retrieval seam in `src/alfred/context.py` or a thin support-context helper plus explicit resume payload data for cross-session continuity.
-- [ ] Run: `uv run pytest tests/test_support_memory_context.py::test_fresh_session_resume_context_prefers_arc_state_and_episodes_before_session_search -v`
+- [x] Test: `test_fresh_session_resume_context_prefers_arc_state_and_episodes_before_session_search()` - verify a new session opening message that matches an existing arc gets operational state and recent episode evidence loaded before archive recall is consulted.
+- [x] Implement: add an operational-first retrieval seam in `src/alfred/context.py` or a thin support-context helper plus explicit resume payload data for cross-session continuity.
+- [x] Run: `uv run pytest tests/test_support_memory_context.py::test_fresh_session_resume_context_prefers_arc_state_and_episodes_before_session_search -v`
 
 ### Broad orientation fallback
 
