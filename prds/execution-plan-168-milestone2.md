@@ -32,9 +32,9 @@ This phase extends the Milestone 1 support-profile contract into durable storage
 
 ### SQLite support-profile storage
 
-- [ ] Test: `test_support_profile_values_round_trip_through_sqlite_store()` - verify SQLite stores and reloads multiple support-profile values without losing scope, timestamps, or evidence refs.
-- [ ] Implement: add the support-profile table, indexes, and `SQLiteStore` save/list/get helpers for persisted support-profile values.
-- [ ] Run: `uv run pytest tests/storage/test_support_profile_storage.py::test_support_profile_values_round_trip_through_sqlite_store -v`
+- [x] Test: `test_support_profile_values_round_trip_through_sqlite_store()` - verify SQLite stores and reloads multiple support-profile values without losing scope, timestamps, or evidence refs.
+- [x] Implement: add the support-profile table, indexes, and `SQLiteStore` save/list/get helpers for persisted support-profile values.
+- [x] Run: `uv run pytest tests/storage/test_support_profile_storage.py::test_support_profile_values_round_trip_through_sqlite_store -v`
 
 ### Effective-value resolution by scope
 

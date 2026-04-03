@@ -28,6 +28,7 @@ from alfred.memory.support_memory import (
     OperationalArc,
     SupportEpisode,
 )
+from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
 from alfred.observability import Surface, log_event
 
 # sqlite-vec is required for vector search
@@ -861,6 +862,32 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_evidence_session
             ON support_evidence_refs(session_id, timestamp DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_profile_values (
+                registry TEXT NOT NULL,
+                dimension TEXT NOT NULL,
+                scope_type TEXT NOT NULL,
+                scope_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                value TEXT NOT NULL,
+                status TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                source TEXT NOT NULL,
+                evidence_refs JSON NOT NULL DEFAULT '[]',
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (registry, dimension, scope_type, scope_id)
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_profile_registry_dimension
+            ON support_profile_values(registry, dimension)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_profile_scope
+            ON support_profile_values(scope_type, scope_id, registry, dimension)
         """)
 
     # === Session Operations ===
@@ -2383,6 +2410,98 @@ class SQLiteStore:
                 episodes.append(SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs))
 
             return episodes
+
+    async def save_support_profile_value(self, profile_value: SupportProfileValue) -> None:
+        """Save or update one scoped support-profile value."""
+        await self._init()
+
+        import aiosqlite
+
+        record = profile_value.to_record()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                """
+                INSERT INTO support_profile_values (
+                    registry, dimension, scope_type, scope_id, schema_version,
+                    value, status, confidence, source, evidence_refs, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(registry, dimension, scope_type, scope_id) DO UPDATE SET
+                    schema_version = excluded.schema_version,
+                    value = excluded.value,
+                    status = excluded.status,
+                    confidence = excluded.confidence,
+                    source = excluded.source,
+                    evidence_refs = excluded.evidence_refs,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    record["registry"],
+                    record["dimension"],
+                    record["scope_type"],
+                    record["scope_id"],
+                    record["schema_version"],
+                    record["value"],
+                    record["status"],
+                    record["confidence"],
+                    record["source"],
+                    record["evidence_refs"],
+                    record["created_at"],
+                    record["updated_at"],
+                ),
+            )
+            await db.commit()
+
+    async def get_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        scope: SupportProfileScope,
+    ) -> SupportProfileValue | None:
+        """Load one scoped support-profile value by its natural key."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_profile_values
+                WHERE registry = ? AND dimension = ? AND scope_type = ? AND scope_id = ?
+                """,
+                (registry, dimension, scope.type, scope.id),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+        return SupportProfileValue.from_record(dict(row))
+
+    async def list_support_profile_values(self) -> list[SupportProfileValue]:
+        """List all persisted support-profile values in deterministic order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_profile_values
+                ORDER BY registry ASC, dimension ASC, scope_type ASC, scope_id ASC
+                """,
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        return [SupportProfileValue.from_record(dict(row)) for row in rows]
 
     async def prune_memories(
         self,
