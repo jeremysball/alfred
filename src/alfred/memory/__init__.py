@@ -22,6 +22,8 @@ from alfred.memory.support_memory import (
     LifeDomain,
     OperationalArc,
     SupportEpisode,
+    SupportIntervention,
+    SupportInterventionMessageRef,
 )
 from alfred.memory.support_profile import (
     DEFAULT_SUPPORT_PROFILE_REGISTRY_CATALOG,
@@ -60,6 +62,8 @@ __all__ = [
     "SUPPORT_PROFILE_SCHEMA_VERSION",
     "SUPPORT_REGISTRY_DIMENSIONS",
     "SupportEpisode",
+    "SupportIntervention",
+    "SupportInterventionMessageRef",
     "SupportProfileDimensionDefinition",
     "SupportProfileRegistryCatalog",
     "SupportProfileRegistryFamily",

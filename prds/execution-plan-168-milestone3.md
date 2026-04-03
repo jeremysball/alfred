@@ -43,9 +43,9 @@ This phase adds durable intervention records linked to support episodes after tr
 
 ### SQLite support intervention storage
 
-- [ ] Test: `test_support_interventions_round_trip_through_sqlite_store()` - verify saving and loading multiple interventions preserves episode linkage, applied values, and evidence provenance ordering.
-- [ ] Implement: add the intervention table(s), indexes, and `SQLiteStore` save/get/list-by-episode helpers for intervention records linked to support episodes.
-- [ ] Run: `uv run pytest tests/storage/test_support_intervention_storage.py::test_support_interventions_round_trip_through_sqlite_store -v`
+- [x] Test: `test_support_interventions_round_trip_through_sqlite_store()` - verify saving and loading multiple interventions preserves episode linkage, applied values, and evidence provenance ordering.
+- [x] Implement: add the intervention table(s), indexes, and `SQLiteStore` save/get/list-by-episode helpers for intervention records linked to support episodes.
+- [x] Run: `uv run pytest tests/storage/test_support_intervention_storage.py::test_support_interventions_round_trip_through_sqlite_store -v`
 
 ### Arc and context query surfaces
 

@@ -28,6 +28,8 @@ from alfred.memory.support_memory import (
     LifeDomain,
     OperationalArc,
     SupportEpisode,
+    SupportIntervention,
+    SupportInterventionMessageRef,
 )
 from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
 from alfred.observability import Surface, log_event
@@ -949,6 +951,68 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_evidence_session_start
             ON support_evidence_refs(session_id, message_start_id)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_interventions (
+                intervention_id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                timestamp TIMESTAMP NOT NULL,
+                context TEXT NOT NULL,
+                arc_id TEXT,
+                intervention_type TEXT NOT NULL,
+                relational_values_applied JSON NOT NULL DEFAULT '{}',
+                support_values_applied JSON NOT NULL DEFAULT '{}',
+                behavior_contract_summary TEXT NOT NULL,
+                user_response_signals JSON NOT NULL DEFAULT '[]',
+                outcome_signals JSON NOT NULL DEFAULT '[]',
+                UNIQUE (intervention_id, session_id),
+                FOREIGN KEY (episode_id) REFERENCES support_episodes(episode_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_interventions_episode_timestamp
+            ON support_interventions(episode_id, timestamp ASC, intervention_id ASC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_interventions_arc_timestamp
+            ON support_interventions(arc_id, timestamp DESC, intervention_id DESC)
+            WHERE arc_id IS NOT NULL
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_interventions_context_timestamp
+            ON support_interventions(context, timestamp DESC, intervention_id DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_intervention_message_refs (
+                intervention_id TEXT NOT NULL,
+                evidence_order INTEGER NOT NULL,
+                session_id TEXT NOT NULL,
+                message_start_id TEXT NOT NULL,
+                message_end_id TEXT NOT NULL,
+                PRIMARY KEY (intervention_id, evidence_order),
+                FOREIGN KEY (intervention_id, session_id)
+                    REFERENCES support_interventions(intervention_id, session_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_start_id)
+                    REFERENCES session_messages(session_id, message_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_end_id)
+                    REFERENCES session_messages(session_id, message_id)
+                    ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_intervention_refs_session_start
+            ON support_intervention_message_refs(session_id, message_start_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_intervention_refs_intervention_order
+            ON support_intervention_message_refs(intervention_id, evidence_order)
         """)
 
         await db.execute("""
@@ -2514,6 +2578,207 @@ class SQLiteStore:
                 episodes.append(SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs))
 
             return episodes
+
+    async def save_support_intervention(self, intervention: SupportIntervention) -> None:
+        """Save or update one typed support intervention and its message-span refs."""
+        await self._init()
+
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.support_intervention_save.start",
+            surface=Surface.STORAGE,
+            intervention_id=intervention.intervention_id,
+            episode_id=intervention.episode_id,
+            evidence_ref_count=len(intervention.evidence_refs),
+        )
+
+        import aiosqlite
+
+        db: Any | None = None
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await self._load_extensions(db)
+                await db.execute("PRAGMA foreign_keys = ON")
+                db.row_factory = aiosqlite.Row
+                await db.execute("BEGIN IMMEDIATE")
+
+                async with db.execute(
+                    "SELECT session_id FROM support_episodes WHERE episode_id = ?",
+                    (intervention.episode_id,),
+                ) as cursor:
+                    episode_row = await cursor.fetchone()
+                if episode_row is None:
+                    raise ValueError(f"Support intervention episode does not exist: {intervention.episode_id}")
+
+                episode_session_id = str(episode_row["session_id"])
+                for evidence_ref in intervention.evidence_refs:
+                    if evidence_ref.session_id != episode_session_id:
+                        raise ValueError(
+                            f"Support intervention evidence ref points to session {evidence_ref.session_id}, "
+                            f"expected {episode_session_id}",
+                        )
+
+                record = intervention.to_record()
+                await db.execute(
+                    """
+                    INSERT INTO support_interventions (
+                        intervention_id, episode_id, session_id, schema_version, timestamp,
+                        context, arc_id, intervention_type,
+                        relational_values_applied, support_values_applied,
+                        behavior_contract_summary, user_response_signals, outcome_signals
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(intervention_id) DO UPDATE SET
+                        episode_id = excluded.episode_id,
+                        session_id = excluded.session_id,
+                        schema_version = excluded.schema_version,
+                        timestamp = excluded.timestamp,
+                        context = excluded.context,
+                        arc_id = excluded.arc_id,
+                        intervention_type = excluded.intervention_type,
+                        relational_values_applied = excluded.relational_values_applied,
+                        support_values_applied = excluded.support_values_applied,
+                        behavior_contract_summary = excluded.behavior_contract_summary,
+                        user_response_signals = excluded.user_response_signals,
+                        outcome_signals = excluded.outcome_signals
+                    """,
+                    (
+                        record["intervention_id"],
+                        record["episode_id"],
+                        episode_session_id,
+                        record["schema_version"],
+                        record["timestamp"],
+                        record["context"],
+                        record["arc_id"],
+                        record["intervention_type"],
+                        record["relational_values_applied"],
+                        record["support_values_applied"],
+                        record["behavior_contract_summary"],
+                        record["user_response_signals"],
+                        record["outcome_signals"],
+                    ),
+                )
+
+                await db.execute(
+                    "DELETE FROM support_intervention_message_refs WHERE intervention_id = ?",
+                    (intervention.intervention_id,),
+                )
+                for evidence_order, evidence_ref in enumerate(intervention.evidence_refs):
+                    evidence_record = evidence_ref.to_record()
+                    await db.execute(
+                        """
+                        INSERT INTO support_intervention_message_refs (
+                            intervention_id, evidence_order, session_id, message_start_id, message_end_id
+                        ) VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            intervention.intervention_id,
+                            evidence_order,
+                            evidence_record["session_id"],
+                            evidence_record["message_start_id"],
+                            evidence_record["message_end_id"],
+                        ),
+                    )
+
+                await db.commit()
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.support_intervention_save.completed",
+                surface=Surface.STORAGE,
+                intervention_id=intervention.intervention_id,
+                episode_id=intervention.episode_id,
+                evidence_ref_count=len(intervention.evidence_refs),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
+        except Exception as e:
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    await db.rollback()
+            self._log_storage_failure(
+                "storage.support_intervention_save.failed",
+                request_started_at,
+                intervention_id=intervention.intervention_id,
+                episode_id=intervention.episode_id,
+                evidence_ref_count=len(intervention.evidence_refs),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving support intervention {intervention.intervention_id}: {e}")
+            raise
+
+    async def _load_support_intervention_message_refs(
+        self,
+        db: Any,
+        intervention_id: str,
+    ) -> list[SupportInterventionMessageRef]:
+        """Load all ordered message-span refs for one support intervention."""
+        async with db.execute(
+            """
+            SELECT session_id, message_start_id, message_end_id
+            FROM support_intervention_message_refs
+            WHERE intervention_id = ?
+            ORDER BY evidence_order ASC
+            """,
+            (intervention_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [SupportInterventionMessageRef.from_record(dict(row)) for row in rows]
+
+    async def get_support_intervention(self, intervention_id: str) -> SupportIntervention | None:
+        """Load one support intervention by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM support_interventions WHERE intervention_id = ?",
+                (intervention_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            evidence_refs = await self._load_support_intervention_message_refs(db, intervention_id)
+            record = dict(row)
+            record["evidence_refs"] = json.dumps([evidence_ref.to_record() for evidence_ref in evidence_refs])
+            return SupportIntervention.from_record(record)
+
+    async def list_support_interventions_for_episode(self, episode_id: str) -> list[SupportIntervention]:
+        """List all support interventions for one episode in deterministic order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_interventions
+                WHERE episode_id = ?
+                ORDER BY timestamp ASC, intervention_id ASC
+                """,
+                (episode_id,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                evidence_refs = await self._load_support_intervention_message_refs(db, row["intervention_id"])
+                record = dict(row)
+                record["evidence_refs"] = json.dumps([evidence_ref.to_record() for evidence_ref in evidence_refs])
+                interventions.append(SupportIntervention.from_record(record))
+
+            return interventions
 
     async def save_support_profile_value(self, profile_value: SupportProfileValue) -> None:
         """Save or update one scoped support-profile value."""
