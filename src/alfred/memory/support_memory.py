@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 
@@ -538,3 +538,54 @@ class ArcSnapshot:
     blockers: list[ArcBlocker] = field(default_factory=list)
     decisions: list[ArcDecision] = field(default_factory=list)
     open_loops: list[ArcOpenLoop] = field(default_factory=list)
+
+
+@dataclass(eq=True)
+class ArcSituation:
+    """Derived, refreshable runtime summary for one operational arc."""
+
+    arc_id: str
+    current_state: str
+    computed_at: datetime
+    confidence: float
+    staleness_seconds: int
+    refresh_reason: str
+    recent_progress: list[str] = field(default_factory=list)
+    blockers: list[str] = field(default_factory=list)
+    next_moves: list[str] = field(default_factory=list)
+    linked_pattern_ids: list[str] = field(default_factory=list)
+
+    def is_stale(self, now: datetime) -> bool:
+        """Return True when the situation should be refreshed before reuse."""
+        return now >= self.computed_at + timedelta(seconds=self.staleness_seconds)
+
+    def to_record(self) -> dict[str, Any]:
+        """Convert the arc situation into a SQLite-ready record."""
+        return {
+            "arc_id": self.arc_id,
+            "current_state": self.current_state,
+            "recent_progress": _dump_str_list(self.recent_progress),
+            "blockers": _dump_str_list(self.blockers),
+            "next_moves": _dump_str_list(self.next_moves),
+            "linked_pattern_ids": _dump_str_list(self.linked_pattern_ids),
+            "computed_at": _dump_datetime(self.computed_at),
+            "confidence": self.confidence,
+            "staleness_seconds": self.staleness_seconds,
+            "refresh_reason": self.refresh_reason,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> ArcSituation:
+        """Build an arc situation from a SQLite row or dict."""
+        return cls(
+            arc_id=str(record["arc_id"]),
+            current_state=str(record["current_state"]),
+            recent_progress=_load_str_list(record.get("recent_progress")),
+            blockers=_load_str_list(record.get("blockers")),
+            next_moves=_load_str_list(record.get("next_moves")),
+            linked_pattern_ids=_load_str_list(record.get("linked_pattern_ids")),
+            computed_at=_load_datetime(record["computed_at"]),
+            confidence=float(record["confidence"]),
+            staleness_seconds=int(record["staleness_seconds"]),
+            refresh_reason=str(record["refresh_reason"]),
+        )

@@ -19,6 +19,7 @@ from alfred.memory.support_memory import (
     ArcBlocker,
     ArcDecision,
     ArcOpenLoop,
+    ArcSituation,
     ArcSnapshot,
     ArcTask,
     EvidenceRef,
@@ -765,6 +766,26 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_arc_open_loops_arc_status_updated
             ON support_arc_open_loops(arc_id, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_arc_situations (
+                arc_id TEXT PRIMARY KEY,
+                current_state TEXT NOT NULL,
+                recent_progress JSON NOT NULL DEFAULT '[]',
+                blockers JSON NOT NULL DEFAULT '[]',
+                next_moves JSON NOT NULL DEFAULT '[]',
+                linked_pattern_ids JSON NOT NULL DEFAULT '[]',
+                computed_at TIMESTAMP NOT NULL,
+                confidence REAL NOT NULL,
+                staleness_seconds INTEGER NOT NULL,
+                refresh_reason TEXT NOT NULL,
+                FOREIGN KEY (arc_id) REFERENCES support_operational_arcs(arc_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_arc_situations_computed_at
+            ON support_arc_situations(computed_at DESC)
         """)
 
         await db.execute("""
@@ -1915,6 +1936,69 @@ class SQLiteStore:
                 open_loops=await self._load_arc_open_loops(db, arc_id),
             )
 
+    async def _load_arc_situation(self, db: Any, arc_id: str) -> ArcSituation | None:
+        """Load one persisted arc situation from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_arc_situations WHERE arc_id = ?", (arc_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+
+        return ArcSituation.from_record(dict(row))
+
+    async def save_arc_situation(self, situation: ArcSituation) -> None:
+        """Save or update a derived arc situation snapshot."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            record = situation.to_record()
+            await db.execute(
+                """
+                INSERT INTO support_arc_situations (
+                    arc_id, current_state, recent_progress, blockers, next_moves,
+                    linked_pattern_ids, computed_at, confidence, staleness_seconds, refresh_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(arc_id) DO UPDATE SET
+                    current_state = excluded.current_state,
+                    recent_progress = excluded.recent_progress,
+                    blockers = excluded.blockers,
+                    next_moves = excluded.next_moves,
+                    linked_pattern_ids = excluded.linked_pattern_ids,
+                    computed_at = excluded.computed_at,
+                    confidence = excluded.confidence,
+                    staleness_seconds = excluded.staleness_seconds,
+                    refresh_reason = excluded.refresh_reason
+                """,
+                (
+                    record["arc_id"],
+                    record["current_state"],
+                    record["recent_progress"],
+                    record["blockers"],
+                    record["next_moves"],
+                    record["linked_pattern_ids"],
+                    record["computed_at"],
+                    record["confidence"],
+                    record["staleness_seconds"],
+                    record["refresh_reason"],
+                ),
+            )
+            await db.commit()
+
+    async def get_arc_situation(self, arc_id: str) -> ArcSituation | None:
+        """Load one persisted arc situation by arc ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            return await self._load_arc_situation(db, arc_id)
+
     async def save_support_episode(self, episode: SupportEpisode) -> None:
         """Save or update a typed support episode and its evidence refs."""
         await self._init()
@@ -2123,6 +2207,37 @@ class SQLiteStore:
                 SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs_by_episode.get(row["episode_id"], []))
                 for row in episode_rows
             ]
+
+    async def list_support_episodes_for_arc(self, arc_id: str, limit: int = 3) -> list[SupportEpisode]:
+        """List recent support episodes linked to one operational arc."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute(
+                """
+                SELECT * FROM support_episodes
+                WHERE dominant_arc_id = ?
+                ORDER BY started_at DESC, episode_id DESC
+                LIMIT ?
+                """,
+                (arc_id, limit),
+            ) as cursor:
+                episode_rows = await cursor.fetchall()
+
+            episodes: list[SupportEpisode] = []
+            for row in episode_rows:
+                evidence_refs = await self._load_support_evidence_refs(db, row["episode_id"])
+                episodes.append(SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs))
+
+            return episodes
 
     async def prune_memories(
         self,

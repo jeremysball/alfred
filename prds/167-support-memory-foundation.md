@@ -334,7 +334,7 @@ Recommended fields:
 - current tensions
 - computed_at
 - confidence
-- staleness
+- staleness_seconds
 - refresh_reason
 
 #### ArcSituation
@@ -353,7 +353,7 @@ Recommended fields:
 - linked_pattern_ids
 - computed_at
 - confidence
-- staleness
+- staleness_seconds
 - refresh_reason
 
 These objects are derived and refreshable, not the deepest source of truth.

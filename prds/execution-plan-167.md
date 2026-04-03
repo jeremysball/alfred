@@ -79,9 +79,9 @@ Milestone 1 was completed by the documentation-first rewrite of PRD #167 and the
 
 ### Arc situation freshness
 
-- [ ] Test: `test_stale_arc_situation_refreshes_from_arc_state_and_recent_episodes()` - verify stale `ArcSituation` data is recomputed from structured arc state plus recent episode evidence before it is reused.
-- [ ] Implement: add derived situation models, storage, freshness metadata, and a minimal refresh path for `ArcSituation`.
-- [ ] Run: `uv run pytest tests/test_support_memory_context.py::test_stale_arc_situation_refreshes_from_arc_state_and_recent_episodes -v`
+- [x] Test: `test_stale_arc_situation_refreshes_from_arc_state_and_recent_episodes()` - verify stale `ArcSituation` data is recomputed from structured arc state plus recent episode evidence before it is reused.
+- [x] Implement: add derived situation models, storage, freshness metadata, and a minimal refresh path for `ArcSituation`.
+- [x] Run: `uv run pytest tests/test_support_memory_context.py::test_stale_arc_situation_refreshes_from_arc_state_and_recent_episodes -v`
 
 ### Session-start resume retrieval
 
