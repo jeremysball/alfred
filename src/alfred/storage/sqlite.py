@@ -924,8 +924,8 @@ class SQLiteStore:
                 evidence_id TEXT PRIMARY KEY,
                 episode_id TEXT NOT NULL,
                 session_id TEXT NOT NULL,
-                message_start_idx INTEGER NOT NULL,
-                message_end_idx INTEGER,
+                message_start_id TEXT NOT NULL,
+                message_end_id TEXT,
                 excerpt TEXT,
                 timestamp TIMESTAMP NOT NULL,
                 domain_ids JSON NOT NULL DEFAULT '[]',
@@ -933,16 +933,22 @@ class SQLiteStore:
                 claim_type TEXT NOT NULL,
                 confidence REAL NOT NULL,
                 FOREIGN KEY (episode_id) REFERENCES support_episodes(episode_id) ON DELETE CASCADE,
-                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_start_id) REFERENCES session_messages(session_id, message_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_end_id) REFERENCES session_messages(session_id, message_id) ON DELETE CASCADE
             )
         """)
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_evidence_episode
-            ON support_evidence_refs(episode_id, message_start_idx, evidence_id)
+            ON support_evidence_refs(episode_id, message_start_id, evidence_id)
         """)
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_evidence_session
             ON support_evidence_refs(session_id, timestamp DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_evidence_session_start
+            ON support_evidence_refs(session_id, message_start_id)
         """)
 
         await db.execute("""
@@ -2345,7 +2351,7 @@ class SQLiteStore:
                     await db.execute(
                         """
                         INSERT INTO support_evidence_refs (
-                            evidence_id, episode_id, session_id, message_start_idx, message_end_idx,
+                            evidence_id, episode_id, session_id, message_start_id, message_end_id,
                             excerpt, timestamp, domain_ids, arc_ids, claim_type, confidence
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
@@ -2353,8 +2359,8 @@ class SQLiteStore:
                             evidence_record["evidence_id"],
                             evidence_record["episode_id"],
                             evidence_record["session_id"],
-                            evidence_record["message_start_idx"],
-                            evidence_record["message_end_idx"],
+                            evidence_record["message_start_id"],
+                            evidence_record["message_end_id"],
                             evidence_record["excerpt"],
                             evidence_record["timestamp"],
                             evidence_record["domain_ids"],
@@ -2400,9 +2406,12 @@ class SQLiteStore:
         """Load all evidence refs for a support episode."""
         async with db.execute(
             """
-            SELECT * FROM support_evidence_refs
-            WHERE episode_id = ?
-            ORDER BY message_start_idx ASC, evidence_id ASC
+            SELECT e.*
+            FROM support_evidence_refs e
+            JOIN session_messages m
+                ON e.session_id = m.session_id AND e.message_start_id = m.message_id
+            WHERE e.episode_id = ?
+            ORDER BY m.message_idx ASC, e.evidence_id ASC
             """,
             (episode_id,),
         ) as cursor:
@@ -2454,9 +2463,12 @@ class SQLiteStore:
 
             async with db.execute(
                 """
-                SELECT * FROM support_evidence_refs
-                WHERE session_id = ?
-                ORDER BY episode_id ASC, message_start_idx ASC, evidence_id ASC
+                SELECT e.*
+                FROM support_evidence_refs e
+                JOIN session_messages m
+                    ON e.session_id = m.session_id AND e.message_start_id = m.message_id
+                WHERE e.session_id = ?
+                ORDER BY e.episode_id ASC, m.message_idx ASC, e.evidence_id ASC
                 """,
                 (session_id,),
             ) as cursor:

@@ -32,8 +32,8 @@ async def sqlite_store(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store):
-    """Support episodes and evidence refs should round-trip through SQLite."""
+async def test_episode_and_message_id_evidence_round_trip_through_sqlite_store(sqlite_store):
+    """Support episodes and message-ID evidence refs should round-trip through SQLite."""
     session_id = "sess_support_memory"
     messages = [
         {"idx": 0, "id": "msg-0", "role": "user", "content": "We're blocked on app structure."},
@@ -65,8 +65,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
                 evidence_id="ev-1a",
                 episode_id="ep-1",
                 session_id=session_id,
-                message_start_idx=0,
-                message_end_idx=1,
+                message_start_id="msg-0",
+                message_end_id="msg-1",
                 excerpt="We're blocked on app structure.",
                 timestamp=datetime(2026, 3, 30, 10, 1, tzinfo=UTC),
                 domain_ids=["work"],
@@ -78,8 +78,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
                 evidence_id="ev-1b",
                 episode_id="ep-1",
                 session_id=session_id,
-                message_start_idx=2,
-                message_end_idx=2,
+                message_start_id="msg-2",
+                message_end_id="msg-2",
                 excerpt="The bootstrap entrypoint should stay slim.",
                 timestamp=datetime(2026, 3, 30, 10, 6, tzinfo=UTC),
                 domain_ids=["work"],
@@ -109,8 +109,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
                 evidence_id="ev-2a",
                 episode_id="ep-2",
                 session_id=session_id,
-                message_start_idx=3,
-                message_end_idx=3,
+                message_start_id="msg-3",
+                message_end_id="msg-3",
                 excerpt="Agreed, let's isolate it.",
                 timestamp=datetime(2026, 3, 30, 10, 22, tzinfo=UTC),
                 domain_ids=["work"],

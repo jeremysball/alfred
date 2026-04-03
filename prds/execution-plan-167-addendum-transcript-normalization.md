@@ -52,9 +52,9 @@ This addendum replaces JSON-blob transcript storage with canonical `session_mess
 
 ### Support-episode evidence storage with composite transcript FKs
 
-- [ ] Test: `test_episode_and_message_id_evidence_round_trip_through_sqlite_store()` - verify support episodes and evidence refs round-trip through SQLite with message-ID spans backed by canonical transcript rows.
-- [ ] Implement: update `support_evidence_refs` storage and support-episode save/load helpers to persist message-ID spans with same-session composite foreign keys to `session_messages`.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_episode_and_message_id_evidence_round_trip_through_sqlite_store -v`
+- [x] Test: `test_episode_and_message_id_evidence_round_trip_through_sqlite_store()` - verify support episodes and evidence refs round-trip through SQLite with message-ID spans backed by canonical transcript rows.
+- [x] Implement: update `support_evidence_refs` storage and support-episode save/load helpers to persist message-ID spans with same-session composite foreign keys to `session_messages`.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_episode_and_message_id_evidence_round_trip_through_sqlite_store -v`
 
 ---
 
