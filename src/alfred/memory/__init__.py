@@ -23,6 +23,20 @@ from alfred.memory.support_memory import (
     OperationalArc,
     SupportEpisode,
 )
+from alfred.memory.support_profile import (
+    DEFAULT_SUPPORT_PROFILE_REGISTRY_CATALOG,
+    RELATIONAL_REGISTRY_DIMENSIONS,
+    SUPPORT_PROFILE_SCHEMA_VERSION,
+    SUPPORT_REGISTRY_DIMENSIONS,
+    V1_INTERACTION_CONTEXT_IDS,
+    SupportProfileDimensionDefinition,
+    SupportProfileRegistryCatalog,
+    SupportProfileRegistryFamily,
+    SupportProfileScope,
+    SupportProfileValue,
+    get_registry_dimension,
+    validate_registry_value,
+)
 
 if TYPE_CHECKING:
     from alfred.memory.sqlite_store import SQLiteMemoryStore
@@ -41,9 +55,21 @@ __all__ = [
     "MemoryEntry",
     "MemoryStore",
     "OperationalArc",
+    "RELATIONAL_REGISTRY_DIMENSIONS",
     "SQLiteMemoryStore",
+    "SUPPORT_PROFILE_SCHEMA_VERSION",
+    "SUPPORT_REGISTRY_DIMENSIONS",
     "SupportEpisode",
+    "SupportProfileDimensionDefinition",
+    "SupportProfileRegistryCatalog",
+    "SupportProfileRegistryFamily",
+    "SupportProfileScope",
+    "SupportProfileValue",
+    "V1_INTERACTION_CONTEXT_IDS",
+    "DEFAULT_SUPPORT_PROFILE_REGISTRY_CATALOG",
     "create_memory_store",
+    "get_registry_dimension",
+    "validate_registry_value",
 ]
 
 

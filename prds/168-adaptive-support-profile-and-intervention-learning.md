@@ -2,7 +2,7 @@
 
 **GitHub Issue**: [#168](https://github.com/jeremysball/alfred/issues/168)  
 **Priority**: High  
-**Status**: Draft  
+**Status**: In Progress  
 **Created**: 2026-03-30
 
 ---
@@ -142,16 +142,27 @@ This is easier to explain, inspect, compare, and test than continuous floats.
 
 ### 4.4 Scope support and relational values
 
-Values should support at least three scopes:
+Values should support at least three scopes using one uniform scope object shape:
+
+```json
+{"type": "...", "id": "..."}
+```
 
 1. **Global**
    - broad defaults for the user
+   - v1 representation: `{"type": "global", "id": "user"}`
 2. **Context**
    - defaults for contexts such as `plan`, `execute`, `decide`, `review`, `identity_reflect`, `direction_reflect`
+   - v1 should validate against this fixed taxonomy rather than accepting arbitrary strings
 3. **Operational arc**
    - overrides for a specific active project, loop, or decision thread
+   - `id` should be the concrete arc identifier
 
 This keeps Alfred adaptive without forcing one stance or support style across every situation.
+
+Important Milestone 1 boundary:
+- the first milestone should define and validate scope shape and allowed IDs
+- it should not yet implement runtime context inference from user messages or conversation state
 
 ### 4.5 Resolve effective values as composites
 
@@ -229,6 +240,9 @@ Start-type shorthand:
 |---|---|---|---|---|---|---|
 | `planning_granularity` | support | `minimal`, `short`, `full` | `op=minimal; orient=short; reflect=minimal; cal=minimal` | task complexity, clarity, activation, ambiguity, support-preference patterns | choose granularity band | phrase the structure naturally |
 | `option_bandwidth` | support | `single`, `few`, `many` | `op=single; orient=few; reflect=few; cal=single` | overwhelm, option paralysis, explicit ask for brainstorming, recurring-blocker patterns | cap how many real options Alfred should give | choose exact wording/order of options |
+| `proactivity_level` | support | `low`, `medium`, `high` | `contract=medium; start-type policy deferred in Milestone 1` | task initiation friction, explicit ask for push, user appetite for initiative, support-preference patterns | choose how much initiative Alfred should take without waiting | decide how that initiative is phrased |
+| `accountability_style` | support | `light`, `medium`, `firm` | `contract=medium; start-type policy deferred in Milestone 1` | user appetite for challenge, shame risk, commitment strength, correction history | choose how explicitly Alfred should hold the line | phrase accountability without breaking trust |
+| `recovery_style` | support | `gentle`, `steady`, `directive` | `contract=steady; start-type policy deferred in Milestone 1` | overload, missed intentions, shame risk, urgency, recovery needs | choose how Alfred should help the user recover after slips or overload | realize recovery in natural language |
 | `recommendation_forcefulness` | support | `low`, `medium`, `high` | `op=high; orient=medium; reflect=low; cal=medium` | explicit ask for recommendation, reversibility, stakes, ambiguity, support-preference patterns | decide whether Alfred should softly frame, lean, or clearly recommend | express the recommendation with tact |
 | `reflection_depth` | support | `light`, `medium`, `deep` | `op=light; orient=light; reflect=deep; cal=medium` | user appetite, current strain, identity/direction relevance, time pressure | decide how far inward Alfred should go | choose specific reflective phrasing |
 | `pacing` | support | `brisk`, `steady`, `slow` | `op=brisk; orient=steady; reflect=slow; cal=steady` | transient load, urgency, recovery needs, resistance, conversation tempo | choose pacing band | sentence cadence, paragraph shape |
@@ -239,6 +253,10 @@ Start-type shorthand:
 | `momentum_pressure` | relational | `low`, `medium`, `high` | `op=medium; orient=low; reflect=low; cal=low` | initiation friction, urgency, shame risk, recovery style, whether motion is actually the goal | decide how much push toward movement is appropriate | how pressure is expressed without breaking rapport |
 | `evidence_mode` | compiler-only | `none`, `light`, `explicit`, `structured` | `op=light; orient=light; reflect=light; cal=structured` | calibration relevance, confidence, identity-risk, explicit ask for evidence | decide whether Alfred must show evidence or observation→interpretation→recommendation structure | weave evidence into natural language |
 | `intervention_family` | compiler-only | `orient`, `summarize`, `narrow`, `sequence`, `recommend`, `mirror`, `compare`, `challenge`, `reset`, `confirm` | `op=narrow/recommend; orient=orient/summarize; reflect=mirror/compare; cal=compare/challenge` | need, target type, top patterns, friction, outcome history | choose the family of move Alfred should make next | choose exact phrasing and micro-ordering inside the move |
+
+Milestone 1 implementation note:
+- the typed support-profile contract stores one neutral `default_value` per dimension for validation and persistence readiness
+- start-type-specific defaults remain a later runtime-policy concern and are not yet encoded in the Milestone 1 dataclass registry
 
 Important rule:
 - the runtime chooses the band or family
@@ -443,9 +461,12 @@ Examples:
 ## 7. Milestones
 
 ### Milestone 1: Define the relational and support registries
-Implement the versioned schemas, allowed values, defaults, and scope rules.
+Implement the versioned schemas, allowed values, defaults, and scope rules for one uniform scope object.
+This milestone defines and validates the contract only; it does not infer contexts yet.
 
-Validation: targeted tests prove invalid dimensions or values are rejected and valid scoped records are accepted.
+Progress update (2026-03-30): completed in `src/alfred/memory/support_profile.py`, `src/alfred/memory/__init__.py`, `tests/test_support_profile.py`, and `prds/execution-plan-168-milestone1.md`. The delivered contract covers scope validation, the versioned registry catalog, relational and support registry definitions, typed scoped value validation, and public memory re-exports. Broader success criteria remain open until later milestones add storage, runtime resolution, compiler behavior, and adaptation.
+
+Validation: targeted tests prove invalid dimensions, invalid values, invalid scope shapes, and invalid context IDs are rejected, while valid global, context, and arc-scoped records are accepted.
 
 ### Milestone 2: Add profile storage and effective-value retrieval
 Implement durable storage for scoped relational/support values, confidence, status, source, and evidence refs.
@@ -544,7 +565,12 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Use fixed, versioned relational and support registries | Runtime behavior must stay structured and testable |
 | 2026-03-30 | Product defines semantics; runtime resolves composite values; the model expresses them naturally | This keeps the system adaptive without semantic drift |
 | 2026-03-30 | Scope runtime values globally, by context, and by operational arc | One user can need different help in different situations |
+| 2026-03-30 | Use one uniform scope object shape and represent global scope as `{"type": "global", "id": "user"}` | This keeps storage, validation, and future UI/debug surfaces consistent without null special-casing |
+| 2026-03-30 | Validate context-scoped values against the fixed v1 interaction taxonomy in Milestone 1 | The first milestone should lock the contract before runtime context inference work begins |
+| 2026-03-30 | Use frozen dataclasses with `__post_init__` for Milestone 1 support-profile contracts | This matches the existing support-memory model style and keeps the first schema layer lightweight and explicit |
 | 2026-03-30 | Log interventions at the episode level | Support learning needs local, contextual evidence |
 | 2026-03-30 | Keep stance labels derived rather than primary runtime modes | Alfred should feel coherent without collapsing into persona switches |
 | 2026-03-30 | Broad changes must stay reviewable and reversible | Adaptation should improve Alfred without becoming opaque |
 | 2026-03-30 | Support-preference and recurring-blocker patterns should directly influence compiled behavior | Patterns should change the next move, not just the wording |
+| 2026-03-30 | Use Option B support vocabularies for the missing v1 support dimensions | `proactivity_level` uses `low/medium/high`, `accountability_style` uses `light/medium/firm`, and `recovery_style` uses `gentle/steady/directive` so the support registry stays product-defined and explainable |
+| 2026-03-30 | Store one neutral `default_value` per dimension in the Milestone 1 contract and defer start-type defaults to runtime policy | This keeps the dataclass registry lightweight and persistence-ready without prematurely encoding later runtime policy tables |
