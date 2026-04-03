@@ -78,10 +78,7 @@ CONTEXT_TO_TEMPLATE = {
     "user": "USER.md",
 }
 
-SYSTEM_PROMPT_SECTION_LABELS = {
-    section_name: CONTEXT_TO_TEMPLATE[section_name]
-    for section_name in SYSTEM_PROMPT_SECTION_ORDER
-}
+SYSTEM_PROMPT_SECTION_LABELS = {section_name: CONTEXT_TO_TEMPLATE[section_name] for section_name in SYSTEM_PROMPT_SECTION_ORDER}
 
 
 def approximate_tokens(text: str) -> int:

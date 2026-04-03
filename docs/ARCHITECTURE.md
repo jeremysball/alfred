@@ -57,6 +57,14 @@ Alfred's durable markdown layer is built around:
 
 These files are always loaded and shape behavior every turn.
 
+### Managed template sync
+
+`TemplateManager.reconcile_template()` keeps template sync workspace-scoped so one checkout cannot silently overwrite another.
+
+When an upstream template and a workspace file both change, the runtime should fail closed, mark the file as blocked for automatic sync, and write standard conflict markers instead of guessing. That blocked state should remain visible in `/context` and in the WebUI so operators can repair drift intentionally.
+
+The canonical recovery flow lives in [Template Sync and Conflict Recovery](template-sync.md).
+
 ### Current storage foundation
 
 The memory foundation includes:
@@ -250,6 +258,6 @@ One major architectural goal is to stop smearing truth across markdown, search, 
 
 ### PRDs
 - [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)
-- [PRD #167: Support Memory Foundation](../prds/167-support-memory-foundation.md)
+- [PRD #167: Support Memory Foundation](../prds/done/167-support-memory-foundation.md)
 - [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/168-adaptive-support-profile-and-intervention-learning.md)
 - [PRD #169: Reflection Reviews and Support Controls](../prds/169-reflection-reviews-and-support-controls.md)

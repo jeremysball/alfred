@@ -25,12 +25,13 @@ Alfred should feel like a **persistent companion with operational intelligence**
 The current foundation already supports:
 - always-loaded markdown context (`SYSTEM.md`, `AGENTS.md`, `SOUL.md`, `USER.md`)
 - curated memories plus searchable session history
+- typed support episodes, evidence refs, life domains, operational arcs, and fresh support situations
 - SQLite-backed storage
 - TUI, Web UI, Telegram, and cron surfaces
 - tool use, self-model inspection, and local-first runtime control
 
-The next architectural layer is the relational support model formalized in PRD #179 and its child PRDs:
-- **#167** support memory foundation
+The next architectural layer is the relational support model formalized in PRD #179.
+Its support-memory foundation shipped in PRD #167, and the next child PRDs are:
 - **#168** adaptive support profile and intervention learning
 - **#169** reflection reviews and support controls
 
@@ -122,6 +123,7 @@ The next architectural layer is the relational support model formalized in PRD #
 | 143 | Cosine Similarity Migration for Memory and Session Search | Migrate vector search semantics to cosine similarity across memory and session retrieval, with safe rebuild support (PRD #143) |
 | 145 | Spacejam and Kidcore Theme Overhaul | Rework theme message surfaces, backgrounds, and subtle thinking blocks for the kidcore and spacejam themes (PRD #145) |
 | 159 | ✅ Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
+| 167 | ✅ Support Memory Foundation | Typed support episodes, evidence refs, life domains, operational arcs, fresh situations, and operational-first retrieval (PRD #167) |
 
 ### In Progress / Next Up 🔨
 
@@ -135,7 +137,6 @@ The next architectural layer is the relational support model formalized in PRD #
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 179 | Relational Support Operating Model | Formalize Alfred as one relational support system and align child PRDs, docs, and markdown ownership under shared primitives (PRD #179) |
-| 167 | Support Memory Foundation | Add typed interaction episodes plus first-class projects, tasks, and open loops as Alfred's operational memory substrate (PRD #167) |
 | 168 | Adaptive Support Profile and Intervention Learning | Add fixed relational/support registries, scoped runtime values, intervention logging, and bounded auto-adaptation (PRD #168) |
 | 169 | Reflection Reviews and Support Controls | Add bounded weekly/on-demand review cards plus user-visible inspection and correction of learned support memory (PRD #169) |
 | 164 | Repo-wide ESM Migration for JavaScript | Convert all JavaScript from CommonJS to ES Modules, fixing Web UI initialization failure (PRD #164) |
@@ -189,5 +190,5 @@ The next architectural layer is the relational support model formalized in PRD #
 - Alfred can resume active work without forcing the user to repeat core context
 - Alfred retrieves durable context, memories, and prior session evidence before asking for recap
 - Alfred supports planning, execution, decisions, and review reliably today
-- Alfred's support learning and reflection systems become inspectable and user-correctable as PRDs #167-#169 land
+- Alfred's support learning and reflection systems become inspectable and user-correctable as PRDs #168-#169 land atop the shipped support-memory foundation
 - runtime descriptions, docs, and templates stay aligned enough that contributors can trust them

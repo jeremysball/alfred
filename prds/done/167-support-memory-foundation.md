@@ -4,6 +4,7 @@
 **Priority**: High  
 **Status**: Complete
 **Created**: 2026-03-30
+**Completed**: 2026-03-30
 
 ---
 
@@ -497,7 +498,7 @@ docs/ARCHITECTURE.md
 docs/relational-support-model.md
 templates/SYSTEM.md
 templates/AGENTS.md
-prds/167-support-memory-foundation.md
+prds/done/167-support-memory-foundation.md
 ```
 
 ---

@@ -236,7 +236,7 @@ That is what turns memory into a real support system instead of a search layer.
 - [How Alfred Helps](how-alfred-helps.md)
 - [Relational Support Model](relational-support-model.md)
 - [Architecture](ARCHITECTURE.md)
-- [PRD #167: Support Memory Foundation](../prds/167-support-memory-foundation.md)
+- [PRD #167: Support Memory Foundation](../prds/done/167-support-memory-foundation.md)
 - [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/168-adaptive-support-profile-and-intervention-learning.md)
 - [PRD #169: Reflection Reviews and Support Controls](../prds/169-reflection-reviews-and-support-controls.md)
 - [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)

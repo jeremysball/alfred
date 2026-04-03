@@ -168,6 +168,32 @@ alfred cron submit       # Submit a new scheduled job
 alfred config update     # Refresh managed templates in the workspace
 ```
 
+## Logging and debugging
+
+The root `--log` flag and the Web UI `--log` flag are separate.
+
+Use the root flag when you want Alfred-wide logs:
+
+```bash
+alfred --log debug webui
+```
+
+Use the Web UI flag when you want Web UI server logs:
+
+```bash
+alfred webui --log debug
+```
+
+Use both when you want both surfaces at debug level:
+
+```bash
+alfred --log debug webui --log debug
+```
+
+TTY output uses readable surface prefixes like `[core]`, `[webui-server]`, `[webui-client]`, and `[websocket]`. non-TTY logs stay grep-friendly and include fields like `surface=...` for filtering in files and CI output.
+
+For protocol-level Web UI debugging, see [WebSocket Protocol](docs/websocket-protocol.md).
+
 ## Interfaces
 
 ### Web UI
@@ -242,7 +268,7 @@ For the current and planned model, see [docs/MEMORY.md](docs/MEMORY.md).
 
 ### Project direction
 - [Roadmap](docs/ROADMAP.md) — current milestones and open PRDs
-- [Template Sync and Conflict Recovery](docs/template-sync.md) — managed template drift and repair
+- [Template Sync and Conflict Recovery](docs/template-sync.md) — canonical conflict-recovery reference for managed template drift and repair
 - [API Reference](docs/API.md) — module documentation
 
 ## Contributing
