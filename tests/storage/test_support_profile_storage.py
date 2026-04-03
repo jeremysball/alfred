@@ -76,3 +76,76 @@ async def test_support_profile_values_round_trip_through_sqlite_store(sqlite_sto
         context_support,
         arc_support,
     ]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_resolves_most_specific_support_profile_value(sqlite_store):
+    """Support-profile resolution should prefer arc, then context, then global scope."""
+    global_value = SupportProfileValue(
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="global", id="user"),
+        value="few",
+        status="confirmed",
+        confidence=0.93,
+        source="explicit",
+        created_at=datetime(2026, 3, 30, 11, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 11, 0, tzinfo=UTC),
+        evidence_refs=("ev-global",),
+    )
+    context_value = SupportProfileValue(
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="context", id="execute"),
+        value="single",
+        status="observed",
+        confidence=0.81,
+        source="auto_adapted",
+        created_at=datetime(2026, 3, 30, 11, 5, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 11, 6, tzinfo=UTC),
+        evidence_refs=("ev-context",),
+    )
+    arc_value = SupportProfileValue(
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        value="many",
+        status="candidate",
+        confidence=0.55,
+        source="corrected",
+        created_at=datetime(2026, 3, 30, 11, 7, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 11, 8, tzinfo=UTC),
+        evidence_refs=("ev-arc",),
+    )
+
+    await sqlite_store.save_support_profile_value(global_value)
+    await sqlite_store.save_support_profile_value(context_value)
+    await sqlite_store.save_support_profile_value(arc_value)
+
+    assert (
+        await sqlite_store.resolve_support_profile_value(
+            "support",
+            "option_bandwidth",
+            context_id="execute",
+            arc_id="webui_cleanup",
+        )
+        == arc_value
+    )
+    assert (
+        await sqlite_store.resolve_support_profile_value(
+            "support",
+            "option_bandwidth",
+            context_id="execute",
+        )
+        == context_value
+    )
+    assert (
+        await sqlite_store.resolve_support_profile_value(
+            "support",
+            "option_bandwidth",
+            context_id="plan",
+        )
+        == global_value
+    )
+    assert await sqlite_store.resolve_support_profile_value("support", "option_bandwidth") == global_value
+    assert await sqlite_store.resolve_support_profile_value("support", "pacing", context_id="execute") is None

@@ -38,9 +38,9 @@ This phase extends the Milestone 1 support-profile contract into durable storage
 
 ### Effective-value resolution by scope
 
-- [ ] Test: `test_sqlite_store_resolves_most_specific_support_profile_value()` - verify Alfred resolves arc-scoped values first, then context-scoped values, then global values for the same registry/dimension.
-- [ ] Implement: add the minimal retrieval helper that applies scope precedence for one registry/dimension query without pulling in later behavior-compiler logic.
-- [ ] Run: `uv run pytest tests/storage/test_support_profile_storage.py::test_sqlite_store_resolves_most_specific_support_profile_value -v`
+- [x] Test: `test_sqlite_store_resolves_most_specific_support_profile_value()` - verify Alfred resolves arc-scoped values first, then context-scoped values, then global values for the same registry/dimension.
+- [x] Implement: add the minimal retrieval helper that applies scope precedence for one registry/dimension query without pulling in later behavior-compiler logic.
+- [x] Run: `uv run pytest tests/storage/test_support_profile_storage.py::test_sqlite_store_resolves_most_specific_support_profile_value -v`
 
 ---
 

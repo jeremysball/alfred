@@ -2503,6 +2503,29 @@ class SQLiteStore:
 
         return [SupportProfileValue.from_record(dict(row)) for row in rows]
 
+    async def resolve_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        *,
+        context_id: str | None = None,
+        arc_id: str | None = None,
+    ) -> SupportProfileValue | None:
+        """Resolve the most specific stored value by arc, then context, then global scope."""
+        scopes_to_try: list[SupportProfileScope] = []
+        if arc_id is not None:
+            scopes_to_try.append(SupportProfileScope(type="arc", id=arc_id))
+        if context_id is not None:
+            scopes_to_try.append(SupportProfileScope(type="context", id=context_id))
+        scopes_to_try.append(SupportProfileScope(type="global", id="user"))
+
+        for scope in scopes_to_try:
+            resolved = await self.get_support_profile_value(registry, dimension, scope)
+            if resolved is not None:
+                return resolved
+
+        return None
+
     async def prune_memories(
         self,
         ttl_days: int = 90,
