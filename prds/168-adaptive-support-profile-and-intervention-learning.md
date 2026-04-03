@@ -470,7 +470,7 @@ Examples:
 - [x] Runtime values can be scoped globally, by context, and by operational arc.
 - [ ] The runtime resolves policy values as composites instead of leaving them to raw LLM choice.
 - [ ] Alfred compiles explicit response contracts before generation.
-- [ ] Alfred logs interventions, response signals, and outcome signals durably.
+- [x] Alfred logs interventions, response signals, and outcome signals durably.
 - [ ] Alfred can auto-adapt low-risk scoped values and log every change.
 - [ ] Global support and relational changes are surfaced or reviewable.
 - [ ] Runtime support behavior is driven by structured state rather than prompt wording alone.
@@ -501,7 +501,9 @@ Implement structured logging for interventions, response signals, and outcome si
 
 Prerequisite update (2026-03-30): before Milestone 3 begins, the PRD #167 transcript-normalization addendum must land so transcript messages are stored canonically by `(session_id, message_id)` and support-memory `EvidenceRef` spans use `message_start_id` / `message_end_id` instead of message indexes.
 
-Validation: targeted tests prove intervention events are stored consistently and can be queried by arc, context, and dimension.
+Progress update (2026-03-30): completed in `src/alfred/memory/support_memory.py`, `src/alfred/memory/__init__.py`, `src/alfred/storage/sqlite.py`, `tests/test_support_intervention.py`, `tests/storage/test_support_intervention_storage.py`, and `prds/execution-plan-168-milestone3.md`. The delivered intervention layer adds a typed `SupportIntervention` contract, lightweight same-session `SupportInterventionMessageRef` evidence spans, JSON-backed record helpers, SQLite persistence linked to support episodes, and query surfaces by episode, arc, context, and applied dimension. Broader success criteria remain open until later milestones add composite policy resolution, behavior compilation, and bounded adaptation.
+
+Validation: targeted tests prove intervention events are stored consistently and can be queried by arc, context, and dimension. `uv run pytest tests/test_support_intervention.py tests/storage/test_support_intervention_storage.py -v`, `uv run ruff check src/ tests/test_support_intervention.py tests/storage/test_support_intervention_storage.py`, and `uv run mypy --strict src/` passed.
 
 ### Milestone 4: Add policy resolvers and the behavior compiler
 Compile effective values into explicit response contracts and use those contracts at runtime.
@@ -601,3 +603,4 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Store one neutral `default_value` per dimension in the Milestone 1 contract and defer start-type defaults to runtime policy | This keeps the dataclass registry lightweight and persistence-ready without prematurely encoding later runtime policy tables |
 | 2026-03-30 | Reuse `SupportProfileValue` as the Milestone 2 persisted record contract and extend it with `schema_version`, `created_at`, `updated_at`, and `to_record()` / `from_record()` helpers | This keeps the storage boundary aligned with the typed support-profile model and the existing support-memory persistence style without introducing a second record type |
 | 2026-03-30 | Normalize transcript provenance first under a PRD #167 addendum, then build Milestone 3 intervention logging on top of canonical `(session_id, message_id)` transcript rows and message-ID-based `EvidenceRef` spans | Intervention logging needs first-class evidence references and real same-session provenance guarantees rather than raw string IDs or message-index pointers |
+| 2026-03-30 | Use lightweight same-session `SupportInterventionMessageRef` spans inside intervention logs instead of embedding full `EvidenceRef` records | Intervention logging needs typed transcript provenance without coupling each intervention record to the heavier promoted-evidence contract |
