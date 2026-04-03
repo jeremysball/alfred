@@ -342,6 +342,7 @@ Example:
 
 ```json
 {
+  "schema_version": 1,
   "registry": "support",
   "dimension": "option_bandwidth",
   "scope": {"type": "context", "id": "execute"},
@@ -349,6 +350,8 @@ Example:
   "status": "observed",
   "confidence": 0.87,
   "source": "auto_adapted",
+  "created_at": "2026-03-30T10:05:00+00:00",
+  "updated_at": "2026-03-30T10:08:00+00:00",
   "evidence_refs": ["int_55", "int_61", "int_64"]
 }
 ```
@@ -445,8 +448,8 @@ Examples:
 
 ## 6. Success Criteria
 
-- [ ] Alfred stores relational and support values using fixed, versioned registries.
-- [ ] Runtime values can be scoped globally, by context, and by operational arc.
+- [x] Alfred stores relational and support values using fixed, versioned registries.
+- [x] Runtime values can be scoped globally, by context, and by operational arc.
 - [ ] The runtime resolves policy values as composites instead of leaving them to raw LLM choice.
 - [ ] Alfred compiles explicit response contracts before generation.
 - [ ] Alfred logs interventions, response signals, and outcome signals durably.
@@ -471,7 +474,9 @@ Validation: targeted tests prove invalid dimensions, invalid values, invalid sco
 ### Milestone 2: Add profile storage and effective-value retrieval
 Implement durable storage for scoped relational/support values, confidence, status, source, and evidence refs.
 
-Validation: targeted tests prove Alfred can resolve correct effective values across global, context, and arc scopes.
+Progress update (2026-03-30): completed in `src/alfred/memory/support_profile.py`, `src/alfred/storage/sqlite.py`, `tests/test_support_profile.py`, `tests/storage/test_support_profile_storage.py`, and `prds/execution-plan-168-milestone2.md`. The delivered storage layer extends `SupportProfileValue` with `schema_version`, `created_at`, `updated_at`, and `to_record()` / `from_record()` helpers, persists scoped values in SQLite with explicit `scope_type` / `scope_id` columns, and resolves the most specific stored value by arc → context → global precedence. Broader success criteria remain open until later milestones add composite policy resolution, behavior compilation, intervention logging, and adaptation.
+
+Validation: targeted tests prove record round-tripping, SQLite round-tripping, and scope-precedence retrieval. `uv run pytest tests/test_support_profile.py tests/storage/test_support_profile_storage.py -v`, `uv run ruff check src/ tests/test_support_profile.py tests/storage/test_support_profile_storage.py`, and `uv run mypy --strict src/` passed.
 
 ### Milestone 3: Add episode-level intervention logging
 Implement structured logging for interventions, response signals, and outcome signals tied back to context and evidence.
@@ -574,3 +579,4 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Support-preference and recurring-blocker patterns should directly influence compiled behavior | Patterns should change the next move, not just the wording |
 | 2026-03-30 | Use Option B support vocabularies for the missing v1 support dimensions | `proactivity_level` uses `low/medium/high`, `accountability_style` uses `light/medium/firm`, and `recovery_style` uses `gentle/steady/directive` so the support registry stays product-defined and explainable |
 | 2026-03-30 | Store one neutral `default_value` per dimension in the Milestone 1 contract and defer start-type defaults to runtime policy | This keeps the dataclass registry lightweight and persistence-ready without prematurely encoding later runtime policy tables |
+| 2026-03-30 | Reuse `SupportProfileValue` as the Milestone 2 persisted record contract and extend it with `schema_version`, `created_at`, `updated_at`, and `to_record()` / `from_record()` helpers | This keeps the storage boundary aligned with the typed support-profile model and the existing support-memory persistence style without introducing a second record type |
