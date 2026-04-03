@@ -10,6 +10,7 @@ results exposed to Alfred callers.
 import contextlib
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -228,6 +229,7 @@ class SQLiteStore:
 
             # Create tables
             await self._create_sessions_table(db)
+            await self._create_session_messages_table(db)
             await self._create_session_summaries_table(db)
             await self._create_message_embeddings_table(db)
             await self._create_cron_tables(db)
@@ -402,7 +404,6 @@ class SQLiteStore:
                 session_id TEXT PRIMARY KEY,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                messages JSON NOT NULL DEFAULT '[]',
                 message_count INTEGER DEFAULT 0,
                 metadata JSON DEFAULT '{}'
             )
@@ -413,6 +414,74 @@ class SQLiteStore:
             CREATE INDEX IF NOT EXISTS idx_sessions_updated
             ON sessions(updated_at)
         """)
+
+    async def _create_session_messages_table(self, db: Any) -> None:
+        """Create canonical transcript rows for session messages."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS session_messages (
+                session_id TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                message_idx INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                timestamp TIMESTAMP,
+                payload_json JSON NOT NULL,
+                PRIMARY KEY (session_id, message_id),
+                UNIQUE (session_id, message_idx),
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_messages_session_idx
+            ON session_messages(session_id, message_idx)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_messages_session_timestamp
+            ON session_messages(session_id, timestamp)
+        """)
+
+    @staticmethod
+    def _session_message_identity(message: Mapping[str, Any], fallback_idx: int) -> tuple[str, int, str, str | None, str]:
+        """Resolve the canonical storage fields for one transcript message."""
+        raw_message_id = message.get("id")
+        message_id = str(raw_message_id).strip() if raw_message_id is not None else ""
+        if not message_id:
+            message_id = f"__idx__{fallback_idx}"
+
+        message_idx = int(message.get("idx", fallback_idx))
+        role = str(message.get("role", "unknown"))
+
+        raw_timestamp = message.get("timestamp")
+        timestamp = None if raw_timestamp is None else str(raw_timestamp)
+
+        return (message_id, message_idx, role, timestamp, json.dumps(message))
+
+    async def _replace_session_messages(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
+        """Replace one session's canonical transcript rows."""
+        await db.execute("DELETE FROM session_messages WHERE session_id = ?", (session_id,))
+        for fallback_idx, message in enumerate(messages):
+            message_id, message_idx, role, timestamp, payload_json = self._session_message_identity(message, fallback_idx)
+            await db.execute(
+                """
+                INSERT INTO session_messages (
+                    session_id, message_id, message_idx, role, timestamp, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (session_id, message_id, message_idx, role, timestamp, payload_json),
+            )
+
+    async def _load_session_messages(self, db: Any, session_id: str) -> list[dict[str, Any]]:
+        """Load one session's transcript payload from canonical transcript rows."""
+        async with db.execute(
+            """
+            SELECT payload_json
+            FROM session_messages
+            WHERE session_id = ?
+            ORDER BY message_idx ASC, message_id ASC
+            """,
+            (session_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [_sanitize_json_data(json.loads(row[0])) for row in rows]
 
     async def _create_session_summaries_table(self, db: Any) -> None:
         """Create session_summaries table with FK to sessions."""
@@ -928,15 +997,16 @@ class SQLiteStore:
                 await db.execute("BEGIN IMMEDIATE")
                 await db.execute(
                     """
-                    INSERT INTO sessions (session_id, messages, metadata, updated_at)
+                    INSERT INTO sessions (session_id, metadata, message_count, updated_at)
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(session_id) DO UPDATE SET
-                        messages = excluded.messages,
                         metadata = excluded.metadata,
+                        message_count = excluded.message_count,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    (session_id, json.dumps(messages), json.dumps(metadata or {})),
+                    (session_id, json.dumps(metadata or {}), len(messages)),
                 )
+                await self._replace_session_messages(db, session_id, messages)
                 await self._delete_session_message_embeddings(db, session_id)
                 await self._index_message_embeddings(db, session_id, messages)
                 await db.commit()
@@ -1042,11 +1112,12 @@ class SQLiteStore:
                 if row is None:
                     return None
 
+                messages = await self._load_session_messages(db, session_id)
                 return {
                     "session_id": row["session_id"],
                     "created_at": row["created_at"],
                     "updated_at": row["updated_at"],
-                    "messages": _sanitize_json_data(json.loads(row["messages"])),
+                    "messages": messages,
                     "metadata": _sanitize_json_data(json.loads(row["metadata"])),
                 }
 
@@ -1069,16 +1140,19 @@ class SQLiteStore:
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)) as cursor:
                 rows = await cursor.fetchall()
-                return [
+
+            sessions: list[dict[str, Any]] = []
+            for row in rows:
+                sessions.append(
                     {
                         "session_id": row["session_id"],
                         "created_at": row["created_at"],
                         "updated_at": row["updated_at"],
-                        "messages": _sanitize_json_data(json.loads(row["messages"])),
+                        "messages": await self._load_session_messages(db, row["session_id"]),
                         "metadata": _sanitize_json_data(json.loads(row["metadata"])),
                     }
-                    for row in rows
-                ]
+                )
+            return sessions
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session.

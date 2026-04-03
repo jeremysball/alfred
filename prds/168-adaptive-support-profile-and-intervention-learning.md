@@ -299,6 +299,13 @@ Minimum v1 intervention fields:
 - `outcome_signals`
 - `evidence_refs`
 
+Intervention evidence refs should reuse the support-memory provenance contract rather than untyped string IDs.
+
+Important dependency update:
+- Milestone 3 now depends on the PRD #167 transcript-normalization addendum
+- same-session transcript provenance should use canonical `(session_id, message_id)` rows
+- intervention evidence should point to first-class message-ID spans rather than raw string arrays
+
 Example:
 
 ```json
@@ -321,7 +328,18 @@ Example:
   "behavior_contract_summary": "Keep this narrow, recommend one next move, do not open a planning tree.",
   "user_response_signals": ["resonance", "commitment"],
   "outcome_signals": ["next_step_chosen"],
-  "evidence_refs": ["msg_445", "msg_448"]
+  "evidence_refs": [
+    {
+      "session_id": "sess_812",
+      "message_start_id": "msg_445",
+      "message_end_id": "msg_446"
+    },
+    {
+      "session_id": "sess_812",
+      "message_start_id": "msg_448",
+      "message_end_id": "msg_448"
+    }
+  ]
 }
 ```
 
@@ -481,6 +499,8 @@ Validation: targeted tests prove record round-tripping, SQLite round-tripping, a
 ### Milestone 3: Add episode-level intervention logging
 Implement structured logging for interventions, response signals, and outcome signals tied back to context and evidence.
 
+Prerequisite update (2026-03-30): before Milestone 3 begins, the PRD #167 transcript-normalization addendum must land so transcript messages are stored canonically by `(session_id, message_id)` and support-memory `EvidenceRef` spans use `message_start_id` / `message_end_id` instead of message indexes.
+
 Validation: targeted tests prove intervention events are stored consistently and can be queried by arc, context, and dimension.
 
 ### Milestone 4: Add policy resolvers and the behavior compiler
@@ -580,3 +600,4 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Use Option B support vocabularies for the missing v1 support dimensions | `proactivity_level` uses `low/medium/high`, `accountability_style` uses `light/medium/firm`, and `recovery_style` uses `gentle/steady/directive` so the support registry stays product-defined and explainable |
 | 2026-03-30 | Store one neutral `default_value` per dimension in the Milestone 1 contract and defer start-type defaults to runtime policy | This keeps the dataclass registry lightweight and persistence-ready without prematurely encoding later runtime policy tables |
 | 2026-03-30 | Reuse `SupportProfileValue` as the Milestone 2 persisted record contract and extend it with `schema_version`, `created_at`, `updated_at`, and `to_record()` / `from_record()` helpers | This keeps the storage boundary aligned with the typed support-profile model and the existing support-memory persistence style without introducing a second record type |
+| 2026-03-30 | Normalize transcript provenance first under a PRD #167 addendum, then build Milestone 3 intervention logging on top of canonical `(session_id, message_id)` transcript rows and message-ID-based `EvidenceRef` spans | Intervention logging needs first-class evidence references and real same-session provenance guarantees rather than raw string IDs or message-index pointers |
