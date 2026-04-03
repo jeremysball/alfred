@@ -34,9 +34,9 @@ This addendum replaces JSON-blob transcript storage with canonical `session_mess
 
 ### History rewrite replaces canonical rows atomically
 
-- [ ] Test: `test_save_session_replaces_canonical_message_rows_after_history_edit()` - verify re-saving shorter edited history removes stale transcript rows, preserves surviving message IDs, and keeps `message_count` and message order correct.
-- [ ] Implement: make `save_session()` replace one session's canonical message rows atomically and keep session metadata synchronized after history edits or truncation.
-- [ ] Run: `uv run pytest tests/storage/test_session_message_storage.py::test_save_session_replaces_canonical_message_rows_after_history_edit -v`
+- [x] Test: `test_save_session_replaces_canonical_message_rows_after_history_edit()` - verify re-saving shorter edited history removes stale transcript rows, preserves surviving message IDs, and keeps `message_count` and message order correct.
+- [x] Implement: make `save_session()` replace one session's canonical message rows atomically and keep session metadata synchronized after history edits or truncation.
+- [x] Run: `uv run pytest tests/storage/test_session_message_storage.py::test_save_session_replaces_canonical_message_rows_after_history_edit -v`
 
 ### Canonical message identity for embeddings and search
 
