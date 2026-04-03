@@ -55,9 +55,9 @@ class EvidenceRef:
     evidence_id: str
     episode_id: str
     session_id: str
-    message_start_idx: int
+    message_start_id: str
     timestamp: datetime
-    message_end_idx: int | None = None
+    message_end_id: str | None = None
     excerpt: str | None = None
     domain_ids: list[str] = field(default_factory=list)
     arc_ids: list[str] = field(default_factory=list)
@@ -70,8 +70,8 @@ class EvidenceRef:
             "evidence_id": self.evidence_id,
             "episode_id": self.episode_id,
             "session_id": self.session_id,
-            "message_start_idx": self.message_start_idx,
-            "message_end_idx": self.message_end_idx,
+            "message_start_id": self.message_start_id,
+            "message_end_id": self.message_end_id,
             "excerpt": self.excerpt,
             "timestamp": _dump_datetime(self.timestamp),
             "domain_ids": _dump_str_list(self.domain_ids),
@@ -84,29 +84,20 @@ class EvidenceRef:
     def _resolve_session_message(
         messages: Sequence[Mapping[str, Any]],
         *,
-        message_idx: int | None = None,
-        message_id: str | None = None,
+        message_id: str,
         label: str,
-    ) -> tuple[Mapping[str, Any], int]:
-        """Resolve a session message from its persisted ID or index."""
-        matches: list[tuple[Mapping[str, Any], int]] = []
+    ) -> tuple[Mapping[str, Any], str, int]:
+        """Resolve a session message from its persisted message ID."""
+        matches: list[tuple[Mapping[str, Any], str, int]] = []
         for fallback_idx, message in enumerate(messages):
             resolved_idx = int(message.get("idx", fallback_idx))
-            resolved_id = message.get("id")
-            if message_idx is not None and resolved_idx != message_idx:
+            resolved_id = str(message.get("id", "")).strip()
+            if resolved_id != message_id:
                 continue
-            if message_id is not None and str(resolved_id) != message_id:
-                continue
-            matches.append((message, resolved_idx))
+            matches.append((message, resolved_id, resolved_idx))
 
         if not matches:
-            selector_bits: list[str] = []
-            if message_idx is not None:
-                selector_bits.append(f"idx={message_idx}")
-            if message_id is not None:
-                selector_bits.append(f"id={message_id}")
-            selector = " and ".join(selector_bits) if selector_bits else "unspecified selector"
-            raise ValueError(f"Could not resolve {label} session message from {selector}")
+            raise ValueError(f"Could not resolve {label} session message from id={message_id}")
 
         if len(matches) > 1:
             raise ValueError(f"Multiple session messages matched the {label} selector")
@@ -121,9 +112,7 @@ class EvidenceRef:
         episode_id: str,
         session_id: str,
         messages: Sequence[Mapping[str, Any]],
-        message_start_idx: int | None = None,
-        message_end_idx: int | None = None,
-        message_start_id: str | None = None,
+        message_start_id: str,
         message_end_id: str | None = None,
         timestamp: datetime | None = None,
         excerpt: str | None = None,
@@ -132,37 +121,33 @@ class EvidenceRef:
         claim_type: str = "stated_priority",
         confidence: float = 0.0,
     ) -> EvidenceRef:
-        """Build an evidence ref from a persisted transcript message span.
+        """Build an evidence ref from a persisted transcript message-ID span.
 
         The helper resolves the selected messages from the session archive,
         preserves the transcript payload unchanged, and uses the span's first
         message as the default excerpt and timestamp source when those fields
         are not provided explicitly.
         """
-        if message_start_idx is None and message_start_id is None:
-            raise ValueError("message_start_idx or message_start_id is required")
-
-        resolved_start_message, resolved_start_idx = cls._resolve_session_message(
+        resolved_start_message, resolved_start_id, resolved_start_idx = cls._resolve_session_message(
             messages,
-            message_idx=message_start_idx,
             message_id=message_start_id,
             label="start",
         )
 
-        if message_end_idx is None and message_end_id is None:
+        if message_end_id is None:
             resolved_end_message = resolved_start_message
+            resolved_end_id = resolved_start_id
             resolved_end_idx = resolved_start_idx
         else:
-            resolved_end_message, resolved_end_idx = cls._resolve_session_message(
+            resolved_end_message, resolved_end_id, resolved_end_idx = cls._resolve_session_message(
                 messages,
-                message_idx=message_end_idx,
                 message_id=message_end_id,
                 label="end",
             )
 
         if resolved_start_idx > resolved_end_idx:
             raise ValueError(
-                f"Evidence span must start before it ends: start_idx={resolved_start_idx} end_idx={resolved_end_idx}",
+                f"Evidence span must start before it ends: start_id={resolved_start_id} end_id={resolved_end_id}",
             )
 
         evidence_timestamp = timestamp
@@ -183,8 +168,8 @@ class EvidenceRef:
             evidence_id=evidence_id,
             episode_id=episode_id,
             session_id=session_id,
-            message_start_idx=resolved_start_idx,
-            message_end_idx=resolved_end_idx,
+            message_start_id=resolved_start_id,
+            message_end_id=resolved_end_id,
             timestamp=evidence_timestamp,
             excerpt=resolved_excerpt,
             domain_ids=list(domain_ids or []),
@@ -200,9 +185,9 @@ class EvidenceRef:
             evidence_id=str(record["evidence_id"]),
             episode_id=str(record["episode_id"]),
             session_id=str(record["session_id"]),
-            message_start_idx=int(record["message_start_idx"]),
+            message_start_id=str(record["message_start_id"]),
             timestamp=_load_datetime(record["timestamp"]),
-            message_end_idx=None if record.get("message_end_idx") is None else int(record["message_end_idx"]),
+            message_end_id=None if record.get("message_end_id") is None else str(record["message_end_id"]),
             excerpt=record.get("excerpt"),
             domain_ids=_load_str_list(record.get("domain_ids")),
             arc_ids=_load_str_list(record.get("arc_ids")),

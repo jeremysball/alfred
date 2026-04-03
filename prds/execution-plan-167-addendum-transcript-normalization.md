@@ -46,9 +46,9 @@ This addendum replaces JSON-blob transcript storage with canonical `session_mess
 
 ### EvidenceRef message-ID span contract
 
-- [ ] Test: `test_promoting_session_message_spans_to_message_id_evidence_refs_keeps_session_archive_unchanged()` - verify `EvidenceRef.from_session_message_span()` resolves same-session message-ID spans, preserves excerpt and timestamp behavior, and does not mutate the reconstructed session payload.
-- [ ] Implement: switch the `EvidenceRef` contract from `message_start_idx` / `message_end_idx` to `message_start_id` / `message_end_id` while preserving same-session span semantics and helper behavior.
-- [ ] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_promoting_session_message_spans_to_message_id_evidence_refs_keeps_session_archive_unchanged -v`
+- [x] Test: `test_promoting_session_message_spans_to_message_id_evidence_refs_keeps_session_archive_unchanged()` - verify `EvidenceRef.from_session_message_span()` resolves same-session message-ID spans, preserves excerpt and timestamp behavior, and does not mutate the reconstructed session payload.
+- [x] Implement: switch the `EvidenceRef` contract from `message_start_idx` / `message_end_idx` to `message_start_id` / `message_end_id` while preserving same-session span semantics and helper behavior.
+- [x] Run: `uv run pytest tests/storage/test_support_memory_storage.py::test_promoting_session_message_spans_to_message_id_evidence_refs_keeps_session_archive_unchanged -v`
 
 ### Support-episode evidence storage with composite transcript FKs
 
