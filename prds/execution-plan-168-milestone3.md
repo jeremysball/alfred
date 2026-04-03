@@ -1,8 +1,8 @@
 # Execution Plan: PRD #168 - Milestone 3: Add Episode-Level Intervention Logging
 
-> **Prerequisite:** complete `prds/execution-plan-167-addendum-transcript-normalization.md` first.
+> **Prerequisite satisfied on this branch:** `prds/execution-plan-167-addendum-transcript-normalization.md`.
 >
-> This milestone now depends on canonical `session_messages` storage and message-ID-based `EvidenceRef` spans. Do not start the intervention tasks below until that addendum lands.
+> Milestone 3 now assumes canonical `session_messages` storage and message-ID-based `EvidenceRef` spans from the PRD #167 transcript-normalization addendum.
 
 ## Overview
 This phase adds durable intervention records linked to support episodes after transcript provenance has been normalized. The goal is to capture what Alfred tried, which relational and support values were applied, what signals followed, and which first-class evidence refs support the record, then expose minimal query surfaces by episode, arc, context, and applied dimension. It stops short of behavior compilation and bounded adaptation.
@@ -31,9 +31,9 @@ This phase adds durable intervention records linked to support episodes after tr
 
 ### Typed intervention contract
 
-- [ ] Test: `test_support_intervention_validates_context_applied_values_and_evidence_refs()` - verify typed intervention records accept valid context-scoped support/relational summaries plus first-class evidence refs and reject unknown dimensions, invalid values, malformed signal entries, or malformed provenance refs.
-- [ ] Implement: add a typed `SupportIntervention` model with timestamp and record helpers that validates context IDs against the v1 taxonomy, applied values against the support-profile registries, and evidence refs against the normalized support-memory provenance contract.
-- [ ] Run: `uv run pytest tests/test_support_intervention.py::test_support_intervention_validates_context_applied_values_and_evidence_refs -v`
+- [x] Test: `test_support_intervention_validates_context_applied_values_and_evidence_refs()` - verify typed intervention records accept valid context-scoped support/relational summaries plus first-class evidence refs and reject unknown dimensions, invalid values, malformed signal entries, or malformed provenance refs.
+- [x] Implement: add a typed `SupportIntervention` model plus lightweight same-session `SupportInterventionMessageRef` spans that validate context IDs against the v1 taxonomy, applied values against the support-profile registries, and intervention provenance against the normalized transcript message-ID contract.
+- [x] Run: `uv run pytest tests/test_support_intervention.py::test_support_intervention_validates_context_applied_values_and_evidence_refs -v`
 
 ### Persisted intervention record round-trip
 

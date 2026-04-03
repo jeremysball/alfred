@@ -6,7 +6,9 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Literal
+
+from alfred.memory.support_profile import V1_INTERACTION_CONTEXT_IDS, validate_registry_value
 
 
 def _dump_datetime(value: datetime | None) -> str | None:
@@ -46,6 +48,44 @@ def _load_str_list(value: Any) -> list[str]:
     if decoded is None:
         return []
     return [str(item) for item in decoded]
+
+
+def _validate_trimmed_string(value: Any, *, label: str) -> str:
+    """Require a non-empty trimmed string field."""
+    if not isinstance(value, str):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a string, got {actual_type}")
+    if not value or value != value.strip():
+        raise ValueError(f"{label} must be a non-empty trimmed string")
+    return value
+
+
+def _validate_string_list(value: Any, *, label: str) -> list[str]:
+    """Require a list of non-empty trimmed strings."""
+    if not isinstance(value, list):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a list of strings, got {actual_type}")
+    return [_validate_trimmed_string(item, label=f"{label} entry") for item in value]
+
+
+def _validate_applied_values(
+    value: Any,
+    *,
+    registry: Literal["relational", "support"],
+    label: str,
+) -> dict[str, str]:
+    """Require a mapping of validated support-profile dimension/value pairs."""
+    if not isinstance(value, Mapping):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a mapping of dimension ids to values, got {actual_type}")
+
+    normalized: dict[str, str] = {}
+    for raw_dimension, raw_value in value.items():
+        dimension = _validate_trimmed_string(raw_dimension, label=f"{label} dimension")
+        validated_value = _validate_trimmed_string(raw_value, label=f"{label} value")
+        validate_registry_value(registry, dimension, validated_value)
+        normalized[dimension] = validated_value
+    return normalized
 
 
 @dataclass(eq=True)
@@ -194,6 +234,105 @@ class EvidenceRef:
             claim_type=str(record["claim_type"]),
             confidence=float(record["confidence"]),
         )
+
+
+@dataclass(eq=True, frozen=True)
+class SupportInterventionMessageRef:
+    """Minimal same-session transcript span attached to one support intervention."""
+
+    session_id: str
+    message_start_id: str
+    message_end_id: str
+
+    def __post_init__(self) -> None:
+        """Reject malformed transcript provenance spans."""
+        object.__setattr__(self, "session_id", _validate_trimmed_string(self.session_id, label="session_id"))
+        object.__setattr__(
+            self,
+            "message_start_id",
+            _validate_trimmed_string(self.message_start_id, label="message_start_id"),
+        )
+        object.__setattr__(
+            self,
+            "message_end_id",
+            _validate_trimmed_string(self.message_end_id, label="message_end_id"),
+        )
+
+
+@dataclass(eq=True)
+class SupportIntervention:
+    """Validated episode-level intervention record with typed message-span provenance."""
+
+    intervention_id: str
+    episode_id: str
+    timestamp: datetime
+    context: str
+    intervention_type: str
+    behavior_contract_summary: str
+    relational_values_applied: dict[str, str] = field(default_factory=dict)
+    support_values_applied: dict[str, str] = field(default_factory=dict)
+    user_response_signals: list[str] = field(default_factory=list)
+    outcome_signals: list[str] = field(default_factory=list)
+    evidence_refs: list[SupportInterventionMessageRef] = field(default_factory=list)
+    schema_version: int = 1
+    arc_id: str | None = None
+
+    def __post_init__(self) -> None:
+        """Reject malformed intervention records."""
+        if self.schema_version != 1:
+            raise ValueError(f"Unsupported support intervention schema version: {self.schema_version!r}. Expected 1")
+
+        self.intervention_id = _validate_trimmed_string(self.intervention_id, label="intervention_id")
+        self.episode_id = _validate_trimmed_string(self.episode_id, label="episode_id")
+        self.intervention_type = _validate_trimmed_string(self.intervention_type, label="intervention_type")
+        self.behavior_contract_summary = _validate_trimmed_string(
+            self.behavior_contract_summary,
+            label="behavior_contract_summary",
+        )
+
+        if not isinstance(self.timestamp, datetime):
+            actual_type = type(self.timestamp).__name__
+            raise ValueError(f"timestamp must be a datetime, got {actual_type}")
+
+        self.context = _validate_trimmed_string(self.context, label="context")
+        if self.context not in V1_INTERACTION_CONTEXT_IDS:
+            allowed_contexts = ", ".join(V1_INTERACTION_CONTEXT_IDS)
+            raise ValueError(f"Unsupported intervention context: {self.context!r}. Expected one of: {allowed_contexts}")
+
+        if self.arc_id is not None:
+            self.arc_id = _validate_trimmed_string(self.arc_id, label="arc_id")
+
+        self.relational_values_applied = _validate_applied_values(
+            self.relational_values_applied,
+            registry="relational",
+            label="relational_values_applied",
+        )
+        self.support_values_applied = _validate_applied_values(
+            self.support_values_applied,
+            registry="support",
+            label="support_values_applied",
+        )
+        self.user_response_signals = _validate_string_list(
+            self.user_response_signals,
+            label="user_response_signals",
+        )
+        self.outcome_signals = _validate_string_list(
+            self.outcome_signals,
+            label="outcome_signals",
+        )
+
+        if not isinstance(self.evidence_refs, list):
+            actual_type = type(self.evidence_refs).__name__
+            raise ValueError(f"evidence_refs must be a list of SupportInterventionMessageRef values, got {actual_type}")
+        if not self.evidence_refs:
+            raise ValueError("evidence_refs must include at least one transcript span")
+        for evidence_ref in self.evidence_refs:
+            if not isinstance(evidence_ref, SupportInterventionMessageRef):
+                raise ValueError("evidence_refs must contain SupportInterventionMessageRef values")
+
+        first_session_id = self.evidence_refs[0].session_id
+        if any(evidence_ref.session_id != first_session_id for evidence_ref in self.evidence_refs[1:]):
+            raise ValueError("evidence_refs must all point to the same session_id")
 
 
 @dataclass(eq=True)
