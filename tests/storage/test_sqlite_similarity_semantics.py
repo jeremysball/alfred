@@ -101,12 +101,12 @@ class TestSessionSimilaritySemantics:
     ) -> None:
         """The closest session summary must have the highest returned similarity."""
         await db_conn.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("sess-close", "[]"),
+            "INSERT INTO sessions (session_id) VALUES (?)",
+            ("sess-close",),
         )
         await db_conn.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("sess-far", "[]"),
+            "INSERT INTO sessions (session_id) VALUES (?)",
+            ("sess-far",),
         )
         await db_conn.execute(
             """
@@ -176,19 +176,34 @@ class TestSessionSimilaritySemantics:
         async with aiosqlite.connect(sqlite_store.db_path) as db:
             await sqlite_store._load_extensions(db)
             await db.execute(
-                "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-                ("sess-msg", "[]"),
+                "INSERT INTO sessions (session_id) VALUES (?)",
+                ("sess-msg",),
+            )
+            await db.execute(
+                """
+                INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("sess-msg", "msg-0", 0, "user", '{"role": "user", "content": "close message"}'),
+            )
+            await db.execute(
+                """
+                INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("sess-msg", "msg-1", 1, "assistant", '{"role": "assistant", "content": "far message"}'),
             )
             await db.execute(
                 """
                 INSERT INTO message_embeddings (
-                    message_embedding_id, session_id, message_idx,
+                    message_embedding_id, session_id, message_id, message_idx,
                     role, content_snippet, embedding
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "sess-msg_0",
                     "sess-msg",
+                    "msg-0",
                     0,
                     "user",
                     "close message",
@@ -198,13 +213,14 @@ class TestSessionSimilaritySemantics:
             await db.execute(
                 """
                 INSERT INTO message_embeddings (
-                    message_embedding_id, session_id, message_idx,
+                    message_embedding_id, session_id, message_id, message_idx,
                     role, content_snippet, embedding
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "sess-msg_1",
                     "sess-msg",
+                    "msg-1",
                     1,
                     "assistant",
                     "far message",

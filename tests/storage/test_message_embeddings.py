@@ -36,8 +36,15 @@ class TestMessageEmbeddingsTable:
 
         # Insert parent session first
         await db.execute(
-            "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-            ("sess_test", "[]", 2),
+            "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+            ("sess_test", 2),
+        )
+        await db.execute(
+            """
+            INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("sess_test", "msg-0", 0, "user", json.dumps({"role": "user", "content": "Hello"})),
         )
         await db.commit()
 
@@ -45,10 +52,10 @@ class TestMessageEmbeddingsTable:
         await db.execute(
             """
             INSERT INTO message_embeddings
-            (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (message_embedding_id, session_id, message_id, message_idx, role, content_snippet, embedding)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("me_test", "sess_test", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3])),
+            ("me_test", "sess_test", "msg-0", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3])),
         )
         await db.commit()
 
@@ -67,10 +74,10 @@ class TestMessageEmbeddingsTable:
             await db.execute(
                 """
                 INSERT INTO message_embeddings
-                (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (message_embedding_id, session_id, message_id, message_idx, role, content_snippet, embedding)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("me_orphan", "nonexistent", 0, "user", "Test", json.dumps([0.1])),
+                ("me_orphan", "nonexistent", "msg-0", 0, "user", "Test", json.dumps([0.1])),
             )
             await db.commit()
 
@@ -81,16 +88,23 @@ class TestMessageEmbeddingsTable:
 
         # Insert session and message
         await db.execute(
-            "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-            ("sess_cascade", "[]", 1),
+            "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+            ("sess_cascade", 1),
+        )
+        await db.execute(
+            """
+            INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("sess_cascade", "msg-0", 0, "user", json.dumps({"role": "user", "content": "Hi"})),
         )
         await db.execute(
             """
             INSERT INTO message_embeddings
-            (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (message_embedding_id, session_id, message_id, message_idx, role, content_snippet, embedding)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("me_cascade", "sess_cascade", 0, "user", "Hi", json.dumps([0.1])),
+            ("me_cascade", "sess_cascade", "msg-0", 0, "user", "Hi", json.dumps([0.1])),
         )
         await db.commit()
 

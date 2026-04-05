@@ -133,12 +133,12 @@ async def test_memory_and_session_search_share_the_same_similarity_direction(
         await session_store._load_extensions(db)
         await db.execute("PRAGMA foreign_keys = ON")
         await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("session-blue", json.dumps([])),
+            "INSERT INTO sessions (session_id) VALUES (?)",
+            ("session-blue",),
         )
         await db.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            ("session-pizza", json.dumps([])),
+            "INSERT INTO sessions (session_id) VALUES (?)",
+            ("session-pizza",),
         )
         await db.execute(
             """
@@ -186,14 +186,29 @@ async def test_memory_and_session_search_share_the_same_similarity_direction(
         )
         await db.execute(
             """
+            INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("session-blue", "msg-0", 0, "user", json.dumps({"role": "user", "content": "My favorite color is blue"})),
+        )
+        await db.execute(
+            """
+            INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("session-blue", "msg-1", 1, "assistant", json.dumps({"role": "assistant", "content": "Pizza is not the answer here"})),
+        )
+        await db.execute(
+            """
             INSERT INTO message_embeddings (
-                message_embedding_id, session_id, message_idx,
+                message_embedding_id, session_id, message_id, message_idx,
                 role, content_snippet, embedding
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 "session-blue_0",
                 "session-blue",
+                "msg-0",
                 0,
                 "user",
                 "My favorite color is blue",
@@ -203,13 +218,14 @@ async def test_memory_and_session_search_share_the_same_similarity_direction(
         await db.execute(
             """
             INSERT INTO message_embeddings (
-                message_embedding_id, session_id, message_idx,
+                message_embedding_id, session_id, message_id, message_idx,
                 role, content_snippet, embedding
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 "session-blue_1",
                 "session-blue",
+                "msg-1",
                 1,
                 "assistant",
                 "Pizza is not the answer here",

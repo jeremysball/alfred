@@ -211,8 +211,8 @@ class TestInitSchemaGuardrails:
             await store._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             await db.execute(
-                "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-                ("session-1", "[]"),
+                "INSERT INTO sessions (session_id) VALUES (?)",
+                ("session-1",),
             )
             await db.execute(
                 """
@@ -248,14 +248,22 @@ class TestInitSchemaGuardrails:
             )
             await db.execute(
                 """
+                INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("session-1", "msg-0", 0, "user", '{"role": "user", "content": "hello cosine rebuild"}'),
+            )
+            await db.execute(
+                """
                 INSERT INTO message_embeddings (
-                    message_embedding_id, session_id, message_idx,
+                    message_embedding_id, session_id, message_id, message_idx,
                     role, content_snippet, embedding
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "session-1_0",
                     "session-1",
+                    "msg-0",
                     0,
                     "user",
                     "hello cosine rebuild",
@@ -347,8 +355,8 @@ class TestInitSchemaGuardrails:
             await store._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             await db.execute(
-                "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-                ("session-1", "[]"),
+                "INSERT INTO sessions (session_id) VALUES (?)",
+                ("session-1",),
             )
             await db.execute(
                 """
@@ -371,14 +379,22 @@ class TestInitSchemaGuardrails:
             )
             await db.execute(
                 """
+                INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("session-1", "msg-0", 0, "user", '{"role": "user", "content": "hello cosine rebuild"}'),
+            )
+            await db.execute(
+                """
                 INSERT INTO message_embeddings (
-                    message_embedding_id, session_id, message_idx,
+                    message_embedding_id, session_id, message_id, message_idx,
                     role, content_snippet, embedding
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "session-1_0",
                     "session-1",
+                    "msg-0",
                     0,
                     "user",
                     "hello cosine rebuild",
@@ -773,10 +789,10 @@ class TestVecTableRebuild:
             await store._load_extensions(db)
             await db.execute(
                 """
-                INSERT INTO sessions (session_id, messages, message_count, metadata)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO sessions (session_id, message_count, metadata)
+                VALUES (?, ?, ?)
                 """,
-                ("session-1", "[]", 2, "{}"),
+                ("session-1", 2, "{}"),
             )
             await db.execute(
                 """
@@ -799,14 +815,22 @@ class TestVecTableRebuild:
             )
             await db.execute(
                 """
+                INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("session-1", "msg-1", 0, "user", '{"role": "user", "content": "cosine snippet"}'),
+            )
+            await db.execute(
+                """
                 INSERT INTO message_embeddings (
-                    message_embedding_id, session_id, message_idx,
+                    message_embedding_id, session_id, message_id, message_idx,
                     role, content_snippet, embedding
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "msg-1",
                     "session-1",
+                    "msg-1",
                     0,
                     "user",
                     "cosine snippet",
