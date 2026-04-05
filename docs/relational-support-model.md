@@ -172,12 +172,13 @@ Instead:
 - the model composes natural language inside that contract
 
 That means the model infers phrasing, not product semantics.
+The prompt contract should steer behavior without forcing stock wording or exposing internal policy labels by default.
 
 ## Learning model
 
-The learning system should operate on **episodes inside sessions**.
+The learning system should operate on **learning situations inside sessions**.
 
-### Why episodes
+### Why learning situations
 A single conversation can move through multiple contexts:
 - execution
 - decision support
@@ -185,16 +186,21 @@ A single conversation can move through multiple contexts:
 - direction reflection
 
 One session blob is too coarse for reliable learning.
+A full episode report is useful later for review, but it is too coarse to be the only similarity and adaptation unit.
 
-### Episode concept
-Each episode should capture:
-- dominant context
+### Learning-situation concept
+Each learning situation should capture:
+- dominant support need / response mode for the moment
 - subject refs
 - interventions attempted
 - response signals
 - outcome signals
 - evidence refs
 - the relational and support contract used
+
+### Episode role
+`SupportEpisode` should remain a derived synthesis/report boundary.
+It can summarize several learning situations later for review, reflection, and correction surfaces.
 
 ## Learning classes
 

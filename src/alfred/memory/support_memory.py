@@ -6,7 +6,9 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Literal
+
+from alfred.memory.support_profile import V1_INTERACTION_CONTEXT_IDS, validate_registry_value
 
 
 def _dump_datetime(value: datetime | None) -> str | None:
@@ -48,6 +50,64 @@ def _load_str_list(value: Any) -> list[str]:
     return [str(item) for item in decoded]
 
 
+def _dump_str_dict(values: Mapping[str, str]) -> str:
+    """Serialize a mapping of strings as JSON text."""
+    return json.dumps(dict(values))
+
+
+def _load_str_dict(value: Any) -> dict[str, str]:
+    """Deserialize a JSON object of strings from SQLite storage."""
+    if value is None:
+        return {}
+    if isinstance(value, str):
+        decoded: Any = json.loads(value)
+    else:
+        decoded = value
+    if decoded is None:
+        return {}
+    if not isinstance(decoded, Mapping):
+        raise ValueError("Expected a JSON object of string values")
+    return {str(key): str(item) for key, item in decoded.items()}
+
+
+def _validate_trimmed_string(value: Any, *, label: str) -> str:
+    """Require a non-empty trimmed string field."""
+    if not isinstance(value, str):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a string, got {actual_type}")
+    if not value or value != value.strip():
+        raise ValueError(f"{label} must be a non-empty trimmed string")
+    return value
+
+
+def _validate_string_list(value: Any, *, label: str) -> list[str]:
+    """Require a list of non-empty trimmed strings."""
+    if not isinstance(value, list):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a list of strings, got {actual_type}")
+    return [_validate_trimmed_string(item, label=f"{label} entry") for item in value]
+
+
+def _validate_applied_values(
+    value: Any,
+    *,
+    registry: Literal["relational", "support"],
+    label: str,
+) -> dict[str, str]:
+    """Require a mapping of validated support-profile dimension/value pairs."""
+    if not isinstance(value, Mapping):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a mapping of dimension ids to values, got {actual_type}")
+
+    normalized: dict[str, str] = {}
+    for raw_dimension, raw_value in value.items():
+        dimension = _validate_trimmed_string(raw_dimension, label=f"{label} dimension")
+        validated_value = _validate_trimmed_string(raw_value, label=f"{label} value")
+        validate_registry_value(registry, dimension, validated_value)
+        normalized[dimension] = validated_value
+    return normalized
+
+
 @dataclass(eq=True)
 class EvidenceRef:
     """Pointer from structured support memory back to a transcript record."""
@@ -55,9 +115,9 @@ class EvidenceRef:
     evidence_id: str
     episode_id: str
     session_id: str
-    message_start_idx: int
+    message_start_id: str
     timestamp: datetime
-    message_end_idx: int | None = None
+    message_end_id: str | None = None
     excerpt: str | None = None
     domain_ids: list[str] = field(default_factory=list)
     arc_ids: list[str] = field(default_factory=list)
@@ -70,8 +130,8 @@ class EvidenceRef:
             "evidence_id": self.evidence_id,
             "episode_id": self.episode_id,
             "session_id": self.session_id,
-            "message_start_idx": self.message_start_idx,
-            "message_end_idx": self.message_end_idx,
+            "message_start_id": self.message_start_id,
+            "message_end_id": self.message_end_id,
             "excerpt": self.excerpt,
             "timestamp": _dump_datetime(self.timestamp),
             "domain_ids": _dump_str_list(self.domain_ids),
@@ -84,29 +144,20 @@ class EvidenceRef:
     def _resolve_session_message(
         messages: Sequence[Mapping[str, Any]],
         *,
-        message_idx: int | None = None,
-        message_id: str | None = None,
+        message_id: str,
         label: str,
-    ) -> tuple[Mapping[str, Any], int]:
-        """Resolve a session message from its persisted ID or index."""
-        matches: list[tuple[Mapping[str, Any], int]] = []
+    ) -> tuple[Mapping[str, Any], str, int]:
+        """Resolve a session message from its persisted message ID."""
+        matches: list[tuple[Mapping[str, Any], str, int]] = []
         for fallback_idx, message in enumerate(messages):
             resolved_idx = int(message.get("idx", fallback_idx))
-            resolved_id = message.get("id")
-            if message_idx is not None and resolved_idx != message_idx:
+            resolved_id = str(message.get("id", "")).strip()
+            if resolved_id != message_id:
                 continue
-            if message_id is not None and str(resolved_id) != message_id:
-                continue
-            matches.append((message, resolved_idx))
+            matches.append((message, resolved_id, resolved_idx))
 
         if not matches:
-            selector_bits: list[str] = []
-            if message_idx is not None:
-                selector_bits.append(f"idx={message_idx}")
-            if message_id is not None:
-                selector_bits.append(f"id={message_id}")
-            selector = " and ".join(selector_bits) if selector_bits else "unspecified selector"
-            raise ValueError(f"Could not resolve {label} session message from {selector}")
+            raise ValueError(f"Could not resolve {label} session message from id={message_id}")
 
         if len(matches) > 1:
             raise ValueError(f"Multiple session messages matched the {label} selector")
@@ -121,9 +172,7 @@ class EvidenceRef:
         episode_id: str,
         session_id: str,
         messages: Sequence[Mapping[str, Any]],
-        message_start_idx: int | None = None,
-        message_end_idx: int | None = None,
-        message_start_id: str | None = None,
+        message_start_id: str,
         message_end_id: str | None = None,
         timestamp: datetime | None = None,
         excerpt: str | None = None,
@@ -132,37 +181,33 @@ class EvidenceRef:
         claim_type: str = "stated_priority",
         confidence: float = 0.0,
     ) -> EvidenceRef:
-        """Build an evidence ref from a persisted transcript message span.
+        """Build an evidence ref from a persisted transcript message-ID span.
 
         The helper resolves the selected messages from the session archive,
         preserves the transcript payload unchanged, and uses the span's first
         message as the default excerpt and timestamp source when those fields
         are not provided explicitly.
         """
-        if message_start_idx is None and message_start_id is None:
-            raise ValueError("message_start_idx or message_start_id is required")
-
-        resolved_start_message, resolved_start_idx = cls._resolve_session_message(
+        resolved_start_message, resolved_start_id, resolved_start_idx = cls._resolve_session_message(
             messages,
-            message_idx=message_start_idx,
             message_id=message_start_id,
             label="start",
         )
 
-        if message_end_idx is None and message_end_id is None:
+        if message_end_id is None:
             resolved_end_message = resolved_start_message
+            resolved_end_id = resolved_start_id
             resolved_end_idx = resolved_start_idx
         else:
-            resolved_end_message, resolved_end_idx = cls._resolve_session_message(
+            resolved_end_message, resolved_end_id, resolved_end_idx = cls._resolve_session_message(
                 messages,
-                message_idx=message_end_idx,
                 message_id=message_end_id,
                 label="end",
             )
 
         if resolved_start_idx > resolved_end_idx:
             raise ValueError(
-                f"Evidence span must start before it ends: start_idx={resolved_start_idx} end_idx={resolved_end_idx}",
+                f"Evidence span must start before it ends: start_id={resolved_start_id} end_id={resolved_end_id}",
             )
 
         evidence_timestamp = timestamp
@@ -183,8 +228,8 @@ class EvidenceRef:
             evidence_id=evidence_id,
             episode_id=episode_id,
             session_id=session_id,
-            message_start_idx=resolved_start_idx,
-            message_end_idx=resolved_end_idx,
+            message_start_id=resolved_start_id,
+            message_end_id=resolved_end_id,
             timestamp=evidence_timestamp,
             excerpt=resolved_excerpt,
             domain_ids=list(domain_ids or []),
@@ -200,14 +245,184 @@ class EvidenceRef:
             evidence_id=str(record["evidence_id"]),
             episode_id=str(record["episode_id"]),
             session_id=str(record["session_id"]),
-            message_start_idx=int(record["message_start_idx"]),
+            message_start_id=str(record["message_start_id"]),
             timestamp=_load_datetime(record["timestamp"]),
-            message_end_idx=None if record.get("message_end_idx") is None else int(record["message_end_idx"]),
+            message_end_id=None if record.get("message_end_id") is None else str(record["message_end_id"]),
             excerpt=record.get("excerpt"),
             domain_ids=_load_str_list(record.get("domain_ids")),
             arc_ids=_load_str_list(record.get("arc_ids")),
             claim_type=str(record["claim_type"]),
             confidence=float(record["confidence"]),
+        )
+
+
+@dataclass(eq=True, frozen=True)
+class SupportInterventionMessageRef:
+    """Minimal same-session transcript span attached to one support intervention."""
+
+    session_id: str
+    message_start_id: str
+    message_end_id: str
+
+    def __post_init__(self) -> None:
+        """Reject malformed transcript provenance spans."""
+        object.__setattr__(self, "session_id", _validate_trimmed_string(self.session_id, label="session_id"))
+        object.__setattr__(
+            self,
+            "message_start_id",
+            _validate_trimmed_string(self.message_start_id, label="message_start_id"),
+        )
+        object.__setattr__(
+            self,
+            "message_end_id",
+            _validate_trimmed_string(self.message_end_id, label="message_end_id"),
+        )
+
+    def to_record(self) -> dict[str, Any]:
+        """Convert the message span ref into a JSON-ready record."""
+        return {
+            "session_id": self.session_id,
+            "message_start_id": self.message_start_id,
+            "message_end_id": self.message_end_id,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportInterventionMessageRef:
+        """Build a message span ref from a JSON-decoded record."""
+        return cls(
+            session_id=str(record["session_id"]),
+            message_start_id=str(record["message_start_id"]),
+            message_end_id=str(record["message_end_id"]),
+        )
+
+
+@dataclass(eq=True)
+class SupportIntervention:
+    """Validated episode-level intervention record with typed message-span provenance."""
+
+    intervention_id: str
+    episode_id: str
+    timestamp: datetime
+    context: str
+    intervention_type: str
+    behavior_contract_summary: str
+    relational_values_applied: dict[str, str] = field(default_factory=dict)
+    support_values_applied: dict[str, str] = field(default_factory=dict)
+    user_response_signals: list[str] = field(default_factory=list)
+    outcome_signals: list[str] = field(default_factory=list)
+    evidence_refs: list[SupportInterventionMessageRef] = field(default_factory=list)
+    schema_version: int = 1
+    arc_id: str | None = None
+
+    def __post_init__(self) -> None:
+        """Reject malformed intervention records."""
+        if self.schema_version != 1:
+            raise ValueError(f"Unsupported support intervention schema version: {self.schema_version!r}. Expected 1")
+
+        self.intervention_id = _validate_trimmed_string(self.intervention_id, label="intervention_id")
+        self.episode_id = _validate_trimmed_string(self.episode_id, label="episode_id")
+        self.intervention_type = _validate_trimmed_string(self.intervention_type, label="intervention_type")
+        self.behavior_contract_summary = _validate_trimmed_string(
+            self.behavior_contract_summary,
+            label="behavior_contract_summary",
+        )
+
+        if not isinstance(self.timestamp, datetime):
+            actual_type = type(self.timestamp).__name__
+            raise ValueError(f"timestamp must be a datetime, got {actual_type}")
+
+        self.context = _validate_trimmed_string(self.context, label="context")
+        if self.context not in V1_INTERACTION_CONTEXT_IDS:
+            allowed_contexts = ", ".join(V1_INTERACTION_CONTEXT_IDS)
+            raise ValueError(f"Unsupported intervention context: {self.context!r}. Expected one of: {allowed_contexts}")
+
+        if self.arc_id is not None:
+            self.arc_id = _validate_trimmed_string(self.arc_id, label="arc_id")
+
+        self.relational_values_applied = _validate_applied_values(
+            self.relational_values_applied,
+            registry="relational",
+            label="relational_values_applied",
+        )
+        self.support_values_applied = _validate_applied_values(
+            self.support_values_applied,
+            registry="support",
+            label="support_values_applied",
+        )
+        self.user_response_signals = _validate_string_list(
+            self.user_response_signals,
+            label="user_response_signals",
+        )
+        self.outcome_signals = _validate_string_list(
+            self.outcome_signals,
+            label="outcome_signals",
+        )
+
+        if not isinstance(self.evidence_refs, list):
+            actual_type = type(self.evidence_refs).__name__
+            raise ValueError(f"evidence_refs must be a list of SupportInterventionMessageRef values, got {actual_type}")
+        if not self.evidence_refs:
+            raise ValueError("evidence_refs must include at least one transcript span")
+        for evidence_ref in self.evidence_refs:
+            if not isinstance(evidence_ref, SupportInterventionMessageRef):
+                raise ValueError("evidence_refs must contain SupportInterventionMessageRef values")
+
+        first_session_id = self.evidence_refs[0].session_id
+        if any(evidence_ref.session_id != first_session_id for evidence_ref in self.evidence_refs[1:]):
+            raise ValueError("evidence_refs must all point to the same session_id")
+
+    def to_record(self) -> dict[str, Any]:
+        """Convert the intervention into a SQLite-ready record."""
+        return {
+            "schema_version": self.schema_version,
+            "intervention_id": self.intervention_id,
+            "episode_id": self.episode_id,
+            "timestamp": _dump_datetime(self.timestamp),
+            "context": self.context,
+            "arc_id": self.arc_id,
+            "intervention_type": self.intervention_type,
+            "relational_values_applied": _dump_str_dict(self.relational_values_applied),
+            "support_values_applied": _dump_str_dict(self.support_values_applied),
+            "behavior_contract_summary": self.behavior_contract_summary,
+            "user_response_signals": _dump_str_list(self.user_response_signals),
+            "outcome_signals": _dump_str_list(self.outcome_signals),
+            "evidence_refs": json.dumps([evidence_ref.to_record() for evidence_ref in self.evidence_refs]),
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportIntervention:
+        """Build a support intervention from a SQLite row or dict."""
+        raw_evidence_refs = record.get("evidence_refs")
+        if isinstance(raw_evidence_refs, str):
+            decoded_evidence_refs: Any = json.loads(raw_evidence_refs)
+        else:
+            decoded_evidence_refs = raw_evidence_refs
+        if decoded_evidence_refs is None:
+            decoded_evidence_refs = []
+        if not isinstance(decoded_evidence_refs, list):
+            raise ValueError("Support intervention evidence_refs must deserialize to a list of records")
+
+        evidence_refs: list[SupportInterventionMessageRef] = []
+        for decoded_evidence_ref in decoded_evidence_refs:
+            if not isinstance(decoded_evidence_ref, Mapping):
+                raise ValueError("Support intervention evidence_refs must contain mapping records")
+            evidence_refs.append(SupportInterventionMessageRef.from_record(decoded_evidence_ref))
+
+        arc_id = record.get("arc_id")
+        return cls(
+            intervention_id=str(record["intervention_id"]),
+            episode_id=str(record["episode_id"]),
+            timestamp=_load_datetime(record["timestamp"]),
+            context=str(record["context"]),
+            intervention_type=str(record["intervention_type"]),
+            behavior_contract_summary=str(record["behavior_contract_summary"]),
+            relational_values_applied=_load_str_dict(record.get("relational_values_applied")),
+            support_values_applied=_load_str_dict(record.get("support_values_applied")),
+            user_response_signals=_load_str_list(record.get("user_response_signals")),
+            outcome_signals=_load_str_list(record.get("outcome_signals")),
+            evidence_refs=evidence_refs,
+            schema_version=int(record.get("schema_version", 1)),
+            arc_id=None if arc_id is None else str(arc_id),
         )
 
 

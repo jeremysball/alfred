@@ -10,11 +10,17 @@ results exposed to Alfred callers.
 import contextlib
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+from alfred.memory.support_learning import (
+    LearningSituation,
+    SupportPattern,
+    SupportProfileUpdateEvent,
+)
 from alfred.memory.support_memory import (
     ArcBlocker,
     ArcDecision,
@@ -27,6 +33,14 @@ from alfred.memory.support_memory import (
     LifeDomain,
     OperationalArc,
     SupportEpisode,
+    SupportIntervention,
+    SupportInterventionMessageRef,
+)
+from alfred.memory.support_profile import (
+    SupportProfileRegistryKind,
+    SupportProfileScope,
+    SupportProfileValue,
+    get_registry_dimension,
 )
 from alfred.observability import Surface, log_event
 
@@ -227,6 +241,7 @@ class SQLiteStore:
 
             # Create tables
             await self._create_sessions_table(db)
+            await self._create_session_messages_table(db)
             await self._create_session_summaries_table(db)
             await self._create_message_embeddings_table(db)
             await self._create_cron_tables(db)
@@ -264,11 +279,13 @@ class SQLiteStore:
             "memory_embeddings",
             "session_summaries_vec",
             "message_embeddings_vec",
+            "support_learning_situations_vec",
         }
         allowed_tables = {
             "memory_embeddings",
             "session_summaries_vec",
             "message_embeddings_vec",
+            "support_learning_situations_vec",
         }
         unknown_tables = vec_tables - allowed_tables
         if unknown_tables:
@@ -298,6 +315,8 @@ class SQLiteStore:
                 await self._create_session_summaries_table(db)
             if "message_embeddings_vec" in vec_tables:
                 await self._create_message_embeddings_table(db)
+            if "support_learning_situations_vec" in vec_tables:
+                await self._create_support_memory_tables(db)
             await db.commit()
 
         if "memory_embeddings" in vec_tables:
@@ -306,6 +325,8 @@ class SQLiteStore:
             await self._repopulate_session_summary_embeddings()
         if "message_embeddings_vec" in vec_tables:
             await self._repopulate_message_embeddings()
+        if "support_learning_situations_vec" in vec_tables:
+            await self._repopulate_support_learning_situation_embeddings()
 
         self._initialized = True
 
@@ -394,6 +415,31 @@ class SQLiteStore:
 
             await db.commit()
 
+    async def _repopulate_support_learning_situation_embeddings(self) -> None:
+        """Rebuild learning-situation vectors from stored embeddings."""
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            db.row_factory = aiosqlite.Row
+
+            async with db.execute("SELECT situation_id, embedding FROM support_learning_situations") as cursor:
+                situations = await cursor.fetchall()
+
+            if not situations:
+                return
+
+            for situation in situations:
+                await db.execute(
+                    """
+                    INSERT INTO support_learning_situations_vec (situation_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (situation["situation_id"], situation["embedding"]),
+                )
+
+            await db.commit()
+
     async def _create_sessions_table(self, db: Any) -> None:
         """Create sessions table."""
         await db.execute("""
@@ -401,7 +447,6 @@ class SQLiteStore:
                 session_id TEXT PRIMARY KEY,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                messages JSON NOT NULL DEFAULT '[]',
                 message_count INTEGER DEFAULT 0,
                 metadata JSON DEFAULT '{}'
             )
@@ -412,6 +457,79 @@ class SQLiteStore:
             CREATE INDEX IF NOT EXISTS idx_sessions_updated
             ON sessions(updated_at)
         """)
+
+    async def _create_session_messages_table(self, db: Any) -> None:
+        """Create canonical transcript rows for session messages."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS session_messages (
+                session_id TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                message_idx INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                timestamp TIMESTAMP,
+                payload_json JSON NOT NULL,
+                PRIMARY KEY (session_id, message_id),
+                UNIQUE (session_id, message_idx),
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_messages_session_idx
+            ON session_messages(session_id, message_idx)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_session_messages_session_timestamp
+            ON session_messages(session_id, timestamp)
+        """)
+
+    @staticmethod
+    def _session_message_identity(message: Mapping[str, Any], fallback_idx: int) -> tuple[str, int, str, str | None, str]:
+        """Resolve the canonical storage fields for one transcript message."""
+        raw_message_id = message.get("id")
+        message_id = str(raw_message_id).strip() if raw_message_id is not None else ""
+        if not message_id:
+            message_id = f"__idx__{fallback_idx}"
+
+        message_idx = int(message.get("idx", fallback_idx))
+        role = str(message.get("role", "unknown"))
+
+        raw_timestamp = message.get("timestamp")
+        timestamp = None if raw_timestamp is None else str(raw_timestamp)
+
+        return (message_id, message_idx, role, timestamp, json.dumps(message))
+
+    @staticmethod
+    def _message_embedding_locator(session_id: str, message_id: str) -> str:
+        """Build the vec-table locator for one canonical transcript message."""
+        return f"{session_id}:{message_id}"
+
+    async def _replace_session_messages(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
+        """Replace one session's canonical transcript rows."""
+        await db.execute("DELETE FROM session_messages WHERE session_id = ?", (session_id,))
+        for fallback_idx, message in enumerate(messages):
+            message_id, message_idx, role, timestamp, payload_json = self._session_message_identity(message, fallback_idx)
+            await db.execute(
+                """
+                INSERT INTO session_messages (
+                    session_id, message_id, message_idx, role, timestamp, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (session_id, message_id, message_idx, role, timestamp, payload_json),
+            )
+
+    async def _load_session_messages(self, db: Any, session_id: str) -> list[dict[str, Any]]:
+        """Load one session's transcript payload from canonical transcript rows."""
+        async with db.execute(
+            """
+            SELECT payload_json
+            FROM session_messages
+            WHERE session_id = ?
+            ORDER BY message_idx ASC, message_id ASC
+            """,
+            (session_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [_sanitize_json_data(json.loads(row[0])) for row in rows]
 
     async def _create_session_summaries_table(self, db: Any) -> None:
         """Create session_summaries table with FK to sessions."""
@@ -444,16 +562,19 @@ class SQLiteStore:
         await self._ensure_vec0_dimension(db, "session_summaries_vec", "summary_id")
 
     async def _create_message_embeddings_table(self, db: Any) -> None:
-        """Create message_embeddings table with FK to sessions."""
+        """Create message_embeddings table with FK to canonical transcript rows."""
         await db.execute("""
             CREATE TABLE IF NOT EXISTS message_embeddings (
                 message_embedding_id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
+                message_id TEXT NOT NULL,
                 message_idx INTEGER NOT NULL,
                 role TEXT NOT NULL,
                 content_snippet TEXT,
                 embedding JSON NOT NULL,
-                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+                UNIQUE (session_id, message_id),
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_id) REFERENCES session_messages(session_id, message_id) ON DELETE CASCADE
             )
         """)
 
@@ -461,6 +582,10 @@ class SQLiteStore:
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_message_embeddings_session
             ON message_embeddings(session_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_message_embeddings_session_message
+            ON message_embeddings(session_id, message_id)
         """)
 
         # Check if vec0 table exists with different dimension
@@ -842,8 +967,8 @@ class SQLiteStore:
                 evidence_id TEXT PRIMARY KEY,
                 episode_id TEXT NOT NULL,
                 session_id TEXT NOT NULL,
-                message_start_idx INTEGER NOT NULL,
-                message_end_idx INTEGER,
+                message_start_id TEXT NOT NULL,
+                message_end_id TEXT,
                 excerpt TEXT,
                 timestamp TIMESTAMP NOT NULL,
                 domain_ids JSON NOT NULL DEFAULT '[]',
@@ -851,16 +976,195 @@ class SQLiteStore:
                 claim_type TEXT NOT NULL,
                 confidence REAL NOT NULL,
                 FOREIGN KEY (episode_id) REFERENCES support_episodes(episode_id) ON DELETE CASCADE,
-                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_start_id) REFERENCES session_messages(session_id, message_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_end_id) REFERENCES session_messages(session_id, message_id) ON DELETE CASCADE
             )
         """)
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_evidence_episode
-            ON support_evidence_refs(episode_id, message_start_idx, evidence_id)
+            ON support_evidence_refs(episode_id, message_start_id, evidence_id)
         """)
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_support_evidence_session
             ON support_evidence_refs(session_id, timestamp DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_evidence_session_start
+            ON support_evidence_refs(session_id, message_start_id)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_interventions (
+                intervention_id TEXT PRIMARY KEY,
+                episode_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                timestamp TIMESTAMP NOT NULL,
+                context TEXT NOT NULL,
+                arc_id TEXT,
+                intervention_type TEXT NOT NULL,
+                relational_values_applied JSON NOT NULL DEFAULT '{}',
+                support_values_applied JSON NOT NULL DEFAULT '{}',
+                behavior_contract_summary TEXT NOT NULL,
+                user_response_signals JSON NOT NULL DEFAULT '[]',
+                outcome_signals JSON NOT NULL DEFAULT '[]',
+                UNIQUE (intervention_id, session_id),
+                FOREIGN KEY (episode_id) REFERENCES support_episodes(episode_id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_interventions_episode_timestamp
+            ON support_interventions(episode_id, timestamp ASC, intervention_id ASC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_interventions_arc_timestamp
+            ON support_interventions(arc_id, timestamp DESC, intervention_id DESC)
+            WHERE arc_id IS NOT NULL
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_interventions_context_timestamp
+            ON support_interventions(context, timestamp DESC, intervention_id DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_intervention_message_refs (
+                intervention_id TEXT NOT NULL,
+                evidence_order INTEGER NOT NULL,
+                session_id TEXT NOT NULL,
+                message_start_id TEXT NOT NULL,
+                message_end_id TEXT NOT NULL,
+                PRIMARY KEY (intervention_id, evidence_order),
+                FOREIGN KEY (intervention_id, session_id)
+                    REFERENCES support_interventions(intervention_id, session_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_start_id)
+                    REFERENCES session_messages(session_id, message_id)
+                    ON DELETE CASCADE,
+                FOREIGN KEY (session_id, message_end_id)
+                    REFERENCES session_messages(session_id, message_id)
+                    ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_intervention_refs_session_start
+            ON support_intervention_message_refs(session_id, message_start_id)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_intervention_refs_intervention_order
+            ON support_intervention_message_refs(intervention_id, evidence_order)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_learning_situations (
+                situation_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                recorded_at TIMESTAMP NOT NULL,
+                turn_text TEXT NOT NULL,
+                embedding JSON NOT NULL,
+                need TEXT NOT NULL,
+                response_mode TEXT NOT NULL,
+                subject_refs JSON NOT NULL DEFAULT '[]',
+                arc_id TEXT,
+                domain_ids JSON NOT NULL DEFAULT '[]',
+                intervention_ids JSON NOT NULL DEFAULT '[]',
+                behavior_contract_summary TEXT NOT NULL,
+                intervention_family TEXT NOT NULL,
+                relational_values_applied JSON NOT NULL DEFAULT '{}',
+                support_values_applied JSON NOT NULL DEFAULT '{}',
+                user_response_signals JSON NOT NULL DEFAULT '[]',
+                outcome_signals JSON NOT NULL DEFAULT '[]',
+                evidence_refs JSON NOT NULL DEFAULT '[]',
+                FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_learning_situations_session_recorded
+            ON support_learning_situations(session_id, recorded_at ASC, situation_id ASC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_learning_situations_arc_recorded
+            ON support_learning_situations(arc_id, recorded_at DESC, situation_id DESC)
+            WHERE arc_id IS NOT NULL
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_learning_situations_need_mode
+            ON support_learning_situations(need, response_mode, recorded_at DESC)
+        """)
+        await self._ensure_vec0_dimension(db, "support_learning_situations_vec", "situation_id")
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_patterns (
+                pattern_id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                scope_type TEXT NOT NULL,
+                scope_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                claim TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                supporting_situation_ids JSON NOT NULL DEFAULT '[]',
+                support_overrides JSON NOT NULL DEFAULT '{}',
+                relational_overrides JSON NOT NULL DEFAULT '{}'
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_patterns_scope_status
+            ON support_patterns(scope_type, scope_id, status, updated_at DESC)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_patterns_kind_status
+            ON support_patterns(kind, status, updated_at DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_profile_update_events (
+                event_id TEXT PRIMARY KEY,
+                timestamp TIMESTAMP NOT NULL,
+                registry TEXT NOT NULL,
+                dimension TEXT NOT NULL,
+                scope_type TEXT NOT NULL,
+                scope_id TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                status TEXT NOT NULL,
+                source_pattern_ids JSON NOT NULL DEFAULT '[]',
+                source_situation_ids JSON NOT NULL DEFAULT '[]'
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_profile_update_events_target
+            ON support_profile_update_events(registry, dimension, scope_type, scope_id, timestamp DESC)
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_profile_values (
+                registry TEXT NOT NULL,
+                dimension TEXT NOT NULL,
+                scope_type TEXT NOT NULL,
+                scope_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                value TEXT NOT NULL,
+                status TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                source TEXT NOT NULL,
+                evidence_refs JSON NOT NULL DEFAULT '[]',
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (registry, dimension, scope_type, scope_id)
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_profile_registry_dimension
+            ON support_profile_values(registry, dimension)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_profile_scope
+            ON support_profile_values(scope_type, scope_id, registry, dimension)
         """)
 
     # === Session Operations ===
@@ -901,15 +1205,16 @@ class SQLiteStore:
                 await db.execute("BEGIN IMMEDIATE")
                 await db.execute(
                     """
-                    INSERT INTO sessions (session_id, messages, metadata, updated_at)
+                    INSERT INTO sessions (session_id, metadata, message_count, updated_at)
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(session_id) DO UPDATE SET
-                        messages = excluded.messages,
                         metadata = excluded.metadata,
+                        message_count = excluded.message_count,
                         updated_at = CURRENT_TIMESTAMP
                     """,
-                    (session_id, json.dumps(messages), json.dumps(metadata or {})),
+                    (session_id, json.dumps(metadata or {}), len(messages)),
                 )
+                await self._replace_session_messages(db, session_id, messages)
                 await self._delete_session_message_embeddings(db, session_id)
                 await self._index_message_embeddings(db, session_id, messages)
                 await db.commit()
@@ -942,7 +1247,14 @@ class SQLiteStore:
 
     async def _delete_session_message_embeddings(self, db: Any, session_id: str) -> None:
         """Delete all message embeddings for a session before rebuilding them."""
-        await db.execute("DELETE FROM message_embeddings_vec WHERE message_embedding_id GLOB ?", (f"{session_id}_*",))
+        async with db.execute(
+            "SELECT message_embedding_id FROM message_embeddings WHERE session_id = ?",
+            (session_id,),
+        ) as cursor:
+            embedding_rows = await cursor.fetchall()
+
+        for row in embedding_rows:
+            await db.execute("DELETE FROM message_embeddings_vec WHERE message_embedding_id = ?", (row[0],))
         await db.execute("DELETE FROM message_embeddings WHERE session_id = ?", (session_id,))
 
     async def _index_message_embeddings(self, db: Any, session_id: str, messages: list[dict[str, Any]]) -> None:
@@ -950,30 +1262,29 @@ class SQLiteStore:
 
         Rebuilds the message embedding snapshot for the given session.
         """
-        for msg in messages:
+        for fallback_idx, msg in enumerate(messages):
             embedding = msg.get("embedding")
             if not embedding:
                 continue  # Skip messages without embeddings
 
-            message_idx = msg.get("idx", 0)
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")[:100]  # Snippet
+            message_id, message_idx, role, _timestamp, _payload_json = self._session_message_identity(msg, fallback_idx)
+            content = str(msg.get("content", ""))[:100]  # Snippet
 
-            # Generate unique ID
-            me_id = f"{session_id}_{message_idx}"
+            # Generate unique locator tied to canonical transcript identity
+            me_id = self._message_embedding_locator(session_id, message_id)
 
             try:
                 # Insert into message_embeddings
                 await db.execute(
                     """
                     INSERT INTO message_embeddings (
-                        message_embedding_id, session_id, message_idx,
+                        message_embedding_id, session_id, message_id, message_idx,
                         role, content_snippet, embedding
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(message_embedding_id) DO NOTHING
                     """,
-                    (me_id, session_id, message_idx, role, content, json.dumps(embedding)),
+                    (me_id, session_id, message_id, message_idx, role, content, json.dumps(embedding)),
                 )
 
                 # Insert into sqlite-vec virtual table
@@ -1015,11 +1326,12 @@ class SQLiteStore:
                 if row is None:
                     return None
 
+                messages = await self._load_session_messages(db, session_id)
                 return {
                     "session_id": row["session_id"],
                     "created_at": row["created_at"],
                     "updated_at": row["updated_at"],
-                    "messages": _sanitize_json_data(json.loads(row["messages"])),
+                    "messages": messages,
                     "metadata": _sanitize_json_data(json.loads(row["metadata"])),
                 }
 
@@ -1042,16 +1354,19 @@ class SQLiteStore:
             db.row_factory = aiosqlite.Row
             async with db.execute("SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)) as cursor:
                 rows = await cursor.fetchall()
-                return [
+
+            sessions: list[dict[str, Any]] = []
+            for row in rows:
+                sessions.append(
                     {
                         "session_id": row["session_id"],
                         "created_at": row["created_at"],
                         "updated_at": row["updated_at"],
-                        "messages": _sanitize_json_data(json.loads(row["messages"])),
+                        "messages": await self._load_session_messages(db, row["session_id"]),
                         "metadata": _sanitize_json_data(json.loads(row["metadata"])),
                     }
-                    for row in rows
-                ]
+                )
+            return sessions
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session.
@@ -2226,7 +2541,7 @@ class SQLiteStore:
                     await db.execute(
                         """
                         INSERT INTO support_evidence_refs (
-                            evidence_id, episode_id, session_id, message_start_idx, message_end_idx,
+                            evidence_id, episode_id, session_id, message_start_id, message_end_id,
                             excerpt, timestamp, domain_ids, arc_ids, claim_type, confidence
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
@@ -2234,8 +2549,8 @@ class SQLiteStore:
                             evidence_record["evidence_id"],
                             evidence_record["episode_id"],
                             evidence_record["session_id"],
-                            evidence_record["message_start_idx"],
-                            evidence_record["message_end_idx"],
+                            evidence_record["message_start_id"],
+                            evidence_record["message_end_id"],
                             evidence_record["excerpt"],
                             evidence_record["timestamp"],
                             evidence_record["domain_ids"],
@@ -2281,9 +2596,12 @@ class SQLiteStore:
         """Load all evidence refs for a support episode."""
         async with db.execute(
             """
-            SELECT * FROM support_evidence_refs
-            WHERE episode_id = ?
-            ORDER BY message_start_idx ASC, evidence_id ASC
+            SELECT e.*
+            FROM support_evidence_refs e
+            JOIN session_messages m
+                ON e.session_id = m.session_id AND e.message_start_id = m.message_id
+            WHERE e.episode_id = ?
+            ORDER BY m.message_idx ASC, e.evidence_id ASC
             """,
             (episode_id,),
         ) as cursor:
@@ -2335,9 +2653,12 @@ class SQLiteStore:
 
             async with db.execute(
                 """
-                SELECT * FROM support_evidence_refs
-                WHERE session_id = ?
-                ORDER BY episode_id ASC, message_start_idx ASC, evidence_id ASC
+                SELECT e.*
+                FROM support_evidence_refs e
+                JOIN session_messages m
+                    ON e.session_id = m.session_id AND e.message_start_id = m.message_id
+                WHERE e.session_id = ?
+                ORDER BY e.episode_id ASC, m.message_idx ASC, e.evidence_id ASC
                 """,
                 (session_id,),
             ) as cursor:
@@ -2383,6 +2704,789 @@ class SQLiteStore:
                 episodes.append(SupportEpisode.from_record(dict(row), evidence_refs=evidence_refs))
 
             return episodes
+
+    async def save_support_intervention(self, intervention: SupportIntervention) -> None:
+        """Save or update one typed support intervention and its message-span refs."""
+        await self._init()
+
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.support_intervention_save.start",
+            surface=Surface.STORAGE,
+            intervention_id=intervention.intervention_id,
+            episode_id=intervention.episode_id,
+            evidence_ref_count=len(intervention.evidence_refs),
+        )
+
+        import aiosqlite
+
+        db: Any | None = None
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await self._load_extensions(db)
+                await db.execute("PRAGMA foreign_keys = ON")
+                db.row_factory = aiosqlite.Row
+                await db.execute("BEGIN IMMEDIATE")
+
+                async with db.execute(
+                    "SELECT session_id FROM support_episodes WHERE episode_id = ?",
+                    (intervention.episode_id,),
+                ) as cursor:
+                    episode_row = await cursor.fetchone()
+                if episode_row is None:
+                    raise ValueError(f"Support intervention episode does not exist: {intervention.episode_id}")
+
+                episode_session_id = str(episode_row["session_id"])
+                for evidence_ref in intervention.evidence_refs:
+                    if evidence_ref.session_id != episode_session_id:
+                        raise ValueError(
+                            f"Support intervention evidence ref points to session {evidence_ref.session_id}, expected {episode_session_id}",
+                        )
+
+                record = intervention.to_record()
+                await db.execute(
+                    """
+                    INSERT INTO support_interventions (
+                        intervention_id, episode_id, session_id, schema_version, timestamp,
+                        context, arc_id, intervention_type,
+                        relational_values_applied, support_values_applied,
+                        behavior_contract_summary, user_response_signals, outcome_signals
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(intervention_id) DO UPDATE SET
+                        episode_id = excluded.episode_id,
+                        session_id = excluded.session_id,
+                        schema_version = excluded.schema_version,
+                        timestamp = excluded.timestamp,
+                        context = excluded.context,
+                        arc_id = excluded.arc_id,
+                        intervention_type = excluded.intervention_type,
+                        relational_values_applied = excluded.relational_values_applied,
+                        support_values_applied = excluded.support_values_applied,
+                        behavior_contract_summary = excluded.behavior_contract_summary,
+                        user_response_signals = excluded.user_response_signals,
+                        outcome_signals = excluded.outcome_signals
+                    """,
+                    (
+                        record["intervention_id"],
+                        record["episode_id"],
+                        episode_session_id,
+                        record["schema_version"],
+                        record["timestamp"],
+                        record["context"],
+                        record["arc_id"],
+                        record["intervention_type"],
+                        record["relational_values_applied"],
+                        record["support_values_applied"],
+                        record["behavior_contract_summary"],
+                        record["user_response_signals"],
+                        record["outcome_signals"],
+                    ),
+                )
+
+                await db.execute(
+                    "DELETE FROM support_intervention_message_refs WHERE intervention_id = ?",
+                    (intervention.intervention_id,),
+                )
+                for evidence_order, evidence_ref in enumerate(intervention.evidence_refs):
+                    evidence_record = evidence_ref.to_record()
+                    await db.execute(
+                        """
+                        INSERT INTO support_intervention_message_refs (
+                            intervention_id, evidence_order, session_id, message_start_id, message_end_id
+                        ) VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            intervention.intervention_id,
+                            evidence_order,
+                            evidence_record["session_id"],
+                            evidence_record["message_start_id"],
+                            evidence_record["message_end_id"],
+                        ),
+                    )
+
+                await db.commit()
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.support_intervention_save.completed",
+                surface=Surface.STORAGE,
+                intervention_id=intervention.intervention_id,
+                episode_id=intervention.episode_id,
+                evidence_ref_count=len(intervention.evidence_refs),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
+        except Exception as e:
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    await db.rollback()
+            self._log_storage_failure(
+                "storage.support_intervention_save.failed",
+                request_started_at,
+                intervention_id=intervention.intervention_id,
+                episode_id=intervention.episode_id,
+                evidence_ref_count=len(intervention.evidence_refs),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving support intervention {intervention.intervention_id}: {e}")
+            raise
+
+    async def _load_support_intervention_message_refs(
+        self,
+        db: Any,
+        intervention_id: str,
+    ) -> list[SupportInterventionMessageRef]:
+        """Load all ordered message-span refs for one support intervention."""
+        async with db.execute(
+            """
+            SELECT session_id, message_start_id, message_end_id
+            FROM support_intervention_message_refs
+            WHERE intervention_id = ?
+            ORDER BY evidence_order ASC
+            """,
+            (intervention_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [SupportInterventionMessageRef.from_record(dict(row)) for row in rows]
+
+    async def _hydrate_support_intervention(self, db: Any, row: Any) -> SupportIntervention:
+        """Build a typed support intervention from one SQLite row."""
+        evidence_refs = await self._load_support_intervention_message_refs(db, str(row["intervention_id"]))
+        record = dict(row)
+        record["evidence_refs"] = json.dumps([evidence_ref.to_record() for evidence_ref in evidence_refs])
+        return SupportIntervention.from_record(record)
+
+    async def get_support_intervention(self, intervention_id: str) -> SupportIntervention | None:
+        """Load one support intervention by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM support_interventions WHERE intervention_id = ?",
+                (intervention_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+            return await self._hydrate_support_intervention(db, row)
+
+    async def list_support_interventions_for_episode(self, episode_id: str) -> list[SupportIntervention]:
+        """List all support interventions for one episode in deterministic order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_interventions
+                WHERE episode_id = ?
+                ORDER BY timestamp ASC, intervention_id ASC
+                """,
+                (episode_id,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def list_support_interventions_for_arc(self, arc_id: str) -> list[SupportIntervention]:
+        """List support interventions for one arc in reverse-chronological order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_interventions
+                WHERE arc_id = ?
+                ORDER BY timestamp DESC, intervention_id DESC
+                """,
+                (arc_id,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def list_support_interventions_for_context(self, context: str) -> list[SupportIntervention]:
+        """List support interventions for one context in reverse-chronological order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_interventions
+                WHERE context = ?
+                ORDER BY timestamp DESC, intervention_id DESC
+                """,
+                (context,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def list_support_interventions_by_applied_dimension(
+        self,
+        registry: SupportProfileRegistryKind,
+        dimension: str,
+    ) -> list[SupportIntervention]:
+        """List support interventions that applied one specific validated profile dimension."""
+        await self._init()
+
+        definition = get_registry_dimension(registry, dimension)
+        column_name = "relational_values_applied" if definition.registry == "relational" else "support_values_applied"
+        json_path = f"$.{definition.dimension}"
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                f"""
+                SELECT * FROM support_interventions
+                WHERE json_extract({column_name}, ?) IS NOT NULL
+                ORDER BY timestamp DESC, intervention_id DESC
+                """,
+                (json_path,),
+            ) as cursor:
+                intervention_rows = await cursor.fetchall()
+
+            interventions: list[SupportIntervention] = []
+            for row in intervention_rows:
+                interventions.append(await self._hydrate_support_intervention(db, row))
+
+            return interventions
+
+    async def save_learning_situation(self, situation: LearningSituation) -> None:
+        """Save or update one generalized support learning situation."""
+        await self._init()
+
+        request_started_at = perf_counter()
+        log_event(
+            logger,
+            logging.DEBUG,
+            "storage.support_learning_situation_save.start",
+            surface=Surface.STORAGE,
+            situation_id=situation.situation_id,
+            session_id=situation.session_id,
+            intervention_count=len(situation.intervention_ids),
+        )
+
+        import aiosqlite
+
+        db: Any | None = None
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await self._load_extensions(db)
+                await db.execute("PRAGMA foreign_keys = ON")
+                await db.execute("BEGIN IMMEDIATE")
+
+                record = situation.to_record()
+                await db.execute(
+                    """
+                    INSERT INTO support_learning_situations (
+                        situation_id, session_id, recorded_at, turn_text, embedding,
+                        need, response_mode, subject_refs, arc_id, domain_ids,
+                        intervention_ids, behavior_contract_summary, intervention_family,
+                        relational_values_applied, support_values_applied,
+                        user_response_signals, outcome_signals, evidence_refs
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(situation_id) DO UPDATE SET
+                        session_id = excluded.session_id,
+                        recorded_at = excluded.recorded_at,
+                        turn_text = excluded.turn_text,
+                        embedding = excluded.embedding,
+                        need = excluded.need,
+                        response_mode = excluded.response_mode,
+                        subject_refs = excluded.subject_refs,
+                        arc_id = excluded.arc_id,
+                        domain_ids = excluded.domain_ids,
+                        intervention_ids = excluded.intervention_ids,
+                        behavior_contract_summary = excluded.behavior_contract_summary,
+                        intervention_family = excluded.intervention_family,
+                        relational_values_applied = excluded.relational_values_applied,
+                        support_values_applied = excluded.support_values_applied,
+                        user_response_signals = excluded.user_response_signals,
+                        outcome_signals = excluded.outcome_signals,
+                        evidence_refs = excluded.evidence_refs
+                    """,
+                    (
+                        record["situation_id"],
+                        record["session_id"],
+                        record["recorded_at"],
+                        record["turn_text"],
+                        record["embedding"],
+                        record["need"],
+                        record["response_mode"],
+                        record["subject_refs"],
+                        record["arc_id"],
+                        record["domain_ids"],
+                        record["intervention_ids"],
+                        record["behavior_contract_summary"],
+                        record["intervention_family"],
+                        record["relational_values_applied"],
+                        record["support_values_applied"],
+                        record["user_response_signals"],
+                        record["outcome_signals"],
+                        record["evidence_refs"],
+                    ),
+                )
+                await db.execute(
+                    "DELETE FROM support_learning_situations_vec WHERE situation_id = ?",
+                    (situation.situation_id,),
+                )
+                await db.execute(
+                    """
+                    INSERT INTO support_learning_situations_vec (situation_id, embedding)
+                    VALUES (?, ?)
+                    """,
+                    (record["situation_id"], record["embedding"]),
+                )
+
+                await db.commit()
+
+            log_event(
+                logger,
+                logging.DEBUG,
+                "storage.support_learning_situation_save.completed",
+                surface=Surface.STORAGE,
+                situation_id=situation.situation_id,
+                session_id=situation.session_id,
+                intervention_count=len(situation.intervention_ids),
+                duration_ms=round((perf_counter() - request_started_at) * 1000, 2),
+            )
+        except Exception as e:
+            if db is not None:
+                with contextlib.suppress(Exception):
+                    await db.rollback()
+            self._log_storage_failure(
+                "storage.support_learning_situation_save.failed",
+                request_started_at,
+                situation_id=situation.situation_id,
+                session_id=situation.session_id,
+                intervention_count=len(situation.intervention_ids),
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            logger.error(f"Error saving support learning situation {situation.situation_id}: {e}")
+            raise
+
+    async def get_learning_situation(self, situation_id: str) -> LearningSituation | None:
+        """Load one support learning situation by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM support_learning_situations WHERE situation_id = ?",
+                (situation_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+                return LearningSituation.from_record(dict(row))
+
+    async def list_learning_situations(self, session_id: str) -> list[LearningSituation]:
+        """List all support learning situations for one session in chronological order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_learning_situations
+                WHERE session_id = ?
+                ORDER BY recorded_at ASC, situation_id ASC
+                """,
+                (session_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [LearningSituation.from_record(dict(row)) for row in rows]
+
+    async def search_learning_situations(
+        self,
+        query_embedding: list[float],
+        *,
+        top_k: int = 5,
+        response_mode: str | None = None,
+        need: str | None = None,
+    ) -> list[tuple[LearningSituation, float]]:
+        """Search learning situations by vector similarity with optional structured filters."""
+        await self._init()
+        if top_k <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            query = """
+                SELECT s.*, v.distance
+                FROM support_learning_situations_vec v
+                JOIN support_learning_situations s ON v.situation_id = s.situation_id
+                WHERE v.embedding MATCH ? AND k = ?
+            """
+            fetch_k = max(top_k * 8, top_k)
+            params: list[Any] = [json.dumps(query_embedding), fetch_k]
+
+            if response_mode is not None:
+                query += " AND s.response_mode = ?"
+                params.append(response_mode)
+            if need is not None:
+                query += " AND s.need = ?"
+                params.append(need)
+
+            query += " ORDER BY v.distance ASC"
+
+            async with db.execute(query, params) as cursor:
+                rows = list(await cursor.fetchall())
+
+        matches: list[tuple[LearningSituation, float]] = []
+        for row in rows[:top_k]:
+            matches.append(
+                (
+                    LearningSituation.from_record(dict(row)),
+                    self._distance_to_similarity(float(row["distance"])),
+                )
+            )
+        return matches
+
+    async def save_support_pattern(self, pattern: SupportPattern) -> None:
+        """Save or update one first-class support pattern."""
+        await self._init()
+
+        import aiosqlite
+
+        record = pattern.to_record()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                """
+                INSERT INTO support_patterns (
+                    pattern_id, kind, scope_type, scope_id, status, claim,
+                    confidence, created_at, updated_at, supporting_situation_ids,
+                    support_overrides, relational_overrides
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(pattern_id) DO UPDATE SET
+                    kind = excluded.kind,
+                    scope_type = excluded.scope_type,
+                    scope_id = excluded.scope_id,
+                    status = excluded.status,
+                    claim = excluded.claim,
+                    confidence = excluded.confidence,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at,
+                    supporting_situation_ids = excluded.supporting_situation_ids,
+                    support_overrides = excluded.support_overrides,
+                    relational_overrides = excluded.relational_overrides
+                """,
+                (
+                    record["pattern_id"],
+                    record["kind"],
+                    record["scope_type"],
+                    record["scope_id"],
+                    record["status"],
+                    record["claim"],
+                    record["confidence"],
+                    record["created_at"],
+                    record["updated_at"],
+                    record["supporting_situation_ids"],
+                    record["support_overrides"],
+                    record["relational_overrides"],
+                ),
+            )
+            await db.commit()
+
+    async def get_support_pattern(self, pattern_id: str) -> SupportPattern | None:
+        """Load one support pattern by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM support_patterns WHERE pattern_id = ?", (pattern_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+                return SupportPattern.from_record(dict(row))
+
+    async def list_support_patterns_for_runtime(
+        self,
+        *,
+        response_mode: str,
+        arc_id: str | None = None,
+    ) -> list[SupportPattern]:
+        """List confirmed support patterns relevant to one runtime turn."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            conditions = ["status = ?", "((scope_type = 'global' AND scope_id = 'user') OR (scope_type = 'context' AND scope_id = ?)"]
+            params: list[Any] = ["confirmed", response_mode]
+            if arc_id is not None:
+                conditions[1] += " OR (scope_type = 'arc' AND scope_id = ?))"
+                params.append(arc_id)
+            else:
+                conditions[1] += ")"
+
+            async with db.execute(
+                f"""
+                SELECT * FROM support_patterns
+                WHERE {" AND ".join(conditions)}
+                ORDER BY
+                    CASE scope_type
+                        WHEN 'global' THEN 0
+                        WHEN 'context' THEN 1
+                        WHEN 'arc' THEN 2
+                        ELSE 3
+                    END ASC,
+                    updated_at ASC,
+                    pattern_id ASC
+                """,
+                params,
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [SupportPattern.from_record(dict(row)) for row in rows]
+
+    async def save_support_profile_update_event(self, event: SupportProfileUpdateEvent) -> None:
+        """Save or update one support-profile update event."""
+        await self._init()
+
+        import aiosqlite
+
+        record = event.to_record()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                """
+                INSERT INTO support_profile_update_events (
+                    event_id, timestamp, registry, dimension, scope_type, scope_id,
+                    old_value, new_value, reason, confidence, status,
+                    source_pattern_ids, source_situation_ids
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(event_id) DO UPDATE SET
+                    timestamp = excluded.timestamp,
+                    registry = excluded.registry,
+                    dimension = excluded.dimension,
+                    scope_type = excluded.scope_type,
+                    scope_id = excluded.scope_id,
+                    old_value = excluded.old_value,
+                    new_value = excluded.new_value,
+                    reason = excluded.reason,
+                    confidence = excluded.confidence,
+                    status = excluded.status,
+                    source_pattern_ids = excluded.source_pattern_ids,
+                    source_situation_ids = excluded.source_situation_ids
+                """,
+                (
+                    record["event_id"],
+                    record["timestamp"],
+                    record["registry"],
+                    record["dimension"],
+                    record["scope_type"],
+                    record["scope_id"],
+                    record["old_value"],
+                    record["new_value"],
+                    record["reason"],
+                    record["confidence"],
+                    record["status"],
+                    record["source_pattern_ids"],
+                    record["source_situation_ids"],
+                ),
+            )
+            await db.commit()
+
+    async def get_support_profile_update_event(self, event_id: str) -> SupportProfileUpdateEvent | None:
+        """Load one support-profile update event by ID."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM support_profile_update_events WHERE event_id = ?",
+                (event_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+                return SupportProfileUpdateEvent.from_record(dict(row))
+
+    async def save_support_profile_value(self, profile_value: SupportProfileValue) -> None:
+        """Save or update one scoped support-profile value."""
+        await self._init()
+
+        import aiosqlite
+
+        record = profile_value.to_record()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                """
+                INSERT INTO support_profile_values (
+                    registry, dimension, scope_type, scope_id, schema_version,
+                    value, status, confidence, source, evidence_refs, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(registry, dimension, scope_type, scope_id) DO UPDATE SET
+                    schema_version = excluded.schema_version,
+                    value = excluded.value,
+                    status = excluded.status,
+                    confidence = excluded.confidence,
+                    source = excluded.source,
+                    evidence_refs = excluded.evidence_refs,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    record["registry"],
+                    record["dimension"],
+                    record["scope_type"],
+                    record["scope_id"],
+                    record["schema_version"],
+                    record["value"],
+                    record["status"],
+                    record["confidence"],
+                    record["source"],
+                    record["evidence_refs"],
+                    record["created_at"],
+                    record["updated_at"],
+                ),
+            )
+            await db.commit()
+
+    async def get_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        scope: SupportProfileScope,
+    ) -> SupportProfileValue | None:
+        """Load one scoped support-profile value by its natural key."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_profile_values
+                WHERE registry = ? AND dimension = ? AND scope_type = ? AND scope_id = ?
+                """,
+                (registry, dimension, scope.type, scope.id),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+
+        return SupportProfileValue.from_record(dict(row))
+
+    async def list_support_profile_values(self) -> list[SupportProfileValue]:
+        """List all persisted support-profile values in deterministic order."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_profile_values
+                ORDER BY registry ASC, dimension ASC, scope_type ASC, scope_id ASC
+                """,
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        return [SupportProfileValue.from_record(dict(row)) for row in rows]
+
+    async def resolve_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        *,
+        context_id: str | None = None,
+        arc_id: str | None = None,
+    ) -> SupportProfileValue | None:
+        """Resolve the most specific stored value by arc, then context, then global scope."""
+        scopes_to_try: list[SupportProfileScope] = []
+        if arc_id is not None:
+            scopes_to_try.append(SupportProfileScope(type="arc", id=arc_id))
+        if context_id is not None:
+            scopes_to_try.append(SupportProfileScope(type="context", id=context_id))
+        scopes_to_try.append(SupportProfileScope(type="global", id="user"))
+
+        for scope in scopes_to_try:
+            resolved = await self.get_support_profile_value(registry, dimension, scope)
+            if resolved is not None:
+                return resolved
+
+        return None
 
     async def prune_memories(
         self,

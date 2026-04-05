@@ -34,7 +34,7 @@ class TestSessionSummariesTable:
         db = db_conn
 
         # Insert parent session first (FK constraint)
-        await db.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_abc456", "[]"))
+        await db.execute("INSERT INTO sessions (session_id) VALUES (?)", ("sess_abc456",))
         await db.commit()
 
         # Try to insert a test summary - should succeed if table exists
@@ -60,7 +60,7 @@ class TestSessionSummariesTable:
         db = db_conn
 
         # Insert a session first
-        await db.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_exists", "[]"))
+        await db.execute("INSERT INTO sessions (session_id) VALUES (?)", ("sess_exists",))
         await db.commit()
 
         # Insert summary for existing session - should succeed
@@ -81,7 +81,7 @@ class TestSessionSummariesTable:
         db = db_conn
 
         # Insert session and summary
-        await db.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", ("sess_cascade", "[]"))
+        await db.execute("INSERT INTO sessions (session_id) VALUES (?)", ("sess_cascade",))
         await db.execute(
             """
             INSERT INTO session_summaries (

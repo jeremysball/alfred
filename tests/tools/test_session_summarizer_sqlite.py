@@ -57,8 +57,8 @@ class TestSessionSummarizerSQLite:
         async with aiosqlite.connect(sqlite_store.db_path) as db:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.execute(
-                "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-                ("sess_001", "[]", 5),
+                "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+                ("sess_001", 5),
             )
             await db.commit()
 
@@ -96,8 +96,8 @@ class TestSessionSummarizerSQLite:
         async with aiosqlite.connect(sqlite_store.db_path) as db:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.execute(
-                "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-                ("sess_002", "[]", 3),
+                "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+                ("sess_002", 3),
             )
             await db.execute(
                 """
@@ -137,8 +137,8 @@ class TestSessionSummarizerSQLite:
         async with aiosqlite.connect(sqlite_store.db_path) as db:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.execute(
-                "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-                ("sess_003", "[]", 2),
+                "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+                ("sess_003", 2),
             )
             await db.commit()
 

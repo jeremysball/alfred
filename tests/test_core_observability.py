@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 
@@ -470,3 +471,58 @@ async def test_chat_stream_records_ordered_text_blocks_around_tool_calls(
     assert assistant_message.tool_calls[0].sequence == 2
     assert assistant_message.reasoning_blocks[0].sequence == 0
     assert assistant_message.reasoning_blocks[0].content == "thinking"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_includes_compiled_support_contract_in_system_prompt(
+    tmp_path: Path,
+) -> None:
+    """chat_stream should append the compiled support contract before agent streaming starts."""
+
+    alfred, _, agent, _ = _make_alfred(tmp_path)
+
+    class FakeSupportPolicyRuntime:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def build_prompt_section(
+            self,
+            *,
+            message: str,
+            query_embedding: list[float] | None,
+            session_messages: list[tuple[str, str]],
+            session_id: str | None,
+        ) -> str:
+            self.calls.append(
+                {
+                    "message": message,
+                    "query_embedding": list(query_embedding or []),
+                    "session_messages": list(session_messages),
+                    "session_id": session_id,
+                }
+            )
+            return (
+                "## Runtime Support Contract\n\n"
+                "- need: activate\n"
+                "- response_mode: execute\n"
+                "- subjects: [arc:webui_cleanup]\n"
+                "- intervention_family: narrow\n"
+            )
+
+    runtime = FakeSupportPolicyRuntime()
+    alfred._support_policy_runtime = runtime
+
+    chunks = [chunk async for chunk in alfred.chat_stream("hello world")]
+
+    assert chunks == ["Hello", " world"]
+    assert runtime.calls == [
+        {
+            "message": "hello world",
+            "query_embedding": [0.1, 0.2, 0.3],
+            "session_messages": [("user", "previous user"), ("assistant", "previous assistant")],
+            "session_id": None,
+        }
+    ]
+    assert "## Runtime Support Contract" in agent.calls[0]["system_prompt"]
+    assert "- need: activate" in agent.calls[0]["system_prompt"]
+    assert "- intervention_family: narrow" in agent.calls[0]["system_prompt"]

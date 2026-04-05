@@ -32,8 +32,8 @@ async def sqlite_store(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store):
-    """Support episodes and evidence refs should round-trip through SQLite."""
+async def test_episode_and_message_id_evidence_round_trip_through_sqlite_store(sqlite_store):
+    """Support episodes and message-ID evidence refs should round-trip through SQLite."""
     session_id = "sess_support_memory"
     messages = [
         {"idx": 0, "id": "msg-0", "role": "user", "content": "We're blocked on app structure."},
@@ -65,8 +65,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
                 evidence_id="ev-1a",
                 episode_id="ep-1",
                 session_id=session_id,
-                message_start_idx=0,
-                message_end_idx=1,
+                message_start_id="msg-0",
+                message_end_id="msg-1",
                 excerpt="We're blocked on app structure.",
                 timestamp=datetime(2026, 3, 30, 10, 1, tzinfo=UTC),
                 domain_ids=["work"],
@@ -78,8 +78,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
                 evidence_id="ev-1b",
                 episode_id="ep-1",
                 session_id=session_id,
-                message_start_idx=2,
-                message_end_idx=2,
+                message_start_id="msg-2",
+                message_end_id="msg-2",
                 excerpt="The bootstrap entrypoint should stay slim.",
                 timestamp=datetime(2026, 3, 30, 10, 6, tzinfo=UTC),
                 domain_ids=["work"],
@@ -109,8 +109,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
                 evidence_id="ev-2a",
                 episode_id="ep-2",
                 session_id=session_id,
-                message_start_idx=3,
-                message_end_idx=3,
+                message_start_id="msg-3",
+                message_end_id="msg-3",
                 excerpt="Agreed, let's isolate it.",
                 timestamp=datetime(2026, 3, 30, 10, 22, tzinfo=UTC),
                 domain_ids=["work"],
@@ -143,8 +143,8 @@ async def test_episode_and_evidence_round_trip_through_sqlite_store(sqlite_store
 
 
 @pytest.mark.asyncio
-async def test_promoting_session_message_ranges_to_evidence_refs_keeps_session_archive_unchanged(sqlite_store):
-    """Promoting evidence refs from a session should not mutate the stored archive."""
+async def test_promoting_session_message_spans_to_message_id_evidence_refs_keeps_session_archive_unchanged(sqlite_store):
+    """Promoting message-ID evidence refs from a session should not mutate the stored archive."""
     session_id = "sess_support_memory_promotion"
     messages = [
         {
@@ -185,7 +185,7 @@ async def test_promoting_session_message_ranges_to_evidence_refs_keeps_session_a
     session_snapshot = deepcopy(loaded_session["messages"])
     metadata_snapshot = deepcopy(loaded_session["metadata"])
 
-    evidence_from_ids = EvidenceRef.from_session_message_span(
+    evidence_one = EvidenceRef.from_session_message_span(
         evidence_id="ev-promoted-1",
         episode_id="ep-promoted",
         session_id=session_id,
@@ -197,25 +197,25 @@ async def test_promoting_session_message_ranges_to_evidence_refs_keeps_session_a
         claim_type="stated_blocker",
         confidence=0.84,
     )
-    evidence_from_indices = EvidenceRef.from_session_message_span(
+    evidence_two = EvidenceRef.from_session_message_span(
         evidence_id="ev-promoted-2",
         episode_id="ep-promoted",
         session_id=session_id,
         messages=loaded_session["messages"],
-        message_start_idx=2,
-        message_end_idx=3,
+        message_start_id="msg-2",
+        message_end_id="msg-3",
         domain_ids=["work"],
         arc_ids=["arc-webui"],
         claim_type="stated_decision",
         confidence=0.92,
     )
 
-    assert evidence_from_ids == EvidenceRef(
+    assert evidence_one == EvidenceRef(
         evidence_id="ev-promoted-1",
         episode_id="ep-promoted",
         session_id=session_id,
-        message_start_idx=0,
-        message_end_idx=1,
+        message_start_id="msg-0",
+        message_end_id="msg-1",
         excerpt="We're blocked on app structure.",
         timestamp=datetime(2026, 3, 30, 10, 0, tzinfo=UTC),
         domain_ids=["work"],
@@ -223,12 +223,12 @@ async def test_promoting_session_message_ranges_to_evidence_refs_keeps_session_a
         claim_type="stated_blocker",
         confidence=0.84,
     )
-    assert evidence_from_indices == EvidenceRef(
+    assert evidence_two == EvidenceRef(
         evidence_id="ev-promoted-2",
         episode_id="ep-promoted",
         session_id=session_id,
-        message_start_idx=2,
-        message_end_idx=3,
+        message_start_id="msg-2",
+        message_end_id="msg-3",
         excerpt="The bootstrap entrypoint should stay slim.",
         timestamp=datetime(2026, 3, 30, 10, 6, tzinfo=UTC),
         domain_ids=["work"],
@@ -237,32 +237,10 @@ async def test_promoting_session_message_ranges_to_evidence_refs_keeps_session_a
         confidence=0.92,
     )
 
-    episode = SupportEpisode(
-        episode_id="ep-promoted",
-        session_id=session_id,
-        schema_version=1,
-        started_at=datetime(2026, 3, 30, 10, 0, tzinfo=UTC),
-        ended_at=datetime(2026, 3, 30, 10, 10, tzinfo=UTC),
-        dominant_need="decide",
-        dominant_context="execute",
-        dominant_arc_id="arc-webui",
-        domain_ids=["work"],
-        subject_refs=["bootstrap_entrypoint", "app_structure"],
-        friction_signals=["ambiguity"],
-        interventions_attempted=["narrow_next_step"],
-        response_signals=["clarity"],
-        outcome_signals=["boundary_decided"],
-        evidence_refs=[evidence_from_ids, evidence_from_indices],
-    )
-    await sqlite_store.save_support_episode(episode)
-
     reloaded_session = await sqlite_store.load_session(session_id)
     assert reloaded_session is not None
     assert reloaded_session["messages"] == session_snapshot
     assert reloaded_session["metadata"] == metadata_snapshot
-
-    loaded_episode = await sqlite_store.get_support_episode("ep-promoted")
-    assert loaded_episode == episode
 
 
 @pytest.mark.asyncio

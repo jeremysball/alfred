@@ -51,8 +51,8 @@ class TestSaveSummary:
         """Verify save_summary inserts a new summary."""
         # Insert parent session first
         await db_conn.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            (sample_summary["session_id"], "[]"),
+            "INSERT INTO sessions (session_id) VALUES (?)",
+            (sample_summary["session_id"],),
         )
         await db_conn.commit()
 
@@ -72,8 +72,8 @@ class TestSaveSummary:
     async def test_save_summary_with_embedding(self, sqlite_store, db_conn, sample_summary):
         """Verify embedding is stored as JSON."""
         await db_conn.execute(
-            "INSERT INTO sessions (session_id, messages) VALUES (?, ?)",
-            (sample_summary["session_id"], "[]"),
+            "INSERT INTO sessions (session_id) VALUES (?)",
+            (sample_summary["session_id"],),
         )
         await db_conn.commit()
 
@@ -98,7 +98,7 @@ class TestGetLatestSummary:
         session_id = "sess_version_test"
 
         # Insert parent session
-        await db_conn.execute("INSERT INTO sessions (session_id, messages) VALUES (?, ?)", (session_id, "[]"))
+        await db_conn.execute("INSERT INTO sessions (session_id) VALUES (?)", (session_id,))
 
         # Insert two summaries for same session
         summaries = [
@@ -166,15 +166,15 @@ class TestFindSessionsNeedingSummary:
         """Find sessions with 20+ new messages since last summary."""
         # Insert sessions with message counts
         sessions = [
-            ("sess_needs_summary", 25, "[]"),  # 25 messages, no summary yet
-            ("sess_up_to_date", 15, "[]"),  # 15 messages, no summary
-            ("sess_recent_summary", 30, "[]"),  # 30 messages, has summary
+            ("sess_needs_summary", 25),  # 25 messages, no summary yet
+            ("sess_up_to_date", 15),  # 15 messages, no summary
+            ("sess_recent_summary", 30),  # 30 messages, has summary
         ]
 
-        for session_id, msg_count, messages in sessions:
+        for session_id, msg_count in sessions:
             await db_conn.execute(
-                "INSERT INTO sessions (session_id, message_count, messages) VALUES (?, ?, ?)",
-                (session_id, msg_count, messages),
+                "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+                (session_id, msg_count),
             )
 
         # Add summary for sess_recent_summary (25 messages at time of summary)

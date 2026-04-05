@@ -364,8 +364,15 @@ Do not use the `todo` tool as a substitute for PRD execution planning.
 
 ## Commit Rules
 
-If the user explicitly asks to commit:
+You may commit when the work reaches a clear atomic checkpoint and either:
+- it follows the commit skill directly
+- it is the natural checkpoint of an approved workflow such as the PRD cycle
 
+Do not commit if the user explicitly asked you not to.
+
+Pushes still require explicit user direction.
+
+When committing:
 - read the commit skill first
 - prefer atomic commits
 - use conventional commits
@@ -387,4 +394,4 @@ Do not batch unrelated changes into one commit.
 
 ## Bottom Line
 
-Optimize for maintainability, verify behavior, communicate densely, and do not act without user consent when a change affects code, behavior, commits, or architecture.
+Optimize for maintainability, verify behavior, communicate densely, and do not act without user consent when a change affects code, behavior, or architecture. For commits, follow the commit and workflow rules above and keep checkpoints small and atomic. For pushes, wait for explicit user direction.

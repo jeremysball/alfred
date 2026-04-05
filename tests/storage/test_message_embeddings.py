@@ -36,8 +36,15 @@ class TestMessageEmbeddingsTable:
 
         # Insert parent session first
         await db.execute(
-            "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-            ("sess_test", "[]", 2),
+            "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+            ("sess_test", 2),
+        )
+        await db.execute(
+            """
+            INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("sess_test", "msg-0", 0, "user", json.dumps({"role": "user", "content": "Hello"})),
         )
         await db.commit()
 
@@ -45,10 +52,10 @@ class TestMessageEmbeddingsTable:
         await db.execute(
             """
             INSERT INTO message_embeddings
-            (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (message_embedding_id, session_id, message_id, message_idx, role, content_snippet, embedding)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("me_test", "sess_test", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3])),
+            ("me_test", "sess_test", "msg-0", 0, "user", "Hello", json.dumps([0.1, 0.2, 0.3])),
         )
         await db.commit()
 
@@ -67,10 +74,10 @@ class TestMessageEmbeddingsTable:
             await db.execute(
                 """
                 INSERT INTO message_embeddings
-                (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (message_embedding_id, session_id, message_id, message_idx, role, content_snippet, embedding)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("me_orphan", "nonexistent", 0, "user", "Test", json.dumps([0.1])),
+                ("me_orphan", "nonexistent", "msg-0", 0, "user", "Test", json.dumps([0.1])),
             )
             await db.commit()
 
@@ -81,16 +88,23 @@ class TestMessageEmbeddingsTable:
 
         # Insert session and message
         await db.execute(
-            "INSERT INTO sessions (session_id, messages, message_count) VALUES (?, ?, ?)",
-            ("sess_cascade", "[]", 1),
+            "INSERT INTO sessions (session_id, message_count) VALUES (?, ?)",
+            ("sess_cascade", 1),
+        )
+        await db.execute(
+            """
+            INSERT INTO session_messages (session_id, message_id, message_idx, role, payload_json)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("sess_cascade", "msg-0", 0, "user", json.dumps({"role": "user", "content": "Hi"})),
         )
         await db.execute(
             """
             INSERT INTO message_embeddings
-            (message_embedding_id, session_id, message_idx, role, content_snippet, embedding)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (message_embedding_id, session_id, message_id, message_idx, role, content_snippet, embedding)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("me_cascade", "sess_cascade", 0, "user", "Hi", json.dumps([0.1])),
+            ("me_cascade", "sess_cascade", "msg-0", 0, "user", "Hi", json.dumps([0.1])),
         )
         await db.commit()
 
@@ -170,23 +184,26 @@ class TestMessageEmbeddingsIndexing:
             assert row[0] == 1
 
     @pytest.mark.asyncio
-    async def test_save_session_rebuilds_message_embeddings_when_history_changes(self, sqlite_store):
-        """Verify save_session() replaces stale embeddings when a session changes."""
+    async def test_save_session_rebuilds_message_embeddings_with_canonical_message_ids(self, sqlite_store):
+        """Verify save_session() rebuilds embeddings against canonical transcript message IDs."""
         initial_messages = [
             {
                 "idx": 0,
+                "id": "msg-0",
                 "role": "user",
                 "content": "Hello original",
                 "embedding": [0.1, 0.2, 0.3],
             },
             {
                 "idx": 1,
+                "id": "msg-1",
                 "role": "assistant",
                 "content": "Initial answer",
                 "embedding": [0.4, 0.5, 0.6],
             },
             {
                 "idx": 2,
+                "id": "msg-2",
                 "role": "assistant",
                 "content": "Stale tail",
                 "embedding": [0.7, 0.8, 0.9],
@@ -198,12 +215,14 @@ class TestMessageEmbeddingsIndexing:
         updated_messages = [
             {
                 "idx": 0,
+                "id": "msg-0",
                 "role": "user",
                 "content": "Hello edited",
                 "embedding": [0.9, 0.8, 0.7],
             },
             {
                 "idx": 1,
+                "id": "msg-1",
                 "role": "assistant",
                 "content": "Rewritten answer",
                 "embedding": [0.6, 0.5, 0.4],
@@ -218,8 +237,16 @@ class TestMessageEmbeddingsIndexing:
             await sqlite_store._load_extensions(db)
             db.row_factory = aiosqlite.Row
 
+            async with db.execute("PRAGMA table_info(message_embeddings)") as cursor:
+                embedding_columns = {row["name"] for row in await cursor.fetchall()}
+
             async with db.execute(
-                "SELECT message_embedding_id, message_idx, content_snippet FROM message_embeddings WHERE session_id = ? ORDER BY message_idx",
+                """
+                SELECT message_embedding_id, session_id, message_id, message_idx, content_snippet
+                FROM message_embeddings
+                WHERE session_id = ?
+                ORDER BY message_idx
+                """,
                 ("sess_update",),
             ) as cursor:
                 message_rows = await cursor.fetchall()
@@ -229,15 +256,18 @@ class TestMessageEmbeddingsIndexing:
             ) as cursor:
                 vec_rows = await cursor.fetchall()
 
-            async with db.execute("SELECT messages FROM sessions WHERE session_id = ?", ("sess_update",)) as cursor:
-                session_row = await cursor.fetchone()
-
-        assert [row["message_embedding_id"] for row in message_rows] == ["sess_update_0", "sess_update_1"]
-        assert [row["message_idx"] for row in message_rows] == [0, 1]
-        assert [row["content_snippet"] for row in message_rows] == ["Hello edited", "Rewritten answer"]
-        assert [row["message_embedding_id"] for row in vec_rows] == ["sess_update_0", "sess_update_1"]
-        assert session_row is not None
-        assert [message["content"] for message in json.loads(session_row["messages"])] == [
-            "Hello edited",
-            "Rewritten answer",
+        assert "message_id" in embedding_columns
+        assert [
+            (
+                row["message_embedding_id"],
+                row["session_id"],
+                row["message_id"],
+                row["message_idx"],
+                row["content_snippet"],
+            )
+            for row in message_rows
+        ] == [
+            ("sess_update:msg-0", "sess_update", "msg-0", 0, "Hello edited"),
+            ("sess_update:msg-1", "sess_update", "msg-1", 1, "Rewritten answer"),
         ]
+        assert [row["message_embedding_id"] for row in vec_rows] == ["sess_update:msg-0", "sess_update:msg-1"]
