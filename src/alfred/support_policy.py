@@ -622,9 +622,8 @@ def _score_subject_candidate(
     exact_alias_hit = _exact_alias_hit(normalized_turn, aliases)
     ordered_alias_hit = _ordered_alias_hit(turn_tokens, aliases)
     token_overlap_band = _token_overlap_band(turn_tokens, prototype.text)
-    active_scope_hit = (
-        (prototype.kind == "arc" and prototype.id == active_arc_id)
-        or (prototype.kind == "domain" and prototype.id == active_domain_id)
+    active_scope_hit = (prototype.kind == "arc" and prototype.id == active_arc_id) or (
+        prototype.kind == "domain" and prototype.id == active_domain_id
     )
     abstract_grounding_hit = _has_abstract_grounding(prototype.kind, normalized_turn)
 
@@ -694,20 +693,14 @@ def resolve_subjects(
         )
     )
     shortlisted = tuple(
-        candidate
-        for candidate in scored_candidates
-        if candidate.semantic_similarity >= thresholds.semantic_min_similarity
+        candidate for candidate in scored_candidates if candidate.semantic_similarity >= thresholds.semantic_min_similarity
     )[: thresholds.shortlist_k]
 
     threshold_survivors: list[SubjectCandidate] = []
     dropped_candidates: list[SubjectCandidate] = []
     for candidate in shortlisted:
         is_concrete = candidate.kind in _CONCRETE_SUBJECT_KINDS
-        min_grounding = (
-            thresholds.concrete_min_grounding_score
-            if is_concrete
-            else thresholds.abstract_min_grounding_score
-        )
+        min_grounding = thresholds.concrete_min_grounding_score if is_concrete else thresholds.abstract_min_grounding_score
         min_total = thresholds.concrete_min_total_score if is_concrete else thresholds.abstract_min_total_score
         if candidate.grounding_score < min_grounding or candidate.total_score < min_total:
             dropped_candidates.append(candidate)
@@ -1053,14 +1046,8 @@ def _format_subject(subject: ResolvedSubject) -> str:
 def render_support_behavior_contract(contract: SupportBehaviorContract) -> str:
     """Render the compiled behavior contract as one prompt section."""
     subjects = ", ".join(_format_subject(subject) for subject in contract.subjects) or "none"
-    relational_lines = "\n".join(
-        f"  - {dimension}: {value}"
-        for dimension, value in sorted(contract.relational_values.items())
-    )
-    support_lines = "\n".join(
-        f"  - {dimension}: {value}"
-        for dimension, value in sorted(contract.support_values.items())
-    )
+    relational_lines = "\n".join(f"  - {dimension}: {value}" for dimension, value in sorted(contract.relational_values.items()))
+    support_lines = "\n".join(f"  - {dimension}: {value}" for dimension, value in sorted(contract.support_values.items()))
 
     return (
         "## Runtime Support Contract\n\n"
@@ -1081,10 +1068,7 @@ def render_support_behavior_contract(contract: SupportBehaviorContract) -> str:
 
 def _summarize_contract_for_learning(contract: SupportBehaviorContract) -> str:
     subjects = ", ".join(_format_subject(subject) for subject in contract.subjects) or "none"
-    return (
-        f"need={contract.need}; mode={contract.response_mode}; family={contract.intervention_family}; "
-        f"subjects=[{subjects}]"
-    )
+    return f"need={contract.need}; mode={contract.response_mode}; family={contract.intervention_family}; subjects=[{subjects}]"
 
 
 class SupportPolicyRuntime:
@@ -1109,10 +1093,7 @@ class SupportPolicyRuntime:
 
     async def _ensure_abstract_subjects(self) -> tuple[SubjectPrototype, ...]:
         if self._abstract_subjects is None:
-            prototype_texts = tuple(
-                (kind, None, text, aliases)
-                for kind, text, aliases in _DEFAULT_ABSTRACT_SUBJECT_TEXTS
-            )
+            prototype_texts = tuple((kind, None, text, aliases) for kind, text, aliases in _DEFAULT_ABSTRACT_SUBJECT_TEXTS)
             self._abstract_subjects = await build_subject_prototypes(
                 embedder=self._embedder,
                 prototype_texts=prototype_texts,

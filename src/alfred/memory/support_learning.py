@@ -31,15 +31,17 @@ InterventionFamily = Literal[
     "confirm",
 ]
 
-_SUPPORTED_NEEDS: frozenset[str] = frozenset({
-    "orient",
-    "resume",
-    "activate",
-    "decide",
-    "reflect",
-    "calibrate",
-    "unknown",
-})
+_SUPPORTED_NEEDS: frozenset[str] = frozenset(
+    {
+        "orient",
+        "resume",
+        "activate",
+        "decide",
+        "reflect",
+        "calibrate",
+        "unknown",
+    }
+)
 PatternKind = Literal[
     "support_preference",
     "recurring_blocker",
@@ -50,25 +52,29 @@ PatternKind = Literal[
 PatternStatus = Literal["candidate", "confirmed", "rejected"]
 UpdateEventStatus = Literal["proposed", "applied", "reverted"]
 
-_SUPPORTED_INTERVENTION_FAMILIES: frozenset[str] = frozenset({
-    "orient",
-    "summarize",
-    "narrow",
-    "sequence",
-    "recommend",
-    "mirror",
-    "compare",
-    "challenge",
-    "reset",
-    "confirm",
-})
-_SUPPORTED_PATTERN_KINDS: frozenset[str] = frozenset({
-    "support_preference",
-    "recurring_blocker",
-    "identity_theme",
-    "direction_theme",
-    "calibration_gap",
-})
+_SUPPORTED_INTERVENTION_FAMILIES: frozenset[str] = frozenset(
+    {
+        "orient",
+        "summarize",
+        "narrow",
+        "sequence",
+        "recommend",
+        "mirror",
+        "compare",
+        "challenge",
+        "reset",
+        "confirm",
+    }
+)
+_SUPPORTED_PATTERN_KINDS: frozenset[str] = frozenset(
+    {
+        "support_preference",
+        "recurring_blocker",
+        "identity_theme",
+        "direction_theme",
+        "calibration_gap",
+    }
+)
 _SUPPORTED_PATTERN_STATUSES: frozenset[str] = frozenset({"candidate", "confirmed", "rejected"})
 _SUPPORTED_UPDATE_EVENT_STATUSES: frozenset[str] = frozenset({"proposed", "applied", "reverted"})
 
@@ -425,15 +431,9 @@ class SupportPattern:
     def from_record(cls, record: Mapping[str, Any]) -> SupportPattern:
         support_overrides_raw = record.get("support_overrides")
         relational_overrides_raw = record.get("relational_overrides")
-        support_overrides = (
-            json.loads(support_overrides_raw)
-            if isinstance(support_overrides_raw, str)
-            else support_overrides_raw
-        )
+        support_overrides = json.loads(support_overrides_raw) if isinstance(support_overrides_raw, str) else support_overrides_raw
         relational_overrides = (
-            json.loads(relational_overrides_raw)
-            if isinstance(relational_overrides_raw, str)
-            else relational_overrides_raw
+            json.loads(relational_overrides_raw) if isinstance(relational_overrides_raw, str) else relational_overrides_raw
         )
         return cls(
             pattern_id=str(record["pattern_id"]),
@@ -550,25 +550,29 @@ class BoundedAdaptationResult:
     update_events: tuple[SupportProfileUpdateEvent, ...]
 
 
-_POSITIVE_LEARNING_SIGNALS: frozenset[str] = frozenset({
-    "resonance",
-    "commitment",
-    "clarity",
-    "deepening",
-    "next_step_chosen",
-    "resume_ready",
-    "boundary_decided",
-    "comparison_started",
-})
-_LOW_RISK_SUPPORT_DIMENSIONS: frozenset[str] = frozenset({
-    "planning_granularity",
-    "option_bandwidth",
-    "proactivity_level",
-    "accountability_style",
-    "recovery_style",
-    "pacing",
-    "recommendation_forcefulness",
-})
+_POSITIVE_LEARNING_SIGNALS: frozenset[str] = frozenset(
+    {
+        "resonance",
+        "commitment",
+        "clarity",
+        "deepening",
+        "next_step_chosen",
+        "resume_ready",
+        "boundary_decided",
+        "comparison_started",
+    }
+)
+_LOW_RISK_SUPPORT_DIMENSIONS: frozenset[str] = frozenset(
+    {
+        "planning_granularity",
+        "option_bandwidth",
+        "proactivity_level",
+        "accountability_style",
+        "recovery_style",
+        "pacing",
+        "recommendation_forcefulness",
+    }
+)
 
 
 def _existing_profile_key(registry: str, dimension: str, scope: SupportProfileScope) -> tuple[str, str, str, str]:
@@ -618,17 +622,13 @@ def derive_bounded_adaptation(
             support_value_scores.setdefault(dimension, {})[value] = (
                 support_value_scores.setdefault(dimension, {}).get(value, 0.0) + similarity
             )
-            support_value_counts.setdefault(dimension, {})[value] = (
-                support_value_counts.setdefault(dimension, {}).get(value, 0) + 1
-            )
+            support_value_counts.setdefault(dimension, {})[value] = support_value_counts.setdefault(dimension, {}).get(value, 0) + 1
             supporting_ids_by_value.setdefault(("support", dimension, value), []).append(similar_situation.situation_id)
         for dimension, value in similar_situation.relational_values_applied.items():
             relational_value_scores.setdefault(dimension, {})[value] = (
                 relational_value_scores.setdefault(dimension, {}).get(value, 0.0) + similarity
             )
-            relational_value_counts.setdefault(dimension, {})[value] = (
-                relational_value_counts.setdefault(dimension, {}).get(value, 0) + 1
-            )
+            relational_value_counts.setdefault(dimension, {})[value] = relational_value_counts.setdefault(dimension, {}).get(value, 0) + 1
             supporting_ids_by_value.setdefault(("relational", dimension, value), []).append(similar_situation.situation_id)
 
     profile_updates: list[SupportProfileValue] = []

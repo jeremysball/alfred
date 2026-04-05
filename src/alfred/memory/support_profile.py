@@ -94,8 +94,7 @@ class SupportProfileRegistryCatalog:
         """Validate schema version and family placement."""
         if self.schema_version != SUPPORT_PROFILE_SCHEMA_VERSION:
             raise ValueError(
-                f"Unsupported support-profile schema version: {self.schema_version!r}. "
-                f"Expected {SUPPORT_PROFILE_SCHEMA_VERSION}",
+                f"Unsupported support-profile schema version: {self.schema_version!r}. Expected {SUPPORT_PROFILE_SCHEMA_VERSION}",
             )
         if self.relational.kind != "relational":
             raise ValueError("relational family must use kind='relational'")
@@ -143,8 +142,7 @@ class SupportProfileDimensionDefinition:
                 )
         if self.default_value not in self.allowed_values:
             raise ValueError(
-                f"Support-profile dimension {self.dimension!r} default {self.default_value!r} "
-                f"must be one of {self.allowed_values!r}",
+                f"Support-profile dimension {self.dimension!r} default {self.default_value!r} must be one of {self.allowed_values!r}",
             )
         if not self.allowed_scope_types:
             raise ValueError(f"Support-profile dimension {self.dimension!r} must allow at least one scope type")
@@ -291,8 +289,7 @@ def validate_registry_value(
     definition = get_registry_dimension(registry, dimension)
     if value not in definition.allowed_values:
         raise ValueError(
-            f"Unsupported {registry} value {value!r} for dimension {dimension!r}. "
-            f"Expected one of: {', '.join(definition.allowed_values)}",
+            f"Unsupported {registry} value {value!r} for dimension {dimension!r}. Expected one of: {', '.join(definition.allowed_values)}",
         )
     return value
 
@@ -351,8 +348,7 @@ class SupportProfileValue:
         """Reject malformed scoped support-profile value records."""
         if self.schema_version != SUPPORT_PROFILE_SCHEMA_VERSION:
             raise ValueError(
-                f"Unsupported support-profile schema version: {self.schema_version!r}. "
-                f"Expected {SUPPORT_PROFILE_SCHEMA_VERSION}",
+                f"Unsupported support-profile schema version: {self.schema_version!r}. Expected {SUPPORT_PROFILE_SCHEMA_VERSION}",
             )
 
         if not isinstance(self.scope, SupportProfileScope):

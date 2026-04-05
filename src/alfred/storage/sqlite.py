@@ -2742,8 +2742,7 @@ class SQLiteStore:
                 for evidence_ref in intervention.evidence_refs:
                     if evidence_ref.session_id != episode_session_id:
                         raise ValueError(
-                            f"Support intervention evidence ref points to session {evidence_ref.session_id}, "
-                            f"expected {episode_session_id}",
+                            f"Support intervention evidence ref points to session {evidence_ref.session_id}, expected {episode_session_id}",
                         )
 
                 record = intervention.to_record()
@@ -2968,11 +2967,7 @@ class SQLiteStore:
         await self._init()
 
         definition = get_registry_dimension(registry, dimension)
-        column_name = (
-            "relational_values_applied"
-            if definition.registry == "relational"
-            else "support_values_applied"
-        )
+        column_name = "relational_values_applied" if definition.registry == "relational" else "support_values_applied"
         json_path = f"$.{definition.dimension}"
 
         import aiosqlite
@@ -3293,7 +3288,7 @@ class SQLiteStore:
             async with db.execute(
                 f"""
                 SELECT * FROM support_patterns
-                WHERE {' AND '.join(conditions)}
+                WHERE {" AND ".join(conditions)}
                 ORDER BY
                     CASE scope_type
                         WHEN 'global' THEN 0
