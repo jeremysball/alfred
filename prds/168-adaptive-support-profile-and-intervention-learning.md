@@ -48,7 +48,7 @@ That creates six problems:
 
 1. Create a **fixed, versioned registry of relational dimensions** for how Alfred shows up.
 2. Create a **fixed, versioned registry of support dimensions** for how Alfred structures help.
-3. Add **runtime policy resolvers** that choose effective values as composites of need, context, target, user state, patterns, and evidence.
+3. Add a small **runtime turn-assessment layer** plus **policy resolvers** that choose effective values as composites of need, response mode, subject, user state, patterns, and evidence.
 4. Add a **behavior compiler** that converts effective runtime values into an explicit response contract for the model.
 5. Make clear which parts of the contract are **runtime-owned policy** versus **LLM-owned realization**.
 6. Store effective values by **global**, **context**, and **operational-arc** scope.
@@ -164,14 +164,96 @@ Important Milestone 1 boundary:
 - the first milestone should define and validate scope shape and allowed IDs
 - it should not yet implement runtime context inference from user messages or conversation state
 
-### 4.5 Resolve effective values as composites
+### 4.5 Add a small runtime turn-assessment layer and resolve effective values as composites
 
-The runtime should choose values as **composites**, not as unconstrained LLM guesses.
+Before policy resolution, the runtime should assess the live turn into a small product-owned contract.
+
+Public runtime assessment:
+- `need`: one of `orient`, `resume`, `activate`, `decide`, `reflect`, `calibrate`, or `unknown`
+- `subjects[]`: an ordered strongest-first list of subject references where each subject is one of `global`, `arc`, `domain`, `identity`, `direction`, or `current_turn`
+
+After assessment, a separate mapper should derive a `response_mode` using the existing v1 context taxonomy:
+- `plan`
+- `execute`
+- `decide`
+- `review`
+- `identity_reflect`
+- `direction_reflect`
+
+Important v1 rules:
+- the assessor returns exactly one need
+- mixed needs are out of scope for v1
+- the assessor may return `unknown` on low confidence
+- low-confidence subjects should be dropped rather than forced into the contract
+- when `need="unknown"`, keep only subjects that still have medium or high subject confidence
+- there is only one top-level subject ontology in v1: `subject`
+- `arc` and `domain` are subject kinds inside `subjects[]`, not separate top-level axes
+- `domain` is a valid subject kind, not a new support-profile scope
+- `response_mode` is derived after assessment; the assessor does not own it directly
+
+Allowed evidence for v1 turn assessment:
+- latest user message
+- recent in-session turns
+- fresh-session status
+- current session state
+- active arc already in scope
+- candidate arc and domain matches from operational state
+
+Excluded from v1 turn assessment:
+- persisted recent episodes
+- persisted intervention history
+
+Implementation shape for v1 turn assessment:
+1. embed the live turn once with the existing local embedding infrastructure
+2. assess `need` from that embedding using a curated prototype bank, centroid scoring, and top-`k` exemplar support
+3. return `unknown` when the top need fails deterministic abstention rules such as the absolute threshold, top-vs-second margin, or local-support rule
+4. build one unified subject candidate pool across all subject kinds
+5. resolve `subjects[]` from that same turn embedding by shortlisting semantic candidates, then applying deterministic grounding, threshold, and ambiguity rules
+6. derive `response_mode` after assessment
+
+Need classification should behave like a classifier with abstention:
+- each need class has a curated prototype bank
+- the runtime computes one centroid per need and also inspects the nearest labeled examples
+- the top need wins only when it clears deterministic abstention rules
+- otherwise the system should prefer explicit `unknown` over a brittle forced guess
+
+Recommended need-decision rules:
+- **absolute threshold**: the top need score must clear a minimum similarity floor
+- **margin threshold**: the top need must beat the second-best need by a minimum margin
+- **top-`k` support**: the nearest labeled examples must provide enough local support for the winning need
+
+Subject resolution should use one ontology only: `subjects[]` with subject kinds `global`, `arc`, `domain`, `identity`, `direction`, and `current_turn`.
+
+Recommended subject-resolution flow:
+- build embedding-based candidates for all subject kinds from the same embedded turn used for need assessment
+- concrete subjects such as `arc` and `domain` should come from the stored subject universe
+- abstract subjects such as `global`, `identity`, `direction`, and `current_turn` should come from curated subject prototypes
+- score each subject candidate with semantic similarity plus deterministic grounding evidence
+- do not use a need-to-subject compatibility matrix in v1
+- apply threshold and ambiguity-margin rules before adding a subject to the public contract
+
+For concrete subjects, deterministic grounding should use live-turn evidence such as:
+- exact or alias text hits
+- ordered token overlap with the message
+- active subject already in scope
+- other explicit lexical grounding from the current message
+
+For abstract subjects, deterministic grounding should use live-turn evidence such as:
+- broad overview wording for `global`
+- self-pattern or introspective wording for `identity`
+- trajectory or long-horizon wording for `direction`
+- local deictic wording such as `this`, `that`, or `here` for `current_turn`
+
+The public assessment should stay small because it exists to improve retrieval, routing, and policy resolution. Richer similarity scores, nearest examples, candidate scores, dropped-candidate details, and abstention reasons should remain internal assessor trace rather than prompt-facing contract.
+
+For Milestone 4, that internal controller trace should be structured and bounded. It should capture things like per-need centroid scores, nearest exemplars, the abstention rule that fired, shortlisted subject candidates, accepted or dropped subjects, and the response-mode rule that fired. It exists for debugging, tests, and offline tuning. It should not be injected into the prompt and should not become durable support-memory truth automatically.
+
+The runtime should then choose values as **composites**, not as unconstrained LLM guesses.
 
 Recommended resolver inputs:
-- current need (`orient`, `resume`, `activate`, `decide`, `reflect`, `calibrate`)
-- current context
-- current target type (domain, arc, pattern-focused reflection)
+- assessed need
+- derived `response_mode` using the existing context IDs
+- resolved subjects
 - transient support state
 - friction signals
 - selected pattern objects
@@ -184,7 +266,7 @@ Pseudo-shape:
 
 ```text
 effective_value =
-  authored_default_by_need_and_context
+  authored_default_by_need_and_response_mode
 + adjustment_from_scope_specific_learning
 + adjustment_from_transient_state
 + adjustment_from_pattern_match
@@ -193,6 +275,10 @@ effective_value =
 ```
 
 Then clamp to the dimension's allowed values.
+
+Subject handling rule:
+- arc subjects can load arc-scoped learned values directly
+- domain subjects can narrow operational retrieval and framing, but they do not create a new profile-scope precedence tier in v1
 
 Important examples:
 - `recommendation_forcefulness` should usually increase for activation and option-paralysis situations, but decrease when stakes are high and ambiguity is unresolved
@@ -215,7 +301,8 @@ The contract should state things like:
 
 Example contract:
 - need: `activate`
-- context: `execute`
+- response mode: `execute`
+- subjects: `[current_turn]`
 - option bandwidth: `single`
 - recommendation forcefulness: `high`
 - planning granularity: `minimal`
@@ -236,6 +323,11 @@ Start-type shorthand:
 - `reflect` = reflective start
 - `cal` = calibration start
 
+The compiler consumes:
+- one assessed `need`
+- an ordered `subjects[]` list
+- one derived `response_mode` that reuses the existing context-ID taxonomy for policy lookup and storage precedence
+
 | Field | Type | Allowed values | Default by start type | Composite adjustment inputs | Runtime-owned decision | LLM-owned freedom |
 |---|---|---|---|---|---|---|
 | `planning_granularity` | support | `minimal`, `short`, `full` | `op=minimal; orient=short; reflect=minimal; cal=minimal` | task complexity, clarity, activation, ambiguity, support-preference patterns | choose granularity band | phrase the structure naturally |
@@ -252,7 +344,7 @@ Start-type shorthand:
 | `analytical_depth` | relational | `low`, `medium`, `high` | `op=medium; orient=medium; reflect=high; cal=high` | complexity, reflection/cali mode, evidence density, user ask for analysis | choose how much explicit reasoning to show | wording and sequencing of analysis |
 | `momentum_pressure` | relational | `low`, `medium`, `high` | `op=medium; orient=low; reflect=low; cal=low` | initiation friction, urgency, shame risk, recovery style, whether motion is actually the goal | decide how much push toward movement is appropriate | how pressure is expressed without breaking rapport |
 | `evidence_mode` | compiler-only | `none`, `light`, `explicit`, `structured` | `op=light; orient=light; reflect=light; cal=structured` | calibration relevance, confidence, identity-risk, explicit ask for evidence | decide whether Alfred must show evidence or observation→interpretation→recommendation structure | weave evidence into natural language |
-| `intervention_family` | compiler-only | `orient`, `summarize`, `narrow`, `sequence`, `recommend`, `mirror`, `compare`, `challenge`, `reset`, `confirm` | `op=narrow/recommend; orient=orient/summarize; reflect=mirror/compare; cal=compare/challenge` | need, target type, top patterns, friction, outcome history | choose the family of move Alfred should make next | choose exact phrasing and micro-ordering inside the move |
+| `intervention_family` | compiler-only | `orient`, `summarize`, `narrow`, `sequence`, `recommend`, `mirror`, `compare`, `challenge`, `reset`, `confirm` | `op=narrow/recommend; orient=orient/summarize; reflect=mirror/compare; cal=compare/challenge` | need, subject mix, top patterns, friction, outcome history | choose the family of move Alfred should make next | choose exact phrasing and micro-ordering inside the move |
 
 Milestone 1 implementation note:
 - the typed support-profile contract stores one neutral `default_value` per dimension for validation and persistence readiness
@@ -281,9 +373,15 @@ Examples:
 - `recurring_blocker: ambiguity stalls starts` should usually lower `planning_granularity` and increase preference for `narrow`
 - `support_preference: candid peer framing works better than authority-heavy advice` should change stance values, not just copywriting
 
-### 4.9 Add an intervention log at the episode level
+### 4.9 Add an intervention log as the atomic action layer
 
-Every meaningful support attempt should be logged against the episode in which it happened.
+Every meaningful support attempt should be logged as a first-class intervention record.
+
+Milestone 5 clarification:
+- `SupportIntervention` remains the atomic action log for what Alfred actually did
+- adaptation should not treat the intervention itself as the primary semantic learning unit
+- instead, Milestone 5 should introduce a broader `LearningSituation` record that can link one or more interventions, the assessed turn shape, the resolved behavior contract, and resulting signals
+- `SupportEpisode` should remain a derived report or synthesis surface across related situations, not the primary write-path container for adaptation
 
 Minimum v1 intervention fields:
 - `intervention_id`
@@ -343,6 +441,29 @@ Example:
 }
 ```
 
+### 4.9.1 Add learning situations as the primary adaptation unit
+
+Milestone 5 should operate on generalized `LearningSituation` records rather than on interventions or coarse episodes alone.
+
+A learning situation should capture, at minimum:
+- `situation_id`
+- `session_id`
+- timestamp(s)
+- a stored turn or situation embedding used for similarity retrieval
+- one assessed `need`
+- ordered `subjects[]`
+- derived `response_mode`
+- linked `arc_id` and `domain_ids` when present
+- the resolved support and relational values or compiled behavior contract Alfred actually used
+- linked intervention IDs
+- observed user-response and outcome signals
+- evidence refs
+
+Important Milestone 5 rule:
+- embeddings should match the current turn against prior learning situations
+- deterministic product rules should decide whether that retrieved evidence creates or updates a pattern, updates a scoped profile value, or only remains candidate evidence
+- cross-arc semantic reuse is allowed when the similarity match is strong enough; the system should not require the same exact arc to learn from a prior situation
+
 ### 4.10 Add durable support-profile records
 
 Each learned value should include:
@@ -401,6 +522,8 @@ Recommended rules:
 - **context-scoped** values require more evidence
 - **global support values** require the strongest evidence and should be surfaced to the user
 - **global relational values** should adapt cautiously and remain reviewable
+- Milestone 5 should treat **patterns and support-profile values as co-equal runtime inputs** rather than reducing patterns to post-hoc explanation only
+- low-risk operational patterns such as `support_preference` and `recurring_blocker` may directly influence compiled values when evidence is strong enough
 - **identity and direction themes are not handled here as silent truth updates**; they remain candidate-first and belong in the reflection/control system
 - every automatic change creates a durable update event with evidence and rationale
 - all support-profile changes must be reversible
@@ -423,15 +546,22 @@ Example update event:
 ### 4.13 Runtime application
 
 At runtime, Alfred should:
-1. infer the current need and context
-2. load relevant domain/arc support values
-3. load relevant domain/arc relational values
-4. load high-priority patterns that can change the next move
-5. resolve the most specific effective values first
-6. derive a stance summary
-7. compile a behavior contract
-8. constrain intervention and response generation accordingly
-9. log interventions and resulting signals
+1. assess the live turn into one `need` plus ordered `subjects[]`
+2. derive `response_mode` from that assessment using the existing context-ID taxonomy
+3. retrieve similar prior learning situations from the embedded current turn
+4. load relevant support-profile values by arc -> response-mode/context -> global precedence
+5. load high-priority patterns that can change the next move
+6. use resolved subjects to narrow operational retrieval and framing
+7. resolve the most specific effective values first
+8. derive a stance summary
+9. compile a behavior contract
+10. constrain intervention and response generation accordingly
+11. log interventions, learning situations, and resulting signals
+12. synthesize episode-level reports later for review and reflection surfaces
+
+Important runtime rule:
+- domain subjects may narrow retrieval and framing, but they do not add a new support-profile scope tier in v1
+- low-confidence need detection should degrade to `unknown`, then fall back to a neutral `execute` response mode rather than forcing a brittle guess
 
 This turns support memory into an explicit control plane rather than a prompt-only behavior.
 
@@ -468,14 +598,14 @@ Examples:
 
 - [x] Alfred stores relational and support values using fixed, versioned registries.
 - [x] Runtime values can be scoped globally, by context, and by operational arc.
-- [ ] The runtime resolves policy values as composites instead of leaving them to raw LLM choice.
-- [ ] Alfred compiles explicit response contracts before generation.
+- [x] The runtime resolves policy values as composites instead of leaving them to raw LLM choice.
+- [x] Alfred compiles explicit response contracts before generation.
 - [x] Alfred logs interventions, response signals, and outcome signals durably.
-- [ ] Alfred can auto-adapt low-risk scoped values and log every change.
-- [ ] Global support and relational changes are surfaced or reviewable.
-- [ ] Runtime support behavior is driven by structured state rather than prompt wording alone.
-- [ ] The system can explain both what it changed and why.
-- [ ] The model remains free to phrase naturally without becoming the primary owner of policy.
+- [x] Alfred can auto-adapt low-risk scoped values and log every change.
+- [x] Global support and relational changes are surfaced or reviewable.
+- [x] Runtime support behavior is driven by structured state rather than prompt wording alone.
+- [x] The system can explain both what it changed and why.
+- [x] The model remains free to phrase naturally without becoming the primary owner of policy.
 
 ---
 
@@ -505,30 +635,38 @@ Progress update (2026-03-30): completed in `src/alfred/memory/support_memory.py`
 
 Validation: targeted tests prove intervention events are stored consistently and can be queried by arc, context, and dimension. `uv run pytest tests/test_support_intervention.py tests/storage/test_support_intervention_storage.py -v`, `uv run ruff check src/ tests/test_support_intervention.py tests/storage/test_support_intervention_storage.py`, and `uv run mypy --strict src/` passed.
 
-### Milestone 4: Add policy resolvers and the behavior compiler
-Compile effective values into explicit response contracts and use those contracts at runtime.
+### Milestone 4: Add turn assessment, policy resolvers, and the behavior compiler
+Build the small runtime turn-assessment layer, derive `response_mode`, resolve effective values as composites, and compile explicit response contracts for runtime use.
 
-Validation: targeted tests prove the compiled contract reflects the correct need, scope, patterns, and transient-state inputs in representative contexts.
+Progress update (2026-03-30): completed in `src/alfred/support_policy.py`, `src/alfred/alfred.py`, `tests/test_support_policy.py`, `tests/test_core_observability.py`, and `prds/execution-plan-168-milestone4.md`. The delivered runtime layer embeds the live turn once, assesses one `need` with centroid scoring plus top-`k` exemplar support, resolves ordered `subjects[]` from embedding-based candidate recall plus deterministic grounding without a need-to-subject compatibility matrix, derives `response_mode`, resolves composite support and relational values from defaults plus stored scoped learning and transient adjustments, compiles an explicit `SupportBehaviorContract`, and injects that contract into the final `system_prompt` before `chat_stream()` generation.
+
+Validation: targeted tests prove the runtime can assess one need plus ordered subjects, map that assessment to the existing response-mode/context taxonomy, compile contracts that reflect representative operational, reflective, and calibration contexts, and inject the compiled contract into the final streamed prompt. `uv run pytest tests/test_support_policy.py tests/test_core_observability.py -v`, `uv run ruff check src/ tests/test_support_policy.py tests/test_core_observability.py`, and `uv run mypy --strict src/` passed.
 
 ### Milestone 5: Implement bounded adaptation
-Add rules for automatic scoped updates, update-event logging, and stronger thresholds for broad changes.
+Add the learning core for bounded adaptation: generalized learning-situation records, first-class patterns, support-profile update events, automatic scoped updates, and stronger thresholds for broad changes.
 
-Validation: targeted tests prove arc/context values can auto-update with evidence while broad changes remain surfaced and reversible.
+Progress update (2026-03-30): completed in `src/alfred/memory/support_learning.py`, `src/alfred/memory/__init__.py`, `src/alfred/storage/sqlite.py`, `src/alfred/support_policy.py`, `tests/test_support_learning.py`, `tests/storage/test_support_learning_storage.py`, `tests/test_support_policy.py`, and `prds/execution-plan-168-milestone5.md`. The delivered Milestone 5 learning core adds typed learning-situation, pattern, and profile-update-event contracts; SQLite persistence plus vec-backed similar-situation retrieval; deterministic bounded adaptation for low-risk arc/context support updates; candidate surfacing for broader relational changes; persistence of learning situations and adaptation artifacts together; and runtime loading plus application of learned patterns and updated support-profile values before generation.
+
+Validation: targeted tests prove Alfred can retrieve similar prior learning situations from embeddings, derive and persist low-risk arc/context support updates, surface broader relational changes as candidate patterns or proposed update events, apply pattern and profile inputs together at runtime, and keep episodes out of the primary learning write path. `uv run pytest --no-cov -p no:cacheprovider tests/test_support_learning.py tests/storage/test_support_learning_storage.py tests/test_support_policy.py tests/test_core_observability.py::test_chat_stream_includes_compiled_support_contract_in_system_prompt -v`, `uv run ruff check src/alfred/memory/support_learning.py src/alfred/storage/sqlite.py src/alfred/support_policy.py tests/test_support_learning.py tests/storage/test_support_learning_storage.py tests/test_support_policy.py`, and `uv run mypy --strict src/alfred/memory/support_learning.py src/alfred/storage/sqlite.py src/alfred/support_policy.py` passed.
 
 ### Milestone 6: Regression coverage, documentation, and prompt/template updates
 Add or update tests, docs, and managed prompt/template content for the registries, compiler, and adaptation contract.
 
-Validation: relevant Python validation passes, docs explain the runtime learning model clearly, and managed prompt/template content reflects the same registries and boundaries.
+Progress update (2026-03-30): completed in `src/alfred/support_policy.py`, `tests/test_support_policy.py`, `templates/SYSTEM.md`, `docs/relational-support-model.md`, `prds/168-adaptive-support-profile-and-intervention-learning.md`, and `prds/execution-plan-168-milestone6.md`. The delivered Milestone 6 cleanup adds an explicit realization rule to the rendered runtime support contract so policy remains runtime-owned while phrasing stays natural, updates the managed system template to keep internal policy labels out of normal replies, and aligns the architecture docs to the implemented situation-first learning model where episodes remain derived synthesis/report surfaces.
+
+Validation: targeted regression coverage proves the prompt-facing support contract now carries the natural-phrasing boundary without dropping the structured policy fields. `uv run pytest --no-cov -p no:cacheprovider tests/test_support_policy.py -v` and `uv run ruff check src/alfred/support_policy.py tests/test_support_policy.py` passed. Docs/template verification confirmed `templates/SYSTEM.md` and `docs/relational-support-model.md` now match the implemented runtime and storage model.
 
 ---
 
 ## 8. Likely File Changes
 
 ```text
-src/alfred/memory/...                  # support-profile and intervention-log storage
-src/alfred/context.py or orchestration # runtime application of compiled support values
-src/alfred/session.py                  # intervention and outcome signal capture
-src/alfred/orchestration/...           # policy resolvers and behavior compiler if introduced
+src/alfred/memory/...         # support-profile and intervention-log storage
+src/alfred/support_policy.py  # turn assessment, response-mode mapping, resolver, compiler
+src/alfred/alfred.py          # runtime application of compiled support values
+src/alfred/session.py         # intervention and outcome signal capture
+tests/test_support_policy.py  # support-policy contract tests
+tests/test_core_observability.py
 
 docs/MEMORY.md
 docs/ARCHITECTURE.md
@@ -563,7 +701,7 @@ Required validation:
 ```bash
 uv run ruff check src/
 uv run mypy --strict src/
-uv run pytest <targeted tests for touched memory, orchestration, and support-profile surfaces>
+uv run pytest <targeted tests for touched policy, core, memory, and support-profile surfaces>
 ```
 
 Docs and prompt/template updates should cover:
@@ -604,3 +742,19 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Reuse `SupportProfileValue` as the Milestone 2 persisted record contract and extend it with `schema_version`, `created_at`, `updated_at`, and `to_record()` / `from_record()` helpers | This keeps the storage boundary aligned with the typed support-profile model and the existing support-memory persistence style without introducing a second record type |
 | 2026-03-30 | Normalize transcript provenance first under a PRD #167 addendum, then build Milestone 3 intervention logging on top of canonical `(session_id, message_id)` transcript rows and message-ID-based `EvidenceRef` spans | Intervention logging needs first-class evidence references and real same-session provenance guarantees rather than raw string IDs or message-index pointers |
 | 2026-03-30 | Use lightweight same-session `SupportInterventionMessageRef` spans inside intervention logs instead of embedding full `EvidenceRef` records | Intervention logging needs typed transcript provenance without coupling each intervention record to the heavier promoted-evidence contract |
+| 2026-03-30 | Add a small runtime turn-assessment layer before policy resolution | Milestone 4 needs a product-owned way to decide what kind of help is being asked for before the resolver and compiler run |
+| 2026-03-30 | Keep the public turn-assessment contract small: one `need` plus ordered `subjects[]`; derive `response_mode` separately | The runtime only needs enough structure to steer retrieval, routing, and policy resolution; richer scoring detail belongs in trace |
+| 2026-03-30 | Allow `unknown` need on low confidence and fall back to a neutral `execute` response mode | The system should avoid brittle forced classification when the turn does not clearly signal one support need |
+| 2026-03-30 | Treat `domain` as a valid subject kind, not a new support-profile scope | Domain references matter for retrieval and framing, but Milestone 4 should not expand scope precedence beyond global, context, and arc |
+| 2026-03-30 | Allow ordered secondary subjects in the assessment, but drop low-confidence subjects | Arc, domain, and broader framing signals can all be useful, but the runtime contract should stay inspectable and bounded |
+| 2026-03-30 | Limit Milestone 4 turn assessment evidence to the current message, recent in-session turns, fresh-session state, current session state, and candidate arc/domain matches | This gives the assessor enough live context without coupling support routing to persisted episode or intervention history |
+| 2026-03-30 | Embed the live turn once and use that same embedding for both need assessment and subject resolution | Milestone 4 should reuse one semantic view of the turn and avoid duplicate assessment paths |
+| 2026-03-30 | Treat need assessment as embedding-based classification with abstention | Centroid scoring plus top-`k` exemplar support gives Milestone 4 a bounded semantic classifier without training a new model, while `unknown` remains a valid safe fallback |
+| 2026-03-30 | Resolve subjects from embedding-based candidate recall plus deterministic grounding, threshold, and ambiguity rules | Embeddings should provide recall across subject kinds, but the public contract still needs grounded, inspectable subject selection rather than pure similarity wins |
+| 2026-03-30 | Do not use a need-to-subject compatibility matrix in v1 | `resume`, `reflect`, and other needs may legitimately pair with multiple subject kinds, so hard compatibility rules would overconstrain the model |
+| 2026-03-30 | Keep a structured internal controller trace separate from the public runtime contract and durable memory | Similarity scores, nearest exemplars, candidate scores, dropped subjects, and fallback reasons are useful for debugging and tuning, but they should not be injected into prompts or promoted to memory truth automatically |
+| 2026-03-30 | Use generalized `LearningSituation` records as the primary adaptation and similarity-matching unit | Interventions are too narrow and episodes are too coarse to serve as the main embedding-based learning object |
+| 2026-03-30 | Keep `SupportIntervention` as a separate atomic action log | Alfred still needs inspectable records of the concrete moves it made inside a broader learning situation |
+| 2026-03-30 | Treat `SupportEpisode` as a derived report rather than the primary adaptation container | Episodes remain useful for review and synthesis, but the core learning loop should write situations first and synthesize reports later |
+| 2026-03-30 | Use embeddings to match similar prior learning situations across arcs when the semantic match is strong | This avoids fake NLP while still allowing bounded generalization beyond one exact arc |
+| 2026-03-30 | Treat patterns as co-equal runtime inputs alongside support-profile values | Recurring truths should be able to change behavior directly rather than only explain it after the fact |

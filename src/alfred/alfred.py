@@ -5,7 +5,7 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from telegram import Bot
@@ -17,6 +17,7 @@ from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
 from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
 from alfred.session import Message, ReasoningBlock, Role, Session, TextBlock, ToolCallRecord
+from alfred.support_policy import SupportPolicyRuntime
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
 
@@ -390,6 +391,15 @@ class Alfred:
                 context_chars=len(system_prompt),
                 duration_ms=round((perf_counter() - context_started_at) * 1000, 2),
             )
+
+            support_contract_section = await self._build_support_contract_section_for_turn(
+                message=message,
+                query_embedding=query_embedding,
+                session_messages=session_messages,
+                session_id=session_id,
+            )
+            if support_contract_section:
+                system_prompt = f"{system_prompt}\n\n{support_contract_section}"
 
             messages = [ChatMessage(role="user", content=message)]
 
@@ -799,6 +809,41 @@ To use a tool, respond with a tool call. The system will execute the tool
 and return the results to you.
 You can then continue the conversation with the tool results.
 """
+
+    def _get_support_policy_runtime(self) -> SupportPolicyRuntime | None:
+        """Return the cached support-policy runtime when the core exposes the required seams."""
+        runtime = cast(SupportPolicyRuntime | None, getattr(self, "_support_policy_runtime", None))
+        if runtime is not None:
+            return runtime
+
+        store = getattr(self.core, "sqlite_store", None)
+        embedder = getattr(self.core, "embedder", None)
+        if store is None or embedder is None:
+            return None
+
+        runtime = SupportPolicyRuntime(store=store, embedder=embedder)
+        self._support_policy_runtime = runtime
+        return runtime
+
+    async def _build_support_contract_section_for_turn(
+        self,
+        *,
+        message: str,
+        query_embedding: list[float] | None,
+        session_messages: list[tuple[str, str]],
+        session_id: str | None,
+    ) -> str | None:
+        """Build the runtime support-contract section for one live turn when available."""
+        runtime = self._get_support_policy_runtime()
+        if runtime is None:
+            return None
+
+        return await runtime.build_prompt_section(
+            message=message,
+            query_embedding=query_embedding,
+            session_messages=session_messages,
+            session_id=session_id,
+        )
 
     async def compact(self) -> str:
         """Trigger conversation compaction."""

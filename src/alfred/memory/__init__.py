@@ -10,6 +10,12 @@ from typing import TYPE_CHECKING
 from alfred.config import Config
 from alfred.embeddings.provider import EmbeddingProvider
 from alfred.memory.base import MemoryEntry, MemoryStore
+from alfred.memory.support_learning import (
+    LearningSituation,
+    SupportPattern,
+    SupportProfileUpdateEvent,
+    SupportTranscriptSpanRef,
+)
 from alfred.memory.support_memory import (
     ArcBlocker,
     ArcDecision,
@@ -53,6 +59,7 @@ __all__ = [
     "ArcTask",
     "EvidenceRef",
     "GlobalSituation",
+    "LearningSituation",
     "LifeDomain",
     "MemoryEntry",
     "MemoryStore",
@@ -64,6 +71,9 @@ __all__ = [
     "SupportEpisode",
     "SupportIntervention",
     "SupportInterventionMessageRef",
+    "SupportPattern",
+    "SupportProfileUpdateEvent",
+    "SupportTranscriptSpanRef",
     "SupportProfileDimensionDefinition",
     "SupportProfileRegistryCatalog",
     "SupportProfileRegistryFamily",
