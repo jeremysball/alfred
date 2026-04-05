@@ -153,18 +153,22 @@ Alfred should support:
 
 These are where learning becomes bounded, typed, user-visible reflection.
 
-### 4.4 Use episodes as the base unit for pattern generation
+### 4.4 Use learning situations for matching and episodes for reflection reports
 
-Pattern generation should work from episode evidence, not only from coarse session blobs.
+Pattern generation should work from structured learning situations rather than from coarse session blobs alone.
 
 That allows Alfred to learn separately from:
-- an execution episode
-- a decision episode
-- an identity reflection episode
-- a direction reflection episode
-- a calibration episode
+- an execution situation
+- a decision situation
+- an identity reflection situation
+- a direction reflection situation
+- a calibration situation
 
-The reflection system should aggregate from episode evidence into candidate patterns and review cards.
+Important split:
+- `LearningSituation` is the primary similarity and adaptation unit for matching evidence across turns and sessions
+- `SupportEpisode` is the derived report or synthesis boundary that groups related situations for reflection, review cards, and human-readable summaries
+
+The reflection system should aggregate from learning situations into candidate patterns and then synthesize episode-level review surfaces from related situations.
 
 ### 4.5 Separate load score from move-impact score from surface score
 
@@ -616,3 +620,4 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Session-start pattern surfacing is allowed when it materially changes the next move | High-value continuity includes recurring blockers, support preferences, and active themes, not just active threads |
 | 2026-03-30 | Learning may silently improve scoped support behavior, but not silently redefine identity | Scoped adaptation should stay fast while identity remains user-controlled |
 | 2026-03-30 | Most pattern machinery should remain invisible unless trust or correction requires explicitness | Alfred should feel clear and alive, not mechanically narrated |
+| 2026-03-30 | Use learning situations as the primary matching unit and episodes as derived reflection reports | Reflection needs coherent reports, but the learning core should match semantically on situations rather than treat episodes as the primary write-path container |
