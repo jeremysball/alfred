@@ -31,8 +31,7 @@ The current foundation already supports:
 - tool use, self-model inspection, and local-first runtime control
 
 The next architectural layer is the relational support model formalized in PRD #179.
-Its support-memory foundation shipped in PRD #167, and the next child PRDs are:
-- **#168** adaptive support profile and intervention learning
+Its support-memory foundation shipped in PRD #167, adaptive support runtime and bounded adaptation shipped in PRD #168, and the next child PRD is:
 - **#169** reflection reviews and support controls
 
 ---
@@ -124,6 +123,7 @@ Its support-memory foundation shipped in PRD #167, and the next child PRDs are:
 | 145 | Spacejam and Kidcore Theme Overhaul | Rework theme message surfaces, backgrounds, and subtle thinking blocks for the kidcore and spacejam themes (PRD #145) |
 | 159 | ✅ Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
 | 167 | ✅ Support Memory Foundation | Typed support episodes, evidence refs, life domains, operational arcs, fresh situations, and operational-first retrieval (PRD #167) |
+| 168 | ✅ Adaptive Support Profile and Intervention Learning | Fixed support/relational registries, runtime support contracts, learning situations, bounded adaptation, and pattern-aware runtime policy (PRD #168) |
 
 ### In Progress / Next Up 🔨
 
@@ -137,7 +137,6 @@ Its support-memory foundation shipped in PRD #167, and the next child PRDs are:
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 179 | Relational Support Operating Model | Formalize Alfred as one relational support system and align child PRDs, docs, and markdown ownership under shared primitives (PRD #179) |
-| 168 | Adaptive Support Profile and Intervention Learning | Add fixed relational/support registries, scoped runtime values, intervention logging, and bounded auto-adaptation (PRD #168) |
 | 169 | Reflection Reviews and Support Controls | Add bounded weekly/on-demand review cards plus user-visible inspection and correction of learned support memory (PRD #169) |
 | 164 | Repo-wide ESM Migration for JavaScript | Convert all JavaScript from CommonJS to ES Modules, fixing Web UI initialization failure (PRD #164) |
 | 162 | Web UI WebSocket-first Status and Debug Instrumentation | Make live Web UI state and message delivery WebSocket-first, keep /health for readiness only, and add explicit server/client debug logs (PRD #162) |
@@ -190,5 +189,5 @@ Its support-memory foundation shipped in PRD #167, and the next child PRDs are:
 - Alfred can resume active work without forcing the user to repeat core context
 - Alfred retrieves durable context, memories, and prior session evidence before asking for recap
 - Alfred supports planning, execution, decisions, and review reliably today
-- Alfred's support learning and reflection systems become inspectable and user-correctable as PRDs #168-#169 land atop the shipped support-memory foundation
+- Alfred's adaptive support runtime is shipped, and the remaining reflection controls in PRD #169 become inspectable and user-correctable atop the shipped support-memory foundation
 - runtime descriptions, docs, and templates stay aligned enough that contributors can trust them

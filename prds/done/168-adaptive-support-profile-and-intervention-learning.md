@@ -2,8 +2,9 @@
 
 **GitHub Issue**: [#168](https://github.com/jeremysball/alfred/issues/168)  
 **Priority**: High  
-**Status**: In Progress  
-**Created**: 2026-03-30
+**Status**: Complete  
+**Created**: 2026-03-30  
+**Completed**: 2026-03-30
 
 ---
 
