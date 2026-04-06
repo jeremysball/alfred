@@ -3146,6 +3146,54 @@ class SQLiteStore:
                 rows = await cursor.fetchall()
                 return [LearningSituation.from_record(dict(row)) for row in rows]
 
+    async def list_recent_learning_situations(self, *, limit: int = 6) -> list[LearningSituation]:
+        """List the most recent learning situations across sessions for inspection surfaces."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_learning_situations
+                ORDER BY recorded_at DESC, situation_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [LearningSituation.from_record(dict(row)) for row in rows]
+
+    async def list_learning_situations_by_ids(self, situation_ids: tuple[str, ...]) -> list[LearningSituation]:
+        """Load a deterministic subset of learning situations by ID."""
+        await self._init()
+        if not situation_ids:
+            return []
+
+        import aiosqlite
+
+        placeholders = ", ".join("?" for _ in situation_ids)
+        ordered_ids = {situation_id: index for index, situation_id in enumerate(situation_ids)}
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                f"SELECT * FROM support_learning_situations WHERE situation_id IN ({placeholders})",
+                situation_ids,
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        situations = [LearningSituation.from_record(dict(row)) for row in rows]
+        situations.sort(key=lambda situation: ordered_ids.get(situation.situation_id, len(ordered_ids)))
+        return situations
+
     async def search_learning_situations(
         self,
         query_embedding: list[float],
@@ -3304,6 +3352,45 @@ class SQLiteStore:
                 rows = await cursor.fetchall()
                 return [SupportPattern.from_record(dict(row)) for row in rows]
 
+    async def list_support_patterns_for_inspection(
+        self,
+        *,
+        statuses: tuple[str, ...] = ("candidate", "confirmed"),
+        limit: int = 12,
+    ) -> list[SupportPattern]:
+        """List bounded pattern summaries for inspection and review surfaces."""
+        await self._init()
+        if limit <= 0 or not statuses:
+            return []
+
+        import aiosqlite
+
+        placeholders = ", ".join("?" for _ in statuses)
+        params: list[Any] = [*statuses, limit]
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                f"""
+                SELECT * FROM support_patterns
+                WHERE status IN ({placeholders})
+                ORDER BY
+                    CASE status
+                        WHEN 'confirmed' THEN 0
+                        WHEN 'candidate' THEN 1
+                        ELSE 2
+                    END ASC,
+                    updated_at DESC,
+                    pattern_id ASC
+                LIMIT ?
+                """,
+                params,
+            ) as cursor:
+                rows = await cursor.fetchall()
+                return [SupportPattern.from_record(dict(row)) for row in rows]
+
     async def save_support_profile_update_event(self, event: SupportProfileUpdateEvent) -> None:
         """Save or update one support-profile update event."""
         await self._init()
@@ -3372,6 +3459,30 @@ class SQLiteStore:
                 if row is None:
                     return None
                 return SupportProfileUpdateEvent.from_record(dict(row))
+
+    async def list_support_profile_update_events(self, *, limit: int = 12) -> list[SupportProfileUpdateEvent]:
+        """List recent support-profile update events for inspection and review surfaces."""
+        await self._init()
+        if limit <= 0:
+            return []
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """
+                SELECT * FROM support_profile_update_events
+                ORDER BY timestamp DESC, event_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        return [SupportProfileUpdateEvent.from_record(dict(row)) for row in rows]
 
     async def save_support_profile_value(self, profile_value: SupportProfileValue) -> None:
         """Save or update one scoped support-profile value."""
