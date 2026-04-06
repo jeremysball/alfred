@@ -78,8 +78,8 @@ Implement the deterministic reflection-loading and surfacing rules that sit betw
 2. `src/alfred/alfred.py` - append reflection guidance alongside the support contract at runtime
 3. `tests/test_support_reflection.py` - load, surface-level, and session-start priority tests
 4. `tests/test_core_observability.py` - prompt-injection integration test for reflection guidance
-5. `prds/169-reflection-reviews-and-support-controls.md` - sync progress and decision wording as this slice lands
-6. `prds/execution-plan-169-milestone2.md` - track milestone progress
+5. `prds/done/169-reflection-reviews-and-support-controls.md` - sync progress and decision wording as this slice lands
+6. `prds/done/execution-plan-169-milestone2.md` - track milestone progress
 
 ## Commit Strategy
 

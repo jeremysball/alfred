@@ -106,8 +106,8 @@ Define the contract-first foundation for PRD #169 without adding UI surfaces or 
 4. `src/alfred/memory/__init__.py` - export the new reflection contracts if they become public repo surfaces
 5. `tests/test_support_reflection.py` - review-card, inspection, correction-action, and milestone-proof tests
 6. `tests/storage/test_support_reflection_storage.py` - SQLite inspection query tests
-7. `prds/169-reflection-reviews-and-support-controls.md` - sync milestone wording and decisions as this slice lands
-8. `prds/execution-plan-169-milestone1.md` - track progress through the contract-first slice
+7. `prds/done/169-reflection-reviews-and-support-controls.md` - sync milestone wording and decisions as this slice lands
+8. `prds/done/execution-plan-169-milestone1.md` - track progress through the contract-first slice
 
 ## Commit Strategy
 
