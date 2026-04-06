@@ -882,6 +882,79 @@ You can then continue the conversation with the tool results.
             session_id=session_id,
         )
 
+    async def get_support_snapshot_text(
+        self,
+        *,
+        response_mode: str = "execute",
+        arc_id: str | None = None,
+    ) -> str | None:
+        """Render the current support inspection snapshot as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        snapshot = await runtime.build_inspection_snapshot(response_mode=response_mode, arc_id=arc_id)
+        return runtime.render_inspection_snapshot(snapshot)
+
+    async def get_support_pattern_text(self, pattern_id: str) -> str | None:
+        """Render one support pattern detail record as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        detail = await runtime.get_pattern_detail(pattern_id)
+        if detail is None:
+            return None
+        return runtime.render_pattern_detail(detail)
+
+    async def get_support_update_event_text(self, event_id: str) -> str | None:
+        """Render one support update-event detail record as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        detail = await runtime.get_update_event_detail(event_id)
+        if detail is None:
+            return None
+        return runtime.render_update_event_detail(detail)
+
+    async def explain_support_value_text(
+        self,
+        *,
+        registry: str,
+        dimension: str,
+        response_mode: str,
+        arc_id: str | None = None,
+    ) -> str | None:
+        """Render one effective-value explanation as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        explanation = await runtime.explain_effective_value(
+            registry=registry,
+            dimension=dimension,
+            response_mode=response_mode,
+            arc_id=arc_id,
+        )
+        return runtime.render_effective_value_explanation(explanation)
+
+    async def build_support_review_text(
+        self,
+        *,
+        mode: str = "on_demand",
+    ) -> str | None:
+        """Render one bounded support review as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        report = await runtime.build_review_report(mode=cast(Any, mode), now=datetime.now(UTC))
+        return runtime.render_review_report(report)
+
+    async def apply_support_correction_text(self, action: Any) -> str | None:
+        """Apply one typed support correction and render the outcome as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        outcome = await runtime.apply_correction_action(action, now=datetime.now(UTC))
+        return runtime.render_correction_outcome(outcome)
+
     async def compact(self) -> str:
         """Trigger conversation compaction."""
         return "Compaction not yet implemented"

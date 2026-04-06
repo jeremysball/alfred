@@ -1,6 +1,6 @@
 # Relational Support Model
 
-**Status:** Planned architecture. This document describes the target support model being formalized by PRD #179 and child PRDs #167, #168, and #169.
+**Status:** Active architecture. This document describes the support model being formalized by PRD #179 and child PRDs #167, #168, and #169.
 
 ## Overview
 
@@ -244,34 +244,36 @@ Reflection is the user-facing meaning-making layer. It is not the same thing as 
 1. **Inline reflection** — surfaced during live conversation when highly relevant
 2. **Internal synthesis** — mostly hidden state updates after or during conversation
 3. **Explicit review** — weekly or on-demand bounded review cards
+4. **Inspection and correction** — bounded user-invoked views over support state, recent changes, and typed correction actions
 
 ### Pattern taxonomy
-Recommended v1 production pattern types:
-- `support_effectiveness`
+The current v1 pattern family uses these durable kinds:
+- `support_preference`
 - `recurring_blocker`
-- `relational_preference`
 - `identity_theme`
-- `direction_tension`
-- `recovery_pattern`
-- `value_signal`
+- `direction_theme`
 - `calibration_gap`
 
-### Review cards
-Recommended v1 review-card types:
-- support-fit
-- blocker
-- relational-fit
-- identity-theme
-- direction-tension
-- calibration-gap
+These patterns may be `candidate`, `confirmed`, or `rejected`.
+Candidate and confirmed patterns can feed reflection surfaces. Only confirmed patterns should silently participate in runtime policy.
 
-Reviews should stay bounded to 1-3 cards and each card should include evidence plus an action, confirmation question, or correction path.
+### Review cards
+Current v1 review cards are **derived from durable patterns**, not stored as a second truth layer.
+
+The current v1 review-card kinds are:
+- `support_fit`
+- `blocker`
+- `identity_theme`
+- `direction_theme`
+- `calibration_gap`
+
+Reviews stay bounded to 1-3 cards. Each card should include evidence plus an action, confirmation question, or correction path.
 
 ## Promotion ladder
 
 The target ladder is:
 1. raw evidence
-2. typed episode evidence
+2. typed learning-situation evidence
 3. candidate pattern
 4. confirmed structured support memory
 5. explicit durable user truth in `USER.md`
@@ -320,10 +322,11 @@ The target runtime loop is:
 6. derive stance summary
 7. compile behavior contract
 8. choose interventions
-9. respond or act
-10. log evidence and outcomes
-11. calibrate against the record when relevant
-12. surface review or correction when appropriate
+9. decide whether any loaded pattern should stay silent, get a compact mention, or get a slightly richer explanation
+10. respond or act
+11. log evidence and outcomes
+12. calibrate against the record when relevant
+13. surface review, inspection, or correction when appropriate
 
 ## PRD map
 

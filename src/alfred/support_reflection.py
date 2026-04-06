@@ -354,6 +354,21 @@ class ReflectionTurnGuidance:
 
 
 @dataclass(frozen=True)
+class ReviewReport:
+    mode: Literal["on_demand", "weekly"]
+    cards: tuple[ReviewCard, ...]
+    recent_changes: tuple[UpdateEventSummary, ...]
+
+
+@dataclass(frozen=True)
+class CorrectionOutcome:
+    summary: str
+    changed_patterns: tuple[SupportPattern, ...] = ()
+    changed_values: tuple[SupportProfileValue, ...] = ()
+    update_events: tuple[SupportProfileUpdateEvent, ...] = ()
+
+
+@dataclass(frozen=True)
 class ConfirmPatternAction:
     pattern_id: str
     reason: str
@@ -488,6 +503,19 @@ class SupportReflectionStore(Protocol):
         response_mode: str | None = None,
         need: str | None = None,
     ) -> list[tuple[LearningSituation, float]]: ...
+
+    async def save_support_pattern(self, pattern: SupportPattern) -> None: ...
+
+    async def save_support_profile_update_event(self, event: SupportProfileUpdateEvent) -> None: ...
+
+    async def save_support_profile_value(self, profile_value: SupportProfileValue) -> None: ...
+
+    async def delete_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        scope: SupportProfileScope,
+    ) -> None: ...
 
     async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]: ...
 
@@ -778,6 +806,296 @@ class SupportReflectionRuntime:
             fresh_session=len(session_messages) == 0,
         )
         return self.render_prompt_section(guidance)
+
+    async def build_review_report(
+        self,
+        *,
+        mode: Literal["on_demand", "weekly"],
+        now: datetime,
+    ) -> ReviewReport:
+        patterns = await self._store.list_support_patterns_for_inspection(statuses=("candidate", "confirmed"), limit=24)
+        update_events = await self._store.list_support_profile_update_events(limit=12)
+        if mode == "weekly":
+            patterns = [pattern for pattern in patterns if (now - pattern.updated_at).days <= 7]
+            update_events = [event for event in update_events if (now - event.timestamp).days <= 7]
+
+        kind_weights = {
+            "calibration_gap": 1.3,
+            "recurring_blocker": 1.2,
+            "support_preference": 1.1,
+            "direction_theme": 1.0,
+            "identity_theme": 1.0,
+        }
+        ranked_patterns = sorted(
+            patterns,
+            key=lambda pattern: (
+                -(
+                    (pattern.confidence * kind_weights.get(pattern.kind, 1.0))
+                    + (0.15 if pattern.status == "candidate" else 0.0)
+                    + (0.05 * min(len(pattern.supporting_situation_ids), 3))
+                ),
+                pattern.updated_at,
+                pattern.pattern_id,
+            ),
+            reverse=True,
+        )
+        cards = tuple(review_card_from_pattern(pattern) for pattern in ranked_patterns[:3])
+        recent_changes = tuple(
+            UpdateEventSummary.from_event(event)
+            for event in update_events
+            if event.scope.type == "global" or event.registry == "relational"
+        )
+        return ReviewReport(mode=mode, cards=cards, recent_changes=recent_changes[:3])
+
+    def render_review_report(self, report: ReviewReport) -> str:
+        label = "Weekly Review" if report.mode == "weekly" else "Review"
+        lines = [f"## {label}", ""]
+        if not report.cards:
+            lines.append("No high-value review cards are ready yet.")
+        else:
+            for index, card in enumerate(report.cards, start=1):
+                lines.append(f"{index}. {card.statement}")
+                lines.append(
+                    f"   Kind: {card.card_kind} | Status: {card.status} | Confidence: {card.confidence:.2f}"
+                )
+                lines.append(f"   Evidence: {', '.join(card.evidence_refs) if card.evidence_refs else 'none'}")
+                lines.append(f"   Next: {card.proposed_action}")
+                lines.append("")
+        if report.recent_changes:
+            lines.append("Recent broad changes:")
+            for change in report.recent_changes:
+                lines.append(
+                    f"- {change.registry}:{change.dimension} -> {change.new_value} ({change.scope.type}:{change.scope.id}, {change.status})"
+                )
+        return "\n".join(lines).strip()
+
+    def render_inspection_snapshot(self, snapshot: SupportInspectionSnapshot) -> str:
+        lines = ["## Support State", ""]
+        lines.append(f"Requested context: {snapshot.request.response_mode}")
+        if snapshot.request.arc_id is not None:
+            lines.append(f"Requested arc: {snapshot.request.arc_id}")
+        lines.append("")
+        lines.append("Effective support values:")
+        for dimension, value in sorted(snapshot.active_runtime_state.effective_support_values.items()):
+            lines.append(f"- {dimension}: {value}")
+        lines.append("")
+        lines.append("Effective relational values:")
+        for dimension, value in sorted(snapshot.active_runtime_state.effective_relational_values.items()):
+            lines.append(f"- {dimension}: {value}")
+        lines.append("")
+        if snapshot.active_runtime_state.active_patterns:
+            lines.append("Active runtime patterns:")
+            for pattern in snapshot.active_runtime_state.active_patterns:
+                lines.append(f"- {pattern.pattern_id}: {pattern.claim}")
+            lines.append("")
+        if snapshot.learned_state.candidate_patterns:
+            lines.append("Candidate patterns:")
+            for pattern in snapshot.learned_state.candidate_patterns:
+                lines.append(f"- {pattern.pattern_id}: {pattern.claim}")
+            lines.append("")
+        if snapshot.learned_state.confirmed_patterns:
+            lines.append("Confirmed patterns:")
+            for pattern in snapshot.learned_state.confirmed_patterns:
+                lines.append(f"- {pattern.pattern_id}: {pattern.claim}")
+            lines.append("")
+        if snapshot.learned_state.recent_update_events:
+            lines.append("Recent change history:")
+            for event in snapshot.learned_state.recent_update_events:
+                lines.append(
+                    f"- {event.event_id}: {event.registry}:{event.dimension} -> {event.new_value} ({event.scope.type}:{event.scope.id})"
+                )
+            lines.append("")
+        return "\n".join(lines).strip()
+
+    def render_pattern_detail(self, detail: PatternDetail) -> str:
+        pattern = detail.pattern
+        lines = [f"## Pattern {pattern.pattern_id}", ""]
+        lines.append(f"Kind: {pattern.kind}")
+        lines.append(f"Status: {pattern.status}")
+        lines.append(f"Scope: {pattern.scope.type}:{pattern.scope.id}")
+        lines.append(f"Claim: {pattern.claim}")
+        lines.append(f"Confidence: {pattern.confidence:.2f}")
+        if detail.supporting_situations:
+            lines.append("")
+            lines.append("Supporting situations:")
+            for situation in detail.supporting_situations:
+                lines.append(f"- {situation.situation_id}: {situation.turn_text}")
+        return "\n".join(lines)
+
+    def render_update_event_detail(self, detail: UpdateEventDetail) -> str:
+        event = detail.event
+        lines = [f"## Change {event.event_id}", ""]
+        lines.append(f"Target: {event.registry}:{event.dimension}")
+        lines.append(f"Scope: {event.scope.type}:{event.scope.id}")
+        lines.append(f"Status: {event.status}")
+        lines.append(f"Old value: {event.old_value}")
+        lines.append(f"New value: {event.new_value}")
+        lines.append(f"Reason: {event.reason}")
+        if detail.source_patterns:
+            lines.append("")
+            lines.append("Source patterns:")
+            for pattern in detail.source_patterns:
+                lines.append(f"- {pattern.pattern_id}: {pattern.claim}")
+        return "\n".join(lines)
+
+    def render_effective_value_explanation(self, explanation: EffectiveValueExplanation) -> str:
+        lines = [f"## Why {explanation.registry}:{explanation.dimension}", ""]
+        lines.append(f"Current value: {explanation.winning_value}")
+        lines.append(f"Source: {explanation.source_kind}")
+        lines.append(f"Scope: {explanation.source_scope.type}:{explanation.source_scope.id}")
+        if explanation.source_pattern_ids:
+            lines.append(f"Patterns: {', '.join(explanation.source_pattern_ids)}")
+        return "\n".join(lines)
+
+    def render_correction_outcome(self, outcome: CorrectionOutcome) -> str:
+        lines = ["## Support Update", "", outcome.summary]
+        for pattern in outcome.changed_patterns:
+            lines.append(f"- Pattern: {pattern.pattern_id} -> {pattern.status}")
+        for value in outcome.changed_values:
+            lines.append(f"- Value: {value.registry}:{value.dimension} = {value.value} ({value.scope.type}:{value.scope.id})")
+        for event in outcome.update_events:
+            lines.append(f"- Event: {event.event_id} ({event.status})")
+        return "\n".join(lines)
+
+    async def apply_correction_action(
+        self,
+        action: SupportCorrectionAction,
+        *,
+        now: datetime,
+    ) -> CorrectionOutcome:
+        if isinstance(action, (ConfirmPatternAction, RejectPatternAction)):
+            pattern = await self._store.get_support_pattern(action.pattern_id)
+            if pattern is None:
+                raise ValueError(f"Unknown support pattern: {action.pattern_id}")
+            updated_pattern = SupportPattern(
+                pattern_id=pattern.pattern_id,
+                kind=pattern.kind,
+                scope=pattern.scope,
+                status="confirmed" if isinstance(action, ConfirmPatternAction) else "rejected",
+                claim=pattern.claim,
+                confidence=pattern.confidence,
+                created_at=pattern.created_at,
+                updated_at=now,
+                supporting_situation_ids=pattern.supporting_situation_ids,
+                support_overrides=dict(pattern.support_overrides),
+                relational_overrides=dict(pattern.relational_overrides),
+            )
+            await self._store.save_support_pattern(updated_pattern)
+            return CorrectionOutcome(
+                summary=f"Pattern {updated_pattern.pattern_id} marked {updated_pattern.status}.",
+                changed_patterns=(updated_pattern,),
+            )
+
+        if isinstance(action, CorrectProfileValueAction):
+            existing = await self._store.get_support_profile_value(action.registry, action.dimension, action.scope)
+            created_at = existing.created_at if existing is not None else now
+            updated_value = SupportProfileValue(
+                registry=action.registry,
+                dimension=action.dimension,
+                scope=action.scope,
+                value=action.new_value,
+                status="confirmed",
+                confidence=1.0,
+                source="corrected",
+                created_at=created_at,
+                updated_at=now,
+                evidence_refs=() if existing is None else existing.evidence_refs,
+            )
+            await self._store.save_support_profile_value(updated_value)
+            event = SupportProfileUpdateEvent(
+                event_id=f"upd-corrected-{action.registry}-{action.dimension}-{action.scope.type}-{action.scope.id}-{int(now.timestamp())}",
+                timestamp=now,
+                registry=action.registry,
+                dimension=action.dimension,
+                scope=action.scope,
+                old_value=None if existing is None else existing.value,
+                new_value=action.new_value,
+                reason=action.reason,
+                confidence=1.0,
+                status="applied",
+            )
+            await self._store.save_support_profile_update_event(event)
+            return CorrectionOutcome(
+                summary=f"Updated {action.registry}:{action.dimension} at {action.scope.type}:{action.scope.id}.",
+                changed_values=(updated_value,),
+                update_events=(event,),
+            )
+
+        if isinstance(action, ScopeLimitProfileValueAction):
+            existing = await self._store.get_support_profile_value(action.registry, action.dimension, action.source_scope)
+            if existing is None:
+                raise ValueError("Cannot scope-limit a value that does not exist at the source scope")
+            await self._store.delete_support_profile_value(action.registry, action.dimension, action.source_scope)
+            target_existing = await self._store.get_support_profile_value(action.registry, action.dimension, action.target_scope)
+            scoped_value = SupportProfileValue(
+                registry=action.registry,
+                dimension=action.dimension,
+                scope=action.target_scope,
+                value=existing.value,
+                status="confirmed",
+                confidence=1.0,
+                source="corrected",
+                created_at=now,
+                updated_at=now,
+                evidence_refs=existing.evidence_refs,
+            )
+            await self._store.save_support_profile_value(scoped_value)
+            revert_event = SupportProfileUpdateEvent(
+                event_id=f"upd-scope-revert-{action.registry}-{action.dimension}-{action.source_scope.type}-{action.source_scope.id}-{int(now.timestamp())}",
+                timestamp=now,
+                registry=action.registry,
+                dimension=action.dimension,
+                scope=action.source_scope,
+                old_value=existing.value,
+                new_value=get_registry_dimension(cast(Any, action.registry), action.dimension).default_value,
+                reason=action.reason,
+                confidence=1.0,
+                status="reverted",
+            )
+            apply_event = SupportProfileUpdateEvent(
+                event_id=f"upd-scope-apply-{action.registry}-{action.dimension}-{action.target_scope.type}-{action.target_scope.id}-{int(now.timestamp())}",
+                timestamp=now,
+                registry=action.registry,
+                dimension=action.dimension,
+                scope=action.target_scope,
+                old_value=None if target_existing is None else target_existing.value,
+                new_value=existing.value,
+                reason=action.reason,
+                confidence=1.0,
+                status="applied",
+            )
+            await self._store.save_support_profile_update_event(revert_event)
+            await self._store.save_support_profile_update_event(apply_event)
+            return CorrectionOutcome(
+                summary=f"Scoped {action.registry}:{action.dimension} down to {action.target_scope.type}:{action.target_scope.id}.",
+                changed_values=(scoped_value,),
+                update_events=(revert_event, apply_event),
+            )
+
+        if isinstance(action, ResetProfileValueAction):
+            existing = await self._store.get_support_profile_value(action.registry, action.dimension, action.scope)
+            if existing is None:
+                raise ValueError("Cannot reset a value that does not exist at the requested scope")
+            await self._store.delete_support_profile_value(action.registry, action.dimension, action.scope)
+            event = SupportProfileUpdateEvent(
+                event_id=f"upd-reset-{action.registry}-{action.dimension}-{action.scope.type}-{action.scope.id}-{int(now.timestamp())}",
+                timestamp=now,
+                registry=action.registry,
+                dimension=action.dimension,
+                scope=action.scope,
+                old_value=existing.value,
+                new_value=get_registry_dimension(cast(Any, action.registry), action.dimension).default_value,
+                reason=action.reason,
+                confidence=1.0,
+                status="reverted",
+            )
+            await self._store.save_support_profile_update_event(event)
+            return CorrectionOutcome(
+                summary=f"Reset {action.registry}:{action.dimension} at {action.scope.type}:{action.scope.id}.",
+                update_events=(event,),
+            )
+
+        raise ValueError(f"Unsupported support correction action: {type(action).__name__}")
 
     async def get_pattern_detail(self, pattern_id: str) -> PatternDetail | None:
         pattern = await self._store.get_support_pattern(pattern_id)

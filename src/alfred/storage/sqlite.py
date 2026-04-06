@@ -3576,6 +3576,29 @@ class SQLiteStore:
 
         return [SupportProfileValue.from_record(dict(row)) for row in rows]
 
+    async def delete_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        scope: SupportProfileScope,
+    ) -> None:
+        """Delete one scoped support-profile value by its natural key."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.execute(
+                """
+                DELETE FROM support_profile_values
+                WHERE registry = ? AND dimension = ? AND scope_type = ? AND scope_id = ?
+                """,
+                (registry, dimension, scope.type, scope.id),
+            )
+            await db.commit()
+
     async def resolve_support_profile_value(
         self,
         registry: str,

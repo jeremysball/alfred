@@ -771,3 +771,158 @@ async def test_reflection_prompt_guidance_stays_natural_and_hides_internal_label
     assert "load_score" not in rendered
     assert "move_impact" not in rendered
     assert "surface_level" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_support_reflection_runtime_applies_pattern_confirmation_and_profile_value_corrections_traceably() -> None:
+    """Correction flows should update durable pattern/value truth and log the requested change."""
+
+    store = _make_runtime_store()
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    pattern_result = await runtime.apply_correction_action(
+        ConfirmPatternAction(pattern_id="pattern-candidate-1", reason="Yes, that tension is real."),
+        now=_ts(11, 0),
+    )
+    value_result = await runtime.apply_correction_action(
+        CorrectProfileValueAction(
+            registry="support",
+            dimension="option_bandwidth",
+            scope=SupportProfileScope(type="context", id="execute"),
+            new_value="single",
+            reason="Keep execute-mode options narrow.",
+        ),
+        now=_ts(11, 5),
+    )
+
+    confirmed_pattern = next(pattern for pattern in store.inspection_patterns if pattern.pattern_id == "pattern-candidate-1")
+    corrected_value = next(
+        value
+        for value in store.values
+        if value.registry == "support"
+        and value.dimension == "option_bandwidth"
+        and value.scope == SupportProfileScope(type="context", id="execute")
+    )
+
+    assert confirmed_pattern.status == "confirmed"
+    assert corrected_value.value == "single"
+    assert corrected_value.source == "corrected"
+    assert pattern_result.changed_patterns[0].pattern_id == "pattern-candidate-1"
+    assert value_result.changed_values[0].dimension == "option_bandwidth"
+    assert any(event.dimension == "option_bandwidth" and event.status == "applied" for event in store.update_events)
+
+
+@pytest.mark.asyncio
+async def test_support_reflection_runtime_scope_limit_and_reset_rewrite_profile_value_scope_cleanly() -> None:
+    """Scope-limiting and resetting a profile value should move or remove the durable override cleanly."""
+
+    store = _make_runtime_store()
+    store.values.append(
+        SupportProfileValue(
+            registry="support",
+            dimension="planning_granularity",
+            scope=SupportProfileScope(type="global", id="user"),
+            value="full",
+            status="confirmed",
+            confidence=0.9,
+            source="explicit",
+            created_at=_ts(7, 30),
+            updated_at=_ts(7, 30),
+        )
+    )
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    await runtime.apply_correction_action(
+        ScopeLimitProfileValueAction(
+            registry="support",
+            dimension="planning_granularity",
+            source_scope=SupportProfileScope(type="global", id="user"),
+            target_scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            reason="Only keep this more detailed planning style for the Web UI cleanup arc.",
+        ),
+        now=_ts(11, 10),
+    )
+    await runtime.apply_correction_action(
+        ResetProfileValueAction(
+            registry="support",
+            dimension="planning_granularity",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            reason="Go back to the default arc behavior here.",
+        ),
+        now=_ts(11, 15),
+    )
+
+    assert all(
+        value.scope != SupportProfileScope(type="global", id="user") or value.dimension != "planning_granularity"
+        for value in store.values
+    )
+    assert all(
+        value.scope != SupportProfileScope(type="arc", id="webui_cleanup") or value.dimension != "planning_granularity"
+        for value in store.values
+    )
+    assert any(event.status == "reverted" and event.dimension == "planning_granularity" for event in store.update_events)
+
+
+@pytest.mark.asyncio
+async def test_support_reflection_runtime_builds_bounded_on_demand_and_weekly_reviews() -> None:
+    """Review generation should stay bounded, typed, and include recent broad changes."""
+
+    store = _make_runtime_store()
+    store.inspection_patterns.extend(
+        [
+            _make_pattern(
+                pattern_id="pattern-blocker-1",
+                kind="recurring_blocker",
+                status="confirmed",
+                scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+                claim="Architecture ambiguity keeps stalling the Web UI cleanup thread.",
+                confidence=0.9,
+                supporting_ids=("sit-1", "sit-2"),
+            ),
+            _make_pattern(
+                pattern_id="pattern-identity-1",
+                kind="identity_theme",
+                status="candidate",
+                scope=SupportProfileScope(type="global", id="user"),
+                claim="You disown desire when goals become publicly legible.",
+                confidence=0.87,
+                supporting_ids=("sit-1", "sit-2"),
+            ),
+            _make_pattern(
+                pattern_id="pattern-older-1",
+                kind="support_preference",
+                status="confirmed",
+                scope=SupportProfileScope(type="global", id="user"),
+                claim="Broader option sets used to work better here.",
+                confidence=0.65,
+                supporting_ids=("sit-1",),
+            ),
+        ]
+    )
+    store.update_events.insert(
+        0,
+        SupportProfileUpdateEvent(
+            event_id="upd-global-1",
+            timestamp=_ts(10, 45),
+            registry="relational",
+            dimension="candor",
+            scope=SupportProfileScope(type="global", id="user"),
+            old_value="medium",
+            new_value="high",
+            reason="Broad calibration work favored higher candor.",
+            confidence=0.81,
+            status="proposed",
+            source_pattern_ids=("pattern-candidate-1",),
+            source_situation_ids=("sit-1", "sit-2"),
+        ),
+    )
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    weekly_report = await runtime.build_review_report(mode="weekly", now=_ts(11, 20))
+    on_demand_report = await runtime.build_review_report(mode="on_demand", now=_ts(11, 20))
+
+    assert 1 <= len(weekly_report.cards) <= 3
+    assert 1 <= len(on_demand_report.cards) <= 3
+    assert weekly_report.cards[0].card_kind in {"support_fit", "blocker", "identity_theme", "direction_theme", "calibration_gap"}
+    assert any(change.event_id == "upd-global-1" for change in weekly_report.recent_changes)
+    assert "Review" in runtime.render_review_report(on_demand_report)

@@ -1,6 +1,6 @@
 # How Alfred Helps
 
-**Status:** Planned support model. This document describes the direction Alfred is being designed toward. Parts of it are not fully implemented yet.
+**Status:** Active support direction. Much of this model is now implemented, though some broader roadmap pieces are still in progress.
 
 Alfred is not meant to feel like a disposable chat window.
 
@@ -210,6 +210,11 @@ And you should be able to respond with:
 - "show me the evidence"
 - "remember that"
 - "don't frame me that way again"
+
+The explicit support surfaces should stay bounded. In the current runtime, that means:
+- inspection of current support state and recent changes
+- weekly and on-demand reviews capped to 1-3 cards
+- correction actions that confirm or reject patterns and correct, reset, or scope-limit learned profile values
 
 ## What Alfred should be allowed to feel like
 

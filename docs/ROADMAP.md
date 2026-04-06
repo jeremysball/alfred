@@ -31,8 +31,7 @@ The current foundation already supports:
 - tool use, self-model inspection, and local-first runtime control
 
 The next architectural layer is the relational support model formalized in PRD #179.
-Its support-memory foundation shipped in PRD #167, adaptive support runtime and bounded adaptation shipped in PRD #168, and the next child PRD is:
-- **#169** reflection reviews and support controls
+Its support-memory foundation shipped in PRD #167, adaptive support runtime and bounded adaptation shipped in PRD #168, and bounded reflection, inspection, review, and correction surfaces shipped in PRD #169.
 
 ---
 
@@ -124,6 +123,7 @@ Its support-memory foundation shipped in PRD #167, adaptive support runtime and 
 | 159 | ✅ Native Application Experience | Command palette, context menus, notifications, keyboard shortcuts, drag-drop, offline support (PRD #159) |
 | 167 | ✅ Support Memory Foundation | Typed support episodes, evidence refs, life domains, operational arcs, fresh situations, and operational-first retrieval (PRD #167) |
 | 168 | ✅ Adaptive Support Profile and Intervention Learning | Fixed support/relational registries, runtime support contracts, learning situations, bounded adaptation, and pattern-aware runtime policy (PRD #168) |
+| 169 | ✅ Reflection Reviews and Support Controls | Bounded inline reflection, `/support` inspection, typed correction flows, and `/review` weekly/on-demand review surfaces (PRD #169) |
 
 ### In Progress / Next Up 🔨
 
@@ -137,7 +137,6 @@ Its support-memory foundation shipped in PRD #167, adaptive support runtime and 
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 179 | Relational Support Operating Model | Formalize Alfred as one relational support system and align child PRDs, docs, and markdown ownership under shared primitives (PRD #179) |
-| 169 | Reflection Reviews and Support Controls | Add bounded weekly/on-demand review cards plus user-visible inspection and correction of learned support memory (PRD #169) |
 | 164 | Repo-wide ESM Migration for JavaScript | Convert all JavaScript from CommonJS to ES Modules, fixing Web UI initialization failure (PRD #164) |
 | 162 | Web UI WebSocket-first Status and Debug Instrumentation | Make live Web UI state and message delivery WebSocket-first, keep /health for readiness only, and add explicit server/client debug logs (PRD #162) |
 | 160 | Dictation Support and Voice Mode | Bidirectional voice support for Web UI — speech-to-text input and text-to-speech responses with local and cloud options (PRD #160) |
@@ -189,5 +188,5 @@ Its support-memory foundation shipped in PRD #167, adaptive support runtime and 
 - Alfred can resume active work without forcing the user to repeat core context
 - Alfred retrieves durable context, memories, and prior session evidence before asking for recap
 - Alfred supports planning, execution, decisions, and review reliably today
-- Alfred's adaptive support runtime is shipped, and the remaining reflection controls in PRD #169 become inspectable and user-correctable atop the shipped support-memory foundation
+- Alfred's adaptive support runtime, reflection controls, inspection surfaces, typed correction flows, and bounded review surfaces are all shipped atop the support-memory foundation
 - runtime descriptions, docs, and templates stay aligned enough that contributors can trust them

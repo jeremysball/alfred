@@ -68,6 +68,30 @@ class WebUIAlfred(Protocol):
 
     async def stop(self) -> None: ...
 
+    async def get_support_snapshot_text(
+        self,
+        *,
+        response_mode: str = "execute",
+        arc_id: str | None = None,
+    ) -> str | None: ...
+
+    async def get_support_pattern_text(self, pattern_id: str) -> str | None: ...
+
+    async def get_support_update_event_text(self, event_id: str) -> str | None: ...
+
+    async def explain_support_value_text(
+        self,
+        *,
+        registry: str,
+        dimension: str,
+        response_mode: str,
+        arc_id: str | None = None,
+    ) -> str | None: ...
+
+    async def build_support_review_text(self, *, mode: str = "on_demand") -> str | None: ...
+
+    async def apply_support_correction_text(self, action: Any) -> str | None: ...
+
     def sync_token_tracker_from_session(
         self,
         session_id: str | None = None,
