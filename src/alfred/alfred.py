@@ -17,7 +17,8 @@ from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
 from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
 from alfred.session import Message, ReasoningBlock, Role, Session, TextBlock, ToolCallRecord
-from alfred.support_policy import SupportPolicyRuntime
+from alfred.support_policy import SupportPolicyRuntime, render_support_behavior_contract
+from alfred.support_reflection import SupportReflectionRuntime
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
 
@@ -825,6 +826,20 @@ You can then continue the conversation with the tool results.
         self._support_policy_runtime = runtime
         return runtime
 
+    def _get_support_reflection_runtime(self) -> SupportReflectionRuntime | None:
+        """Return the cached support-reflection runtime when the core exposes the required seams."""
+        runtime = cast(SupportReflectionRuntime | None, getattr(self, "_support_reflection_runtime", None))
+        if runtime is not None:
+            return runtime
+
+        store = getattr(self.core, "sqlite_store", None)
+        if store is None:
+            return None
+
+        runtime = SupportReflectionRuntime(store=store)
+        self._support_reflection_runtime = runtime
+        return runtime
+
     async def _build_support_contract_section_for_turn(
         self,
         *,
@@ -833,10 +848,32 @@ You can then continue the conversation with the tool results.
         session_messages: list[tuple[str, str]],
         session_id: str | None,
     ) -> str | None:
-        """Build the runtime support-contract section for one live turn when available."""
+        """Build the runtime support and reflection sections for one live turn when available."""
         runtime = self._get_support_policy_runtime()
         if runtime is None:
             return None
+
+        build_turn_contract = getattr(runtime, "build_turn_contract", None)
+        reflection_runtime = self._get_support_reflection_runtime()
+        if callable(build_turn_contract):
+            runtime_result = await build_turn_contract(
+                message=message,
+                query_embedding=query_embedding,
+                session_messages=session_messages,
+                session_id=session_id,
+            )
+            sections = [render_support_behavior_contract(runtime_result.behavior_contract)]
+            if reflection_runtime is not None:
+                reflection_section = await reflection_runtime.build_prompt_section(
+                    runtime_result=runtime_result,
+                    message=message,
+                    query_embedding=query_embedding,
+                    session_messages=session_messages,
+                    session_id=session_id,
+                )
+                if reflection_section:
+                    sections.append(reflection_section)
+            return "\n\n".join(section for section in sections if section)
 
         return await runtime.build_prompt_section(
             message=message,

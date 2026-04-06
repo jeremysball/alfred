@@ -524,7 +524,9 @@ Validation: targeted tests prove pattern cards are typed, scoped, evidence-backe
 ### Milestone 2: Add load and surfacing rules
 Implement scoring and policy rules for pattern loading, move impact, and surfacing levels.
 
-Validation: targeted tests prove patterns can be loaded silently, mentioned compactly, or surfaced more richly based on contract impact.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `src/alfred/support_policy.py`, `tests/test_support_reflection.py`, `tests/test_core_observability.py`, and `prds/execution-plan-169-milestone2.md`. The delivered reflection runtime scores candidate and confirmed patterns for one live turn using scope, supporting-situation overlap, recency, and status; classifies move impact and bounded surface levels; and reuses the support-policy runtime seam so relevant continuity can be loaded silently while only a small surfaced subset reaches the final prompt.
+
+Validation: targeted tests prove patterns can be loaded silently, mentioned compactly, or surfaced more richly based on contract impact. `uv run ruff check src/alfred/support_reflection.py src/alfred/support_policy.py src/alfred/alfred.py tests/test_support_reflection.py tests/test_core_observability.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/support_policy.py src/alfred/alfred.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/test_core_observability.py::test_chat_stream_appends_reflection_guidance_only_when_a_pattern_should_be_surfaced -q` passed.
 
 ### Milestone 3: Add support-memory inspection surfaces
 Implement one inspection snapshot that combines current help state and learned state, plus drill-down reads for patterns, update events, and effective-value explanations.
@@ -544,7 +546,9 @@ Validation: targeted tests prove reviews stay within count limits and include ev
 ### Milestone 6: Add inline reflection and session-start surfacing rules
 Implement rules for when Alfred may surface patterns during live conversation or at session start versus keeping them internal.
 
-Validation: targeted tests prove operational starts prioritize blocker/support patterns, reflective starts prioritize themes, and execution is not derailed by unnecessary surfacing.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `tests/test_support_reflection.py`, `tests/test_core_observability.py`, and `prds/execution-plan-169-milestone2.md`. The delivered live surfacing layer classifies fresh-session start type, applies the PRD priority tables for operational, reflective, and calibration starts, caps surfaced patterns to at most two at session start and one during ongoing turns, and renders a bounded prompt guidance section that keeps phrasing natural while leaving internal scoring invisible.
+
+Validation: targeted tests prove operational starts prioritize blocker/support patterns, reflective starts prioritize themes, calibration starts prioritize contradiction, and ordinary turns keep most pattern machinery silent. `uv run ruff check src/alfred/support_reflection.py src/alfred/alfred.py tests/test_support_reflection.py tests/test_core_observability.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/alfred.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/test_core_observability.py::test_chat_stream_appends_reflection_guidance_only_when_a_pattern_should_be_surfaced -q` passed.
 
 ### Milestone 7: Documentation and prompt/template updates
 Add or update docs, user-facing explanations, and managed prompt/template content for reflection behavior, explanation surfaces, and correction flows.

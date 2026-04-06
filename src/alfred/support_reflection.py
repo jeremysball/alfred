@@ -18,12 +18,35 @@ from alfred.support_policy import ResolvedSubject, SupportPolicyPattern, Support
 
 ReviewCardKind = Literal["support_fit", "blocker", "identity_theme", "direction_theme", "calibration_gap"]
 CorrectionRegistry = Literal["relational", "support"]
+MoveImpact = Literal["low", "moderate", "high"]
+SurfaceLevel = Literal["silent", "compact", "rich"]
+StartType = Literal["scoped_operational", "broad_orient", "reflective", "calibration", "ongoing"]
 
 _SUPPORTED_REVIEW_CARD_KINDS: frozenset[str] = frozenset(
     {"support_fit", "blocker", "identity_theme", "direction_theme", "calibration_gap"}
 )
 _SUPPORTED_PATTERN_STATUSES: frozenset[str] = frozenset({"candidate", "confirmed", "rejected"})
 _SUPPORTED_CORRECTION_REGISTRIES: frozenset[str] = frozenset({"relational", "support"})
+_MAJOR_SUPPORT_IMPACT_DIMENSIONS: frozenset[str] = frozenset(
+    {
+        "planning_granularity",
+        "option_bandwidth",
+        "proactivity_level",
+        "accountability_style",
+        "recovery_style",
+        "reflection_depth",
+        "recommendation_forcefulness",
+    }
+)
+_MAJOR_RELATIONAL_IMPACT_DIMENSIONS: frozenset[str] = frozenset(
+    {
+        "candor",
+        "analytical_depth",
+        "authority",
+        "emotional_attunement",
+        "momentum_pressure",
+    }
+)
 
 
 
@@ -83,6 +106,50 @@ def _default_proposed_action(kind: str) -> str:
     if kind == "calibration_gap":
         return "Confirm whether this contradiction is real and whether Alfred should surface it more directly."
     raise ValueError(f"Unsupported support pattern kind for proposed_action: {kind!r}")
+
+
+def _recency_score(updated_at: datetime) -> float:
+    age_days = max((datetime.now(updated_at.tzinfo) - updated_at).total_seconds() / 86400.0, 0.0)
+    if age_days <= 7:
+        return 0.6
+    if age_days <= 30:
+        return 0.3
+    return 0.1
+
+
+def _start_type_for_turn(
+    *,
+    assessment: SupportTurnAssessment,
+    response_mode: str,
+    fresh_session: bool,
+) -> StartType:
+    if not fresh_session:
+        return "ongoing"
+    if assessment.need == "calibrate" or response_mode == "review":
+        return "calibration"
+    if response_mode in {"identity_reflect", "direction_reflect"} or assessment.need == "reflect":
+        return "reflective"
+    if response_mode == "execute":
+        has_arc = any(subject.kind == "arc" and subject.id is not None for subject in assessment.subjects)
+        return "scoped_operational" if has_arc else "broad_orient"
+    return "broad_orient"
+
+
+def _start_priority(kind: str, start_type: StartType) -> int:
+    if start_type == "scoped_operational":
+        order = ["support_preference", "recurring_blocker", "calibration_gap", "identity_theme", "direction_theme"]
+    elif start_type == "broad_orient":
+        order = ["recurring_blocker", "support_preference", "direction_theme", "identity_theme", "calibration_gap"]
+    elif start_type == "reflective":
+        order = ["identity_theme", "direction_theme", "calibration_gap", "recurring_blocker", "support_preference"]
+    elif start_type == "calibration":
+        order = ["calibration_gap", "recurring_blocker", "identity_theme", "direction_theme", "support_preference"]
+    else:
+        order = ["support_preference", "recurring_blocker", "calibration_gap", "identity_theme", "direction_theme"]
+    try:
+        return order.index(kind)
+    except ValueError:
+        return len(order)
 
 
 @dataclass(frozen=True)
@@ -269,6 +336,24 @@ class EffectiveValueExplanation:
 
 
 @dataclass(frozen=True)
+class PatternLoadDecision:
+    pattern: SupportPattern
+    load_score: float
+    move_impact: MoveImpact
+    surface_level: SurfaceLevel
+    rationale: str
+
+
+@dataclass(frozen=True)
+class ReflectionTurnGuidance:
+    response_mode: str
+    fresh_session: bool
+    start_type: StartType
+    loaded_patterns: tuple[PatternLoadDecision, ...]
+    surfaced_patterns: tuple[PatternLoadDecision, ...]
+
+
+@dataclass(frozen=True)
 class ConfirmPatternAction:
     pattern_id: str
     reason: str
@@ -395,6 +480,15 @@ class SupportReflectionStore(Protocol):
 
     async def list_learning_situations_by_ids(self, situation_ids: tuple[str, ...]) -> list[LearningSituation]: ...
 
+    async def search_learning_situations(
+        self,
+        query_embedding: list[float],
+        *,
+        top_k: int = 5,
+        response_mode: str | None = None,
+        need: str | None = None,
+    ) -> list[tuple[LearningSituation, float]]: ...
+
     async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]: ...
 
     async def list_active_life_domains(self, limit: int = 6) -> list[LifeDomain]: ...
@@ -466,6 +560,224 @@ class SupportReflectionRuntime:
             active_domains=tuple(domains),
             active_arcs=tuple(arcs),
         )
+
+    async def _resolve_runtime_state(
+        self,
+        *,
+        assessment: SupportTurnAssessment,
+        response_mode: str,
+    ) -> tuple[list[SupportPattern], Any]:
+        primary_arc_id = next((subject.id for subject in assessment.subjects if subject.kind == "arc"), None)
+        runtime_patterns = await self._store.list_support_patterns_for_runtime(
+            response_mode=response_mode,
+            arc_id=primary_arc_id,
+        )
+        resolved = await resolve_support_policy(
+            store=cast(Any, self._store),
+            assessment=assessment,
+            response_mode=cast(Any, response_mode),
+            patterns=tuple(
+                SupportPolicyPattern(
+                    name=pattern.claim,
+                    relational_overrides=pattern.relational_overrides,
+                    support_overrides=pattern.support_overrides,
+                )
+                for pattern in runtime_patterns
+            ),
+        )
+        return runtime_patterns, resolved
+
+    async def build_turn_guidance(
+        self,
+        *,
+        assessment: SupportTurnAssessment,
+        response_mode: str,
+        query_embedding: list[float] | None,
+        fresh_session: bool,
+    ) -> ReflectionTurnGuidance:
+        runtime_patterns, resolved = await self._resolve_runtime_state(
+            assessment=assessment,
+            response_mode=response_mode,
+        )
+        inspection_patterns = await self._store.list_support_patterns_for_inspection(statuses=("candidate", "confirmed"), limit=24)
+        start_type = _start_type_for_turn(assessment=assessment, response_mode=response_mode, fresh_session=fresh_session)
+
+        similarity_by_situation_id: dict[str, float] = {}
+        if query_embedding is not None:
+            matches = await self._store.search_learning_situations(
+                list(query_embedding),
+                top_k=8,
+                response_mode=response_mode,
+                need=None if assessment.need == "unknown" else assessment.need,
+            )
+            for situation, similarity in matches:
+                existing = similarity_by_situation_id.get(situation.situation_id, 0.0)
+                similarity_by_situation_id[situation.situation_id] = max(existing, similarity)
+
+        primary_arc_id = next((subject.id for subject in assessment.subjects if subject.kind == "arc"), None)
+        loaded: list[PatternLoadDecision] = []
+        for pattern in inspection_patterns:
+            semantic_overlap = max(
+                (similarity_by_situation_id.get(situation_id, 0.0) for situation_id in pattern.supporting_situation_ids),
+                default=0.0,
+            )
+            scope_score = 0.0
+            if pattern.scope.type == "arc" and primary_arc_id is not None and pattern.scope.id == primary_arc_id:
+                scope_score = 1.2
+            elif pattern.scope.type == "context" and pattern.scope.id == response_mode:
+                scope_score = 1.0
+            elif pattern.scope.type == "global":
+                scope_score = 0.5
+
+            status_score = 0.8 if pattern.status == "confirmed" else 0.4
+            evidence_score = min(len(pattern.supporting_situation_ids), 3) * 0.2
+            load_score = (
+                (semantic_overlap * 2.0)
+                + scope_score
+                + status_score
+                + evidence_score
+                + _recency_score(pattern.updated_at)
+            )
+            if load_score < 1.2:
+                continue
+
+            override_changes = 0
+            major_changes = 0
+            for dimension, value in pattern.support_overrides.items():
+                if resolved.support_values.get(dimension) == value:
+                    override_changes += 1
+                    if dimension in _MAJOR_SUPPORT_IMPACT_DIMENSIONS:
+                        major_changes += 1
+            for dimension, value in pattern.relational_overrides.items():
+                if resolved.relational_values.get(dimension) == value:
+                    override_changes += 1
+                    if dimension in _MAJOR_RELATIONAL_IMPACT_DIMENSIONS:
+                        major_changes += 1
+
+            move_impact: MoveImpact = "low"
+            if pattern.kind in {"identity_theme", "direction_theme", "calibration_gap"} and response_mode in {
+                "review",
+                "identity_reflect",
+                "direction_reflect",
+            }:
+                move_impact = "high" if pattern.confidence >= 0.85 else "moderate"
+            elif major_changes >= 1 or override_changes >= 2:
+                move_impact = "high"
+            elif override_changes >= 1 or pattern.kind in {"recurring_blocker", "calibration_gap"}:
+                move_impact = "moderate"
+
+            surface_level: SurfaceLevel = "silent"
+            if move_impact != "low":
+                if fresh_session:
+                    if (
+                        (start_type == "reflective" and pattern.kind in {"identity_theme", "direction_theme", "calibration_gap"})
+                        or (start_type == "calibration" and pattern.kind == "calibration_gap")
+                    ):
+                        surface_level = "rich" if pattern.confidence >= 0.85 else "compact"
+                    elif start_type in {"scoped_operational", "broad_orient"} and pattern.kind in {
+                        "support_preference",
+                        "recurring_blocker",
+                        "calibration_gap",
+                    }:
+                        if pattern.kind == "support_preference":
+                            surface_level = "compact"
+                        else:
+                            surface_level = "rich" if pattern.confidence >= 0.9 else "compact"
+                elif response_mode in {"review", "identity_reflect", "direction_reflect"}:
+                    surface_level = "rich" if move_impact == "high" else "compact"
+                elif move_impact == "high":
+                    surface_level = "compact"
+
+            loaded.append(
+                PatternLoadDecision(
+                    pattern=pattern,
+                    load_score=load_score,
+                    move_impact=move_impact,
+                    surface_level=surface_level,
+                    rationale=f"relevant to {response_mode} via scope or supporting situations",
+                )
+            )
+
+        surfaced = [decision for decision in loaded if decision.surface_level != "silent"]
+        if fresh_session:
+            surfaced.sort(
+                key=lambda decision: (
+                    _start_priority(decision.pattern.kind, start_type),
+                    0 if decision.surface_level == "rich" else 1,
+                    -decision.load_score,
+                    -decision.pattern.confidence,
+                )
+            )
+            surfaced = surfaced[:2]
+        else:
+            surfaced.sort(
+                key=lambda decision: (
+                    0 if decision.surface_level == "rich" else 1,
+                    -decision.load_score,
+                    -decision.pattern.confidence,
+                )
+            )
+            surfaced = surfaced[:1]
+
+        return ReflectionTurnGuidance(
+            response_mode=response_mode,
+            fresh_session=fresh_session,
+            start_type=start_type,
+            loaded_patterns=tuple(
+                sorted(loaded, key=lambda decision: (-decision.load_score, decision.pattern.pattern_id))
+            ),
+            surfaced_patterns=tuple(surfaced),
+        )
+
+    def render_prompt_section(self, guidance: ReflectionTurnGuidance) -> str:
+        if not guidance.surfaced_patterns:
+            return ""
+
+        lines = [
+            "## Reflection Guidance",
+            "",
+            "Use relevant continuity silently unless the user benefits from hearing it.",
+            "If you surface a pattern, keep it natural, bounded, and tied to the next move.",
+            "Do not mention internal labels, score names, or policy metadata unless the user asks.",
+            "",
+        ]
+        if guidance.fresh_session:
+            lines.append(
+                "At session start, surface at most two patterns and prefer compact phrasing unless the shift is substantial."
+            )
+        else:
+            lines.append(
+                "During an ongoing turn, surface at most one pattern and only if it materially improves the move."
+            )
+        lines.append("")
+        lines.append("Suggested continuity to surface now:")
+        for index, decision in enumerate(guidance.surfaced_patterns, start=1):
+            phrasing = (
+                "keep it compact and practical"
+                if decision.surface_level == "compact"
+                else "a brief explanation is justified if it changes the move"
+            )
+            lines.append(f"{index}. {decision.pattern.claim}")
+            lines.append(f"   If you mention this, {phrasing}.")
+        return "\n".join(lines)
+
+    async def build_prompt_section(
+        self,
+        *,
+        runtime_result: Any,
+        message: str,
+        query_embedding: list[float] | None,
+        session_messages: list[tuple[str, str]],
+        session_id: str | None,
+    ) -> str:
+        del message, session_id
+        guidance = await self.build_turn_guidance(
+            assessment=runtime_result.assessment,
+            response_mode=runtime_result.response_mode,
+            query_embedding=query_embedding,
+            fresh_session=len(session_messages) == 0,
+        )
+        return self.render_prompt_section(guidance)
 
     async def get_pattern_detail(self, pattern_id: str) -> PatternDetail | None:
         pattern = await self._store.get_support_pattern(pattern_id)
@@ -570,7 +882,9 @@ __all__ = [
     "LearnedState",
     "LearningSituationSummary",
     "PatternDetail",
+    "PatternLoadDecision",
     "PatternSummary",
+    "ReflectionTurnGuidance",
     "RejectPatternAction",
     "ResetProfileValueAction",
     "ReviewCard",

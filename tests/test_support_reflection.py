@@ -10,6 +10,7 @@ import pytest
 from alfred.memory.support_learning import LearningSituation, SupportPattern, SupportProfileUpdateEvent
 from alfred.memory.support_memory import LifeDomain, OperationalArc
 from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
+from alfred.support_policy import ResolvedSubject, SupportTurnAssessment
 from alfred.support_reflection import (
     ConfirmPatternAction,
     CorrectProfileValueAction,
@@ -30,6 +31,7 @@ class FakeReflectionStore:
     inspection_patterns: list[SupportPattern] = field(default_factory=list)
     update_events: list[SupportProfileUpdateEvent] = field(default_factory=list)
     learning_situations: list[LearningSituation] = field(default_factory=list)
+    similar_situations: list[tuple[LearningSituation, float]] = field(default_factory=list)
     arcs: list[OperationalArc] = field(default_factory=list)
     domains: list[LifeDomain] = field(default_factory=list)
 
@@ -107,6 +109,61 @@ class FakeReflectionStore:
     async def list_learning_situations_by_ids(self, situation_ids: tuple[str, ...]) -> list[LearningSituation]:
         wanted = set(situation_ids)
         return [situation for situation in self.learning_situations if situation.situation_id in wanted]
+
+    async def search_learning_situations(
+        self,
+        query_embedding: list[float],
+        *,
+        top_k: int = 5,
+        response_mode: str | None = None,
+        need: str | None = None,
+    ) -> list[tuple[LearningSituation, float]]:
+        del query_embedding
+        matches = list(self.similar_situations)
+        if response_mode is not None:
+            matches = [match for match in matches if match[0].response_mode == response_mode]
+        if need is not None:
+            matches = [match for match in matches if match[0].need == need]
+        return matches[:top_k]
+
+    async def save_support_pattern(self, pattern: SupportPattern) -> None:
+        self.runtime_patterns = [existing for existing in self.runtime_patterns if existing.pattern_id != pattern.pattern_id]
+        self.inspection_patterns = [existing for existing in self.inspection_patterns if existing.pattern_id != pattern.pattern_id]
+        self.runtime_patterns.append(pattern)
+        self.inspection_patterns.append(pattern)
+
+    async def save_support_profile_update_event(self, event: SupportProfileUpdateEvent) -> None:
+        self.update_events = [existing for existing in self.update_events if existing.event_id != event.event_id]
+        self.update_events.append(event)
+        self.update_events.sort(key=lambda item: (item.timestamp, item.event_id), reverse=True)
+
+    async def save_support_profile_value(self, profile_value: SupportProfileValue) -> None:
+        self.values = [
+            existing
+            for existing in self.values
+            if not (
+                existing.registry == profile_value.registry
+                and existing.dimension == profile_value.dimension
+                and existing.scope == profile_value.scope
+            )
+        ]
+        self.values.append(profile_value)
+
+    async def delete_support_profile_value(
+        self,
+        registry: str,
+        dimension: str,
+        scope: SupportProfileScope,
+    ) -> None:
+        self.values = [
+            existing
+            for existing in self.values
+            if not (
+                existing.registry == registry
+                and existing.dimension == dimension
+                and existing.scope == scope
+            )
+        ]
 
     async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]:
         return list(self.arcs)[:limit]
@@ -257,6 +314,10 @@ def _make_runtime_store() -> FakeReflectionStore:
         learning_situations=[
             _make_learning_situation(situation_id="sit-1", arc_id="webui_cleanup"),
             _make_learning_situation(situation_id="sit-2", arc_id="webui_cleanup"),
+        ],
+        similar_situations=[
+            (_make_learning_situation(situation_id="sit-1", arc_id="webui_cleanup"), 0.94),
+            (_make_learning_situation(situation_id="sit-2", arc_id="webui_cleanup"), 0.91),
         ],
         arcs=[
             OperationalArc(
@@ -479,3 +540,234 @@ async def test_reflection_contracts_keep_patterns_durable_cards_derived_and_valu
     assert snapshot.active_runtime_state.active_patterns[0].pattern_id == "pattern-runtime-1"
     assert action.dimension == "option_bandwidth"
     assert snapshot.active_runtime_state.effective_support_values["option_bandwidth"] == "single"
+
+
+@pytest.mark.asyncio
+async def test_reflection_runtime_loads_relevant_patterns_silently_before_considering_surfacing() -> None:
+    """Loaded patterns should stay available even when only some deserve visible surfacing."""
+
+    store = _make_runtime_store()
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(
+            need="activate",
+            subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+        ),
+        response_mode="execute",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=False,
+    )
+
+    assert {decision.pattern.pattern_id for decision in guidance.loaded_patterns} == {
+        "pattern-runtime-1",
+        "pattern-candidate-1",
+    }
+    assert any(
+        decision.pattern.pattern_id == "pattern-candidate-1" and decision.surface_level == "silent"
+        for decision in guidance.loaded_patterns
+    )
+    assert [decision.pattern.pattern_id for decision in guidance.surfaced_patterns] == ["pattern-runtime-1"]
+
+
+@pytest.mark.asyncio
+async def test_reflection_runtime_distinguishes_silent_compact_and_richer_surface_levels() -> None:
+    """Reflection load decisions should distinguish silent, compact, and richer surfacing."""
+
+    store = _make_runtime_store()
+    store.inspection_patterns.append(
+        _make_pattern(
+            pattern_id="pattern-blocker-1",
+            kind="recurring_blocker",
+            status="confirmed",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            claim="Architecture ambiguity keeps stalling the Web UI cleanup thread.",
+            confidence=0.9,
+            supporting_ids=("sit-1", "sit-2"),
+            support_overrides={"planning_granularity": "minimal", "option_bandwidth": "single"},
+        )
+    )
+    store.inspection_patterns.append(
+        _make_pattern(
+            pattern_id="pattern-calibration-1",
+            kind="calibration_gap",
+            status="candidate",
+            scope=SupportProfileScope(type="global", id="user"),
+            claim="Your stated priority and actual behavior keep diverging on this thread.",
+            confidence=0.92,
+            supporting_ids=("sit-1", "sit-2"),
+        )
+    )
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    execute_guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(
+            need="activate",
+            subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+        ),
+        response_mode="execute",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=True,
+    )
+    review_guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(
+            need="calibrate",
+            subjects=(ResolvedSubject(kind="current_turn", id=None),),
+        ),
+        response_mode="review",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=False,
+    )
+
+    assert any(
+        decision.pattern.pattern_id == "pattern-candidate-1" and decision.surface_level == "silent"
+        for decision in execute_guidance.loaded_patterns
+    )
+    assert any(
+        decision.pattern.pattern_id == "pattern-runtime-1" and decision.surface_level == "compact"
+        for decision in execute_guidance.loaded_patterns
+    )
+    assert any(
+        decision.pattern.pattern_id == "pattern-calibration-1" and decision.surface_level == "rich"
+        for decision in review_guidance.loaded_patterns
+    )
+
+
+@pytest.mark.asyncio
+async def test_reflection_runtime_prioritizes_operational_reflective_and_calibration_starts_differently() -> None:
+    """Fresh-session surfacing should change priority by start type."""
+
+    store = _make_runtime_store()
+    store.inspection_patterns.append(
+        _make_pattern(
+            pattern_id="pattern-blocker-1",
+            kind="recurring_blocker",
+            status="confirmed",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            claim="Architecture ambiguity keeps stalling the Web UI cleanup thread.",
+            confidence=0.9,
+            supporting_ids=("sit-1", "sit-2"),
+            support_overrides={"planning_granularity": "minimal"},
+        )
+    )
+    store.inspection_patterns.append(
+        _make_pattern(
+            pattern_id="pattern-identity-1",
+            kind="identity_theme",
+            status="candidate",
+            scope=SupportProfileScope(type="global", id="user"),
+            claim="You disown desire when goals become publicly legible.",
+            confidence=0.9,
+            supporting_ids=("sit-1", "sit-2"),
+        )
+    )
+    store.inspection_patterns.append(
+        _make_pattern(
+            pattern_id="pattern-calibration-1",
+            kind="calibration_gap",
+            status="candidate",
+            scope=SupportProfileScope(type="global", id="user"),
+            claim="Your stated priority and actual behavior keep diverging on this thread.",
+            confidence=0.92,
+            supporting_ids=("sit-1", "sit-2"),
+        )
+    )
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    execute_guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(need="activate", subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),)),
+        response_mode="execute",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=True,
+    )
+    reflective_guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(need="reflect", subjects=(ResolvedSubject(kind="direction", id=None),)),
+        response_mode="direction_reflect",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=True,
+    )
+    calibration_guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(need="calibrate", subjects=(ResolvedSubject(kind="current_turn", id=None),)),
+        response_mode="review",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=True,
+    )
+
+    assert execute_guidance.surfaced_patterns[0].pattern.kind == "support_preference"
+    assert reflective_guidance.surfaced_patterns[0].pattern.kind == "identity_theme"
+    assert calibration_guidance.surfaced_patterns[0].pattern.kind == "calibration_gap"
+
+
+@pytest.mark.asyncio
+async def test_reflection_runtime_caps_session_start_surfacing_to_two_patterns() -> None:
+    """Fresh-session surfacing should stay bounded even when several patterns qualify."""
+
+    store = _make_runtime_store()
+    store.inspection_patterns.extend(
+        [
+            _make_pattern(
+                pattern_id="pattern-blocker-1",
+                kind="recurring_blocker",
+                status="confirmed",
+                scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+                claim="Architecture ambiguity keeps stalling the Web UI cleanup thread.",
+                confidence=0.9,
+                supporting_ids=("sit-1", "sit-2"),
+                support_overrides={"planning_granularity": "minimal"},
+            ),
+            _make_pattern(
+                pattern_id="pattern-calibration-1",
+                kind="calibration_gap",
+                status="candidate",
+                scope=SupportProfileScope(type="global", id="user"),
+                claim="Your stated priority and actual behavior keep diverging on this thread.",
+                confidence=0.92,
+                supporting_ids=("sit-1", "sit-2"),
+            ),
+            _make_pattern(
+                pattern_id="pattern-identity-1",
+                kind="identity_theme",
+                status="candidate",
+                scope=SupportProfileScope(type="global", id="user"),
+                claim="You disown desire when goals become publicly legible.",
+                confidence=0.9,
+                supporting_ids=("sit-1", "sit-2"),
+            ),
+        ]
+    )
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(need="activate", subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),)),
+        response_mode="execute",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=True,
+    )
+
+    assert len(guidance.surfaced_patterns) == 2
+
+
+@pytest.mark.asyncio
+async def test_reflection_prompt_guidance_stays_natural_and_hides_internal_labels() -> None:
+    """Rendered reflection guidance should steer the move without exposing internal scoring jargon."""
+
+    store = _make_runtime_store()
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    guidance = await runtime.build_turn_guidance(
+        assessment=SupportTurnAssessment(
+            need="activate",
+            subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+        ),
+        response_mode="execute",
+        query_embedding=[0.1, 0.2, 0.3],
+        fresh_session=True,
+    )
+    rendered = runtime.render_prompt_section(guidance)
+
+    assert "## Reflection Guidance" in rendered
+    assert "Single-step next moves work better here." in rendered
+    assert "keep it natural" in rendered.lower()
+    assert "load_score" not in rendered
+    assert "move_impact" not in rendered
+    assert "surface_level" not in rendered
