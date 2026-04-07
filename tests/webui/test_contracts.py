@@ -65,6 +65,36 @@ def test_webui_contract_protocols_are_runtime_checkable() -> None:
         async def stop(self) -> None:
             return None
 
+        async def get_support_snapshot_text(
+            self,
+            *,
+            response_mode: str = "execute",
+            arc_id: str | None = None,
+        ) -> str | None:
+            return None
+
+        async def get_support_pattern_text(self, pattern_id: str) -> str | None:
+            return None
+
+        async def get_support_update_event_text(self, event_id: str) -> str | None:
+            return None
+
+        async def explain_support_value_text(
+            self,
+            *,
+            registry: str,
+            dimension: str,
+            response_mode: str,
+            arc_id: str | None = None,
+        ) -> str | None:
+            return None
+
+        async def build_support_review_text(self, *, mode: str = "on_demand") -> str | None:
+            return None
+
+        async def apply_support_correction_text(self, action: object) -> str | None:
+            return None
+
         def sync_token_tracker_from_session(self, session_id: str | None = None) -> None:
             return None
 
