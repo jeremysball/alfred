@@ -352,6 +352,7 @@ class FakeAlfred:
         self.chat_called = False
         self.chat_messages: list[str] = []
         self.last_message: str | None = None
+        self.support_calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
 
     async def chat_stream(
         self,
@@ -419,6 +420,48 @@ class FakeAlfred:
         """No-op shutdown hook for protocol compatibility."""
 
         return None
+
+    async def get_support_snapshot_text(
+        self,
+        *,
+        response_mode: str = "execute",
+        arc_id: str | None = None,
+    ) -> str | None:
+        self.support_calls.append(("snapshot", (), {"response_mode": response_mode, "arc_id": arc_id}))
+        return f"Support snapshot for {response_mode}{f' ({arc_id})' if arc_id else ''}"
+
+    async def get_support_pattern_text(self, pattern_id: str) -> str | None:
+        self.support_calls.append(("pattern", (pattern_id,), {}))
+        return f"Pattern detail: {pattern_id}"
+
+    async def get_support_update_event_text(self, event_id: str) -> str | None:
+        self.support_calls.append(("event", (event_id,), {}))
+        return f"Update event detail: {event_id}"
+
+    async def explain_support_value_text(
+        self,
+        *,
+        registry: str,
+        dimension: str,
+        response_mode: str,
+        arc_id: str | None = None,
+    ) -> str | None:
+        self.support_calls.append(
+            (
+                "why",
+                (),
+                {"registry": registry, "dimension": dimension, "response_mode": response_mode, "arc_id": arc_id},
+            )
+        )
+        return f"Why {registry}:{dimension} in {response_mode}{f' ({arc_id})' if arc_id else ''}"
+
+    async def build_support_review_text(self, *, mode: str = "on_demand") -> str | None:
+        self.support_calls.append(("review", (), {"mode": mode}))
+        return f"Review mode: {mode}"
+
+    async def apply_support_correction_text(self, action: Any) -> str | None:
+        self.support_calls.append(("correct", (action,), {}))
+        return f"Applied correction: {type(action).__name__}"
 
     @property
     def new_session_called(self) -> bool:

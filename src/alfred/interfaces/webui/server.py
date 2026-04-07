@@ -21,7 +21,15 @@ from websockets.exceptions import ConnectionClosedError
 from alfred.agent import ToolEvent
 from alfred.interfaces.webui.contracts import WebUIAlfred, WebUISessionManager
 from alfred.interfaces.webui.daemon_status import build_daemon_status_snapshot, build_health_payload
+from alfred.memory.support_profile import V1_INTERACTION_CONTEXT_IDS, SupportProfileScope
 from alfred.observability import event_message
+from alfred.support_reflection import (
+    ConfirmPatternAction,
+    CorrectProfileValueAction,
+    RejectPatternAction,
+    ResetProfileValueAction,
+    ScopeLimitProfileValueAction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1318,6 +1326,37 @@ async def _handle_chat_message(
             )
 
 
+async def _send_command_output_message(websocket: WebSocket, content: str) -> None:
+    """Render one slash-command result through the existing assistant-message websocket path."""
+    message_id = f"cmd-{uuid.uuid4().hex[:8]}"
+    await websocket.send_json({"type": "chat.started", "payload": {"messageId": message_id}})
+    if content:
+        await websocket.send_json({"type": "chat.chunk", "payload": {"content": content}})
+    await websocket.send_json(
+        {
+            "type": "chat.complete",
+            "payload": {
+                "messageId": message_id,
+                "finalContent": content,
+                "usage": {
+                    "inputTokens": 0,
+                    "outputTokens": max(len(content) // 4, 1),
+                    "cacheReadTokens": 0,
+                    "reasoningTokens": 0,
+                },
+            },
+        }
+    )
+
+
+def _parse_support_scope(scope_arg: str) -> SupportProfileScope:
+    """Parse a scope token such as `context:execute` or `arc:webui_cleanup`."""
+    scope_type, separator, scope_id = scope_arg.partition(":")
+    if separator != ":":
+        raise ValueError("Scope must use the form <type>:<id>")
+    return SupportProfileScope(type=cast(Any, scope_type), id=scope_id)
+
+
 async def _handle_command(
     websocket: WebSocket,
     alfred_instance: WebUIAlfred | None,
@@ -1347,6 +1386,10 @@ async def _handle_command(
         await _handle_session_command(websocket, alfred_instance)
     elif cmd == "/context":
         await _handle_context_command(websocket, alfred_instance, args)
+    elif cmd == "/support":
+        await _handle_support_command(websocket, alfred_instance, args)
+    elif cmd == "/review":
+        await _handle_review_command(websocket, alfred_instance, args)
     elif cmd == "/debug":
         await _handle_debug_command(websocket, alfred_instance, args)
     else:
@@ -1663,6 +1706,131 @@ async def _handle_context_command(
             {
                 "type": "chat.error",
                 "payload": {"error": f"Failed to get context: {str(e)}"},
+            }
+        )
+
+
+async def _handle_support_command(
+    websocket: WebSocket,
+    alfred_instance: WebUIAlfred | None,
+    args: list[str],
+) -> None:
+    """Handle /support inspection and correction commands."""
+    if alfred_instance is None:
+        await websocket.send_json(
+            {
+                "type": "chat.error",
+                "payload": {"error": "Alfred instance not available"},
+            }
+        )
+        return
+
+    try:
+        if not args:
+            rendered = await alfred_instance.get_support_snapshot_text(response_mode="execute")
+        elif args[0] == "pattern" and len(args) >= 2:
+            rendered = await alfred_instance.get_support_pattern_text(args[1])
+        elif args[0] == "event" and len(args) >= 2:
+            rendered = await alfred_instance.get_support_update_event_text(args[1])
+        elif args[0] == "why" and len(args) >= 3:
+            response_mode = args[3] if len(args) >= 4 else "execute"
+            arc_id = args[4] if len(args) >= 5 else None
+            rendered = await alfred_instance.explain_support_value_text(
+                registry=args[1],
+                dimension=args[2],
+                response_mode=response_mode,
+                arc_id=arc_id,
+            )
+        elif args[0] == "confirm" and len(args) >= 2:
+            reason = " ".join(args[2:]) or "User confirmed this pattern."
+            rendered = await alfred_instance.apply_support_correction_text(ConfirmPatternAction(pattern_id=args[1], reason=reason))
+        elif args[0] == "reject" and len(args) >= 2:
+            reason = " ".join(args[2:]) or "User rejected this pattern."
+            rendered = await alfred_instance.apply_support_correction_text(RejectPatternAction(pattern_id=args[1], reason=reason))
+        elif args[0] == "set" and len(args) >= 5:
+            reason = " ".join(args[5:]) or "User corrected this profile value."
+            rendered = await alfred_instance.apply_support_correction_text(
+                CorrectProfileValueAction(
+                    registry=cast(Any, args[1]),
+                    dimension=args[2],
+                    new_value=args[3],
+                    scope=_parse_support_scope(args[4]),
+                    reason=reason,
+                )
+            )
+        elif args[0] == "reset" and len(args) >= 4:
+            reason = " ".join(args[4:]) or "User reset this profile value."
+            rendered = await alfred_instance.apply_support_correction_text(
+                ResetProfileValueAction(
+                    registry=cast(Any, args[1]),
+                    dimension=args[2],
+                    scope=_parse_support_scope(args[3]),
+                    reason=reason,
+                )
+            )
+        elif args[0] == "scope-limit" and len(args) >= 5:
+            reason = " ".join(args[5:]) or "User limited this value to a narrower scope."
+            rendered = await alfred_instance.apply_support_correction_text(
+                ScopeLimitProfileValueAction(
+                    registry=cast(Any, args[1]),
+                    dimension=args[2],
+                    source_scope=_parse_support_scope(args[3]),
+                    target_scope=_parse_support_scope(args[4]),
+                    reason=reason,
+                )
+            )
+        elif args[0] in V1_INTERACTION_CONTEXT_IDS:
+            rendered = await alfred_instance.get_support_snapshot_text(
+                response_mode=args[0],
+                arc_id=args[1] if len(args) >= 2 else None,
+            )
+        else:
+            raise ValueError(
+                "Usage: /support [<response_mode> [arc_id] | pattern <id> | event <id> | "
+                "why <registry> <dimension> [response_mode] [arc_id] | confirm <pattern_id> [reason] | "
+                "reject <pattern_id> [reason] | set <registry> <dimension> <value> <scope_type:scope_id> [reason] | "
+                "reset <registry> <dimension> <scope_type:scope_id> [reason] | "
+                "scope-limit <registry> <dimension> <source_scope> <target_scope> [reason]]"
+            )
+
+        if not rendered:
+            raise ValueError("No support reflection data found for that request")
+        await _send_command_output_message(websocket, rendered)
+    except Exception as e:
+        await websocket.send_json(
+            {
+                "type": "chat.error",
+                "payload": {"error": f"Failed to handle /support: {str(e)}"},
+            }
+        )
+
+
+async def _handle_review_command(
+    websocket: WebSocket,
+    alfred_instance: WebUIAlfred | None,
+    args: list[str],
+) -> None:
+    """Handle /review command for bounded on-demand and weekly reviews."""
+    if alfred_instance is None:
+        await websocket.send_json(
+            {
+                "type": "chat.error",
+                "payload": {"error": "Alfred instance not available"},
+            }
+        )
+        return
+
+    try:
+        mode = "weekly" if args and args[0] in {"week", "weekly"} else "on_demand"
+        rendered = await alfred_instance.build_support_review_text(mode=mode)
+        if not rendered:
+            raise ValueError("No review data available")
+        await _send_command_output_message(websocket, rendered)
+    except Exception as e:
+        await websocket.send_json(
+            {
+                "type": "chat.error",
+                "payload": {"error": f"Failed to handle /review: {str(e)}"},
             }
         )
 

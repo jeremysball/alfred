@@ -200,9 +200,9 @@ This keeps the system adaptive without letting core semantics drift.
 
 ## 5. Learning and reflection architecture
 
-The planned learning system should be **episode-based**, not only session-based.
+The planned learning system should be **learning-situation-based**, not only session-based.
 
-### Why episodes
+### Why learning situations
 
 A single session may contain:
 - an execution exchange
@@ -210,14 +210,20 @@ A single session may contain:
 - an identity reflection exchange
 
 One session-level blob is too coarse for reliable support learning.
+One whole episode report is useful for review, but it is still too coarse to be the main similarity and adaptation unit.
 
-### Episode role
+### Learning-situation role
 
-Episodes should become the typed evidence layer between:
+Learning situations should become the typed evidence layer between:
 - raw archive
 - operational support memory
 - support-profile updates
 - reflection/review surfaces
+
+### Episode role
+
+`SupportEpisode` should remain a derived synthesis/report boundary built from related learning situations.
+It supports review, reflection, and human-readable summary without becoming the primary learning unit again.
 
 ### Reflection role
 
@@ -225,6 +231,7 @@ Reflection should remain a separate user-facing layer with:
 - inline reflection when highly relevant
 - internal synthesis in the background
 - weekly and on-demand bounded review cards
+- explicit inspection and correction surfaces for learned support state
 
 ---
 
@@ -259,5 +266,5 @@ One major architectural goal is to stop smearing truth across markdown, search, 
 ### PRDs
 - [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)
 - [PRD #167: Support Memory Foundation](../prds/done/167-support-memory-foundation.md)
-- [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/168-adaptive-support-profile-and-intervention-learning.md)
-- [PRD #169: Reflection Reviews and Support Controls](../prds/169-reflection-reviews-and-support-controls.md)
+- [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/done/168-adaptive-support-profile-and-intervention-learning.md)
+- [PRD #169: Reflection Reviews and Support Controls](../prds/done/169-reflection-reviews-and-support-controls.md)

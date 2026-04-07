@@ -1197,6 +1197,7 @@ class SupportPolicyRuntime:
         behavior_contract: SupportBehaviorContract,
         resolved_policy: ResolvedSupportPolicy,
         turn_text: str,
+        session_id: str | None,
     ) -> None:
         if query_embedding is None:
             return
@@ -1215,7 +1216,7 @@ class SupportPolicyRuntime:
         domain_ids = tuple(subject.id for subject in assessment.subjects if subject.kind == "domain" and subject.id is not None)
         current_situation = LearningSituation(
             situation_id=f"sit-{int(datetime.now(UTC).timestamp() * 1000)}",
-            session_id="runtime",
+            session_id=session_id or "runtime",
             recorded_at=datetime.now(UTC),
             turn_text=turn_text,
             embedding=tuple(float(value) for value in query_embedding),
@@ -1245,6 +1246,7 @@ class SupportPolicyRuntime:
         message: str,
         query_embedding: Sequence[float] | None,
         session_messages: Sequence[tuple[str, str]],
+        session_id: str | None = None,
     ) -> SupportPolicyRuntimeResult:
         """Assess, resolve, and compile the runtime support contract for one turn."""
         fresh_session = len(session_messages) == 0
@@ -1289,6 +1291,7 @@ class SupportPolicyRuntime:
             behavior_contract=behavior_contract,
             resolved_policy=resolved_policy,
             turn_text=message,
+            session_id=session_id,
         )
         if query_embedding is not None:
             runtime_patterns = await self._load_runtime_patterns(
@@ -1319,11 +1322,11 @@ class SupportPolicyRuntime:
         session_id: str | None,
     ) -> str:
         """Build the rendered prompt section for one live turn."""
-        del session_id  # Reserved for future support-memory logging and trace correlation.
         runtime_result = await self.build_turn_contract(
             message=message,
             query_embedding=query_embedding,
             session_messages=session_messages,
+            session_id=session_id,
         )
         return render_support_behavior_contract(runtime_result.behavior_contract)
 

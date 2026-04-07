@@ -681,7 +681,7 @@ docs/ROADMAP.md
 README.md
 prds/done/167-support-memory-foundation.md
 prds/168-adaptive-support-profile-and-intervention-learning.md
-prds/169-reflection-reviews-and-support-controls.md
+prds/done/169-reflection-reviews-and-support-controls.md
 prds/179-relational-support-operating-model.md
 templates/SYSTEM.md
 templates/AGENTS.md

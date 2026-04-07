@@ -2,7 +2,7 @@
 
 **GitHub Issue**: [#169](https://github.com/jeremysball/alfred/issues/169)  
 **Priority**: Medium  
-**Status**: Draft  
+**Status**: Complete  
 **Created**: 2026-03-30
 
 ---
@@ -153,18 +153,22 @@ Alfred should support:
 
 These are where learning becomes bounded, typed, user-visible reflection.
 
-### 4.4 Use episodes as the base unit for pattern generation
+### 4.4 Use learning situations for matching and episodes for reflection reports
 
-Pattern generation should work from episode evidence, not only from coarse session blobs.
+Pattern generation should work from structured learning situations rather than from coarse session blobs alone.
 
 That allows Alfred to learn separately from:
-- an execution episode
-- a decision episode
-- an identity reflection episode
-- a direction reflection episode
-- a calibration episode
+- an execution situation
+- a decision situation
+- an identity reflection situation
+- a direction reflection situation
+- a calibration situation
 
-The reflection system should aggregate from episode evidence into candidate patterns and review cards.
+Important split:
+- `LearningSituation` is the primary similarity and adaptation unit for matching evidence across turns and sessions
+- `SupportEpisode` is the derived report or synthesis boundary that groups related situations for reflection, review cards, and human-readable summaries
+
+The reflection system should aggregate from learning situations into candidate patterns and then synthesize episode-level review surfaces from related situations.
 
 ### 4.5 Separate load score from move-impact score from surface score
 
@@ -324,6 +328,8 @@ This keeps operational starts practical and reflective starts meaning-rich.
 
 Review cards should not just be generic "patterns."
 
+Review cards should be **derived reflection objects**, not a second durable truth layer. The durable learning record stays `SupportPattern`; the card is the user-facing projection of that pattern with bounded wording, evidence, and a next action.
+
 Recommended v1 card types:
 - **support-fit card**
 - **blocker card**
@@ -333,7 +339,8 @@ Recommended v1 card types:
 
 Minimum card fields:
 - `card_id`
-- `pattern_kind`
+- `source_pattern_id`
+- `card_kind`
 - `scope`
 - `statement`
 - `confidence`
@@ -346,11 +353,12 @@ Example:
 ```json
 {
   "card_id": "card_14",
-  "pattern_kind": "direction_theme",
+  "source_pattern_id": "pattern-direction-14",
+  "card_kind": "direction_theme",
   "scope": {"type": "global", "id": "user"},
   "statement": "A tension between external legibility and felt aliveness keeps recurring in your work decisions.",
   "confidence": 0.87,
-  "evidence_refs": ["ep_204", "ep_213", "ep_227"],
+  "evidence_refs": ["sit_204", "sit_213", "sit_227"],
   "proposed_action": "Confirm whether this is a real recurring tension and, if so, keep it visible in future direction decisions.",
   "status": "candidate"
 }
@@ -358,10 +366,15 @@ Example:
 
 ### 4.12 Add support-memory inspection controls
 
+V1 inspection should use a **hybrid model**:
+- one top-level snapshot that combines current help state and learned memory state
+- plus drill-down reads for pattern details, update-event details, and effective-value explanations
+
 Users should be able to inspect, at minimum:
 - active domains and operational arcs
 - effective relational values
 - effective support values
+- active runtime-relevant patterns
 - recent intervention history
 - recent support-profile update events
 - candidate and confirmed patterns
@@ -369,8 +382,7 @@ Users should be able to inspect, at minimum:
 Users should also be able to:
 - confirm a pattern
 - reject a pattern
-- correct or scope-limit a learned value
-- reset a value to default
+- correct, scope-limit, or reset a learned profile value
 - ask why a value changed
 - ask for evidence
 - promote a confirmed durable theme into `USER.md` when appropriate
@@ -380,7 +392,7 @@ Users should also be able to:
 The reflection system should formalize a promotion ladder:
 
 1. raw evidence
-2. typed episode evidence
+2. typed learning-situation evidence
 3. candidate pattern
 4. confirmed structured support memory
 5. explicit durable user truth in `USER.md`
@@ -487,16 +499,16 @@ Session-start reflective surfacing should feel:
 
 ## 6. Success Criteria
 
-- [ ] Alfred supports inline, weekly, and on-demand reflection surfaces with bounded behavior.
-- [ ] Patterns use one shared family with typed kinds and distinct surfacing/promotion rules.
-- [ ] Alfred can load patterns silently without surfacing them automatically.
-- [ ] Session-start pattern surfacing is allowed when it materially changes the next move.
-- [ ] Reviews show 1-3 typed, evidence-backed cards rather than open-ended essays.
-- [ ] Users can inspect effective support and relational values plus recent change history.
-- [ ] Users can confirm, reject, reset, or scope-limit learned assumptions.
-- [ ] Identity and direction themes remain candidate-first until user confirmation.
-- [ ] Broad support or relational changes are surfaced for review.
-- [ ] Reflection outputs link directly to action, correction, or durable understanding.
+- [x] Alfred supports inline, weekly, and on-demand reflection surfaces with bounded behavior.
+- [x] Patterns use one shared family with typed kinds and distinct surfacing/promotion rules.
+- [x] Alfred can load patterns silently without surfacing them automatically.
+- [x] Session-start pattern surfacing is allowed when it materially changes the next move.
+- [x] Reviews show 1-3 typed, evidence-backed cards rather than open-ended essays.
+- [x] Users can inspect effective support and relational values plus recent change history.
+- [x] Users can confirm or reject patterns and can correct, reset, or scope-limit learned profile values.
+- [x] Identity and direction themes remain candidate-first until user confirmation.
+- [x] Broad support or relational changes are surfaced for review.
+- [x] Reflection outputs link directly to action, correction, or durable understanding.
 
 ---
 
@@ -505,47 +517,64 @@ Session-start reflective surfacing should feel:
 ### Milestone 1: Define the Pattern family and review-card schemas
 Implement the fixed production pattern kinds plus typed reflection-card payloads.
 
-Validation: targeted tests prove pattern cards are typed, scoped, evidence-backed, and bounded.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/storage/sqlite.py`, `tests/test_support_reflection.py`, `tests/storage/test_support_reflection_storage.py`, and `prds/done/execution-plan-169-milestone1.md`. The delivered contract layer adds derived review cards projected from durable patterns, a hybrid inspection snapshot plus drill-down read models, typed correction-action contracts that keep profile-value edits separate from pattern confirmation/rejection, and the SQLite list/detail queries those inspection surfaces need.
+
+Validation: targeted tests prove pattern cards are typed, scoped, evidence-backed, and bounded. `uv run ruff check src/alfred/support_reflection.py src/alfred/storage/sqlite.py tests/test_support_reflection.py tests/storage/test_support_reflection_storage.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/storage/sqlite.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/storage/test_support_reflection_storage.py -q` passed.
 
 ### Milestone 2: Add load and surfacing rules
 Implement scoring and policy rules for pattern loading, move impact, and surfacing levels.
 
-Validation: targeted tests prove patterns can be loaded silently, mentioned compactly, or surfaced more richly based on contract impact.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `src/alfred/support_policy.py`, `tests/test_support_reflection.py`, `tests/test_core_observability.py`, and `prds/done/execution-plan-169-milestone2.md`. The delivered reflection runtime scores candidate and confirmed patterns for one live turn using scope, supporting-situation overlap, recency, and status; classifies move impact and bounded surface levels; and reuses the support-policy runtime seam so relevant continuity can be loaded silently while only a small surfaced subset reaches the final prompt.
+
+Validation: targeted tests prove patterns can be loaded silently, mentioned compactly, or surfaced more richly based on contract impact. `uv run ruff check src/alfred/support_reflection.py src/alfred/support_policy.py src/alfred/alfred.py tests/test_support_reflection.py tests/test_core_observability.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/support_policy.py src/alfred/alfred.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/test_core_observability.py::test_chat_stream_appends_reflection_guidance_only_when_a_pattern_should_be_surfaced -q` passed.
 
 ### Milestone 3: Add support-memory inspection surfaces
-Implement user-visible ways to inspect active continuity, effective support values, relational values, and recent support-history changes.
+Implement one inspection snapshot that combines current help state and learned state, plus drill-down reads for patterns, update events, and effective-value explanations.
 
-Validation: targeted tests prove the inspection surface reads from the same source of truth as runtime support behavior.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `src/alfred/interfaces/webui/server.py`, `src/alfred/interfaces/webui/contracts.py`, `src/alfred/storage/sqlite.py`, `tests/test_support_reflection.py`, `tests/webui/test_reflection_commands.py`, `tests/webui/fakes.py`, and `prds/done/execution-plan-169-milestone3.md`. The delivered inspection surface adds one hybrid snapshot plus drill-down explanations and exposes it through the working Web UI slash-command flow via `/support`, reusing the existing assistant-message websocket path instead of inventing a second rendering system.
+
+Validation: targeted tests prove the inspection surface reads from the same source of truth as runtime support behavior. `uv run ruff check src/alfred/support_reflection.py src/alfred/storage/sqlite.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py tests/test_support_reflection.py tests/webui/test_reflection_commands.py tests/webui/fakes.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/storage/sqlite.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/webui/test_reflection_commands.py -q` passed.
 
 ### Milestone 4: Add confirmation, rejection, and correction flows
-Implement actions to confirm, reject, reset, scope-limit, or edit learned assumptions.
+Implement actions to confirm or reject patterns and to reset, scope-limit, or correct learned profile values. Direct pattern-text editing stays out of scope.
 
-Validation: targeted tests prove user corrections update durable support memory cleanly and traceably.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `src/alfred/interfaces/webui/server.py`, `src/alfred/interfaces/webui/contracts.py`, `src/alfred/storage/sqlite.py`, `tests/test_support_reflection.py`, `tests/webui/test_reflection_commands.py`, `tests/webui/fakes.py`, and `prds/done/execution-plan-169-milestone4.md`. The delivered correction layer applies typed confirm/reject pattern actions plus correct/reset/scope-limit profile-value actions, persists the resulting durable value or pattern updates, and logs traceable support-profile update events while keeping direct pattern-text editing out of scope.
+
+Validation: targeted tests prove user corrections update durable support memory cleanly and traceably. `uv run ruff check src/alfred/support_reflection.py src/alfred/storage/sqlite.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py tests/test_support_reflection.py tests/webui/test_reflection_commands.py tests/webui/fakes.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/storage/sqlite.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/webui/test_reflection_commands.py -q` passed.
 
 ### Milestone 5: Add weekly and on-demand review generation
 Implement bounded review flows that select a small number of high-value cards and attach practical actions or correction options.
 
-Validation: targeted tests prove reviews stay within count limits and include evidence plus one useful next action per card.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `src/alfred/interfaces/webui/server.py`, `src/alfred/interfaces/webui/contracts.py`, `tests/test_support_reflection.py`, `tests/webui/test_reflection_commands.py`, `tests/webui/fakes.py`, and `prds/done/execution-plan-169-milestone5.md`. The delivered review surface builds bounded on-demand and weekly reviews from the durable pattern layer, caps the result to 1-3 typed cards, and surfaces recent broad relational or global support changes alongside those cards through the `/review` command.
+
+Validation: targeted tests prove reviews stay within count limits and include evidence plus one useful next action per card. `uv run ruff check src/alfred/support_reflection.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py tests/test_support_reflection.py tests/webui/test_reflection_commands.py tests/webui/fakes.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/webui/test_reflection_commands.py -q` passed.
 
 ### Milestone 6: Add inline reflection and session-start surfacing rules
 Implement rules for when Alfred may surface patterns during live conversation or at session start versus keeping them internal.
 
-Validation: targeted tests prove operational starts prioritize blocker/support patterns, reflective starts prioritize themes, and execution is not derailed by unnecessary surfacing.
+Progress update (2026-04-05): completed in `src/alfred/support_reflection.py`, `src/alfred/alfred.py`, `tests/test_support_reflection.py`, `tests/test_core_observability.py`, and `prds/done/execution-plan-169-milestone2.md`. The delivered live surfacing layer classifies fresh-session start type, applies the PRD priority tables for operational, reflective, and calibration starts, caps surfaced patterns to at most two at session start and one during ongoing turns, and renders a bounded prompt guidance section that keeps phrasing natural while leaving internal scoring invisible.
+
+Validation: targeted tests prove operational starts prioritize blocker/support patterns, reflective starts prioritize themes, calibration starts prioritize contradiction, and ordinary turns keep most pattern machinery silent. `uv run ruff check src/alfred/support_reflection.py src/alfred/alfred.py tests/test_support_reflection.py tests/test_core_observability.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/alfred.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/test_core_observability.py::test_chat_stream_appends_reflection_guidance_only_when_a_pattern_should_be_surfaced -q` passed.
 
 ### Milestone 7: Documentation and prompt/template updates
 Add or update docs, user-facing explanations, and managed prompt/template content for reflection behavior, explanation surfaces, and correction flows.
 
-Validation: docs explain the reflection/control model clearly and managed instructions reflect the same bounded review and promotion rules.
+Progress update (2026-04-06): completed in `docs/ARCHITECTURE.md`, `docs/MEMORY.md`, `docs/ROADMAP.md`, `docs/how-alfred-helps.md`, `docs/relational-support-model.md`, `templates/SYSTEM.md`, `templates/prompts/boundaries.md`, and `prds/done/execution-plan-169-milestone7.md`. The delivered doc sync updates the architecture from episode-first to learning-situation-first language, aligns the durable pattern and derived review-card taxonomy with the shipped runtime, describes bounded inspection/review/correction surfaces, updates the roadmap to reflect shipped PRD #169 behavior, and tells the model to keep reflective surfacing compact, natural, and tentative where required.
+
+Validation: manual read-through confirmed the updated docs and managed prompt/template surfaces now agree with the shipped reflection runtime, correction model, and candidate-first promotion rules.
+
+Final implementation validation (2026-04-06): `uv run ruff check src/alfred/support_reflection.py src/alfred/support_policy.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py src/alfred/storage/sqlite.py tests/test_support_reflection.py tests/storage/test_support_reflection_storage.py tests/test_core_observability.py tests/webui/test_reflection_commands.py tests/webui/fakes.py`, `uv run mypy --strict src/alfred/support_reflection.py src/alfred/support_policy.py src/alfred/alfred.py src/alfred/interfaces/webui/server.py src/alfred/interfaces/webui/contracts.py src/alfred/storage/sqlite.py`, and `uv run pytest --no-cov -p no:cacheprovider tests/test_support_reflection.py tests/storage/test_support_reflection_storage.py tests/webui/test_reflection_commands.py tests/test_core_observability.py::test_chat_stream_appends_reflection_guidance_only_when_a_pattern_should_be_surfaced -q` all passed.
 
 ---
 
 ## 8. Likely File Changes
 
 ```text
-src/alfred/memory/...                  # pattern storage and support-memory inspection data
-src/alfred/context.py or orchestration # review generation inputs and inline reflection gates
-src/alfred/interfaces/...              # TUI/Web UI/command surfaces for inspection and review
-src/alfred/orchestration/...           # surfacing policy and move-impact rules if introduced
+src/alfred/memory/...          # pattern storage plus reflection/read-model contracts
+src/alfred/storage/sqlite.py   # inspection queries and correction persistence
+src/alfred/support_policy.py   # shared effective-value resolution and surfacing inputs
+src/alfred/support_reflection.py # review-card, inspection, and correction contracts
+src/alfred/interfaces/...      # TUI/Web UI/command surfaces for inspection and review
 
 docs/MEMORY.md
 docs/ARCHITECTURE.md
@@ -554,7 +583,7 @@ docs/relational-support-model.md
 templates/SYSTEM.md
 templates/SOUL.md
 templates/USER.md
-prds/169-reflection-reviews-and-support-controls.md
+prds/done/169-reflection-reviews-and-support-controls.md
 ```
 
 ---
@@ -616,3 +645,7 @@ Docs and prompt/template updates should cover:
 | 2026-03-30 | Session-start pattern surfacing is allowed when it materially changes the next move | High-value continuity includes recurring blockers, support preferences, and active themes, not just active threads |
 | 2026-03-30 | Learning may silently improve scoped support behavior, but not silently redefine identity | Scoped adaptation should stay fast while identity remains user-controlled |
 | 2026-03-30 | Most pattern machinery should remain invisible unless trust or correction requires explicitness | Alfred should feel clear and alive, not mechanically narrated |
+| 2026-03-30 | Use learning situations as the primary matching unit and episodes as derived reflection reports | Reflection needs coherent reports, but the learning core should match semantically on situations rather than treat episodes as the primary write-path container |
+| 2026-04-05 | Review cards are derived from durable `SupportPattern` records rather than becoming a second durable truth layer | Reflection cards should stay user-facing projections of learned patterns, not compete with the stored pattern model |
+| 2026-04-05 | Inspection should use one hybrid snapshot plus drill-down reads | The main inspection surface should show both current help state and learned state, while details stay bounded and explicit |
+| 2026-04-05 | Correction flows use typed actions, and only profile values are directly editable in v1 | Patterns can be confirmed or rejected, but direct editing should apply only to validated support-profile values |

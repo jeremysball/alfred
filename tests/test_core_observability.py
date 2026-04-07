@@ -17,6 +17,7 @@ from alfred.agent import ToolEvent
 from alfred.alfred import Alfred, ContextSummary
 from alfred.config import Config
 from alfred.session import Message, Role, Session, SessionMeta
+from alfred.support_policy import ResolvedSubject, ResolvedSupportPolicy, SupportTurnAssessment, compile_support_behavior_contract
 from alfred.token_tracker import TokenTracker
 
 
@@ -526,3 +527,158 @@ async def test_chat_stream_includes_compiled_support_contract_in_system_prompt(
     assert "## Runtime Support Contract" in agent.calls[0]["system_prompt"]
     assert "- need: activate" in agent.calls[0]["system_prompt"]
     assert "- intervention_family: narrow" in agent.calls[0]["system_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_appends_reflection_guidance_only_when_a_pattern_should_be_surfaced(
+    tmp_path: Path,
+) -> None:
+    """chat_stream should append bounded reflection guidance after the support contract when available."""
+
+    alfred, _, agent, _ = _make_alfred(tmp_path)
+
+    class FakeSupportPolicyRuntime:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def build_turn_contract(
+            self,
+            *,
+            message: str,
+            query_embedding: list[float] | None,
+            session_messages: list[tuple[str, str]],
+            session_id: str | None = None,
+        ) -> Any:
+            self.calls.append(
+                {
+                    "message": message,
+                    "query_embedding": list(query_embedding or []),
+                    "session_messages": list(session_messages),
+                    "session_id": session_id,
+                }
+            )
+            return SimpleNamespace(
+                assessment=SupportTurnAssessment(
+                    need="activate",
+                    subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+                ),
+                response_mode="execute",
+                resolved_policy=ResolvedSupportPolicy(
+                    assessment=SupportTurnAssessment(
+                        need="activate",
+                        subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+                    ),
+                    response_mode="execute",
+                    relational_values={
+                        "warmth": "medium",
+                        "companionship": "medium",
+                        "candor": "medium",
+                        "challenge": "medium",
+                        "authority": "medium",
+                        "emotional_attunement": "medium",
+                        "analytical_depth": "medium",
+                        "momentum_pressure": "medium",
+                    },
+                    support_values={
+                        "planning_granularity": "minimal",
+                        "option_bandwidth": "single",
+                        "proactivity_level": "high",
+                        "accountability_style": "firm",
+                        "recovery_style": "steady",
+                        "reflection_depth": "light",
+                        "pacing": "brisk",
+                        "recommendation_forcefulness": "high",
+                    },
+                    primary_arc_id="webui_cleanup",
+                    domain_ids=("work",),
+                ),
+                behavior_contract=compile_support_behavior_contract(
+                    ResolvedSupportPolicy(
+                        assessment=SupportTurnAssessment(
+                            need="activate",
+                            subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+                        ),
+                        response_mode="execute",
+                        relational_values={
+                            "warmth": "medium",
+                            "companionship": "medium",
+                            "candor": "medium",
+                            "challenge": "medium",
+                            "authority": "medium",
+                            "emotional_attunement": "medium",
+                            "analytical_depth": "medium",
+                            "momentum_pressure": "medium",
+                        },
+                        support_values={
+                            "planning_granularity": "minimal",
+                            "option_bandwidth": "single",
+                            "proactivity_level": "high",
+                            "accountability_style": "firm",
+                            "recovery_style": "steady",
+                            "reflection_depth": "light",
+                            "pacing": "brisk",
+                            "recommendation_forcefulness": "high",
+                        },
+                        primary_arc_id="webui_cleanup",
+                        domain_ids=("work",),
+                    )
+                ),
+                trace=SimpleNamespace(),
+            )
+
+    class FakeSupportReflectionRuntime:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def build_prompt_section(
+            self,
+            *,
+            runtime_result: Any,
+            message: str,
+            query_embedding: list[float] | None,
+            session_messages: list[tuple[str, str]],
+            session_id: str | None,
+        ) -> str:
+            self.calls.append(
+                {
+                    "message": message,
+                    "query_embedding": list(query_embedding or []),
+                    "session_messages": list(session_messages),
+                    "session_id": session_id,
+                    "response_mode": runtime_result.response_mode,
+                }
+            )
+            return (
+                "## Reflection Guidance\n\n"
+                "Use relevant continuity silently unless the user benefits from hearing it.\n"
+                "Single-step next moves work better here.\n"
+            )
+
+    policy_runtime = FakeSupportPolicyRuntime()
+    reflection_runtime = FakeSupportReflectionRuntime()
+    alfred._support_policy_runtime = policy_runtime
+    alfred._support_reflection_runtime = reflection_runtime
+
+    chunks = [chunk async for chunk in alfred.chat_stream("hello world")]
+
+    assert chunks == ["Hello", " world"]
+    assert policy_runtime.calls == [
+        {
+            "message": "hello world",
+            "query_embedding": [0.1, 0.2, 0.3],
+            "session_messages": [("user", "previous user"), ("assistant", "previous assistant")],
+            "session_id": None,
+        }
+    ]
+    assert reflection_runtime.calls == [
+        {
+            "message": "hello world",
+            "query_embedding": [0.1, 0.2, 0.3],
+            "session_messages": [("user", "previous user"), ("assistant", "previous assistant")],
+            "session_id": None,
+            "response_mode": "execute",
+        }
+    ]
+    assert "## Runtime Support Contract" in agent.calls[0]["system_prompt"]
+    assert "## Reflection Guidance" in agent.calls[0]["system_prompt"]
+    assert "Single-step next moves work better here." in agent.calls[0]["system_prompt"]

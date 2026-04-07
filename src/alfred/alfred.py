@@ -17,7 +17,8 @@ from alfred.core import AlfredCore
 from alfred.llm import ChatMessage
 from alfred.self_model import RuntimeSelfModel, build_runtime_self_model
 from alfred.session import Message, ReasoningBlock, Role, Session, TextBlock, ToolCallRecord
-from alfred.support_policy import SupportPolicyRuntime
+from alfred.support_policy import SupportPolicyRuntime, render_support_behavior_contract
+from alfred.support_reflection import SupportReflectionRuntime
 from alfred.token_tracker import TokenTracker
 from alfred.tools import get_registry, register_builtin_tools
 
@@ -825,6 +826,20 @@ You can then continue the conversation with the tool results.
         self._support_policy_runtime = runtime
         return runtime
 
+    def _get_support_reflection_runtime(self) -> SupportReflectionRuntime | None:
+        """Return the cached support-reflection runtime when the core exposes the required seams."""
+        runtime = cast(SupportReflectionRuntime | None, getattr(self, "_support_reflection_runtime", None))
+        if runtime is not None:
+            return runtime
+
+        store = getattr(self.core, "sqlite_store", None)
+        if store is None:
+            return None
+
+        runtime = SupportReflectionRuntime(store=store)
+        self._support_reflection_runtime = runtime
+        return runtime
+
     async def _build_support_contract_section_for_turn(
         self,
         *,
@@ -833,10 +848,32 @@ You can then continue the conversation with the tool results.
         session_messages: list[tuple[str, str]],
         session_id: str | None,
     ) -> str | None:
-        """Build the runtime support-contract section for one live turn when available."""
+        """Build the runtime support and reflection sections for one live turn when available."""
         runtime = self._get_support_policy_runtime()
         if runtime is None:
             return None
+
+        build_turn_contract = getattr(runtime, "build_turn_contract", None)
+        reflection_runtime = self._get_support_reflection_runtime()
+        if callable(build_turn_contract):
+            runtime_result = await build_turn_contract(
+                message=message,
+                query_embedding=query_embedding,
+                session_messages=session_messages,
+                session_id=session_id,
+            )
+            sections = [render_support_behavior_contract(runtime_result.behavior_contract)]
+            if reflection_runtime is not None:
+                reflection_section = await reflection_runtime.build_prompt_section(
+                    runtime_result=runtime_result,
+                    message=message,
+                    query_embedding=query_embedding,
+                    session_messages=session_messages,
+                    session_id=session_id,
+                )
+                if reflection_section:
+                    sections.append(reflection_section)
+            return "\n\n".join(section for section in sections if section)
 
         return await runtime.build_prompt_section(
             message=message,
@@ -844,6 +881,79 @@ You can then continue the conversation with the tool results.
             session_messages=session_messages,
             session_id=session_id,
         )
+
+    async def get_support_snapshot_text(
+        self,
+        *,
+        response_mode: str = "execute",
+        arc_id: str | None = None,
+    ) -> str | None:
+        """Render the current support inspection snapshot as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        snapshot = await runtime.build_inspection_snapshot(response_mode=response_mode, arc_id=arc_id)
+        return runtime.render_inspection_snapshot(snapshot)
+
+    async def get_support_pattern_text(self, pattern_id: str) -> str | None:
+        """Render one support pattern detail record as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        detail = await runtime.get_pattern_detail(pattern_id)
+        if detail is None:
+            return None
+        return runtime.render_pattern_detail(detail)
+
+    async def get_support_update_event_text(self, event_id: str) -> str | None:
+        """Render one support update-event detail record as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        detail = await runtime.get_update_event_detail(event_id)
+        if detail is None:
+            return None
+        return runtime.render_update_event_detail(detail)
+
+    async def explain_support_value_text(
+        self,
+        *,
+        registry: str,
+        dimension: str,
+        response_mode: str,
+        arc_id: str | None = None,
+    ) -> str | None:
+        """Render one effective-value explanation as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        explanation = await runtime.explain_effective_value(
+            registry=registry,
+            dimension=dimension,
+            response_mode=response_mode,
+            arc_id=arc_id,
+        )
+        return runtime.render_effective_value_explanation(explanation)
+
+    async def build_support_review_text(
+        self,
+        *,
+        mode: str = "on_demand",
+    ) -> str | None:
+        """Render one bounded support review as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        report = await runtime.build_review_report(mode=cast(Any, mode), now=datetime.now(UTC))
+        return runtime.render_review_report(report)
+
+    async def apply_support_correction_text(self, action: Any) -> str | None:
+        """Apply one typed support correction and render the outcome as text."""
+        runtime = self._get_support_reflection_runtime()
+        if runtime is None:
+            return None
+        outcome = await runtime.apply_correction_action(action, now=datetime.now(UTC))
+        return runtime.render_correction_outcome(outcome)
 
     async def compact(self) -> str:
         """Trigger conversation compaction."""

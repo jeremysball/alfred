@@ -10,6 +10,7 @@ Alfred now has a support-memory foundation:
 - typed support episodes and evidence refs
 - life domains, operational arcs, and arc-linked work state
 - derived `ArcSituation` and `GlobalSituation` snapshots
+- typed learning situations, support patterns, and profile update events
 - searchable session archive
 
 Search remains part of the system, but it is no longer the only continuity primitive.
@@ -135,7 +136,7 @@ Role:
 What it is:
 - candidate patterns
 - confirmed patterns
-- review cards
+- derived review cards
 - correction history
 
 Role:
@@ -165,7 +166,7 @@ When Alfred is helping the user act, resume, orient, or answer active-work quest
 1. current conversation
 2. relevant operational support memory such as life domains, operational arcs, tasks, blockers, decisions, and open loops
 3. fresh `ArcSituation` or `GlobalSituation` when available
-4. recent typed episode evidence tied to that state
+4. recent typed learning situations or derived episode reports tied to that state
 5. curated memory when appropriate
 6. session archive for provenance, recall, or fallback
 
@@ -183,7 +184,7 @@ Not every observation should become durable identity truth.
 
 The planned promotion ladder is:
 1. raw evidence
-2. typed episode evidence
+2. typed learning-situation evidence
 3. candidate pattern
 4. confirmed structured support memory
 5. explicit durable user truth in `USER.md`
@@ -224,7 +225,8 @@ It also supports:
 - explanation of why Alfred is helping a certain way
 - weekly and on-demand review
 - confirmation or rejection of learned patterns
-- resetting or editing support assumptions
+- correcting, resetting, or scope-limiting learned profile values
+- bounded inspection of effective support state and recent change history
 - promoting confirmed truths into `USER.md` only when appropriate
 
 That is what turns memory into a real support system instead of a search layer.
@@ -237,6 +239,6 @@ That is what turns memory into a real support system instead of a search layer.
 - [Relational Support Model](relational-support-model.md)
 - [Architecture](ARCHITECTURE.md)
 - [PRD #167: Support Memory Foundation](../prds/done/167-support-memory-foundation.md)
-- [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/168-adaptive-support-profile-and-intervention-learning.md)
-- [PRD #169: Reflection Reviews and Support Controls](../prds/169-reflection-reviews-and-support-controls.md)
+- [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/done/168-adaptive-support-profile-and-intervention-learning.md)
+- [PRD #169: Reflection Reviews and Support Controls](../prds/done/169-reflection-reviews-and-support-controls.md)
 - [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)
