@@ -22,9 +22,7 @@ MoveImpact = Literal["low", "moderate", "high"]
 SurfaceLevel = Literal["silent", "compact", "rich"]
 StartType = Literal["scoped_operational", "broad_orient", "reflective", "calibration", "ongoing"]
 
-_SUPPORTED_REVIEW_CARD_KINDS: frozenset[str] = frozenset(
-    {"support_fit", "blocker", "identity_theme", "direction_theme", "calibration_gap"}
-)
+_SUPPORTED_REVIEW_CARD_KINDS: frozenset[str] = frozenset({"support_fit", "blocker", "identity_theme", "direction_theme", "calibration_gap"})
 _SUPPORTED_PATTERN_STATUSES: frozenset[str] = frozenset({"candidate", "confirmed", "rejected"})
 _SUPPORTED_CORRECTION_REGISTRIES: frozenset[str] = frozenset({"relational", "support"})
 _MAJOR_SUPPORT_IMPACT_DIMENSIONS: frozenset[str] = frozenset(
@@ -49,7 +47,6 @@ _MAJOR_RELATIONAL_IMPACT_DIMENSIONS: frozenset[str] = frozenset(
 )
 
 
-
 def _validate_trimmed_string(value: Any, *, label: str) -> str:
     if not isinstance(value, str):
         actual_type = type(value).__name__
@@ -59,13 +56,11 @@ def _validate_trimmed_string(value: Any, *, label: str) -> str:
     return value
 
 
-
 def _validate_string_tuple(value: Any, *, label: str) -> tuple[str, ...]:
     if not isinstance(value, tuple):
         actual_type = type(value).__name__
         raise ValueError(f"{label} must be a tuple of strings, got {actual_type}")
     return tuple(_validate_trimmed_string(item, label=f"{label} entry") for item in value)
-
 
 
 def _validate_confidence(value: Any, *, label: str) -> float:
@@ -76,7 +71,6 @@ def _validate_confidence(value: Any, *, label: str) -> float:
     if not 0.0 <= normalized <= 1.0:
         raise ValueError(f"{label} must be between 0.0 and 1.0")
     return normalized
-
 
 
 def _pattern_to_card_kind(kind: str) -> ReviewCardKind:
@@ -91,7 +85,6 @@ def _pattern_to_card_kind(kind: str) -> ReviewCardKind:
         return mapping[kind]
     except KeyError as exc:
         raise ValueError(f"Unsupported support pattern kind for review cards: {kind!r}") from exc
-
 
 
 def _default_proposed_action(kind: str) -> str:
@@ -187,7 +180,6 @@ class ReviewCard:
             "proposed_action",
             _validate_trimmed_string(self.proposed_action, label="proposed_action"),
         )
-
 
 
 def review_card_from_pattern(pattern: SupportPattern) -> ReviewCard:
@@ -446,11 +438,7 @@ class ScopeLimitProfileValueAction:
 
 
 SupportCorrectionAction = (
-    ConfirmPatternAction
-    | RejectPatternAction
-    | CorrectProfileValueAction
-    | ResetProfileValueAction
-    | ScopeLimitProfileValueAction
+    ConfirmPatternAction | RejectPatternAction | CorrectProfileValueAction | ResetProfileValueAction | ScopeLimitProfileValueAction
 )
 
 
@@ -560,16 +548,8 @@ class SupportReflectionRuntime:
         arcs = await self._store.list_resume_arcs(limit=12)
         domains = await self._store.list_active_life_domains(limit=6)
 
-        candidate_patterns = tuple(
-            PatternSummary.from_pattern(pattern)
-            for pattern in inspection_patterns
-            if pattern.status == "candidate"
-        )
-        confirmed_patterns = tuple(
-            PatternSummary.from_pattern(pattern)
-            for pattern in inspection_patterns
-            if pattern.status == "confirmed"
-        )
+        candidate_patterns = tuple(PatternSummary.from_pattern(pattern) for pattern in inspection_patterns if pattern.status == "candidate")
+        confirmed_patterns = tuple(PatternSummary.from_pattern(pattern) for pattern in inspection_patterns if pattern.status == "confirmed")
         return SupportInspectionSnapshot(
             request=SupportInspectionRequest(response_mode=response_mode, arc_id=arc_id),
             active_runtime_state=ActiveRuntimeState(
@@ -659,13 +639,7 @@ class SupportReflectionRuntime:
 
             status_score = 0.8 if pattern.status == "confirmed" else 0.4
             evidence_score = min(len(pattern.supporting_situation_ids), 3) * 0.2
-            load_score = (
-                (semantic_overlap * 2.0)
-                + scope_score
-                + status_score
-                + evidence_score
-                + _recency_score(pattern.updated_at)
-            )
+            load_score = (semantic_overlap * 2.0) + scope_score + status_score + evidence_score + _recency_score(pattern.updated_at)
             if load_score < 1.2:
                 continue
 
@@ -697,9 +671,8 @@ class SupportReflectionRuntime:
             surface_level: SurfaceLevel = "silent"
             if move_impact != "low":
                 if fresh_session:
-                    if (
-                        (start_type == "reflective" and pattern.kind in {"identity_theme", "direction_theme", "calibration_gap"})
-                        or (start_type == "calibration" and pattern.kind == "calibration_gap")
+                    if (start_type == "reflective" and pattern.kind in {"identity_theme", "direction_theme", "calibration_gap"}) or (
+                        start_type == "calibration" and pattern.kind == "calibration_gap"
                     ):
                         surface_level = "rich" if pattern.confidence >= 0.85 else "compact"
                     elif start_type in {"scoped_operational", "broad_orient"} and pattern.kind in {
@@ -751,9 +724,7 @@ class SupportReflectionRuntime:
             response_mode=response_mode,
             fresh_session=fresh_session,
             start_type=start_type,
-            loaded_patterns=tuple(
-                sorted(loaded, key=lambda decision: (-decision.load_score, decision.pattern.pattern_id))
-            ),
+            loaded_patterns=tuple(sorted(loaded, key=lambda decision: (-decision.load_score, decision.pattern.pattern_id))),
             surfaced_patterns=tuple(surfaced),
         )
 
@@ -770,13 +741,9 @@ class SupportReflectionRuntime:
             "",
         ]
         if guidance.fresh_session:
-            lines.append(
-                "At session start, surface at most two patterns and prefer compact phrasing unless the shift is substantial."
-            )
+            lines.append("At session start, surface at most two patterns and prefer compact phrasing unless the shift is substantial.")
         else:
-            lines.append(
-                "During an ongoing turn, surface at most one pattern and only if it materially improves the move."
-            )
+            lines.append("During an ongoing turn, surface at most one pattern and only if it materially improves the move.")
         lines.append("")
         lines.append("Suggested continuity to surface now:")
         for index, decision in enumerate(guidance.surfaced_patterns, start=1):
@@ -855,9 +822,7 @@ class SupportReflectionRuntime:
         else:
             for index, card in enumerate(report.cards, start=1):
                 lines.append(f"{index}. {card.statement}")
-                lines.append(
-                    f"   Kind: {card.card_kind} | Status: {card.status} | Confidence: {card.confidence:.2f}"
-                )
+                lines.append(f"   Kind: {card.card_kind} | Status: {card.status} | Confidence: {card.confidence:.2f}")
                 lines.append(f"   Evidence: {', '.join(card.evidence_refs) if card.evidence_refs else 'none'}")
                 lines.append(f"   Next: {card.proposed_action}")
                 lines.append("")
@@ -1139,19 +1104,12 @@ class SupportReflectionRuntime:
         matching_patterns = [
             pattern
             for pattern in runtime_patterns
-            if (
-                registry == "support" and dimension in pattern.support_overrides
-            ) or (
-                registry == "relational" and dimension in pattern.relational_overrides
-            )
+            if (registry == "support" and dimension in pattern.support_overrides)
+            or (registry == "relational" and dimension in pattern.relational_overrides)
         ]
         if matching_patterns:
             winner = matching_patterns[-1]
-            value = (
-                winner.support_overrides[dimension]
-                if registry == "support"
-                else winner.relational_overrides[dimension]
-            )
+            value = winner.support_overrides[dimension] if registry == "support" else winner.relational_overrides[dimension]
             return EffectiveValueExplanation(
                 registry=registry,
                 dimension=dimension,

@@ -1743,14 +1743,10 @@ async def _handle_support_command(
             )
         elif args[0] == "confirm" and len(args) >= 2:
             reason = " ".join(args[2:]) or "User confirmed this pattern."
-            rendered = await alfred_instance.apply_support_correction_text(
-                ConfirmPatternAction(pattern_id=args[1], reason=reason)
-            )
+            rendered = await alfred_instance.apply_support_correction_text(ConfirmPatternAction(pattern_id=args[1], reason=reason))
         elif args[0] == "reject" and len(args) >= 2:
             reason = " ".join(args[2:]) or "User rejected this pattern."
-            rendered = await alfred_instance.apply_support_correction_text(
-                RejectPatternAction(pattern_id=args[1], reason=reason)
-            )
+            rendered = await alfred_instance.apply_support_correction_text(RejectPatternAction(pattern_id=args[1], reason=reason))
         elif args[0] == "set" and len(args) >= 5:
             reason = " ".join(args[5:]) or "User corrected this profile value."
             rendered = await alfred_instance.apply_support_correction_text(
