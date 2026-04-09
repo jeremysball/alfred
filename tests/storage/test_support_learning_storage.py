@@ -573,6 +573,566 @@ async def test_sqlite_store_skips_work_state_transition_observations_without_mat
 
 
 @pytest.mark.asyncio
+async def test_sqlite_store_finalize_support_learning_case_persists_scored_case_from_attempt_observations(sqlite_store):
+    """The store should finalize and persist one deterministic learning case from a stored attempt bundle."""
+
+    session_id = "sess-finalize-case"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-0",
+                "role": "user",
+                "timestamp": "2026-04-07T14:00:00+00:00",
+                "content": "Help me restart the Web UI cleanup.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-1",
+                "role": "assistant",
+                "timestamp": "2026-04-07T14:01:00+00:00",
+                "content": "Let's keep it narrow and pick one move.",
+            },
+            {
+                "idx": 2,
+                "id": "msg-2",
+                "role": "user",
+                "timestamp": "2026-04-07T14:05:00+00:00",
+                "content": "Okay, I started the task and resolved the blocker.",
+            },
+        ],
+        {"topic": "finalize-case"},
+    )
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-webui-1",
+        session_id=session_id,
+        user_message_id="msg-0",
+        assistant_message_id="msg-1",
+        created_at=datetime(2026, 4, 7, 14, 1, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup", "domain:work"),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="Keep the next move narrow and direct.",
+        operational_snapshot_ref=None,
+    )
+    observations = (
+        OutcomeObservation(
+            observation_id="obs-webui-1",
+            attempt_id=attempt.attempt_id,
+            observed_at=datetime(2026, 4, 7, 14, 5, tzinfo=UTC),
+            source_type="next_user_turn",
+            signals=("clarity", "commitment"),
+            signal_polarity="positive",
+            signal_strength=0.76,
+            evidence_refs=(
+                SupportTranscriptSpanRef(
+                    session_id=session_id,
+                    message_start_id="msg-2",
+                    message_end_id="msg-2",
+                ),
+            ),
+            notes="The user endorsed the plan and committed to act.",
+        ),
+        OutcomeObservation(
+            observation_id="obs-webui-2",
+            attempt_id=attempt.attempt_id,
+            observed_at=datetime(2026, 4, 7, 14, 6, tzinfo=UTC),
+            source_type="work_state_transition",
+            signals=("task_started", "blocker_resolved"),
+            signal_polarity="positive",
+            signal_strength=0.88,
+            operational_delta_refs=("task:webui-bootstrap", "blocker:script-order"),
+            notes="The task started and the blocker resolved.",
+        ),
+    )
+
+    await sqlite_store.save_support_attempt(attempt)
+    for observation in observations:
+        await sqlite_store.save_support_outcome_observation(observation)
+
+    learning_case = await sqlite_store.finalize_support_learning_case(attempt.attempt_id)
+
+    assert learning_case == LearningCase(
+        case_id="case-attempt-webui-1",
+        attempt_id=attempt.attempt_id,
+        status="complete",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        created_at=attempt.created_at,
+        finalized_at=datetime(2026, 4, 7, 14, 6, tzinfo=UTC),
+        aggregate_signals=("clarity", "commitment", "task_started", "blocker_resolved"),
+        positive_evidence_count=4,
+        negative_evidence_count=0,
+        contradiction_count=0,
+        conversation_score=0.76,
+        operational_score=0.88,
+        overall_score=0.82,
+        promotion_eligibility=True,
+        evidence_refs=(
+            SupportTranscriptSpanRef(
+                session_id=session_id,
+                message_start_id="msg-2",
+                message_end_id="msg-2",
+            ),
+        ),
+        summary="Attempt attempt-webui-1 produced enough directional evidence to finalize a promotable case.",
+    )
+    assert await sqlite_store.get_support_learning_case(learning_case.case_id) == learning_case
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_finalize_support_learning_case_skips_attempts_without_observations(sqlite_store):
+    """Finalization should skip missing attempts and attempts that have not accumulated observations."""
+
+    session_id = "sess-finalize-skip"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-10",
+                "role": "user",
+                "timestamp": "2026-04-07T15:00:00+00:00",
+                "content": "Help me think about the docs refresh.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-11",
+                "role": "assistant",
+                "timestamp": "2026-04-07T15:01:00+00:00",
+                "content": "Let's slow down and inspect it.",
+            },
+        ],
+        {"topic": "finalize-skip"},
+    )
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-docs-1",
+        session_id=session_id,
+        user_message_id="msg-10",
+        assistant_message_id="msg-11",
+        created_at=datetime(2026, 4, 7, 15, 1, tzinfo=UTC),
+        need="reflect",
+        response_mode="review",
+        subject_refs=("domain:work",),
+        active_arc_id=None,
+        active_domain_ids=("work",),
+        effective_support_values={"reflection_depth": "medium"},
+        effective_relational_values={"warmth": "high"},
+        intervention_family="mirror",
+        intervention_refs=(),
+        prompt_contract_summary="Reflect without forcing a decision.",
+        operational_snapshot_ref=None,
+    )
+
+    await sqlite_store.save_support_attempt(attempt)
+
+    assert await sqlite_store.finalize_support_learning_case("attempt-missing") is None
+    assert await sqlite_store.finalize_support_learning_case(attempt.attempt_id) is None
+    assert await sqlite_store.get_support_learning_case("case-attempt-docs-1") is None
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_apply_support_case_learning_persists_shadow_then_active_auto_updates(sqlite_store):
+    """Applying case learning should write shadow rows first, then promote the same scoped value after repeated support."""
+
+    session_id = "sess-apply-case-learning"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-0",
+                "role": "user",
+                "timestamp": "2026-04-07T16:00:00+00:00",
+                "content": "Help me restart the Web UI cleanup.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-1",
+                "role": "assistant",
+                "timestamp": "2026-04-07T16:01:00+00:00",
+                "content": "Let's keep it narrow and pick one move.",
+            },
+            {
+                "idx": 2,
+                "id": "msg-2",
+                "role": "user",
+                "timestamp": "2026-04-07T16:10:00+00:00",
+                "content": "Let's do another narrow Web UI move.",
+            },
+            {
+                "idx": 3,
+                "id": "msg-3",
+                "role": "assistant",
+                "timestamp": "2026-04-07T16:11:00+00:00",
+                "content": "Okay, one more narrow step.",
+            },
+        ],
+        {"topic": "apply-case-learning"},
+    )
+
+    first_attempt = SupportAttempt(
+        attempt_id="attempt-webui-1",
+        session_id=session_id,
+        user_message_id="msg-0",
+        assistant_message_id="msg-1",
+        created_at=datetime(2026, 4, 7, 16, 1, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup", "domain:work"),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="Keep the next move narrow and direct.",
+        operational_snapshot_ref=None,
+    )
+    second_attempt = SupportAttempt(
+        attempt_id="attempt-webui-2",
+        session_id=session_id,
+        user_message_id="msg-2",
+        assistant_message_id="msg-3",
+        created_at=datetime(2026, 4, 7, 16, 11, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup", "domain:work"),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="Keep the next move narrow and direct.",
+        operational_snapshot_ref=None,
+    )
+    first_case = LearningCase(
+        case_id="case-webui-1",
+        attempt_id=first_attempt.attempt_id,
+        status="complete",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        created_at=first_attempt.created_at,
+        finalized_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+        aggregate_signals=("clarity",),
+        positive_evidence_count=1,
+        negative_evidence_count=0,
+        contradiction_count=0,
+        conversation_score=0.81,
+        operational_score=0.81,
+        overall_score=0.81,
+        promotion_eligibility=True,
+        evidence_refs=(),
+        summary="The narrow Web UI move worked well.",
+    )
+    second_case = LearningCase(
+        case_id="case-webui-2",
+        attempt_id=second_attempt.attempt_id,
+        status="complete",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        created_at=second_attempt.created_at,
+        finalized_at=datetime(2026, 4, 7, 16, 15, tzinfo=UTC),
+        aggregate_signals=("clarity",),
+        positive_evidence_count=1,
+        negative_evidence_count=0,
+        contradiction_count=0,
+        conversation_score=0.83,
+        operational_score=0.83,
+        overall_score=0.83,
+        promotion_eligibility=True,
+        evidence_refs=(),
+        summary="The second narrow Web UI move worked well too.",
+    )
+
+    await sqlite_store.save_support_attempt(first_attempt)
+    await sqlite_store.save_support_learning_case(first_case)
+
+    first_result = await sqlite_store.apply_support_case_learning(first_case.case_id)
+
+    assert first_result is not None
+    assert await sqlite_store.list_support_value_ledger_entries() == [
+        SupportValueLedgerEntry(
+            value_id="value-relational-candor-arc-webui_cleanup-high",
+            registry="relational",
+            dimension="candor",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            value="high",
+            status="shadow",
+            source="auto_case",
+            confidence=0.81,
+            evidence_count=1,
+            contradiction_count=0,
+            last_case_id="case-webui-1",
+            created_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+            why="relational candor=high has 1 supporting promotable cases and 0 conflicting promotable cases in this arc scope.",
+        ),
+        SupportValueLedgerEntry(
+            value_id="value-support-option_bandwidth-arc-webui_cleanup-single",
+            registry="support",
+            dimension="option_bandwidth",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            value="single",
+            status="shadow",
+            source="auto_case",
+            confidence=0.81,
+            evidence_count=1,
+            contradiction_count=0,
+            last_case_id="case-webui-1",
+            created_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+            why="support option_bandwidth=single has 1 supporting promotable cases and 0 conflicting promotable cases in this arc scope.",
+        ),
+    ]
+
+    await sqlite_store.save_support_attempt(second_attempt)
+    await sqlite_store.save_support_learning_case(second_case)
+
+    second_result = await sqlite_store.apply_support_case_learning(second_case.case_id)
+
+    assert second_result is not None
+    assert await sqlite_store.list_support_value_ledger_entries() == [
+        SupportValueLedgerEntry(
+            value_id="value-relational-candor-arc-webui_cleanup-high",
+            registry="relational",
+            dimension="candor",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            value="high",
+            status="active_auto",
+            source="auto_case",
+            confidence=0.82,
+            evidence_count=2,
+            contradiction_count=0,
+            last_case_id="case-webui-2",
+            created_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 7, 16, 15, tzinfo=UTC),
+            why="relational candor=high has 2 supporting promotable cases and 0 conflicting promotable cases in this arc scope.",
+        ),
+        SupportValueLedgerEntry(
+            value_id="value-support-option_bandwidth-arc-webui_cleanup-single",
+            registry="support",
+            dimension="option_bandwidth",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            value="single",
+            status="active_auto",
+            source="auto_case",
+            confidence=0.82,
+            evidence_count=2,
+            contradiction_count=0,
+            last_case_id="case-webui-2",
+            created_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 7, 16, 15, tzinfo=UTC),
+            why="support option_bandwidth=single has 2 supporting promotable cases and 0 conflicting promotable cases in this arc scope.",
+        ),
+    ]
+    assert await sqlite_store.list_support_ledger_update_events() == [
+        SupportLedgerUpdateEvent(
+            event_id="event-value-relational-candor-arc-webui_cleanup-high-shadow-case-webui-1",
+            entity_type="value",
+            entity_id="value-relational-candor-arc-webui_cleanup-high",
+            registry="relational",
+            dimension_or_kind="candor",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            old_status=None,
+            new_status="shadow",
+            old_value=None,
+            new_value="high",
+            trigger_case_ids=("case-webui-1",),
+            reason="relational candor=high has 1 supporting promotable cases and 0 conflicting promotable cases in this arc scope.",
+            confidence=0.81,
+            created_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+        ),
+        SupportLedgerUpdateEvent(
+            event_id="event-value-support-option_bandwidth-arc-webui_cleanup-single-shadow-case-webui-1",
+            entity_type="value",
+            entity_id="value-support-option_bandwidth-arc-webui_cleanup-single",
+            registry="support",
+            dimension_or_kind="option_bandwidth",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            old_status=None,
+            new_status="shadow",
+            old_value=None,
+            new_value="single",
+            trigger_case_ids=("case-webui-1",),
+            reason=(
+                "support option_bandwidth=single has 1 supporting promotable cases and 0 "
+                "conflicting promotable cases in this arc scope."
+            ),
+            confidence=0.81,
+            created_at=datetime(2026, 4, 7, 16, 5, tzinfo=UTC),
+        ),
+        SupportLedgerUpdateEvent(
+            event_id="event-value-relational-candor-arc-webui_cleanup-high-active_auto-case-webui-2",
+            entity_type="value",
+            entity_id="value-relational-candor-arc-webui_cleanup-high",
+            registry="relational",
+            dimension_or_kind="candor",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            old_status="shadow",
+            new_status="active_auto",
+            old_value="high",
+            new_value="high",
+            trigger_case_ids=("case-webui-1", "case-webui-2"),
+            reason="relational candor=high has 2 supporting promotable cases and 0 conflicting promotable cases in this arc scope.",
+            confidence=0.82,
+            created_at=datetime(2026, 4, 7, 16, 15, tzinfo=UTC),
+        ),
+        SupportLedgerUpdateEvent(
+            event_id="event-value-support-option_bandwidth-arc-webui_cleanup-single-active_auto-case-webui-2",
+            entity_type="value",
+            entity_id="value-support-option_bandwidth-arc-webui_cleanup-single",
+            registry="support",
+            dimension_or_kind="option_bandwidth",
+            scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+            old_status="shadow",
+            new_status="active_auto",
+            old_value="single",
+            new_value="single",
+            trigger_case_ids=("case-webui-1", "case-webui-2"),
+            reason=(
+                "support option_bandwidth=single has 2 supporting promotable cases and 0 "
+                "conflicting promotable cases in this arc scope."
+            ),
+            confidence=0.82,
+            created_at=datetime(2026, 4, 7, 16, 15, tzinfo=UTC),
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_apply_support_case_learning_skips_missing_or_non_promotable_cases(sqlite_store):
+    """Applying case learning should skip missing, open, and non-promotable cases without fabricating ledger rows."""
+
+    session_id = "sess-apply-case-learning-skips"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-10",
+                "role": "user",
+                "timestamp": "2026-04-07T17:00:00+00:00",
+                "content": "Help me inspect the docs refresh.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-11",
+                "role": "assistant",
+                "timestamp": "2026-04-07T17:01:00+00:00",
+                "content": "Let's inspect it without forcing a conclusion.",
+            },
+            {
+                "idx": 2,
+                "id": "msg-12",
+                "role": "user",
+                "timestamp": "2026-04-07T17:10:00+00:00",
+                "content": "Help me inspect another ambiguous docs thread.",
+            },
+            {
+                "idx": 3,
+                "id": "msg-13",
+                "role": "assistant",
+                "timestamp": "2026-04-07T17:11:00+00:00",
+                "content": "Still no forced conclusion.",
+            },
+        ],
+        {"topic": "apply-case-learning-skips"},
+    )
+
+    open_attempt = SupportAttempt(
+        attempt_id="attempt-open-1",
+        session_id=session_id,
+        user_message_id="msg-10",
+        assistant_message_id="msg-11",
+        created_at=datetime(2026, 4, 7, 17, 1, tzinfo=UTC),
+        need="reflect",
+        response_mode="review",
+        subject_refs=("domain:work",),
+        active_arc_id=None,
+        active_domain_ids=("work",),
+        effective_support_values={"reflection_depth": "medium"},
+        effective_relational_values={"warmth": "high"},
+        intervention_family="mirror",
+        intervention_refs=(),
+        prompt_contract_summary="Reflect without forcing a conclusion.",
+        operational_snapshot_ref=None,
+    )
+    open_case = LearningCase(
+        case_id="case-open-1",
+        attempt_id=open_attempt.attempt_id,
+        status="open",
+        scope=SupportProfileScope(type="context", id="review"),
+        created_at=open_attempt.created_at,
+        finalized_at=None,
+        aggregate_signals=(),
+        positive_evidence_count=0,
+        negative_evidence_count=0,
+        contradiction_count=0,
+        conversation_score=0.0,
+        operational_score=0.0,
+        overall_score=0.0,
+        promotion_eligibility=False,
+        evidence_refs=(),
+        summary=None,
+    )
+    non_promotable_attempt = SupportAttempt(
+        attempt_id="attempt-non-promotable-1",
+        session_id=session_id,
+        user_message_id="msg-12",
+        assistant_message_id="msg-13",
+        created_at=datetime(2026, 4, 7, 17, 11, tzinfo=UTC),
+        need="reflect",
+        response_mode="review",
+        subject_refs=("domain:work",),
+        active_arc_id=None,
+        active_domain_ids=("work",),
+        effective_support_values={"reflection_depth": "medium"},
+        effective_relational_values={"warmth": "high"},
+        intervention_family="mirror",
+        intervention_refs=(),
+        prompt_contract_summary="Reflect without forcing a conclusion.",
+        operational_snapshot_ref=None,
+    )
+    non_promotable_case = LearningCase(
+        case_id="case-non-promotable-1",
+        attempt_id=non_promotable_attempt.attempt_id,
+        status="complete",
+        scope=SupportProfileScope(type="context", id="review"),
+        created_at=non_promotable_attempt.created_at,
+        finalized_at=datetime(2026, 4, 7, 17, 15, tzinfo=UTC),
+        aggregate_signals=("follow_up_needed",),
+        positive_evidence_count=0,
+        negative_evidence_count=1,
+        contradiction_count=1,
+        conversation_score=0.25,
+        operational_score=0.0,
+        overall_score=0.25,
+        promotion_eligibility=False,
+        evidence_refs=(),
+        summary="The attempt stayed ambiguous and should not promote learning.",
+    )
+
+    await sqlite_store.save_support_attempt(open_attempt)
+    await sqlite_store.save_support_attempt(non_promotable_attempt)
+    await sqlite_store.save_support_learning_case(open_case)
+    await sqlite_store.save_support_learning_case(non_promotable_case)
+
+    assert await sqlite_store.apply_support_case_learning("case-missing") is None
+    assert await sqlite_store.apply_support_case_learning(open_case.case_id) is None
+    assert await sqlite_store.apply_support_case_learning(non_promotable_case.case_id) is None
+    assert await sqlite_store.list_support_value_ledger_entries() == []
+    assert await sqlite_store.list_support_ledger_update_events() == []
+
+
+@pytest.mark.asyncio
 async def test_sqlite_store_rejects_support_attempt_without_real_session_and_message_refs(sqlite_store):
     """The store should reject fabricated support-attempt refs and leave v2 rows unchanged."""
 

@@ -17,15 +17,19 @@ from time import perf_counter
 from typing import Any, Literal, cast
 
 from alfred.memory.support_learning import (
+    FinalizedLearningCaseBundle,
     LearningCase,
     LearningSituation,
     OutcomeObservation,
     SupportAttempt,
+    SupportLedgerDerivationResult,
     SupportLedgerUpdateEvent,
     SupportPattern,
     SupportPatternLedgerEntry,
     SupportProfileUpdateEvent,
     SupportValueLedgerEntry,
+    derive_learning_case,
+    derive_value_ledger_updates_from_cases,
 )
 from alfred.memory.support_memory import (
     ArcBlocker,
@@ -3721,6 +3725,14 @@ class SQLiteStore:
             )
             await db.commit()
 
+    async def _load_support_attempt_by_id(self, db: Any, attempt_id: str) -> SupportAttempt | None:
+        """Load one v2 support attempt from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_attempts WHERE attempt_id = ?", (attempt_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+        return SupportAttempt.from_record(dict(row))
+
     async def get_support_attempt(self, attempt_id: str) -> SupportAttempt | None:
         """Load one v2 support attempt by ID."""
         await self._init()
@@ -3731,11 +3743,7 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM support_attempts WHERE attempt_id = ?", (attempt_id,)) as cursor:
-                row = await cursor.fetchone()
-                if row is None:
-                    return None
-                return SupportAttempt.from_record(dict(row))
+            return await self._load_support_attempt_by_id(db, attempt_id)
 
     async def save_support_outcome_observation(self, observation: OutcomeObservation) -> None:
         """Save or update one v2 support outcome observation."""
@@ -3749,6 +3757,19 @@ class SQLiteStore:
             await self._upsert_support_outcome_observation(db, observation)
             await db.commit()
 
+    async def _load_support_outcome_observations(self, db: Any, attempt_id: str) -> list[OutcomeObservation]:
+        """Load v2 support observations for one attempt from an existing SQLite connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_outcome_observations
+            WHERE attempt_id = ?
+            ORDER BY observed_at ASC, observation_id ASC
+            """,
+            (attempt_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [OutcomeObservation.from_record(dict(row)) for row in rows]
+
     async def list_support_outcome_observations(self, attempt_id: str) -> list[OutcomeObservation]:
         """List v2 support observations for one attempt in chronological order."""
         await self._init()
@@ -3759,16 +3780,80 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                """
-                SELECT * FROM support_outcome_observations
-                WHERE attempt_id = ?
-                ORDER BY observed_at ASC, observation_id ASC
-                """,
-                (attempt_id,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-                return [OutcomeObservation.from_record(dict(row)) for row in rows]
+            return await self._load_support_outcome_observations(db, attempt_id)
+
+    async def _upsert_support_learning_case(self, db: Any, learning_case: LearningCase) -> None:
+        """Insert or update one v2 support learning case on an existing SQLite connection."""
+        record = learning_case.to_record()
+        await db.execute(
+            """
+            INSERT INTO support_learning_cases (
+                case_id, attempt_id, status, scope_type, scope_id,
+                created_at, finalized_at, aggregate_signals,
+                positive_evidence_count, negative_evidence_count,
+                contradiction_count, conversation_score,
+                operational_score, overall_score,
+                promotion_eligibility, evidence_refs, summary
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(case_id) DO UPDATE SET
+                attempt_id = excluded.attempt_id,
+                status = excluded.status,
+                scope_type = excluded.scope_type,
+                scope_id = excluded.scope_id,
+                created_at = excluded.created_at,
+                finalized_at = excluded.finalized_at,
+                aggregate_signals = excluded.aggregate_signals,
+                positive_evidence_count = excluded.positive_evidence_count,
+                negative_evidence_count = excluded.negative_evidence_count,
+                contradiction_count = excluded.contradiction_count,
+                conversation_score = excluded.conversation_score,
+                operational_score = excluded.operational_score,
+                overall_score = excluded.overall_score,
+                promotion_eligibility = excluded.promotion_eligibility,
+                evidence_refs = excluded.evidence_refs,
+                summary = excluded.summary
+            """,
+            (
+                record["case_id"],
+                record["attempt_id"],
+                record["status"],
+                record["scope_type"],
+                record["scope_id"],
+                record["created_at"],
+                record["finalized_at"],
+                record["aggregate_signals"],
+                record["positive_evidence_count"],
+                record["negative_evidence_count"],
+                record["contradiction_count"],
+                record["conversation_score"],
+                record["operational_score"],
+                record["overall_score"],
+                int(record["promotion_eligibility"]),
+                record["evidence_refs"],
+                record["summary"],
+            ),
+        )
+
+    async def finalize_support_learning_case(self, attempt_id: str) -> LearningCase | None:
+        """Derive and persist one deterministic learning case for a stored attempt bundle."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            attempt = await self._load_support_attempt_by_id(db, attempt_id)
+            if attempt is None:
+                return None
+            observations = await self._load_support_outcome_observations(db, attempt_id)
+            learning_case = derive_learning_case(attempt=attempt, observations=observations)
+            if learning_case is None:
+                return None
+            await self._upsert_support_learning_case(db, learning_case)
+            await db.commit()
+            return learning_case
 
     async def save_support_learning_case(self, learning_case: LearningCase) -> None:
         """Save or update one v2 support learning case."""
@@ -3776,60 +3861,36 @@ class SQLiteStore:
 
         import aiosqlite
 
-        record = learning_case.to_record()
-
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
-            await db.execute(
-                """
-                INSERT INTO support_learning_cases (
-                    case_id, attempt_id, status, scope_type, scope_id,
-                    created_at, finalized_at, aggregate_signals,
-                    positive_evidence_count, negative_evidence_count,
-                    contradiction_count, conversation_score,
-                    operational_score, overall_score,
-                    promotion_eligibility, evidence_refs, summary
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(case_id) DO UPDATE SET
-                    attempt_id = excluded.attempt_id,
-                    status = excluded.status,
-                    scope_type = excluded.scope_type,
-                    scope_id = excluded.scope_id,
-                    created_at = excluded.created_at,
-                    finalized_at = excluded.finalized_at,
-                    aggregate_signals = excluded.aggregate_signals,
-                    positive_evidence_count = excluded.positive_evidence_count,
-                    negative_evidence_count = excluded.negative_evidence_count,
-                    contradiction_count = excluded.contradiction_count,
-                    conversation_score = excluded.conversation_score,
-                    operational_score = excluded.operational_score,
-                    overall_score = excluded.overall_score,
-                    promotion_eligibility = excluded.promotion_eligibility,
-                    evidence_refs = excluded.evidence_refs,
-                    summary = excluded.summary
-                """,
-                (
-                    record["case_id"],
-                    record["attempt_id"],
-                    record["status"],
-                    record["scope_type"],
-                    record["scope_id"],
-                    record["created_at"],
-                    record["finalized_at"],
-                    record["aggregate_signals"],
-                    record["positive_evidence_count"],
-                    record["negative_evidence_count"],
-                    record["contradiction_count"],
-                    record["conversation_score"],
-                    record["operational_score"],
-                    record["overall_score"],
-                    int(record["promotion_eligibility"]),
-                    record["evidence_refs"],
-                    record["summary"],
-                ),
-            )
+            await self._upsert_support_learning_case(db, learning_case)
             await db.commit()
+
+    async def _load_support_learning_case_by_id(self, db: Any, case_id: str) -> LearningCase | None:
+        """Load one v2 support learning case from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_learning_cases WHERE case_id = ?", (case_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+        return LearningCase.from_record(dict(row))
+
+    async def _load_support_learning_cases_for_scope(
+        self,
+        db: Any,
+        scope: SupportProfileScope,
+    ) -> list[LearningCase]:
+        """Load v2 support learning cases for one exact scope from an existing SQLite connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_learning_cases
+            WHERE scope_type = ? AND scope_id = ?
+            ORDER BY finalized_at ASC, case_id ASC
+            """,
+            (scope.type, scope.id),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [LearningCase.from_record(dict(row)) for row in rows]
 
     async def get_support_learning_case(self, case_id: str) -> LearningCase | None:
         """Load one v2 support learning case by ID."""
@@ -3841,11 +3902,53 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM support_learning_cases WHERE case_id = ?", (case_id,)) as cursor:
-                row = await cursor.fetchone()
-                if row is None:
-                    return None
-                return LearningCase.from_record(dict(row))
+            return await self._load_support_learning_case_by_id(db, case_id)
+
+    async def _upsert_support_value_ledger_entry(self, db: Any, value_entry: SupportValueLedgerEntry) -> None:
+        """Insert or update one v2 support value ledger entry on an existing SQLite connection."""
+        record = value_entry.to_record()
+        await db.execute(
+            """
+            INSERT INTO support_value_ledger_entries (
+                value_id, registry, dimension, scope_type, scope_id, value,
+                status, source, confidence, evidence_count,
+                contradiction_count, last_case_id, created_at,
+                updated_at, why
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(value_id) DO UPDATE SET
+                registry = excluded.registry,
+                dimension = excluded.dimension,
+                scope_type = excluded.scope_type,
+                scope_id = excluded.scope_id,
+                value = excluded.value,
+                status = excluded.status,
+                source = excluded.source,
+                confidence = excluded.confidence,
+                evidence_count = excluded.evidence_count,
+                contradiction_count = excluded.contradiction_count,
+                last_case_id = excluded.last_case_id,
+                created_at = excluded.created_at,
+                updated_at = excluded.updated_at,
+                why = excluded.why
+            """,
+            (
+                record["value_id"],
+                record["registry"],
+                record["dimension"],
+                record["scope_type"],
+                record["scope_id"],
+                record["value"],
+                record["status"],
+                record["source"],
+                record["confidence"],
+                record["evidence_count"],
+                record["contradiction_count"],
+                record["last_case_id"],
+                record["created_at"],
+                record["updated_at"],
+                record["why"],
+            ),
+        )
 
     async def save_support_value_ledger_entry(self, value_entry: SupportValueLedgerEntry) -> None:
         """Save or update one v2 support value ledger entry."""
@@ -3853,54 +3956,28 @@ class SQLiteStore:
 
         import aiosqlite
 
-        record = value_entry.to_record()
-
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
-            await db.execute(
-                """
-                INSERT INTO support_value_ledger_entries (
-                    value_id, registry, dimension, scope_type, scope_id, value,
-                    status, source, confidence, evidence_count,
-                    contradiction_count, last_case_id, created_at,
-                    updated_at, why
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(value_id) DO UPDATE SET
-                    registry = excluded.registry,
-                    dimension = excluded.dimension,
-                    scope_type = excluded.scope_type,
-                    scope_id = excluded.scope_id,
-                    value = excluded.value,
-                    status = excluded.status,
-                    source = excluded.source,
-                    confidence = excluded.confidence,
-                    evidence_count = excluded.evidence_count,
-                    contradiction_count = excluded.contradiction_count,
-                    last_case_id = excluded.last_case_id,
-                    created_at = excluded.created_at,
-                    updated_at = excluded.updated_at,
-                    why = excluded.why
-                """,
-                (
-                    record["value_id"],
-                    record["registry"],
-                    record["dimension"],
-                    record["scope_type"],
-                    record["scope_id"],
-                    record["value"],
-                    record["status"],
-                    record["source"],
-                    record["confidence"],
-                    record["evidence_count"],
-                    record["contradiction_count"],
-                    record["last_case_id"],
-                    record["created_at"],
-                    record["updated_at"],
-                    record["why"],
-                ),
-            )
+            await self._upsert_support_value_ledger_entry(db, value_entry)
             await db.commit()
+
+    async def _load_support_value_ledger_entries_for_scope(
+        self,
+        db: Any,
+        scope: SupportProfileScope,
+    ) -> list[SupportValueLedgerEntry]:
+        """Load v2 support value-ledger entries for one exact scope from an existing SQLite connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_value_ledger_entries
+            WHERE scope_type = ? AND scope_id = ?
+            ORDER BY registry ASC, dimension ASC, value_id ASC
+            """,
+            (scope.type, scope.id),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [SupportValueLedgerEntry.from_record(dict(row)) for row in rows]
 
     async def list_support_value_ledger_entries(self) -> list[SupportValueLedgerEntry]:
         """List all v2 support value ledger entries in deterministic order."""
@@ -3992,58 +4069,116 @@ class SQLiteStore:
                     return None
                 return SupportPatternLedgerEntry.from_record(dict(row))
 
+    async def _upsert_support_ledger_update_event(self, db: Any, event: SupportLedgerUpdateEvent) -> None:
+        """Insert or update one v2 support ledger update event on an existing SQLite connection."""
+        record = event.to_record()
+        await db.execute(
+            """
+            INSERT INTO support_ledger_update_events (
+                event_id, entity_type, entity_id, registry, dimension_or_kind,
+                scope_type, scope_id, old_status, new_status, old_value,
+                new_value, trigger_case_ids, reason, confidence, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO UPDATE SET
+                entity_type = excluded.entity_type,
+                entity_id = excluded.entity_id,
+                registry = excluded.registry,
+                dimension_or_kind = excluded.dimension_or_kind,
+                scope_type = excluded.scope_type,
+                scope_id = excluded.scope_id,
+                old_status = excluded.old_status,
+                new_status = excluded.new_status,
+                old_value = excluded.old_value,
+                new_value = excluded.new_value,
+                trigger_case_ids = excluded.trigger_case_ids,
+                reason = excluded.reason,
+                confidence = excluded.confidence,
+                created_at = excluded.created_at
+            """,
+            (
+                record["event_id"],
+                record["entity_type"],
+                record["entity_id"],
+                record["registry"],
+                record["dimension_or_kind"],
+                record["scope_type"],
+                record["scope_id"],
+                record["old_status"],
+                record["new_status"],
+                record["old_value"],
+                record["new_value"],
+                record["trigger_case_ids"],
+                record["reason"],
+                record["confidence"],
+                record["created_at"],
+            ),
+        )
+
+    async def apply_support_case_learning(self, case_id: str) -> SupportLedgerDerivationResult | None:
+        """Derive and persist v2 value-ledger updates for one finalized support-learning case."""
+        await self._init()
+
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            learning_case = await self._load_support_learning_case_by_id(db, case_id)
+            if learning_case is None or learning_case.status != "complete" or not learning_case.promotion_eligibility:
+                return None
+
+            attempt = await self._load_support_attempt_by_id(db, learning_case.attempt_id)
+            if attempt is None or learning_case.finalized_at is None:
+                return None
+
+            focus_bundle = FinalizedLearningCaseBundle(learning_case=learning_case, attempt=attempt)
+            scoped_bundles: list[FinalizedLearningCaseBundle] = []
+            for scoped_case in await self._load_support_learning_cases_for_scope(db, learning_case.scope):
+                if scoped_case.finalized_at is None:
+                    continue
+                scoped_attempt = await self._load_support_attempt_by_id(db, scoped_case.attempt_id)
+                if scoped_attempt is None:
+                    continue
+                scoped_bundles.append(FinalizedLearningCaseBundle(learning_case=scoped_case, attempt=scoped_attempt))
+
+            existing_value_entries = {
+                (
+                    entry.registry,
+                    entry.dimension,
+                    entry.scope.type,
+                    entry.scope.id,
+                    entry.value,
+                ): entry
+                for entry in await self._load_support_value_ledger_entries_for_scope(db, learning_case.scope)
+            }
+            result = derive_value_ledger_updates_from_cases(
+                focus_bundle=focus_bundle,
+                scoped_bundles=tuple(scoped_bundles),
+                existing_value_entries=existing_value_entries,
+                now=learning_case.finalized_at,
+            )
+            if not result.value_entries and not result.update_events:
+                return None
+
+            for value_entry in result.value_entries:
+                await self._upsert_support_value_ledger_entry(db, value_entry)
+            for event in result.update_events:
+                await self._upsert_support_ledger_update_event(db, event)
+            await db.commit()
+            return result
+
     async def save_support_ledger_update_event(self, event: SupportLedgerUpdateEvent) -> None:
         """Save or update one v2 support ledger update event."""
         await self._init()
 
         import aiosqlite
 
-        record = event.to_record()
-
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
-            await db.execute(
-                """
-                INSERT INTO support_ledger_update_events (
-                    event_id, entity_type, entity_id, registry, dimension_or_kind,
-                    scope_type, scope_id, old_status, new_status, old_value,
-                    new_value, trigger_case_ids, reason, confidence, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(event_id) DO UPDATE SET
-                    entity_type = excluded.entity_type,
-                    entity_id = excluded.entity_id,
-                    registry = excluded.registry,
-                    dimension_or_kind = excluded.dimension_or_kind,
-                    scope_type = excluded.scope_type,
-                    scope_id = excluded.scope_id,
-                    old_status = excluded.old_status,
-                    new_status = excluded.new_status,
-                    old_value = excluded.old_value,
-                    new_value = excluded.new_value,
-                    trigger_case_ids = excluded.trigger_case_ids,
-                    reason = excluded.reason,
-                    confidence = excluded.confidence,
-                    created_at = excluded.created_at
-                """,
-                (
-                    record["event_id"],
-                    record["entity_type"],
-                    record["entity_id"],
-                    record["registry"],
-                    record["dimension_or_kind"],
-                    record["scope_type"],
-                    record["scope_id"],
-                    record["old_status"],
-                    record["new_status"],
-                    record["old_value"],
-                    record["new_value"],
-                    record["trigger_case_ids"],
-                    record["reason"],
-                    record["confidence"],
-                    record["created_at"],
-                ),
-            )
+            await self._upsert_support_ledger_update_event(db, event)
             await db.commit()
 
     async def list_support_ledger_update_events(self) -> list[SupportLedgerUpdateEvent]:

@@ -2,7 +2,7 @@
 
 **GitHub Issue**: [#183](https://github.com/jeremysball/alfred/issues/183)  
 **Priority**: High  
-**Status**: Draft  
+**Status**: In Progress  
 **Created**: 2026-04-07  
 **Author**: Agent
 
@@ -413,6 +413,12 @@ Representative dimensions:
 #### Relational values
 Relational values may also auto-activate when evidence is strong enough.
 
+Boundary note:
+- this PRD owns the shared ledger, status, promotion, activation, and inspection rules for relational values
+- it does **not** own the product meaning of relational dimensions or how they compile into live stance behavior
+- PRD #192 owns the relational runtime architecture, and PRD #193 owns the product semantics and compiler contract for dimensions such as `candor`, `challenge`, and `warmth`
+- the list below is illustrative and should stay generic unless a child relational PRD explicitly owns the behavioral meaning
+
 Representative dimensions:
 - `candor`
 - `challenge`
@@ -688,14 +694,31 @@ This PRD is successful when:
 - [ ] **Milestone 3: Outcome observation pipeline captures conversational and operational evidence**  
       Alfred records post-reply outcome observations from user feedback, next-turn signals, and work-state transitions.
 
+      Sub-milestones:
+      - [x] **Milestone 3A:** Deterministic `work_state_transition` observations from public SQLite work-state seams, linked to the latest matching `SupportAttempt` by `active_arc_id`.
+      - [ ] **Milestone 3B:** Conversational / semantic observation extraction (explicit feedback, next-turn signals, etc.).
+
 - [ ] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**  
       Alfred promotes and demotes from completed `LearningCase` records instead of thin per-turn snapshots.
+
+      Sub-milestones:
+      - [x] **Milestone 4A:** Deterministic case finalization + scoring from stored `SupportAttempt` + `OutcomeObservation` bundles.
+      - [ ] **Milestone 4B:** Runtime cutover so promotion/adaptation reads finalized cases as the primary learning unit.
 
 - [ ] **Milestone 5: Less-conservative scoped adaptation ships for support and relational values**  
       Arc, context, and global learning work with lower thresholds, contradiction tracking, and explicit auto-activation rules.
 
+      Sub-milestones:
+      - [x] **Milestone 5A:** Case-based v2 value-ledger promotion (support + relational), exact-scope only (`arc` / `context`), persisting below-threshold evidence as `shadow` and promoting to `active_auto` when thresholds are met.
+      - [ ] **Milestone 5B:** Broader scope generalization, demotion/retirement, and pattern-ledger inference (deferred).
+
 - [ ] **Milestone 6: Full inspection surfaces ship across `/context` and `/support`**  
       Users can inspect active values, all values, patterns, cases, traces, and update events in both TUI and Web UI.
+
+      Sub-milestones:
+      - [x] **Milestone 6A.1 (Web UI-only foundation):** `/context` support inspection snapshot includes v2 `value_ledger_entries`, `value_ledger_summary`, and `recent_ledger_update_events`.
+      - [ ] **Milestone 6A.2 (Web UI):** Web UI renders the v2 value ledger inside `context-viewer` and the websocket protocol docs are updated.
+      - [ ] **Milestone 6B:** Full `/support` inspection surfaces + cross-surface (TUI/Web UI) parity for full-ledger inspection.
 
 - [ ] **Milestone 7: V1 learning path is removed and docs are aligned**  
       Dead v1 learning code is deleted, and docs, tests, and payload contracts describe only the shipped v2 model.
@@ -792,6 +815,8 @@ Additional required verification for this PRD:
 - PRD #168: Adaptive Support Profile and Intervention Learning
 - PRD #169: Reflection Reviews and Support Controls
 - PRD #179: Relational Support Operating Model
+- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #193: Product-Owned Relational Semantics and Compiler Contract
 - PRD #165: Selective Tool Outcomes and Context Viewer Fixes
 
 ---
@@ -804,9 +829,13 @@ Additional required verification for this PRD:
 | 2026-04-07 | Alfred should learn from blockers, tasks, decisions, open loops, and arc transitions directly | Operational state should be first-class learning evidence, not only background context |
 | 2026-04-07 | Alfred should be less conservative about what it learns and when it activates it | The user prefers a more adaptive and somewhat overzealous system that can be inspected and corrected later |
 | 2026-04-07 | Both support values and relational values may auto-activate when evidence is strong enough | The user explicitly prefers a less conservative adaptation model, including relational stance changes |
+| 2026-04-09 | PRD #183 owns relational value ledger and activation semantics, not relational dimension meaning or live stance behavior | This keeps the shared learning architecture in #183 while deferring relational runtime semantics to PRDs #192 and #193 |
 | 2026-04-07 | Visibility and correction are the main safety boundary for aggressive learning | The user wants Alfred to learn more, provided the system can be interrogated and changed |
 | 2026-04-07 | `/context` should show effective runtime state, while `/support` must be able to show all values and traces | Compact active-state inspection and full-ledger inspection serve different jobs |
 | 2026-04-07 | Cross-arc learning is allowed, with higher thresholds than arc-local promotion | Generalization is desired, but should still be scope-aware |
 | 2026-04-07 | Do not preserve backward compatibility for v1 learning data if it blocks a cleaner v2 runtime | The repo is in beta, and the current learning rows are too thin to justify migration-heavy preservation |
 | 2026-04-07 | Support-learning persistence must use real session ids and should skip or defer writes rather than invent placeholders | The runtime contract must stay storage-safe and explainable |
 | 2026-04-07 | Milestone 3 should start with deterministic `work_state_transition` observations before conversational or semantic extraction | This keeps the first observation lane inside PRD #183 and defers sibling semantic PRDs until later milestones |
+| 2026-04-07 | Milestone 4 should start by finalizing deterministic cases from stored attempt-plus-observation bundles | This defines the case-scoring seam before replacing the older turn-centric adaptation path in runtime |
+| 2026-04-07 | Milestone 5 should start with value-ledger promotion before pattern inference, and below-threshold evidence should persist as `shadow` rows | This keeps the first case-based promotion slice deterministic, inspectable, and narrow enough to ship before pattern heuristics |
+| 2026-04-07 | Milestone 5A should stay exact-scope only, with arc-local promotion earlier than context promotion | This preserves the product preference for aggressive learning while keeping broader generalization and cross-arc rollout for later slices |

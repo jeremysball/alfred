@@ -610,6 +610,146 @@ class LearningCase:
         )
 
 
+_OPERATIONAL_OBSERVATION_SOURCE_TYPES: frozenset[str] = frozenset({"work_state_transition"})
+_OBSERVATION_SCORE_WEIGHTS: dict[str, float] = {
+    "positive": 1.0,
+    "negative": 0.0,
+    "mixed": 0.5,
+    "neutral": 0.25,
+}
+_POSITIVE_EVIDENCE_POLARITIES: frozenset[str] = frozenset({"positive", "mixed"})
+_NEGATIVE_EVIDENCE_POLARITIES: frozenset[str] = frozenset({"negative", "mixed"})
+_SCOPE_PROMOTION_THRESHOLDS: dict[str, int] = {"arc": 2, "context": 4}
+
+
+def _ordered_unique_strings(values: Sequence[str]) -> tuple[str, ...]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return tuple(ordered)
+
+
+def _ordered_unique_transcript_refs(values: Sequence[SupportTranscriptSpanRef]) -> tuple[SupportTranscriptSpanRef, ...]:
+    ordered: list[SupportTranscriptSpanRef] = []
+    seen: set[tuple[str, str, str]] = set()
+    for value in values:
+        key = (value.session_id, value.message_start_id, value.message_end_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(value)
+    return tuple(ordered)
+
+
+def _score_outcome_observation(observation: OutcomeObservation) -> float:
+    weight = _OBSERVATION_SCORE_WEIGHTS[observation.signal_polarity]
+    return round(observation.signal_strength * weight, 2)
+
+
+def _average_score(values: Sequence[float]) -> float:
+    if not values:
+        return 0.0
+    return round(sum(values) / len(values), 2)
+
+
+def _derive_learning_case_scope(attempt: SupportAttempt) -> SupportProfileScope:
+    if attempt.active_arc_id is not None:
+        return SupportProfileScope(type="arc", id=attempt.active_arc_id)
+    return SupportProfileScope(type="context", id=attempt.response_mode)
+
+
+def _summarize_learning_case(
+    *,
+    attempt: SupportAttempt,
+    status: LearningCaseStatus,
+    promotion_eligibility: bool,
+) -> str:
+    if status == "insufficient_evidence":
+        return f"Attempt {attempt.attempt_id} finalized with insufficient directional evidence."
+    if promotion_eligibility:
+        return f"Attempt {attempt.attempt_id} produced enough directional evidence to finalize a promotable case."
+    return f"Attempt {attempt.attempt_id} finalized with directional evidence but is not promotion-eligible."
+
+
+def derive_learning_case(
+    *,
+    attempt: SupportAttempt,
+    observations: Sequence[OutcomeObservation],
+) -> LearningCase | None:
+    """Derive one deterministic learning case from a stored attempt bundle."""
+    if not observations:
+        return None
+
+    ordered_observations = tuple(sorted(observations, key=lambda observation: (observation.observed_at, observation.observation_id)))
+    observation_scores = [_score_outcome_observation(observation) for observation in ordered_observations]
+    conversation_scores = [
+        _score_outcome_observation(observation)
+        for observation in ordered_observations
+        if observation.source_type not in _OPERATIONAL_OBSERVATION_SOURCE_TYPES
+    ]
+    operational_scores = [
+        _score_outcome_observation(observation)
+        for observation in ordered_observations
+        if observation.source_type in _OPERATIONAL_OBSERVATION_SOURCE_TYPES
+    ]
+    positive_evidence_count = sum(
+        len(observation.signals)
+        for observation in ordered_observations
+        if observation.signal_polarity in _POSITIVE_EVIDENCE_POLARITIES
+    )
+    negative_evidence_count = sum(
+        len(observation.signals)
+        for observation in ordered_observations
+        if observation.signal_polarity in _NEGATIVE_EVIDENCE_POLARITIES
+    )
+    contradiction_count = sum(1 for observation in ordered_observations if observation.signal_polarity == "mixed")
+    if positive_evidence_count > 0 and negative_evidence_count > 0:
+        contradiction_count += 1
+
+    status: LearningCaseStatus = "complete"
+    if positive_evidence_count == 0 and negative_evidence_count == 0:
+        status = "insufficient_evidence"
+
+    overall_score = _average_score(observation_scores)
+    promotion_eligibility = (
+        status == "complete"
+        and positive_evidence_count > negative_evidence_count
+        and contradiction_count == 0
+        and overall_score >= 0.65
+    )
+
+    return LearningCase(
+        case_id=f"case-{attempt.attempt_id}",
+        attempt_id=attempt.attempt_id,
+        status=status,
+        scope=_derive_learning_case_scope(attempt),
+        created_at=attempt.created_at,
+        finalized_at=ordered_observations[-1].observed_at,
+        aggregate_signals=_ordered_unique_strings(
+            [signal for observation in ordered_observations for signal in observation.signals]
+        ),
+        positive_evidence_count=positive_evidence_count,
+        negative_evidence_count=negative_evidence_count,
+        contradiction_count=contradiction_count,
+        conversation_score=_average_score(conversation_scores),
+        operational_score=_average_score(operational_scores),
+        overall_score=overall_score,
+        promotion_eligibility=promotion_eligibility,
+        evidence_refs=_ordered_unique_transcript_refs(
+            [evidence_ref for observation in ordered_observations for evidence_ref in observation.evidence_refs]
+        ),
+        summary=_summarize_learning_case(
+            attempt=attempt,
+            status=status,
+            promotion_eligibility=promotion_eligibility,
+        ),
+    )
+
+
 @dataclass(eq=True)
 class SupportValueLedgerEntry:
     """V2 ledger row for one scoped support or relational value."""
@@ -883,6 +1023,190 @@ class SupportLedgerUpdateEvent:
             confidence=float(record["confidence"]),
             created_at=_load_datetime(record["created_at"]),
         )
+
+
+@dataclass(eq=True)
+class FinalizedLearningCaseBundle:
+    """One finalized case plus the reply-time attempt that produced it."""
+
+    learning_case: LearningCase
+    attempt: SupportAttempt
+
+    def __post_init__(self) -> None:
+        if self.learning_case.attempt_id != self.attempt.attempt_id:
+            raise ValueError("Finalized learning case bundles must join one case to its source attempt")
+        if self.learning_case.finalized_at is None:
+            raise ValueError("Finalized learning case bundles require finalized cases")
+
+
+@dataclass(eq=True, frozen=True)
+class SupportLedgerDerivationResult:
+    """Deterministic value-ledger writes derived from finalized case bundles."""
+
+    value_entries: tuple[SupportValueLedgerEntry, ...] = ()
+    update_events: tuple[SupportLedgerUpdateEvent, ...] = ()
+
+
+def _value_ledger_key(
+    *,
+    registry: SupportProfileRegistryKind,
+    dimension: str,
+    scope: SupportProfileScope,
+    value: str,
+) -> tuple[SupportProfileRegistryKind, str, SupportProfileScopeType, str, str]:
+    return (registry, dimension, scope.type, scope.id, value)
+
+
+def _iter_attempt_values(attempt: SupportAttempt) -> tuple[tuple[SupportProfileRegistryKind, str, str], ...]:
+    values: list[tuple[SupportProfileRegistryKind, str, str]] = []
+    for dimension, value in attempt.effective_support_values.items():
+        values.append(("support", dimension, value))
+    for dimension, value in attempt.effective_relational_values.items():
+        values.append(("relational", dimension, value))
+    return tuple(values)
+
+
+def _sort_case_bundle(bundle: FinalizedLearningCaseBundle) -> tuple[datetime, str]:
+    finalized_at = bundle.learning_case.finalized_at
+    if finalized_at is None:
+        raise ValueError("Finalized learning case bundles require finalized_at")
+    return (finalized_at, bundle.learning_case.case_id)
+
+
+def _summarize_value_ledger_entry(
+    *,
+    registry: SupportProfileRegistryKind,
+    dimension: str,
+    value: str,
+    scope: SupportProfileScope,
+    supporting_case_count: int,
+    contradiction_count: int,
+) -> str:
+    return (
+        f"{registry} {dimension}={value} has {supporting_case_count} supporting promotable cases and "
+        f"{contradiction_count} conflicting promotable cases in this {scope.type} scope."
+    )
+
+
+def derive_value_ledger_updates_from_cases(
+    *,
+    focus_bundle: FinalizedLearningCaseBundle,
+    scoped_bundles: Sequence[FinalizedLearningCaseBundle],
+    existing_value_entries: Mapping[
+        tuple[SupportProfileRegistryKind, str, SupportProfileScopeType, str, str],
+        SupportValueLedgerEntry,
+    ],
+    now: datetime,
+) -> SupportLedgerDerivationResult:
+    """Derive deterministic value-ledger updates from finalized case bundles in one exact scope."""
+    focus_case = focus_bundle.learning_case
+    if focus_case.status != "complete" or not focus_case.promotion_eligibility:
+        return SupportLedgerDerivationResult()
+
+    scope = focus_case.scope
+    threshold = _SCOPE_PROMOTION_THRESHOLDS.get(scope.type)
+    if threshold is None:
+        return SupportLedgerDerivationResult()
+
+    promotable_bundles = tuple(
+        sorted(
+            (
+                bundle
+                for bundle in scoped_bundles
+                if bundle.learning_case.scope == scope
+                and bundle.learning_case.status == "complete"
+                and bundle.learning_case.promotion_eligibility
+            ),
+            key=_sort_case_bundle,
+        )
+    )
+    if not any(bundle.learning_case.case_id == focus_case.case_id for bundle in promotable_bundles):
+        return SupportLedgerDerivationResult()
+
+    supporting_bundles_by_key: dict[
+        tuple[SupportProfileRegistryKind, str, SupportProfileScopeType, str, str],
+        list[FinalizedLearningCaseBundle],
+    ] = {}
+    for bundle in promotable_bundles:
+        for registry, dimension, value in _iter_attempt_values(bundle.attempt):
+            supporting_bundles_by_key.setdefault(
+                _value_ledger_key(registry=registry, dimension=dimension, scope=scope, value=value),
+                [],
+            ).append(bundle)
+
+    if not supporting_bundles_by_key:
+        return SupportLedgerDerivationResult()
+
+    derived_entries: list[SupportValueLedgerEntry] = []
+    update_events: list[SupportLedgerUpdateEvent] = []
+    for key in sorted(supporting_bundles_by_key):
+        registry, dimension, _, _, value = key
+        supporting_bundles = tuple(supporting_bundles_by_key[key])
+        contradiction_count = sum(
+            len(other_bundles)
+            for other_key, other_bundles in supporting_bundles_by_key.items()
+            if other_key[:4] == key[:4] and other_key[4] != value
+        )
+        confidence = _average_score(
+            [bundle.learning_case.overall_score for bundle in supporting_bundles]
+        )
+        latest_supporting_bundle = supporting_bundles[-1]
+        why = _summarize_value_ledger_entry(
+            registry=registry,
+            dimension=dimension,
+            value=value,
+            scope=scope,
+            supporting_case_count=len(supporting_bundles),
+            contradiction_count=contradiction_count,
+        )
+        status: SupportValueStatus = (
+            "active_auto" if len(supporting_bundles) >= threshold and len(supporting_bundles) > contradiction_count else "shadow"
+        )
+        existing_entry = existing_value_entries.get(key)
+        entry = SupportValueLedgerEntry(
+            value_id=f"value-{registry}-{dimension}-{scope.type}-{scope.id}-{value}",
+            registry=registry,
+            dimension=dimension,
+            scope=scope,
+            value=value,
+            status=status,
+            source="auto_case",
+            confidence=confidence,
+            evidence_count=len(supporting_bundles),
+            contradiction_count=contradiction_count,
+            last_case_id=latest_supporting_bundle.learning_case.case_id,
+            created_at=now if existing_entry is None else existing_entry.created_at,
+            updated_at=now,
+            why=why,
+        )
+        derived_entries.append(entry)
+
+        if existing_entry is None or existing_entry.status != entry.status:
+            update_events.append(
+                SupportLedgerUpdateEvent(
+                    event_id=(
+                        f"event-{entry.value_id}-{entry.status}-{latest_supporting_bundle.learning_case.case_id}"
+                    ),
+                    entity_type="value",
+                    entity_id=entry.value_id,
+                    registry=entry.registry,
+                    dimension_or_kind=entry.dimension,
+                    scope=entry.scope,
+                    old_status=None if existing_entry is None else existing_entry.status,
+                    new_status=entry.status,
+                    old_value=None if existing_entry is None else existing_entry.value,
+                    new_value=entry.value,
+                    trigger_case_ids=tuple(bundle.learning_case.case_id for bundle in supporting_bundles),
+                    reason=entry.why,
+                    confidence=entry.confidence,
+                    created_at=now,
+                )
+            )
+
+    return SupportLedgerDerivationResult(
+        value_entries=tuple(derived_entries),
+        update_events=tuple(sorted(update_events, key=lambda event: (event.entity_id, event.event_id))),
+    )
 
 
 @dataclass(eq=True)
@@ -1439,11 +1763,13 @@ async def apply_bounded_adaptation(
 
 __all__ = [
     "BoundedAdaptationResult",
+    "FinalizedLearningCaseBundle",
     "LearningCase",
     "LearningSituation",
     "OutcomeObservation",
     "SupportAttempt",
     "SupportLearningStore",
+    "SupportLedgerDerivationResult",
     "SupportLedgerUpdateEvent",
     "SupportPattern",
     "SupportPatternLedgerEntry",
@@ -1452,4 +1778,6 @@ __all__ = [
     "SupportValueLedgerEntry",
     "apply_bounded_adaptation",
     "derive_bounded_adaptation",
+    "derive_learning_case",
+    "derive_value_ledger_updates_from_cases",
 ]

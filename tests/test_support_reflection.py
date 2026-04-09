@@ -7,7 +7,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from alfred.memory.support_learning import LearningSituation, SupportPattern, SupportProfileUpdateEvent
+from alfred.memory.support_learning import (
+    LearningSituation,
+    SupportLedgerUpdateEvent,
+    SupportPattern,
+    SupportProfileUpdateEvent,
+    SupportValueLedgerEntry,
+)
 from alfred.memory.support_memory import LifeDomain, OperationalArc
 from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
 from alfred.support_policy import ResolvedSubject, SupportTurnAssessment
@@ -30,6 +36,8 @@ class FakeReflectionStore:
     runtime_patterns: list[SupportPattern] = field(default_factory=list)
     inspection_patterns: list[SupportPattern] = field(default_factory=list)
     update_events: list[SupportProfileUpdateEvent] = field(default_factory=list)
+    value_ledger_entries: list[SupportValueLedgerEntry] = field(default_factory=list)
+    ledger_update_events: list[SupportLedgerUpdateEvent] = field(default_factory=list)
     learning_situations: list[LearningSituation] = field(default_factory=list)
     similar_situations: list[tuple[LearningSituation, float]] = field(default_factory=list)
     arcs: list[OperationalArc] = field(default_factory=list)
@@ -102,6 +110,12 @@ class FakeReflectionStore:
             if event.event_id == event_id:
                 return event
         return None
+
+    async def list_support_value_ledger_entries(self) -> list[SupportValueLedgerEntry]:
+        return list(self.value_ledger_entries)
+
+    async def list_support_ledger_update_events(self) -> list[SupportLedgerUpdateEvent]:
+        return list(self.ledger_update_events)
 
     async def list_recent_learning_situations(self, *, limit: int = 6) -> list[LearningSituation]:
         return list(self.learning_situations)[:limit]
@@ -224,6 +238,67 @@ def _make_learning_situation(*, situation_id: str, arc_id: str | None = None) ->
         relational_values_applied={"candor": "high"},
         user_response_signals=("clarity",),
         outcome_signals=("next_step_chosen",),
+    )
+
+
+def _make_value_ledger_entry(
+    *,
+    value_id: str,
+    registry: str,
+    dimension: str,
+    scope: SupportProfileScope,
+    value: str,
+    status: str,
+    confidence: float,
+    evidence_count: int,
+    contradiction_count: int,
+    updated_at: datetime,
+) -> SupportValueLedgerEntry:
+    return SupportValueLedgerEntry(
+        value_id=value_id,
+        registry=registry,  # type: ignore[arg-type]
+        dimension=dimension,
+        scope=scope,
+        value=value,
+        status=status,  # type: ignore[arg-type]
+        source="case_promotion",
+        confidence=confidence,
+        evidence_count=evidence_count,
+        contradiction_count=contradiction_count,
+        last_case_id="case-1",
+        created_at=_ts(7, 30),
+        updated_at=updated_at,
+        why="Derived from finalized learning cases.",
+    )
+
+
+
+def _make_ledger_update_event(
+    *,
+    event_id: str,
+    entity_id: str,
+    registry: str,
+    dimension: str,
+    scope: SupportProfileScope,
+    new_status: str,
+    new_value: str,
+    created_at: datetime,
+) -> SupportLedgerUpdateEvent:
+    return SupportLedgerUpdateEvent(
+        event_id=event_id,
+        entity_type="value",
+        entity_id=entity_id,
+        registry=registry,  # type: ignore[arg-type]
+        dimension_or_kind=dimension,
+        scope=scope,
+        old_status=None,
+        new_status=new_status,  # type: ignore[arg-type]
+        old_value=None,
+        new_value=new_value,
+        trigger_case_ids=("case-1", "case-2"),
+        reason="Evidence threshold met.",
+        confidence=0.82,
+        created_at=created_at,
     )
 
 
@@ -400,6 +475,97 @@ def test_review_card_rejects_unknown_card_kinds_and_missing_next_actions() -> No
             evidence_refs=("sit-1",),
             proposed_action="",
         )
+
+
+@pytest.mark.asyncio
+async def test_support_inspection_snapshot_includes_v2_value_ledger_entries_and_recent_ledger_events() -> None:
+    store = _make_runtime_store()
+    execute_scope = SupportProfileScope(type="context", id="execute")
+    arc_scope = SupportProfileScope(type="arc", id="webui_cleanup")
+
+    store.value_ledger_entries = [
+        _make_value_ledger_entry(
+            value_id="val-1",
+            registry="relational",
+            dimension="candor",
+            scope=execute_scope,
+            value="medium",
+            status="shadow",
+            confidence=0.62,
+            evidence_count=1,
+            contradiction_count=0,
+            updated_at=_ts(11, 0),
+        ),
+        _make_value_ledger_entry(
+            value_id="val-2",
+            registry="support",
+            dimension="option_bandwidth",
+            scope=execute_scope,
+            value="single",
+            status="active_auto",
+            confidence=0.81,
+            evidence_count=3,
+            contradiction_count=0,
+            updated_at=_ts(11, 5),
+        ),
+        _make_value_ledger_entry(
+            value_id="val-3",
+            registry="support",
+            dimension="planning_granularity",
+            scope=arc_scope,
+            value="minimal",
+            status="confirmed",
+            confidence=0.93,
+            evidence_count=4,
+            contradiction_count=0,
+            updated_at=_ts(11, 10),
+        ),
+    ]
+
+    store.ledger_update_events = [
+        _make_ledger_update_event(
+            event_id="led-1",
+            entity_id="val-1",
+            registry="relational",
+            dimension="candor",
+            scope=execute_scope,
+            new_status="shadow",
+            new_value="medium",
+            created_at=_ts(10, 0),
+        ),
+        _make_ledger_update_event(
+            event_id="led-2",
+            entity_id="val-2",
+            registry="support",
+            dimension="option_bandwidth",
+            scope=execute_scope,
+            new_status="active_auto",
+            new_value="single",
+            created_at=_ts(10, 30),
+        ),
+    ]
+
+    runtime = SupportReflectionRuntime(store=store)  # type: ignore[arg-type]
+
+    snapshot = await runtime.build_inspection_snapshot(response_mode="execute", arc_id="webui_cleanup")
+
+    value_entries = snapshot.learned_state.value_ledger_entries
+    assert [entry.registry for entry in value_entries] == ["relational", "support", "support"]
+    assert value_entries[0].dimension == "candor"
+    assert value_entries[0].status == "shadow"
+    assert value_entries[1].dimension == "option_bandwidth"
+    assert value_entries[1].value == "single"
+
+    summary = snapshot.learned_state.value_ledger_summary
+    assert summary["total"] == 3
+    assert summary["counts_by_registry"] == {"relational": 1, "support": 2}
+    assert summary["counts_by_status"]["shadow"] == 1
+    assert summary["counts_by_status"]["active_auto"] == 1
+    assert summary["counts_by_status"]["confirmed"] == 1
+
+    recent_events = snapshot.learned_state.recent_ledger_update_events
+    assert [event.event_id for event in recent_events] == ["led-2", "led-1"]
+    assert recent_events[0].new_status == "active_auto"
 
 
 @pytest.mark.asyncio
