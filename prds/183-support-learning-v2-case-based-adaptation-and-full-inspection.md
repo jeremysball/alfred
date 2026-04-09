@@ -809,3 +809,4 @@ Additional required verification for this PRD:
 | 2026-04-07 | Cross-arc learning is allowed, with higher thresholds than arc-local promotion | Generalization is desired, but should still be scope-aware |
 | 2026-04-07 | Do not preserve backward compatibility for v1 learning data if it blocks a cleaner v2 runtime | The repo is in beta, and the current learning rows are too thin to justify migration-heavy preservation |
 | 2026-04-07 | Support-learning persistence must use real session ids and should skip or defer writes rather than invent placeholders | The runtime contract must stay storage-safe and explainable |
+| 2026-04-07 | Milestone 3 should start with deterministic `work_state_transition` observations before conversational or semantic extraction | This keeps the first observation lane inside PRD #183 and defers sibling semantic PRDs until later milestones |

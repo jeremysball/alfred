@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal, cast
 
 from alfred.memory.support_learning import (
     LearningCase,
@@ -77,6 +77,82 @@ def _sanitize_json_data(data: Any) -> Any:
     if isinstance(data, list):
         return [_sanitize_json_data(item) for item in data]
     return data
+
+
+_WorkStateEntityType = Literal["arc", "task", "blocker", "open_loop"]
+_WorkStateSignalPolarity = Literal["positive", "negative"]
+
+_TASK_ACTIVE_STATUSES = frozenset({"active", "in_progress", "started"})
+_TASK_COMPLETED_STATUSES = frozenset({"closed", "complete", "completed", "done", "resolved"})
+_TASK_ABANDONED_STATUSES = frozenset({"abandoned", "cancelled", "canceled"})
+_RESOLVED_STATUSES = frozenset({"archived", "closed", "complete", "completed", "done", "resolved"})
+_ARC_STALLED_STATUSES = frozenset({"dormant", "stalled"})
+_ARC_COMPLETED_STATUSES = frozenset({"archived", "complete", "completed", "done"})
+_WORK_STATE_SIGNAL_SPECS: dict[str, tuple[_WorkStateSignalPolarity, float]] = {
+    "task_started": ("positive", 0.76),
+    "task_completed": ("positive", 0.92),
+    "task_abandoned": ("negative", 0.88),
+    "blocker_created": ("negative", 0.72),
+    "blocker_reopened": ("negative", 0.82),
+    "blocker_resolved": ("positive", 0.89),
+    "open_loop_closed": ("positive", 0.84),
+    "open_loop_reopened": ("negative", 0.79),
+    "arc_resumed": ("positive", 0.86),
+    "arc_stalled": ("negative", 0.83),
+    "arc_completed": ("positive", 0.95),
+}
+
+
+def _normalize_status(status: str | None) -> str | None:
+    if status is None:
+        return None
+    normalized = status.strip().lower()
+    return normalized or None
+
+
+def _derive_work_state_transition_signal(
+    *,
+    entity_type: _WorkStateEntityType,
+    previous_status: str | None,
+    current_status: str,
+) -> str | None:
+    previous = _normalize_status(previous_status)
+    current = _normalize_status(current_status)
+    if current is None:
+        return None
+
+    if entity_type == "task":
+        if current in _TASK_COMPLETED_STATUSES and previous not in _TASK_COMPLETED_STATUSES:
+            return "task_completed"
+        if current in _TASK_ABANDONED_STATUSES and previous not in _TASK_ABANDONED_STATUSES:
+            return "task_abandoned"
+        if current in _TASK_ACTIVE_STATUSES and previous not in _TASK_ACTIVE_STATUSES:
+            return "task_started"
+        return None
+
+    if entity_type == "blocker":
+        if current in _RESOLVED_STATUSES and previous not in _RESOLVED_STATUSES:
+            return "blocker_resolved"
+        if previous in _RESOLVED_STATUSES and current not in _RESOLVED_STATUSES:
+            return "blocker_reopened"
+        if previous is None and current not in _RESOLVED_STATUSES:
+            return "blocker_created"
+        return None
+
+    if entity_type == "open_loop":
+        if current in _RESOLVED_STATUSES and previous not in _RESOLVED_STATUSES:
+            return "open_loop_closed"
+        if previous in _RESOLVED_STATUSES and current not in _RESOLVED_STATUSES:
+            return "open_loop_reopened"
+        return None
+
+    if current in _ARC_COMPLETED_STATUSES and previous not in _ARC_COMPLETED_STATUSES:
+        return "arc_completed"
+    if current in _ARC_STALLED_STATUSES and previous not in _ARC_STALLED_STATUSES:
+        return "arc_stalled"
+    if current == "active" and previous in _ARC_STALLED_STATUSES:
+        return "arc_resumed"
+    return None
 
 
 class SQLiteStore:
@@ -1200,6 +1276,10 @@ class SQLiteStore:
             CREATE INDEX IF NOT EXISTS idx_support_attempts_session_created
             ON support_attempts(session_id, created_at ASC, attempt_id ASC)
         """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_support_attempts_arc_created
+            ON support_attempts(active_arc_id, created_at DESC, attempt_id DESC)
+        """)
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS support_outcome_observations (
@@ -2090,6 +2170,8 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            previous_arc = await self._load_operational_arc(db, arc.arc_id)
             record = arc.to_record()
             await db.execute(
                 """
@@ -2121,6 +2203,15 @@ class SQLiteStore:
                     record["evidence_ref_ids"],
                 ),
             )
+            await self._maybe_save_work_state_transition_observation(
+                db,
+                arc_id=arc.arc_id,
+                entity_type="arc",
+                entity_id=arc.arc_id,
+                previous_status=None if previous_arc is None else previous_arc.status,
+                current_status=arc.status,
+                observed_at=arc.updated_at,
+            )
             await db.commit()
 
     async def _load_operational_arc(self, db: Any, arc_id: str) -> OperationalArc | None:
@@ -2143,6 +2234,126 @@ class SQLiteStore:
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
             return await self._load_operational_arc(db, arc_id)
+
+    async def _load_arc_task_by_id(self, db: Any, task_id: str) -> ArcTask | None:
+        """Load one arc task from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_arc_tasks WHERE task_id = ?", (task_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+        return ArcTask.from_record(dict(row))
+
+    async def _load_arc_blocker_by_id(self, db: Any, blocker_id: str) -> ArcBlocker | None:
+        """Load one arc blocker from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_arc_blockers WHERE blocker_id = ?", (blocker_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+        return ArcBlocker.from_record(dict(row))
+
+    async def _load_arc_open_loop_by_id(self, db: Any, open_loop_id: str) -> ArcOpenLoop | None:
+        """Load one arc open loop from an existing SQLite connection."""
+        async with db.execute("SELECT * FROM support_arc_open_loops WHERE open_loop_id = ?", (open_loop_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+        return ArcOpenLoop.from_record(dict(row))
+
+    async def _load_latest_support_attempt_for_arc(self, db: Any, arc_id: str) -> SupportAttempt | None:
+        """Load the latest support attempt for one active arc from an existing SQLite connection."""
+        async with db.execute(
+            """
+            SELECT * FROM support_attempts
+            WHERE active_arc_id = ?
+            ORDER BY created_at DESC, attempt_id DESC
+            LIMIT 1
+            """,
+            (arc_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+        return SupportAttempt.from_record(dict(row))
+
+    async def _upsert_support_outcome_observation(self, db: Any, observation: OutcomeObservation) -> None:
+        """Insert or update one support outcome observation on an existing SQLite connection."""
+        record = observation.to_record()
+        await db.execute(
+            """
+            INSERT INTO support_outcome_observations (
+                observation_id, attempt_id, observed_at, source_type, signals,
+                signal_polarity, signal_strength, evidence_refs,
+                operational_delta_refs, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(observation_id) DO UPDATE SET
+                attempt_id = excluded.attempt_id,
+                observed_at = excluded.observed_at,
+                source_type = excluded.source_type,
+                signals = excluded.signals,
+                signal_polarity = excluded.signal_polarity,
+                signal_strength = excluded.signal_strength,
+                evidence_refs = excluded.evidence_refs,
+                operational_delta_refs = excluded.operational_delta_refs,
+                notes = excluded.notes
+            """,
+            (
+                record["observation_id"],
+                record["attempt_id"],
+                record["observed_at"],
+                record["source_type"],
+                record["signals"],
+                record["signal_polarity"],
+                record["signal_strength"],
+                record["evidence_refs"],
+                record["operational_delta_refs"],
+                record["notes"],
+            ),
+        )
+
+    async def _maybe_save_work_state_transition_observation(
+        self,
+        db: Any,
+        *,
+        arc_id: str,
+        entity_type: _WorkStateEntityType,
+        entity_id: str,
+        previous_status: str | None,
+        current_status: str,
+        observed_at: datetime,
+    ) -> None:
+        """Persist one deterministic work-state observation when a matching transition exists."""
+        signal = _derive_work_state_transition_signal(
+            entity_type=entity_type,
+            previous_status=previous_status,
+            current_status=current_status,
+        )
+        if signal is None:
+            return
+
+        attempt = await self._load_latest_support_attempt_for_arc(db, arc_id)
+        if attempt is None:
+            return
+
+        signal_polarity, signal_strength = _WORK_STATE_SIGNAL_SPECS[signal]
+        operational_delta_refs: tuple[str, ...] = (f"arc:{arc_id}",)
+        if entity_type != "arc":
+            operational_delta_refs = (*operational_delta_refs, f"{entity_type}:{entity_id}")
+
+        observation = OutcomeObservation(
+            observation_id=(
+                f"obs-{attempt.attempt_id}-{signal}-{entity_type}-{entity_id}-{observed_at.isoformat()}"
+            ),
+            attempt_id=attempt.attempt_id,
+            observed_at=observed_at,
+            source_type="work_state_transition",
+            signals=(signal,),
+            signal_polarity=cast(Any, signal_polarity),
+            signal_strength=signal_strength,
+            evidence_refs=(),
+            operational_delta_refs=operational_delta_refs,
+            notes=None,
+        )
+        await self._upsert_support_outcome_observation(db, observation)
 
     async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]:
         """List active and dormant arcs in resume-oriented order across domains."""
@@ -2217,6 +2428,8 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            previous_task = await self._load_arc_task_by_id(db, task.task_id)
             record = task.to_record()
             await db.execute(
                 """
@@ -2242,6 +2455,15 @@ class SQLiteStore:
                     record["next_step"],
                     record["evidence_ref_ids"],
                 ),
+            )
+            await self._maybe_save_work_state_transition_observation(
+                db,
+                arc_id=task.arc_id,
+                entity_type="task",
+                entity_id=task.task_id,
+                previous_status=None if previous_task is None else previous_task.status,
+                current_status=task.status,
+                observed_at=task.updated_at,
             )
             await db.commit()
 
@@ -2280,6 +2502,8 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            previous_blocker = await self._load_arc_blocker_by_id(db, blocker.blocker_id)
             record = blocker.to_record()
             await db.execute(
                 """
@@ -2305,6 +2529,15 @@ class SQLiteStore:
                     record["next_step"],
                     record["evidence_ref_ids"],
                 ),
+            )
+            await self._maybe_save_work_state_transition_observation(
+                db,
+                arc_id=blocker.arc_id,
+                entity_type="blocker",
+                entity_id=blocker.blocker_id,
+                previous_status=None if previous_blocker is None else previous_blocker.status,
+                current_status=blocker.status,
+                observed_at=blocker.updated_at,
             )
             await db.commit()
 
@@ -2406,6 +2639,8 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            previous_open_loop = await self._load_arc_open_loop_by_id(db, open_loop.open_loop_id)
             record = open_loop.to_record()
             await db.execute(
                 """
@@ -2431,6 +2666,15 @@ class SQLiteStore:
                     record["current_tension"],
                     record["evidence_ref_ids"],
                 ),
+            )
+            await self._maybe_save_work_state_transition_observation(
+                db,
+                arc_id=open_loop.arc_id,
+                entity_type="open_loop",
+                entity_id=open_loop.open_loop_id,
+                previous_status=None if previous_open_loop is None else previous_open_loop.status,
+                current_status=open_loop.status,
+                observed_at=open_loop.updated_at,
             )
             await db.commit()
 
@@ -3499,42 +3743,10 @@ class SQLiteStore:
 
         import aiosqlite
 
-        record = observation.to_record()
-
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
-            await db.execute(
-                """
-                INSERT INTO support_outcome_observations (
-                    observation_id, attempt_id, observed_at, source_type, signals,
-                    signal_polarity, signal_strength, evidence_refs,
-                    operational_delta_refs, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(observation_id) DO UPDATE SET
-                    attempt_id = excluded.attempt_id,
-                    observed_at = excluded.observed_at,
-                    source_type = excluded.source_type,
-                    signals = excluded.signals,
-                    signal_polarity = excluded.signal_polarity,
-                    signal_strength = excluded.signal_strength,
-                    evidence_refs = excluded.evidence_refs,
-                    operational_delta_refs = excluded.operational_delta_refs,
-                    notes = excluded.notes
-                """,
-                (
-                    record["observation_id"],
-                    record["attempt_id"],
-                    record["observed_at"],
-                    record["source_type"],
-                    record["signals"],
-                    record["signal_polarity"],
-                    record["signal_strength"],
-                    record["evidence_refs"],
-                    record["operational_delta_refs"],
-                    record["notes"],
-                ),
-            )
+            await self._upsert_support_outcome_observation(db, observation)
             await db.commit()
 
     async def list_support_outcome_observations(self, attempt_id: str) -> list[OutcomeObservation]:

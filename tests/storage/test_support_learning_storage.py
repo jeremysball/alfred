@@ -19,6 +19,7 @@ from alfred.memory.support_learning import (
     SupportTranscriptSpanRef,
     SupportValueLedgerEntry,
 )
+from alfred.memory.support_memory import ArcBlocker, ArcOpenLoop, ArcTask, LifeDomain, OperationalArc
 from alfred.memory.support_profile import SupportProfileScope
 from alfred.storage.sqlite import SQLiteStore
 
@@ -202,6 +203,373 @@ async def test_sqlite_store_round_trips_v2_learning_case_bundle(sqlite_store):
     assert await sqlite_store.list_support_value_ledger_entries() == [value_entry]
     assert await sqlite_store.get_support_pattern_ledger_entry("pattern-webui-directness") == pattern_entry
     assert await sqlite_store.list_support_ledger_update_events() == [update_event]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_records_work_state_transition_observations_for_latest_matching_arc_attempt(sqlite_store):
+    """Task, blocker, open-loop, and arc transitions should append work-state observations on the latest arc attempt."""
+
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.95,
+        created_at=datetime(2026, 4, 7, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 0, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="dormant",
+        salience=0.94,
+        created_at=datetime(2026, 4, 7, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 1, tzinfo=UTC),
+        last_active_at=datetime(2026, 4, 7, 11, 55, tzinfo=UTC),
+    )
+    task = ArcTask(
+        task_id="task-split-bootstrap-flow",
+        arc_id=arc.arc_id,
+        title="Split bootstrap flow",
+        status="todo",
+        created_at=datetime(2026, 4, 7, 12, 2, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 2, tzinfo=UTC),
+        next_step="List the current boot responsibilities",
+    )
+    blocker = ArcBlocker(
+        blocker_id="blocker-app-structure-ambiguity",
+        arc_id=arc.arc_id,
+        title="App structure ambiguity",
+        status="active",
+        created_at=datetime(2026, 4, 7, 12, 3, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 3, tzinfo=UTC),
+        next_step="Choose a bootstrap seam",
+    )
+    open_loop = ArcOpenLoop(
+        open_loop_id="loop-confirm-bootstrap-boundary",
+        arc_id=arc.arc_id,
+        title="Confirm bootstrap boundary",
+        status="waiting",
+        created_at=datetime(2026, 4, 7, 12, 4, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 4, tzinfo=UTC),
+        current_tension="Need a crisp boundary before deeper edits",
+    )
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(task)
+    await sqlite_store.save_arc_blocker(blocker)
+    await sqlite_store.save_arc_open_loop(open_loop)
+
+    session_id = "sess-work-state-observations"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-0",
+                "role": "user",
+                "timestamp": "2026-04-07T12:05:00+00:00",
+                "content": "Help me resume the Web UI cleanup.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-1",
+                "role": "assistant",
+                "timestamp": "2026-04-07T12:06:00+00:00",
+                "content": "Let's keep the next move narrow.",
+            },
+            {
+                "idx": 2,
+                "id": "msg-2",
+                "role": "user",
+                "timestamp": "2026-04-07T12:07:00+00:00",
+                "content": "Okay, what's the next concrete step?",
+            },
+            {
+                "idx": 3,
+                "id": "msg-3",
+                "role": "assistant",
+                "timestamp": "2026-04-07T12:08:00+00:00",
+                "content": "Start by extracting the bootstrap flow.",
+            },
+        ],
+        {"topic": "work-state-observations"},
+    )
+
+    older_attempt = SupportAttempt(
+        attempt_id="attempt-older",
+        session_id=session_id,
+        user_message_id="msg-0",
+        assistant_message_id="msg-1",
+        created_at=datetime(2026, 4, 7, 12, 6, tzinfo=UTC),
+        need="resume",
+        response_mode="execute",
+        subject_refs=("arc:arc-webui-cleanup",),
+        active_arc_id=arc.arc_id,
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="summarize",
+        intervention_refs=(),
+        prompt_contract_summary="Resume the arc with one narrow next move.",
+        operational_snapshot_ref="arc:arc-webui-cleanup@snap-older",
+    )
+    latest_attempt = SupportAttempt(
+        attempt_id="attempt-latest",
+        session_id=session_id,
+        user_message_id="msg-2",
+        assistant_message_id="msg-3",
+        created_at=datetime(2026, 4, 7, 12, 8, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:arc-webui-cleanup",),
+        active_arc_id=arc.arc_id,
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="Turn the active arc into one concrete start step.",
+        operational_snapshot_ref="arc:arc-webui-cleanup@snap-latest",
+    )
+
+    await sqlite_store.save_support_attempt(older_attempt)
+    await sqlite_store.save_support_attempt(latest_attempt)
+
+    await sqlite_store.save_arc_task(
+        ArcTask(
+            task_id=task.task_id,
+            arc_id=task.arc_id,
+            title=task.title,
+            status="in_progress",
+            created_at=task.created_at,
+            updated_at=datetime(2026, 4, 7, 12, 9, tzinfo=UTC),
+            next_step="Move runtime boot into its own module",
+        )
+    )
+    await sqlite_store.save_arc_blocker(
+        ArcBlocker(
+            blocker_id=blocker.blocker_id,
+            arc_id=blocker.arc_id,
+            title=blocker.title,
+            status="resolved",
+            created_at=blocker.created_at,
+            updated_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+            next_step="Chosen bootstrap seam",
+        )
+    )
+    await sqlite_store.save_arc_open_loop(
+        ArcOpenLoop(
+            open_loop_id=open_loop.open_loop_id,
+            arc_id=open_loop.arc_id,
+            title=open_loop.title,
+            status="resolved",
+            created_at=open_loop.created_at,
+            updated_at=datetime(2026, 4, 7, 12, 11, tzinfo=UTC),
+            current_tension="Boundary confirmed",
+        )
+    )
+    await sqlite_store.save_operational_arc(
+        OperationalArc(
+            arc_id=arc.arc_id,
+            title=arc.title,
+            kind=arc.kind,
+            primary_domain_id=arc.primary_domain_id,
+            status="active",
+            salience=0.97,
+            created_at=arc.created_at,
+            updated_at=datetime(2026, 4, 7, 12, 12, tzinfo=UTC),
+            last_active_at=datetime(2026, 4, 7, 12, 12, tzinfo=UTC),
+        )
+    )
+
+    observations = await sqlite_store.list_support_outcome_observations(latest_attempt.attempt_id)
+
+    assert await sqlite_store.list_support_outcome_observations(older_attempt.attempt_id) == []
+    assert [observation.source_type for observation in observations] == [
+        "work_state_transition",
+        "work_state_transition",
+        "work_state_transition",
+        "work_state_transition",
+    ]
+    assert [observation.signals for observation in observations] == [
+        ("task_started",),
+        ("blocker_resolved",),
+        ("open_loop_closed",),
+        ("arc_resumed",),
+    ]
+    assert [observation.signal_polarity for observation in observations] == [
+        "positive",
+        "positive",
+        "positive",
+        "positive",
+    ]
+    assert [observation.operational_delta_refs for observation in observations] == [
+        ("arc:arc-webui-cleanup", "task:task-split-bootstrap-flow"),
+        ("arc:arc-webui-cleanup", "blocker:blocker-app-structure-ambiguity"),
+        ("arc:arc-webui-cleanup", "open_loop:loop-confirm-bootstrap-boundary"),
+        ("arc:arc-webui-cleanup",),
+    ]
+    assert [observation.observed_at for observation in observations] == [
+        datetime(2026, 4, 7, 12, 9, tzinfo=UTC),
+        datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        datetime(2026, 4, 7, 12, 11, tzinfo=UTC),
+        datetime(2026, 4, 7, 12, 12, tzinfo=UTC),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_skips_work_state_transition_observations_without_matching_arc_attempt_or_status_change(sqlite_store):
+    """Operational writes should skip observation persistence when no matching attempt exists or nothing changed."""
+
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.91,
+        created_at=datetime(2026, 4, 7, 13, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 13, 0, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.93,
+        created_at=datetime(2026, 4, 7, 13, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 13, 1, tzinfo=UTC),
+        last_active_at=datetime(2026, 4, 7, 13, 1, tzinfo=UTC),
+    )
+    other_arc = OperationalArc(
+        arc_id="arc-docs-refresh",
+        title="Docs refresh",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.72,
+        created_at=datetime(2026, 4, 7, 13, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 13, 2, tzinfo=UTC),
+        last_active_at=datetime(2026, 4, 7, 13, 2, tzinfo=UTC),
+    )
+    task = ArcTask(
+        task_id="task-outline-bootstrap-boundary",
+        arc_id=arc.arc_id,
+        title="Outline bootstrap boundary",
+        status="todo",
+        created_at=datetime(2026, 4, 7, 13, 3, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 13, 3, tzinfo=UTC),
+        next_step="List the boot responsibilities",
+    )
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_operational_arc(other_arc)
+    await sqlite_store.save_arc_task(task)
+
+    session_id = "sess-work-state-skips"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-10",
+                "role": "user",
+                "timestamp": "2026-04-07T13:04:00+00:00",
+                "content": "Help me with the docs refresh arc.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-11",
+                "role": "assistant",
+                "timestamp": "2026-04-07T13:05:00+00:00",
+                "content": "Let's pick one docs task.",
+            },
+            {
+                "idx": 2,
+                "id": "msg-12",
+                "role": "user",
+                "timestamp": "2026-04-07T13:06:00+00:00",
+                "content": "Actually, help me with Web UI cleanup.",
+            },
+            {
+                "idx": 3,
+                "id": "msg-13",
+                "role": "assistant",
+                "timestamp": "2026-04-07T13:07:00+00:00",
+                "content": "Okay, keep it narrow.",
+            },
+        ],
+        {"topic": "work-state-skips"},
+    )
+
+    unrelated_attempt = SupportAttempt(
+        attempt_id="attempt-docs-refresh",
+        session_id=session_id,
+        user_message_id="msg-10",
+        assistant_message_id="msg-11",
+        created_at=datetime(2026, 4, 7, 13, 5, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:arc-docs-refresh",),
+        active_arc_id=other_arc.arc_id,
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="Keep the docs move narrow and concrete.",
+        operational_snapshot_ref="arc:arc-docs-refresh@snap-1",
+    )
+    matching_attempt = SupportAttempt(
+        attempt_id="attempt-webui-cleanup",
+        session_id=session_id,
+        user_message_id="msg-12",
+        assistant_message_id="msg-13",
+        created_at=datetime(2026, 4, 7, 13, 7, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:arc-webui-cleanup",),
+        active_arc_id=arc.arc_id,
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="Keep the Web UI move narrow and concrete.",
+        operational_snapshot_ref="arc:arc-webui-cleanup@snap-1",
+    )
+
+    await sqlite_store.save_support_attempt(unrelated_attempt)
+    await sqlite_store.save_arc_task(
+        ArcTask(
+            task_id=task.task_id,
+            arc_id=task.arc_id,
+            title=task.title,
+            status="in_progress",
+            created_at=task.created_at,
+            updated_at=datetime(2026, 4, 7, 13, 6, tzinfo=UTC),
+            next_step="Extract the runtime boot path",
+        )
+    )
+
+    await sqlite_store.save_support_attempt(matching_attempt)
+    await sqlite_store.save_arc_task(
+        ArcTask(
+            task_id=task.task_id,
+            arc_id=task.arc_id,
+            title=task.title,
+            status="in_progress",
+            created_at=task.created_at,
+            updated_at=datetime(2026, 4, 7, 13, 8, tzinfo=UTC),
+            next_step="Extract the runtime boot path",
+        )
+    )
+
+    assert await sqlite_store.list_support_outcome_observations(unrelated_attempt.attempt_id) == []
+    assert await sqlite_store.list_support_outcome_observations(matching_attempt.attempt_id) == []
 
 
 @pytest.mark.asyncio
