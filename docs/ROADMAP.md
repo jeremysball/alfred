@@ -137,6 +137,21 @@ Its support-memory foundation shipped in PRD #167, adaptive support runtime and 
 | # | Milestone | Description |
 |---|-----------|-------------|
 | 179 | Relational Support Operating Model | Formalize Alfred as one relational support system and align child PRDs, docs, and markdown ownership under shared primitives (PRD #179) |
+| 183 | Support Learning V2 - Case-Based Adaptation and Full Inspection | Replace turn-centric support learning with case-based adaptation, broader auto-learning, and full value inspection across `/context` and `/support` (PRD #183) |
+| 184 | Semantic Adjudication Runtime for Support Routing and Learning | Parent PRD for replacing heuristic support-routing seams with bounded LLM adjudication over rich symbolic runtime state, while keeping embeddings focused on retrieval (PRD #184) |
+| 185 | Shared Semantic Adjudication Contract and Symbolic Runtime Inputs | Define the shared prompt contract, symbolic input envelope, deterministic validators, fallback rules, and observability for support-runtime adjudicators (PRD #185) |
+| 186 | Semantic Session-Start Routing for Resume and Orientation | Replace phrase-list and substring fresh-session routing with bounded LLM adjudication over candidate arcs and orientation state (PRD #186) |
+| 187 | Semantic Need Adjudication for Support Runtime | Replace prototype-bank need classification with bounded LLM adjudication while keeping response-mode mapping deterministic (PRD #187) |
+| 188 | Semantic Subject Adjudication for Support Runtime | Replace alias, overlap, and cue-map subject scoring with bounded LLM adjudication over explicit subject candidates (PRD #188) |
+| 189 | Natural-Language Observation Extraction for Support Learning | Extract grounded corrections, preferences, feedback, scope updates, and interpretation rejections from natural language with schema-constrained LLM outputs (PRD #189) |
+| 190 | Semantic Pattern Surfacing and Reflection Guidance | Keep embeddings for shortlist retrieval, then use bounded LLM adjudication for whether and how to surface support patterns (PRD #190) |
+| 191 | Curated Memory Auto-Injection and Liberalized Capture | Make curated memory auto-injected by default, keep `search_memories` as targeted lookup, and liberalize `remember` so Alfred stores more reusable durable context (PRD #191) |
+| 192 | Relational Runtime Semantics and Stance Adjudication | Parent PRD for sharpening Alfred's relational runtime into product-owned semantics, bounded stance judgment, grounded relational observations, and explainable relational surfacing while keeping learning shared with PRD #183 (PRD #192) |
+| 193 | Product-Owned Relational Semantics and Compiler Contract | Define concrete behavioral semantics for relational dimensions and compile them into a stronger runtime contract and readable stance summaries (PRD #193) |
+| 194 | Semantic Relational-State Adjudication for Live Turns | Replace thin transient relational flags with bounded semantic judgment over the live relational conditions of the moment (PRD #194) |
+| 195 | Semantic Relational Stance Adjudication | Apply bounded per-turn relational stance deltas against a deterministic baseline rather than relying only on defaults and scoped overrides (PRD #195) |
+| 196 | Natural-Language Relational Preference and Boundary Extraction | Extract grounded relational preferences, boundaries, stance feedback, and rupture signals from ordinary language through a dedicated typed observation lane (PRD #196) |
+| 197 | Relational Surfacing and Meta-Explanation | Keep relational stance implicit by default, then use bounded adjudication for when and how Alfred should explain a stance shift or relational choice (PRD #197) |
 | 164 | Repo-wide ESM Migration for JavaScript | Convert all JavaScript from CommonJS to ES Modules, fixing Web UI initialization failure (PRD #164) |
 | 162 | Web UI WebSocket-first Status and Debug Instrumentation | Make live Web UI state and message delivery WebSocket-first, keep /health for readiness only, and add explicit server/client debug logs (PRD #162) |
 | 160 | Dictation Support and Voice Mode | Bidirectional voice support for Web UI — speech-to-text input and text-to-speech responses with local and cloud options (PRD #160) |
