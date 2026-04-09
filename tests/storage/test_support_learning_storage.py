@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import aiosqlite
 import pytest
 
 from alfred.memory.support_learning import (
@@ -201,6 +202,43 @@ async def test_sqlite_store_round_trips_v2_learning_case_bundle(sqlite_store):
     assert await sqlite_store.list_support_value_ledger_entries() == [value_entry]
     assert await sqlite_store.get_support_pattern_ledger_entry("pattern-webui-directness") == pattern_entry
     assert await sqlite_store.list_support_ledger_update_events() == [update_event]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_rejects_support_attempt_without_real_session_and_message_refs(sqlite_store):
+    """The store should reject fabricated support-attempt refs and leave v2 rows unchanged."""
+
+    invalid_attempt = SupportAttempt(
+        attempt_id="attempt-invalid",
+        session_id="runtime",
+        user_message_id="msg-user-missing",
+        assistant_message_id="msg-assistant-missing",
+        created_at=datetime(2026, 4, 7, 12, 40, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup",),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=("int-webui-missing",),
+        prompt_contract_summary="Keep the next move narrow and direct.",
+        operational_snapshot_ref="arc:webui_cleanup@snap-invalid",
+    )
+
+    with pytest.raises(ValueError, match="real persisted session/message refs"):
+        await sqlite_store.save_support_attempt(invalid_attempt)
+
+    assert await sqlite_store.get_support_attempt("attempt-invalid") is None
+
+    async with (
+        aiosqlite.connect(sqlite_store.db_path) as db,
+        db.execute("SELECT COUNT(*) FROM support_attempts") as cursor,
+    ):
+        row = await cursor.fetchone()
+    assert row is not None
+    assert row[0] == 0
 
 
 @pytest.mark.asyncio

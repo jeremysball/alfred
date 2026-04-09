@@ -3409,6 +3409,26 @@ class SQLiteStore:
         async with aiosqlite.connect(self.db_path) as db:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
+
+            async with db.execute(
+                "SELECT 1 FROM sessions WHERE session_id = ?",
+                (attempt.session_id,),
+            ) as cursor:
+                session_row = await cursor.fetchone()
+            async with db.execute(
+                "SELECT 1 FROM session_messages WHERE session_id = ? AND message_id = ?",
+                (attempt.session_id, attempt.user_message_id),
+            ) as cursor:
+                user_message_row = await cursor.fetchone()
+            async with db.execute(
+                "SELECT 1 FROM session_messages WHERE session_id = ? AND message_id = ?",
+                (attempt.session_id, attempt.assistant_message_id),
+            ) as cursor:
+                assistant_message_row = await cursor.fetchone()
+
+            if session_row is None or user_message_row is None or assistant_message_row is None:
+                raise ValueError("Support attempts require real persisted session/message refs")
+
             await db.execute(
                 """
                 INSERT INTO support_attempts (

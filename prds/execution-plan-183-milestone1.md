@@ -50,9 +50,9 @@ Land the case-based v2 support-learning storage contract without yet claiming th
 
 ### Real-reference persistence invariants
 
-- [ ] Test: `test_sqlite_store_rejects_support_attempt_without_real_session_and_message_refs()` in `tests/storage/test_support_learning_storage.py` — verify the store refuses fabricated session/message placeholders and leaves the v2 learning tables unchanged when refs are missing.
-- [ ] Implement: enforce the persistence invariants in `src/alfred/storage/sqlite.py` and the v2 model validators so missing required refs fail fast or cleanly skip persistence instead of inventing stand-ins.
-- [ ] Run: `uv run pytest tests/storage/test_support_learning_storage.py::test_sqlite_store_rejects_support_attempt_without_real_session_and_message_refs -v`
+- [x] Test: `test_sqlite_store_rejects_support_attempt_without_real_session_and_message_refs()` in `tests/storage/test_support_learning_storage.py` — verify the store refuses fabricated session/message placeholders and leaves the v2 learning tables unchanged when refs are missing.
+- [x] Implement: enforce the persistence invariants in `src/alfred/storage/sqlite.py` and the v2 model validators so missing required refs fail fast or cleanly skip persistence instead of inventing stand-ins.
+- [x] Run: `uv run pytest tests/storage/test_support_learning_storage.py::test_sqlite_store_rejects_support_attempt_without_real_session_and_message_refs -v`
 
 ---
 
