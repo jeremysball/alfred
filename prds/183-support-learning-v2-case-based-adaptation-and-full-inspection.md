@@ -717,11 +717,11 @@ This PRD is successful when:
 
       Sub-milestones:
       - [x] **Milestone 6A.1 (Web UI-only foundation):** `/context` support inspection snapshot includes v2 `value_ledger_entries`, `value_ledger_summary`, and `recent_ledger_update_events`.
-      - [ ] **Milestone 6A.2 (Web UI):** Web UI renders the v2 value ledger inside `context-viewer` and the websocket protocol docs are updated.
+      - [x] **Milestone 6A.2 (Web UI):** Web UI renders the v2 value ledger inside `context-viewer` and the websocket protocol docs are updated.
             Sub-milestones:
             - [x] **Milestone 6A.2a (Python):** `/context` payload forwards `value_ledger_entries`, `value_ledger_summary`, and `recent_ledger_update_events` under `support_state.learned_state`.
             - [x] **Milestone 6A.2b (Docs):** websocket protocol docs describe the new v2 support learned-state fields.
-            - [ ] **Milestone 6A.2c (Web UI):** `context-viewer` renders the v2 value ledger and is covered by a Playwright browser test.
+            - [x] **Milestone 6A.2c (Web UI):** `context-viewer` renders the v2 value ledger and is covered by a Playwright browser test.
       - [ ] **Milestone 6B:** Full `/support` inspection surfaces + cross-surface (TUI/Web UI) parity for full-ledger inspection.
 
 - [ ] **Milestone 7: V1 learning path is removed and docs are aligned**  

@@ -102,7 +102,7 @@ uv run pytest tests/webui/test_support_value_ledger_browser.py -v
 
 ### Add DOM rendering for ledger entries
 
-- [ ] **Test (browser / Playwright, slow):** add `tests/webui/test_support_value_ledger_browser.py`.
+- [x] **Test (browser / Playwright, slow):** add `tests/webui/test_support_value_ledger_browser.py`.
   - Start the Web UI server with `create_app(FakeAlfred())`.
   - Patch `alfred.context_display.get_context_display` to return a `context_data` payload that includes:
     - `support_state.learned_state.value_ledger_entries`
@@ -112,13 +112,13 @@ uv run pytest tests/webui/test_support_value_ledger_browser.py -v
     - send `/context`
     - assert the page renders a “Value Ledger” card and shows at least one expected ledger entry (registry + dimension + value + status).
 
-- [ ] **Implement (JavaScript):** update `src/alfred/interfaces/webui/static/js/components/context-viewer.js`
+- [x] **Implement (JavaScript):** update `src/alfred/interfaces/webui/static/js/components/context-viewer.js`
   - Extend `_renderSupportState()` to include a new card, e.g. “Value Ledger”.
   - Render each entry with status badge and confidence.
   - Keep deterministic ordering as provided by the payload.
   - Keep UI minimal: no fancy filtering in 6A unless required by test.
 
-- [ ] **Run:**
+- [x] **Run:**
   - `npm run js:check`
   - `uv run pytest tests/webui/test_support_value_ledger_browser.py -v`
 
@@ -127,7 +127,7 @@ uv run pytest tests/webui/test_support_value_ledger_browser.py -v
 
 ## Phase 3: WebSocket protocol docs alignment
 
-- [ ] **Docs:** update `docs/websocket-protocol.md` `context.info` payload description to mention the new `support_state.learned_state.value_ledger_entries` and `recent_ledger_update_events` fields.
+- [x] **Docs:** update `docs/websocket-protocol.md` `context.info` payload description to mention the new `support_state.learned_state.value_ledger_entries` and `recent_ledger_update_events` fields.
 
 
 ---
