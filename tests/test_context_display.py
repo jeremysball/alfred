@@ -434,3 +434,206 @@ async def test_get_context_display_includes_self_model() -> None:
     assert sm["context_pressure"]["message_count"] == 5
     assert sm["context_pressure"]["memory_count"] == 3
     assert sm["context_pressure"]["approximate_tokens"] == 1500
+
+
+@pytest.mark.asyncio
+async def test_get_context_display_includes_support_state_summary() -> None:
+    """/context data should expose the current support runtime snapshot when available."""
+
+    now = datetime(2026, 3, 23, tzinfo=UTC)
+
+    fake_context_loader = SimpleNamespace(
+        load_all=AsyncMock(return_value={}),
+        get_disabled_sections=lambda: [],
+    )
+    fake_session_manager = SimpleNamespace(
+        has_active_session=lambda: False,
+        get_messages_for_context=lambda session_id=None: [],
+        get_session_messages=lambda session_id=None: [],
+    )
+    fake_memory_store = SimpleNamespace(get_all_entries=AsyncMock(return_value=[]))
+
+    from alfred.self_model import (
+        Capabilities,
+        ContextPressure,
+        Identity,
+        InterfaceType,
+        Runtime,
+        RuntimeSelfModel,
+        World,
+    )
+
+    fake_self_model = RuntimeSelfModel(
+        identity=Identity(),
+        runtime=Runtime(interface=InterfaceType.CLI),
+        world=World(),
+        capabilities=Capabilities(),
+        context_pressure=ContextPressure(),
+    )
+
+    support_snapshot = SimpleNamespace(
+        request=SimpleNamespace(response_mode="execute", arc_id="webui_cleanup"),
+        active_runtime_state=SimpleNamespace(
+            response_mode="execute",
+            active_arc_id="webui_cleanup",
+            effective_support_values={"pacing": "brisk", "planning_granularity": "minimal"},
+            effective_relational_values={"warmth": "medium", "candor": "medium"},
+            active_patterns=(
+                SimpleNamespace(
+                    pattern_id="pattern-runtime-1",
+                    kind="support_preference",
+                    scope=SimpleNamespace(type="arc", id="webui_cleanup"),
+                    status="confirmed",
+                    claim="Short next steps work better here.",
+                    confidence=0.91,
+                ),
+            ),
+        ),
+        learned_state=SimpleNamespace(
+            candidate_patterns=(
+                SimpleNamespace(
+                    pattern_id="pattern-candidate-1",
+                    kind="recurring_blocker",
+                    scope=SimpleNamespace(type="arc", id="webui_cleanup"),
+                    status="candidate",
+                    claim="Ambiguous scope repeatedly slows starts.",
+                    confidence=0.74,
+                ),
+            ),
+            confirmed_patterns=(
+                SimpleNamespace(
+                    pattern_id="pattern-confirmed-1",
+                    kind="support_preference",
+                    scope=SimpleNamespace(type="global", id="user"),
+                    status="confirmed",
+                    claim="A single next step works better than many options.",
+                    confidence=0.95,
+                ),
+            ),
+            recent_update_events=(
+                SimpleNamespace(
+                    event_id="event-1",
+                    registry="support",
+                    dimension="pacing",
+                    scope=SimpleNamespace(type="arc", id="webui_cleanup"),
+                    status="applied",
+                    old_value="steady",
+                    new_value="brisk",
+                    reason="The narrower pace improved follow-through.",
+                    confidence=0.88,
+                    timestamp=now,
+                ),
+            ),
+            recent_interventions=(
+                SimpleNamespace(
+                    situation_id="sit-1",
+                    session_id="session-123",
+                    response_mode="execute",
+                    intervention_family="narrow",
+                    behavior_contract_summary="One practical next step with firm pacing.",
+                    recorded_at=now,
+                ),
+            ),
+        ),
+        active_domains=(
+            SimpleNamespace(domain_id="work", name="Work", status="active", salience=0.92),
+        ),
+        active_arcs=(
+            SimpleNamespace(
+                arc_id="webui_cleanup",
+                title="Web UI cleanup",
+                kind="project",
+                status="active",
+                salience=0.97,
+                primary_domain_id="work",
+            ),
+        ),
+    )
+
+    support_runtime = SimpleNamespace(build_inspection_snapshot=AsyncMock(return_value=support_snapshot))
+
+    fake_alfred = SimpleNamespace(
+        context_loader=fake_context_loader,
+        core=SimpleNamespace(memory_store=fake_memory_store, session_manager=fake_session_manager),
+        build_self_model=lambda: fake_self_model,
+        _get_support_reflection_runtime=lambda: support_runtime,
+    )
+
+    result = await get_context_display(fake_alfred)
+
+    support_state = result["support_state"]
+    assert support_state["enabled"] is True
+    assert support_state["request"] == {"response_mode": "execute", "arc_id": "webui_cleanup"}
+    assert support_state["summary"] == {
+        "response_mode": "execute",
+        "active_arc_id": "webui_cleanup",
+        "active_pattern_count": 1,
+        "candidate_pattern_count": 1,
+        "confirmed_pattern_count": 1,
+        "recent_update_event_count": 1,
+        "recent_intervention_count": 1,
+        "active_domain_count": 1,
+        "active_arc_count": 1,
+    }
+    assert support_state["active_runtime_state"]["effective_support_values"] == {
+        "pacing": "brisk",
+        "planning_granularity": "minimal",
+    }
+    assert support_state["active_runtime_state"]["effective_relational_values"] == {
+        "warmth": "medium",
+        "candor": "medium",
+    }
+    assert support_state["active_runtime_state"]["active_patterns"] == [
+        {
+            "pattern_id": "pattern-runtime-1",
+            "kind": "support_preference",
+            "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+            "status": "confirmed",
+            "claim": "Short next steps work better here.",
+            "confidence": 0.91,
+        }
+    ]
+    assert support_state["learned_state"]["candidate_patterns_count"] == 1
+    assert support_state["learned_state"]["confirmed_patterns_count"] == 1
+    assert support_state["learned_state"]["recent_update_events"] == [
+        {
+            "event_id": "event-1",
+            "registry": "support",
+            "dimension": "pacing",
+            "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+            "status": "applied",
+            "old_value": "steady",
+            "new_value": "brisk",
+            "reason": "The narrower pace improved follow-through.",
+            "confidence": 0.88,
+            "timestamp": now.isoformat(),
+        }
+    ]
+    assert support_state["learned_state"]["recent_interventions"] == [
+        {
+            "situation_id": "sit-1",
+            "session_id": "session-123",
+            "response_mode": "execute",
+            "intervention_family": "narrow",
+            "behavior_contract_summary": "One practical next step with firm pacing.",
+            "recorded_at": now.isoformat(),
+        }
+    ]
+    assert support_state["active_domains"] == [
+        {
+            "domain_id": "work",
+            "name": "Work",
+            "status": "active",
+            "salience": 0.92,
+        }
+    ]
+    assert support_state["active_arcs"] == [
+        {
+            "arc_id": "webui_cleanup",
+            "title": "Web UI cleanup",
+            "kind": "project",
+            "status": "active",
+            "salience": 0.97,
+            "primary_domain_id": "work",
+        }
+    ]

@@ -350,6 +350,89 @@ def test_context_command_uses_shared_context_display() -> None:
             }
         ],
         "warnings": [],
+        "support_state": {
+            "enabled": True,
+            "request": {"response_mode": "execute", "arc_id": "webui_cleanup"},
+            "summary": {
+                "response_mode": "execute",
+                "active_arc_id": "webui_cleanup",
+                "active_pattern_count": 1,
+                "candidate_pattern_count": 0,
+                "confirmed_pattern_count": 1,
+                "recent_update_event_count": 1,
+                "recent_intervention_count": 1,
+                "active_domain_count": 1,
+                "active_arc_count": 1,
+            },
+            "active_runtime_state": {
+                "effective_support_values": {"pacing": "brisk"},
+                "effective_relational_values": {"warmth": "medium"},
+                "active_patterns": [
+                    {
+                        "pattern_id": "pattern-runtime-1",
+                        "kind": "support_preference",
+                        "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+                        "status": "confirmed",
+                        "claim": "Short next steps work better here.",
+                        "confidence": 0.91,
+                    }
+                ],
+            },
+            "learned_state": {
+                "candidate_patterns_count": 0,
+                "confirmed_patterns_count": 1,
+                "recent_update_event_count": 1,
+                "recent_intervention_count": 1,
+                "candidate_patterns": [],
+                "confirmed_patterns": [
+                    {
+                        "pattern_id": "pattern-confirmed-1",
+                        "kind": "support_preference",
+                        "scope": {"type": "global", "id": "user", "label": "global:user"},
+                        "status": "confirmed",
+                        "claim": "A single next step works better than many options.",
+                        "confidence": 0.95,
+                    }
+                ],
+                "recent_update_events": [
+                    {
+                        "event_id": "event-1",
+                        "registry": "support",
+                        "dimension": "pacing",
+                        "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+                        "status": "applied",
+                        "old_value": "steady",
+                        "new_value": "brisk",
+                        "reason": "The narrower pace improved follow-through.",
+                        "confidence": 0.88,
+                        "timestamp": "2026-03-23T00:00:00+00:00",
+                    }
+                ],
+                "recent_interventions": [
+                    {
+                        "situation_id": "sit-1",
+                        "session_id": "session-123",
+                        "response_mode": "execute",
+                        "intervention_family": "narrow",
+                        "behavior_contract_summary": "One practical next step with firm pacing.",
+                        "recorded_at": "2026-03-23T00:00:00+00:00",
+                    }
+                ],
+            },
+            "active_domains": [
+                {"domain_id": "work", "name": "Work", "status": "active", "salience": 0.92}
+            ],
+            "active_arcs": [
+                {
+                    "arc_id": "webui_cleanup",
+                    "title": "Web UI cleanup",
+                    "kind": "project",
+                    "status": "active",
+                    "salience": 0.97,
+                    "primary_domain_id": "work",
+                }
+            ],
+        },
         "memories": {
             "displayed": 1,
             "total": 2,
@@ -396,6 +479,9 @@ def test_context_command_uses_shared_context_display() -> None:
         }
     ]
     assert response["payload"]["warnings"] == []
+    assert response["payload"]["support_state"]["enabled"] is True
+    assert response["payload"]["support_state"]["summary"]["active_arc_id"] == "webui_cleanup"
+    assert response["payload"]["support_state"]["active_runtime_state"]["effective_support_values"] == {"pacing": "brisk"}
     assert response["payload"]["memories"]["displayed"] == 1
     assert response["payload"]["session_history"]["count"] == 1
     assert response["payload"]["tool_calls"]["count"] == 1

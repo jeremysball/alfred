@@ -362,12 +362,65 @@ Sent in response to `/context` command.
 {
   "type": "context.info",
   "payload": {
-    "cwd": "/home/user/projects/myapp",
-    "files": ["README.md", "src/main.py", "pyproject.toml"],
-    "systemInfo": {
-      "platform": "linux",
-      "python_version": "3.12.0"
-    }
+    "system_prompt": {
+      "sections": [
+        {"id": "system", "label": "SYSTEM.md", "tokens": 12},
+        {"id": "agents", "label": "AGENTS.md", "tokens": 34}
+      ],
+      "total_tokens": 46
+    },
+    "blocked_context_files": ["SOUL.md"],
+    "conflicted_context_files": [
+      {
+        "id": "soul",
+        "name": "soul",
+        "label": "SOUL.md",
+        "reason": "Conflicted managed template SOUL.md is blocked"
+      }
+    ],
+    "disabled_sections": [],
+    "warnings": [],
+    "support_state": {
+      "enabled": true,
+      "request": {"response_mode": "execute", "arc_id": "webui_cleanup"},
+      "summary": {
+        "response_mode": "execute",
+        "active_arc_id": "webui_cleanup",
+        "active_pattern_count": 1,
+        "candidate_pattern_count": 1,
+        "confirmed_pattern_count": 1,
+        "recent_update_event_count": 1,
+        "recent_intervention_count": 1,
+        "active_domain_count": 1,
+        "active_arc_count": 1
+      }
+    },
+    "memories": {
+      "displayed": 1,
+      "total": 2,
+      "items": [{"role": "user", "content": "Remember this", "timestamp": "2026-03-20"}],
+      "tokens": 8
+    },
+    "session_history": {
+      "displayed": 5,
+      "included": 8,
+      "total": 9,
+      "messages": [{"role": "user", "content": "hello"}],
+      "tokens": 21
+    },
+    "tool_calls": {
+      "displayed": 3,
+      "total": 4,
+      "items": [{"tool_name": "read", "summary": "read: docs/roadmap.md", "tokens": 5}],
+      "tokens": 20
+    },
+    "self_model": {
+      "identity": {"name": "Alfred", "role": "local-first relational support system"},
+      "runtime": {"interface": "webui", "session_id": "session-1", "daemon_mode": false},
+      "capabilities": {"memory_enabled": true, "search_enabled": true, "tools_count": 10},
+      "context_pressure": {"message_count": 5, "memory_count": 2, "approximate_tokens": 120}
+    },
+    "total_tokens": 101
   }
 }
 ```
@@ -376,9 +429,19 @@ Sent in response to `/context` command.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `cwd` | `string` | Current working directory |
-| `files` | `array` | List of files in current context |
-| `systemInfo` | `object` | System information dictionary |
+| `system_prompt` | `object` | Active always-loaded prompt sections with ids, labels, and token counts |
+| `blocked_context_files` | `string[]` | Blocked context files when managed templates are conflicted |
+| `conflicted_context_files` | `object[]` | Structured conflict records for blocked managed templates |
+| `disabled_sections` | `string[]` | Prompt sections currently toggled off by the operator |
+| `warnings` | `string[]` | Human-readable warnings shown in the TUI and Web UI context viewer |
+| `support_state` | `object` | Compact support-runtime snapshot: current mode, active arc summary, pattern counts, learned-state previews, active domains, and active arcs |
+| `memories` | `object` | Loaded memory preview, counts, and token estimates |
+| `session_history` | `object` | Previewed session messages plus included and total message counts |
+| `tool_calls` | `object` | Compact recent tool-outcome summaries with counts and token estimates |
+| `self_model` | `object` | Alfred's runtime self-model: identity, runtime, capabilities, and context pressure |
+| `total_tokens` | `number` | Approximate total token pressure for the current assembled context |
+
+`support_state.enabled` is `false` when the support inspection runtime is unavailable. When enabled, `support_state` also includes `active_runtime_state`, `learned_state`, `active_domains`, and `active_arcs`.
 
 ---
 

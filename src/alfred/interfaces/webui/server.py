@@ -803,6 +803,7 @@ def _build_context_payload(context_data: dict[str, object]) -> dict[str, object]
         "conflicted_context_files": context_data.get("conflicted_context_files", []),
         "disabled_sections": context_data.get("disabled_sections", []),
         "warnings": context_data.get("warnings", []),
+        "support_state": context_data.get("support_state", {"enabled": False}),
         "memories": context_data["memories"],
         "session_history": context_data["session_history"],
         "tool_calls": context_data["tool_calls"],

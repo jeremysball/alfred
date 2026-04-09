@@ -1119,6 +1119,98 @@ async def test_command_context_toggle_uses_section_ids() -> None:
                           ],
                           disabled_sections: [],
                           warnings: [],
+                          support_state: {
+                            enabled: true,
+                            request: { response_mode: "execute", arc_id: "webui_cleanup" },
+                            summary: {
+                              response_mode: "execute",
+                              active_arc_id: "webui_cleanup",
+                              active_pattern_count: 1,
+                              candidate_pattern_count: 1,
+                              confirmed_pattern_count: 1,
+                              recent_update_event_count: 1,
+                              recent_intervention_count: 1,
+                              active_domain_count: 1,
+                              active_arc_count: 1,
+                            },
+                            active_runtime_state: {
+                              effective_support_values: { pacing: "brisk" },
+                              effective_relational_values: { warmth: "medium" },
+                              active_patterns: [
+                                {
+                                  pattern_id: "pattern-runtime-1",
+                                  kind: "support_preference",
+                                  scope: { type: "arc", id: "webui_cleanup", label: "arc:webui_cleanup" },
+                                  status: "confirmed",
+                                  claim: "Short next steps work better here.",
+                                  confidence: 0.91,
+                                },
+                              ],
+                            },
+                            learned_state: {
+                              candidate_patterns_count: 1,
+                              confirmed_patterns_count: 1,
+                              recent_update_event_count: 1,
+                              recent_intervention_count: 1,
+                              candidate_patterns: [
+                                {
+                                  pattern_id: "pattern-candidate-1",
+                                  kind: "recurring_blocker",
+                                  scope: { type: "arc", id: "webui_cleanup", label: "arc:webui_cleanup" },
+                                  status: "candidate",
+                                  claim: "Ambiguous scope repeatedly slows starts.",
+                                  confidence: 0.74,
+                                },
+                              ],
+                              confirmed_patterns: [
+                                {
+                                  pattern_id: "pattern-confirmed-1",
+                                  kind: "support_preference",
+                                  scope: { type: "global", id: "user", label: "global:user" },
+                                  status: "confirmed",
+                                  claim: "A single next step works better than many options.",
+                                  confidence: 0.95,
+                                },
+                              ],
+                              recent_update_events: [
+                                {
+                                  event_id: "event-1",
+                                  registry: "support",
+                                  dimension: "pacing",
+                                  scope: { type: "arc", id: "webui_cleanup", label: "arc:webui_cleanup" },
+                                  status: "applied",
+                                  old_value: "steady",
+                                  new_value: "brisk",
+                                  reason: "The narrower pace improved follow-through.",
+                                  confidence: 0.88,
+                                  timestamp: "2026-03-23T00:00:00+00:00",
+                                },
+                              ],
+                              recent_interventions: [
+                                {
+                                  situation_id: "sit-1",
+                                  session_id: "session-123",
+                                  response_mode: "execute",
+                                  intervention_family: "narrow",
+                                  behavior_contract_summary: "One practical next step with firm pacing.",
+                                  recorded_at: "2026-03-23T00:00:00+00:00",
+                                },
+                              ],
+                            },
+                            active_domains: [
+                              { domain_id: "work", name: "Work", status: "active", salience: 0.92 },
+                            ],
+                            active_arcs: [
+                              {
+                                arc_id: "webui_cleanup",
+                                title: "Web UI cleanup",
+                                kind: "project",
+                                status: "active",
+                                salience: 0.97,
+                                primary_domain_id: "work",
+                              },
+                            ],
+                          },
                           memories: { displayed: 0, total: 0, items: [], tokens: 0 },
                           session_history: {
                             displayed: 1,
@@ -1146,6 +1238,17 @@ async def test_command_context_toggle_uses_section_ids() -> None:
                 assert "Conflicted Managed Templates" in conflicted_text
                 assert "SOUL.md" in conflicted_text
                 assert "Conflicted managed template SOUL.md is blocked" in conflicted_text
+
+                support_section = page.locator('context-viewer .context-section-header[data-section="support-state"]')
+                await support_section.wait_for(state="attached")
+                support_text = (await page.locator('context-viewer .context-section-header[data-section="support-state"]').text_content()) or ""
+                assert "Support State" in support_text
+
+                support_content = page.locator('context-viewer .context-section-header[data-section="support-state"] + .context-section-content')
+                support_content_text = (await support_content.text_content()) or ""
+                assert "webui_cleanup" in support_content_text
+                assert "Short next steps work better here." in support_content_text
+                assert "support:pacing → brisk" in support_content_text
 
                 await page.locator('context-viewer .context-section-header[data-section="system-prompt"]').click()
                 checkbox = page.locator('context-viewer input.context-toggle[data-section="system"]')

@@ -230,6 +230,98 @@ async def test_show_context_command_reports_preview_counts_and_compact_tool_outc
         },
         "blocked_context_files": [],
         "warnings": [],
+        "support_state": {
+            "enabled": True,
+            "request": {"response_mode": "execute", "arc_id": "webui_cleanup"},
+            "summary": {
+                "response_mode": "execute",
+                "active_arc_id": "webui_cleanup",
+                "active_pattern_count": 1,
+                "candidate_pattern_count": 1,
+                "confirmed_pattern_count": 1,
+                "recent_update_event_count": 1,
+                "recent_intervention_count": 1,
+                "active_domain_count": 1,
+                "active_arc_count": 1,
+            },
+            "active_runtime_state": {
+                "effective_support_values": {"pacing": "brisk"},
+                "effective_relational_values": {"warmth": "medium"},
+                "active_patterns": [
+                    {
+                        "pattern_id": "pattern-runtime-1",
+                        "kind": "support_preference",
+                        "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+                        "status": "confirmed",
+                        "claim": "Short next steps work better here.",
+                        "confidence": 0.91,
+                    }
+                ],
+            },
+            "learned_state": {
+                "candidate_patterns_count": 1,
+                "confirmed_patterns_count": 1,
+                "recent_update_event_count": 1,
+                "recent_intervention_count": 1,
+                "candidate_patterns": [
+                    {
+                        "pattern_id": "pattern-candidate-1",
+                        "kind": "recurring_blocker",
+                        "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+                        "status": "candidate",
+                        "claim": "Ambiguous scope repeatedly slows starts.",
+                        "confidence": 0.74,
+                    }
+                ],
+                "confirmed_patterns": [
+                    {
+                        "pattern_id": "pattern-confirmed-1",
+                        "kind": "support_preference",
+                        "scope": {"type": "global", "id": "user", "label": "global:user"},
+                        "status": "confirmed",
+                        "claim": "A single next step works better than many options.",
+                        "confidence": 0.95,
+                    }
+                ],
+                "recent_update_events": [
+                    {
+                        "event_id": "event-1",
+                        "registry": "support",
+                        "dimension": "pacing",
+                        "scope": {"type": "arc", "id": "webui_cleanup", "label": "arc:webui_cleanup"},
+                        "status": "applied",
+                        "old_value": "steady",
+                        "new_value": "brisk",
+                        "reason": "The narrower pace improved follow-through.",
+                        "confidence": 0.88,
+                        "timestamp": "2026-03-23T00:00:00+00:00",
+                    }
+                ],
+                "recent_interventions": [
+                    {
+                        "situation_id": "sit-1",
+                        "session_id": "session-123",
+                        "response_mode": "execute",
+                        "intervention_family": "narrow",
+                        "behavior_contract_summary": "One practical next step with firm pacing.",
+                        "recorded_at": "2026-03-23T00:00:00+00:00",
+                    }
+                ],
+            },
+            "active_domains": [
+                {"domain_id": "work", "name": "Work", "status": "active", "salience": 0.92}
+            ],
+            "active_arcs": [
+                {
+                    "arc_id": "webui_cleanup",
+                    "title": "Web UI cleanup",
+                    "kind": "project",
+                    "status": "active",
+                    "salience": 0.97,
+                    "primary_domain_id": "work",
+                }
+            ],
+        },
         "memories": {"displayed": 1, "total": 2, "items": [{"content": "Memory", "role": "user", "timestamp": "2026-03-20"}], "tokens": 6},
         "session_history": {
             "count": 4,
@@ -272,6 +364,14 @@ async def test_show_context_command_reports_preview_counts_and_compact_tool_outc
 
     assert rendered_messages
     rendered = rendered_messages[0]
+    assert "SUPPORT STATE (execute mode)" in rendered
+    assert "Active arc: webui_cleanup" in rendered
+    assert "Runtime patterns: 1 active | 1 candidate | 1 confirmed" in rendered
+    assert "Recent changes: 1 | Recent interventions: 1" in rendered
+    assert "Short next steps work better here." in rendered
+    assert "support:pacing -> brisk (arc:webui_cleanup, applied)" in rendered
+    assert "Web UI cleanup (project, active)" in rendered
+    assert "Work (active)" in rendered
     assert "SYSTEM PROMPT (54 tokens)" in rendered
     assert "SYSTEM.md: 12 tokens" in rendered
     assert "AGENTS.md: 34 tokens" in rendered

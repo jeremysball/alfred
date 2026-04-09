@@ -54,6 +54,174 @@ def _context_file_identifier(file: Any) -> str:
     return ""
 
 
+def _serialize_support_scope(scope: Any) -> dict[str, str]:
+    """Serialize one support-profile scope for /context display."""
+    scope_type = str(getattr(scope, "type", "unknown"))
+    scope_id = str(getattr(scope, "id", "unknown"))
+    return {
+        "type": scope_type,
+        "id": scope_id,
+        "label": f"{scope_type}:{scope_id}",
+    }
+
+
+def _serialize_pattern_summary(pattern: Any) -> dict[str, Any]:
+    """Serialize one compact pattern summary for /context display."""
+    return {
+        "pattern_id": str(getattr(pattern, "pattern_id", "")),
+        "kind": str(getattr(pattern, "kind", "unknown")),
+        "scope": _serialize_support_scope(getattr(pattern, "scope", None)),
+        "status": str(getattr(pattern, "status", "unknown")),
+        "claim": str(getattr(pattern, "claim", "")),
+        "confidence": float(getattr(pattern, "confidence", 0.0)),
+    }
+
+
+def _serialize_update_event_summary(event: Any) -> dict[str, Any]:
+    """Serialize one compact support-profile update event for /context display."""
+    timestamp = getattr(event, "timestamp", None)
+    return {
+        "event_id": str(getattr(event, "event_id", "")),
+        "registry": str(getattr(event, "registry", "unknown")),
+        "dimension": str(getattr(event, "dimension", "unknown")),
+        "scope": _serialize_support_scope(getattr(event, "scope", None)),
+        "status": str(getattr(event, "status", "unknown")),
+        "old_value": getattr(event, "old_value", None),
+        "new_value": str(getattr(event, "new_value", "")),
+        "reason": str(getattr(event, "reason", "")),
+        "confidence": float(getattr(event, "confidence", 0.0)),
+        "timestamp": timestamp.isoformat() if timestamp is not None else None,
+    }
+
+
+def _serialize_learning_situation_summary(situation: Any) -> dict[str, Any]:
+    """Serialize one recent learning-situation summary for /context display."""
+    recorded_at = getattr(situation, "recorded_at", None)
+    return {
+        "situation_id": str(getattr(situation, "situation_id", "")),
+        "session_id": str(getattr(situation, "session_id", "")),
+        "response_mode": str(getattr(situation, "response_mode", "unknown")),
+        "intervention_family": str(getattr(situation, "intervention_family", "unknown")),
+        "behavior_contract_summary": str(getattr(situation, "behavior_contract_summary", "")),
+        "recorded_at": recorded_at.isoformat() if recorded_at is not None else None,
+    }
+
+
+def _serialize_active_domain(domain: Any) -> dict[str, Any]:
+    """Serialize one active life domain for /context display."""
+    return {
+        "domain_id": str(getattr(domain, "domain_id", "")),
+        "name": str(getattr(domain, "name", "")),
+        "status": str(getattr(domain, "status", "unknown")),
+        "salience": float(getattr(domain, "salience", 0.0)),
+    }
+
+
+def _serialize_active_arc(arc: Any) -> dict[str, Any]:
+    """Serialize one active operational arc for /context display."""
+    return {
+        "arc_id": str(getattr(arc, "arc_id", "")),
+        "title": str(getattr(arc, "title", "")),
+        "kind": str(getattr(arc, "kind", "unknown")),
+        "status": str(getattr(arc, "status", "unknown")),
+        "salience": float(getattr(arc, "salience", 0.0)),
+        "primary_domain_id": getattr(arc, "primary_domain_id", None),
+    }
+
+
+async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
+    """Build a compact support-state summary for /context when available."""
+    runtime_getter = getattr(alfred, "_get_support_reflection_runtime", None)
+    if not callable(runtime_getter):
+        return {"enabled": False}
+
+    runtime = runtime_getter()
+    if runtime is None:
+        return {"enabled": False}
+
+    build_snapshot = getattr(runtime, "build_inspection_snapshot", None)
+    if not callable(build_snapshot):
+        return {"enabled": False}
+
+    try:
+        snapshot = await build_snapshot(response_mode="execute", arc_id=None)
+    except Exception as exc:  # pragma: no cover - defensive fallback for live runtime inspection
+        logger.exception("get_context_display: failed to build support inspection snapshot")
+        return {
+            "enabled": False,
+            "error": str(exc),
+        }
+
+    request = {
+        "response_mode": str(getattr(getattr(snapshot, "request", None), "response_mode", "execute")),
+        "arc_id": getattr(getattr(snapshot, "request", None), "arc_id", None),
+    }
+
+    active_patterns = [
+        _serialize_pattern_summary(pattern)
+        for pattern in getattr(getattr(snapshot, "active_runtime_state", None), "active_patterns", ())
+    ]
+    candidate_patterns = [
+        _serialize_pattern_summary(pattern)
+        for pattern in getattr(getattr(snapshot, "learned_state", None), "candidate_patterns", ())
+    ]
+    confirmed_patterns = [
+        _serialize_pattern_summary(pattern)
+        for pattern in getattr(getattr(snapshot, "learned_state", None), "confirmed_patterns", ())
+    ]
+    recent_update_events = [
+        _serialize_update_event_summary(event)
+        for event in getattr(getattr(snapshot, "learned_state", None), "recent_update_events", ())
+    ]
+    recent_interventions = [
+        _serialize_learning_situation_summary(situation)
+        for situation in getattr(getattr(snapshot, "learned_state", None), "recent_interventions", ())
+    ]
+    active_domains = [_serialize_active_domain(domain) for domain in getattr(snapshot, "active_domains", ())]
+    active_arcs = [_serialize_active_arc(arc) for arc in getattr(snapshot, "active_arcs", ())]
+
+    summary_active_arc_id = getattr(getattr(snapshot, "active_runtime_state", None), "active_arc_id", None)
+    if summary_active_arc_id is None and active_arcs:
+        summary_active_arc_id = active_arcs[0]["arc_id"]
+
+    return {
+        "enabled": True,
+        "request": request,
+        "summary": {
+            "response_mode": request["response_mode"],
+            "active_arc_id": summary_active_arc_id,
+            "active_pattern_count": len(active_patterns),
+            "candidate_pattern_count": len(candidate_patterns),
+            "confirmed_pattern_count": len(confirmed_patterns),
+            "recent_update_event_count": len(recent_update_events),
+            "recent_intervention_count": len(recent_interventions),
+            "active_domain_count": len(active_domains),
+            "active_arc_count": len(active_arcs),
+        },
+        "active_runtime_state": {
+            "response_mode": str(getattr(getattr(snapshot, "active_runtime_state", None), "response_mode", request["response_mode"])),
+            "active_arc_id": getattr(getattr(snapshot, "active_runtime_state", None), "active_arc_id", None),
+            "effective_support_values": dict(getattr(getattr(snapshot, "active_runtime_state", None), "effective_support_values", {})),
+            "effective_relational_values": dict(
+                getattr(getattr(snapshot, "active_runtime_state", None), "effective_relational_values", {})
+            ),
+            "active_patterns": active_patterns,
+        },
+        "learned_state": {
+            "candidate_patterns_count": len(candidate_patterns),
+            "confirmed_patterns_count": len(confirmed_patterns),
+            "recent_update_event_count": len(recent_update_events),
+            "recent_intervention_count": len(recent_interventions),
+            "candidate_patterns": candidate_patterns,
+            "confirmed_patterns": confirmed_patterns,
+            "recent_update_events": recent_update_events,
+            "recent_interventions": recent_interventions,
+        },
+        "active_domains": active_domains,
+        "active_arcs": active_arcs,
+    }
+
+
 async def get_context_display(alfred: Alfred, session_id: str | None = None) -> dict[str, Any]:
     """Get current context information for /context command.
 
@@ -67,15 +235,15 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
         - memories: Available memories with display limit info
         - session_history: Bounded preview of session messages with displayed/total counts
         - tool_calls: Compact derived tool outcomes from the session
+        - self_model: Compact runtime self-model snapshot
+        - support_state: Compact support runtime snapshot when available
         - total_tokens: Estimated total context size
     """
     logger.debug("get_context_display: gathering context for session=%s", session_id or "cli")
 
-    # Get disabled sections before loading
     disabled_sections = alfred.context_loader.get_disabled_sections()
     logger.debug("get_context_display: disabled sections: %s", disabled_sections)
 
-    # Load context files (this will exclude disabled sections)
     context_files = await alfred.context_loader.load_all()
     logger.debug("get_context_display: loaded %d context files", len(context_files))
 
@@ -93,14 +261,10 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
         logger.debug("get_context_display: found %d conflicted context files", len(conflicted_context_files))
 
     blocked_context_files = [file["label"] for file in conflicted_context_files]
-
-    warnings = []
-
-    # Add warning about disabled sections
+    warnings: list[str] = []
     if disabled_sections:
         warnings.append(f"Disabled sections: {', '.join(disabled_sections)}")
 
-    # Build system prompt sections with token counts
     system_sections = []
     total_system_tokens = 0
     for section_id in SYSTEM_PROMPT_SECTION_ORDER:
@@ -120,10 +284,8 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
         )
         total_system_tokens += tokens
 
-    # Get all memories
     all_memories = await alfred.core.memory_store.get_all_entries()
 
-    # Get session messages for display
     session_manager = alfred.core.session_manager
     session_messages = session_manager.get_messages_for_context(session_id)
     if session_id is not None:
@@ -133,15 +295,10 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
     else:
         full_messages = []
 
-    display_messages = [
-        {"role": role, "content": content}
-        for role, content in session_messages[-5:]  # Last 5 messages
-    ]
+    display_messages = [{"role": role, "content": content} for role, content in session_messages[-5:]]
     session_displayed_tokens = sum(_estimate_tokens(message["content"]) for message in display_messages)
     session_included_tokens = sum(_estimate_tokens(content) for _, content in session_messages)
 
-    # Collect all tool calls from the session for display. These are separate from the
-    # compact prompt-context tool outcomes and are allowed to show raw details.
     tool_call_records: list[Any] = []
     for message in full_messages:
         message_tool_calls = getattr(message, "tool_calls", None) or []
@@ -172,7 +329,6 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
 
     total_tool_calls = len(tool_call_items)
 
-    # Format all memories with full content (no truncation)
     memory_display = []
     memory_tokens = 0
     for mem in all_memories:
@@ -183,12 +339,16 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
                 "content": content,
                 "preview": _preview_text(content, 140),
                 "role": mem.role,
-                "timestamp": mem.timestamp.isoformat()[:10],  # Just date
+                "timestamp": mem.timestamp.isoformat()[:10],
                 "tokens": _estimate_tokens(content),
             }
         )
 
-    # Get self-model for display
+    support_state = await _get_support_state_display(alfred)
+    support_error = support_state.get("error")
+    if isinstance(support_error, str) and support_error:
+        warnings.append(f"Support state unavailable: {support_error}")
+
     logger.debug("get_context_display: building self-model for context display")
     self_model = alfred.build_self_model()
     logger.debug(
@@ -212,7 +372,7 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
             "memory_enabled": self_model.capabilities.memory_enabled,
             "search_enabled": self_model.capabilities.search_enabled,
             "tools_count": len(self_model.capabilities.tools_available),
-            "tools": self_model.capabilities.tools_available[:5],  # First 5 tools
+            "tools": self_model.capabilities.tools_available[:5],
         },
         "context_pressure": {
             "message_count": self_model.context_pressure.message_count,
@@ -244,6 +404,7 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
         "conflicted_context_files": conflicted_context_files,
         "disabled_sections": disabled_sections,
         "warnings": warnings,
+        "support_state": support_state,
         "memories": {
             "displayed": len(memory_display),
             "total": len(all_memories),

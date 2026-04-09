@@ -55,6 +55,46 @@ def _render_conflicted_context_lines(item: dict[str, Any], index: int) -> list[s
     return [f"  {index}. {label}: {reason}"]
 
 
+def _render_support_pattern_line(item: dict[str, Any], index: int) -> str:
+    claim = str(item.get("claim") or "Unnamed pattern")
+    kind = str(item.get("kind") or "unknown")
+    status = str(item.get("status") or "unknown")
+    scope = item.get("scope") or {}
+    scope_label = str(scope.get("label") or "unknown")
+    confidence = float(item.get("confidence") or 0.0)
+    return f"    {index}. {claim} ({kind}, {status}, {scope_label}, confidence={confidence:.2f})"
+
+
+def _render_support_update_event_line(item: dict[str, Any], index: int) -> str:
+    registry = str(item.get("registry") or "unknown")
+    dimension = str(item.get("dimension") or "unknown")
+    new_value = str(item.get("new_value") or "")
+    scope = item.get("scope") or {}
+    scope_label = str(scope.get("label") or "unknown")
+    status = str(item.get("status") or "unknown")
+    return f"    {index}. {registry}:{dimension} -> {new_value} ({scope_label}, {status})"
+
+
+def _render_support_intervention_line(item: dict[str, Any], index: int) -> str:
+    summary = str(item.get("behavior_contract_summary") or "Unnamed intervention")
+    response_mode = str(item.get("response_mode") or "unknown")
+    intervention_family = str(item.get("intervention_family") or "unknown")
+    return f"    {index}. {summary} ({response_mode}, {intervention_family})"
+
+
+def _render_support_arc_line(item: dict[str, Any], index: int) -> str:
+    title = str(item.get("title") or item.get("arc_id") or "Unknown arc")
+    kind = str(item.get("kind") or "unknown")
+    status = str(item.get("status") or "unknown")
+    return f"    {index}. {title} ({kind}, {status})"
+
+
+def _render_support_domain_line(item: dict[str, Any], index: int) -> str:
+    name = str(item.get("name") or item.get("domain_id") or "Unknown domain")
+    status = str(item.get("status") or "unknown")
+    return f"    {index}. {name} ({status})"
+
+
 class ShowContextCommand(Command):
     """Show current system context."""
 
@@ -114,6 +154,107 @@ class ShowContextCommand(Command):
                     lines.append("─" * 40)
                     for warning in warnings:
                         lines.append(f"  ! {warning}")
+                    lines.append("")
+
+                support_state = context_data.get("support_state") or {}
+                if support_state:
+                    if support_state.get("enabled"):
+                        summary = support_state.get("summary") or {}
+                        response_mode = str(summary.get("response_mode") or "unknown")
+                        lines.append(f"SUPPORT STATE ({response_mode} mode)")
+                        lines.append("─" * 40)
+                        active_arc_id = summary.get("active_arc_id")
+                        if active_arc_id:
+                            lines.append(f"  Active arc: {active_arc_id}")
+                        lines.append(
+                            "  Runtime patterns: "
+                            f"{_as_int(summary.get('active_pattern_count'))} active | "
+                            f"{_as_int(summary.get('candidate_pattern_count'))} candidate | "
+                            f"{_as_int(summary.get('confirmed_pattern_count'))} confirmed"
+                        )
+                        lines.append(
+                            "  Recent changes: "
+                            f"{_as_int(summary.get('recent_update_event_count'))} | "
+                            f"Recent interventions: {_as_int(summary.get('recent_intervention_count'))}"
+                        )
+                        lines.append(
+                            "  Active domains: "
+                            f"{_as_int(summary.get('active_domain_count'))} | "
+                            f"Active arcs: {_as_int(summary.get('active_arc_count'))}"
+                        )
+
+                        runtime_state = support_state.get("active_runtime_state") or {}
+                        effective_support_values = runtime_state.get("effective_support_values") or {}
+                        if effective_support_values:
+                            lines.append("")
+                            lines.append("  Effective support values:")
+                            for dimension, value in sorted(effective_support_values.items()):
+                                lines.append(f"    - {dimension}: {value}")
+
+                        effective_relational_values = runtime_state.get("effective_relational_values") or {}
+                        if effective_relational_values:
+                            lines.append("")
+                            lines.append("  Effective relational values:")
+                            for dimension, value in sorted(effective_relational_values.items()):
+                                lines.append(f"    - {dimension}: {value}")
+
+                        active_patterns = runtime_state.get("active_patterns") or []
+                        if active_patterns:
+                            lines.append("")
+                            lines.append("  Active runtime patterns:")
+                            for index, pattern in enumerate(active_patterns, 1):
+                                lines.append(_render_support_pattern_line(pattern, index))
+
+                        learned_state = support_state.get("learned_state") or {}
+                        candidate_patterns = learned_state.get("candidate_patterns") or []
+                        if candidate_patterns:
+                            lines.append("")
+                            lines.append("  Candidate patterns:")
+                            for index, pattern in enumerate(candidate_patterns, 1):
+                                lines.append(_render_support_pattern_line(pattern, index))
+
+                        confirmed_patterns = learned_state.get("confirmed_patterns") or []
+                        if confirmed_patterns:
+                            lines.append("")
+                            lines.append("  Confirmed patterns:")
+                            for index, pattern in enumerate(confirmed_patterns, 1):
+                                lines.append(_render_support_pattern_line(pattern, index))
+
+                        recent_update_events = learned_state.get("recent_update_events") or []
+                        if recent_update_events:
+                            lines.append("")
+                            lines.append("  Recent changes:")
+                            for index, event in enumerate(recent_update_events, 1):
+                                lines.append(_render_support_update_event_line(event, index))
+
+                        recent_interventions = learned_state.get("recent_interventions") or []
+                        if recent_interventions:
+                            lines.append("")
+                            lines.append("  Recent interventions:")
+                            for index, intervention in enumerate(recent_interventions, 1):
+                                lines.append(_render_support_intervention_line(intervention, index))
+
+                        active_arcs = support_state.get("active_arcs") or []
+                        if active_arcs:
+                            lines.append("")
+                            lines.append("  Active arcs:")
+                            for index, arc in enumerate(active_arcs, 1):
+                                lines.append(_render_support_arc_line(arc, index))
+
+                        active_domains = support_state.get("active_domains") or []
+                        if active_domains:
+                            lines.append("")
+                            lines.append("  Active domains:")
+                            for index, domain in enumerate(active_domains, 1):
+                                lines.append(_render_support_domain_line(domain, index))
+                    else:
+                        lines.append("SUPPORT STATE (unavailable)")
+                        lines.append("─" * 40)
+                        error = support_state.get("error")
+                        if error:
+                            lines.append(f"  {error}")
+                        else:
+                            lines.append("  Not available in this runtime.")
                     lines.append("")
 
                 # System prompt section

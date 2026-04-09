@@ -15,7 +15,7 @@ It helps Alfred reason from what is actually true right now:
 
 This keeps Alfred more honest, more inspectable, and less likely to bluff about his own runtime state.
 
-The self-model is **internal-first**. It informs prompt assembly and runtime reasoning. Users mainly encounter it through the `/context` inspection surface.
+The self-model is **internal-first**. It informs prompt assembly and runtime reasoning. Users mainly encounter it through the `/context` inspection surface, which now shows the self-model beside a separate support-state summary.
 
 ---
 
@@ -54,9 +54,9 @@ The self-model is **not** the user model.
 
 It does not hold the user's identity, values, or life-direction truths. Those belong in the user-facing durable context and memory systems.
 
-It is also **not** a replacement for the broader relational support model. Today, the self-model is intentionally conservative: it is mostly about runtime grounding, not learned support-state introspection.
+It is also **not** a replacement for the broader relational support model. The self-model stays intentionally conservative: it is about runtime grounding, not learned support-state introspection.
 
-As Alfred's relational support architecture grows, the self-model may eventually expose richer support-state facts. Until then, it should stay factual and compact.
+The newer support-state summary shown in `/context` comes from the support inspection runtime, not from the self-model itself. That keeps the self-model factual and compact while still exposing current support behavior, learned patterns, active domains, and active arcs through a separate section.
 
 ---
 
@@ -68,17 +68,15 @@ Use the `/context` command in the TUI to inspect Alfred's current runtime state:
 /context
 ```
 
-The output includes an **ALFRED SELF-MODEL** section with a compact summary of:
-- identity
-- interface and mode
-- available capabilities
-- current context pressure
-- runtime environment
+The output includes:
+- a **SUPPORT STATE** section with the current support mode, active arc summary, learned-pattern counts, recent changes, and active domains/arcs when the support runtime is available
+- an **ALFRED SELF-MODEL** section with a compact summary of runtime identity, interface/mode, capabilities, context pressure, and runtime environment
 
 Use it when you want to:
 - verify which interface Alfred thinks he is in
 - confirm whether memory/search are enabled
 - see which tools are currently registered
+- inspect the current support mode, active arc summary, and learned-pattern activity
 - understand how much context is already loaded
 - debug mismatches between the runtime and the prompt behavior
 

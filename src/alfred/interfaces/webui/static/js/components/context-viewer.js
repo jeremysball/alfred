@@ -16,7 +16,7 @@ class ContextViewer extends HTMLElement {
   constructor() {
     super();
     this._data = null;
-    this._expandedSections = new Set(["self-model", "token-breakdown"]);
+    this._expandedSections = new Set(["support-state", "self-model", "token-breakdown"]);
     this._renderSerial = 0;
   }
 
@@ -337,6 +337,7 @@ class ContextViewer extends HTMLElement {
 
     const {
       system_prompt,
+      support_state,
       memories,
       session_history,
       tool_calls,
@@ -357,6 +358,7 @@ class ContextViewer extends HTMLElement {
         ${!conflicted_context_files?.length && blocked_context_files?.length ? this._renderBlockedFiles(blocked_context_files) : ""}
         
         <div class="context-sections">
+          ${this._renderSupportState(support_state)}
           ${this._renderSelfModel(self_model)}
           ${this._renderTokenBreakdown(total_tokens, system_prompt, memories, session_history, tool_calls)}
           ${this._renderSystemPrompt(system_prompt)}
@@ -435,6 +437,292 @@ class ContextViewer extends HTMLElement {
         `,
           )
           .join("")}
+      </div>
+    `;
+  }
+
+  _formatSupportStateBadge(supportState) {
+    if (!supportState) {
+      return "unavailable";
+    }
+
+    if (!supportState.enabled) {
+      return "unavailable";
+    }
+
+    const activeArcId = supportState.summary?.active_arc_id;
+    if (activeArcId) {
+      return activeArcId;
+    }
+
+    return `${supportState.summary?.response_mode || "unknown"} mode`;
+  }
+
+  _renderSupportPatternItem(pattern) {
+    const claim = this._escapeHtml(pattern?.claim || "Unnamed pattern");
+    const kind = this._escapeHtml(pattern?.kind || "unknown");
+    const status = this._escapeHtml(pattern?.status || "unknown");
+    const scopeLabel = this._escapeHtml(pattern?.scope?.label || "unknown");
+    const confidence = Number.parseFloat(pattern?.confidence || 0).toFixed(2);
+
+    return `
+      <div class="info-row">
+        <span class="info-value">${claim}</span>
+        <span class="info-label">${kind} · ${status} · ${scopeLabel} · ${confidence}</span>
+      </div>
+    `;
+  }
+
+  _renderSupportEventItem(event) {
+    const label = `${event?.registry || "unknown"}:${event?.dimension || "unknown"} → ${event?.new_value || ""}`;
+    const meta = `${event?.scope?.label || "unknown"} · ${event?.status || "unknown"}`;
+    return `
+      <div class="info-row">
+        <span class="info-value">${this._escapeHtml(label)}</span>
+        <span class="info-label">${this._escapeHtml(meta)}</span>
+      </div>
+    `;
+  }
+
+  _renderSupportArcItem(arc) {
+    const title = this._escapeHtml(arc?.title || arc?.arc_id || "Unknown arc");
+    const meta = `${arc?.kind || "unknown"} · ${arc?.status || "unknown"}`;
+    return `
+      <div class="info-row">
+        <span class="info-value">${title}</span>
+        <span class="info-label">${this._escapeHtml(meta)}</span>
+      </div>
+    `;
+  }
+
+  _renderSupportDomainItem(domain) {
+    const name = this._escapeHtml(domain?.name || domain?.domain_id || "Unknown domain");
+    const status = this._escapeHtml(domain?.status || "unknown");
+    return `
+      <div class="info-row">
+        <span class="info-value">${name}</span>
+        <span class="info-label">${status}</span>
+      </div>
+    `;
+  }
+
+  _renderSupportState(supportState) {
+    if (!supportState) return "";
+    const isExpanded = this._expandedSections.has("support-state");
+    const summary = supportState.summary || {};
+    const runtimeState = supportState.active_runtime_state || {};
+    const learnedState = supportState.learned_state || {};
+    const activePatterns = runtimeState.active_patterns || [];
+    const candidatePatterns = learnedState.candidate_patterns || [];
+    const confirmedPatterns = learnedState.confirmed_patterns || [];
+    const recentEvents = learnedState.recent_update_events || [];
+    const activeArcs = supportState.active_arcs || [];
+    const activeDomains = supportState.active_domains || [];
+    const effectiveSupportValues = Object.entries(runtimeState.effective_support_values || {});
+    const effectiveRelationalValues = Object.entries(
+      runtimeState.effective_relational_values || {},
+    );
+
+    return `
+      <div class="context-section">
+        <div class="context-section-header" data-section="support-state">
+          <span class="section-toggle">${isExpanded ? "−" : "+"}</span>
+          <span class="section-title">Support State</span>
+          <span class="section-badge">${this._escapeHtml(this._formatSupportStateBadge(supportState))}</span>
+        </div>
+        ${
+          isExpanded
+            ? `
+          <div class="context-section-content">
+            ${
+              supportState.enabled
+                ? `
+              <div class="self-model-grid">
+                <div class="self-model-card">
+                  <div class="card-title">Runtime</div>
+                  <div class="card-content">
+                    <div class="info-row">
+                      <span class="info-label">Mode:</span>
+                      <span class="info-value">${this._escapeHtml(summary.response_mode || "unknown")}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Active Arc:</span>
+                      <span class="info-value">${this._escapeHtml(summary.active_arc_id || "None")}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Patterns:</span>
+                      <span class="info-value">${this._formatNumber(summary.active_pattern_count || 0)} active</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="self-model-card">
+                  <div class="card-title">Learned State</div>
+                  <div class="card-content">
+                    <div class="info-row">
+                      <span class="info-label">Candidate:</span>
+                      <span class="info-value">${this._formatNumber(summary.candidate_pattern_count || 0)}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Confirmed:</span>
+                      <span class="info-value">${this._formatNumber(summary.confirmed_pattern_count || 0)}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Recent Changes:</span>
+                      <span class="info-value">${this._formatNumber(summary.recent_update_event_count || 0)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="self-model-card">
+                  <div class="card-title">Coverage</div>
+                  <div class="card-content">
+                    <div class="info-row">
+                      <span class="info-label">Recent Interventions:</span>
+                      <span class="info-value">${this._formatNumber(summary.recent_intervention_count || 0)}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Active Domains:</span>
+                      <span class="info-value">${this._formatNumber(summary.active_domain_count || 0)}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="info-label">Active Arcs:</span>
+                      <span class="info-value">${this._formatNumber(summary.active_arc_count || 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              ${
+                effectiveSupportValues.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Effective Support Values</div>
+                  <div class="card-content">
+                    ${effectiveSupportValues
+                      .map(
+                        ([dimension, value]) => `
+                      <div class="info-row">
+                        <span class="info-label">${this._escapeHtml(dimension)}:</span>
+                        <span class="info-value">${this._escapeHtml(value)}</span>
+                      </div>
+                    `,
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                effectiveRelationalValues.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Effective Relational Values</div>
+                  <div class="card-content">
+                    ${effectiveRelationalValues
+                      .map(
+                        ([dimension, value]) => `
+                      <div class="info-row">
+                        <span class="info-label">${this._escapeHtml(dimension)}:</span>
+                        <span class="info-value">${this._escapeHtml(value)}</span>
+                      </div>
+                    `,
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                activePatterns.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Active Runtime Patterns</div>
+                  <div class="card-content">
+                    ${activePatterns.map((pattern) => this._renderSupportPatternItem(pattern)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                candidatePatterns.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Candidate Patterns</div>
+                  <div class="card-content">
+                    ${candidatePatterns.map((pattern) => this._renderSupportPatternItem(pattern)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                confirmedPatterns.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Confirmed Patterns</div>
+                  <div class="card-content">
+                    ${confirmedPatterns.map((pattern) => this._renderSupportPatternItem(pattern)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                recentEvents.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Recent Changes</div>
+                  <div class="card-content">
+                    ${recentEvents.map((event) => this._renderSupportEventItem(event)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                activeArcs.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Active Arcs</div>
+                  <div class="card-content">
+                    ${activeArcs.map((arc) => this._renderSupportArcItem(arc)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                activeDomains.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Active Domains</div>
+                  <div class="card-content">
+                    ${activeDomains.map((domain) => this._renderSupportDomainItem(domain)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+            `
+                : `
+              <div class="empty-state">${this._escapeHtml(supportState.error || "Support inspection is not available in this runtime.")}</div>
+            `
+            }
+          </div>
+        `
+            : ""
+        }
       </div>
     `;
   }
