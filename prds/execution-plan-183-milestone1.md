@@ -1,7 +1,10 @@
 # Execution Plan: PRD #183 - Milestone 1: V2 learning schema and storage contract
 
 ## Overview
-Land the case-based v2 support-learning storage contract without yet claiming the live runtime is fully case-based. This phase defines the typed attempt / observation / case artifacts, introduces the v2 value-pattern ledger statuses and provenance fields, and adds a support-learning-only SQLite cutover that can discard old v1 learning rows while preserving sessions and support-memory state.
+Land the case-based v2 support-learning storage contract without yet claiming the live runtime is fully case-based. This phase defines the typed attempt / observation / case artifacts, introduces the v2 value-pattern ledger statuses and provenance fields, and stages the storage boundary needed for later cutover work.
+
+## 2026-04-07 Decision
+The user chose **Option A** for the Milestone 1 cutover risk: defer the destructive v1 support-learning schema reset until the runtime cutover is ready. The additive v2 schema work in this plan stays valid, but the final destructive removal of v1 learning tables now moves to the later v1-removal phase rather than landing while reply-time runtime code still depends on `support_learning_situations`, `support_patterns`, and related v1 surfaces.
 
 ## Current Repo Constraints
 - `src/alfred/memory/support_learning.py` is centered on `LearningSituation`, `SupportPattern`, and `SupportProfileUpdateEvent`, and current tests assert those v1 record helpers and bounded-adaptation outputs directly.
@@ -56,19 +59,21 @@ Land the case-based v2 support-learning storage contract without yet claiming th
 
 ---
 
-## Phase 3: Support-learning-only cutover from v1
+## Phase 3: Support-learning-only cutover from v1 — deferred
+
+The destructive reset work below is intentionally deferred by the 2026-04-07 Option A decision. The live runtime still depends on the v1 learning tables, so deleting them in Milestone 1 would break the current reply-time path. Revisit this block when the runtime has cut over to v2 and the v1 removal phase is ready.
 
 ### Destructive v1-to-v2 learning schema reset
 
-- [ ] Test: `test_store_init_replaces_v1_learning_schema_without_touching_support_memory()` in `tests/storage/test_support_learning_storage.py` — verify store initialization against a database with the old learning tables drops and recreates only the support-learning-specific schema, preserves sessions and support-memory rows, and leaves the store ready for v2 writes.
-- [ ] Implement: add a support-learning schema-version or table-shape check in `src/alfred/storage/sqlite.py` that performs a support-learning-only destructive reset for the obsolete v1 learning tables and vec indexes, without backfilling old rows.
-- [ ] Run: `uv run pytest tests/storage/test_support_learning_storage.py::test_store_init_replaces_v1_learning_schema_without_touching_support_memory -v`
+- [ ] Deferred: `test_store_init_replaces_v1_learning_schema_without_touching_support_memory()` in `tests/storage/test_support_learning_storage.py`
+- [ ] Deferred: add a support-learning schema-version or table-shape check in `src/alfred/storage/sqlite.py` that performs a support-learning-only destructive reset for the obsolete v1 learning tables and vec indexes, without backfilling old rows.
+- [ ] Deferred: `uv run pytest tests/storage/test_support_learning_storage.py::test_store_init_replaces_v1_learning_schema_without_touching_support_memory -v`
 
 ### Final phase verification
 
-- [ ] Run: `uv run ruff check src/ tests/test_support_learning.py tests/storage/test_support_learning_storage.py`
-- [ ] Run: `uv run mypy --strict src/`
-- [ ] Run: `uv run pytest tests/test_support_learning.py tests/storage/test_support_learning_storage.py -v`
+- [x] Run: `uv run ruff check src/ tests/test_support_learning.py tests/storage/test_support_learning_storage.py`
+- [x] Run: `uv run mypy --strict src/`
+- [x] Run: `uv run pytest tests/test_support_learning.py tests/storage/test_support_learning_storage.py -v`
 
 ---
 
