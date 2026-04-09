@@ -499,6 +499,16 @@ class OutcomeObservation:
         )
 
 
+def extract_conversational_outcome_observations(*, attempt: SupportAttempt) -> tuple[OutcomeObservation, ...]:
+    """Stub for Milestone 3B conversational/semantic extraction.
+
+    This is intentionally a no-op placeholder. The repo currently prioritizes deterministic
+    operational observations and case finalization from stored artifacts.
+    """
+    del attempt
+    return ()
+
+
 @dataclass(eq=True)
 class LearningCase:
     """Inspectable case-level synthesis derived from one attempt and its observations."""
@@ -1777,6 +1787,7 @@ __all__ = [
     "SupportTranscriptSpanRef",
     "SupportValueLedgerEntry",
     "apply_bounded_adaptation",
+    "extract_conversational_outcome_observations",
     "derive_bounded_adaptation",
     "derive_learning_case",
     "derive_value_ledger_updates_from_cases",

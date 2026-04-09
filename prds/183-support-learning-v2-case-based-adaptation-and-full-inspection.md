@@ -706,7 +706,7 @@ This PRD is successful when:
       - [ ] **Milestone 4B:** Runtime cutover so promotion/adaptation reads finalized cases as the primary learning unit.
             Sub-milestones:
             - [x] **Milestone 4B.1:** Runtime value resolution prefers v2 value-ledger entries (`active_auto` / `confirmed`) over legacy v1 support-profile values.
-            - [ ] **Milestone 4B.2:** Remove or fully retire turn-centric bounded adaptation (`LearningSituation`) so case-derived learning is the primary driver.
+            - [x] **Milestone 4B.2:** Remove or fully retire turn-centric bounded adaptation (`LearningSituation`) so case-derived learning is the primary driver.
 
 - [ ] **Milestone 5: Less-conservative scoped adaptation ships for support and relational values**  
       Arc, context, and global learning work with lower thresholds, contradiction tracking, and explicit auto-activation rules.

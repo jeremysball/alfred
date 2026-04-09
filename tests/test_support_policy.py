@@ -727,10 +727,10 @@ def test_support_policy_runtime_builds_v2_support_attempt_from_runtime_result() 
 
 
 @pytest.mark.asyncio
-async def test_support_policy_runtime_persists_learning_situations_and_applies_bounded_support_updates(
+async def test_support_policy_runtime_does_not_persist_learning_situations_when_bounded_adaptation_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Runtime should persist the current learning situation and apply low-risk support updates before generation."""
+    """Runtime should not persist LearningSituation records once bounded adaptation is retired."""
 
     turn_text = "Let's continue the Web UI cleanup work thread."
     query_embedding = [0.0, 0.95, 0.1, 0.0, 0.0, 0.0, 0.95, 0.8, 0.0, 0.0, 0.0, 0.2]
@@ -811,10 +811,9 @@ async def test_support_policy_runtime_persists_learning_situations_and_applies_b
     )
 
     assert runtime_result.behavior_contract.support_values["option_bandwidth"] == "single"
-    assert len(store.saved_learning_situations) == 1
-    assert len(store.update_events) == 2
-    assert any(event.status == "applied" and event.dimension == "option_bandwidth" for event in store.update_events)
-    assert any(pattern.status == "candidate" and pattern.relational_overrides == {"candor": "high"} for pattern in store.patterns)
+    assert store.saved_learning_situations == []
+    assert store.update_events == []
+    assert store.patterns == []
 
 
 def test_support_behavior_contract_changes_across_operational_reflective_and_calibration_contexts() -> None:

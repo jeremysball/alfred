@@ -22,6 +22,7 @@ from alfred.memory.support_learning import (
     derive_bounded_adaptation,
     derive_learning_case,
     derive_value_ledger_updates_from_cases,
+    extract_conversational_outcome_observations,
 )
 from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
 from alfred.support_policy import (
@@ -1237,3 +1238,28 @@ async def test_support_learning_core_links_intervention_situation_pattern_and_up
 
     assert behavior_contract.support_values["option_bandwidth"] == "single"
     assert behavior_contract.relational_values["candor"] == "high"
+
+
+def test_extract_conversational_outcome_observations_is_stubbed() -> None:
+    """Milestone 3B extraction is intentionally stubbed until semantic adjudication ships."""
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-1",
+        session_id="session-1",
+        user_message_id="user-1",
+        assistant_message_id="assistant-1",
+        created_at=datetime(2026, 3, 30, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup",),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "medium"},
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="test",
+        operational_snapshot_ref=None,
+    )
+
+    assert extract_conversational_outcome_observations(attempt=attempt) == ()
