@@ -67,7 +67,8 @@ class TestToolMetadata:
 
         search_memories = registry.get("search_memories")
         assert search_memories is not None
-        assert "before asking the user to repeat" in search_memories.description.lower()
+        assert "targeted" in search_memories.description.lower()
+        assert "injected" in search_memories.description.lower()
         assert "memories" in search_memories.description.lower()
 
         search_sessions = registry.get("search_sessions")
@@ -78,4 +79,5 @@ class TestToolMetadata:
         remember = registry.get("remember")
         assert remember is not None
         assert "curated" in remember.description.lower()
-        assert "future retrieval" in remember.description.lower()
+        assert "reusable" in remember.description.lower()
+        assert "preferences" in remember.description.lower()

@@ -112,6 +112,29 @@ It sits on top of it.
 
 Transcript sessions should remain the raw archive for provenance, replay, and recall. Active continuity should live in life domains, operational arcs, arc-linked work state, and fresh situation snapshots.
 
+## Curated memory stays separate and supplemental
+
+Curated memory still matters, but it has a narrower job.
+
+It should hold:
+- explicit reusable facts
+- explicit durable preferences
+- recurring instructions likely to matter again
+- durable decisions and constraints worth semantic retrieval later
+
+It should not become:
+- the system of record for active work state
+- the system of record for effective support or relational values
+- a dumping ground for inferred identity themes or candidate patterns
+
+Relevant curated memories may be auto-injected into runtime context.
+`search_memories` should remain available for targeted lookup, inspection, or narrower retrieval when the default injected context is not enough.
+
+Boundary rule:
+- structured support memory owns active operational continuity
+- support learning owns adaptive support and relational policy
+- curated memory supplements both, but does not silently replace either one
+
 ## Relational stance model
 
 The runtime should distinguish between:
@@ -212,6 +235,11 @@ The runtime should distinguish at least five learning classes:
 - **direction-theme learning**
 
 These classes should not share the same promotion rules.
+
+No silent collapse rule:
+- curated memories should not automatically become support-profile values
+- support observations should not automatically become curated memories
+- learned patterns should not silently rewrite explicit durable truth
 
 ## Calibration model
 

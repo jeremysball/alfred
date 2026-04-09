@@ -20,11 +20,12 @@ class SearchMemoriesToolParams(BaseModel):
 
 
 class SearchMemoriesTool(Tool, MemoryStoreMixin, SearchResultMixin, ErrorHandlingMixin):
-    """Search through saved memories for relevant information."""
+    """Search through saved memories for targeted lookup and inspection."""
 
     name = "search_memories"
     description = (
-        "Search curated memories for durable facts, preferences, and prior context. Use before asking the user to repeat themselves."
+        "Search curated memories for targeted lookup, explicit inspection, "
+        "or a narrower memory slice when the default injected memory context is not enough."
     )
     param_model = SearchMemoriesToolParams
 

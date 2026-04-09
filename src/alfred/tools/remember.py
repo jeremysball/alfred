@@ -28,14 +28,16 @@ class RememberTool(Tool, MemoryStoreMixin, TagParsingMixin, ContentTruncationMix
     """Save a memory to the unified memory store.
 
     Use this when the user asks you to remember something,
-    or when you learn important facts, preferences, or context
-    that would be useful to recall in future conversations.
+    or when you learn explicit reusable facts, preferences,
+    instructions, decisions, or recurring constraints that would
+    help in future conversations.
     """
 
     name = "remember"
     description = (
-        "Save a curated memory to the unified memory store for future retrieval. "
-        "Prefer selective, high-value memories over transient noise."
+        "Save a curated memory for future retrieval when the user states an explicit reusable fact, "
+        "preference or preferences, instruction, decision, or recurring constraint likely to matter again. "
+        "Do not use it as the system of record for active work state or learned support-policy values."
     )
     param_model = RememberToolParams
 

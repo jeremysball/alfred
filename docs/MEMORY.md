@@ -1,6 +1,6 @@
 # Alfred Memory System
 
-This document explains Alfred's memory model as it exists today and the planned support-memory extensions now being formalized by PRDs #167, #168, #169, and #179.
+This document explains Alfred's memory model as it exists today and the planned support-memory extensions now being formalized by PRDs #167, #168, #169, #179, and #191.
 
 ## Status
 
@@ -36,15 +36,19 @@ These files are expensive but always available.
 
 ### Curated memory
 
-Curated memory stores facts Alfred explicitly decides to remember.
+Curated memory stores reusable facts Alfred explicitly decides to remember.
 
 Use it for:
 - durable user preferences
+- recurring user instructions likely to matter again
 - recurring project context
 - stable decisions likely to matter later
 - memorable facts worth retrieving semantically
 
-Curated memory is not the same thing as raw conversation history.
+Relevant curated memories are automatically injected into prompt context when they match the current turn.
+`search_memories` still matters, but it is the targeted lookup path, not the default way Alfred accesses ordinary relevant curated memory.
+
+Curated memory is not the same thing as raw conversation history, active work state, or adaptive support policy.
 
 ### Session archive
 
@@ -158,8 +162,9 @@ Role:
 When prior context may matter:
 1. current conversation
 2. durable always-loaded files
-3. curated memory
-4. session archive
+3. auto-injected curated memory
+4. targeted `search_memories` lookup when the default memory context is not enough
+5. session archive
 
 ### Current support-first principle
 When Alfred is helping the user act, resume, orient, or answer active-work questions:
@@ -209,11 +214,34 @@ That means:
 | Alfred's identity and voice | `SOUL.md` |
 | Explicit user-confirmed durable truths | `USER.md` |
 | Stable remembered fact worth semantic retrieval | curated memory |
+| Explicit recurring user instruction or stable preference | curated memory |
 | Raw past conversation | session archive |
 | Active project / task / open loop | structured support memory |
-| What support style works in a context | structured support memory |
+| Effective support or relational adaptation | support learning / support profile state |
+| What support style works in a context | support learning / structured support memory |
 | Candidate identity theme | structured support memory until confirmed |
 | Durable user-endorsed identity truth | `USER.md` |
+
+### Boundary and precedence rules
+
+Curated memory should become more used, but it should stay supplemental.
+
+Ownership rules:
+- curated memory stores explicit reusable facts, preferences, instructions, and durable decisions
+- structured support memory owns active work state such as arcs, blockers, tasks, decisions, and open loops
+- support learning owns effective support and relational adaptation such as values, patterns, observations, and cases
+- durable files such as `USER.md` own explicit durable truths the user has confirmed for always-loaded use
+
+Precedence rules:
+- for active-work, resume, orient, and blocked-work questions, prefer structured support memory first, then fresh situations, then curated memory, then session archive
+- for how Alfred should help, prefer the current conversation and effective support runtime values before remembered preferences
+- for durable user truth, prefer explicit durable files first, then explicit remembered facts, then learned patterns only as evidence
+
+No silent cross-promotion:
+- curated memories should not automatically become support-profile values
+- support observations should not automatically become curated memories
+- curated memories should not automatically become `USER.md`
+- learned support patterns should not silently rewrite explicit durable truth
 
 ---
 

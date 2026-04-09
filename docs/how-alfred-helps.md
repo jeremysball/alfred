@@ -99,6 +99,27 @@ He should also be able to search prior sessions so he can:
 
 Session search is not the whole product. But it is one of the core capabilities that makes the broader system real.
 
+## Curated memory still matters
+
+Alfred should also remember reusable things more readily than he does today.
+
+Curated memory is for:
+- explicit stable preferences
+- recurring instructions
+- durable decisions
+- recurring constraints
+- facts likely to matter again later
+
+Relevant curated memories can be auto-injected into runtime context.
+`search_memories` should still exist for targeted lookup, but Alfred should not need to call it just to benefit from ordinary relevant remembered facts.
+
+Just as important, curated memory should stay in its lane:
+- active work state belongs in structured support memory
+- learned support and relational adaptation belong in the support-learning system
+- explicit durable identity-level truth belongs in `USER.md`
+
+Curated memory should supplement those systems, not flatten them into one generic memory blob.
+
 ## Who Alfred should feel like
 
 Alfred is not meant to be a sterile assistant.
@@ -166,6 +187,11 @@ Examples:
 - whether your stated priorities match your actual behavior
 - whether a certain kind of plan repeatedly fails at the same point
 - whether a narrative you keep returning to is actually supported by the evidence
+
+These layers should stay distinct:
+- remembered facts and preferences are not the same thing as learned support policy
+- active operational state is not the same thing as transcript recall
+- identity-level truth should not be silently promoted from ordinary remembered context
 
 ## What Alfred should not do silently
 

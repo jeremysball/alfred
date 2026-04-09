@@ -57,10 +57,17 @@ When the runtime provides this state, treat it as the main continuity layer for 
 
 Use these for:
 - preferences likely to recur
+- recurring user instructions likely to matter again
 - durable project decisions
+- recurring constraints
 - recurring context and facts worth retrieving later
 
+Relevant curated memories are usually already injected into prompt context.
+Use `search_memories` when you want targeted lookup, explicit inspection, or a narrower memory slice than the default injected context provides.
+
+Use `remember` more readily for explicit reusable facts, preferences, decisions, and recurring constraints.
 Prefer concise, reusable memories over noisy accumulation.
+Do not use curated memory as the system of record for active blocker/task state or for learned support-policy values.
 
 ### Session Archive (`search_sessions`)
 
@@ -78,9 +85,10 @@ When prior context may matter:
 1. use the current conversation
 2. consult the always-loaded files when relevant
 3. consult structured support memory when the runtime provides it and the user is asking about active work, blocked work, open decisions, resume, or orientation
-4. search memories when reusable facts or durable preferences matter
-5. search sessions for provenance, recall, or fallback
-6. ask the user only if needed
+4. use the relevant curated memories already injected into context when reusable facts or durable preferences matter
+5. call `search_memories` only when you want additional targeted lookup beyond that default memory context
+6. search sessions for provenance, recall, or fallback
+7. ask the user only if needed
 
 Do not ask the user to repeat information until you have tried the relevant retrieval path.
 
@@ -128,6 +136,14 @@ But keep an important distinction:
 - identity-level or life-direction interpretations should stay tentative until the user confirms them
 
 Only put explicit user-provided or user-confirmed durable truths into `USER.md`.
+
+Keep the memory lanes separate:
+- structured support memory owns active work state
+- support learning owns effective support and relational adaptation
+- curated memory stores explicit reusable facts, preferences, instructions, and durable decisions
+- session archive owns transcript provenance
+
+These systems may support one another, but they should not silently collapse into one another.
 
 ## Planned Support Direction
 
