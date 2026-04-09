@@ -30,7 +30,7 @@ The current foundation already supports:
 - TUI, Web UI, Telegram, and cron surfaces
 - tool use, self-model inspection, and local-first runtime control
 
-The next architectural layer is the relational support model formalized in PRD #179.
+The relational support operating model was formalized in PRD #179.
 Its support-memory foundation shipped in PRD #167, adaptive support runtime and bounded adaptation shipped in PRD #168, and bounded reflection, inspection, review, and correction surfaces shipped in PRD #169.
 
 ---
@@ -124,6 +124,7 @@ Its support-memory foundation shipped in PRD #167, adaptive support runtime and 
 | 167 | ✅ Support Memory Foundation | Typed support episodes, evidence refs, life domains, operational arcs, fresh situations, and operational-first retrieval (PRD #167) |
 | 168 | ✅ Adaptive Support Profile and Intervention Learning | Fixed support/relational registries, runtime support contracts, learning situations, bounded adaptation, and pattern-aware runtime policy (PRD #168) |
 | 169 | ✅ Reflection Reviews and Support Controls | Bounded inline reflection, `/support` inspection, typed correction flows, and `/review` weekly/on-demand review surfaces (PRD #169) |
+| 179 | ✅ Relational Support Operating Model | Formalized Alfred as one relational support system and aligned the shipped support-memory architecture under a shared operating model (PRD #179) |
 
 ### In Progress / Next Up 🔨
 
@@ -136,7 +137,6 @@ Its support-memory foundation shipped in PRD #167, adaptive support runtime and 
 
 | # | Milestone | Description |
 |---|-----------|-------------|
-| 179 | Relational Support Operating Model | Formalize Alfred as one relational support system and align child PRDs, docs, and markdown ownership under shared primitives (PRD #179) |
 | 183 | Support Learning V2 - Case-Based Adaptation and Full Inspection | Replace turn-centric support learning with case-based adaptation, broader auto-learning, and full value inspection across `/context` and `/support` (PRD #183) |
 | 184 | Semantic Adjudication Runtime for Support Routing and Learning | Parent PRD for replacing heuristic support-routing seams with bounded LLM adjudication over rich symbolic runtime state, while keeping embeddings focused on retrieval (PRD #184) |
 | 185 | Shared Semantic Adjudication Contract and Symbolic Runtime Inputs | Define the shared prompt contract, symbolic input envelope, deterministic validators, fallback rules, and observability for support-runtime adjudicators (PRD #185) |

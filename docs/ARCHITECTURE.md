@@ -1,6 +1,6 @@
 # Alfred Architecture
 
-This document explains Alfred's current architecture and the planned support architecture now being formalized by PRD #179.
+This document explains Alfred's current architecture and the relational support architecture formalized by completed PRD #179.
 
 ## Status
 
@@ -16,9 +16,9 @@ Alfred already has:
 
 Alfred is now being extended into a **relational support system**.
 
-That planned layer is documented in:
+That support layer is documented in:
 - [docs/relational-support-model.md](relational-support-model.md)
-- [prds/179-relational-support-operating-model.md](../prds/179-relational-support-operating-model.md)
+- [prds/done/179-relational-support-operating-model.md](../prds/done/179-relational-support-operating-model.md)
 
 This file keeps two things clear:
 1. what Alfred already has as a runtime foundation
@@ -264,7 +264,7 @@ One major architectural goal is to stop smearing truth across markdown, search, 
 - [Self-Model & Introspection](self-model.md)
 
 ### PRDs
-- [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)
+- [PRD #179: Relational Support Operating Model](../prds/done/179-relational-support-operating-model.md)
 - [PRD #167: Support Memory Foundation](../prds/done/167-support-memory-foundation.md)
 - [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/done/168-adaptive-support-profile-and-intervention-learning.md)
 - [PRD #169: Reflection Reviews and Support Controls](../prds/done/169-reflection-reviews-and-support-controls.md)

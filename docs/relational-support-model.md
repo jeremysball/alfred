@@ -1,6 +1,6 @@
 # Relational Support Model
 
-**Status:** Active architecture. This document describes the support model being formalized by PRD #179 and child PRDs #167, #168, and #169.
+**Status:** Active architecture. This document describes the support model formalized by completed PRD #179 and shipped child PRDs #167, #168, and #169.
 
 ## Overview
 

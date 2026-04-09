@@ -1,6 +1,6 @@
 # Alfred Memory System
 
-This document explains Alfred's memory model as it exists today and the planned support-memory extensions now being formalized by PRDs #167, #168, #169, #179, and #191.
+This document explains Alfred's memory model as it exists today and the support-memory architecture formalized by PRDs #167, #168, #169, #179, and #191.
 
 ## Status
 
@@ -269,4 +269,4 @@ That is what turns memory into a real support system instead of a search layer.
 - [PRD #167: Support Memory Foundation](../prds/done/167-support-memory-foundation.md)
 - [PRD #168: Adaptive Support Profile and Intervention Learning](../prds/done/168-adaptive-support-profile-and-intervention-learning.md)
 - [PRD #169: Reflection Reviews and Support Controls](../prds/done/169-reflection-reviews-and-support-controls.md)
-- [PRD #179: Relational Support Operating Model](../prds/179-relational-support-operating-model.md)
+- [PRD #179: Relational Support Operating Model](../prds/done/179-relational-support-operating-model.md)
