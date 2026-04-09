@@ -22,7 +22,7 @@ Do this once per conversation/session:
 2. Read `/workspace/alfred-prd/docs/ROADMAP.md`.
 3. Confirm once: `✅ Skills and parent PRD loaded`
 
-Only read `/home/node/.pi/skills/writing-clearly-and-concisely/SKILL.md` when the task is prose: docs, README text, commit messages, UI copy, reports, or other user-facing writing.
+Do not automatically read `/home/node/.pi/skills/writing-clearly-and-concisely/SKILL.md`. Use normal judgment for prose unless the user explicitly asks for writing help or the change clearly needs that extra guidance.
 
 Do not repeat these reads or the confirmation unless the session context has been reset.
 
