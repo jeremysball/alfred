@@ -141,6 +141,47 @@ def _serialize_update_event_summary(event: Any) -> dict[str, Any]:
     }
 
 
+def _serialize_value_ledger_entry_summary(entry: Any) -> dict[str, Any]:
+    """Serialize one v2 support value ledger entry summary for /context display."""
+    updated_at = getattr(entry, "updated_at", None)
+    return {
+        "value_id": str(getattr(entry, "value_id", "")),
+        "registry": str(getattr(entry, "registry", "unknown")),
+        "dimension": str(getattr(entry, "dimension", "unknown")),
+        "scope": _serialize_support_scope(getattr(entry, "scope", None)),
+        "value": str(getattr(entry, "value", "")),
+        "status": str(getattr(entry, "status", "unknown")),
+        "confidence": float(getattr(entry, "confidence", 0.0)),
+        "evidence_count": int(getattr(entry, "evidence_count", 0)),
+        "contradiction_count": int(getattr(entry, "contradiction_count", 0)),
+        "last_case_id": getattr(entry, "last_case_id", None),
+        "updated_at": updated_at.isoformat() if updated_at is not None else None,
+        "why": str(getattr(entry, "why", "")),
+    }
+
+
+def _serialize_ledger_update_event_summary(event: Any) -> dict[str, Any]:
+    """Serialize one v2 support ledger update event summary for /context display."""
+    created_at = getattr(event, "created_at", None)
+    trigger_case_ids = getattr(event, "trigger_case_ids", ())
+    return {
+        "event_id": str(getattr(event, "event_id", "")),
+        "entity_type": str(getattr(event, "entity_type", "unknown")),
+        "entity_id": str(getattr(event, "entity_id", "")),
+        "registry": str(getattr(event, "registry", "unknown")),
+        "dimension_or_kind": str(getattr(event, "dimension_or_kind", "unknown")),
+        "scope": _serialize_support_scope(getattr(event, "scope", None)),
+        "old_status": getattr(event, "old_status", None),
+        "new_status": str(getattr(event, "new_status", "unknown")),
+        "old_value": getattr(event, "old_value", None),
+        "new_value": getattr(event, "new_value", None),
+        "trigger_case_ids": [str(item) for item in trigger_case_ids] if trigger_case_ids else [],
+        "reason": str(getattr(event, "reason", "")),
+        "confidence": float(getattr(event, "confidence", 0.0)),
+        "created_at": created_at.isoformat() if created_at is not None else None,
+    }
+
+
 def _serialize_learning_situation_summary(situation: Any) -> dict[str, Any]:
     """Serialize one recent learning-situation summary for /context display."""
     recorded_at = getattr(situation, "recorded_at", None)
@@ -216,13 +257,37 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
         _serialize_pattern_summary(pattern)
         for pattern in getattr(getattr(snapshot, "learned_state", None), "confirmed_patterns", ())
     ]
-    recent_update_events = [
-        _serialize_update_event_summary(event)
-        for event in getattr(getattr(snapshot, "learned_state", None), "recent_update_events", ())
+    learned_state = getattr(snapshot, "learned_state", None)
+
+    recent_update_events = [_serialize_update_event_summary(event) for event in getattr(learned_state, "recent_update_events", ())]
+
+    value_ledger_entries = [
+        _serialize_value_ledger_entry_summary(entry)
+        for entry in getattr(learned_state, "value_ledger_entries", ())
     ]
+
+    raw_value_ledger_summary = getattr(learned_state, "value_ledger_summary", None)
+    if isinstance(raw_value_ledger_summary, dict):
+        value_ledger_summary = {
+            "total": int(raw_value_ledger_summary.get("total", 0)),
+            "counts_by_status": dict(raw_value_ledger_summary.get("counts_by_status", {})),
+            "counts_by_registry": dict(raw_value_ledger_summary.get("counts_by_registry", {})),
+        }
+    else:
+        value_ledger_summary = {
+            "total": 0,
+            "counts_by_status": {},
+            "counts_by_registry": {},
+        }
+
+    recent_ledger_update_events = [
+        _serialize_ledger_update_event_summary(event)
+        for event in getattr(learned_state, "recent_ledger_update_events", ())
+    ]
+
     recent_interventions = [
         _serialize_learning_situation_summary(situation)
-        for situation in getattr(getattr(snapshot, "learned_state", None), "recent_interventions", ())
+        for situation in getattr(learned_state, "recent_interventions", ())
     ]
     active_domains = [_serialize_active_domain(domain) for domain in getattr(snapshot, "active_domains", ())]
     active_arcs = [_serialize_active_arc(arc) for arc in getattr(snapshot, "active_arcs", ())]
@@ -262,6 +327,9 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
             "candidate_patterns": candidate_patterns,
             "confirmed_patterns": confirmed_patterns,
             "recent_update_events": recent_update_events,
+            "value_ledger_entries": value_ledger_entries,
+            "value_ledger_summary": value_ledger_summary,
+            "recent_ledger_update_events": recent_ledger_update_events,
             "recent_interventions": recent_interventions,
         },
         "active_domains": active_domains,

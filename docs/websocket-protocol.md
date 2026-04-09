@@ -443,6 +443,11 @@ Sent in response to `/context` command.
 
 `support_state.enabled` is `false` when the support inspection runtime is unavailable. When enabled, `support_state` also includes `active_runtime_state`, `learned_state`, `active_domains`, and `active_arcs`.
 
+`support_state.learned_state` includes additional v2 learning-inspection fields:
+- `value_ledger_entries`: bounded list of v2 value-ledger entries (support + relational)
+- `value_ledger_summary`: `{ total, counts_by_status, counts_by_registry }`
+- `recent_ledger_update_events`: bounded list of recent v2 ledger update events
+
 ---
 
 ### `chat.started`

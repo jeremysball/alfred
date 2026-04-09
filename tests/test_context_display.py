@@ -559,6 +559,45 @@ async def test_get_context_display_includes_support_state_summary() -> None:
                     timestamp=now,
                 ),
             ),
+            value_ledger_entries=(
+                SimpleNamespace(
+                    value_id="val-1",
+                    registry="support",
+                    dimension="option_bandwidth",
+                    scope=SimpleNamespace(type="context", id="execute"),
+                    value="single",
+                    status="active_auto",
+                    confidence=0.81,
+                    evidence_count=3,
+                    contradiction_count=0,
+                    last_case_id="case-1",
+                    updated_at=now,
+                    why="Evidence threshold met.",
+                ),
+            ),
+            value_ledger_summary={
+                "total": 1,
+                "counts_by_status": {"active_auto": 1},
+                "counts_by_registry": {"support": 1},
+            },
+            recent_ledger_update_events=(
+                SimpleNamespace(
+                    event_id="led-1",
+                    entity_type="value",
+                    entity_id="val-1",
+                    registry="support",
+                    dimension_or_kind="option_bandwidth",
+                    scope=SimpleNamespace(type="context", id="execute"),
+                    old_status=None,
+                    new_status="active_auto",
+                    old_value=None,
+                    new_value="single",
+                    trigger_case_ids=("case-1",),
+                    reason="Evidence threshold met.",
+                    confidence=0.82,
+                    created_at=now,
+                ),
+            ),
             recent_interventions=(
                 SimpleNamespace(
                     situation_id="sit-1",
@@ -642,6 +681,45 @@ async def test_get_context_display_includes_support_state_summary() -> None:
             "reason": "The narrower pace improved follow-through.",
             "confidence": 0.88,
             "timestamp": now.isoformat(),
+        }
+    ]
+    assert support_state["learned_state"]["value_ledger_entries"] == [
+        {
+            "value_id": "val-1",
+            "registry": "support",
+            "dimension": "option_bandwidth",
+            "scope": {"type": "context", "id": "execute", "label": "context:execute"},
+            "value": "single",
+            "status": "active_auto",
+            "confidence": 0.81,
+            "evidence_count": 3,
+            "contradiction_count": 0,
+            "last_case_id": "case-1",
+            "updated_at": now.isoformat(),
+            "why": "Evidence threshold met.",
+        }
+    ]
+    assert support_state["learned_state"]["value_ledger_summary"] == {
+        "total": 1,
+        "counts_by_status": {"active_auto": 1},
+        "counts_by_registry": {"support": 1},
+    }
+    assert support_state["learned_state"]["recent_ledger_update_events"] == [
+        {
+            "event_id": "led-1",
+            "entity_type": "value",
+            "entity_id": "val-1",
+            "registry": "support",
+            "dimension_or_kind": "option_bandwidth",
+            "scope": {"type": "context", "id": "execute", "label": "context:execute"},
+            "old_status": None,
+            "new_status": "active_auto",
+            "old_value": None,
+            "new_value": "single",
+            "trigger_case_ids": ["case-1"],
+            "reason": "Evidence threshold met.",
+            "confidence": 0.82,
+            "created_at": now.isoformat(),
         }
     ]
     assert support_state["learned_state"]["recent_interventions"] == [

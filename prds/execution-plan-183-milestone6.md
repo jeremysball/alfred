@@ -90,10 +90,10 @@ uv run pytest tests/webui/test_support_value_ledger_browser.py -v
 
 ### Ensure `/context` display forwards the new fields
 
-- [ ] **Test (Python):** extend `tests/test_context_display.py` (or add a focused new test) to assert that `get_context_display()`’s `support_state` payload includes the new learned-state fields when the reflection runtime provides them.
+- [x] **Test (Python):** extend `tests/test_context_display.py` (or add a focused new test) to assert that `get_context_display()`’s `support_state` payload includes the new learned-state fields when the reflection runtime provides them.
   - Keep this as a narrow “serialization contract” test (no DB required).
 
-- [ ] **Implement (Python):** update `src/alfred/context_display.py` to serialize the new v2 ledger summary fields into the `support_state.learned_state` dict.
+- [x] **Implement (Python):** update `src/alfred/context_display.py` to serialize the new v2 ledger summary fields into the `support_state.learned_state` dict.
 
 
 ---
