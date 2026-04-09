@@ -688,10 +688,10 @@ This PRD is successful when:
 - [ ] **Milestone 1: V2 learning schema and storage contract landed**  
       Add the new attempt, observation, case, value-status, pattern-status, and update-event structures with explicit persistence invariants.
 
-- [ ] **Milestone 2: Reply-time runtime writes `SupportAttempt` records with real refs**  
+- [x] **Milestone 2: Reply-time runtime writes `SupportAttempt` records with real refs**  
       Alfred persists what it tried using real session and message references and never falls back to fake runtime ids.
 
-- [ ] **Milestone 3: Outcome observation pipeline captures operational evidence**  
+- [x] **Milestone 3: Outcome observation pipeline captures operational evidence**  
       Alfred records post-reply outcome observations from work-state transitions.
 
       Note: conversational / semantic observation extraction (explicit feedback, next-turn signals, etc.) is out-of-scope for PRD #183 and owned by **PRD #189**.
@@ -699,15 +699,16 @@ This PRD is successful when:
       Sub-milestones:
       - [x] **Milestone 3A:** Deterministic `work_state_transition` observations from public SQLite work-state seams, linked to the latest matching `SupportAttempt` by `active_arc_id`.
 
-- [ ] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**  
+- [x] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**  
       Alfred promotes and demotes from completed `LearningCase` records instead of thin per-turn snapshots.
 
       Sub-milestones:
       - [x] **Milestone 4A:** Deterministic case finalization + scoring from stored `SupportAttempt` + `OutcomeObservation` bundles.
-      - [ ] **Milestone 4B:** Runtime cutover so promotion/adaptation reads finalized cases as the primary learning unit.
+      - [x] **Milestone 4B:** Runtime cutover so promotion/adaptation reads finalized cases as the primary learning unit.
             Sub-milestones:
             - [x] **Milestone 4B.1:** Runtime value resolution prefers v2 value-ledger entries (`active_auto` / `confirmed`) over legacy v1 support-profile values.
             - [x] **Milestone 4B.2:** Remove or fully retire turn-centric bounded adaptation (`LearningSituation`) so case-derived learning is the primary driver.
+            - [x] **Milestone 4B.3:** Apply v2 case-learning automatically from operational observations (work-state transitions).
 
 - [ ] **Milestone 5: Less-conservative scoped adaptation ships for support and relational values**  
       Arc, context, and global learning work with lower thresholds, contradiction tracking, and explicit auto-activation rules.
@@ -838,6 +839,7 @@ Additional required verification for this PRD:
 | 2026-04-07 | Alfred should be less conservative about what it learns and when it activates it | The user prefers a more adaptive and somewhat overzealous system that can be inspected and corrected later |
 | 2026-04-07 | Both support values and relational values may auto-activate when evidence is strong enough | The user explicitly prefers a less conservative adaptation model, including relational stance changes |
 | 2026-04-09 | PRD #183 owns relational value ledger and activation semantics, not relational dimension meaning or live stance behavior | This keeps the shared learning architecture in #183 while deferring relational runtime semantics to PRDs #192 and #193 |
+| 2026-04-09 | Work-state transition observations should trigger case finalization + v2 ledger updates in the same SQLite transaction | This makes the v2 learning pipeline run end-to-end deterministically from operational evidence without cross-connection visibility bugs |
 | 2026-04-07 | Visibility and correction are the main safety boundary for aggressive learning | The user wants Alfred to learn more, provided the system can be interrogated and changed |
 | 2026-04-07 | `/context` should show effective runtime state, while `/support` must be able to show all values and traces | Compact active-state inspection and full-ledger inspection serve different jobs |
 | 2026-04-07 | Cross-arc learning is allowed, with higher thresholds than arc-local promotion | Generalization is desired, but should still be scope-aware |
