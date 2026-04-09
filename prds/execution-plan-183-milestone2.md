@@ -33,17 +33,17 @@ Land the first live v2 runtime write without pretending the full learning runtim
 
 ### Persist the attempt from the public reply seam
 
-- [ ] Test: `test_chat_stream_persists_v2_support_attempt_with_real_refs()` in `tests/test_core_observability.py` — verify a real `chat_stream()` turn preserves the runtime result, persists the backing session messages, and then writes exactly one `SupportAttempt` with real user/assistant ids.
-- [ ] Implement: thread the runtime result through `src/alfred/alfred.py`, ensure the final reply path persists the required session-message rows before saving the attempt, and call the new support-runtime helper so reply-time attempt capture is durable.
-- [ ] Run: `uv run pytest tests/test_core_observability.py::test_chat_stream_persists_v2_support_attempt_with_real_refs -v`
+- [x] Test: `test_chat_stream_persists_v2_support_attempt_with_real_refs()` in `tests/test_core_observability.py` — verify a real `chat_stream()` turn preserves the runtime result, persists the backing session messages, and then writes exactly one `SupportAttempt` with real user/assistant ids.
+- [x] Implement: thread the runtime result through `src/alfred/alfred.py`, ensure the final reply path persists the required session-message rows before saving the attempt, and call the new support-runtime helper so reply-time attempt capture is durable.
+- [x] Run: `uv run pytest tests/test_core_observability.py::test_chat_stream_persists_v2_support_attempt_with_real_refs -v`
 
 ---
 
 ## Final phase verification
 
-- [ ] Run: `uv run ruff check src/ tests/test_support_policy.py tests/test_core_observability.py`
-- [ ] Run: `uv run mypy --strict src/`
-- [ ] Run: `uv run pytest tests/test_support_policy.py tests/test_core_observability.py -v`
+- [x] Run: `uv run ruff check src/ tests/test_support_policy.py tests/test_core_observability.py`
+- [x] Run: `uv run mypy --strict src/`
+- [x] Run: `uv run pytest tests/test_support_policy.py tests/test_core_observability.py -v`
 
 ## Files to Modify
 

@@ -165,11 +165,12 @@ class FakeSessionManager:
                 message_count=2,
             ),
             messages=[
-                Message(idx=0, role=Role.USER, content="previous user"),
-                Message(idx=1, role=Role.ASSISTANT, content="previous assistant"),
+                Message(idx=0, role=Role.USER, content="previous user", id="msg-seed-user"),
+                Message(idx=1, role=Role.ASSISTANT, content="previous assistant", id="msg-seed-assistant"),
             ],
         )
         self.persist_calls: list[tuple[str, int]] = []
+        self.strict_persist_calls: list[tuple[str, int]] = []
         self.token_updates: list[dict[str, Any]] = []
         self.add_message_calls: list[tuple[str, str, str | None]] = []
 
@@ -200,11 +201,15 @@ class FakeSessionManager:
             idx=len(self.session.messages),
             role=Role(role),
             content=content,
+            id=f"msg-{len(self.session.messages)}",
             timestamp=datetime.now(UTC),
         )
         self.session.messages.append(message)
         self.session.meta.last_active = datetime.now(UTC)
         self.session.meta.message_count = len(self.session.messages)
+
+    async def _persist_messages_strict(self, session_id: str, messages: list[Message]) -> None:
+        self.strict_persist_calls.append((session_id, len(messages)))
 
     def _spawn_persist_task(self, session_id: str, messages: list[Message]) -> None:
         self.persist_calls.append((session_id, len(messages)))
@@ -527,6 +532,115 @@ async def test_chat_stream_includes_compiled_support_contract_in_system_prompt(
     assert "## Runtime Support Contract" in agent.calls[0]["system_prompt"]
     assert "- need: activate" in agent.calls[0]["system_prompt"]
     assert "- intervention_family: narrow" in agent.calls[0]["system_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_persists_v2_support_attempt_with_real_refs(
+    tmp_path: Path,
+) -> None:
+    """chat_stream should persist one v2 support attempt only after real message refs exist."""
+
+    alfred, _, _, session_manager = _make_alfred(tmp_path)
+
+    class FakeSupportPolicyRuntime:
+        def __init__(self) -> None:
+            self.saved_attempts: list[dict[str, Any]] = []
+
+        async def build_turn_contract(
+            self,
+            *,
+            message: str,
+            query_embedding: list[float] | None,
+            session_messages: list[tuple[str, str]],
+            session_id: str | None = None,
+        ) -> Any:
+            del message, query_embedding, session_messages, session_id
+            assessment = SupportTurnAssessment(
+                need="activate",
+                subjects=(ResolvedSubject(kind="arc", id="webui_cleanup"),),
+            )
+            resolved_policy = ResolvedSupportPolicy(
+                assessment=assessment,
+                response_mode="execute",
+                relational_values={
+                    "warmth": "medium",
+                    "companionship": "medium",
+                    "candor": "medium",
+                    "challenge": "medium",
+                    "authority": "medium",
+                    "emotional_attunement": "medium",
+                    "analytical_depth": "medium",
+                    "momentum_pressure": "high",
+                },
+                support_values={
+                    "planning_granularity": "minimal",
+                    "option_bandwidth": "single",
+                    "proactivity_level": "high",
+                    "accountability_style": "firm",
+                    "recovery_style": "steady",
+                    "reflection_depth": "light",
+                    "pacing": "brisk",
+                    "recommendation_forcefulness": "high",
+                },
+                primary_arc_id="webui_cleanup",
+                domain_ids=("work",),
+            )
+            return SimpleNamespace(
+                assessment=assessment,
+                response_mode="execute",
+                resolved_policy=resolved_policy,
+                behavior_contract=compile_support_behavior_contract(resolved_policy),
+                trace=SimpleNamespace(),
+            )
+
+        async def save_support_attempt(
+            self,
+            *,
+            runtime_result: Any,
+            session_id: str,
+            user_message_id: str,
+            assistant_message_id: str,
+            created_at: datetime,
+        ) -> None:
+            assert session_manager.strict_persist_calls == [("session-observability", 4)]
+            self.saved_attempts.append(
+                {
+                    "session_id": session_id,
+                    "user_message_id": user_message_id,
+                    "assistant_message_id": assistant_message_id,
+                    "created_at": created_at,
+                    "need": runtime_result.assessment.need,
+                    "intervention_family": runtime_result.behavior_contract.intervention_family,
+                }
+            )
+
+    runtime = FakeSupportPolicyRuntime()
+    alfred._support_policy_runtime = runtime
+
+    chunks = [
+        chunk
+        async for chunk in alfred.chat_stream(
+            "hello world",
+            assistant_message_id="msg-assistant-live",
+        )
+    ]
+
+    assistant_message = session_manager.session.messages[-1]
+
+    assert chunks == ["Hello", " world"]
+    assert session_manager.strict_persist_calls == [("session-observability", 4)]
+    assert session_manager.persist_calls == []
+    assert runtime.saved_attempts == [
+        {
+            "session_id": "session-observability",
+            "user_message_id": "msg-2",
+            "assistant_message_id": "msg-assistant-live",
+            "created_at": assistant_message.timestamp,
+            "need": "activate",
+            "intervention_family": "narrow",
+        }
+    ]
+    assert assistant_message.id == "msg-assistant-live"
 
 
 @pytest.mark.asyncio

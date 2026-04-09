@@ -1273,6 +1273,30 @@ class SupportPolicyRuntime:
             operational_snapshot_ref=None,
         )
 
+    async def save_support_attempt(
+        self,
+        *,
+        runtime_result: SupportPolicyRuntimeResult,
+        session_id: str,
+        user_message_id: str,
+        assistant_message_id: str,
+        created_at: datetime,
+    ) -> SupportAttempt:
+        """Persist one reply-time v2 support attempt when the store supports it."""
+        save_support_attempt = getattr(self._store, "save_support_attempt", None)
+        if not callable(save_support_attempt):
+            raise RuntimeError("Support-policy store does not support v2 support-attempt persistence")
+
+        attempt = self.build_support_attempt(
+            runtime_result=runtime_result,
+            session_id=session_id,
+            user_message_id=user_message_id,
+            assistant_message_id=assistant_message_id,
+            created_at=created_at,
+        )
+        await save_support_attempt(attempt)
+        return attempt
+
     async def build_turn_contract(
         self,
         *,
