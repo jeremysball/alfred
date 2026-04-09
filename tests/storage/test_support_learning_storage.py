@@ -573,6 +573,226 @@ async def test_sqlite_store_skips_work_state_transition_observations_without_mat
 
 
 @pytest.mark.asyncio
+async def test_sqlite_store_work_state_transition_finalizes_case_and_applies_v2_value_ledger_updates(sqlite_store):
+    """Work-state transitions should finalize cases and apply v2 case learning (operational-only runner)."""
+
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.9,
+        created_at=datetime(2026, 4, 7, 14, 30, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 14, 30, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.93,
+        created_at=datetime(2026, 4, 7, 14, 30, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 14, 31, tzinfo=UTC),
+        last_active_at=datetime(2026, 4, 7, 14, 31, tzinfo=UTC),
+    )
+    task = ArcTask(
+        task_id="task-split-bootstrap-flow",
+        arc_id=arc.arc_id,
+        title="Split bootstrap flow",
+        status="todo",
+        created_at=datetime(2026, 4, 7, 14, 32, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 14, 32, tzinfo=UTC),
+        next_step="List the current boot responsibilities",
+    )
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(task)
+
+    session_id = "sess-work-state-case-learning"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-0",
+                "role": "user",
+                "timestamp": "2026-04-07T14:33:00+00:00",
+                "content": "Help me resume the Web UI cleanup.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-1",
+                "role": "assistant",
+                "timestamp": "2026-04-07T14:34:00+00:00",
+                "content": "Okay — one narrow next step.",
+            },
+        ],
+        {"topic": "work-state-case-learning"},
+    )
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-work-state-1",
+        session_id=session_id,
+        user_message_id="msg-0",
+        assistant_message_id="msg-1",
+        created_at=datetime(2026, 4, 7, 14, 34, tzinfo=UTC),
+        need="resume",
+        response_mode="execute",
+        subject_refs=("arc:arc-webui-cleanup",),
+        active_arc_id=arc.arc_id,
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="summarize",
+        intervention_refs=(),
+        prompt_contract_summary="Resume the arc with one narrow next move.",
+        operational_snapshot_ref=None,
+    )
+    await sqlite_store.save_support_attempt(attempt)
+
+    await sqlite_store.save_arc_task(
+        ArcTask(
+            task_id=task.task_id,
+            arc_id=task.arc_id,
+            title=task.title,
+            status="done",
+            created_at=task.created_at,
+            updated_at=datetime(2026, 4, 7, 14, 35, tzinfo=UTC),
+            next_step="",
+        )
+    )
+
+    observations = await sqlite_store.list_support_outcome_observations(attempt.attempt_id)
+    assert [observation.signals for observation in observations] == [("task_completed",)]
+
+    learning_case = await sqlite_store.get_support_learning_case(f"case-{attempt.attempt_id}")
+    assert learning_case is not None
+    assert learning_case.status == "complete"
+    assert learning_case.promotion_eligibility is True
+
+    value_entries = await sqlite_store.list_support_value_ledger_entries()
+    assert any(
+        entry.registry == "support"
+        and entry.dimension == "option_bandwidth"
+        and entry.scope == SupportProfileScope(type="arc", id=arc.arc_id)
+        and entry.value == "single"
+        and entry.status == "shadow"
+        and entry.evidence_count == 1
+        for entry in value_entries
+    )
+
+    update_events = await sqlite_store.list_support_ledger_update_events()
+    assert any(
+        event.entity_type == "value"
+        and event.registry == "support"
+        and event.dimension_or_kind == "option_bandwidth"
+        and event.scope == SupportProfileScope(type="arc", id=arc.arc_id)
+        and event.new_status == "shadow"
+        and learning_case.case_id in event.trigger_case_ids
+        for event in update_events
+    )
+
+@pytest.mark.asyncio
+async def test_sqlite_store_work_state_transition_does_not_apply_case_learning_when_no_observation_is_written(
+    sqlite_store,
+):
+    """Operational writes should not finalize cases or write v2 ledger rows when no transition signal is emitted."""
+
+    domain = LifeDomain(
+        domain_id="domain-work",
+        name="Work",
+        status="active",
+        salience=0.9,
+        created_at=datetime(2026, 4, 7, 14, 40, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 14, 40, tzinfo=UTC),
+    )
+    arc = OperationalArc(
+        arc_id="arc-webui-cleanup",
+        title="Web UI cleanup",
+        kind="project",
+        primary_domain_id=domain.domain_id,
+        status="active",
+        salience=0.93,
+        created_at=datetime(2026, 4, 7, 14, 40, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 14, 41, tzinfo=UTC),
+        last_active_at=datetime(2026, 4, 7, 14, 41, tzinfo=UTC),
+    )
+    task = ArcTask(
+        task_id="task-split-bootstrap-flow",
+        arc_id=arc.arc_id,
+        title="Split bootstrap flow",
+        status="todo",
+        created_at=datetime(2026, 4, 7, 14, 42, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 14, 42, tzinfo=UTC),
+        next_step="List the current boot responsibilities",
+    )
+
+    await sqlite_store.save_life_domain(domain)
+    await sqlite_store.save_operational_arc(arc)
+    await sqlite_store.save_arc_task(task)
+
+    session_id = "sess-work-state-case-learning-noop"
+    await sqlite_store.save_session(
+        session_id,
+        [
+            {
+                "idx": 0,
+                "id": "msg-0",
+                "role": "user",
+                "timestamp": "2026-04-07T14:43:00+00:00",
+                "content": "Help me resume the Web UI cleanup.",
+            },
+            {
+                "idx": 1,
+                "id": "msg-1",
+                "role": "assistant",
+                "timestamp": "2026-04-07T14:44:00+00:00",
+                "content": "Okay — one narrow next step.",
+            },
+        ],
+        {"topic": "work-state-case-learning-noop"},
+    )
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-work-state-noop-1",
+        session_id=session_id,
+        user_message_id="msg-0",
+        assistant_message_id="msg-1",
+        created_at=datetime(2026, 4, 7, 14, 44, tzinfo=UTC),
+        need="resume",
+        response_mode="execute",
+        subject_refs=("arc:arc-webui-cleanup",),
+        active_arc_id=arc.arc_id,
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="summarize",
+        intervention_refs=(),
+        prompt_contract_summary="Resume the arc with one narrow next move.",
+        operational_snapshot_ref=None,
+    )
+    await sqlite_store.save_support_attempt(attempt)
+
+    await sqlite_store.save_arc_task(
+        ArcTask(
+            task_id=task.task_id,
+            arc_id=task.arc_id,
+            title=task.title,
+            status="todo",
+            created_at=task.created_at,
+            updated_at=datetime(2026, 4, 7, 14, 45, tzinfo=UTC),
+            next_step=task.next_step,
+        )
+    )
+
+    assert await sqlite_store.list_support_outcome_observations(attempt.attempt_id) == []
+    assert await sqlite_store.get_support_learning_case(f"case-{attempt.attempt_id}") is None
+    assert await sqlite_store.list_support_value_ledger_entries() == []
+    assert await sqlite_store.list_support_ledger_update_events() == []
+
+
+@pytest.mark.asyncio
 async def test_sqlite_store_finalize_support_learning_case_persists_scored_case_from_attempt_observations(sqlite_store):
     """The store should finalize and persist one deterministic learning case from a stored attempt bundle."""
 

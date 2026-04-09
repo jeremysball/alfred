@@ -2359,6 +2359,16 @@ class SQLiteStore:
         )
         await self._upsert_support_outcome_observation(db, observation)
 
+        learning_case = await self._finalize_support_learning_case_in_tx(db, attempt.attempt_id)
+        if (
+            learning_case is None
+            or learning_case.status != "complete"
+            or not learning_case.promotion_eligibility
+        ):
+            return
+
+        await self._apply_support_case_learning_in_tx(db, learning_case.case_id)
+
     async def list_resume_arcs(self, limit: int = 12) -> list[OperationalArc]:
         """List active and dormant arcs in resume-oriented order across domains."""
         await self._init()
@@ -3834,6 +3844,18 @@ class SQLiteStore:
             ),
         )
 
+    async def _finalize_support_learning_case_in_tx(self, db: Any, attempt_id: str) -> LearningCase | None:
+        """Derive + upsert one deterministic learning case on an existing SQLite connection."""
+        attempt = await self._load_support_attempt_by_id(db, attempt_id)
+        if attempt is None:
+            return None
+        observations = await self._load_support_outcome_observations(db, attempt_id)
+        learning_case = derive_learning_case(attempt=attempt, observations=observations)
+        if learning_case is None:
+            return None
+        await self._upsert_support_learning_case(db, learning_case)
+        return learning_case
+
     async def finalize_support_learning_case(self, attempt_id: str) -> LearningCase | None:
         """Derive and persist one deterministic learning case for a stored attempt bundle."""
         await self._init()
@@ -3844,14 +3866,9 @@ class SQLiteStore:
             await self._load_extensions(db)
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
-            attempt = await self._load_support_attempt_by_id(db, attempt_id)
-            if attempt is None:
-                return None
-            observations = await self._load_support_outcome_observations(db, attempt_id)
-            learning_case = derive_learning_case(attempt=attempt, observations=observations)
+            learning_case = await self._finalize_support_learning_case_in_tx(db, attempt_id)
             if learning_case is None:
                 return None
-            await self._upsert_support_learning_case(db, learning_case)
             await db.commit()
             return learning_case
 
@@ -4114,6 +4131,55 @@ class SQLiteStore:
             ),
         )
 
+    async def _apply_support_case_learning_in_tx(
+        self,
+        db: Any,
+        case_id: str,
+    ) -> SupportLedgerDerivationResult | None:
+        """Derive + upsert v2 value-ledger updates on an existing SQLite connection."""
+        learning_case = await self._load_support_learning_case_by_id(db, case_id)
+        if learning_case is None or learning_case.status != "complete" or not learning_case.promotion_eligibility:
+            return None
+
+        attempt = await self._load_support_attempt_by_id(db, learning_case.attempt_id)
+        if attempt is None or learning_case.finalized_at is None:
+            return None
+
+        focus_bundle = FinalizedLearningCaseBundle(learning_case=learning_case, attempt=attempt)
+        scoped_bundles: list[FinalizedLearningCaseBundle] = []
+        for scoped_case in await self._load_support_learning_cases_for_scope(db, learning_case.scope):
+            if scoped_case.finalized_at is None:
+                continue
+            scoped_attempt = await self._load_support_attempt_by_id(db, scoped_case.attempt_id)
+            if scoped_attempt is None:
+                continue
+            scoped_bundles.append(FinalizedLearningCaseBundle(learning_case=scoped_case, attempt=scoped_attempt))
+
+        existing_value_entries = {
+            (
+                entry.registry,
+                entry.dimension,
+                entry.scope.type,
+                entry.scope.id,
+                entry.value,
+            ): entry
+            for entry in await self._load_support_value_ledger_entries_for_scope(db, learning_case.scope)
+        }
+        result = derive_value_ledger_updates_from_cases(
+            focus_bundle=focus_bundle,
+            scoped_bundles=tuple(scoped_bundles),
+            existing_value_entries=existing_value_entries,
+            now=learning_case.finalized_at,
+        )
+        if not result.value_entries and not result.update_events:
+            return None
+
+        for value_entry in result.value_entries:
+            await self._upsert_support_value_ledger_entry(db, value_entry)
+        for event in result.update_events:
+            await self._upsert_support_ledger_update_event(db, event)
+        return result
+
     async def apply_support_case_learning(self, case_id: str) -> SupportLedgerDerivationResult | None:
         """Derive and persist v2 value-ledger updates for one finalized support-learning case."""
         await self._init()
@@ -4125,47 +4191,9 @@ class SQLiteStore:
             await db.execute("PRAGMA foreign_keys = ON")
             db.row_factory = aiosqlite.Row
 
-            learning_case = await self._load_support_learning_case_by_id(db, case_id)
-            if learning_case is None or learning_case.status != "complete" or not learning_case.promotion_eligibility:
+            result = await self._apply_support_case_learning_in_tx(db, case_id)
+            if result is None:
                 return None
-
-            attempt = await self._load_support_attempt_by_id(db, learning_case.attempt_id)
-            if attempt is None or learning_case.finalized_at is None:
-                return None
-
-            focus_bundle = FinalizedLearningCaseBundle(learning_case=learning_case, attempt=attempt)
-            scoped_bundles: list[FinalizedLearningCaseBundle] = []
-            for scoped_case in await self._load_support_learning_cases_for_scope(db, learning_case.scope):
-                if scoped_case.finalized_at is None:
-                    continue
-                scoped_attempt = await self._load_support_attempt_by_id(db, scoped_case.attempt_id)
-                if scoped_attempt is None:
-                    continue
-                scoped_bundles.append(FinalizedLearningCaseBundle(learning_case=scoped_case, attempt=scoped_attempt))
-
-            existing_value_entries = {
-                (
-                    entry.registry,
-                    entry.dimension,
-                    entry.scope.type,
-                    entry.scope.id,
-                    entry.value,
-                ): entry
-                for entry in await self._load_support_value_ledger_entries_for_scope(db, learning_case.scope)
-            }
-            result = derive_value_ledger_updates_from_cases(
-                focus_bundle=focus_bundle,
-                scoped_bundles=tuple(scoped_bundles),
-                existing_value_entries=existing_value_entries,
-                now=learning_case.finalized_at,
-            )
-            if not result.value_entries and not result.update_events:
-                return None
-
-            for value_entry in result.value_entries:
-                await self._upsert_support_value_ledger_entry(db, value_entry)
-            for event in result.update_events:
-                await self._upsert_support_ledger_update_event(db, event)
             await db.commit()
             return result
 
