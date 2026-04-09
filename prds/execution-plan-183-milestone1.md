@@ -28,9 +28,9 @@ Land the case-based v2 support-learning storage contract without yet claiming th
 
 ### Attempt / observation / case record contract
 
-- [ ] Test: `test_v2_learning_artifacts_round_trip_with_real_refs()` in `tests/test_support_learning.py` — verify `SupportAttempt`, `OutcomeObservation`, and `LearningCase` preserve real session/message refs, signals, scoring fields, scope, and status semantics through record helpers.
-- [ ] Implement: replace the v1-only learning artifact definitions in `src/alfred/memory/support_learning.py` with the minimal v2 typed models and validators needed for attempt / observation / case persistence, while keeping untouched callers compiling until later runtime phases cut over.
-- [ ] Run: `uv run pytest tests/test_support_learning.py::test_v2_learning_artifacts_round_trip_with_real_refs -v`
+- [x] Test: `test_v2_learning_artifacts_round_trip_with_real_refs()` in `tests/test_support_learning.py` — verify `SupportAttempt`, `OutcomeObservation`, and `LearningCase` preserve real session/message refs, signals, scoring fields, scope, and status semantics through record helpers.
+- [x] Implement: replace the v1-only learning artifact definitions in `src/alfred/memory/support_learning.py` with the minimal v2 typed models and validators needed for attempt / observation / case persistence, while keeping untouched callers compiling until later runtime phases cut over.
+- [x] Run: `uv run pytest tests/test_support_learning.py::test_v2_learning_artifacts_round_trip_with_real_refs -v`
 
 ### Value / pattern ledger status contract
 

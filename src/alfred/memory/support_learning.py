@@ -51,6 +51,16 @@ PatternKind = Literal[
 ]
 PatternStatus = Literal["candidate", "confirmed", "rejected"]
 UpdateEventStatus = Literal["proposed", "applied", "reverted"]
+ObservationSourceType = Literal[
+    "next_user_turn",
+    "work_state_transition",
+    "explicit_feedback",
+    "timeout",
+    "manual_review",
+    "system_inference",
+]
+ObservationSignalPolarity = Literal["positive", "negative", "mixed", "neutral"]
+LearningCaseStatus = Literal["open", "complete", "insufficient_evidence", "superseded"]
 
 _SUPPORTED_INTERVENTION_FAMILIES: frozenset[str] = frozenset(
     {
@@ -77,6 +87,20 @@ _SUPPORTED_PATTERN_KINDS: frozenset[str] = frozenset(
 )
 _SUPPORTED_PATTERN_STATUSES: frozenset[str] = frozenset({"candidate", "confirmed", "rejected"})
 _SUPPORTED_UPDATE_EVENT_STATUSES: frozenset[str] = frozenset({"proposed", "applied", "reverted"})
+_SUPPORTED_OBSERVATION_SOURCE_TYPES: frozenset[str] = frozenset(
+    {
+        "next_user_turn",
+        "work_state_transition",
+        "explicit_feedback",
+        "timeout",
+        "manual_review",
+        "system_inference",
+    }
+)
+_SUPPORTED_OBSERVATION_SIGNAL_POLARITIES: frozenset[str] = frozenset({"positive", "negative", "mixed", "neutral"})
+_SUPPORTED_LEARNING_CASE_STATUSES: frozenset[str] = frozenset(
+    {"open", "complete", "insufficient_evidence", "superseded"}
+)
 
 
 def _dump_datetime(value: datetime) -> str:
@@ -168,6 +192,63 @@ def _validate_confidence(value: Any, *, label: str) -> float:
     return normalized
 
 
+def _validate_optional_trimmed_string(value: Any, *, label: str) -> str | None:
+    if value is None:
+        return None
+    return _validate_trimmed_string(value, label=label)
+
+
+def _validate_non_negative_int(value: Any, *, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be an integer, got {actual_type}")
+    normalized = int(value)
+    if normalized < 0:
+        raise ValueError(f"{label} must be non-negative")
+    return normalized
+
+
+def _validate_bool(value: Any, *, label: str) -> bool:
+    if not isinstance(value, bool):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a bool, got {actual_type}")
+    return value
+
+
+def _dump_transcript_span_refs(values: tuple[SupportTranscriptSpanRef, ...]) -> str:
+    return json.dumps([value.to_record() for value in values])
+
+
+def _load_transcript_span_refs(value: Any) -> tuple[SupportTranscriptSpanRef, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        decoded: Any = json.loads(value)
+    else:
+        decoded = value
+    if decoded is None:
+        return ()
+    if not isinstance(decoded, list):
+        raise ValueError("Transcript span refs must deserialize to a list of records")
+
+    refs: list[SupportTranscriptSpanRef] = []
+    for decoded_ref in decoded:
+        if not isinstance(decoded_ref, Mapping):
+            raise ValueError("Transcript span refs must contain mapping records")
+        refs.append(SupportTranscriptSpanRef.from_record(decoded_ref))
+    return tuple(refs)
+
+
+def _validate_transcript_span_refs(value: Any, *, label: str) -> tuple[SupportTranscriptSpanRef, ...]:
+    if not isinstance(value, tuple):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a tuple of SupportTranscriptSpanRef values, got {actual_type}")
+    for evidence_ref in value:
+        if not isinstance(evidence_ref, SupportTranscriptSpanRef):
+            raise ValueError(f"{label} must contain SupportTranscriptSpanRef values")
+    return value
+
+
 @dataclass(eq=True, frozen=True)
 class SupportTranscriptSpanRef:
     """General same-session transcript span used by learning records."""
@@ -202,6 +283,311 @@ class SupportTranscriptSpanRef:
             session_id=str(record["session_id"]),
             message_start_id=str(record["message_start_id"]),
             message_end_id=str(record["message_end_id"]),
+        )
+
+
+@dataclass(eq=True)
+class SupportAttempt:
+    """Reply-time record of what Alfred tried for one support turn."""
+
+    attempt_id: str
+    session_id: str
+    user_message_id: str
+    assistant_message_id: str
+    created_at: datetime
+    need: Need
+    response_mode: str
+    subject_refs: tuple[str, ...] = ()
+    active_arc_id: str | None = None
+    active_domain_ids: tuple[str, ...] = ()
+    effective_support_values: dict[str, str] = field(default_factory=dict)
+    effective_relational_values: dict[str, str] = field(default_factory=dict)
+    intervention_family: InterventionFamily = "confirm"
+    intervention_refs: tuple[str, ...] = ()
+    prompt_contract_summary: str = ""
+    operational_snapshot_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        self.attempt_id = _validate_trimmed_string(self.attempt_id, label="attempt_id")
+        self.session_id = _validate_trimmed_string(self.session_id, label="session_id")
+        self.user_message_id = _validate_trimmed_string(self.user_message_id, label="user_message_id")
+        self.assistant_message_id = _validate_trimmed_string(
+            self.assistant_message_id,
+            label="assistant_message_id",
+        )
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+
+        self.need = _validate_trimmed_string(self.need, label="need")  # type: ignore[assignment]
+        if self.need not in _SUPPORTED_NEEDS:
+            raise ValueError(f"Unsupported support attempt need: {self.need!r}")
+
+        self.response_mode = _validate_trimmed_string(self.response_mode, label="response_mode")
+        if self.response_mode not in V1_INTERACTION_CONTEXT_IDS:
+            allowed_contexts = ", ".join(V1_INTERACTION_CONTEXT_IDS)
+            raise ValueError(
+                f"Unsupported support attempt response_mode: {self.response_mode!r}. Expected one of: {allowed_contexts}",
+            )
+
+        self.subject_refs = _validate_string_tuple(self.subject_refs, label="subject_refs")
+        self.active_domain_ids = _validate_string_tuple(self.active_domain_ids, label="active_domain_ids")
+        self.active_arc_id = _validate_optional_trimmed_string(self.active_arc_id, label="active_arc_id")
+        self.intervention_family = _validate_trimmed_string(
+            self.intervention_family,
+            label="intervention_family",
+        )  # type: ignore[assignment]
+        if self.intervention_family not in _SUPPORTED_INTERVENTION_FAMILIES:
+            raise ValueError(f"Unsupported support attempt intervention_family: {self.intervention_family!r}")
+        self.intervention_refs = _validate_string_tuple(self.intervention_refs, label="intervention_refs")
+        self.prompt_contract_summary = _validate_trimmed_string(
+            self.prompt_contract_summary,
+            label="prompt_contract_summary",
+        )
+        self.operational_snapshot_ref = _validate_optional_trimmed_string(
+            self.operational_snapshot_ref,
+            label="operational_snapshot_ref",
+        )
+        self.effective_support_values = _validate_applied_values(
+            self.effective_support_values,
+            registry="support",
+            label="effective_support_values",
+        )
+        self.effective_relational_values = _validate_applied_values(
+            self.effective_relational_values,
+            registry="relational",
+            label="effective_relational_values",
+        )
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "attempt_id": self.attempt_id,
+            "session_id": self.session_id,
+            "user_message_id": self.user_message_id,
+            "assistant_message_id": self.assistant_message_id,
+            "created_at": _dump_datetime(self.created_at),
+            "need": self.need,
+            "response_mode": self.response_mode,
+            "subject_refs": _dump_str_tuple(self.subject_refs),
+            "active_arc_id": self.active_arc_id,
+            "active_domain_ids": _dump_str_tuple(self.active_domain_ids),
+            "effective_support_values": json.dumps(self.effective_support_values),
+            "effective_relational_values": json.dumps(self.effective_relational_values),
+            "intervention_family": self.intervention_family,
+            "intervention_refs": _dump_str_tuple(self.intervention_refs),
+            "prompt_contract_summary": self.prompt_contract_summary,
+            "operational_snapshot_ref": self.operational_snapshot_ref,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportAttempt:
+        support_values_raw = record.get("effective_support_values")
+        relational_values_raw = record.get("effective_relational_values")
+        support_values = json.loads(support_values_raw) if isinstance(support_values_raw, str) else support_values_raw
+        relational_values = json.loads(relational_values_raw) if isinstance(relational_values_raw, str) else relational_values_raw
+        active_arc_id = record.get("active_arc_id")
+        operational_snapshot_ref = record.get("operational_snapshot_ref")
+        return cls(
+            attempt_id=str(record["attempt_id"]),
+            session_id=str(record["session_id"]),
+            user_message_id=str(record["user_message_id"]),
+            assistant_message_id=str(record["assistant_message_id"]),
+            created_at=_load_datetime(record["created_at"]),
+            need=cast(Need, str(record["need"])),
+            response_mode=str(record["response_mode"]),
+            subject_refs=_load_str_tuple(record.get("subject_refs")),
+            active_arc_id=None if active_arc_id is None else str(active_arc_id),
+            active_domain_ids=_load_str_tuple(record.get("active_domain_ids")),
+            effective_support_values=support_values or {},
+            effective_relational_values=relational_values or {},
+            intervention_family=cast(InterventionFamily, str(record["intervention_family"])),
+            intervention_refs=_load_str_tuple(record.get("intervention_refs")),
+            prompt_contract_summary=str(record["prompt_contract_summary"]),
+            operational_snapshot_ref=None if operational_snapshot_ref is None else str(operational_snapshot_ref),
+        )
+
+
+@dataclass(eq=True)
+class OutcomeObservation:
+    """One post-reply observation linked to a support attempt."""
+
+    observation_id: str
+    attempt_id: str
+    observed_at: datetime
+    source_type: ObservationSourceType
+    signals: tuple[str, ...]
+    signal_polarity: ObservationSignalPolarity
+    signal_strength: float
+    evidence_refs: tuple[SupportTranscriptSpanRef, ...] = ()
+    operational_delta_refs: tuple[str, ...] = ()
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        self.observation_id = _validate_trimmed_string(self.observation_id, label="observation_id")
+        self.attempt_id = _validate_trimmed_string(self.attempt_id, label="attempt_id")
+        if not isinstance(self.observed_at, datetime):
+            actual_type = type(self.observed_at).__name__
+            raise ValueError(f"observed_at must be a datetime, got {actual_type}")
+
+        self.source_type = _validate_trimmed_string(self.source_type, label="source_type")  # type: ignore[assignment]
+        if self.source_type not in _SUPPORTED_OBSERVATION_SOURCE_TYPES:
+            raise ValueError(f"Unsupported outcome observation source_type: {self.source_type!r}")
+        self.signals = _validate_string_tuple(self.signals, label="signals")
+        if not self.signals:
+            raise ValueError("signals must contain at least one observation signal")
+        self.signal_polarity = _validate_trimmed_string(
+            self.signal_polarity,
+            label="signal_polarity",
+        )  # type: ignore[assignment]
+        if self.signal_polarity not in _SUPPORTED_OBSERVATION_SIGNAL_POLARITIES:
+            raise ValueError(f"Unsupported outcome observation signal_polarity: {self.signal_polarity!r}")
+        self.signal_strength = _validate_confidence(self.signal_strength, label="signal_strength")
+        self.evidence_refs = _validate_transcript_span_refs(self.evidence_refs, label="evidence_refs")
+        self.operational_delta_refs = _validate_string_tuple(
+            self.operational_delta_refs,
+            label="operational_delta_refs",
+        )
+        self.notes = _validate_optional_trimmed_string(self.notes, label="notes")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "observation_id": self.observation_id,
+            "attempt_id": self.attempt_id,
+            "observed_at": _dump_datetime(self.observed_at),
+            "source_type": self.source_type,
+            "signals": _dump_str_tuple(self.signals),
+            "signal_polarity": self.signal_polarity,
+            "signal_strength": self.signal_strength,
+            "evidence_refs": _dump_transcript_span_refs(self.evidence_refs),
+            "operational_delta_refs": _dump_str_tuple(self.operational_delta_refs),
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> OutcomeObservation:
+        notes = record.get("notes")
+        return cls(
+            observation_id=str(record["observation_id"]),
+            attempt_id=str(record["attempt_id"]),
+            observed_at=_load_datetime(record["observed_at"]),
+            source_type=cast(ObservationSourceType, str(record["source_type"])),
+            signals=_load_str_tuple(record.get("signals")),
+            signal_polarity=cast(ObservationSignalPolarity, str(record["signal_polarity"])),
+            signal_strength=float(record["signal_strength"]),
+            evidence_refs=_load_transcript_span_refs(record.get("evidence_refs")),
+            operational_delta_refs=_load_str_tuple(record.get("operational_delta_refs")),
+            notes=None if notes is None else str(notes),
+        )
+
+
+@dataclass(eq=True)
+class LearningCase:
+    """Inspectable case-level synthesis derived from one attempt and its observations."""
+
+    case_id: str
+    attempt_id: str
+    status: LearningCaseStatus
+    scope: SupportProfileScope
+    created_at: datetime
+    finalized_at: datetime | None = None
+    aggregate_signals: tuple[str, ...] = ()
+    positive_evidence_count: int = 0
+    negative_evidence_count: int = 0
+    contradiction_count: int = 0
+    conversation_score: float = 0.0
+    operational_score: float = 0.0
+    overall_score: float = 0.0
+    promotion_eligibility: bool = False
+    evidence_refs: tuple[SupportTranscriptSpanRef, ...] = ()
+    summary: str | None = None
+
+    def __post_init__(self) -> None:
+        self.case_id = _validate_trimmed_string(self.case_id, label="case_id")
+        self.attempt_id = _validate_trimmed_string(self.attempt_id, label="attempt_id")
+        self.status = _validate_trimmed_string(self.status, label="status")  # type: ignore[assignment]
+        if self.status not in _SUPPORTED_LEARNING_CASE_STATUSES:
+            raise ValueError(f"Unsupported learning case status: {self.status!r}")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+        if self.finalized_at is not None and not isinstance(self.finalized_at, datetime):
+            actual_type = type(self.finalized_at).__name__
+            raise ValueError(f"finalized_at must be a datetime, got {actual_type}")
+        if self.status == "open":
+            if self.finalized_at is not None:
+                raise ValueError("Open learning cases must not set finalized_at")
+        elif self.finalized_at is None:
+            raise ValueError(f"Learning case status {self.status!r} requires finalized_at")
+
+        self.aggregate_signals = _validate_string_tuple(self.aggregate_signals, label="aggregate_signals")
+        self.positive_evidence_count = _validate_non_negative_int(
+            self.positive_evidence_count,
+            label="positive_evidence_count",
+        )
+        self.negative_evidence_count = _validate_non_negative_int(
+            self.negative_evidence_count,
+            label="negative_evidence_count",
+        )
+        self.contradiction_count = _validate_non_negative_int(
+            self.contradiction_count,
+            label="contradiction_count",
+        )
+        self.conversation_score = _validate_confidence(self.conversation_score, label="conversation_score")
+        self.operational_score = _validate_confidence(self.operational_score, label="operational_score")
+        self.overall_score = _validate_confidence(self.overall_score, label="overall_score")
+        self.promotion_eligibility = _validate_bool(self.promotion_eligibility, label="promotion_eligibility")
+        self.evidence_refs = _validate_transcript_span_refs(self.evidence_refs, label="evidence_refs")
+        self.summary = _validate_optional_trimmed_string(self.summary, label="summary")
+        if self.status != "open" and self.summary is None:
+            raise ValueError(f"Learning case status {self.status!r} requires summary")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "attempt_id": self.attempt_id,
+            "status": self.status,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "created_at": _dump_datetime(self.created_at),
+            "finalized_at": None if self.finalized_at is None else _dump_datetime(self.finalized_at),
+            "aggregate_signals": _dump_str_tuple(self.aggregate_signals),
+            "positive_evidence_count": self.positive_evidence_count,
+            "negative_evidence_count": self.negative_evidence_count,
+            "contradiction_count": self.contradiction_count,
+            "conversation_score": self.conversation_score,
+            "operational_score": self.operational_score,
+            "overall_score": self.overall_score,
+            "promotion_eligibility": self.promotion_eligibility,
+            "evidence_refs": _dump_transcript_span_refs(self.evidence_refs),
+            "summary": self.summary,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> LearningCase:
+        finalized_at = record.get("finalized_at")
+        summary = record.get("summary")
+        return cls(
+            case_id=str(record["case_id"]),
+            attempt_id=str(record["attempt_id"]),
+            status=cast(LearningCaseStatus, str(record["status"])),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            created_at=_load_datetime(record["created_at"]),
+            finalized_at=None if finalized_at is None else _load_datetime(finalized_at),
+            aggregate_signals=_load_str_tuple(record.get("aggregate_signals")),
+            positive_evidence_count=int(record.get("positive_evidence_count", 0)),
+            negative_evidence_count=int(record.get("negative_evidence_count", 0)),
+            contradiction_count=int(record.get("contradiction_count", 0)),
+            conversation_score=float(record.get("conversation_score", 0.0)),
+            operational_score=float(record.get("operational_score", 0.0)),
+            overall_score=float(record.get("overall_score", 0.0)),
+            promotion_eligibility=bool(record.get("promotion_eligibility", False)),
+            evidence_refs=_load_transcript_span_refs(record.get("evidence_refs")),
+            summary=None if summary is None else str(summary),
         )
 
 
@@ -759,7 +1145,10 @@ async def apply_bounded_adaptation(
 
 __all__ = [
     "BoundedAdaptationResult",
+    "LearningCase",
     "LearningSituation",
+    "OutcomeObservation",
+    "SupportAttempt",
     "SupportLearningStore",
     "SupportPattern",
     "SupportProfileUpdateEvent",

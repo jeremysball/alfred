@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 import pytest
 
 from alfred.memory.support_learning import (
+    LearningCase,
     LearningSituation,
+    OutcomeObservation,
+    SupportAttempt,
     SupportPattern,
     SupportProfileUpdateEvent,
     SupportTranscriptSpanRef,
@@ -72,6 +75,90 @@ class FakePolicyValueStore:
                 if value.registry == registry and value.dimension == dimension and value.scope == scope:
                     return value
         return None
+
+
+def test_v2_learning_artifacts_round_trip_with_real_refs() -> None:
+    """Support attempts, observations, and cases should preserve the v2 storage contract."""
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-webui-1",
+        session_id="sess-812",
+        user_message_id="msg-user-445",
+        assistant_message_id="msg-assistant-446",
+        created_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        subject_refs=("arc:webui_cleanup", "domain:work"),
+        effective_support_values={
+            "option_bandwidth": "single",
+            "planning_granularity": "minimal",
+        },
+        effective_relational_values={
+            "candor": "high",
+            "warmth": "medium",
+        },
+        intervention_family="narrow",
+        intervention_refs=("int-webui-1",),
+        prompt_contract_summary="Keep the next move narrow, direct, and execution-focused.",
+        operational_snapshot_ref="arc:webui_cleanup@snap-2026-04-07T12:10:00Z",
+    )
+    observation = OutcomeObservation(
+        observation_id="obs-webui-1",
+        attempt_id="attempt-webui-1",
+        observed_at=datetime(2026, 4, 7, 12, 18, tzinfo=UTC),
+        source_type="work_state_transition",
+        signals=("task_started", "blocker_narrowed", "clarity"),
+        signal_polarity="positive",
+        signal_strength=0.82,
+        evidence_refs=(
+            SupportTranscriptSpanRef(
+                session_id="sess-812",
+                message_start_id="msg-user-445",
+                message_end_id="msg-assistant-446",
+            ),
+        ),
+        operational_delta_refs=("task:webui-bootstrap", "blocker:script-order"),
+        notes="The user started the bootstrap task and the main blocker narrowed.",
+    )
+    case = LearningCase(
+        case_id="case-webui-1",
+        attempt_id="attempt-webui-1",
+        status="complete",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        created_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        finalized_at=datetime(2026, 4, 7, 12, 25, tzinfo=UTC),
+        aggregate_signals=("task_started", "blocker_narrowed", "clarity"),
+        positive_evidence_count=3,
+        negative_evidence_count=0,
+        contradiction_count=0,
+        conversation_score=0.78,
+        operational_score=0.91,
+        overall_score=0.85,
+        promotion_eligibility=True,
+        evidence_refs=(
+            SupportTranscriptSpanRef(
+                session_id="sess-812",
+                message_start_id="msg-user-445",
+                message_end_id="msg-assistant-446",
+            ),
+        ),
+        summary="Narrow direct execution support correlated with concrete movement in the active arc.",
+    )
+
+    attempt_record = attempt.to_record()
+    observation_record = observation.to_record()
+    case_record = case.to_record()
+
+    assert SupportAttempt.from_record(attempt_record) == attempt
+    assert OutcomeObservation.from_record(observation_record) == observation
+    assert LearningCase.from_record(case_record) == case
+    assert attempt_record["user_message_id"] == "msg-user-445"
+    assert observation_record["signals"] == '["task_started", "blocker_narrowed", "clarity"]'
+    assert case_record["scope_type"] == "arc"
+    assert case_record["promotion_eligibility"] is True
+
 
 
 def test_learning_situation_round_trips_with_embedding_contract_and_linked_interventions() -> None:
