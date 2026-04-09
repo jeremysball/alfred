@@ -325,6 +325,7 @@ class Alfred:
                 if maybe_session is None:
                     raise RuntimeError("No active session")
                 session = maybe_session
+            resolved_session_id = session.meta.session_id
 
             messages_list = self.core.session_manager.get_session_messages(session_id)
             if reuse_user_message and messages_list:
@@ -397,7 +398,7 @@ class Alfred:
                 message=message,
                 query_embedding=query_embedding,
                 session_messages=session_messages,
-                session_id=session_id,
+                session_id=resolved_session_id,
             )
             if support_contract_section:
                 system_prompt = f"{system_prompt}\n\n{support_contract_section}"

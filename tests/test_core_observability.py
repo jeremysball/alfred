@@ -521,7 +521,7 @@ async def test_chat_stream_includes_compiled_support_contract_in_system_prompt(
             "message": "hello world",
             "query_embedding": [0.1, 0.2, 0.3],
             "session_messages": [("user", "previous user"), ("assistant", "previous assistant")],
-            "session_id": None,
+            "session_id": "session-observability",
         }
     ]
     assert "## Runtime Support Contract" in agent.calls[0]["system_prompt"]
@@ -667,7 +667,7 @@ async def test_chat_stream_appends_reflection_guidance_only_when_a_pattern_shoul
             "message": "hello world",
             "query_embedding": [0.1, 0.2, 0.3],
             "session_messages": [("user", "previous user"), ("assistant", "previous assistant")],
-            "session_id": None,
+            "session_id": "session-observability",
         }
     ]
     assert reflection_runtime.calls == [
@@ -675,7 +675,7 @@ async def test_chat_stream_appends_reflection_guidance_only_when_a_pattern_shoul
             "message": "hello world",
             "query_embedding": [0.1, 0.2, 0.3],
             "session_messages": [("user", "previous user"), ("assistant", "previous assistant")],
-            "session_id": None,
+            "session_id": "session-observability",
             "response_mode": "execute",
         }
     ]
