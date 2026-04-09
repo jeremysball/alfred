@@ -691,12 +691,13 @@ This PRD is successful when:
 - [ ] **Milestone 2: Reply-time runtime writes `SupportAttempt` records with real refs**  
       Alfred persists what it tried using real session and message references and never falls back to fake runtime ids.
 
-- [ ] **Milestone 3: Outcome observation pipeline captures conversational and operational evidence**  
-      Alfred records post-reply outcome observations from user feedback, next-turn signals, and work-state transitions.
+- [ ] **Milestone 3: Outcome observation pipeline captures operational evidence**  
+      Alfred records post-reply outcome observations from work-state transitions.
+
+      Note: conversational / semantic observation extraction (explicit feedback, next-turn signals, etc.) is out-of-scope for PRD #183 and owned by **PRD #189**.
 
       Sub-milestones:
       - [x] **Milestone 3A:** Deterministic `work_state_transition` observations from public SQLite work-state seams, linked to the latest matching `SupportAttempt` by `active_arc_id`.
-      - [ ] **Milestone 3B:** Conversational / semantic observation extraction (explicit feedback, next-turn signals, etc.).
 
 - [ ] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**  
       Alfred promotes and demotes from completed `LearningCase` records instead of thin per-turn snapshots.
