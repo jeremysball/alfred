@@ -34,9 +34,9 @@ Land the case-based v2 support-learning storage contract without yet claiming th
 
 ### Value / pattern ledger status contract
 
-- [ ] Test: `test_v2_value_pattern_and_update_event_records_preserve_status_and_provenance()` in `tests/test_support_learning.py` — verify v2 value rows, pattern rows, and update events preserve explicit statuses, evidence counts, contradiction counts, source refs, and `why` metadata through record helpers.
-- [ ] Implement: add the minimal v2 ledger models and status validators in `src/alfred/memory/support_learning.py` and, where unavoidable, stage or extend `src/alfred/memory/support_profile.py` so the richer ledger can coexist with the still-v1 runtime loading surface until later milestones replace it.
-- [ ] Run: `uv run pytest tests/test_support_learning.py::test_v2_value_pattern_and_update_event_records_preserve_status_and_provenance -v`
+- [x] Test: `test_v2_value_pattern_and_update_event_records_preserve_status_and_provenance()` in `tests/test_support_learning.py` — verify v2 value rows, pattern rows, and update events preserve explicit statuses, evidence counts, contradiction counts, source refs, and `why` metadata through record helpers.
+- [x] Implement: add the minimal v2 ledger models and status validators in `src/alfred/memory/support_learning.py` and, where unavoidable, stage or extend `src/alfred/memory/support_profile.py` so the richer ledger can coexist with the still-v1 runtime loading surface until later milestones replace it.
+- [x] Run: `uv run pytest tests/test_support_learning.py::test_v2_value_pattern_and_update_event_records_preserve_status_and_provenance -v`
 
 ---
 

@@ -11,9 +11,12 @@ from alfred.memory.support_learning import (
     LearningSituation,
     OutcomeObservation,
     SupportAttempt,
+    SupportLedgerUpdateEvent,
     SupportPattern,
+    SupportPatternLedgerEntry,
     SupportProfileUpdateEvent,
     SupportTranscriptSpanRef,
+    SupportValueLedgerEntry,
     apply_bounded_adaptation,
     derive_bounded_adaptation,
 )
@@ -158,6 +161,73 @@ def test_v2_learning_artifacts_round_trip_with_real_refs() -> None:
     assert observation_record["signals"] == '["task_started", "blocker_narrowed", "clarity"]'
     assert case_record["scope_type"] == "arc"
     assert case_record["promotion_eligibility"] is True
+
+
+
+def test_v2_value_pattern_and_update_event_records_preserve_status_and_provenance() -> None:
+    """V2 ledger rows should preserve explicit statuses and provenance through record helpers."""
+
+    value_entry = SupportValueLedgerEntry(
+        value_id="val-candor-execute-1",
+        registry="relational",
+        dimension="candor",
+        scope=SupportProfileScope(type="context", id="execute"),
+        value="high",
+        status="active_auto",
+        source="auto_case",
+        confidence=0.83,
+        evidence_count=4,
+        contradiction_count=1,
+        last_case_id="case-webui-2",
+        created_at=datetime(2026, 4, 7, 12, 26, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 31, tzinfo=UTC),
+        why="Repeated successful execute cases favored stronger candor.",
+    )
+    pattern_entry = SupportPatternLedgerEntry(
+        pattern_id="pattern-execute-directness",
+        registry="relational",
+        kind="support_preference",
+        scope=SupportProfileScope(type="context", id="execute"),
+        status="active_auto",
+        claim="Direct candor plus narrow next steps works better during execute turns.",
+        evidence_count=5,
+        contradiction_count=1,
+        confidence=0.81,
+        source_case_ids=("case-webui-1", "case-webui-2"),
+        created_at=datetime(2026, 4, 7, 12, 26, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 31, tzinfo=UTC),
+        why="Multiple successful execute cases converged on the same support preference.",
+    )
+    update_event = SupportLedgerUpdateEvent(
+        event_id="evt-candor-auto-1",
+        entity_type="value",
+        entity_id="val-candor-execute-1",
+        registry="relational",
+        dimension_or_kind="candor",
+        scope=SupportProfileScope(type="context", id="execute"),
+        old_status="shadow",
+        new_status="active_auto",
+        old_value="medium",
+        new_value="high",
+        trigger_case_ids=("case-webui-1", "case-webui-2"),
+        reason="Repeated successful execute cases supported stronger candor.",
+        confidence=0.83,
+        created_at=datetime(2026, 4, 7, 12, 31, tzinfo=UTC),
+    )
+
+    value_record = value_entry.to_record()
+    pattern_record = pattern_entry.to_record()
+    event_record = update_event.to_record()
+
+    assert SupportValueLedgerEntry.from_record(value_record) == value_entry
+    assert SupportPatternLedgerEntry.from_record(pattern_record) == pattern_entry
+    assert SupportLedgerUpdateEvent.from_record(event_record) == update_event
+    assert value_record["status"] == "active_auto"
+    assert value_record["evidence_count"] == 4
+    assert pattern_record["source_case_ids"] == '["case-webui-1", "case-webui-2"]'
+    assert pattern_record["why"] == "Multiple successful execute cases converged on the same support preference."
+    assert event_record["old_status"] == "shadow"
+    assert event_record["trigger_case_ids"] == '["case-webui-1", "case-webui-2"]'
 
 
 

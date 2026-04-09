@@ -61,6 +61,10 @@ ObservationSourceType = Literal[
 ]
 ObservationSignalPolarity = Literal["positive", "negative", "mixed", "neutral"]
 LearningCaseStatus = Literal["open", "complete", "insufficient_evidence", "superseded"]
+SupportValueStatus = Literal["shadow", "active_auto", "confirmed", "rejected", "retired"]
+SupportPatternLedgerStatus = Literal["candidate", "active_auto", "confirmed", "rejected", "retired"]
+SupportLedgerStatus = Literal["shadow", "candidate", "active_auto", "confirmed", "rejected", "retired"]
+SupportLedgerEntityType = Literal["value", "pattern"]
 
 _SUPPORTED_INTERVENTION_FAMILIES: frozenset[str] = frozenset(
     {
@@ -101,6 +105,14 @@ _SUPPORTED_OBSERVATION_SIGNAL_POLARITIES: frozenset[str] = frozenset({"positive"
 _SUPPORTED_LEARNING_CASE_STATUSES: frozenset[str] = frozenset(
     {"open", "complete", "insufficient_evidence", "superseded"}
 )
+_SUPPORTED_VALUE_LEDGER_STATUSES: frozenset[str] = frozenset({"shadow", "active_auto", "confirmed", "rejected", "retired"})
+_SUPPORTED_PATTERN_LEDGER_STATUSES: frozenset[str] = frozenset(
+    {"candidate", "active_auto", "confirmed", "rejected", "retired"}
+)
+_SUPPORTED_LEDGER_STATUSES: frozenset[str] = frozenset(
+    {"shadow", "candidate", "active_auto", "confirmed", "rejected", "retired"}
+)
+_SUPPORTED_LEDGER_ENTITY_TYPES: frozenset[str] = frozenset({"value", "pattern"})
 
 
 def _dump_datetime(value: datetime) -> str:
@@ -190,6 +202,13 @@ def _validate_confidence(value: Any, *, label: str) -> float:
     if not 0.0 <= normalized <= 1.0:
         raise ValueError(f"{label} must be between 0.0 and 1.0")
     return normalized
+
+
+def _validate_registry_kind(value: Any, *, label: str) -> SupportProfileRegistryKind:
+    normalized = _validate_trimmed_string(value, label=label)
+    if normalized not in {"relational", "support"}:
+        raise ValueError(f"{label} must be 'relational' or 'support', got {normalized!r}")
+    return cast(SupportProfileRegistryKind, normalized)
 
 
 def _validate_optional_trimmed_string(value: Any, *, label: str) -> str | None:
@@ -588,6 +607,281 @@ class LearningCase:
             promotion_eligibility=bool(record.get("promotion_eligibility", False)),
             evidence_refs=_load_transcript_span_refs(record.get("evidence_refs")),
             summary=None if summary is None else str(summary),
+        )
+
+
+@dataclass(eq=True)
+class SupportValueLedgerEntry:
+    """V2 ledger row for one scoped support or relational value."""
+
+    value_id: str
+    registry: SupportProfileRegistryKind
+    dimension: str
+    scope: SupportProfileScope
+    value: str
+    status: SupportValueStatus
+    source: str
+    confidence: float
+    evidence_count: int
+    contradiction_count: int
+    last_case_id: str | None
+    created_at: datetime
+    updated_at: datetime
+    why: str
+
+    def __post_init__(self) -> None:
+        self.value_id = _validate_trimmed_string(self.value_id, label="value_id")
+        self.registry = _validate_registry_kind(self.registry, label="registry")
+        self.dimension = _validate_trimmed_string(self.dimension, label="dimension")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        self.value = _validate_trimmed_string(self.value, label="value")
+        validate_registry_value(self.registry, self.dimension, self.value)
+        self.status = _validate_trimmed_string(self.status, label="status")  # type: ignore[assignment]
+        if self.status not in _SUPPORTED_VALUE_LEDGER_STATUSES:
+            raise ValueError(f"Unsupported support value ledger status: {self.status!r}")
+        self.source = _validate_trimmed_string(self.source, label="source")
+        self.confidence = _validate_confidence(self.confidence, label="confidence")
+        self.evidence_count = _validate_non_negative_int(self.evidence_count, label="evidence_count")
+        self.contradiction_count = _validate_non_negative_int(
+            self.contradiction_count,
+            label="contradiction_count",
+        )
+        self.last_case_id = _validate_optional_trimmed_string(self.last_case_id, label="last_case_id")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+        if not isinstance(self.updated_at, datetime):
+            actual_type = type(self.updated_at).__name__
+            raise ValueError(f"updated_at must be a datetime, got {actual_type}")
+        self.why = _validate_trimmed_string(self.why, label="why")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "value_id": self.value_id,
+            "registry": self.registry,
+            "dimension": self.dimension,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "value": self.value,
+            "status": self.status,
+            "source": self.source,
+            "confidence": self.confidence,
+            "evidence_count": self.evidence_count,
+            "contradiction_count": self.contradiction_count,
+            "last_case_id": self.last_case_id,
+            "created_at": _dump_datetime(self.created_at),
+            "updated_at": _dump_datetime(self.updated_at),
+            "why": self.why,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportValueLedgerEntry:
+        last_case_id = record.get("last_case_id")
+        return cls(
+            value_id=str(record["value_id"]),
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            dimension=str(record["dimension"]),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            value=str(record["value"]),
+            status=cast(SupportValueStatus, str(record["status"])),
+            source=str(record["source"]),
+            confidence=float(record["confidence"]),
+            evidence_count=int(record["evidence_count"]),
+            contradiction_count=int(record["contradiction_count"]),
+            last_case_id=None if last_case_id is None else str(last_case_id),
+            created_at=_load_datetime(record["created_at"]),
+            updated_at=_load_datetime(record["updated_at"]),
+            why=str(record["why"]),
+        )
+
+
+@dataclass(eq=True)
+class SupportPatternLedgerEntry:
+    """V2 ledger row for one surfaced pattern with explicit provenance."""
+
+    pattern_id: str
+    registry: SupportProfileRegistryKind
+    kind: PatternKind
+    scope: SupportProfileScope
+    status: SupportPatternLedgerStatus
+    claim: str
+    evidence_count: int
+    contradiction_count: int
+    confidence: float
+    source_case_ids: tuple[str, ...] = ()
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    why: str = ""
+
+    def __post_init__(self) -> None:
+        self.pattern_id = _validate_trimmed_string(self.pattern_id, label="pattern_id")
+        self.registry = _validate_registry_kind(self.registry, label="registry")
+        self.kind = _validate_trimmed_string(self.kind, label="kind")  # type: ignore[assignment]
+        if self.kind not in _SUPPORTED_PATTERN_KINDS:
+            raise ValueError(f"Unsupported support pattern ledger kind: {self.kind!r}")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        self.status = _validate_trimmed_string(self.status, label="status")  # type: ignore[assignment]
+        if self.status not in _SUPPORTED_PATTERN_LEDGER_STATUSES:
+            raise ValueError(f"Unsupported support pattern ledger status: {self.status!r}")
+        self.claim = _validate_trimmed_string(self.claim, label="claim")
+        self.evidence_count = _validate_non_negative_int(self.evidence_count, label="evidence_count")
+        self.contradiction_count = _validate_non_negative_int(
+            self.contradiction_count,
+            label="contradiction_count",
+        )
+        self.confidence = _validate_confidence(self.confidence, label="confidence")
+        self.source_case_ids = _validate_string_tuple(self.source_case_ids, label="source_case_ids")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+        if not isinstance(self.updated_at, datetime):
+            actual_type = type(self.updated_at).__name__
+            raise ValueError(f"updated_at must be a datetime, got {actual_type}")
+        self.why = _validate_trimmed_string(self.why, label="why")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "pattern_id": self.pattern_id,
+            "registry": self.registry,
+            "kind": self.kind,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "status": self.status,
+            "claim": self.claim,
+            "evidence_count": self.evidence_count,
+            "contradiction_count": self.contradiction_count,
+            "confidence": self.confidence,
+            "source_case_ids": _dump_str_tuple(self.source_case_ids),
+            "created_at": _dump_datetime(self.created_at),
+            "updated_at": _dump_datetime(self.updated_at),
+            "why": self.why,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportPatternLedgerEntry:
+        return cls(
+            pattern_id=str(record["pattern_id"]),
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            kind=cast(PatternKind, str(record["kind"])),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            status=cast(SupportPatternLedgerStatus, str(record["status"])),
+            claim=str(record["claim"]),
+            evidence_count=int(record["evidence_count"]),
+            contradiction_count=int(record["contradiction_count"]),
+            confidence=float(record["confidence"]),
+            source_case_ids=_load_str_tuple(record.get("source_case_ids")),
+            created_at=_load_datetime(record["created_at"]),
+            updated_at=_load_datetime(record["updated_at"]),
+            why=str(record["why"]),
+        )
+
+
+@dataclass(eq=True)
+class SupportLedgerUpdateEvent:
+    """V2 ledger event explaining why one value or pattern changed state."""
+
+    event_id: str
+    entity_type: SupportLedgerEntityType
+    entity_id: str
+    registry: SupportProfileRegistryKind
+    dimension_or_kind: str
+    scope: SupportProfileScope
+    old_status: SupportLedgerStatus | None
+    new_status: SupportLedgerStatus
+    old_value: str | None = None
+    new_value: str | None = None
+    trigger_case_ids: tuple[str, ...] = ()
+    reason: str = ""
+    confidence: float = 0.0
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self) -> None:
+        self.event_id = _validate_trimmed_string(self.event_id, label="event_id")
+        self.entity_type = _validate_trimmed_string(self.entity_type, label="entity_type")  # type: ignore[assignment]
+        if self.entity_type not in _SUPPORTED_LEDGER_ENTITY_TYPES:
+            raise ValueError(f"Unsupported support ledger entity_type: {self.entity_type!r}")
+        self.entity_id = _validate_trimmed_string(self.entity_id, label="entity_id")
+        self.registry = _validate_registry_kind(self.registry, label="registry")
+        self.dimension_or_kind = _validate_trimmed_string(self.dimension_or_kind, label="dimension_or_kind")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        if self.old_status is not None:
+            normalized_old_status = _validate_trimmed_string(self.old_status, label="old_status")
+            if normalized_old_status not in _SUPPORTED_LEDGER_STATUSES:
+                raise ValueError(f"Unsupported support ledger old_status: {normalized_old_status!r}")
+            self.old_status = cast(SupportLedgerStatus, normalized_old_status)
+        self.new_status = _validate_trimmed_string(self.new_status, label="new_status")  # type: ignore[assignment]
+        if self.new_status not in _SUPPORTED_LEDGER_STATUSES:
+            raise ValueError(f"Unsupported support ledger new_status: {self.new_status!r}")
+        self.old_value = _validate_optional_trimmed_string(self.old_value, label="old_value")
+        self.new_value = _validate_optional_trimmed_string(self.new_value, label="new_value")
+        self.trigger_case_ids = _validate_string_tuple(self.trigger_case_ids, label="trigger_case_ids")
+        self.reason = _validate_trimmed_string(self.reason, label="reason")
+        self.confidence = _validate_confidence(self.confidence, label="confidence")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+
+        if self.entity_type == "value":
+            if self.new_value is None:
+                raise ValueError("Value ledger update events must set new_value")
+            if self.old_value is not None:
+                validate_registry_value(self.registry, self.dimension_or_kind, self.old_value)
+            validate_registry_value(self.registry, self.dimension_or_kind, self.new_value)
+        else:
+            if self.dimension_or_kind not in _SUPPORTED_PATTERN_KINDS:
+                raise ValueError(f"Unsupported support ledger pattern kind: {self.dimension_or_kind!r}")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "event_id": self.event_id,
+            "entity_type": self.entity_type,
+            "entity_id": self.entity_id,
+            "registry": self.registry,
+            "dimension_or_kind": self.dimension_or_kind,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "old_status": self.old_status,
+            "new_status": self.new_status,
+            "old_value": self.old_value,
+            "new_value": self.new_value,
+            "trigger_case_ids": _dump_str_tuple(self.trigger_case_ids),
+            "reason": self.reason,
+            "confidence": self.confidence,
+            "created_at": _dump_datetime(self.created_at),
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportLedgerUpdateEvent:
+        old_status = record.get("old_status")
+        old_value = record.get("old_value")
+        new_value = record.get("new_value")
+        return cls(
+            event_id=str(record["event_id"]),
+            entity_type=cast(SupportLedgerEntityType, str(record["entity_type"])),
+            entity_id=str(record["entity_id"]),
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            dimension_or_kind=str(record["dimension_or_kind"]),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            old_status=None if old_status is None else cast(SupportLedgerStatus, str(old_status)),
+            new_status=cast(SupportLedgerStatus, str(record["new_status"])),
+            old_value=None if old_value is None else str(old_value),
+            new_value=None if new_value is None else str(new_value),
+            trigger_case_ids=_load_str_tuple(record.get("trigger_case_ids")),
+            reason=str(record["reason"]),
+            confidence=float(record["confidence"]),
+            created_at=_load_datetime(record["created_at"]),
         )
 
 
@@ -1150,9 +1444,12 @@ __all__ = [
     "OutcomeObservation",
     "SupportAttempt",
     "SupportLearningStore",
+    "SupportLedgerUpdateEvent",
     "SupportPattern",
+    "SupportPatternLedgerEntry",
     "SupportProfileUpdateEvent",
     "SupportTranscriptSpanRef",
+    "SupportValueLedgerEntry",
     "apply_bounded_adaptation",
     "derive_bounded_adaptation",
 ]
