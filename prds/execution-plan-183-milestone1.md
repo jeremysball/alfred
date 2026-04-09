@@ -44,9 +44,9 @@ Land the case-based v2 support-learning storage contract without yet claiming th
 
 ### Case bundle round trip through the store
 
-- [ ] Test: `test_sqlite_store_round_trips_v2_learning_case_bundle()` in `tests/storage/test_support_learning_storage.py` — verify the store can save and read one attempt with linked observations, one finalized case, related value/pattern ledger rows, and update events without losing ordering, refs, or scoring fields.
-- [ ] Implement: add the new v2 support-learning tables and typed save/load/list helpers in `src/alfred/storage/sqlite.py`, and wire them to the v2 record helpers in `src/alfred/memory/support_learning.py`.
-- [ ] Run: `uv run pytest tests/storage/test_support_learning_storage.py::test_sqlite_store_round_trips_v2_learning_case_bundle -v`
+- [x] Test: `test_sqlite_store_round_trips_v2_learning_case_bundle()` in `tests/storage/test_support_learning_storage.py` — verify the store can save and read one attempt with linked observations, one finalized case, related value/pattern ledger rows, and update events without losing ordering, refs, or scoring fields.
+- [x] Implement: add the new v2 support-learning tables and typed save/load/list helpers in `src/alfred/storage/sqlite.py`, and wire them to the v2 record helpers in `src/alfred/memory/support_learning.py`.
+- [x] Run: `uv run pytest tests/storage/test_support_learning_storage.py::test_sqlite_store_round_trips_v2_learning_case_bundle -v`
 
 ### Real-reference persistence invariants
 

@@ -7,10 +7,16 @@ from datetime import UTC, datetime
 import pytest
 
 from alfred.memory.support_learning import (
+    LearningCase,
     LearningSituation,
+    OutcomeObservation,
+    SupportAttempt,
+    SupportLedgerUpdateEvent,
     SupportPattern,
+    SupportPatternLedgerEntry,
     SupportProfileUpdateEvent,
     SupportTranscriptSpanRef,
+    SupportValueLedgerEntry,
 )
 from alfred.memory.support_profile import SupportProfileScope
 from alfred.storage.sqlite import SQLiteStore
@@ -22,6 +28,179 @@ async def sqlite_store(tmp_path):
     store = SQLiteStore(tmp_path / "support_learning.db", embedding_dim=4)
     await store._init()
     return store
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_round_trips_v2_learning_case_bundle(sqlite_store):
+    """The store should round-trip one v2 case bundle without losing refs or ordering."""
+
+    session_id = "sess-v2-case-bundle"
+    messages = [
+        {
+            "idx": 0,
+            "id": "msg-0",
+            "role": "user",
+            "timestamp": "2026-04-07T12:00:00+00:00",
+            "content": "Help me start the Web UI bootstrap cleanup.",
+        },
+        {
+            "idx": 1,
+            "id": "msg-1",
+            "role": "assistant",
+            "timestamp": "2026-04-07T12:01:00+00:00",
+            "content": "Let's keep it narrow and choose one next move.",
+        },
+        {
+            "idx": 2,
+            "id": "msg-2",
+            "role": "user",
+            "timestamp": "2026-04-07T12:05:00+00:00",
+            "content": "Okay, I started the bootstrap task and narrowed the blocker.",
+        },
+    ]
+    await sqlite_store.save_session(session_id, messages, {"topic": "support-learning-v2"})
+
+    attempt = SupportAttempt(
+        attempt_id="attempt-webui-1",
+        session_id=session_id,
+        user_message_id="msg-0",
+        assistant_message_id="msg-1",
+        created_at=datetime(2026, 4, 7, 12, 1, tzinfo=UTC),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup", "domain:work"),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values={"option_bandwidth": "single"},
+        effective_relational_values={"candor": "high"},
+        intervention_family="narrow",
+        intervention_refs=("int-webui-1",),
+        prompt_contract_summary="Keep the next move narrow and direct.",
+        operational_snapshot_ref="arc:webui_cleanup@snap-2026-04-07T12:01:00Z",
+    )
+    observations = [
+        OutcomeObservation(
+            observation_id="obs-webui-1",
+            attempt_id="attempt-webui-1",
+            observed_at=datetime(2026, 4, 7, 12, 5, tzinfo=UTC),
+            source_type="next_user_turn",
+            signals=("clarity", "commitment"),
+            signal_polarity="positive",
+            signal_strength=0.76,
+            evidence_refs=(
+                SupportTranscriptSpanRef(
+                    session_id=session_id,
+                    message_start_id="msg-2",
+                    message_end_id="msg-2",
+                ),
+            ),
+            notes="The user endorsed the narrow plan and showed commitment.",
+        ),
+        OutcomeObservation(
+            observation_id="obs-webui-2",
+            attempt_id="attempt-webui-1",
+            observed_at=datetime(2026, 4, 7, 12, 6, tzinfo=UTC),
+            source_type="work_state_transition",
+            signals=("task_started", "blocker_narrowed"),
+            signal_polarity="positive",
+            signal_strength=0.88,
+            evidence_refs=(
+                SupportTranscriptSpanRef(
+                    session_id=session_id,
+                    message_start_id="msg-2",
+                    message_end_id="msg-2",
+                ),
+            ),
+            operational_delta_refs=("task:webui-bootstrap", "blocker:script-order"),
+            notes="The user started the task and narrowed the blocker.",
+        ),
+    ]
+    learning_case = LearningCase(
+        case_id="case-webui-1",
+        attempt_id="attempt-webui-1",
+        status="complete",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        created_at=datetime(2026, 4, 7, 12, 1, tzinfo=UTC),
+        finalized_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        aggregate_signals=("clarity", "commitment", "task_started", "blocker_narrowed"),
+        positive_evidence_count=4,
+        negative_evidence_count=0,
+        contradiction_count=0,
+        conversation_score=0.76,
+        operational_score=0.88,
+        overall_score=0.82,
+        promotion_eligibility=True,
+        evidence_refs=(
+            SupportTranscriptSpanRef(
+                session_id=session_id,
+                message_start_id="msg-0",
+                message_end_id="msg-2",
+            ),
+        ),
+        summary="Direct narrow execution support correlated with concrete movement.",
+    )
+    value_entry = SupportValueLedgerEntry(
+        value_id="val-bandwidth-arc-1",
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        value="single",
+        status="active_auto",
+        source="auto_case",
+        confidence=0.82,
+        evidence_count=2,
+        contradiction_count=0,
+        last_case_id="case-webui-1",
+        created_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        why="Repeated successful cases favored a single next step in this arc.",
+    )
+    pattern_entry = SupportPatternLedgerEntry(
+        pattern_id="pattern-webui-directness",
+        registry="relational",
+        kind="support_preference",
+        scope=SupportProfileScope(type="context", id="execute"),
+        status="active_auto",
+        claim="Direct candor plus narrow execution support works well here.",
+        evidence_count=2,
+        contradiction_count=0,
+        confidence=0.8,
+        source_case_ids=("case-webui-1",),
+        created_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        updated_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+        why="Multiple execute cases converged on the same pattern.",
+    )
+    update_event = SupportLedgerUpdateEvent(
+        event_id="evt-bandwidth-1",
+        entity_type="value",
+        entity_id="val-bandwidth-arc-1",
+        registry="support",
+        dimension_or_kind="option_bandwidth",
+        scope=SupportProfileScope(type="arc", id="webui_cleanup"),
+        old_status="shadow",
+        new_status="active_auto",
+        old_value="few",
+        new_value="single",
+        trigger_case_ids=("case-webui-1",),
+        reason="Strong recent cases favored a single next step for this arc.",
+        confidence=0.82,
+        created_at=datetime(2026, 4, 7, 12, 10, tzinfo=UTC),
+    )
+
+    await sqlite_store.save_support_attempt(attempt)
+    for observation in observations:
+        await sqlite_store.save_support_outcome_observation(observation)
+    await sqlite_store.save_support_learning_case(learning_case)
+    await sqlite_store.save_support_value_ledger_entry(value_entry)
+    await sqlite_store.save_support_pattern_ledger_entry(pattern_entry)
+    await sqlite_store.save_support_ledger_update_event(update_event)
+
+    assert await sqlite_store.get_support_attempt("attempt-webui-1") == attempt
+    assert await sqlite_store.list_support_outcome_observations("attempt-webui-1") == observations
+    assert await sqlite_store.get_support_learning_case("case-webui-1") == learning_case
+    assert await sqlite_store.list_support_value_ledger_entries() == [value_entry]
+    assert await sqlite_store.get_support_pattern_ledger_entry("pattern-webui-directness") == pattern_entry
+    assert await sqlite_store.list_support_ledger_update_events() == [update_event]
 
 
 @pytest.mark.asyncio
