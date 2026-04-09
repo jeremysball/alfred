@@ -4562,7 +4562,15 @@ class SQLiteStore:
         context_id: str | None = None,
         arc_id: str | None = None,
     ) -> SupportProfileValue | None:
-        """Resolve the most specific stored value by arc, then context, then global scope."""
+        """Resolve the most specific stored value by arc, then context, then global scope.
+
+        This method prefers *active* v2 value-ledger entries (case-derived learning) when
+        available, while falling back to the legacy v1 support-profile values.
+        """
+        await self._init()
+
+        import aiosqlite
+
         scopes_to_try: list[SupportProfileScope] = []
         if arc_id is not None:
             scopes_to_try.append(SupportProfileScope(type="arc", id=arc_id))
@@ -4570,10 +4578,60 @@ class SQLiteStore:
             scopes_to_try.append(SupportProfileScope(type="context", id=context_id))
         scopes_to_try.append(SupportProfileScope(type="global", id="user"))
 
-        for scope in scopes_to_try:
-            resolved = await self.get_support_profile_value(registry, dimension, scope)
-            if resolved is not None:
-                return resolved
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._load_extensions(db)
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+
+            for scope in scopes_to_try:
+                async with db.execute(
+                    """
+                    SELECT * FROM support_value_ledger_entries
+                    WHERE registry = ?
+                      AND dimension = ?
+                      AND scope_type = ?
+                      AND scope_id = ?
+                      AND status IN ('confirmed', 'active_auto')
+                    ORDER BY
+                      CASE status
+                        WHEN 'confirmed' THEN 0
+                        WHEN 'active_auto' THEN 1
+                        ELSE 2
+                      END,
+                      confidence DESC,
+                      updated_at DESC,
+                      value_id ASC
+                    LIMIT 1
+                    """,
+                    (registry, dimension, scope.type, scope.id),
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row is not None:
+                        entry = SupportValueLedgerEntry.from_record(dict(row))
+                        evidence_refs = (entry.last_case_id,) if entry.last_case_id else ()
+                        return SupportProfileValue(
+                            registry=entry.registry,
+                            dimension=entry.dimension,
+                            scope=entry.scope,
+                            value=entry.value,
+                            status="confirmed",
+                            confidence=entry.confidence,
+                            source="auto_adapted",
+                            created_at=entry.created_at,
+                            updated_at=entry.updated_at,
+                            evidence_refs=evidence_refs,
+                        )
+
+                async with db.execute(
+                    """
+                    SELECT * FROM support_profile_values
+                    WHERE registry = ? AND dimension = ? AND scope_type = ? AND scope_id = ?
+                    """,
+                    (registry, dimension, scope.type, scope.id),
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    if row is not None:
+                        return SupportProfileValue.from_record(dict(row))
 
         return None
 
