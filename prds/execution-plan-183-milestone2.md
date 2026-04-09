@@ -27,9 +27,9 @@ Land the first live v2 runtime write without pretending the full learning runtim
 
 ### Build one `SupportAttempt` from the runtime result
 
-- [ ] Test: `test_support_policy_runtime_builds_v2_support_attempt_from_runtime_result()` in `tests/test_support_policy.py` — verify the runtime can derive one typed `SupportAttempt` from the reply-time runtime result plus real refs without losing subject refs, active scope, effective values, or contract summary.
-- [ ] Implement: add the minimal helper(s) in `src/alfred/support_policy.py` that turn a `SupportPolicyRuntimeResult` plus real ids into a `SupportAttempt`, without changing the existing v1 bounded-adaptation logic.
-- [ ] Run: `uv run pytest tests/test_support_policy.py::test_support_policy_runtime_builds_v2_support_attempt_from_runtime_result -v`
+- [x] Test: `test_support_policy_runtime_builds_v2_support_attempt_from_runtime_result()` in `tests/test_support_policy.py` — verify the runtime can derive one typed `SupportAttempt` from the reply-time runtime result plus real refs without losing subject refs, active scope, effective values, or contract summary.
+- [x] Implement: add the minimal helper(s) in `src/alfred/support_policy.py` that turn a `SupportPolicyRuntimeResult` plus real ids into a `SupportAttempt`, without changing the existing v1 bounded-adaptation logic.
+- [x] Run: `uv run pytest tests/test_support_policy.py::test_support_policy_runtime_builds_v2_support_attempt_from_runtime_result -v`
 
 ### Persist the attempt from the public reply seam
 

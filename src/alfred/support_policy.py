@@ -22,6 +22,7 @@ from alfred.embeddings import cosine_similarity
 from alfred.memory.support_context import ArcResumeContext, get_support_operational_context
 from alfred.memory.support_learning import (
     LearningSituation,
+    SupportAttempt,
     SupportPattern,
     SupportProfileUpdateEvent,
     apply_bounded_adaptation,
@@ -1238,6 +1239,38 @@ class SupportPolicyRuntime:
             similar_situations=similar_situations,
             existing_profile_values=existing_profile_values,
             now=datetime.now(UTC),
+        )
+
+    def build_support_attempt(
+        self,
+        *,
+        runtime_result: SupportPolicyRuntimeResult,
+        session_id: str,
+        user_message_id: str,
+        assistant_message_id: str,
+        created_at: datetime,
+    ) -> SupportAttempt:
+        """Build one typed v2 support attempt from the reply-time runtime result."""
+        assessment = runtime_result.assessment
+        resolved_policy = runtime_result.resolved_policy
+        behavior_contract = runtime_result.behavior_contract
+        return SupportAttempt(
+            attempt_id=f"attempt-{assistant_message_id}",
+            session_id=session_id,
+            user_message_id=user_message_id,
+            assistant_message_id=assistant_message_id,
+            created_at=created_at,
+            need=assessment.need,
+            response_mode=runtime_result.response_mode,
+            subject_refs=tuple(_format_subject(subject) for subject in assessment.subjects),
+            active_arc_id=resolved_policy.primary_arc_id,
+            active_domain_ids=resolved_policy.domain_ids,
+            effective_support_values=dict(behavior_contract.support_values),
+            effective_relational_values=dict(behavior_contract.relational_values),
+            intervention_family=behavior_contract.intervention_family,
+            intervention_refs=(),
+            prompt_contract_summary=_summarize_contract_for_learning(behavior_contract),
+            operational_snapshot_ref=None,
         )
 
     async def build_turn_contract(
