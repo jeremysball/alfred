@@ -57,11 +57,15 @@ Alfred's durable markdown layer is built around:
 
 These files are always loaded and shape behavior every turn.
 
+Prompt fragments under `templates/prompts/` are small reusable supplements, not a second policy layer. The top-level files should stay compact and own the behavior-critical rules.
+
 ### Managed template sync
 
 `TemplateManager.reconcile_template()` keeps template sync workspace-scoped so one checkout cannot silently overwrite another.
 
-When an upstream template and a workspace file both change, the runtime should fail closed, mark the file as blocked for automatic sync, and write standard conflict markers instead of guessing. That blocked state should remain visible in `/context` and in the WebUI so operators can repair drift intentionally.
+When an upstream template and a workspace file both change, the runtime should fail closed, mark the file as blocked for automatic sync, and write standard conflict markers instead of guessing. The same rule applies to managed prompt fragments; if one of them conflicts, Alfred blocks the owning top-level context file instead of loading a partial prompt.
+
+That blocked state should remain visible in `/context`, in the persistent WebUI warning banner, and in the detailed WebUI context view so operators can repair drift intentionally.
 
 The canonical recovery flow lives in [Template Sync and Conflict Recovery](template-sync.md).
 

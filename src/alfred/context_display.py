@@ -7,6 +7,7 @@ for user inspection via the /context command.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +18,52 @@ if TYPE_CHECKING:
     from alfred.alfred import Alfred
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ContextConflictStatus:
+    """Structured record for one blocked/conflicted context file."""
+
+    id: str
+    name: str
+    label: str
+    reason: str
+
+    def to_payload(self) -> dict[str, str]:
+        """Serialize to the existing JSON-friendly payload shape."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "label": self.label,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ContextStatus:
+    """Typed snapshot of current context health for UI/status surfaces."""
+
+    blocked_context_files: list[str] = field(default_factory=list)
+    conflicted_context_files: list[ContextConflictStatus] = field(default_factory=list)
+    disabled_sections: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    def to_display_payload(self) -> dict[str, Any]:
+        """Serialize to the snake_case /context payload shape."""
+        return {
+            "blocked_context_files": list(self.blocked_context_files),
+            "conflicted_context_files": [item.to_payload() for item in self.conflicted_context_files],
+            "disabled_sections": list(self.disabled_sections),
+            "warnings": list(self.warnings),
+        }
+
+    def to_websocket_payload(self) -> dict[str, Any]:
+        """Serialize to the camelCase status.update payload shape."""
+        return {
+            "blockedContextFiles": list(self.blocked_context_files),
+            "conflictedContextFiles": [item.to_payload() for item in self.conflicted_context_files],
+            "warnings": list(self.warnings),
+        }
 
 
 def _estimate_tokens(text: str) -> int:
@@ -222,6 +269,45 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
     }
 
 
+def _build_context_status(
+    context_files: dict[str, Any],
+    disabled_sections: list[str],
+) -> ContextStatus:
+    """Build the shared blocked/conflicted context status snapshot."""
+    conflicted_context_files = [
+        ContextConflictStatus(
+            id=_context_file_identifier(file),
+            name=_context_file_identifier(file),
+            label=_context_file_name(file),
+            reason=getattr(file, "blocked_reason", None) or "Blocked context file",
+        )
+        for file in context_files.values()
+        if getattr(file, "is_blocked", lambda: False)()
+    ]
+    if conflicted_context_files:
+        logger.debug("context_status: found %d conflicted context files", len(conflicted_context_files))
+
+    warnings: list[str] = []
+    if disabled_sections:
+        warnings.append(f"Disabled sections: {', '.join(disabled_sections)}")
+
+    return ContextStatus(
+        blocked_context_files=[file.label for file in conflicted_context_files],
+        conflicted_context_files=conflicted_context_files,
+        disabled_sections=list(disabled_sections),
+        warnings=warnings,
+    )
+
+
+async def get_context_status(alfred: Alfred) -> ContextStatus:
+    """Get the lightweight context-health snapshot used by Web UI status updates."""
+    logger.debug("get_context_status: gathering current context health")
+    disabled_sections = alfred.context_loader.get_disabled_sections()
+    context_files = await alfred.context_loader.load_all()
+    logger.debug("get_context_status: loaded %d context files", len(context_files))
+    return _build_context_status(context_files, disabled_sections)
+
+
 async def get_context_display(alfred: Alfred, session_id: str | None = None) -> dict[str, Any]:
     """Get current context information for /context command.
 
@@ -247,23 +333,10 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
     context_files = await alfred.context_loader.load_all()
     logger.debug("get_context_display: loaded %d context files", len(context_files))
 
-    conflicted_context_files = [
-        {
-            "id": _context_file_identifier(file),
-            "name": _context_file_identifier(file),
-            "label": _context_file_name(file),
-            "reason": getattr(file, "blocked_reason", None) or "Blocked context file",
-        }
-        for file in context_files.values()
-        if getattr(file, "is_blocked", lambda: False)()
-    ]
-    if conflicted_context_files:
-        logger.debug("get_context_display: found %d conflicted context files", len(conflicted_context_files))
-
-    blocked_context_files = [file["label"] for file in conflicted_context_files]
-    warnings: list[str] = []
-    if disabled_sections:
-        warnings.append(f"Disabled sections: {', '.join(disabled_sections)}")
+    context_status = _build_context_status(context_files, disabled_sections)
+    blocked_context_files = list(context_status.blocked_context_files)
+    conflicted_context_files = [item.to_payload() for item in context_status.conflicted_context_files]
+    warnings = list(context_status.warnings)
 
     system_sections = []
     total_system_tokens = 0

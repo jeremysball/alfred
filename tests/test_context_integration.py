@@ -315,6 +315,90 @@ class TestContextLoaderBlockedTemplates:
         assert "Upstream edit" not in system_prompt
         assert "# AGENTS" in system_prompt
 
+    @pytest.mark.asyncio
+    async def test_load_file_blocks_owner_when_managed_prompt_fragment_conflicts(
+        self,
+        config: Config,
+    ) -> None:
+        """A conflicted managed prompt fragment should block the owning top-level context file."""
+        soul_path = config.context_files["soul"]
+        prompts_dir = config.workspace_dir / "templates" / "prompts"
+        prompts_dir.mkdir(parents=True, exist_ok=True)
+        voice_template_path = prompts_dir / "voice.md"
+        cache_dir = config.workspace_dir / "cache"
+
+        initial_voice = "## Voice\n\nInitial voice guidance.\n"
+        local_voice = "## Voice\n\nLocal voice guidance.\n"
+        upstream_voice = "## Voice\n\nUpstream voice guidance.\n"
+
+        (config.workspace_dir / "templates" / "SOUL.md").write_text(
+            "# Soul\n\n{{prompts/voice.md}}\n",
+            encoding="utf-8",
+        )
+        voice_template_path.write_text(initial_voice, encoding="utf-8")
+
+        first_loader = ContextLoader(config, cache_dir=cache_dir)
+        created = await first_loader.load_file("soul", soul_path)
+        assert created.state is ContextFileState.ACTIVE
+        assert (config.workspace_dir / "prompts" / "voice.md").read_text(encoding="utf-8") == initial_voice
+
+        (config.workspace_dir / "prompts" / "voice.md").write_text(local_voice, encoding="utf-8")
+        voice_template_path.write_text(upstream_voice, encoding="utf-8")
+
+        restarted_loader = ContextLoader(config, cache_dir=cache_dir)
+        blocked = await restarted_loader.load_file("soul", soul_path)
+
+        assert blocked.state is ContextFileState.BLOCKED
+        assert blocked.blocked_reason is not None
+        assert "prompts/voice.md" in blocked.blocked_reason
+        assert "SOUL.md" in blocked.blocked_reason
+        assert restarted_loader.get_blocked_context_files() == ["soul"]
+
+    @pytest.mark.asyncio
+    async def test_load_file_reenables_owner_after_prompt_fragment_conflict_is_resolved(
+        self,
+        config: Config,
+    ) -> None:
+        """Manually resolving a conflicted managed prompt fragment should unblock the owner file."""
+        soul_path = config.context_files["soul"]
+        prompts_dir = config.workspace_dir / "templates" / "prompts"
+        prompts_dir.mkdir(parents=True, exist_ok=True)
+        voice_template_path = prompts_dir / "voice.md"
+        cache_dir = config.workspace_dir / "cache"
+
+        initial_voice = "## Voice\n\nInitial voice guidance.\n"
+        local_voice = "## Voice\n\nLocal voice guidance.\n"
+        upstream_voice = "## Voice\n\nUpstream voice guidance.\n"
+        resolved_voice = "## Voice\n\nMerged voice guidance.\n"
+
+        (config.workspace_dir / "templates" / "SOUL.md").write_text(
+            "# Soul\n\n{{prompts/voice.md}}\n",
+            encoding="utf-8",
+        )
+        voice_template_path.write_text(initial_voice, encoding="utf-8")
+
+        first_loader = ContextLoader(config, cache_dir=cache_dir)
+        created = await first_loader.load_file("soul", soul_path)
+        assert created.state is ContextFileState.ACTIVE
+
+        workspace_voice_path = config.workspace_dir / "prompts" / "voice.md"
+        workspace_voice_path.write_text(local_voice, encoding="utf-8")
+        voice_template_path.write_text(upstream_voice, encoding="utf-8")
+
+        conflicted_loader = ContextLoader(config, cache_dir=cache_dir)
+        blocked = await conflicted_loader.load_file("soul", soul_path)
+        assert blocked.state is ContextFileState.BLOCKED
+
+        workspace_voice_path.write_text(resolved_voice, encoding="utf-8")
+
+        resolved_loader = ContextLoader(config, cache_dir=cache_dir)
+        resolved = await resolved_loader.load_file("soul", soul_path)
+
+        assert resolved.state is ContextFileState.ACTIVE
+        assert resolved.blocked_reason is None
+        assert "Merged voice guidance." in resolved.content
+        assert resolved_loader.get_blocked_context_files() == []
+
 
 class TestTemplateManagerIntegration:
     """Integration tests for TemplateManager with real files."""

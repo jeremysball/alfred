@@ -8,7 +8,42 @@ from unittest.mock import AsyncMock
 import pytest
 
 from alfred.context import ContextFile, ContextFileState
-from alfred.context_display import get_context_display
+from alfred.context_display import ContextConflictStatus, ContextStatus, get_context_display, get_context_status
+
+
+@pytest.mark.asyncio
+async def test_get_context_status_returns_typed_snapshot() -> None:
+    """The lightweight context-status helper should return a typed object, not a loose dict."""
+
+    blocked_soul = ContextFile(
+        name="soul",
+        path="/workspace/alfred/SOUL.md",
+        content="",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.BLOCKED,
+        blocked_reason="Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+    )
+    fake_context_loader = SimpleNamespace(
+        load_all=AsyncMock(return_value={"soul": blocked_soul}),
+        get_disabled_sections=lambda: ["tools"],
+    )
+    fake_alfred = SimpleNamespace(context_loader=fake_context_loader)
+
+    result = await get_context_status(fake_alfred)
+
+    assert result == ContextStatus(
+        blocked_context_files=["SOUL.md"],
+        conflicted_context_files=[
+            ContextConflictStatus(
+                id="soul",
+                name="soul",
+                label="SOUL.md",
+                reason="Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+            )
+        ],
+        disabled_sections=["tools"],
+        warnings=["Disabled sections: tools"],
+    )
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,8 @@ The sync store is lazy-loaded. Alfred reads it when template reconciliation need
 
 When Alfred starts or reconnects, it reconciles each managed template through `TemplateManager.reconcile_template()`.
 
+That same contract now applies to managed prompt fragments under `templates/prompts/`, not just the top-level always-loaded files.
+
 That reconciliation compares three things:
 
 1. the current template file
@@ -25,6 +27,8 @@ If the workspace still matches the saved base snapshot, Alfred fast-forwards the
 If both the template and the workspace changed, Alfred writes standard git conflict markers into the workspace file and marks the file conflicted.
 
 If the workspace already contains conflict markers, Alfred keeps the file blocked and leaves the markers in place. The app stays up, but the affected context file is unavailable until the conflict is fixed. This keeps the path fail closed.
+
+If the conflicted file is a managed prompt fragment such as `prompts/voice.md`, Alfred blocks the owning top-level context file instead of half-loading it with drifted fragments.
 
 ## What a conflict looks like
 
@@ -44,7 +48,11 @@ Use those markers as the source of truth. Do not replace them with custom prose 
 
 A conflicted file is blocked from context loading. The `/context` command shows the blocked files and the warning text directly.
 
-The WebUI uses the same warning payload, so the conflict is visible in the browser too. You do not need to inspect logs to see that a file is blocked.
+The WebUI uses the same warning payload in two places:
+- a persistent warning banner from `status.update`
+- the detailed `/context` view
+
+You do not need to inspect logs to see that a file is blocked, but the runtime also logs conflict creation, blocked loads, and clean resolution.
 
 The warning remains visible until Alfred sees a clean file again.
 

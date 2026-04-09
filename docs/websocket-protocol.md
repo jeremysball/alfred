@@ -624,7 +624,19 @@ Sent periodically during streaming to report current status.
     "cacheReadTokens": 0,
     "reasoningTokens": 0,
     "queueLength": 0,
-    "isStreaming": true
+    "isStreaming": true,
+    "contextStatus": {
+      "blockedContextFiles": ["SOUL.md"],
+      "conflictedContextFiles": [
+        {
+          "id": "soul",
+          "name": "soul",
+          "label": "SOUL.md",
+          "reason": "Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md"
+        }
+      ],
+      "warnings": ["Disabled sections: TOOLS"]
+    }
   }
 }
 ```
@@ -642,8 +654,9 @@ Sent periodically during streaming to report current status.
 | `reasoningTokens` | `number` | Tokens used for reasoning |
 | `queueLength` | `number` | Number of queued messages |
 | `isStreaming` | `boolean` | Whether LLM is currently streaming |
+| `contextStatus` | `object` | Lightweight context-health snapshot for persistent Web UI warnings: blocked files, structured conflict records, and warning strings |
 
-**Usage:** This message is used to update the status bar in the UI with real-time token counts and streaming state.
+**Usage:** This message is used to update the status bar in the UI with real-time token counts and streaming state, and to keep the persistent Web UI context-warning banner in sync.
 
 ---
 

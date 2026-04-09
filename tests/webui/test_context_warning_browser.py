@@ -12,6 +12,7 @@ import pytest
 import uvicorn
 from playwright.async_api import async_playwright
 
+from alfred.context_display import ContextConflictStatus, ContextStatus
 from alfred.interfaces.webui.server import create_app
 from tests.webui.fakes import FakeAlfred
 
@@ -185,6 +186,64 @@ async def test_browser_context_viewer_renders_truthful_section_counts() -> None:
 
                 assert (await second_system_badge.text_content() or "").strip() == "1 active / 1 disabled"
                 assert (await second_session_badge.text_content() or "").strip() == "2 displayed / 5 included / 8 total messages"
+                await browser.close()
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_browser_shows_persistent_context_conflict_banner_without_context_command() -> None:
+    port = _find_free_port()
+    fake_alfred = FakeAlfred()
+    context_status = ContextStatus(
+        blocked_context_files=["SOUL.md"],
+        conflicted_context_files=[
+            ContextConflictStatus(
+                id="soul",
+                name="soul",
+                label="SOUL.md",
+                reason="Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+            )
+        ],
+        disabled_sections=["TOOLS"],
+        warnings=["Disabled sections: TOOLS"],
+    )
+
+    config = uvicorn.Config(
+        create_app(alfred_instance=fake_alfred, debug=True),
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+    )
+    server = uvicorn.Server(config)
+    thread = Thread(target=server.run, daemon=True)
+    thread.start()
+
+    try:
+        await _wait_for_server(port)
+
+        with patch("alfred.context_display.get_context_status", AsyncMock(return_value=context_status)):
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch()
+                page = await browser.new_page(viewport={"width": 1440, "height": 900})
+                await page.goto(f"http://127.0.0.1:{port}/static/index.html", wait_until="domcontentloaded")
+
+                await page.wait_for_function(
+                    "() => document.querySelector('#connection-pill')?.classList.contains('connected')",
+                    timeout=10000,
+                )
+
+                banner = page.locator('#context-warning-banner')
+                await banner.wait_for(state='visible', timeout=10000)
+
+                banner_text = await banner.text_content()
+                assert banner_text is not None
+                assert "Context warnings" in banner_text
+                assert "SOUL.md" in banner_text
+                assert "prompts/voice.md" in banner_text
+                assert "Disabled sections: TOOLS" in banner_text
                 await browser.close()
     finally:
         server.should_exit = True

@@ -259,8 +259,42 @@ def test_status_update_message():
             "reasoningTokens": 10,
             "queueLength": 0,
             "isStreaming": True,
+            "contextStatus": None,
         },
     }
+
+
+def test_status_update_message_accepts_context_status_snapshot():
+    """Verify StatusUpdateMessage accepts persistent context-health warnings."""
+    message = StatusUpdateMessage(
+        type="status.update",
+        payload=StatusUpdatePayload(
+            model="claude-3-sonnet",
+            context_tokens=1000,
+            input_tokens=50,
+            output_tokens=25,
+            cache_read_tokens=100,
+            reasoning_tokens=10,
+            queue_length=0,
+            is_streaming=True,
+            context_status={
+                "blockedContextFiles": ["SOUL.md"],
+                "conflictedContextFiles": [
+                    {
+                        "id": "soul",
+                        "name": "soul",
+                        "label": "SOUL.md",
+                        "reason": "Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+                    }
+                ],
+                "warnings": ["Disabled sections: TOOLS"],
+            },
+        ),
+    )
+
+    assert message.payload.context_status is not None
+    assert message.payload.context_status.blocked_context_files == ["SOUL.md"]
+    assert message.payload.context_status.conflicted_context_files[0].label == "SOUL.md"
 
 
 def test_status_update_message_rejects_daemon_fields():

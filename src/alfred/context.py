@@ -479,6 +479,7 @@ class ContextLoader:
         self._context_builder: ContextBuilder | None = None
         self._blocked_context_files: set[str] = set()
         self._disabled_sections: set[str] = set()  # Track disabled context sections
+        self._prompt_template_sync_lock = asyncio.Lock()
         if store:
             self._context_builder = ContextBuilder(
                 store,
@@ -566,6 +567,25 @@ class ContextLoader:
         except Exception as exc:
             logger.warning(f"Failed to reconcile template {template_name}: {exc}")
 
+    async def _sync_prompt_templates(self) -> None:
+        """Reconcile managed prompt fragments before resolving include placeholders."""
+        async with self._prompt_template_sync_lock:
+            loop = asyncio.get_running_loop()
+            try:
+                await loop.run_in_executor(None, self._template_manager.ensure_prompts_exist)
+                await loop.run_in_executor(None, self._template_manager.reconcile_prompt_templates)
+            except Exception as exc:
+                logger.warning("Failed to synchronize managed prompt fragments: %s", exc)
+
+    def _prompt_conflict_reason(self, path: Path, conflicted_dependencies: list[str]) -> str:
+        """Describe why a top-level context file is blocked by prompt fragment conflicts."""
+        owner_label = path.name or path.as_posix()
+        if len(conflicted_dependencies) == 1:
+            dependency = conflicted_dependencies[0]
+            return f"Conflicted managed prompt fragment {dependency} blocks {owner_label}"
+        joined = ", ".join(conflicted_dependencies)
+        return f"Conflicted managed prompt fragments block {owner_label}: {joined}"
+
     async def load_file(self, name: str, path: Path) -> ContextFile:
         """Load a context file, auto-creating from template if missing."""
         template_name = CONTEXT_TO_TEMPLATE.get(name)
@@ -583,10 +603,8 @@ class ContextLoader:
             return blocked
 
         cached = self._cache.get(name)
-        if cached is not None and (not is_managed_template or sync_record is None or not sync_record.is_conflicted()):
-            return self._refresh_context_file(cached)
 
-        self._template_manager.ensure_prompts_exist()
+        await self._sync_prompt_templates()
         self._reconcile_template(name)
 
         if is_managed_template and template_name is not None:
@@ -619,6 +637,34 @@ class ContextLoader:
         loop = asyncio.get_running_loop()
         raw_content = await loop.run_in_executor(None, path.read_text, "utf-8")
         stat = await loop.run_in_executor(None, path.stat)
+        last_modified = datetime.fromtimestamp(stat.st_mtime)
+
+        managed_prompt_dependencies = await loop.run_in_executor(
+            None,
+            self._template_manager.collect_managed_prompt_dependencies,
+            raw_content,
+        )
+        conflicted_prompt_dependencies = await loop.run_in_executor(
+            None,
+            self._template_manager.get_conflicted_prompt_dependencies,
+            raw_content,
+        )
+        if conflicted_prompt_dependencies:
+            reason = self._prompt_conflict_reason(path, conflicted_prompt_dependencies)
+            logger.warning("Blocked context file %s because %s", name, reason)
+            blocked = self._make_blocked_context_file(
+                name=name,
+                path=path,
+                reason=reason,
+                last_modified=last_modified,
+            )
+            self._record_blocked_context_file(name)
+            return blocked
+
+        if cached is not None and cached.last_modified == last_modified and not managed_prompt_dependencies:
+            self._clear_blocked_context_file(name)
+            return self._refresh_context_file(cached)
+
         static_content = resolve_all(raw_content, self.config.workspace_dir, resolve_volatile=False)
         refresh_on_load = has_volatile_placeholder(static_content)
 
@@ -626,7 +672,7 @@ class ContextLoader:
             name=name,
             path=str(path),
             content=static_content,
-            last_modified=datetime.fromtimestamp(stat.st_mtime),
+            last_modified=last_modified,
             state=ContextFileState.ACTIVE,
             refresh_on_load=refresh_on_load,
         )
