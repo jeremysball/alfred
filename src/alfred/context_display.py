@@ -246,25 +246,19 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
     }
 
     active_patterns = [
-        _serialize_pattern_summary(pattern)
-        for pattern in getattr(getattr(snapshot, "active_runtime_state", None), "active_patterns", ())
+        _serialize_pattern_summary(pattern) for pattern in getattr(getattr(snapshot, "active_runtime_state", None), "active_patterns", ())
     ]
     candidate_patterns = [
-        _serialize_pattern_summary(pattern)
-        for pattern in getattr(getattr(snapshot, "learned_state", None), "candidate_patterns", ())
+        _serialize_pattern_summary(pattern) for pattern in getattr(getattr(snapshot, "learned_state", None), "candidate_patterns", ())
     ]
     confirmed_patterns = [
-        _serialize_pattern_summary(pattern)
-        for pattern in getattr(getattr(snapshot, "learned_state", None), "confirmed_patterns", ())
+        _serialize_pattern_summary(pattern) for pattern in getattr(getattr(snapshot, "learned_state", None), "confirmed_patterns", ())
     ]
     learned_state = getattr(snapshot, "learned_state", None)
 
     recent_update_events = [_serialize_update_event_summary(event) for event in getattr(learned_state, "recent_update_events", ())]
 
-    value_ledger_entries = [
-        _serialize_value_ledger_entry_summary(entry)
-        for entry in getattr(learned_state, "value_ledger_entries", ())
-    ]
+    value_ledger_entries = [_serialize_value_ledger_entry_summary(entry) for entry in getattr(learned_state, "value_ledger_entries", ())]
 
     raw_value_ledger_summary = getattr(learned_state, "value_ledger_summary", None)
     if isinstance(raw_value_ledger_summary, dict):
@@ -281,13 +275,11 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
         }
 
     recent_ledger_update_events = [
-        _serialize_ledger_update_event_summary(event)
-        for event in getattr(learned_state, "recent_ledger_update_events", ())
+        _serialize_ledger_update_event_summary(event) for event in getattr(learned_state, "recent_ledger_update_events", ())
     ]
 
     recent_interventions = [
-        _serialize_learning_situation_summary(situation)
-        for situation in getattr(learned_state, "recent_interventions", ())
+        _serialize_learning_situation_summary(situation) for situation in getattr(learned_state, "recent_interventions", ())
     ]
     active_domains = [_serialize_active_domain(domain) for domain in getattr(snapshot, "active_domains", ())]
     active_arcs = [_serialize_active_arc(arc) for arc in getattr(snapshot, "active_arcs", ())]

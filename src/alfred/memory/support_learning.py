@@ -102,16 +102,10 @@ _SUPPORTED_OBSERVATION_SOURCE_TYPES: frozenset[str] = frozenset(
     }
 )
 _SUPPORTED_OBSERVATION_SIGNAL_POLARITIES: frozenset[str] = frozenset({"positive", "negative", "mixed", "neutral"})
-_SUPPORTED_LEARNING_CASE_STATUSES: frozenset[str] = frozenset(
-    {"open", "complete", "insufficient_evidence", "superseded"}
-)
+_SUPPORTED_LEARNING_CASE_STATUSES: frozenset[str] = frozenset({"open", "complete", "insufficient_evidence", "superseded"})
 _SUPPORTED_VALUE_LEDGER_STATUSES: frozenset[str] = frozenset({"shadow", "active_auto", "confirmed", "rejected", "retired"})
-_SUPPORTED_PATTERN_LEDGER_STATUSES: frozenset[str] = frozenset(
-    {"candidate", "active_auto", "confirmed", "rejected", "retired"}
-)
-_SUPPORTED_LEDGER_STATUSES: frozenset[str] = frozenset(
-    {"shadow", "candidate", "active_auto", "confirmed", "rejected", "retired"}
-)
+_SUPPORTED_PATTERN_LEDGER_STATUSES: frozenset[str] = frozenset({"candidate", "active_auto", "confirmed", "rejected", "retired"})
+_SUPPORTED_LEDGER_STATUSES: frozenset[str] = frozenset({"shadow", "candidate", "active_auto", "confirmed", "rejected", "retired"})
 _SUPPORTED_LEDGER_ENTITY_TYPES: frozenset[str] = frozenset({"value", "pattern"})
 
 
@@ -697,14 +691,10 @@ def derive_learning_case(
         if observation.source_type in _OPERATIONAL_OBSERVATION_SOURCE_TYPES
     ]
     positive_evidence_count = sum(
-        len(observation.signals)
-        for observation in ordered_observations
-        if observation.signal_polarity in _POSITIVE_EVIDENCE_POLARITIES
+        len(observation.signals) for observation in ordered_observations if observation.signal_polarity in _POSITIVE_EVIDENCE_POLARITIES
     )
     negative_evidence_count = sum(
-        len(observation.signals)
-        for observation in ordered_observations
-        if observation.signal_polarity in _NEGATIVE_EVIDENCE_POLARITIES
+        len(observation.signals) for observation in ordered_observations if observation.signal_polarity in _NEGATIVE_EVIDENCE_POLARITIES
     )
     contradiction_count = sum(1 for observation in ordered_observations if observation.signal_polarity == "mixed")
     if positive_evidence_count > 0 and negative_evidence_count > 0:
@@ -716,10 +706,7 @@ def derive_learning_case(
 
     overall_score = _average_score(observation_scores)
     promotion_eligibility = (
-        status == "complete"
-        and positive_evidence_count > negative_evidence_count
-        and contradiction_count == 0
-        and overall_score >= 0.65
+        status == "complete" and positive_evidence_count > negative_evidence_count and contradiction_count == 0 and overall_score >= 0.65
     )
 
     return LearningCase(
@@ -729,9 +716,7 @@ def derive_learning_case(
         scope=_derive_learning_case_scope(attempt),
         created_at=attempt.created_at,
         finalized_at=ordered_observations[-1].observed_at,
-        aggregate_signals=_ordered_unique_strings(
-            [signal for observation in ordered_observations for signal in observation.signals]
-        ),
+        aggregate_signals=_ordered_unique_strings([signal for observation in ordered_observations for signal in observation.signals]),
         positive_evidence_count=positive_evidence_count,
         negative_evidence_count=negative_evidence_count,
         contradiction_count=contradiction_count,
@@ -1147,9 +1132,7 @@ def derive_value_ledger_updates_from_cases(
             for other_key, other_bundles in supporting_bundles_by_key.items()
             if other_key[:4] == key[:4] and other_key[4] != value
         )
-        confidence = _average_score(
-            [bundle.learning_case.overall_score for bundle in supporting_bundles]
-        )
+        confidence = _average_score([bundle.learning_case.overall_score for bundle in supporting_bundles])
         latest_supporting_bundle = supporting_bundles[-1]
         why = _summarize_value_ledger_entry(
             registry=registry,
@@ -1184,9 +1167,7 @@ def derive_value_ledger_updates_from_cases(
         if existing_entry is None or existing_entry.status != entry.status:
             update_events.append(
                 SupportLedgerUpdateEvent(
-                    event_id=(
-                        f"event-{entry.value_id}-{entry.status}-{latest_supporting_bundle.learning_case.case_id}"
-                    ),
+                    event_id=(f"event-{entry.value_id}-{entry.status}-{latest_supporting_bundle.learning_case.case_id}"),
                     entity_type="value",
                     entity_id=entry.value_id,
                     registry=entry.registry,

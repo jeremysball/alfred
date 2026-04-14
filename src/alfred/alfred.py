@@ -689,11 +689,7 @@ class Alfred:
             session.meta.message_count = len(session.messages)
 
             support_runtime = self._get_support_policy_runtime()
-            save_support_attempt = (
-                getattr(support_runtime, "save_support_attempt", None)
-                if support_runtime is not None
-                else None
-            )
+            save_support_attempt = getattr(support_runtime, "save_support_attempt", None) if support_runtime is not None else None
             should_save_support_attempt = support_runtime_result is not None and callable(save_support_attempt)
 
             # Persist to storage

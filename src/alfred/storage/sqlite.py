@@ -2344,9 +2344,7 @@ class SQLiteStore:
             operational_delta_refs = (*operational_delta_refs, f"{entity_type}:{entity_id}")
 
         observation = OutcomeObservation(
-            observation_id=(
-                f"obs-{attempt.attempt_id}-{signal}-{entity_type}-{entity_id}-{observed_at.isoformat()}"
-            ),
+            observation_id=(f"obs-{attempt.attempt_id}-{signal}-{entity_type}-{entity_id}-{observed_at.isoformat()}"),
             attempt_id=attempt.attempt_id,
             observed_at=observed_at,
             source_type="work_state_transition",
@@ -2360,11 +2358,7 @@ class SQLiteStore:
         await self._upsert_support_outcome_observation(db, observation)
 
         learning_case = await self._finalize_support_learning_case_in_tx(db, attempt.attempt_id)
-        if (
-            learning_case is None
-            or learning_case.status != "complete"
-            or not learning_case.promotion_eligibility
-        ):
+        if learning_case is None or learning_case.status != "complete" or not learning_case.promotion_eligibility:
             return
 
         await self._apply_support_case_learning_in_tx(db, learning_case.case_id)
