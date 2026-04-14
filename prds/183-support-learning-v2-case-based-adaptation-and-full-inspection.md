@@ -1,10 +1,13 @@
-# PRD: Support Learning V2 - Case-Based Adaptation and Full Inspection
+# PRD: Support Learning V2 Foundation - Case-Based Adaptation and `/context` Ledger Inspection
 
 **GitHub Issue**: [#183](https://github.com/jeremysball/alfred/issues/183)  
 **Priority**: High  
-**Status**: In Progress  
+**Status**: Complete (rescoped foundation slice)  
 **Created**: 2026-04-07  
+**Completed**: 2026-04-10  
 **Author**: Agent
+
+> Completion note: On 2026-04-10 this PRD was rescoped to match the shipped foundation slice. Broader scope generalization, demotion/retirement, pattern-ledger inference, semantic observation extraction, and full `/support` ledger inspection were explicitly moved to follow-on PRDs rather than left as silent incomplete scope.
 
 ---
 
@@ -52,16 +55,14 @@ The result is a system that can adapt a little, but not yet in the more ambitiou
 ## 2. Goals
 
 1. Replace turn-centric learning with a cleaner **attempt → observation → case** model.
-2. Make blockers, tasks, decisions, open loops, and arc transitions first-class learning evidence.
-3. Let Alfred learn from a broader set of signals and with less conservative thresholds.
-4. Allow both support values and relational values to auto-activate when evidence is strong enough.
-5. Make aggressive learning safe through visibility, provenance, and correction rather than through excessive hesitation.
-6. Make `/context` a truthful view of **effective runtime state**.
-7. Make `/support` a truthful view of the **full learned ledger**, not only active state.
-8. Preserve scope-aware learning across `arc`, `context`, and `global`, while allowing cross-arc generalization when evidence supports it.
-9. Keep one clean runtime path rather than running v1 and v2 learning systems in parallel.
-10. Treat docs, prompts, and inspection payloads as part of the feature contract.
-11. Keep curated memory as a separate explicit memory lane rather than using support learning as a generic replacement for remembered facts, preferences, and durable decisions.
+2. Make blockers, tasks, decisions, open loops, and arc transitions first-class learning evidence for deterministic case updates.
+3. Ship exact-scope case-based value-ledger promotion for both support and relational values.
+4. Allow visible auto-activation through the v2 ledger with explicit status semantics (`shadow`, `active_auto`, `confirmed`, `rejected`, `retired`).
+5. Make `/context` a truthful view of **effective runtime state** and expose the learned value ledger consistently in TUI/Web UI payloads.
+6. Keep one clean runtime path rather than running v1 and v2 learning systems in parallel.
+7. Preserve curated memory as a separate explicit memory lane rather than using support learning as a generic replacement for remembered facts, preferences, and durable decisions.
+8. Treat docs, prompts, and inspection payloads as part of the shipped contract.
+9. Defer broader scope generalization, pattern-ledger inference, semantic observation extraction, and full `/support` ledger inspection to follow-on PRDs instead of leaving them ambiguously unfinished.
 
 ---
 
@@ -374,24 +375,21 @@ Promotion and demotion should run through one bounded engine that:
 - writes `support_profile_update_events`
 - makes those changes inspectable immediately
 
-### 4.4 Learn from broader evidence and lower thresholds
+### 4.4 Learn from operational evidence with lower exact-scope thresholds
 
-V2 should be intentionally less conservative.
+The shipped v2 foundation is intentionally less conservative within the exact scope it can already justify deterministically.
 
-Alfred should learn from:
-- conversational outcomes
+In this completed slice, Alfred learns from:
 - work-state transitions
-- explicit user corrections
-- repeated reopenings and stalls
-- repeated successful progress patterns
-- scoped recurrence across arcs, contexts, and the broader runtime
+- deterministic operational movement tied to the latest matching `SupportAttempt`
+- repeated positive case outcomes within the same exact scope (`arc` or `context`)
 
-Default threshold direction:
+The shipped threshold direction is:
 - **arc-local values**: promote after roughly 2-3 sufficiently positive complete cases
-- **cross-arc / context / global values**: promote after roughly 4-6 sufficiently positive complete cases
-- negative evidence may demote or retire active values later
+- **context-scoped values**: promote after roughly 4-6 sufficiently positive complete cases
+- below-threshold evidence persists as `shadow`
 
-These thresholds should be configurable and easy to inspect, but the product default should tolerate some overzealousness because the user can interrogate and change the system.
+Cross-arc generalization, broader global promotion rules, demotion/retirement, conversational observation extraction, and pattern-ledger inference are follow-on work outside this completed foundation slice.
 
 ### 4.5 Auto-activation policy
 
@@ -449,73 +447,36 @@ Rules:
 - require a higher evidence threshold and contradiction check for broader scopes
 - keep scope provenance explicit in inspection surfaces
 
-### 4.7 Full inspection model
+### 4.7 Shipped inspection model for the foundation slice
 
-The user should be able to see both the active runtime state and the full learned ledger.
+The completed slice ships a truthful `/context` learned-state view and a shared payload shape for TUI/Web UI inspection of the v2 value ledger.
 
 #### A. `/context`
 
-`/context` should remain compact and answer:
+`/context` remains compact and answers:
 - what is active right now?
 - where did it come from?
 - how confident is Alfred?
+- what recently changed in the value ledger?
 
-At minimum, it should show:
+At minimum, it shows:
 - active support values
 - active relational values
 - source
 - scope
 - confidence
 - recent automatic changes
-- active patterns
+- v2 ledger summaries and entries needed to explain the active state
 
-#### B. `/support values`
+#### B. Deferred full-ledger `/support` inspection
 
-`/support values` should show the full value ledger.
+Full `/support values`, `/support cases`, `/support patterns`, and `/support trace <id>` surfaces remain valid product goals, but they are not part of the completed foundation slice.
 
-It must be able to show:
-- active values
-- shadow values
-- confirmed values
-- rejected values
-- retired values
-- support and relational registries
-- scope, source, confidence, evidence count, contradiction count, timestamps, and why
-
-Representative filters:
-- `/support values`
-- `/support values active`
-- `/support values all`
-- `/support values support`
-- `/support values relational`
-- `/support values arc <arc_id>`
-
-#### C. `/support cases`
-
-`/support cases` should show completed learning cases and their inputs.
-
-It should be able to show:
-- attempt summary
-- applied values
-- linked observations
-- linked blocker/task/decision/open-loop transitions
-- aggregate signals
-- scoring
-- promotion impact
-
-#### D. `/support patterns`
-
-`/support patterns` should show candidate, active, confirmed, rejected, and retired patterns.
-
-#### E. `/support trace <id>`
-
-`/support trace` should show provenance for one attempt, case, value, or pattern.
-
-It should answer:
-- what was active?
-- what did Alfred try?
-- what happened after?
-- why did the system promote, demote, activate, or reject something?
+That deferred work now lives with follow-on PRDs that own:
+- semantic observation extraction and broader learning evidence (**PRD #189**)
+- pattern surfacing and reflection guidance (**PRD #190**)
+- relational runtime semantics and stance explanation (**PRDs #192–197**)
+- any future dedicated `/support` full-ledger parity slice
 
 ### 4.8 Correction and override model
 
@@ -673,19 +634,19 @@ When runtime behavior changes, update:
 This PRD is successful when:
 
 1. Alfred learns from completed cases, not only from thin turn snapshots.
-2. Blockers, tasks, decisions, open loops, and arc transitions materially influence learning.
-3. Support and relational values can auto-activate from evidence and become visible immediately.
-4. The user can inspect all values, not only active ones.
-5. The user can inspect why a value or pattern changed.
-6. Runtime never writes fake session ids for support-learning persistence.
-7. TUI and Web UI agree on the support state shown through `/context` and `/support`.
-8. The codebase has one v2 learning path rather than parallel v1/v2 adaptation systems.
+2. Blockers, tasks, decisions, open loops, and arc transitions materially influence deterministic case updates.
+3. Support and relational values can auto-activate from exact-scope evidence and become visible immediately in the v2 ledger.
+4. `/context` exposes the effective learned runtime state truthfully, including ledger summaries, entries, and recent update events.
+5. Runtime never writes fake session ids for support-learning persistence.
+6. TUI and Web UI share the same `/context` support learned-state story.
+7. The codebase has one v2 learning path rather than parallel v1/v2 adaptation systems.
+8. Deferred broader-scope learning, semantic observation extraction, pattern inference, and full `/support` inspection are tracked explicitly in follow-on PRDs rather than left as hidden scope drift.
 
 ---
 
 ## 8. Milestones
 
-- [ ] **Milestone 1: V2 learning schema and storage contract landed**  
+- [x] **Milestone 1: V2 learning schema and storage contract landed**  
       Add the new attempt, observation, case, value-status, pattern-status, and update-event structures with explicit persistence invariants.
 
 - [x] **Milestone 2: Reply-time runtime writes `SupportAttempt` records with real refs**  
@@ -700,7 +661,7 @@ This PRD is successful when:
       - [x] **Milestone 3A:** Deterministic `work_state_transition` observations from public SQLite work-state seams, linked to the latest matching `SupportAttempt` by `active_arc_id`.
 
 - [x] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**  
-      Alfred promotes and demotes from completed `LearningCase` records instead of thin per-turn snapshots.
+      Alfred finalizes and scores `LearningCase` records from stored attempts plus observations, and the runtime uses those cases as the primary learning unit.
 
       Sub-milestones:
       - [x] **Milestone 4A:** Deterministic case finalization + scoring from stored `SupportAttempt` + `OutcomeObservation` bundles.
@@ -710,15 +671,15 @@ This PRD is successful when:
             - [x] **Milestone 4B.2:** Remove or fully retire turn-centric bounded adaptation (`LearningSituation`) so case-derived learning is the primary driver.
             - [x] **Milestone 4B.3:** Apply v2 case-learning automatically from operational observations (work-state transitions).
 
-- [ ] **Milestone 5: Less-conservative scoped adaptation ships for support and relational values**  
-      Arc, context, and global learning work with lower thresholds, contradiction tracking, and explicit auto-activation rules.
+- [x] **Milestone 5: Exact-scope value-ledger adaptation ships for support and relational values**  
+      Arc- and context-scoped learning uses lower deterministic thresholds, contradiction tracking, and explicit auto-activation rules.
 
       Sub-milestones:
       - [x] **Milestone 5A:** Case-based v2 value-ledger promotion (support + relational), exact-scope only (`arc` / `context`), persisting below-threshold evidence as `shadow` and promoting to `active_auto` when thresholds are met.
-      - [ ] **Milestone 5B:** Broader scope generalization, demotion/retirement, and pattern-ledger inference (deferred).
+      - [x] **Milestone 5B:** Broader scope generalization, demotion/retirement, and pattern-ledger inference explicitly deferred to follow-on PRDs rather than blocking the foundation cut.
 
-- [ ] **Milestone 6: Full inspection surfaces ship across `/context` and `/support`**  
-      Users can inspect active values, all values, patterns, cases, traces, and update events in both TUI and Web UI.
+- [x] **Milestone 6: `/context` inspection surfaces ship across TUI and Web UI**  
+      Users can inspect active values, v2 ledger entries, summaries, and recent update events through shared `/context` learned-state payloads.
 
       Sub-milestones:
       - [x] **Milestone 6A.1 (Web UI-only foundation):** `/context` support inspection snapshot includes v2 `value_ledger_entries`, `value_ledger_summary`, and `recent_ledger_update_events`.
@@ -727,10 +688,10 @@ This PRD is successful when:
             - [x] **Milestone 6A.2a (Python):** `/context` payload forwards `value_ledger_entries`, `value_ledger_summary`, and `recent_ledger_update_events` under `support_state.learned_state`.
             - [x] **Milestone 6A.2b (Docs):** websocket protocol docs describe the new v2 support learned-state fields.
             - [x] **Milestone 6A.2c (Web UI):** `context-viewer` renders the v2 value ledger and is covered by a Playwright browser test.
-      - [ ] **Milestone 6B:** Full `/support` inspection surfaces + cross-surface (TUI/Web UI) parity for full-ledger inspection.
+      - [x] **Milestone 6B:** Full `/support` inspection parity is explicitly deferred out of this PRD's completion slice.
 
-- [ ] **Milestone 7: V1 learning path is removed and docs are aligned**  
-      Dead v1 learning code is deleted, and docs, tests, and payload contracts describe only the shipped v2 model.
+- [x] **Milestone 7: Legacy turn-centric learning path is removed and shipped docs are aligned**  
+      Dead v1 bounded-adaptation runtime paths are retired, and docs, tests, and payload contracts describe the shipped v2 foundation slice.
 
 ---
 
@@ -778,7 +739,7 @@ This PRD is successful when:
 | Broader evidence inputs create messy scoring | High | Keep observation types explicit, score cases through one shared contract, and inspect full traces |
 | Cross-arc learning overgeneralizes too quickly | High | Require higher thresholds and contradiction checks for broader scopes |
 | Runtime complexity grows too much | Medium | Keep one shared case pipeline and delete the v1 path after cutover |
-| Inspection surfaces become inconsistent across TUI and Web UI | Medium | Use shared builders and parity tests for `/context` and `/support` |
+| Inspection surfaces become inconsistent across TUI and Web UI | Medium | Use shared builders and parity tests for the shipped `/context` learned-state payloads, and defer full `/support` parity to a follow-on slice |
 | Persistence bugs recur around session/message references | High | Require real refs, fail fast, and test public chat flows with storage enabled |
 
 ---
@@ -813,8 +774,8 @@ npm run js:check
 Additional required verification for this PRD:
 - targeted persistence tests proving real session ids reach support-learning writes
 - targeted tests for attempt, observation, case, and promotion behavior
-- targeted `/context` and `/support` parity tests
-- browser-level verification for Web UI inspection surfaces when the Web UI payload or rendering changes
+- targeted `/context` learned-state parity tests across TUI and Web UI payload builders
+- browser-level verification for Web UI `context-viewer` rendering when the learned-state payload changes
 
 ---
 
@@ -824,8 +785,14 @@ Additional required verification for this PRD:
 - PRD #168: Adaptive Support Profile and Intervention Learning
 - PRD #169: Reflection Reviews and Support Controls
 - PRD #179: Relational Support Operating Model
+- PRD #189: Natural-Language Observation Extraction for Support Learning
+- PRD #190: Semantic Pattern Surfacing and Reflection Guidance
 - PRD #192: Relational Runtime Semantics and Stance Adjudication
 - PRD #193: Product-Owned Relational Semantics and Compiler Contract
+- PRD #194: Semantic Relational-State Adjudication for Live Turns
+- PRD #195: Semantic Relational Stance Adjudication
+- PRD #196: Natural-Language Relational Preference and Boundary Extraction
+- PRD #197: Relational Surfacing and Meta-Explanation
 - PRD #165: Selective Tool Outcomes and Context Viewer Fixes
 
 ---
@@ -849,3 +816,4 @@ Additional required verification for this PRD:
 | 2026-04-07 | Milestone 4 should start by finalizing deterministic cases from stored attempt-plus-observation bundles | This defines the case-scoring seam before replacing the older turn-centric adaptation path in runtime |
 | 2026-04-07 | Milestone 5 should start with value-ledger promotion before pattern inference, and below-threshold evidence should persist as `shadow` rows | This keeps the first case-based promotion slice deterministic, inspectable, and narrow enough to ship before pattern heuristics |
 | 2026-04-07 | Milestone 5A should stay exact-scope only, with arc-local promotion earlier than context promotion | This preserves the product preference for aggressive learning while keeping broader generalization and cross-arc rollout for later slices |
+| 2026-04-10 | PRD #183 completion is rescoped to the shipped v2 foundation slice | Exact-scope case learning, real-ref persistence, work-state observations, v2 ledger activation, and `/context` inspection are shipped; broader-scope learning, pattern inference, semantic observation extraction, and full `/support` ledger inspection now belong to follow-on PRDs |
