@@ -1,5 +1,6 @@
 # PRD: Semantic Adjudication Runtime for Support Routing and Learning
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **GitHub Issue**: [#184](https://github.com/jeremysball/alfred/issues/184)  
 **Priority**: High  
 **Status**: Draft  
@@ -12,7 +13,7 @@
 
 Alfred's support runtime still depends on several seams that are more hand-tuned than principled.
 
-Today, important support decisions are made through a mix of:
+Today, important support decisions are still made through a mix of:
 - lexical phrase checks
 - normalized substring matching
 - alias and token-overlap scoring
@@ -26,8 +27,8 @@ That creates five problems:
    - Those are not a great fit for phrase families, cue maps, or small prototype banks.
 
 2. **Rich symbolic state is computed, then underused**
-   - Alfred already has arcs, domains, blockers, tasks, situations, active runtime values, recent episodes, and scoped patterns.
-   - The current logic often compresses that rich structure into thin strings or local heuristics instead of letting the model reason over the real state.
+   - Alfred already has arcs, domains, blockers, tasks, situations, active runtime values, recent attempts, observations, cases, and scoped patterns.
+   - The current logic often compresses that structure into thin strings or local heuristics.
 
 3. **The current seams are hard to extend and hard to trust**
    - The logic is spread across `support_context`, `support_policy`, and `support_reflection` with different local scoring rules.
@@ -37,25 +38,22 @@ That creates five problems:
    - Embeddings are strong for retrieval and shortlist generation.
    - They are weaker as the final authority for bounded semantic judgments such as “what is the user's need here?” or “should I surface this pattern now?”
 
-5. **There is no umbrella contract for LLM adjudication yet**
-   - If Alfred replaces heuristics with ad hoc model calls, the result could become opaque, inconsistent, and harder to validate.
-   - The system needs one parent model that preserves symbolic structure, keeps deterministic safeguards, and defines where embeddings still belong.
-
-The result is a runtime that already has strong symbolic foundations, but still routes and interprets user turns through seams that are too brittle for the job.
+5. **The architecture is still described too seam-by-seam**
+   - Alfred risks growing several semantic mini-systems instead of one reusable runtime.
+   - The support-domain work should be framed as applications of a shared semantic runtime engine, not as a pile of unrelated classifiers.
 
 ---
 
 ## 2. Goals
 
-1. Replace heuristic support-routing seams with **bounded LLM semantic adjudication**.
-2. Preserve and forward Alfred's **rich symbolic runtime state** to the LLM instead of flattening it into thin prompts.
-3. Define one shared contract for semantic-adjudication inputs, outputs, validation, observability, and fallback behavior.
-4. Keep embeddings responsible for retrieval, shortlist generation, clustering, and similarity search rather than final pragmatic judgments.
-5. Keep persistence, scope resolution, promotion, and status transitions deterministic in code.
-6. Break the work into small child PRDs rather than one oversized rewrite.
-7. Keep the runtime inspectable, testable, and maintainable as model judgment expands.
-8. Align this work with PRD #183 without folding the learning-model rewrite and the semantic-adjudication rewrite into one giant PRD.
-9. Keep curated memory as a separate explicit memory lane rather than letting semantic adjudication flatten support memory, support learning, and remembered facts into one generic system.
+1. Reframe support-runtime semantics as applications of the shared semantic runtime engine in `docs/architecture/semantic-runtime-engine.md`.
+2. Replace heuristic support-routing seams with bounded LLM semantic adjudication where the job is fundamentally a candidate choice or ranking.
+3. Replace brittle language parsing with bounded grounded observation extraction where the job is to emit typed support observations.
+4. Keep persistence, activation, promotion, and surfacing deterministic in code.
+5. Preserve and forward Alfred's rich symbolic runtime state instead of flattening it into thin prompts.
+6. Keep embeddings responsible for retrieval, shortlist generation, clustering, and similarity search rather than final pragmatic judgments.
+7. Break the work into small child PRDs without losing the shared architecture.
+8. Keep this work aligned with PRD #183's shared attempt / observation / case foundation.
 
 ---
 
@@ -64,59 +62,81 @@ The result is a runtime that already has strong symbolic foundations, but still 
 - Replacing retrieval, vector search, or clustering with LLM-only search.
 - Letting the LLM write directly to storage without deterministic validation.
 - Hiding symbolic runtime state behind prompt-only prose.
-- Preserving the current heuristic seams long-term once the adjudicated path ships.
-- Collapsing PRD #183 and this semantic-runtime work into one umbrella document.
+- Treating support routing, support learning, and curated memory as one generic memory lane.
 - Turning support routing into an unconstrained freeform reasoning loop.
 
 ---
 
 ## 4. Proposed Solution
 
-### 4.1 Use the LLM for bounded semantic adjudication
+### 4.1 Support work should plug into the shared semantic runtime engine
 
-For support-runtime seams that are fundamentally semantic or pragmatic, Alfred should use direct model prompts over structured runtime state.
+The support-domain work is an application of three shared abstractions:
 
-Target seams:
+1. **candidate adjudication**
+2. **grounded observation extraction**
+3. **deterministic activation and surfacing policy**
+
+This PRD mainly owns the first and second abstractions for support-domain seams.
+The third abstraction remains code-owned and shared with PRD #183.
+
+### 4.2 Use candidate adjudication for bounded support choices
+
+For support-runtime seams that are fundamentally semantic or pragmatic, Alfred should use bounded model judgment over structured runtime facts and candidate sets.
+
+Target support-domain candidate-adjudication seams:
 - session-start routing
 - support-need adjudication
 - subject adjudication
-- natural-language observation extraction
 - pattern surfacing and reflection guidance
 
 Each adjudicator should answer a narrow question with a closed schema.
 
-### 4.2 Preserve symbolic runtime information
+### 4.3 Use grounded observation extraction for support-language signals
+
+For seams where the runtime needs typed observations from natural language, Alfred should use bounded extraction rather than phrase hacks.
+
+Target support-domain observation-extraction seams:
+- corrections
+- support preferences
+- feedback
+- scope updates
+- interpretation rejection
+
+The extractor may emit zero or more observations.
+It does not activate, promote, or persist values by itself.
+
+### 4.4 Preserve symbolic runtime information
 
 The point is not to replace Alfred's symbolic model with prompt vibes.
 
 The point is to let the LLM reason over the symbolic model Alfred already has.
 
-That means adjudication requests should carry structured data such as:
-- opening message or current user turn
+That means support-domain requests should carry structured data such as:
+- current user turn
 - previous assistant reply when relevant
 - candidate arcs and domains with stable ids and compact summaries
 - global and arc situations
 - active support and relational values
-- active response mode or fresh-session state when relevant
-- retrieved pattern candidates and their evidence summaries
+- recent attempts, observations, cases, and relevant patterns
 - message ids, attempt ids, and scope refs when relevant
 
 This symbolic packet is part of the architecture, not an implementation detail.
 
-### 4.3 Keep deterministic safeguards as the trust boundary
+### 4.5 Keep deterministic safeguards as the trust boundary
 
-Every adjudicator must be wrapped in code-owned safeguards.
+Every support-domain adjudicator or extractor must be wrapped in code-owned safeguards.
 
 Required safeguards:
 - closed enums for allowed decisions
 - candidate ids must come from the provided candidate set
-- quote grounding when a quote or excerpt is returned
+- quote grounding when quotes are returned
 - max selection counts enforced in code
 - explicit abstain / none outputs allowed
 - invalid model output falls back to deterministic safe behavior
 - all persistence and status mutation happens only after validation
 
-### 4.4 Keep embeddings in their best-fit role
+### 4.6 Keep embeddings in their best-fit role
 
 Embeddings should remain primary for:
 - memory retrieval
@@ -129,54 +149,22 @@ Embeddings should not remain the final authority for:
 - turn need classification
 - subject resolution
 - correction detection
-- surfacing decisions
+- pattern surfacing decisions
 
-### 4.5 Parent / child PRD structure
+### 4.7 Child PRD structure
 
-This PRD is the umbrella model for the following child PRDs:
-- **PRD #185** — shared semantic-adjudication contract and symbolic runtime inputs
+This PRD governs support-domain applications of the shared engine:
+- **PRD #185** — shared semantic runtime contract and symbolic runtime inputs
 - **PRD #186** — semantic session-start routing for resume and orientation
 - **PRD #187** — semantic need adjudication for support runtime
 - **PRD #188** — semantic subject adjudication for support runtime
 - **PRD #189** — natural-language observation extraction for support learning
 - **PRD #190** — semantic pattern surfacing and reflection guidance
 
-PRD #183 remains a sibling PRD.
-
-Relationship to sibling PRDs:
-- **this PRD** owns how Alfred makes bounded semantic judgments during runtime
-- **PRD #183** owns the case-based learning model, value ledger, and full inspection surfaces
-- **PRD #191** owns curated-memory auto-injection, liberalized `remember` capture, and the boundary rules that keep curated memory supplemental to support memory and support learning
-
 Boundary rule:
-- semantic adjudication may consume curated memories as one input among others
-- it does not turn curated memory into the system of record for active work state or adaptive support policy
-
-### 4.6 Repository responsibility split
-
-Adopt this repo-wide split for support-runtime interpretation work:
-
-- **LLM adjudication**
-  - semantic routing
-  - pragmatic classification
-  - reference resolution
-  - grounded observation extraction
-  - bounded surfacing decisions
-
-- **Embeddings**
-  - retrieval
-  - shortlist generation
-  - similarity search
-  - clustering
-  - duplicate suppression
-
-- **Deterministic code**
-  - validation
-  - fallback behavior
-  - persistence
-  - scope resolution
-  - policy loading
-  - promotion, demotion, and status rules
+- PRD #185 owns the common contract for candidate adjudication and observation extraction
+- PRD #183 owns shared learning records, status semantics, activation, and inspection truth
+- this PRD owns the support-domain semantic applications of that shared architecture
 
 ---
 
@@ -203,47 +191,37 @@ Representative experiences:
 
 ## 6. Success Criteria
 
-- [ ] Support-runtime adjudication uses one clear shared contract rather than ad hoc prompt calls or scattered heuristics.
-- [ ] Alfred forwards rich symbolic state into adjudicators instead of collapsing it into thin strings.
+- [ ] Support-runtime semantics are described as applications of one shared semantic runtime engine rather than ad hoc prompt calls or scattered heuristics.
+- [ ] Alfred forwards rich symbolic state into support-domain adjudicators and extractors instead of collapsing it into thin strings.
 - [ ] Session-start routing no longer depends on phrase lists or title substring matching as the primary path.
 - [ ] Support need is no longer primarily classified by embedding similarity to a tiny prototype bank.
 - [ ] Subject resolution no longer depends on alias-hit and token-overlap score soup as the primary path.
-- [ ] Natural-language observations can be extracted with quote grounding and deterministic validation.
+- [ ] Support-language observations can be extracted with quote grounding and deterministic validation.
 - [ ] Pattern surfacing uses bounded semantic judgment after retrieval rather than additive heuristic scoring alone.
 - [ ] Embeddings remain in place for retrieval-oriented seams.
-- [ ] Docs and child PRDs describe the same responsibility split, safety model, and memory-lane boundaries.
+- [ ] Docs and child PRDs describe the same shared engine, safety model, and memory-lane boundaries.
 
 ---
 
 ## 7. Milestones
 
-### Milestone 1: Define the shared adjudication contract
-Ship the umbrella contract for symbolic inputs, closed outputs, validation, fallback, and observability.
+### Milestone 1: Align the support parent with the shared engine
+Document the support-domain boundary against the shared semantic runtime engine and the shared PRD #183 learning boundary.
 
-Validation: the child PRDs can reuse one adjudication model instead of inventing their own incompatible prompt contracts.
+Validation: support-domain child PRDs inherit one architecture instead of describing parallel systems.
 
-### Milestone 2: Replace session-start routing heuristics
-Ship semantic routing for resume versus broad orientation versus neither.
+### Milestone 2: Replace support-domain candidate-choice heuristics
+Ship support-domain candidate adjudication for routing, need, subject, and surfacing seams.
 
-Validation: fresh-session routing handles paraphrase and indirect wording without relying on phrase lists.
+Validation: those seams no longer depend primarily on heuristic score stacks.
 
-### Milestone 3: Replace need and subject heuristics
-Ship semantic adjudication for support need and subject selection.
+### Milestone 3: Add grounded support observation extraction
+Ship bounded support observation extraction for preferences, corrections, feedback, scope, and interpretation rejection.
 
-Validation: support runtime chooses need and subject through bounded model judgment over symbolic candidates.
+Validation: grounded observations are emitted with quotes and deterministic validation.
 
-### Milestone 4: Add grounded natural-language observation extraction
-Ship observation extraction for corrections, preferences, feedback, scope updates, and interpretation rejection.
-
-Validation: grounded observations are emitted with quotes, confidence, and deterministic safeguards.
-
-### Milestone 5: Replace pattern-surfacing score stacks
-Ship semantic surfacing decisions over retrieved pattern candidates.
-
-Validation: Alfred can decide whether to surface a pattern now, not merely whether one is similar.
-
-### Milestone 6: Align docs and inspection surfaces
-Update docs and support inspection text so they describe the adjudicated runtime truthfully.
+### Milestone 4: Align docs and inspection surfaces
+Update docs and inspection text so support-runtime behavior is described truthfully against the shared engine.
 
 Validation: runtime behavior, docs, and related PRDs stay aligned.
 
@@ -259,16 +237,15 @@ prds/187-semantic-need-adjudication-for-support-runtime.md
 prds/188-semantic-subject-adjudication-for-support-runtime.md
 prds/189-natural-language-observation-extraction-for-support-learning.md
 prds/190-semantic-pattern-surfacing-and-reflection-guidance.md
-docs/ROADMAP.md
+docs/architecture/semantic-runtime-engine.md
+docs/ARCHITECTURE.md
+docs/relational-support-model.md
 src/alfred/memory/support_context.py
 src/alfred/support_policy.py
 src/alfred/support_reflection.py
 src/alfred/context_display.py
 src/alfred/interfaces/pypitui/commands/show_context.py
 src/alfred/interfaces/webui/server.py
-docs/relational-support-model.md
-docs/self-model.md
-docs/websocket-protocol.md
 ```
 
 ---
@@ -278,18 +255,18 @@ docs/websocket-protocol.md
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | LLM adjudication becomes vague or unconstrained | High | require closed schemas, candidate validation, abstain paths, and deterministic fallbacks |
-| The system loses rich symbolic information during the transition | High | make structured symbolic packets part of the shared contract in PRD #185 |
+| The support domain loses rich symbolic information during the transition | High | make structured symbolic packets part of the shared contract in PRD #185 |
 | Embeddings get removed from places where they are still the best tool | High | state the responsibility split explicitly in the parent PRD and child PRDs |
 | Runtime behavior becomes harder to debug | Medium | add observability for adjudicator inputs, outputs, validation failures, and fallback paths |
-| Child PRDs drift into inconsistent prompt contracts | High | use this PRD as the parent model and centralize the contract in PRD #185 |
-| PRD #183 and this work drift apart | Medium | keep cross-references explicit: runtime semantic judgment here, case-based learning and inspection in #183 |
+| Child PRDs drift into inconsistent prompt contracts | High | centralize the contract in PRD #185 and the architecture in the semantic runtime engine doc |
+| Support and relational domains drift into parallel semantic systems | High | keep both domains explicitly mapped to the same shared engine |
 
 ---
 
 ## 10. Open Questions
 
-1. Which adjudicators should run synchronously on the hot path versus asynchronously after response generation?
-2. How much symbolic state can each adjudicator see before latency or prompt sprawl becomes a problem?
+1. Which support-domain adjudicators should run synchronously on the hot path versus asynchronously after response generation?
+2. How much symbolic state can each support-domain request see before latency or prompt sprawl becomes a problem?
 3. Which adjudication traces should be exposed through `/support` or other inspection paths?
-4. Should some adjudicators use smaller, cheaper models than the main response model if the schema is narrow enough?
+4. Should some support-domain adjudicators use smaller, cheaper models than the main response model if the schema is narrow enough?
 5. How much shared infrastructure can be reused with PRD #183's observation and case model without coupling the two PRDs too tightly?

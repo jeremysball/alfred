@@ -1,5 +1,6 @@
 # PRD: Natural-Language Relational Preference and Boundary Extraction
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
 **GitHub Issue**: [#196](https://github.com/jeremysball/alfred/issues/196)  
 **Priority**: High  
@@ -29,24 +30,22 @@ That creates five problems:
    - Relational preferences and boundaries have sharper interaction consequences than ordinary help-shape preferences.
    - They deserve a more explicit relational ontology.
 
-3. **Prompt-only interpretation is too mushy**
-   - If Alfred only “kind of gets the vibe,” the runtime will drift instead of learning grounded, corrigible preferences.
+3. **This should still reuse the shared extraction primitive**
+   - Relational extraction should not become a separate architecture.
+   - It should be a relational-domain specialization of the shared grounded observation-extraction primitive.
 
-4. **Relational misattunement needs a first-class correction path**
-   - A user saying “that felt too harsh,” “don’t frame me that way,” or “you’re coming in too therapisty” is not noise.
-   - It is important relational evidence.
+4. **Prompt-only interpretation is too mushy**
+   - If Alfred only “kind of gets the vibe,” the runtime will drift instead of learning grounded, corrigible preferences.
 
 5. **These signals should feed the shared learning model without bypassing it**
    - Relational extraction should create grounded observations.
    - It should not become a hidden direct-promotion engine.
 
-This PRD adds a dedicated extraction seam for relational preferences, boundaries, stance feedback, and rupture signals.
-
 ---
 
 ## 2. Goals
 
-1. Add a schema-constrained extraction path for relational observations from ordinary language.
+1. Apply the shared grounded observation-extraction primitive to relational observations from ordinary language.
 2. Keep the relational observation ontology small, typed, and inspectable.
 3. Require quote grounding and deterministic validation.
 4. Feed validated relational observations into the shared learning model from PRD #183.
@@ -66,9 +65,9 @@ This PRD adds a dedicated extraction seam for relational preferences, boundaries
 
 ## 4. Proposed Solution
 
-### 4.1 Add a bounded relational observation extractor
+### 4.1 Use the shared grounded observation-extraction primitive
 
-For relevant turns, run one schema-constrained extractor focused on relational signals.
+For relevant turns, run the shared schema-constrained extractor focused on relational signals.
 
 The extractor may return zero or more observations.
 
@@ -139,6 +138,7 @@ Each extracted observation should include:
 - `confidence`
 - `message_id`
 - `attempt_id` when applicable
+- `scope` when applicable
 
 Important rule:
 - the ontology should stay small enough that support inspection remains legible
@@ -252,12 +252,13 @@ Validation: docs and runtime behavior match.
 
 ```text
 prds/196-natural-language-relational-preference-and-boundary-extraction.md
+docs/architecture/semantic-runtime-engine.md
+docs/relational-support-model.md
 src/alfred/memory/support_learning.py
 src/alfred/support_policy.py
 src/alfred/support_reflection.py
 tests/test_support_learning.py
 tests/test_support_policy.py
-docs/relational-support-model.md
 docs/how-alfred-helps.md
 docs/self-model.md
 ```
@@ -269,7 +270,7 @@ docs/self-model.md
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | The extractor overreads ordinary language | High | keep the ontology small, allow zero observations, and require grounded quotes |
-| Relational extraction duplicates PRD #189 incoherently | Medium | keep this PRD focused on relational-specific observations and compatible with shared extraction infrastructure |
+| Relational extraction duplicates PRD #189 incoherently | Medium | keep this PRD focused on relational-specific observations while reusing the shared extraction primitive |
 | The extractor becomes a hidden control path | High | keep promotion and status mutation outside the extractor |
 | Users cannot tell whether a boundary was honored later | Medium | ensure observations are traceable through `/support` cases and update events |
 

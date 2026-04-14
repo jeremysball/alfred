@@ -18,6 +18,7 @@ Alfred is now being extended into a **relational support system**.
 
 That support layer is documented in:
 - [docs/relational-support-model.md](relational-support-model.md)
+- [docs/architecture/semantic-runtime-engine.md](architecture/semantic-runtime-engine.md)
 - [prds/done/179-relational-support-operating-model.md](../prds/done/179-relational-support-operating-model.md)
 
 This file keeps two things clear:
@@ -57,11 +58,15 @@ Alfred's durable markdown layer is built around:
 
 These files are always loaded and shape behavior every turn.
 
+Prompt fragments under `templates/prompts/` are small reusable supplements, not a second policy layer. The top-level files should stay compact and own the behavior-critical rules.
+
 ### Managed template sync
 
 `TemplateManager.reconcile_template()` keeps template sync workspace-scoped so one checkout cannot silently overwrite another.
 
-When an upstream template and a workspace file both change, the runtime should fail closed, mark the file as blocked for automatic sync, and write standard conflict markers instead of guessing. That blocked state should remain visible in `/context` and in the WebUI so operators can repair drift intentionally.
+When an upstream template and a workspace file both change, the runtime should fail closed, mark the file as blocked for automatic sync, and write standard conflict markers instead of guessing. The same rule applies to managed prompt fragments; if one of them conflicts, Alfred blocks the owning top-level context file instead of loading a partial prompt.
+
+That blocked state should remain visible in `/context`, in the persistent WebUI warning banner, and in the detailed WebUI context view so operators can repair drift intentionally.
 
 The canonical recovery flow lives in [Template Sync and Conflict Recovery](template-sync.md).
 
@@ -174,25 +179,34 @@ Those values should be resolved by scope:
 
 ---
 
-## 4. Target support runtime loop
+## 4. Semantic runtime engine
 
-The planned runtime loop is:
+The semantic runtime should be understood through one shared architecture, not as a pile of seam-specific mini-systems.
 
-1. infer context
-2. load operational state
-3. load effective relational values
-4. load effective support values
-5. derive stance summary
-6. compile a behavior contract
-7. choose interventions
-8. respond or act
-9. log evidence and outcomes
-10. surface review or correction when appropriate
+See [docs/architecture/semantic-runtime-engine.md](architecture/semantic-runtime-engine.md) for the full boundary doc.
+
+The compressed model has three abstractions:
+
+1. **candidate adjudication**
+   - bounded model judgment over a provided candidate set or closed enum
+   - used for routing, need selection, subject resolution, pattern surfacing, and relational stance deltas
+2. **grounded observation extraction**
+   - bounded model extraction of zero or more typed observations from language
+   - used for preferences, boundaries, feedback, interpretation rejection, and related learning signals
+3. **deterministic activation and surfacing policy**
+   - code-owned validation, fallback, scope resolution, activation, promotion, persistence, and explanation rules
+
+Those abstractions sit on top of deterministic runtime facts such as:
+- current message and recent exchange
+- arc and domain situations
+- effective support and relational values
+- candidate ids and summaries
+- attempts, observations, cases, and confirmed patterns
 
 Important design split:
-- the **product** defines what runtime dimensions mean
-- the **runtime** learns which values apply
-- the **model** expresses those values naturally in context
+- the **product** defines what dimensions and observation kinds mean
+- the **model** makes bounded semantic judgments inside closed contracts
+- the **runtime** validates, activates, persists, and surfaces state deterministically
 
 This keeps the system adaptive without letting core semantics drift.
 
@@ -260,6 +274,7 @@ One major architectural goal is to stop smearing truth across markdown, search, 
 
 ### Developer / architecture
 - [Relational Support Model](relational-support-model.md)
+- [Semantic Runtime Engine](architecture/semantic-runtime-engine.md)
 - [Memory System](MEMORY.md)
 - [Self-Model & Introspection](self-model.md)
 

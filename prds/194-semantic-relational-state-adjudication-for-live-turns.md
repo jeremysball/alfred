@@ -1,5 +1,6 @@
 # PRD: Semantic Relational-State Adjudication for Live Turns
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
 **GitHub Issue**: [#194](https://github.com/jeremysball/alfred/issues/194)  
 **Priority**: High  
@@ -41,13 +42,13 @@ That creates five problems:
    - PRDs #184 through #190 move support-runtime semantic judgments into bounded adjudicators over symbolic state.
    - The relational layer needs the same treatment.
 
-This PRD defines a bounded adjudicator for the live relational conditions of one turn or reply window.
+This PRD applies the shared **candidate adjudication** primitive to the live relational conditions of one turn or reply window.
 
 ---
 
 ## 2. Goals
 
-1. Replace thin heuristic transient flags with a bounded relational-state adjudicator.
+1. Replace thin heuristic transient flags with shared candidate adjudication over a closed live-state ontology.
 2. Keep the live-state ontology small, closed, and inspectable.
 3. Separate transient relational conditions from durable learned values and patterns.
 4. Feed bounded live-state outputs into stance adjudication and compiler behavior.
@@ -67,7 +68,7 @@ This PRD defines a bounded adjudicator for the live relational conditions of one
 
 ## 4. Proposed Solution
 
-### 4.1 Add a bounded relational-state adjudicator
+### 4.1 Use the shared candidate-adjudication primitive for live relational state
 
 The runtime should add one narrow adjudicator for the live relational moment.
 

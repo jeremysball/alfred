@@ -1,5 +1,6 @@
 # PRD: Relational Surfacing and Meta-Explanation
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
 **GitHub Issue**: [#197](https://github.com/jeremysball/alfred/issues/197)  
 **Priority**: High  
@@ -38,13 +39,13 @@ That creates five problems:
 5. **The user needs a better answer to relational why-questions**
    - Questions like “why are you being more direct right now?” or “why are you coming in above me?” deserve a bounded, truth-preserving runtime answer.
 
-This PRD defines the bounded seam for relational surfacing and meta-explanation.
+This PRD applies the shared **candidate adjudication** primitive to relational surfacing and meta-explanation choices.
 
 ---
 
 ## 2. Goals
 
-1. Add a bounded adjudicator for whether relational stance should stay implicit or be explained.
+1. Add shared candidate adjudication for whether relational stance should stay implicit or be explained.
 2. Keep implicit behavior as the default.
 3. Allow compact or richer explanation when the user asks, when correction is needed, or when trust requires it.
 4. Prevent the runtime from dumping internal labels, scores, or policy metadata by default.
@@ -64,7 +65,7 @@ This PRD defines the bounded seam for relational surfacing and meta-explanation.
 
 ## 4. Proposed Solution
 
-### 4.1 Add a bounded relational-surfacing adjudicator
+### 4.1 Use the shared candidate-adjudication primitive for relational surfacing
 
 The adjudicator should answer a narrow question:
 

@@ -197,11 +197,63 @@ Instead:
 That means the model infers phrasing, not product semantics.
 The prompt contract should steer behavior without forcing stock wording or exposing internal policy labels by default.
 
+## Semantic runtime engine
+
+The semantic layer should be understood through one shared runtime engine with three abstractions:
+
+1. **candidate adjudication**
+2. **grounded observation extraction**
+3. **deterministic activation and surfacing policy**
+
+These are runtime mechanics, not product ontologies.
+Support and relational features should reuse them instead of building separate semantic subsystems.
+
+### Candidate adjudication
+Use this when the runtime needs a bounded choice or ranking among candidates.
+
+Examples:
+- resume vs orient vs neither
+- support need selection
+- subject resolution
+- pattern surfacing
+- live relational-state and stance deltas
+
+### Grounded observation extraction
+Use this when the runtime needs zero or more typed observations from language.
+
+Examples:
+- support preference
+- correction
+- interpretation rejection
+- relational preference
+- relational boundary
+- stance feedback
+
+### Deterministic activation and surfacing policy
+This layer stays code-owned.
+It decides:
+- what becomes active for the current turn
+- what stays candidate-only
+- what becomes durable learning input
+- what is surfaced, explained, or kept silent
+
+Important split:
+- the model may judge or extract
+- the runtime validates, activates, persists, and explains
+- the user-facing control surfaces still outrank inference
+
+See [docs/architecture/semantic-runtime-engine.md](architecture/semantic-runtime-engine.md) for the boundary doc.
+
 ## Learning model
 
-The learning system should operate on **learning situations inside sessions**.
+The shipped learning foundation now operates on:
+- **`SupportAttempt`**
+- **`OutcomeObservation`**
+- **`LearningCase`**
 
-### Why learning situations
+That is the shared deterministic learning boundary for both support and relational runtime work.
+
+### Why this unit matters
 A single conversation can move through multiple contexts:
 - execution
 - decision support
@@ -209,21 +261,16 @@ A single conversation can move through multiple contexts:
 - direction reflection
 
 One session blob is too coarse for reliable learning.
-A full episode report is useful later for review, but it is too coarse to be the only similarity and adaptation unit.
+The runtime needs smaller units that preserve what Alfred tried, what evidence appeared, and what later seemed to help.
 
-### Learning-situation concept
-Each learning situation should capture:
-- dominant support need / response mode for the moment
-- subject refs
-- interventions attempted
-- response signals
-- outcome signals
-- evidence refs
-- the relational and support contract used
+### Attempt / observation / case role
+- `SupportAttempt` records what Alfred tried in context
+- `OutcomeObservation` records grounded evidence after or around that attempt
+- `LearningCase` is the derived unit used for later learning, inspection, and adaptive updates
 
 ### Episode role
 `SupportEpisode` should remain a derived synthesis/report boundary.
-It can summarize several learning situations later for review, reflection, and correction surfaces.
+It can summarize several cases or attempts later for review, reflection, and correction surfaces without becoming the main learning primitive again.
 
 ## Learning classes
 
@@ -343,18 +390,19 @@ Still required:
 
 The target runtime loop is:
 1. infer context
-2. load operational state
-3. recover recent continuity when needed
-4. load effective relational values
-5. load effective support values
-6. derive stance summary
-7. compile behavior contract
-8. choose interventions
-9. decide whether any loaded pattern should stay silent, get a compact mention, or get a slightly richer explanation
-10. respond or act
-11. log evidence and outcomes
-12. calibrate against the record when relevant
-13. surface review, inspection, or correction when appropriate
+2. load operational state and recover recent continuity when needed
+3. assemble deterministic runtime facts and candidate sets
+4. run **candidate adjudication** when the turn needs bounded selection or ranking
+5. run **grounded observation extraction** when the turn may contain learnable signals
+6. validate and apply **deterministic activation and surfacing policy**
+7. load effective relational values and effective support values
+8. derive stance summary and compile behavior contract
+9. choose interventions
+10. decide whether any loaded pattern or stance explanation should stay silent, get a compact mention, or get a slightly richer explanation
+11. respond or act
+12. record attempts, observations, and cases through the shared learning model
+13. calibrate against the record when relevant
+14. surface review, inspection, or correction when appropriate
 
 ## PRD map
 
@@ -362,6 +410,10 @@ The target runtime loop is:
 - **PRD #167** — operational support memory and episode evidence foundation
 - **PRD #168** — relational/support registries, behavior compiler, bounded adaptation
 - **PRD #169** — reflection surfaces, review cards, correction controls
+- **PRD #183** — shared `SupportAttempt` -> `OutcomeObservation` -> `LearningCase` foundation and ledger semantics
+- **PRD #184** — support-domain applications of the semantic runtime engine
+- **PRD #185** — shared semantic runtime contract for candidate adjudication and grounded observation extraction
+- **PRD #192** — relational-domain applications of the semantic runtime engine
 - **PRD #147** — self-model and personality foundation already completed
 
 ## Current implementation note
@@ -377,7 +429,8 @@ Alfred already has important foundations:
 - self-model and personality work
 
 What is still being formalized here is the next layer:
-- relational/support registries
+- the shared semantic runtime engine
+- support and relational ontologies that plug into that engine
 - behavior compilation
 - bounded calibration surfaces
 - review and correction surfaces

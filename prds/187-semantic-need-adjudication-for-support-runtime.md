@@ -1,5 +1,6 @@
 # PRD: Semantic Need Adjudication for Support Runtime
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#184 Semantic Adjudication Runtime for Support Routing and Learning](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)  
 **GitHub Issue**: [#187](https://github.com/jeremysball/alfred/issues/187)  
 **Priority**: High  
@@ -37,13 +38,13 @@ Four problems matter now:
 4. **Threshold tuning is becoming the product**
    - Similarity margins and prototype hit counts are implementation glue, not a durable product contract.
 
-This PRD replaces prototype-bank need assessment with bounded semantic adjudication.
+This PRD applies the shared **candidate adjudication** primitive to support-need selection.
 
 ---
 
 ## 2. Goals
 
-1. Replace embedding-prototype need classification with LLM adjudication.
+1. Replace embedding-prototype need classification with shared candidate adjudication over a closed need enum.
 2. Keep the allowed need set closed and typed.
 3. Preserve deterministic response-mode mapping in code.
 4. Forward rich symbolic runtime context into the adjudication request.
@@ -62,7 +63,7 @@ This PRD replaces prototype-bank need assessment with bounded semantic adjudicat
 
 ## 4. Proposed Solution
 
-### 4.1 Replace need assessment with a bounded adjudicator
+### 4.1 Use the shared candidate-adjudication primitive for need selection
 
 The adjudicator should classify the turn into exactly one of:
 - `orient`

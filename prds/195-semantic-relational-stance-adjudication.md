@@ -1,5 +1,6 @@
 # PRD: Semantic Relational Stance Adjudication
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
 **GitHub Issue**: [#195](https://github.com/jeremysball/alfred/issues/195)  
 **Priority**: High  
@@ -43,14 +44,14 @@ That creates five problems:
    - The recent support PRDs replace heuristic final judgments with bounded semantic decisions over structured state.
    - The relational layer needs the same architecture.
 
-This PRD defines a bounded stance-adjudication seam that applies small validated changes against a deterministic relational baseline.
+This PRD applies the shared **candidate adjudication** primitive to bounded stance adjustment against a deterministic relational baseline.
 
 ---
 
 ## 2. Goals
 
 1. Keep deterministic baseline loading for relational values.
-2. Add a bounded stance adjudicator for per-turn relational shifts.
+2. Add shared candidate adjudication for per-turn relational shifts.
 3. Prefer small validated deltas over unconstrained full rewrites.
 4. Keep scope resolution, persistence, and activation deterministic.
 5. Make the per-turn stance seam inspectable and fallback-safe.
@@ -80,7 +81,7 @@ Before any per-turn adjudication, runtime should load the deterministic relation
 
 This gives the turn a stable starting point.
 
-### 4.2 Add a bounded stance adjudicator on top of the baseline
+### 4.2 Use the shared candidate-adjudication primitive on top of the baseline
 
 The adjudicator should not invent the entire stance.
 

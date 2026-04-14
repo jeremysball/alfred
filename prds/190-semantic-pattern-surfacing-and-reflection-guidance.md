@@ -1,5 +1,6 @@
 # PRD: Semantic Pattern Surfacing and Reflection Guidance
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#184 Semantic Adjudication Runtime for Support Routing and Learning](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)  
 **GitHub Issue**: [#190](https://github.com/jeremysball/alfred/issues/190)  
 **Priority**: High  
@@ -42,14 +43,14 @@ Four problems matter now:
    - Embeddings and similarity should shortlist candidate patterns.
    - The final surfacing judgment should be a bounded semantic decision with strict limits and safe fallback.
 
-This PRD replaces heuristic surfacing decisions with bounded adjudication after retrieval.
+This PRD applies the shared **candidate adjudication** primitive to final pattern-surfacing choices after deterministic shortlist generation.
 
 ---
 
 ## 2. Goals
 
 1. Keep embeddings and scoring for shortlist generation only.
-2. Use LLM adjudication for the final surfacing decision.
+2. Use shared candidate adjudication for the final surfacing decision.
 3. Keep surfacing bounded to none, one, or a small number of candidate patterns.
 4. Preserve deterministic safety limits and silent fallback behavior.
 5. Improve Alfred's judgment about when to surface a pattern and when to stay quiet.
@@ -78,7 +79,7 @@ The existing retrieval and prioritization path may still compute a candidate sho
 
 That shortlist should remain deterministic and bounded.
 
-### 4.2 Add a bounded surfacing adjudicator
+### 4.2 Use the shared candidate-adjudication primitive for surfacing
 
 Given a shortlist, the model should decide:
 - surface none / one / two candidate patterns

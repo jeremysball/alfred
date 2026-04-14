@@ -1,5 +1,6 @@
 # PRD: Semantic Subject Adjudication for Support Runtime
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#184 Semantic Adjudication Runtime for Support Routing and Learning](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)  
 **GitHub Issue**: [#188](https://github.com/jeremysball/alfred/issues/188)  
 **Priority**: High  
@@ -40,13 +41,13 @@ Five problems matter now:
 5. **The current scoring blend is hard to reason about**
    - Semantic similarity, alias hits, overlap bands, and scope boosts all compete in one opaque total score.
 
-This PRD replaces that score soup with bounded subject adjudication.
+This PRD applies the shared **candidate adjudication** primitive to subject resolution.
 
 ---
 
 ## 2. Goals
 
-1. Replace heuristic subject scoring with LLM adjudication over explicit candidates.
+1. Replace heuristic subject scoring with shared candidate adjudication over explicit candidates.
 2. Support both concrete subjects and abstract subject kinds.
 3. Preserve stable ids and typed subject refs.
 4. Keep candidate selection bounded and validated.
@@ -65,7 +66,7 @@ This PRD replaces that score soup with bounded subject adjudication.
 
 ## 4. Proposed Solution
 
-### 4.1 Replace score-based subject selection with bounded adjudication
+### 4.1 Use the shared candidate-adjudication primitive for subject selection
 
 The subject adjudicator should select zero or more subject refs from a supplied candidate set.
 

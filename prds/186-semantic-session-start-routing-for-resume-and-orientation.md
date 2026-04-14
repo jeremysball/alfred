@@ -1,5 +1,6 @@
 # PRD: Semantic Session-Start Routing for Resume and Orientation
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#184 Semantic Adjudication Runtime for Support Routing and Learning](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)  
 **GitHub Issue**: [#186](https://github.com/jeremysball/alfred/issues/186)  
 **Priority**: High  
@@ -34,13 +35,13 @@ That creates four problems:
    - The runtime has resume arcs, arc snapshots, global situations, and ids.
    - The current logic does not let the model reason over those structured candidates.
 
-This PRD replaces lexical routing with bounded semantic routing.
+This PRD applies the shared **candidate adjudication** primitive to fresh-session routing.
 
 ---
 
 ## 2. Goals
 
-1. Replace phrase-list and substring routing with LLM semantic adjudication.
+1. Replace phrase-list and substring routing with shared candidate adjudication over bounded candidates.
 2. Distinguish among `resume_arc`, `broad_orientation`, and `none`.
 3. Let the model choose a real candidate `arc_id` when resuming.
 4. Preserve deterministic fallback and archive-search behavior.
@@ -59,9 +60,9 @@ This PRD replaces lexical routing with bounded semantic routing.
 
 ## 4. Proposed Solution
 
-### 4.1 Add a bounded session-start adjudicator
+### 4.1 Use the shared candidate-adjudication primitive for session start
 
-Replace the current routing heuristics with one adjudicator that returns exactly one of:
+Replace the current routing heuristics with one bounded candidate-adjudication request that returns exactly one of:
 - `resume_arc`
 - `broad_orientation`
 - `none`

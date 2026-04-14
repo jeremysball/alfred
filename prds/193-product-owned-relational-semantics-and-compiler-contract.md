@@ -1,5 +1,6 @@
 # PRD: Product-Owned Relational Semantics and Compiler Contract
 
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
 **Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
 **GitHub Issue**: [#193](https://github.com/jeremysball/alfred/issues/193)  
 **Priority**: High  
@@ -40,7 +41,7 @@ That creates five problems:
 5. **Relational behavior still depends too much on prompt vibe**
    - Without sharper compiler outputs, the runtime risks looking structured while still behaving mainly through templates and model instinct.
 
-This PRD defines the missing product-owned semantics and the compiler contract that turns relational values into concrete behavior.
+This PRD defines the product-owned semantics and compiler contract consumed by the shared semantic runtime engine. It is the relational-domain semantics layer, not a separate semantic primitive.
 
 ---
 
@@ -59,7 +60,7 @@ This PRD defines the missing product-owned semantics and the compiler contract t
 ## 3. Non-Goals
 
 - Replacing the relational registry with a smaller one by default.
-- Owning live stance selection or semantic adjudication. Those belong to PRDs #194 and #195.
+- Owning live stance selection or model-facing semantic primitives. Those belong to PRDs #194 and #195 through the shared engine.
 - Owning learning, activation, or status transitions. Those remain in PRD #183.
 - Letting the model invent new meanings for relational dimensions at runtime.
 - Turning the compiler into a stock phrase generator.
