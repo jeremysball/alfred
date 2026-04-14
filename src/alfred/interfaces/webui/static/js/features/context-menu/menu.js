@@ -154,6 +154,30 @@ class ContextMenu {
   render() {
     this.container.innerHTML = "";
 
+    if (this.container.dataset.layout === "sheet") {
+      const header = document.createElement("div");
+      header.className = "context-menu-header";
+
+      const title = document.createElement("div");
+      title.className = "context-menu-title";
+      title.textContent = "Actions";
+
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "context-menu-close";
+      closeButton.setAttribute("aria-label", "Close context menu");
+      closeButton.textContent = "×";
+      closeButton.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.close();
+      });
+
+      header.appendChild(title);
+      header.appendChild(closeButton);
+      this.container.appendChild(header);
+    }
+
     this.items.forEach((item, index) => {
       if (item.type === "separator") {
         this.renderSeparator(index);

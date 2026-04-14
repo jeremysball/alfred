@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, TypedDict, cast
 
-from alfred.memory.support_learning import LearningSituation, SupportPattern, SupportProfileUpdateEvent
+from alfred.memory.support_learning import (
+    LearningSituation,
+    SupportLedgerUpdateEvent,
+    SupportPattern,
+    SupportProfileUpdateEvent,
+    SupportValueLedgerEntry,
+)
 from alfred.memory.support_memory import LifeDomain, OperationalArc
 from alfred.memory.support_profile import (
     SupportProfileScope,
@@ -248,6 +254,82 @@ class UpdateEventSummary:
         )
 
 
+class ValueLedgerSummary(TypedDict):
+    total: int
+    counts_by_status: dict[str, int]
+    counts_by_registry: dict[str, int]
+
+
+@dataclass(frozen=True)
+class SupportValueLedgerEntrySummary:
+    value_id: str
+    registry: str
+    dimension: str
+    scope: SupportProfileScope
+    value: str
+    status: str
+    confidence: float
+    evidence_count: int
+    contradiction_count: int
+    last_case_id: str | None
+    updated_at: datetime
+    why: str
+
+    @classmethod
+    def from_entry(cls, entry: SupportValueLedgerEntry) -> SupportValueLedgerEntrySummary:
+        return cls(
+            value_id=entry.value_id,
+            registry=str(entry.registry),
+            dimension=entry.dimension,
+            scope=entry.scope,
+            value=entry.value,
+            status=str(entry.status),
+            confidence=entry.confidence,
+            evidence_count=entry.evidence_count,
+            contradiction_count=entry.contradiction_count,
+            last_case_id=entry.last_case_id,
+            updated_at=entry.updated_at,
+            why=entry.why,
+        )
+
+
+@dataclass(frozen=True)
+class LedgerUpdateEventSummary:
+    event_id: str
+    entity_type: str
+    entity_id: str
+    registry: str
+    dimension_or_kind: str
+    scope: SupportProfileScope
+    old_status: str | None
+    new_status: str
+    old_value: str | None
+    new_value: str | None
+    trigger_case_ids: tuple[str, ...]
+    reason: str
+    confidence: float
+    created_at: datetime
+
+    @classmethod
+    def from_event(cls, event: SupportLedgerUpdateEvent) -> LedgerUpdateEventSummary:
+        return cls(
+            event_id=event.event_id,
+            entity_type=str(event.entity_type),
+            entity_id=event.entity_id,
+            registry=str(event.registry),
+            dimension_or_kind=event.dimension_or_kind,
+            scope=event.scope,
+            old_status=None if event.old_status is None else str(event.old_status),
+            new_status=str(event.new_status),
+            old_value=event.old_value,
+            new_value=event.new_value,
+            trigger_case_ids=event.trigger_case_ids,
+            reason=event.reason,
+            confidence=event.confidence,
+            created_at=event.created_at,
+        )
+
+
 @dataclass(frozen=True)
 class LearningSituationSummary:
     situation_id: str
@@ -289,6 +371,9 @@ class LearnedState:
     candidate_patterns: tuple[PatternSummary, ...]
     confirmed_patterns: tuple[PatternSummary, ...]
     recent_update_events: tuple[UpdateEventSummary, ...]
+    value_ledger_entries: tuple[SupportValueLedgerEntrySummary, ...]
+    value_ledger_summary: ValueLedgerSummary
+    recent_ledger_update_events: tuple[LedgerUpdateEventSummary, ...]
     recent_interventions: tuple[LearningSituationSummary, ...]
 
 
@@ -479,6 +564,10 @@ class SupportReflectionStore(Protocol):
 
     async def get_support_profile_update_event(self, event_id: str) -> SupportProfileUpdateEvent | None: ...
 
+    async def list_support_value_ledger_entries(self) -> list[SupportValueLedgerEntry]: ...
+
+    async def list_support_ledger_update_events(self) -> list[SupportLedgerUpdateEvent]: ...
+
     async def list_recent_learning_situations(self, *, limit: int = 6) -> list[LearningSituation]: ...
 
     async def list_learning_situations_by_ids(self, situation_ids: tuple[str, ...]) -> list[LearningSituation]: ...
@@ -544,12 +633,50 @@ class SupportReflectionRuntime:
         )
         inspection_patterns = await self._store.list_support_patterns_for_inspection()
         update_events = await self._store.list_support_profile_update_events(limit=12)
+        value_ledger_entries = await self._store.list_support_value_ledger_entries()
+        ledger_update_events = await self._store.list_support_ledger_update_events()
         recent_situations = await self._store.list_recent_learning_situations(limit=6)
         arcs = await self._store.list_resume_arcs(limit=12)
         domains = await self._store.list_active_life_domains(limit=6)
 
         candidate_patterns = tuple(PatternSummary.from_pattern(pattern) for pattern in inspection_patterns if pattern.status == "candidate")
         confirmed_patterns = tuple(PatternSummary.from_pattern(pattern) for pattern in inspection_patterns if pattern.status == "confirmed")
+
+        sorted_value_entries = sorted(
+            value_ledger_entries,
+            key=lambda entry: (
+                str(entry.registry),
+                entry.dimension,
+                entry.scope.type,
+                entry.scope.id,
+                entry.value_id,
+            ),
+        )
+        value_entry_summaries = tuple(SupportValueLedgerEntrySummary.from_entry(entry) for entry in sorted_value_entries[:200])
+
+        counts_by_status: dict[str, int] = dict.fromkeys(
+            ("shadow", "active_auto", "confirmed", "rejected", "retired"),
+            0,
+        )
+        for entry in value_ledger_entries:
+            counts_by_status[str(entry.status)] = counts_by_status.get(str(entry.status), 0) + 1
+        counts_by_registry = {"relational": 0, "support": 0}
+        for entry in value_ledger_entries:
+            registry = str(entry.registry)
+            counts_by_registry[registry] = counts_by_registry.get(registry, 0) + 1
+
+        value_ledger_summary: ValueLedgerSummary = {
+            "total": len(value_ledger_entries),
+            "counts_by_status": counts_by_status,
+            "counts_by_registry": counts_by_registry,
+        }
+
+        sorted_ledger_events = sorted(
+            ledger_update_events,
+            key=lambda event: (event.created_at, event.event_id),
+            reverse=True,
+        )
+        ledger_event_summaries = tuple(LedgerUpdateEventSummary.from_event(event) for event in sorted_ledger_events[:24])
         return SupportInspectionSnapshot(
             request=SupportInspectionRequest(response_mode=response_mode, arc_id=arc_id),
             active_runtime_state=ActiveRuntimeState(
@@ -563,6 +690,9 @@ class SupportReflectionRuntime:
                 candidate_patterns=candidate_patterns,
                 confirmed_patterns=confirmed_patterns,
                 recent_update_events=tuple(UpdateEventSummary.from_event(event) for event in update_events),
+                value_ledger_entries=value_entry_summaries,
+                value_ledger_summary=value_ledger_summary,
+                recent_ledger_update_events=ledger_event_summaries,
                 recent_interventions=tuple(LearningSituationSummary.from_situation(situation) for situation in recent_situations),
             ),
             active_domains=tuple(domains),
@@ -1156,6 +1286,7 @@ __all__ = [
     "CorrectProfileValueAction",
     "EffectiveValueExplanation",
     "LearnedState",
+    "LedgerUpdateEventSummary",
     "LearningSituationSummary",
     "PatternDetail",
     "PatternLoadDecision",
@@ -1169,6 +1300,7 @@ __all__ = [
     "SupportInspectionRequest",
     "SupportInspectionSnapshot",
     "SupportReflectionRuntime",
+    "SupportValueLedgerEntrySummary",
     "UpdateEventDetail",
     "UpdateEventSummary",
     "review_card_from_pattern",

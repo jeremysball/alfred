@@ -484,6 +484,62 @@ class ContextViewer extends HTMLElement {
     `;
   }
 
+  _formatValueLedgerSummary(summary) {
+    const total = this._asInt(summary?.total, 0);
+    const counts = summary?.counts_by_status || {};
+    const parts = Object.entries(counts)
+      .filter(([, count]) => this._asInt(count, 0) > 0)
+      .map(([status, count]) => `${status}: ${this._formatNumber(this._asInt(count, 0))}`);
+
+    if (!parts.length) {
+      return `${this._formatNumber(total)} total`;
+    }
+
+    return `${this._formatNumber(total)} total · ${parts.join(" · ")}`;
+  }
+
+  _renderSupportValueLedgerEntryItem(entry) {
+    const registry = this._escapeHtml(entry?.registry || "unknown");
+    const dimension = this._escapeHtml(entry?.dimension || "unknown");
+    const scopeLabel = this._escapeHtml(entry?.scope?.label || "unknown");
+    const value = this._escapeHtml(entry?.value || "");
+    const status = this._escapeHtml(entry?.status || "unknown");
+    const confidence = Number.parseFloat(entry?.confidence || 0).toFixed(2);
+    const evidenceCount = this._formatNumber(this._asInt(entry?.evidence_count, 0));
+    const contradictionCount = this._formatNumber(this._asInt(entry?.contradiction_count, 0));
+    const why = this._escapeHtml(entry?.why || "");
+
+    const label = `${registry}:${dimension} = ${value}`;
+    const meta = `${scopeLabel} · ${status} · conf ${confidence} · ev ${evidenceCount} · contra ${contradictionCount}`;
+
+    return `
+      <div class="support-ledger-entry info-row">
+        <span class="info-value">${this._escapeHtml(label)}</span>
+        <span class="info-label">${this._escapeHtml(meta)}${why ? ` · ${why}` : ""}</span>
+      </div>
+    `;
+  }
+
+  _renderSupportLedgerUpdateEventItem(event) {
+    const entityType = this._escapeHtml(event?.entity_type || "unknown");
+    const registry = this._escapeHtml(event?.registry || "unknown");
+    const dimension = this._escapeHtml(event?.dimension_or_kind || "unknown");
+    const scopeLabel = this._escapeHtml(event?.scope?.label || "unknown");
+    const newStatus = this._escapeHtml(event?.new_status || "unknown");
+    const newValue = this._escapeHtml(event?.new_value || "");
+    const confidence = Number.parseFloat(event?.confidence || 0).toFixed(2);
+
+    const label = `${entityType} ${registry}:${dimension} → ${newValue || newStatus}`;
+    const meta = `${scopeLabel} · ${newStatus} · conf ${confidence}`;
+
+    return `
+      <div class="support-ledger-event info-row">
+        <span class="info-value">${this._escapeHtml(label)}</span>
+        <span class="info-label">${this._escapeHtml(meta)}</span>
+      </div>
+    `;
+  }
+
   _renderSupportArcItem(arc) {
     const title = this._escapeHtml(arc?.title || arc?.arc_id || "Unknown arc");
     const meta = `${arc?.kind || "unknown"} · ${arc?.status || "unknown"}`;
@@ -516,6 +572,9 @@ class ContextViewer extends HTMLElement {
     const candidatePatterns = learnedState.candidate_patterns || [];
     const confirmedPatterns = learnedState.confirmed_patterns || [];
     const recentEvents = learnedState.recent_update_events || [];
+    const valueLedgerEntries = learnedState.value_ledger_entries || [];
+    const valueLedgerSummary = learnedState.value_ledger_summary || {};
+    const recentLedgerEvents = learnedState.recent_ledger_update_events || [];
     const activeArcs = supportState.active_arcs || [];
     const activeDomains = supportState.active_domains || [];
     const effectiveSupportValues = Object.entries(runtimeState.effective_support_values || {});
@@ -683,6 +742,40 @@ class ContextViewer extends HTMLElement {
                   <div class="card-title">Recent Changes</div>
                   <div class="card-content">
                     ${recentEvents.map((event) => this._renderSupportEventItem(event)).join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                valueLedgerEntries.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Value Ledger</div>
+                  <div class="card-content">
+                    <div class="info-row">
+                      <span class="info-label">Summary:</span>
+                      <span class="info-value">${this._escapeHtml(this._formatValueLedgerSummary(valueLedgerSummary))}</span>
+                    </div>
+                    ${valueLedgerEntries
+                      .map((entry) => this._renderSupportValueLedgerEntryItem(entry))
+                      .join("")}
+                  </div>
+                </div>
+              `
+                  : ""
+              }
+
+              ${
+                recentLedgerEvents.length
+                  ? `
+                <div class="self-model-card">
+                  <div class="card-title">Ledger Updates</div>
+                  <div class="card-content">
+                    ${recentLedgerEvents
+                      .map((event) => this._renderSupportLedgerUpdateEventItem(event))
+                      .join("")}
                   </div>
                 </div>
               `

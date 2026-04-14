@@ -51,6 +51,20 @@ PatternKind = Literal[
 ]
 PatternStatus = Literal["candidate", "confirmed", "rejected"]
 UpdateEventStatus = Literal["proposed", "applied", "reverted"]
+ObservationSourceType = Literal[
+    "next_user_turn",
+    "work_state_transition",
+    "explicit_feedback",
+    "timeout",
+    "manual_review",
+    "system_inference",
+]
+ObservationSignalPolarity = Literal["positive", "negative", "mixed", "neutral"]
+LearningCaseStatus = Literal["open", "complete", "insufficient_evidence", "superseded"]
+SupportValueStatus = Literal["shadow", "active_auto", "confirmed", "rejected", "retired"]
+SupportPatternLedgerStatus = Literal["candidate", "active_auto", "confirmed", "rejected", "retired"]
+SupportLedgerStatus = Literal["shadow", "candidate", "active_auto", "confirmed", "rejected", "retired"]
+SupportLedgerEntityType = Literal["value", "pattern"]
 
 _SUPPORTED_INTERVENTION_FAMILIES: frozenset[str] = frozenset(
     {
@@ -77,6 +91,22 @@ _SUPPORTED_PATTERN_KINDS: frozenset[str] = frozenset(
 )
 _SUPPORTED_PATTERN_STATUSES: frozenset[str] = frozenset({"candidate", "confirmed", "rejected"})
 _SUPPORTED_UPDATE_EVENT_STATUSES: frozenset[str] = frozenset({"proposed", "applied", "reverted"})
+_SUPPORTED_OBSERVATION_SOURCE_TYPES: frozenset[str] = frozenset(
+    {
+        "next_user_turn",
+        "work_state_transition",
+        "explicit_feedback",
+        "timeout",
+        "manual_review",
+        "system_inference",
+    }
+)
+_SUPPORTED_OBSERVATION_SIGNAL_POLARITIES: frozenset[str] = frozenset({"positive", "negative", "mixed", "neutral"})
+_SUPPORTED_LEARNING_CASE_STATUSES: frozenset[str] = frozenset({"open", "complete", "insufficient_evidence", "superseded"})
+_SUPPORTED_VALUE_LEDGER_STATUSES: frozenset[str] = frozenset({"shadow", "active_auto", "confirmed", "rejected", "retired"})
+_SUPPORTED_PATTERN_LEDGER_STATUSES: frozenset[str] = frozenset({"candidate", "active_auto", "confirmed", "rejected", "retired"})
+_SUPPORTED_LEDGER_STATUSES: frozenset[str] = frozenset({"shadow", "candidate", "active_auto", "confirmed", "rejected", "retired"})
+_SUPPORTED_LEDGER_ENTITY_TYPES: frozenset[str] = frozenset({"value", "pattern"})
 
 
 def _dump_datetime(value: datetime) -> str:
@@ -168,6 +198,70 @@ def _validate_confidence(value: Any, *, label: str) -> float:
     return normalized
 
 
+def _validate_registry_kind(value: Any, *, label: str) -> SupportProfileRegistryKind:
+    normalized = _validate_trimmed_string(value, label=label)
+    if normalized not in {"relational", "support"}:
+        raise ValueError(f"{label} must be 'relational' or 'support', got {normalized!r}")
+    return cast(SupportProfileRegistryKind, normalized)
+
+
+def _validate_optional_trimmed_string(value: Any, *, label: str) -> str | None:
+    if value is None:
+        return None
+    return _validate_trimmed_string(value, label=label)
+
+
+def _validate_non_negative_int(value: Any, *, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be an integer, got {actual_type}")
+    normalized = int(value)
+    if normalized < 0:
+        raise ValueError(f"{label} must be non-negative")
+    return normalized
+
+
+def _validate_bool(value: Any, *, label: str) -> bool:
+    if not isinstance(value, bool):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a bool, got {actual_type}")
+    return value
+
+
+def _dump_transcript_span_refs(values: tuple[SupportTranscriptSpanRef, ...]) -> str:
+    return json.dumps([value.to_record() for value in values])
+
+
+def _load_transcript_span_refs(value: Any) -> tuple[SupportTranscriptSpanRef, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        decoded: Any = json.loads(value)
+    else:
+        decoded = value
+    if decoded is None:
+        return ()
+    if not isinstance(decoded, list):
+        raise ValueError("Transcript span refs must deserialize to a list of records")
+
+    refs: list[SupportTranscriptSpanRef] = []
+    for decoded_ref in decoded:
+        if not isinstance(decoded_ref, Mapping):
+            raise ValueError("Transcript span refs must contain mapping records")
+        refs.append(SupportTranscriptSpanRef.from_record(decoded_ref))
+    return tuple(refs)
+
+
+def _validate_transcript_span_refs(value: Any, *, label: str) -> tuple[SupportTranscriptSpanRef, ...]:
+    if not isinstance(value, tuple):
+        actual_type = type(value).__name__
+        raise ValueError(f"{label} must be a tuple of SupportTranscriptSpanRef values, got {actual_type}")
+    for evidence_ref in value:
+        if not isinstance(evidence_ref, SupportTranscriptSpanRef):
+            raise ValueError(f"{label} must contain SupportTranscriptSpanRef values")
+    return value
+
+
 @dataclass(eq=True, frozen=True)
 class SupportTranscriptSpanRef:
     """General same-session transcript span used by learning records."""
@@ -203,6 +297,897 @@ class SupportTranscriptSpanRef:
             message_start_id=str(record["message_start_id"]),
             message_end_id=str(record["message_end_id"]),
         )
+
+
+@dataclass(eq=True)
+class SupportAttempt:
+    """Reply-time record of what Alfred tried for one support turn."""
+
+    attempt_id: str
+    session_id: str
+    user_message_id: str
+    assistant_message_id: str
+    created_at: datetime
+    need: Need
+    response_mode: str
+    subject_refs: tuple[str, ...] = ()
+    active_arc_id: str | None = None
+    active_domain_ids: tuple[str, ...] = ()
+    effective_support_values: dict[str, str] = field(default_factory=dict)
+    effective_relational_values: dict[str, str] = field(default_factory=dict)
+    intervention_family: InterventionFamily = "confirm"
+    intervention_refs: tuple[str, ...] = ()
+    prompt_contract_summary: str = ""
+    operational_snapshot_ref: str | None = None
+
+    def __post_init__(self) -> None:
+        self.attempt_id = _validate_trimmed_string(self.attempt_id, label="attempt_id")
+        self.session_id = _validate_trimmed_string(self.session_id, label="session_id")
+        self.user_message_id = _validate_trimmed_string(self.user_message_id, label="user_message_id")
+        self.assistant_message_id = _validate_trimmed_string(
+            self.assistant_message_id,
+            label="assistant_message_id",
+        )
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+
+        self.need = _validate_trimmed_string(self.need, label="need")  # type: ignore[assignment]
+        if self.need not in _SUPPORTED_NEEDS:
+            raise ValueError(f"Unsupported support attempt need: {self.need!r}")
+
+        self.response_mode = _validate_trimmed_string(self.response_mode, label="response_mode")
+        if self.response_mode not in V1_INTERACTION_CONTEXT_IDS:
+            allowed_contexts = ", ".join(V1_INTERACTION_CONTEXT_IDS)
+            raise ValueError(
+                f"Unsupported support attempt response_mode: {self.response_mode!r}. Expected one of: {allowed_contexts}",
+            )
+
+        self.subject_refs = _validate_string_tuple(self.subject_refs, label="subject_refs")
+        self.active_domain_ids = _validate_string_tuple(self.active_domain_ids, label="active_domain_ids")
+        self.active_arc_id = _validate_optional_trimmed_string(self.active_arc_id, label="active_arc_id")
+        self.intervention_family = _validate_trimmed_string(
+            self.intervention_family,
+            label="intervention_family",
+        )  # type: ignore[assignment]
+        if self.intervention_family not in _SUPPORTED_INTERVENTION_FAMILIES:
+            raise ValueError(f"Unsupported support attempt intervention_family: {self.intervention_family!r}")
+        self.intervention_refs = _validate_string_tuple(self.intervention_refs, label="intervention_refs")
+        self.prompt_contract_summary = _validate_trimmed_string(
+            self.prompt_contract_summary,
+            label="prompt_contract_summary",
+        )
+        self.operational_snapshot_ref = _validate_optional_trimmed_string(
+            self.operational_snapshot_ref,
+            label="operational_snapshot_ref",
+        )
+        self.effective_support_values = _validate_applied_values(
+            self.effective_support_values,
+            registry="support",
+            label="effective_support_values",
+        )
+        self.effective_relational_values = _validate_applied_values(
+            self.effective_relational_values,
+            registry="relational",
+            label="effective_relational_values",
+        )
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "attempt_id": self.attempt_id,
+            "session_id": self.session_id,
+            "user_message_id": self.user_message_id,
+            "assistant_message_id": self.assistant_message_id,
+            "created_at": _dump_datetime(self.created_at),
+            "need": self.need,
+            "response_mode": self.response_mode,
+            "subject_refs": _dump_str_tuple(self.subject_refs),
+            "active_arc_id": self.active_arc_id,
+            "active_domain_ids": _dump_str_tuple(self.active_domain_ids),
+            "effective_support_values": json.dumps(self.effective_support_values),
+            "effective_relational_values": json.dumps(self.effective_relational_values),
+            "intervention_family": self.intervention_family,
+            "intervention_refs": _dump_str_tuple(self.intervention_refs),
+            "prompt_contract_summary": self.prompt_contract_summary,
+            "operational_snapshot_ref": self.operational_snapshot_ref,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportAttempt:
+        support_values_raw = record.get("effective_support_values")
+        relational_values_raw = record.get("effective_relational_values")
+        support_values = json.loads(support_values_raw) if isinstance(support_values_raw, str) else support_values_raw
+        relational_values = json.loads(relational_values_raw) if isinstance(relational_values_raw, str) else relational_values_raw
+        active_arc_id = record.get("active_arc_id")
+        operational_snapshot_ref = record.get("operational_snapshot_ref")
+        return cls(
+            attempt_id=str(record["attempt_id"]),
+            session_id=str(record["session_id"]),
+            user_message_id=str(record["user_message_id"]),
+            assistant_message_id=str(record["assistant_message_id"]),
+            created_at=_load_datetime(record["created_at"]),
+            need=cast(Need, str(record["need"])),
+            response_mode=str(record["response_mode"]),
+            subject_refs=_load_str_tuple(record.get("subject_refs")),
+            active_arc_id=None if active_arc_id is None else str(active_arc_id),
+            active_domain_ids=_load_str_tuple(record.get("active_domain_ids")),
+            effective_support_values=support_values or {},
+            effective_relational_values=relational_values or {},
+            intervention_family=cast(InterventionFamily, str(record["intervention_family"])),
+            intervention_refs=_load_str_tuple(record.get("intervention_refs")),
+            prompt_contract_summary=str(record["prompt_contract_summary"]),
+            operational_snapshot_ref=None if operational_snapshot_ref is None else str(operational_snapshot_ref),
+        )
+
+
+@dataclass(eq=True)
+class OutcomeObservation:
+    """One post-reply observation linked to a support attempt."""
+
+    observation_id: str
+    attempt_id: str
+    observed_at: datetime
+    source_type: ObservationSourceType
+    signals: tuple[str, ...]
+    signal_polarity: ObservationSignalPolarity
+    signal_strength: float
+    evidence_refs: tuple[SupportTranscriptSpanRef, ...] = ()
+    operational_delta_refs: tuple[str, ...] = ()
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        self.observation_id = _validate_trimmed_string(self.observation_id, label="observation_id")
+        self.attempt_id = _validate_trimmed_string(self.attempt_id, label="attempt_id")
+        if not isinstance(self.observed_at, datetime):
+            actual_type = type(self.observed_at).__name__
+            raise ValueError(f"observed_at must be a datetime, got {actual_type}")
+
+        self.source_type = _validate_trimmed_string(self.source_type, label="source_type")  # type: ignore[assignment]
+        if self.source_type not in _SUPPORTED_OBSERVATION_SOURCE_TYPES:
+            raise ValueError(f"Unsupported outcome observation source_type: {self.source_type!r}")
+        self.signals = _validate_string_tuple(self.signals, label="signals")
+        if not self.signals:
+            raise ValueError("signals must contain at least one observation signal")
+        self.signal_polarity = _validate_trimmed_string(
+            self.signal_polarity,
+            label="signal_polarity",
+        )  # type: ignore[assignment]
+        if self.signal_polarity not in _SUPPORTED_OBSERVATION_SIGNAL_POLARITIES:
+            raise ValueError(f"Unsupported outcome observation signal_polarity: {self.signal_polarity!r}")
+        self.signal_strength = _validate_confidence(self.signal_strength, label="signal_strength")
+        self.evidence_refs = _validate_transcript_span_refs(self.evidence_refs, label="evidence_refs")
+        self.operational_delta_refs = _validate_string_tuple(
+            self.operational_delta_refs,
+            label="operational_delta_refs",
+        )
+        self.notes = _validate_optional_trimmed_string(self.notes, label="notes")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "observation_id": self.observation_id,
+            "attempt_id": self.attempt_id,
+            "observed_at": _dump_datetime(self.observed_at),
+            "source_type": self.source_type,
+            "signals": _dump_str_tuple(self.signals),
+            "signal_polarity": self.signal_polarity,
+            "signal_strength": self.signal_strength,
+            "evidence_refs": _dump_transcript_span_refs(self.evidence_refs),
+            "operational_delta_refs": _dump_str_tuple(self.operational_delta_refs),
+            "notes": self.notes,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> OutcomeObservation:
+        notes = record.get("notes")
+        return cls(
+            observation_id=str(record["observation_id"]),
+            attempt_id=str(record["attempt_id"]),
+            observed_at=_load_datetime(record["observed_at"]),
+            source_type=cast(ObservationSourceType, str(record["source_type"])),
+            signals=_load_str_tuple(record.get("signals")),
+            signal_polarity=cast(ObservationSignalPolarity, str(record["signal_polarity"])),
+            signal_strength=float(record["signal_strength"]),
+            evidence_refs=_load_transcript_span_refs(record.get("evidence_refs")),
+            operational_delta_refs=_load_str_tuple(record.get("operational_delta_refs")),
+            notes=None if notes is None else str(notes),
+        )
+
+
+@dataclass(eq=True)
+class LearningCase:
+    """Inspectable case-level synthesis derived from one attempt and its observations."""
+
+    case_id: str
+    attempt_id: str
+    status: LearningCaseStatus
+    scope: SupportProfileScope
+    created_at: datetime
+    finalized_at: datetime | None = None
+    aggregate_signals: tuple[str, ...] = ()
+    positive_evidence_count: int = 0
+    negative_evidence_count: int = 0
+    contradiction_count: int = 0
+    conversation_score: float = 0.0
+    operational_score: float = 0.0
+    overall_score: float = 0.0
+    promotion_eligibility: bool = False
+    evidence_refs: tuple[SupportTranscriptSpanRef, ...] = ()
+    summary: str | None = None
+
+    def __post_init__(self) -> None:
+        self.case_id = _validate_trimmed_string(self.case_id, label="case_id")
+        self.attempt_id = _validate_trimmed_string(self.attempt_id, label="attempt_id")
+        self.status = _validate_trimmed_string(self.status, label="status")  # type: ignore[assignment]
+        if self.status not in _SUPPORTED_LEARNING_CASE_STATUSES:
+            raise ValueError(f"Unsupported learning case status: {self.status!r}")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+        if self.finalized_at is not None and not isinstance(self.finalized_at, datetime):
+            actual_type = type(self.finalized_at).__name__
+            raise ValueError(f"finalized_at must be a datetime, got {actual_type}")
+        if self.status == "open":
+            if self.finalized_at is not None:
+                raise ValueError("Open learning cases must not set finalized_at")
+        elif self.finalized_at is None:
+            raise ValueError(f"Learning case status {self.status!r} requires finalized_at")
+
+        self.aggregate_signals = _validate_string_tuple(self.aggregate_signals, label="aggregate_signals")
+        self.positive_evidence_count = _validate_non_negative_int(
+            self.positive_evidence_count,
+            label="positive_evidence_count",
+        )
+        self.negative_evidence_count = _validate_non_negative_int(
+            self.negative_evidence_count,
+            label="negative_evidence_count",
+        )
+        self.contradiction_count = _validate_non_negative_int(
+            self.contradiction_count,
+            label="contradiction_count",
+        )
+        self.conversation_score = _validate_confidence(self.conversation_score, label="conversation_score")
+        self.operational_score = _validate_confidence(self.operational_score, label="operational_score")
+        self.overall_score = _validate_confidence(self.overall_score, label="overall_score")
+        self.promotion_eligibility = _validate_bool(self.promotion_eligibility, label="promotion_eligibility")
+        self.evidence_refs = _validate_transcript_span_refs(self.evidence_refs, label="evidence_refs")
+        self.summary = _validate_optional_trimmed_string(self.summary, label="summary")
+        if self.status != "open" and self.summary is None:
+            raise ValueError(f"Learning case status {self.status!r} requires summary")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "attempt_id": self.attempt_id,
+            "status": self.status,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "created_at": _dump_datetime(self.created_at),
+            "finalized_at": None if self.finalized_at is None else _dump_datetime(self.finalized_at),
+            "aggregate_signals": _dump_str_tuple(self.aggregate_signals),
+            "positive_evidence_count": self.positive_evidence_count,
+            "negative_evidence_count": self.negative_evidence_count,
+            "contradiction_count": self.contradiction_count,
+            "conversation_score": self.conversation_score,
+            "operational_score": self.operational_score,
+            "overall_score": self.overall_score,
+            "promotion_eligibility": self.promotion_eligibility,
+            "evidence_refs": _dump_transcript_span_refs(self.evidence_refs),
+            "summary": self.summary,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> LearningCase:
+        finalized_at = record.get("finalized_at")
+        summary = record.get("summary")
+        return cls(
+            case_id=str(record["case_id"]),
+            attempt_id=str(record["attempt_id"]),
+            status=cast(LearningCaseStatus, str(record["status"])),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            created_at=_load_datetime(record["created_at"]),
+            finalized_at=None if finalized_at is None else _load_datetime(finalized_at),
+            aggregate_signals=_load_str_tuple(record.get("aggregate_signals")),
+            positive_evidence_count=int(record.get("positive_evidence_count", 0)),
+            negative_evidence_count=int(record.get("negative_evidence_count", 0)),
+            contradiction_count=int(record.get("contradiction_count", 0)),
+            conversation_score=float(record.get("conversation_score", 0.0)),
+            operational_score=float(record.get("operational_score", 0.0)),
+            overall_score=float(record.get("overall_score", 0.0)),
+            promotion_eligibility=bool(record.get("promotion_eligibility", False)),
+            evidence_refs=_load_transcript_span_refs(record.get("evidence_refs")),
+            summary=None if summary is None else str(summary),
+        )
+
+
+_OPERATIONAL_OBSERVATION_SOURCE_TYPES: frozenset[str] = frozenset({"work_state_transition"})
+_OBSERVATION_SCORE_WEIGHTS: dict[str, float] = {
+    "positive": 1.0,
+    "negative": 0.0,
+    "mixed": 0.5,
+    "neutral": 0.25,
+}
+_POSITIVE_EVIDENCE_POLARITIES: frozenset[str] = frozenset({"positive", "mixed"})
+_NEGATIVE_EVIDENCE_POLARITIES: frozenset[str] = frozenset({"negative", "mixed"})
+_SCOPE_PROMOTION_THRESHOLDS: dict[str, int] = {"arc": 2, "context": 4}
+
+
+def _ordered_unique_strings(values: Sequence[str]) -> tuple[str, ...]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return tuple(ordered)
+
+
+def _ordered_unique_transcript_refs(values: Sequence[SupportTranscriptSpanRef]) -> tuple[SupportTranscriptSpanRef, ...]:
+    ordered: list[SupportTranscriptSpanRef] = []
+    seen: set[tuple[str, str, str]] = set()
+    for value in values:
+        key = (value.session_id, value.message_start_id, value.message_end_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(value)
+    return tuple(ordered)
+
+
+def _score_outcome_observation(observation: OutcomeObservation) -> float:
+    weight = _OBSERVATION_SCORE_WEIGHTS[observation.signal_polarity]
+    return round(observation.signal_strength * weight, 2)
+
+
+def _average_score(values: Sequence[float]) -> float:
+    if not values:
+        return 0.0
+    return round(sum(values) / len(values), 2)
+
+
+def _derive_learning_case_scope(attempt: SupportAttempt) -> SupportProfileScope:
+    if attempt.active_arc_id is not None:
+        return SupportProfileScope(type="arc", id=attempt.active_arc_id)
+    return SupportProfileScope(type="context", id=attempt.response_mode)
+
+
+def _summarize_learning_case(
+    *,
+    attempt: SupportAttempt,
+    status: LearningCaseStatus,
+    promotion_eligibility: bool,
+) -> str:
+    if status == "insufficient_evidence":
+        return f"Attempt {attempt.attempt_id} finalized with insufficient directional evidence."
+    if promotion_eligibility:
+        return f"Attempt {attempt.attempt_id} produced enough directional evidence to finalize a promotable case."
+    return f"Attempt {attempt.attempt_id} finalized with directional evidence but is not promotion-eligible."
+
+
+def derive_learning_case(
+    *,
+    attempt: SupportAttempt,
+    observations: Sequence[OutcomeObservation],
+) -> LearningCase | None:
+    """Derive one deterministic learning case from a stored attempt bundle."""
+    if not observations:
+        return None
+
+    ordered_observations = tuple(sorted(observations, key=lambda observation: (observation.observed_at, observation.observation_id)))
+    observation_scores = [_score_outcome_observation(observation) for observation in ordered_observations]
+    conversation_scores = [
+        _score_outcome_observation(observation)
+        for observation in ordered_observations
+        if observation.source_type not in _OPERATIONAL_OBSERVATION_SOURCE_TYPES
+    ]
+    operational_scores = [
+        _score_outcome_observation(observation)
+        for observation in ordered_observations
+        if observation.source_type in _OPERATIONAL_OBSERVATION_SOURCE_TYPES
+    ]
+    positive_evidence_count = sum(
+        len(observation.signals) for observation in ordered_observations if observation.signal_polarity in _POSITIVE_EVIDENCE_POLARITIES
+    )
+    negative_evidence_count = sum(
+        len(observation.signals) for observation in ordered_observations if observation.signal_polarity in _NEGATIVE_EVIDENCE_POLARITIES
+    )
+    contradiction_count = sum(1 for observation in ordered_observations if observation.signal_polarity == "mixed")
+    if positive_evidence_count > 0 and negative_evidence_count > 0:
+        contradiction_count += 1
+
+    status: LearningCaseStatus = "complete"
+    if positive_evidence_count == 0 and negative_evidence_count == 0:
+        status = "insufficient_evidence"
+
+    overall_score = _average_score(observation_scores)
+    promotion_eligibility = (
+        status == "complete" and positive_evidence_count > negative_evidence_count and contradiction_count == 0 and overall_score >= 0.65
+    )
+
+    return LearningCase(
+        case_id=f"case-{attempt.attempt_id}",
+        attempt_id=attempt.attempt_id,
+        status=status,
+        scope=_derive_learning_case_scope(attempt),
+        created_at=attempt.created_at,
+        finalized_at=ordered_observations[-1].observed_at,
+        aggregate_signals=_ordered_unique_strings([signal for observation in ordered_observations for signal in observation.signals]),
+        positive_evidence_count=positive_evidence_count,
+        negative_evidence_count=negative_evidence_count,
+        contradiction_count=contradiction_count,
+        conversation_score=_average_score(conversation_scores),
+        operational_score=_average_score(operational_scores),
+        overall_score=overall_score,
+        promotion_eligibility=promotion_eligibility,
+        evidence_refs=_ordered_unique_transcript_refs(
+            [evidence_ref for observation in ordered_observations for evidence_ref in observation.evidence_refs]
+        ),
+        summary=_summarize_learning_case(
+            attempt=attempt,
+            status=status,
+            promotion_eligibility=promotion_eligibility,
+        ),
+    )
+
+
+@dataclass(eq=True)
+class SupportValueLedgerEntry:
+    """V2 ledger row for one scoped support or relational value."""
+
+    value_id: str
+    registry: SupportProfileRegistryKind
+    dimension: str
+    scope: SupportProfileScope
+    value: str
+    status: SupportValueStatus
+    source: str
+    confidence: float
+    evidence_count: int
+    contradiction_count: int
+    last_case_id: str | None
+    created_at: datetime
+    updated_at: datetime
+    why: str
+
+    def __post_init__(self) -> None:
+        self.value_id = _validate_trimmed_string(self.value_id, label="value_id")
+        self.registry = _validate_registry_kind(self.registry, label="registry")
+        self.dimension = _validate_trimmed_string(self.dimension, label="dimension")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        self.value = _validate_trimmed_string(self.value, label="value")
+        validate_registry_value(self.registry, self.dimension, self.value)
+        self.status = _validate_trimmed_string(self.status, label="status")  # type: ignore[assignment]
+        if self.status not in _SUPPORTED_VALUE_LEDGER_STATUSES:
+            raise ValueError(f"Unsupported support value ledger status: {self.status!r}")
+        self.source = _validate_trimmed_string(self.source, label="source")
+        self.confidence = _validate_confidence(self.confidence, label="confidence")
+        self.evidence_count = _validate_non_negative_int(self.evidence_count, label="evidence_count")
+        self.contradiction_count = _validate_non_negative_int(
+            self.contradiction_count,
+            label="contradiction_count",
+        )
+        self.last_case_id = _validate_optional_trimmed_string(self.last_case_id, label="last_case_id")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+        if not isinstance(self.updated_at, datetime):
+            actual_type = type(self.updated_at).__name__
+            raise ValueError(f"updated_at must be a datetime, got {actual_type}")
+        self.why = _validate_trimmed_string(self.why, label="why")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "value_id": self.value_id,
+            "registry": self.registry,
+            "dimension": self.dimension,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "value": self.value,
+            "status": self.status,
+            "source": self.source,
+            "confidence": self.confidence,
+            "evidence_count": self.evidence_count,
+            "contradiction_count": self.contradiction_count,
+            "last_case_id": self.last_case_id,
+            "created_at": _dump_datetime(self.created_at),
+            "updated_at": _dump_datetime(self.updated_at),
+            "why": self.why,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportValueLedgerEntry:
+        last_case_id = record.get("last_case_id")
+        return cls(
+            value_id=str(record["value_id"]),
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            dimension=str(record["dimension"]),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            value=str(record["value"]),
+            status=cast(SupportValueStatus, str(record["status"])),
+            source=str(record["source"]),
+            confidence=float(record["confidence"]),
+            evidence_count=int(record["evidence_count"]),
+            contradiction_count=int(record["contradiction_count"]),
+            last_case_id=None if last_case_id is None else str(last_case_id),
+            created_at=_load_datetime(record["created_at"]),
+            updated_at=_load_datetime(record["updated_at"]),
+            why=str(record["why"]),
+        )
+
+
+@dataclass(eq=True)
+class SupportPatternLedgerEntry:
+    """V2 ledger row for one surfaced pattern with explicit provenance."""
+
+    pattern_id: str
+    registry: SupportProfileRegistryKind
+    kind: PatternKind
+    scope: SupportProfileScope
+    status: SupportPatternLedgerStatus
+    claim: str
+    evidence_count: int
+    contradiction_count: int
+    confidence: float
+    source_case_ids: tuple[str, ...] = ()
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    why: str = ""
+
+    def __post_init__(self) -> None:
+        self.pattern_id = _validate_trimmed_string(self.pattern_id, label="pattern_id")
+        self.registry = _validate_registry_kind(self.registry, label="registry")
+        self.kind = _validate_trimmed_string(self.kind, label="kind")  # type: ignore[assignment]
+        if self.kind not in _SUPPORTED_PATTERN_KINDS:
+            raise ValueError(f"Unsupported support pattern ledger kind: {self.kind!r}")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        self.status = _validate_trimmed_string(self.status, label="status")  # type: ignore[assignment]
+        if self.status not in _SUPPORTED_PATTERN_LEDGER_STATUSES:
+            raise ValueError(f"Unsupported support pattern ledger status: {self.status!r}")
+        self.claim = _validate_trimmed_string(self.claim, label="claim")
+        self.evidence_count = _validate_non_negative_int(self.evidence_count, label="evidence_count")
+        self.contradiction_count = _validate_non_negative_int(
+            self.contradiction_count,
+            label="contradiction_count",
+        )
+        self.confidence = _validate_confidence(self.confidence, label="confidence")
+        self.source_case_ids = _validate_string_tuple(self.source_case_ids, label="source_case_ids")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+        if not isinstance(self.updated_at, datetime):
+            actual_type = type(self.updated_at).__name__
+            raise ValueError(f"updated_at must be a datetime, got {actual_type}")
+        self.why = _validate_trimmed_string(self.why, label="why")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "pattern_id": self.pattern_id,
+            "registry": self.registry,
+            "kind": self.kind,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "status": self.status,
+            "claim": self.claim,
+            "evidence_count": self.evidence_count,
+            "contradiction_count": self.contradiction_count,
+            "confidence": self.confidence,
+            "source_case_ids": _dump_str_tuple(self.source_case_ids),
+            "created_at": _dump_datetime(self.created_at),
+            "updated_at": _dump_datetime(self.updated_at),
+            "why": self.why,
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportPatternLedgerEntry:
+        return cls(
+            pattern_id=str(record["pattern_id"]),
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            kind=cast(PatternKind, str(record["kind"])),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            status=cast(SupportPatternLedgerStatus, str(record["status"])),
+            claim=str(record["claim"]),
+            evidence_count=int(record["evidence_count"]),
+            contradiction_count=int(record["contradiction_count"]),
+            confidence=float(record["confidence"]),
+            source_case_ids=_load_str_tuple(record.get("source_case_ids")),
+            created_at=_load_datetime(record["created_at"]),
+            updated_at=_load_datetime(record["updated_at"]),
+            why=str(record["why"]),
+        )
+
+
+@dataclass(eq=True)
+class SupportLedgerUpdateEvent:
+    """V2 ledger event explaining why one value or pattern changed state."""
+
+    event_id: str
+    entity_type: SupportLedgerEntityType
+    entity_id: str
+    registry: SupportProfileRegistryKind
+    dimension_or_kind: str
+    scope: SupportProfileScope
+    old_status: SupportLedgerStatus | None
+    new_status: SupportLedgerStatus
+    old_value: str | None = None
+    new_value: str | None = None
+    trigger_case_ids: tuple[str, ...] = ()
+    reason: str = ""
+    confidence: float = 0.0
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self) -> None:
+        self.event_id = _validate_trimmed_string(self.event_id, label="event_id")
+        self.entity_type = _validate_trimmed_string(self.entity_type, label="entity_type")  # type: ignore[assignment]
+        if self.entity_type not in _SUPPORTED_LEDGER_ENTITY_TYPES:
+            raise ValueError(f"Unsupported support ledger entity_type: {self.entity_type!r}")
+        self.entity_id = _validate_trimmed_string(self.entity_id, label="entity_id")
+        self.registry = _validate_registry_kind(self.registry, label="registry")
+        self.dimension_or_kind = _validate_trimmed_string(self.dimension_or_kind, label="dimension_or_kind")
+        if not isinstance(self.scope, SupportProfileScope):
+            raise ValueError("scope must be a SupportProfileScope")
+        if self.old_status is not None:
+            normalized_old_status = _validate_trimmed_string(self.old_status, label="old_status")
+            if normalized_old_status not in _SUPPORTED_LEDGER_STATUSES:
+                raise ValueError(f"Unsupported support ledger old_status: {normalized_old_status!r}")
+            self.old_status = cast(SupportLedgerStatus, normalized_old_status)
+        self.new_status = _validate_trimmed_string(self.new_status, label="new_status")  # type: ignore[assignment]
+        if self.new_status not in _SUPPORTED_LEDGER_STATUSES:
+            raise ValueError(f"Unsupported support ledger new_status: {self.new_status!r}")
+        self.old_value = _validate_optional_trimmed_string(self.old_value, label="old_value")
+        self.new_value = _validate_optional_trimmed_string(self.new_value, label="new_value")
+        self.trigger_case_ids = _validate_string_tuple(self.trigger_case_ids, label="trigger_case_ids")
+        self.reason = _validate_trimmed_string(self.reason, label="reason")
+        self.confidence = _validate_confidence(self.confidence, label="confidence")
+        if not isinstance(self.created_at, datetime):
+            actual_type = type(self.created_at).__name__
+            raise ValueError(f"created_at must be a datetime, got {actual_type}")
+
+        if self.entity_type == "value":
+            if self.new_value is None:
+                raise ValueError("Value ledger update events must set new_value")
+            if self.old_value is not None:
+                validate_registry_value(self.registry, self.dimension_or_kind, self.old_value)
+            validate_registry_value(self.registry, self.dimension_or_kind, self.new_value)
+        else:
+            if self.dimension_or_kind not in _SUPPORTED_PATTERN_KINDS:
+                raise ValueError(f"Unsupported support ledger pattern kind: {self.dimension_or_kind!r}")
+
+    def to_record(self) -> dict[str, Any]:
+        return {
+            "event_id": self.event_id,
+            "entity_type": self.entity_type,
+            "entity_id": self.entity_id,
+            "registry": self.registry,
+            "dimension_or_kind": self.dimension_or_kind,
+            "scope_type": self.scope.type,
+            "scope_id": self.scope.id,
+            "old_status": self.old_status,
+            "new_status": self.new_status,
+            "old_value": self.old_value,
+            "new_value": self.new_value,
+            "trigger_case_ids": _dump_str_tuple(self.trigger_case_ids),
+            "reason": self.reason,
+            "confidence": self.confidence,
+            "created_at": _dump_datetime(self.created_at),
+        }
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> SupportLedgerUpdateEvent:
+        old_status = record.get("old_status")
+        old_value = record.get("old_value")
+        new_value = record.get("new_value")
+        return cls(
+            event_id=str(record["event_id"]),
+            entity_type=cast(SupportLedgerEntityType, str(record["entity_type"])),
+            entity_id=str(record["entity_id"]),
+            registry=cast(SupportProfileRegistryKind, str(record["registry"])),
+            dimension_or_kind=str(record["dimension_or_kind"]),
+            scope=SupportProfileScope(
+                type=cast(SupportProfileScopeType, str(record["scope_type"])),
+                id=str(record["scope_id"]),
+            ),
+            old_status=None if old_status is None else cast(SupportLedgerStatus, str(old_status)),
+            new_status=cast(SupportLedgerStatus, str(record["new_status"])),
+            old_value=None if old_value is None else str(old_value),
+            new_value=None if new_value is None else str(new_value),
+            trigger_case_ids=_load_str_tuple(record.get("trigger_case_ids")),
+            reason=str(record["reason"]),
+            confidence=float(record["confidence"]),
+            created_at=_load_datetime(record["created_at"]),
+        )
+
+
+@dataclass(eq=True)
+class FinalizedLearningCaseBundle:
+    """One finalized case plus the reply-time attempt that produced it."""
+
+    learning_case: LearningCase
+    attempt: SupportAttempt
+
+    def __post_init__(self) -> None:
+        if self.learning_case.attempt_id != self.attempt.attempt_id:
+            raise ValueError("Finalized learning case bundles must join one case to its source attempt")
+        if self.learning_case.finalized_at is None:
+            raise ValueError("Finalized learning case bundles require finalized cases")
+
+
+@dataclass(eq=True, frozen=True)
+class SupportLedgerDerivationResult:
+    """Deterministic value-ledger writes derived from finalized case bundles."""
+
+    value_entries: tuple[SupportValueLedgerEntry, ...] = ()
+    update_events: tuple[SupportLedgerUpdateEvent, ...] = ()
+
+
+def _value_ledger_key(
+    *,
+    registry: SupportProfileRegistryKind,
+    dimension: str,
+    scope: SupportProfileScope,
+    value: str,
+) -> tuple[SupportProfileRegistryKind, str, SupportProfileScopeType, str, str]:
+    return (registry, dimension, scope.type, scope.id, value)
+
+
+def _iter_attempt_values(attempt: SupportAttempt) -> tuple[tuple[SupportProfileRegistryKind, str, str], ...]:
+    values: list[tuple[SupportProfileRegistryKind, str, str]] = []
+    for dimension, value in attempt.effective_support_values.items():
+        values.append(("support", dimension, value))
+    for dimension, value in attempt.effective_relational_values.items():
+        values.append(("relational", dimension, value))
+    return tuple(values)
+
+
+def _sort_case_bundle(bundle: FinalizedLearningCaseBundle) -> tuple[datetime, str]:
+    finalized_at = bundle.learning_case.finalized_at
+    if finalized_at is None:
+        raise ValueError("Finalized learning case bundles require finalized_at")
+    return (finalized_at, bundle.learning_case.case_id)
+
+
+def _summarize_value_ledger_entry(
+    *,
+    registry: SupportProfileRegistryKind,
+    dimension: str,
+    value: str,
+    scope: SupportProfileScope,
+    supporting_case_count: int,
+    contradiction_count: int,
+) -> str:
+    return (
+        f"{registry} {dimension}={value} has {supporting_case_count} supporting promotable cases and "
+        f"{contradiction_count} conflicting promotable cases in this {scope.type} scope."
+    )
+
+
+def derive_value_ledger_updates_from_cases(
+    *,
+    focus_bundle: FinalizedLearningCaseBundle,
+    scoped_bundles: Sequence[FinalizedLearningCaseBundle],
+    existing_value_entries: Mapping[
+        tuple[SupportProfileRegistryKind, str, SupportProfileScopeType, str, str],
+        SupportValueLedgerEntry,
+    ],
+    now: datetime,
+) -> SupportLedgerDerivationResult:
+    """Derive deterministic value-ledger updates from finalized case bundles in one exact scope."""
+    focus_case = focus_bundle.learning_case
+    if focus_case.status != "complete" or not focus_case.promotion_eligibility:
+        return SupportLedgerDerivationResult()
+
+    scope = focus_case.scope
+    threshold = _SCOPE_PROMOTION_THRESHOLDS.get(scope.type)
+    if threshold is None:
+        return SupportLedgerDerivationResult()
+
+    promotable_bundles = tuple(
+        sorted(
+            (
+                bundle
+                for bundle in scoped_bundles
+                if bundle.learning_case.scope == scope
+                and bundle.learning_case.status == "complete"
+                and bundle.learning_case.promotion_eligibility
+            ),
+            key=_sort_case_bundle,
+        )
+    )
+    if not any(bundle.learning_case.case_id == focus_case.case_id for bundle in promotable_bundles):
+        return SupportLedgerDerivationResult()
+
+    supporting_bundles_by_key: dict[
+        tuple[SupportProfileRegistryKind, str, SupportProfileScopeType, str, str],
+        list[FinalizedLearningCaseBundle],
+    ] = {}
+    for bundle in promotable_bundles:
+        for registry, dimension, value in _iter_attempt_values(bundle.attempt):
+            supporting_bundles_by_key.setdefault(
+                _value_ledger_key(registry=registry, dimension=dimension, scope=scope, value=value),
+                [],
+            ).append(bundle)
+
+    if not supporting_bundles_by_key:
+        return SupportLedgerDerivationResult()
+
+    derived_entries: list[SupportValueLedgerEntry] = []
+    update_events: list[SupportLedgerUpdateEvent] = []
+    for key in sorted(supporting_bundles_by_key):
+        registry, dimension, _, _, value = key
+        supporting_bundles = tuple(supporting_bundles_by_key[key])
+        contradiction_count = sum(
+            len(other_bundles)
+            for other_key, other_bundles in supporting_bundles_by_key.items()
+            if other_key[:4] == key[:4] and other_key[4] != value
+        )
+        confidence = _average_score([bundle.learning_case.overall_score for bundle in supporting_bundles])
+        latest_supporting_bundle = supporting_bundles[-1]
+        why = _summarize_value_ledger_entry(
+            registry=registry,
+            dimension=dimension,
+            value=value,
+            scope=scope,
+            supporting_case_count=len(supporting_bundles),
+            contradiction_count=contradiction_count,
+        )
+        status: SupportValueStatus = (
+            "active_auto" if len(supporting_bundles) >= threshold and len(supporting_bundles) > contradiction_count else "shadow"
+        )
+        existing_entry = existing_value_entries.get(key)
+        entry = SupportValueLedgerEntry(
+            value_id=f"value-{registry}-{dimension}-{scope.type}-{scope.id}-{value}",
+            registry=registry,
+            dimension=dimension,
+            scope=scope,
+            value=value,
+            status=status,
+            source="auto_case",
+            confidence=confidence,
+            evidence_count=len(supporting_bundles),
+            contradiction_count=contradiction_count,
+            last_case_id=latest_supporting_bundle.learning_case.case_id,
+            created_at=now if existing_entry is None else existing_entry.created_at,
+            updated_at=now,
+            why=why,
+        )
+        derived_entries.append(entry)
+
+        if existing_entry is None or existing_entry.status != entry.status:
+            update_events.append(
+                SupportLedgerUpdateEvent(
+                    event_id=(f"event-{entry.value_id}-{entry.status}-{latest_supporting_bundle.learning_case.case_id}"),
+                    entity_type="value",
+                    entity_id=entry.value_id,
+                    registry=entry.registry,
+                    dimension_or_kind=entry.dimension,
+                    scope=entry.scope,
+                    old_status=None if existing_entry is None else existing_entry.status,
+                    new_status=entry.status,
+                    old_value=None if existing_entry is None else existing_entry.value,
+                    new_value=entry.value,
+                    trigger_case_ids=tuple(bundle.learning_case.case_id for bundle in supporting_bundles),
+                    reason=entry.why,
+                    confidence=entry.confidence,
+                    created_at=now,
+                )
+            )
+
+    return SupportLedgerDerivationResult(
+        value_entries=tuple(derived_entries),
+        update_events=tuple(sorted(update_events, key=lambda event: (event.entity_id, event.event_id))),
+    )
 
 
 @dataclass(eq=True)
@@ -759,11 +1744,21 @@ async def apply_bounded_adaptation(
 
 __all__ = [
     "BoundedAdaptationResult",
+    "FinalizedLearningCaseBundle",
+    "LearningCase",
     "LearningSituation",
+    "OutcomeObservation",
+    "SupportAttempt",
     "SupportLearningStore",
+    "SupportLedgerDerivationResult",
+    "SupportLedgerUpdateEvent",
     "SupportPattern",
+    "SupportPatternLedgerEntry",
     "SupportProfileUpdateEvent",
     "SupportTranscriptSpanRef",
+    "SupportValueLedgerEntry",
     "apply_bounded_adaptation",
     "derive_bounded_adaptation",
+    "derive_learning_case",
+    "derive_value_ledger_updates_from_cases",
 ]

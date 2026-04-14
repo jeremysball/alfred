@@ -81,7 +81,10 @@ async def test_browser_context_menu_sheet_uses_theme_tokens() -> None:
                     </div>
                     <div class="message-bubble">
                       <span class="message-avatar-small">👤</span>
-                      <span class="message-content">This context menu sheet should feel like a themed surface and keep enough width to avoid cramped labels.</span>
+                      <span class="message-content">
+                        This context menu sheet should feel like a themed surface and keep enough width
+                        to avoid cramped labels.
+                      </span>
                     </div>
                   `;
                   messageList.appendChild(message);
@@ -104,6 +107,9 @@ async def test_browser_context_menu_sheet_uses_theme_tokens() -> None:
             menu = page.locator('.context-menu[data-layout="sheet"]')
             await menu.wait_for(state="visible", timeout=10000)
 
+            close_button = menu.locator('.context-menu-close')
+            await close_button.wait_for(state="visible", timeout=10000)
+
             menu_text = await menu.text_content()
             assert menu_text is not None
             assert "Copy Text" in menu_text
@@ -117,12 +123,18 @@ async def test_browser_context_menu_sheet_uses_theme_tokens() -> None:
                 """
                 () => {
                   const probe = document.createElement('div');
-                  probe.style.cssText = 'position: fixed; left: -9999px; top: -9999px; background: var(--surface-panel-bg); border: 1px solid var(--surface-panel-border); color: var(--surface-panel-header-text);';
+                  probe.style.cssText =
+                    'position: fixed; left: -9999px; top: -9999px;' +
+                    ' background: var(--surface-panel-bg);' +
+                    ' border: 1px solid var(--surface-panel-border);' +
+                    ' color: var(--surface-panel-header-text);';
                   document.body.appendChild(probe);
 
                   const menu = document.querySelector('.context-menu');
+                  const closeButton = document.querySelector('.context-menu .context-menu-close');
                   const probeStyle = getComputedStyle(probe);
                   const menuStyle = menu ? getComputedStyle(menu) : null;
+                  const closeStyle = closeButton ? getComputedStyle(closeButton) : null;
 
                   return {
                     probeBg: probeStyle.backgroundColor,
@@ -132,6 +144,8 @@ async def test_browser_context_menu_sheet_uses_theme_tokens() -> None:
                     menuBorder: menuStyle ? menuStyle.borderTopColor : '',
                     menuText: menuStyle ? menuStyle.color : '',
                     menuLayout: menu?.dataset.layout || '',
+                    closeText: closeStyle ? closeStyle.color : '',
+                    closeBorder: closeStyle ? closeStyle.borderTopColor : '',
                   };
                 }
                 """,
@@ -141,12 +155,17 @@ async def test_browser_context_menu_sheet_uses_theme_tokens() -> None:
             assert menu_style["menuBg"] == menu_style["probeBg"]
             assert menu_style["menuBorder"] == menu_style["probeBorder"]
             assert menu_style["menuText"] == menu_style["probeText"]
+            assert menu_style["closeText"] == menu_style["probeText"]
+            assert menu_style["closeBorder"] == menu_style["probeBorder"]
 
             box = await menu.bounding_box()
             assert box is not None
             assert box["width"] > 340
             assert box["x"] <= 12
             assert box["y"] > 500
+
+            await close_button.click()
+            await menu.wait_for(state="detached", timeout=10000)
 
             await browser.close()
     finally:

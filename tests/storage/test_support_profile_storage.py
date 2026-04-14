@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from alfred.memory.support_learning import SupportValueLedgerEntry
 from alfred.memory.support_profile import SupportProfileScope, SupportProfileValue
 from alfred.storage.sqlite import SQLiteStore
 
@@ -149,3 +150,58 @@ async def test_sqlite_store_resolves_most_specific_support_profile_value(sqlite_
     )
     assert await sqlite_store.resolve_support_profile_value("support", "option_bandwidth") == global_value
     assert await sqlite_store.resolve_support_profile_value("support", "pacing", context_id="execute") is None
+
+
+@pytest.mark.asyncio
+async def test_sqlite_store_resolve_support_profile_value_prefers_v2_value_ledger_entries(sqlite_store):
+    """Resolution should prefer active v2 ledger entries over legacy v1 stored values."""
+    v1_context = SupportProfileValue(
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="context", id="execute"),
+        value="few",
+        status="confirmed",
+        confidence=0.55,
+        source="explicit",
+        created_at=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 12, 0, tzinfo=UTC),
+        evidence_refs=("ev-v1",),
+    )
+    await sqlite_store.save_support_profile_value(v1_context)
+
+    v2_entry = SupportValueLedgerEntry(
+        value_id="value-support-option_bandwidth-context-execute-single",
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="context", id="execute"),
+        value="single",
+        status="active_auto",
+        source="auto_case",
+        confidence=0.81,
+        evidence_count=3,
+        contradiction_count=0,
+        last_case_id=None,
+        created_at=datetime(2026, 3, 30, 12, 5, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 12, 6, tzinfo=UTC),
+        why="Evidence threshold met.",
+    )
+    await sqlite_store.save_support_value_ledger_entry(v2_entry)
+
+    resolved = await sqlite_store.resolve_support_profile_value(
+        "support",
+        "option_bandwidth",
+        context_id="execute",
+    )
+
+    assert resolved == SupportProfileValue(
+        registry="support",
+        dimension="option_bandwidth",
+        scope=SupportProfileScope(type="context", id="execute"),
+        value="single",
+        status="confirmed",
+        confidence=0.81,
+        source="auto_adapted",
+        created_at=datetime(2026, 3, 30, 12, 5, tzinfo=UTC),
+        updated_at=datetime(2026, 3, 30, 12, 6, tzinfo=UTC),
+        evidence_refs=(),
+    )

@@ -328,22 +328,26 @@ class Alfred:
             resolved_session_id = session.meta.session_id
 
             messages_list = self.core.session_manager.get_session_messages(session_id)
+            user_message_id: str | None = None
             if reuse_user_message and messages_list:
                 last_message = messages_list[-1]
                 if last_message.role is Role.USER:
                     user_msg_idx = last_message.idx
+                    user_message_id = last_message.id
                     msg_count = len(messages_list)
                     logger.debug(f"Reusing user message. Session has {msg_count} messages")
                 else:
                     self.core.session_manager.add_message("user", message, session_id=session_id)
                     messages_list = self.core.session_manager.get_session_messages(session_id)
                     user_msg_idx = messages_list[-1].idx if messages_list else 0
+                    user_message_id = messages_list[-1].id if messages_list else None
                     msg_count = len(messages_list)
                     logger.debug(f"Added user message. Session now has {msg_count} messages")
             else:
                 self.core.session_manager.add_message("user", message, session_id=session_id)
                 messages_list = self.core.session_manager.get_session_messages(session_id)
                 user_msg_idx = messages_list[-1].idx if messages_list else 0
+                user_message_id = messages_list[-1].id if messages_list else None
                 msg_count = len(messages_list)
                 logger.debug(f"Added user message. Session now has {msg_count} messages")
 
@@ -394,7 +398,7 @@ class Alfred:
                 duration_ms=round((perf_counter() - context_started_at) * 1000, 2),
             )
 
-            support_contract_section = await self._build_support_contract_section_for_turn(
+            support_contract_section, support_runtime_result = await self._build_support_contract_section_for_turn(
                 message=message,
                 query_embedding=query_embedding,
                 session_messages=session_messages,
@@ -684,8 +688,15 @@ class Alfred:
             session.meta.last_active = datetime.now(UTC)
             session.meta.message_count = len(session.messages)
 
+            support_runtime = self._get_support_policy_runtime()
+            save_support_attempt = getattr(support_runtime, "save_support_attempt", None) if support_runtime is not None else None
+            should_save_support_attempt = support_runtime_result is not None and callable(save_support_attempt)
+
             # Persist to storage
-            if persist_partial:
+            if should_save_support_attempt:
+                boundary = "persist"
+                await self.core.session_manager._persist_messages_strict(session.meta.session_id, session.messages)
+            elif persist_partial:
                 boundary = "persist"
                 await self.core.session_manager._persist_messages(session.meta.session_id, session.messages)
             else:
@@ -694,6 +705,20 @@ class Alfred:
             assistant_msg_idx = assistant_msg_obj.idx
             msg_count = len(session.messages)
             logger.debug(f"Added assistant message. Session now has {msg_count} messages")
+
+            if should_save_support_attempt:
+                if user_message_id is None:
+                    raise RuntimeError("Support attempt persistence requires a real user message id")
+                if assistant_msg_obj.id is None:
+                    raise RuntimeError("Support attempt persistence requires a real assistant message id")
+                boundary = "persist"
+                await cast(Callable[..., Any], save_support_attempt)(
+                    runtime_result=support_runtime_result,
+                    session_id=resolved_session_id,
+                    user_message_id=user_message_id,
+                    assistant_message_id=assistant_msg_obj.id,
+                    created_at=assistant_msg_obj.timestamp,
+                )
 
             # Store actual token counts with the messages
             if self._last_usage:
@@ -848,11 +873,11 @@ You can then continue the conversation with the tool results.
         query_embedding: list[float] | None,
         session_messages: list[tuple[str, str]],
         session_id: str | None,
-    ) -> str | None:
-        """Build the runtime support and reflection sections for one live turn when available."""
+    ) -> tuple[str | None, Any | None]:
+        """Build the runtime support/reflection section plus the runtime result for one live turn."""
         runtime = self._get_support_policy_runtime()
         if runtime is None:
-            return None
+            return (None, None)
 
         build_turn_contract = getattr(runtime, "build_turn_contract", None)
         reflection_runtime = self._get_support_reflection_runtime()
@@ -874,13 +899,16 @@ You can then continue the conversation with the tool results.
                 )
                 if reflection_section:
                     sections.append(reflection_section)
-            return "\n\n".join(section for section in sections if section)
+            return ("\n\n".join(section for section in sections if section), runtime_result)
 
-        return await runtime.build_prompt_section(
-            message=message,
-            query_embedding=query_embedding,
-            session_messages=session_messages,
-            session_id=session_id,
+        return (
+            await runtime.build_prompt_section(
+                message=message,
+                query_embedding=query_embedding,
+                session_messages=session_messages,
+                session_id=session_id,
+            ),
+            None,
         )
 
     async def get_support_snapshot_text(

@@ -47,6 +47,50 @@ body {
     flex-shrink: 0;
 }
 
+.context-warning-banner {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 196, 0, 0.24);
+    background: linear-gradient(180deg, rgba(84, 56, 10, 0.98), rgba(58, 39, 7, 0.98));
+    color: #ffe7a8;
+    flex-shrink: 0;
+}
+
+.context-warning-banner__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.context-warning-banner__title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.context-warning-banner__summary,
+.context-warning-banner__reason,
+.context-warning-banner__file {
+    font-size: var(--text-sm);
+}
+
+.context-warning-banner__file {
+    font-weight: 700;
+}
+
+.context-warning-banner__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    list-style: none;
+}
+
+.context-warning-banner__item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
 .header-brand {
     display: flex;
     align-items: center;

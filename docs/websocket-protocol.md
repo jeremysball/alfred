@@ -443,6 +443,11 @@ Sent in response to `/context` command.
 
 `support_state.enabled` is `false` when the support inspection runtime is unavailable. When enabled, `support_state` also includes `active_runtime_state`, `learned_state`, `active_domains`, and `active_arcs`.
 
+`support_state.learned_state` includes additional v2 learning-inspection fields:
+- `value_ledger_entries`: bounded list of v2 value-ledger entries (support + relational)
+- `value_ledger_summary`: `{ total, counts_by_status, counts_by_registry }`
+- `recent_ledger_update_events`: bounded list of recent v2 ledger update events
+
 ---
 
 ### `chat.started`
@@ -624,7 +629,19 @@ Sent periodically during streaming to report current status.
     "cacheReadTokens": 0,
     "reasoningTokens": 0,
     "queueLength": 0,
-    "isStreaming": true
+    "isStreaming": true,
+    "contextStatus": {
+      "blockedContextFiles": ["SOUL.md"],
+      "conflictedContextFiles": [
+        {
+          "id": "soul",
+          "name": "soul",
+          "label": "SOUL.md",
+          "reason": "Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md"
+        }
+      ],
+      "warnings": ["Disabled sections: TOOLS"]
+    }
   }
 }
 ```
@@ -642,8 +659,9 @@ Sent periodically during streaming to report current status.
 | `reasoningTokens` | `number` | Tokens used for reasoning |
 | `queueLength` | `number` | Number of queued messages |
 | `isStreaming` | `boolean` | Whether LLM is currently streaming |
+| `contextStatus` | `object` | Lightweight context-health snapshot for persistent Web UI warnings: blocked files, structured conflict records, and warning strings |
 
-**Usage:** This message is used to update the status bar in the UI with real-time token counts and streaming state.
+**Usage:** This message is used to update the status bar in the UI with real-time token counts and streaming state, and to keep the persistent Web UI context-warning banner in sync.
 
 ---
 

@@ -9,6 +9,7 @@ import pytest
 
 from alfred.memory.support_learning import (
     LearningSituation,
+    SupportAttempt,
     SupportPattern,
     SupportProfileUpdateEvent,
 )
@@ -650,11 +651,86 @@ async def test_support_policy_runtime_loads_active_patterns_and_support_profile_
     assert runtime_result.behavior_contract.relational_values["candor"] == "high"
 
 
+def test_support_policy_runtime_builds_v2_support_attempt_from_runtime_result() -> None:
+    """Runtime should derive one typed v2 support attempt from the reply contract and real refs."""
+
+    runtime = SupportPolicyRuntime(
+        store=FakeSupportProfileStore(),
+        embedder=FakeEmbedder({}),  # type: ignore[arg-type]
+    )
+    assessment = SupportTurnAssessment(
+        need="activate",
+        subjects=(
+            ResolvedSubject(kind="arc", id="webui_cleanup"),
+            ResolvedSubject(kind="domain", id="work"),
+        ),
+    )
+    resolved_policy = ResolvedSupportPolicy(
+        assessment=assessment,
+        response_mode="execute",
+        relational_values={
+            "warmth": "medium",
+            "companionship": "medium",
+            "candor": "high",
+            "challenge": "medium",
+            "authority": "medium",
+            "emotional_attunement": "medium",
+            "analytical_depth": "medium",
+            "momentum_pressure": "high",
+        },
+        support_values={
+            "planning_granularity": "minimal",
+            "option_bandwidth": "single",
+            "proactivity_level": "high",
+            "accountability_style": "firm",
+            "recovery_style": "steady",
+            "reflection_depth": "light",
+            "pacing": "brisk",
+            "recommendation_forcefulness": "high",
+        },
+        primary_arc_id="webui_cleanup",
+        domain_ids=("work",),
+    )
+    behavior_contract = compile_support_behavior_contract(resolved_policy)
+
+    attempt = runtime.build_support_attempt(
+        runtime_result=type("RuntimeResult", (), {
+            "assessment": assessment,
+            "response_mode": "execute",
+            "resolved_policy": resolved_policy,
+            "behavior_contract": behavior_contract,
+        })(),
+        session_id="session-123",
+        user_message_id="msg-user-123",
+        assistant_message_id="msg-assistant-123",
+        created_at=_ts(9, 45),
+    )
+
+    assert attempt == SupportAttempt(
+        attempt_id="attempt-msg-assistant-123",
+        session_id="session-123",
+        user_message_id="msg-user-123",
+        assistant_message_id="msg-assistant-123",
+        created_at=_ts(9, 45),
+        need="activate",
+        response_mode="execute",
+        subject_refs=("arc:webui_cleanup", "domain:work"),
+        active_arc_id="webui_cleanup",
+        active_domain_ids=("work",),
+        effective_support_values=behavior_contract.support_values,
+        effective_relational_values=behavior_contract.relational_values,
+        intervention_family="narrow",
+        intervention_refs=(),
+        prompt_contract_summary="need=activate; mode=execute; family=narrow; subjects=[arc:webui_cleanup, domain:work]",
+        operational_snapshot_ref=None,
+    )
+
+
 @pytest.mark.asyncio
-async def test_support_policy_runtime_persists_learning_situations_and_applies_bounded_support_updates(
+async def test_support_policy_runtime_does_not_persist_learning_situations_when_bounded_adaptation_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Runtime should persist the current learning situation and apply low-risk support updates before generation."""
+    """Runtime should not persist LearningSituation records once bounded adaptation is retired."""
 
     turn_text = "Let's continue the Web UI cleanup work thread."
     query_embedding = [0.0, 0.95, 0.1, 0.0, 0.0, 0.0, 0.95, 0.8, 0.0, 0.0, 0.0, 0.2]
@@ -735,10 +811,9 @@ async def test_support_policy_runtime_persists_learning_situations_and_applies_b
     )
 
     assert runtime_result.behavior_contract.support_values["option_bandwidth"] == "single"
-    assert len(store.saved_learning_situations) == 1
-    assert len(store.update_events) == 2
-    assert any(event.status == "applied" and event.dimension == "option_bandwidth" for event in store.update_events)
-    assert any(pattern.status == "candidate" and pattern.relational_overrides == {"candor": "high"} for pattern in store.patterns)
+    assert store.saved_learning_situations == []
+    assert store.update_events == []
+    assert store.patterns == []
 
 
 def test_support_behavior_contract_changes_across_operational_reflective_and_calibration_contexts() -> None:

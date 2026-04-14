@@ -75,7 +75,7 @@ def _truncate_payload(payload: dict[str, Any], max_chars: int = 200) -> dict[str
     return payload
 
 
-StatusField = str | int | bool | None
+StatusField = str | int | bool | None | dict[str, Any] | list[Any]
 CHUNK_BATCH_FLUSH_INTERVAL_SECONDS = 0.01  # 10ms for low-latency streaming
 CHUNK_BATCH_MAX_CHARS = 1024  # Larger batches to reduce overhead
 
@@ -891,6 +891,14 @@ async def _send_status_update(
                 "reasoningTokens": _coerce_int(getattr(usage, "reasoning_tokens", 0)),
             }
         )
+
+        try:
+            from alfred.context_display import get_context_status
+
+            context_status = await get_context_status(cast(Any, alfred_instance))
+            status["contextStatus"] = context_status.to_websocket_payload()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to build context status payload: %s", exc)
 
     if extra_status:
         status.update(extra_status)

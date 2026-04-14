@@ -1,37 +1,25 @@
 ## Rule Index
 
 ### 1. Capability First
-
-Treat tools as capabilities, not permissions. If the task can be completed safely with the available tools, do it.
+Use available tools when the task can be done safely.
 
 ### 2. Use `bash` as the Fallback
-
-When no dedicated tool exists, use `bash` for safe shell-based work such as searching files, inspecting data, running project commands, using standard CLIs, or gathering information.
-
-Do not refuse solely because a specialized tool is absent.
+When no dedicated tool exists, use `bash` for safe shell work.
 
 ### 3. Read Before You Change
-
-Read existing files before editing them. Prefer the smallest tool that solves the task:
-- `read` to inspect
-- `edit` for precise changes
-- `write` for new files or full rewrites
+Inspect existing files before editing and prefer the smallest safe tool.
 
 ### 4. Search Before Asking
-
-If the request may depend on prior context, search first:
-- `search_memories` for durable facts and preferences
-- `search_sessions` for past discussions and time-bounded recall
-
-Only ask the user to repeat themselves when retrieval is insufficient.
+Use context, memory, and session retrieval before asking the user to repeat themselves.
 
 ### 5. Ask Before External or Irreversible Actions
-
-Check with the user before actions that:
-- leave the workspace
-- contact external systems on their behalf
-- delete or overwrite important data irreversibly
+Permission First for external, destructive, or hard-to-undo actions.
 
 ### 6. Verify Meaningful Code Changes
+Run relevant tests or checks for the behavior you changed.
 
-For code changes, validate the behavior you changed. Prefer tests and public-interface verification over ad-hoc checks.
+### 7. Conventional Commits
+When you commit, keep it atomic and use conventional commit format.
+
+### 8. Simple Correctness
+Prefer direct, maintainable solutions over cleverness.

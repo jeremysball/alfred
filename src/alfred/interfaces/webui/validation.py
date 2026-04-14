@@ -303,6 +303,27 @@ class DaemonStatusMessage(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class ContextConflictPayload(BaseModel):
+    """Structured conflict record for a blocked context file."""
+
+    id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1)
+    reason: str = Field(..., min_length=1)
+
+    model_config = {"extra": "forbid"}
+
+
+class ContextStatusPayload(BaseModel):
+    """Lightweight context-health snapshot used for persistent Web UI warnings."""
+
+    blocked_context_files: list[str] = Field(default_factory=list, alias="blockedContextFiles")
+    conflicted_context_files: list[ContextConflictPayload] = Field(default_factory=list, alias="conflictedContextFiles")
+    warnings: list[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+
 class StatusUpdatePayload(BaseModel):
     """Payload for status.update message."""
 
@@ -315,6 +336,7 @@ class StatusUpdatePayload(BaseModel):
     reasoning_tokens: int = Field(..., alias="reasoningTokens", ge=0)
     queue_length: int = Field(..., alias="queueLength", ge=0)
     is_streaming: bool = Field(..., alias="isStreaming")
+    context_status: ContextStatusPayload | None = Field(default=None, alias="contextStatus")
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
 

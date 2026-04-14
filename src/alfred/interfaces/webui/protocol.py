@@ -262,6 +262,23 @@ class DaemonStatusMessage(TypedDict):
     payload: DaemonStatusPayload
 
 
+class ContextConflictPayload(TypedDict):
+    """Structured conflict record for a blocked context file."""
+
+    id: str
+    name: str
+    label: str
+    reason: str
+
+
+class ContextStatusPayload(TypedDict):
+    """Lightweight context-health snapshot used for persistent Web UI warnings."""
+
+    blockedContextFiles: list[str]
+    conflictedContextFiles: list[ContextConflictPayload]
+    warnings: list[str]
+
+
 class StatusUpdatePayload(TypedDict):
     """Payload for status.update message."""
 
@@ -274,6 +291,7 @@ class StatusUpdatePayload(TypedDict):
     reasoningTokens: int
     queueLength: int
     isStreaming: bool
+    contextStatus: NotRequired[ContextStatusPayload | None]
 
 
 class StatusUpdateMessage(TypedDict):

@@ -15,16 +15,16 @@ import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 from alfred.embeddings import cosine_similarity
 from alfred.memory.support_context import ArcResumeContext, get_support_operational_context
 from alfred.memory.support_learning import (
     LearningSituation,
+    SupportAttempt,
     SupportPattern,
     SupportProfileUpdateEvent,
-    apply_bounded_adaptation,
 )
 from alfred.memory.support_memory import LifeDomain, OperationalArc
 from alfred.memory.support_profile import (
@@ -1199,46 +1199,69 @@ class SupportPolicyRuntime:
         turn_text: str,
         session_id: str | None,
     ) -> None:
-        if query_embedding is None:
-            return
+        """Legacy bounded adaptation hook.
 
-        similar_situations = await self._store.search_learning_situations(
-            list(query_embedding),
-            top_k=6,
-            response_mode=response_mode,
-            need=None if assessment.need == "unknown" else assessment.need,
-        )
-        existing_profile_values = await self._load_existing_profile_values(
-            assessment=assessment,
-            response_mode=response_mode,
-        )
-        subject_refs = tuple(_format_subject(subject) for subject in assessment.subjects)
-        domain_ids = tuple(subject.id for subject in assessment.subjects if subject.kind == "domain" and subject.id is not None)
-        current_situation = LearningSituation(
-            situation_id=f"sit-{int(datetime.now(UTC).timestamp() * 1000)}",
-            session_id=session_id or "runtime",
-            recorded_at=datetime.now(UTC),
-            turn_text=turn_text,
-            embedding=tuple(float(value) for value in query_embedding),
+        PRD #183 Milestone 4B.2 (Option A): bounded (turn-centric) adaptation is retired.
+        Case-derived v2 learning should be the only path that updates learned values.
+        """
+        del assessment, response_mode, query_embedding, behavior_contract, resolved_policy, turn_text, session_id
+        return
+
+    def build_support_attempt(
+        self,
+        *,
+        runtime_result: SupportPolicyRuntimeResult,
+        session_id: str,
+        user_message_id: str,
+        assistant_message_id: str,
+        created_at: datetime,
+    ) -> SupportAttempt:
+        """Build one typed v2 support attempt from the reply-time runtime result."""
+        assessment = runtime_result.assessment
+        resolved_policy = runtime_result.resolved_policy
+        behavior_contract = runtime_result.behavior_contract
+        return SupportAttempt(
+            attempt_id=f"attempt-{assistant_message_id}",
+            session_id=session_id,
+            user_message_id=user_message_id,
+            assistant_message_id=assistant_message_id,
+            created_at=created_at,
             need=assessment.need,
-            response_mode=response_mode,
-            subject_refs=subject_refs,
-            arc_id=resolved_policy.primary_arc_id,
-            domain_ids=domain_ids,
-            intervention_ids=(),
-            behavior_contract_summary=_summarize_contract_for_learning(behavior_contract),
+            response_mode=runtime_result.response_mode,
+            subject_refs=tuple(_format_subject(subject) for subject in assessment.subjects),
+            active_arc_id=resolved_policy.primary_arc_id,
+            active_domain_ids=resolved_policy.domain_ids,
+            effective_support_values=dict(behavior_contract.support_values),
+            effective_relational_values=dict(behavior_contract.relational_values),
             intervention_family=behavior_contract.intervention_family,
-            relational_values_applied=dict(behavior_contract.relational_values),
-            support_values_applied=dict(behavior_contract.support_values),
-            evidence_refs=(),
+            intervention_refs=(),
+            prompt_contract_summary=_summarize_contract_for_learning(behavior_contract),
+            operational_snapshot_ref=None,
         )
-        await apply_bounded_adaptation(
-            store=cast(Any, self._store),
-            current_situation=current_situation,
-            similar_situations=similar_situations,
-            existing_profile_values=existing_profile_values,
-            now=datetime.now(UTC),
+
+    async def save_support_attempt(
+        self,
+        *,
+        runtime_result: SupportPolicyRuntimeResult,
+        session_id: str,
+        user_message_id: str,
+        assistant_message_id: str,
+        created_at: datetime,
+    ) -> SupportAttempt:
+        """Persist one reply-time v2 support attempt when the store supports it."""
+        save_support_attempt = getattr(self._store, "save_support_attempt", None)
+        if not callable(save_support_attempt):
+            raise RuntimeError("Support-policy store does not support v2 support-attempt persistence")
+
+        attempt = self.build_support_attempt(
+            runtime_result=runtime_result,
+            session_id=session_id,
+            user_message_id=user_message_id,
+            assistant_message_id=assistant_message_id,
+            created_at=created_at,
         )
+        await save_support_attempt(attempt)
+        return attempt
 
     async def build_turn_contract(
         self,
@@ -1293,18 +1316,6 @@ class SupportPolicyRuntime:
             turn_text=message,
             session_id=session_id,
         )
-        if query_embedding is not None:
-            runtime_patterns = await self._load_runtime_patterns(
-                assessment=assessment_result.assessment,
-                response_mode=response_mode,
-            )
-            resolved_policy = await resolve_support_policy(
-                store=cast(SupportPolicyStore, self._store),
-                assessment=assessment_result.assessment,
-                response_mode=response_mode,
-                patterns=runtime_patterns,
-            )
-            behavior_contract = compile_support_behavior_contract(resolved_policy)
         return SupportPolicyRuntimeResult(
             assessment=assessment_result.assessment,
             response_mode=response_mode,

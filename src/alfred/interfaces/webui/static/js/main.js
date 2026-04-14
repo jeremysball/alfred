@@ -107,6 +107,7 @@ function initAlfredUI() {
   const chatContainer = document.getElementById("chat-container");
   const queueBadge = document.getElementById("queue-badge");
   const inputArea = document.getElementById("input-area");
+  const contextWarningBanner = document.getElementById("context-warning-banner");
 
   const completionMenu = document.getElementById("completion-menu");
 
@@ -2172,6 +2173,61 @@ function initAlfredUI() {
     }
   }
 
+  function renderContextWarningBanner(contextStatus) {
+    if (!contextWarningBanner) {
+      return;
+    }
+
+    const blocked = Array.isArray(contextStatus?.blockedContextFiles)
+      ? contextStatus.blockedContextFiles
+      : [];
+    const conflicted = Array.isArray(contextStatus?.conflictedContextFiles)
+      ? contextStatus.conflictedContextFiles
+      : [];
+    const warnings = Array.isArray(contextStatus?.warnings) ? contextStatus.warnings : [];
+
+    if (!blocked.length && !conflicted.length && !warnings.length) {
+      contextWarningBanner.hidden = true;
+      contextWarningBanner.innerHTML = "";
+      return;
+    }
+
+    const conflictItems = conflicted
+      .map(
+        (file) => `
+          <li class="context-warning-banner__item">
+            <span class="context-warning-banner__file">${escapeConnectionStatusText(file?.label || file?.name || file?.id || "Unknown")}</span>
+            <span class="context-warning-banner__reason">${escapeConnectionStatusText(file?.reason || "Blocked context file")}</span>
+          </li>
+        `,
+      )
+      .join("");
+    const warningItems = warnings
+      .map(
+        (warning) => `
+          <li class="context-warning-banner__item">
+            <span class="context-warning-banner__reason">${escapeConnectionStatusText(warning)}</span>
+          </li>
+        `,
+      )
+      .join("");
+    const blockedSummary = blocked.length
+      ? `<div class="context-warning-banner__summary">Blocked: ${escapeConnectionStatusText(blocked.join(", "))}</div>`
+      : "";
+
+    contextWarningBanner.hidden = false;
+    contextWarningBanner.innerHTML = `
+      <div class="context-warning-banner__content" role="status" aria-live="polite">
+        <div class="context-warning-banner__title">Context warnings</div>
+        ${blockedSummary}
+        <ul class="context-warning-banner__list">
+          ${conflictItems}
+          ${warningItems}
+        </ul>
+      </div>
+    `;
+  }
+
   // Status Bar Update
   function updateStatusBar(payload) {
     const statusBar = document.getElementById("status-bar");
@@ -2206,6 +2262,10 @@ function initAlfredUI() {
     // Update streaming status
     if (payload.isStreaming !== undefined) {
       statusBar.setAttribute("streaming", payload.isStreaming);
+    }
+
+    if (payload.contextStatus !== undefined) {
+      renderContextWarningBanner(payload.contextStatus);
     }
 
     applyDaemonStatusPayload(payload);

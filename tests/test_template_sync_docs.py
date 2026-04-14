@@ -17,6 +17,8 @@ def test_template_sync_guide_documents_sync_store_conflicts_and_recovery() -> No
     assert ">>>>>>> theirs" in guide
     assert "/context" in guide
     assert "WebUI" in guide
+    assert "prompt fragment" in guide.lower()
+    assert "persistent warning banner" in guide.lower()
     assert "fail closed" in guide.lower()
     assert "manual recovery" in guide.lower()
 
@@ -39,4 +41,6 @@ def test_architecture_doc_mentions_workspace_scoped_sync_records_and_blocked_fil
     assert "template-sync.md" in architecture
     assert "/context" in architecture
     assert "WebUI" in architecture
+    assert "prompt fragments" in architecture.lower()
+    assert "warning banner" in architecture.lower()
     assert "blocked" in architecture.lower()

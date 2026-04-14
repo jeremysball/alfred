@@ -2,7 +2,7 @@
 
 import hashlib
 import logging
-import shutil
+import re
 from datetime import date
 from pathlib import Path
 
@@ -18,6 +18,8 @@ class TemplateManager:
 
     # Templates that should be auto-created if missing
     AUTO_CREATE_TEMPLATES = {"SYSTEM.md", "AGENTS.md", "SOUL.md", "USER.md"}
+    PROMPTS_ROOT = "prompts"
+    INCLUDE_PATTERN = re.compile(r"\{\{([^}]+?)(?::\*)?\}\}")
 
     def __init__(self, workspace_dir: Path, cache_dir: Path | None = None) -> None:
         """Initialize template manager.
@@ -442,6 +444,72 @@ class TemplateManager:
 
         return sorted(templates)
 
+    def list_prompt_templates(self) -> list[str]:
+        """List managed prompt fragment templates under templates/prompts/."""
+        if self._template_dir is None:
+            return []
+
+        prompts_dir = self._template_dir / self.PROMPTS_ROOT
+        if not prompts_dir.exists():
+            return []
+
+        prompt_templates: list[str] = []
+        for path in prompts_dir.rglob("*.md"):
+            if path.is_file():
+                prompt_templates.append(path.relative_to(self._template_dir).as_posix())
+        return sorted(prompt_templates)
+
+    def is_prompt_template(self, name: str) -> bool:
+        """Return True when the template name refers to a managed prompt fragment."""
+        normalized = Path(name).as_posix()
+        return normalized.startswith(f"{self.PROMPTS_ROOT}/") and self.template_exists(normalized)
+
+    def extract_include_paths(self, content: str) -> list[str]:
+        """Extract normalized include paths from template or workspace content."""
+        include_paths: list[str] = []
+        for match in self.INCLUDE_PATTERN.finditer(content):
+            include_paths.append(Path(match.group(1).strip()).as_posix())
+        return include_paths
+
+    def collect_managed_prompt_dependencies(self, content: str) -> list[str]:
+        """Return managed prompt fragments referenced by the provided content.
+
+        Includes nested prompt fragment includes when those files are readable.
+        """
+        discovered: list[str] = []
+        pending = self.extract_include_paths(content)
+        seen: set[str] = set()
+
+        while pending:
+            include_path = pending.pop(0)
+            if include_path in seen or not self.is_prompt_template(include_path):
+                continue
+            seen.add(include_path)
+            discovered.append(include_path)
+
+            nested_content = self._read_file_text(self.get_target_path(include_path), include_path)
+            if nested_content is None:
+                nested_content = self.load_template(include_path)
+            if nested_content:
+                pending.extend(self.extract_include_paths(nested_content))
+
+        return sorted(discovered)
+
+    def get_conflicted_prompt_dependencies(self, content: str) -> list[str]:
+        """Return managed prompt fragments that are currently conflicted or contain markers."""
+        conflicted: set[str] = set()
+        for dependency in self.collect_managed_prompt_dependencies(content):
+            record = self.get_sync_record(dependency)
+            if record is not None and record.is_conflicted():
+                conflicted.add(dependency)
+                continue
+
+            dependency_content = self._read_file_text(self.get_target_path(dependency), dependency)
+            if dependency_content is not None and self._has_conflict_markers(dependency_content):
+                conflicted.add(dependency)
+
+        return sorted(conflicted)
+
     def list_missing(self) -> list[str]:
         """List templates that don't exist in workspace.
 
@@ -451,50 +519,28 @@ class TemplateManager:
         return [name for name in self.AUTO_CREATE_TEMPLATES if not self.target_exists(name)]
 
     def ensure_prompts_exist(self) -> Path | None:
-        """Ensure prompts directory exists in workspace, copy from templates if missing.
-
-        Copies all files from templates/prompts/ to workspace/prompts/.
-        Does not overwrite existing files.
-
-        Returns:
-            Path to prompts directory, or None if creation failed
-        """
+        """Ensure prompt fragment files exist in the workspace without overwriting them."""
         if self._template_dir is None:
             return None
 
-        source_prompts = self._template_dir / "prompts"
-        if not source_prompts.exists():
+        prompt_templates = self.list_prompt_templates()
+        if not prompt_templates:
             logger.debug("No prompts directory in templates")
             return None
 
-        target_prompts = self.workspace_dir / "prompts"
+        target_prompts = self.workspace_dir / self.PROMPTS_ROOT
+        created = 0
+        for name in prompt_templates:
+            target_path = self.get_target_path(name)
+            if target_path.exists():
+                continue
+            if self.create_from_template(name) is not None:
+                created += 1
 
-        # Copy prompts directory tree using shutil
-        # Use dirs_exist_ok=True to not fail if directory exists
-        # Use ignore callback to skip existing files
-        def ignore_existing(src: str, names: list[str]) -> set[str]:
-            """Ignore files that already exist in the destination."""
-            ignored = set()
-            src_path = Path(src)
-            for name in names:
-                rel_path = src_path.relative_to(source_prompts) / name
-                target_file = target_prompts / rel_path
-                if target_file.exists():
-                    ignored.add(name)
-            return ignored
-
-        try:
-            shutil.copytree(
-                source_prompts,
-                target_prompts,
-                ignore=ignore_existing,
-                dirs_exist_ok=True,
-            )
-            logger.info(f"Prompts directory synchronized: {target_prompts}")
-        except Exception as e:
-            logger.error(f"Failed to copy prompts directory: {e}")
-            return None
-
+        if created > 0:
+            logger.info("Prompt fragments synchronized: %s (created=%d)", target_prompts, created)
+        else:
+            logger.debug("Prompt fragments already present: %s", target_prompts)
         return target_prompts
 
     def _read_file_text(self, path: Path, name: str) -> str | None:
@@ -706,6 +752,15 @@ class TemplateManager:
                 "message": f"Error: {e}",
             }
 
+    def reconcile_prompt_templates(self, dry_run: bool = False) -> dict[str, dict[str, str]]:
+        """Reconcile managed prompt fragment templates using the same sync contract as top-level files."""
+        results: dict[str, dict[str, str]] = {}
+        for name in self.list_prompt_templates():
+            result = self.reconcile_template(name, preserve=set(), dry_run=dry_run)
+            if result:
+                results[name] = result
+        return results
+
     def update_templates(
         self,
         preserve: set[str] | None = None,
@@ -744,66 +799,42 @@ class TemplateManager:
         return results
 
     def _update_prompts(self, dry_run: bool = False) -> dict[str, str] | None:
-        """Update prompts directory from templates.
-
-        Args:
-            dry_run: If True, don't actually make changes
-
-        Returns:
-            Status dict or None if no prompts to update
-        """
+        """Update prompts directory from templates using managed sync reconciliation."""
         if self._template_dir is None:
             return None
 
-        source_prompts = self._template_dir / "prompts"
-        if not source_prompts.exists():
-            return None
-
-        target_prompts = self.workspace_dir / "prompts"
+        prompt_results = self.reconcile_prompt_templates(dry_run=dry_run)
+        if not prompt_results:
+            return {"status": "skipped", "message": "No prompts to update"}
 
         updated = 0
         preserved = 0
+        conflicts = 0
         errors = 0
 
-        for source_file in source_prompts.rglob("*"):
-            if source_file.is_dir():
-                continue
-
-            rel_path = source_file.relative_to(source_prompts)
-            target_file = target_prompts / rel_path
-
-            if target_file.exists():
-                # Compare mtimes
-                try:
-                    if source_file.stat().st_mtime <= target_file.stat().st_mtime:
-                        preserved += 1
-                        continue
-                except Exception:
-                    pass
-
-            if dry_run:
+        for result in prompt_results.values():
+            status = result.get("status", "")
+            if status in {"updated", "merged", "dry_run"}:
                 updated += 1
-            else:
-                try:
-                    target_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source_file, target_file)
-                    updated += 1
-                except Exception as e:
-                    logger.error(f"Failed to copy {rel_path}: {e}")
-                    errors += 1
-
-        if updated == 0 and preserved == 0 and errors == 0:
-            return {"status": "skipped", "message": "No prompts to update"}
+            elif status in {"skipped", "preserved"}:
+                preserved += 1
+            elif status == "conflicted":
+                conflicts += 1
+            elif status == "error":
+                errors += 1
 
         status_parts = []
         if updated > 0:
             status_parts.append(f"{updated} updated")
         if preserved > 0:
             status_parts.append(f"{preserved} preserved")
+        if conflicts > 0:
+            status_parts.append(f"{conflicts} conflicted")
         if errors > 0:
             status_parts.append(f"{errors} errors")
 
+        overall_status = "updated" if updated > 0 else "conflicted" if conflicts > 0 else "skipped"
         return {
-            "status": "updated" if updated > 0 else "skipped",
+            "status": overall_status,
             "message": ", ".join(status_parts) if status_parts else "No changes",
         }

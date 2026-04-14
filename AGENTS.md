@@ -22,7 +22,7 @@ Do this once per conversation/session:
 2. Read `/workspace/alfred-prd/docs/ROADMAP.md`.
 3. Confirm once: `✅ Skills and parent PRD loaded`
 
-Only read `/home/node/.pi/skills/writing-clearly-and-concisely/SKILL.md` when the task is prose: docs, README text, commit messages, UI copy, reports, or other user-facing writing.
+Do not automatically read `/home/node/.pi/skills/writing-clearly-and-concisely/SKILL.md`. Use normal judgment for prose unless the user explicitly asks for writing help or the change clearly needs that extra guidance.
 
 Do not repeat these reads or the confirmation unless the session context has been reset.
 
@@ -308,6 +308,41 @@ Do not use `sed`, regex replacement, or plain grep-based rewriting for code modi
 ### Use Playwright for Web UI Work
 
 Use Playwright for development, debugging, and verification of browser behavior.
+
+### Render Mermaid diagrams to PNG (Web UI / docs)
+
+When a user asks to render a Mermaid diagram to a PNG, use **npx** (no install) per Option B.
+
+First-time setup (downloads a headless Chrome binary into the Puppeteer cache).
+
+Important: `mmdc` currently depends on `puppeteer-core` that expects a specific Chrome build, so install via the matching Puppeteer version:
+
+```bash
+npx -y puppeteer@23.11.1 browsers install chrome-headless-shell
+```
+
+Create a temporary Puppeteer config file for CI/containers (avoids sandbox issues). Write this JSON to `/tmp/mermaid-puppeteer-config.json`:
+
+```json
+{
+  "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+}
+```
+
+Render (Markdown inputs with multiple Mermaid blocks will emit `...-1.png`, `...-2.png`, etc.):
+
+```bash
+mkdir -p /tmp/mermaid-out
+
+npx -y @mermaid-js/mermaid-cli@latest \
+  -p /tmp/mermaid-puppeteer-config.json \
+  -i docs/architecture/alfred-architecture-diagrams.md \
+  -o /tmp/mermaid-out/alfred-architecture-diagrams.png
+```
+
+Notes:
+- Prefer writing outputs to `/tmp/` unless the user explicitly wants committed assets.
+- If Puppeteer can’t find Chrome, re-run the `puppeteer@23.11.1 browsers install ...` step above.
 
 ### Viewing User Screenshots from Image Hosting Services
 

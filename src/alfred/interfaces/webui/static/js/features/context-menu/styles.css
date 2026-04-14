@@ -62,9 +62,56 @@
   max-width: none;
   max-height: min(68vh, 42rem);
   border-radius: 1rem 1rem 0 0;
+  padding-top: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.context-menu[data-layout="sheet"] .context-menu-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0.65rem 1rem 0.45rem;
+  background: var(--context-menu-surface-bg);
+  border-bottom: 1px solid var(--context-menu-border);
+}
+
+.context-menu[data-layout="sheet"] .context-menu-title {
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--context-menu-muted);
+}
+
+.context-menu[data-layout="sheet"] .context-menu-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--context-menu-border);
+  background: var(--context-menu-shortcut-bg);
+  color: var(--context-menu-text);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.context-menu[data-layout="sheet"] .context-menu-close:hover,
+.context-menu[data-layout="sheet"] .context-menu-close:focus {
+  background: var(--context-menu-hover-bg);
+}
+
+.context-menu[data-layout="sheet"] .context-menu-close:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--context-menu-border);
 }
 
 @keyframes context-menu-appear {

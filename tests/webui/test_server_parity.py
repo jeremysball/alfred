@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from alfred.context_display import ContextConflictStatus, ContextStatus
 from alfred.interfaces.webui import create_app
 from alfred.interfaces.webui.daemon_bootstrap import DaemonBootstrapResult
 from alfred.token_tracker import TokenTracker
@@ -220,6 +221,46 @@ def test_status_update_includes_context_window_tokens_for_known_model() -> None:
     assert status_update["type"] == "status.update"
     assert status_update["payload"]["contextTokens"] == 68272
     assert status_update["payload"]["contextWindowTokens"] == 272000
+
+
+def test_status_update_includes_context_status_snapshot() -> None:
+    """Status updates should include persistent context-health warnings for the Web UI banner."""
+
+    fake_alfred = FakeAlfred()
+    client = TestClient(create_app(alfred_instance=fake_alfred))
+    context_status = ContextStatus(
+        blocked_context_files=["SOUL.md"],
+        conflicted_context_files=[
+            ContextConflictStatus(
+                id="soul",
+                name="soul",
+                label="SOUL.md",
+                reason="Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+            )
+        ],
+        disabled_sections=["TOOLS"],
+        warnings=["Disabled sections: TOOLS"],
+    )
+
+    with (
+        patch("alfred.context_display.get_context_status", AsyncMock(return_value=context_status)),
+        client.websocket_connect("/ws") as websocket,
+    ):
+        _, _, status_update = _connect_and_consume_startup(websocket)
+
+    assert status_update["type"] == "status.update"
+    assert status_update["payload"]["contextStatus"] == {
+        "blockedContextFiles": ["SOUL.md"],
+        "conflictedContextFiles": [
+            {
+                "id": "soul",
+                "name": "soul",
+                "label": "SOUL.md",
+                "reason": "Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+            }
+        ],
+        "warnings": ["Disabled sections: TOOLS"],
+    }
 
 
 def test_new_command_resets_status_totals_for_fresh_session() -> None:

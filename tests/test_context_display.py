@@ -8,7 +8,42 @@ from unittest.mock import AsyncMock
 import pytest
 
 from alfred.context import ContextFile, ContextFileState
-from alfred.context_display import get_context_display
+from alfred.context_display import ContextConflictStatus, ContextStatus, get_context_display, get_context_status
+
+
+@pytest.mark.asyncio
+async def test_get_context_status_returns_typed_snapshot() -> None:
+    """The lightweight context-status helper should return a typed object, not a loose dict."""
+
+    blocked_soul = ContextFile(
+        name="soul",
+        path="/workspace/alfred/SOUL.md",
+        content="",
+        last_modified=datetime(2026, 3, 23, tzinfo=UTC),
+        state=ContextFileState.BLOCKED,
+        blocked_reason="Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+    )
+    fake_context_loader = SimpleNamespace(
+        load_all=AsyncMock(return_value={"soul": blocked_soul}),
+        get_disabled_sections=lambda: ["tools"],
+    )
+    fake_alfred = SimpleNamespace(context_loader=fake_context_loader)
+
+    result = await get_context_status(fake_alfred)
+
+    assert result == ContextStatus(
+        blocked_context_files=["SOUL.md"],
+        conflicted_context_files=[
+            ContextConflictStatus(
+                id="soul",
+                name="soul",
+                label="SOUL.md",
+                reason="Conflicted managed prompt fragment prompts/voice.md blocks SOUL.md",
+            )
+        ],
+        disabled_sections=["tools"],
+        warnings=["Disabled sections: tools"],
+    )
 
 
 @pytest.mark.asyncio
@@ -524,6 +559,45 @@ async def test_get_context_display_includes_support_state_summary() -> None:
                     timestamp=now,
                 ),
             ),
+            value_ledger_entries=(
+                SimpleNamespace(
+                    value_id="val-1",
+                    registry="support",
+                    dimension="option_bandwidth",
+                    scope=SimpleNamespace(type="context", id="execute"),
+                    value="single",
+                    status="active_auto",
+                    confidence=0.81,
+                    evidence_count=3,
+                    contradiction_count=0,
+                    last_case_id="case-1",
+                    updated_at=now,
+                    why="Evidence threshold met.",
+                ),
+            ),
+            value_ledger_summary={
+                "total": 1,
+                "counts_by_status": {"active_auto": 1},
+                "counts_by_registry": {"support": 1},
+            },
+            recent_ledger_update_events=(
+                SimpleNamespace(
+                    event_id="led-1",
+                    entity_type="value",
+                    entity_id="val-1",
+                    registry="support",
+                    dimension_or_kind="option_bandwidth",
+                    scope=SimpleNamespace(type="context", id="execute"),
+                    old_status=None,
+                    new_status="active_auto",
+                    old_value=None,
+                    new_value="single",
+                    trigger_case_ids=("case-1",),
+                    reason="Evidence threshold met.",
+                    confidence=0.82,
+                    created_at=now,
+                ),
+            ),
             recent_interventions=(
                 SimpleNamespace(
                     situation_id="sit-1",
@@ -607,6 +681,45 @@ async def test_get_context_display_includes_support_state_summary() -> None:
             "reason": "The narrower pace improved follow-through.",
             "confidence": 0.88,
             "timestamp": now.isoformat(),
+        }
+    ]
+    assert support_state["learned_state"]["value_ledger_entries"] == [
+        {
+            "value_id": "val-1",
+            "registry": "support",
+            "dimension": "option_bandwidth",
+            "scope": {"type": "context", "id": "execute", "label": "context:execute"},
+            "value": "single",
+            "status": "active_auto",
+            "confidence": 0.81,
+            "evidence_count": 3,
+            "contradiction_count": 0,
+            "last_case_id": "case-1",
+            "updated_at": now.isoformat(),
+            "why": "Evidence threshold met.",
+        }
+    ]
+    assert support_state["learned_state"]["value_ledger_summary"] == {
+        "total": 1,
+        "counts_by_status": {"active_auto": 1},
+        "counts_by_registry": {"support": 1},
+    }
+    assert support_state["learned_state"]["recent_ledger_update_events"] == [
+        {
+            "event_id": "led-1",
+            "entity_type": "value",
+            "entity_id": "val-1",
+            "registry": "support",
+            "dimension_or_kind": "option_bandwidth",
+            "scope": {"type": "context", "id": "execute", "label": "context:execute"},
+            "old_status": None,
+            "new_status": "active_auto",
+            "old_value": None,
+            "new_value": "single",
+            "trigger_case_ids": ["case-1"],
+            "reason": "Evidence threshold met.",
+            "confidence": 0.82,
+            "created_at": now.isoformat(),
         }
     ]
     assert support_state["learned_state"]["recent_interventions"] == [

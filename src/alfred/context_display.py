@@ -7,6 +7,7 @@ for user inspection via the /context command.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +18,52 @@ if TYPE_CHECKING:
     from alfred.alfred import Alfred
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ContextConflictStatus:
+    """Structured record for one blocked/conflicted context file."""
+
+    id: str
+    name: str
+    label: str
+    reason: str
+
+    def to_payload(self) -> dict[str, str]:
+        """Serialize to the existing JSON-friendly payload shape."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "label": self.label,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ContextStatus:
+    """Typed snapshot of current context health for UI/status surfaces."""
+
+    blocked_context_files: list[str] = field(default_factory=list)
+    conflicted_context_files: list[ContextConflictStatus] = field(default_factory=list)
+    disabled_sections: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    def to_display_payload(self) -> dict[str, Any]:
+        """Serialize to the snake_case /context payload shape."""
+        return {
+            "blocked_context_files": list(self.blocked_context_files),
+            "conflicted_context_files": [item.to_payload() for item in self.conflicted_context_files],
+            "disabled_sections": list(self.disabled_sections),
+            "warnings": list(self.warnings),
+        }
+
+    def to_websocket_payload(self) -> dict[str, Any]:
+        """Serialize to the camelCase status.update payload shape."""
+        return {
+            "blockedContextFiles": list(self.blocked_context_files),
+            "conflictedContextFiles": [item.to_payload() for item in self.conflicted_context_files],
+            "warnings": list(self.warnings),
+        }
 
 
 def _estimate_tokens(text: str) -> int:
@@ -94,6 +141,47 @@ def _serialize_update_event_summary(event: Any) -> dict[str, Any]:
     }
 
 
+def _serialize_value_ledger_entry_summary(entry: Any) -> dict[str, Any]:
+    """Serialize one v2 support value ledger entry summary for /context display."""
+    updated_at = getattr(entry, "updated_at", None)
+    return {
+        "value_id": str(getattr(entry, "value_id", "")),
+        "registry": str(getattr(entry, "registry", "unknown")),
+        "dimension": str(getattr(entry, "dimension", "unknown")),
+        "scope": _serialize_support_scope(getattr(entry, "scope", None)),
+        "value": str(getattr(entry, "value", "")),
+        "status": str(getattr(entry, "status", "unknown")),
+        "confidence": float(getattr(entry, "confidence", 0.0)),
+        "evidence_count": int(getattr(entry, "evidence_count", 0)),
+        "contradiction_count": int(getattr(entry, "contradiction_count", 0)),
+        "last_case_id": getattr(entry, "last_case_id", None),
+        "updated_at": updated_at.isoformat() if updated_at is not None else None,
+        "why": str(getattr(entry, "why", "")),
+    }
+
+
+def _serialize_ledger_update_event_summary(event: Any) -> dict[str, Any]:
+    """Serialize one v2 support ledger update event summary for /context display."""
+    created_at = getattr(event, "created_at", None)
+    trigger_case_ids = getattr(event, "trigger_case_ids", ())
+    return {
+        "event_id": str(getattr(event, "event_id", "")),
+        "entity_type": str(getattr(event, "entity_type", "unknown")),
+        "entity_id": str(getattr(event, "entity_id", "")),
+        "registry": str(getattr(event, "registry", "unknown")),
+        "dimension_or_kind": str(getattr(event, "dimension_or_kind", "unknown")),
+        "scope": _serialize_support_scope(getattr(event, "scope", None)),
+        "old_status": getattr(event, "old_status", None),
+        "new_status": str(getattr(event, "new_status", "unknown")),
+        "old_value": getattr(event, "old_value", None),
+        "new_value": getattr(event, "new_value", None),
+        "trigger_case_ids": [str(item) for item in trigger_case_ids] if trigger_case_ids else [],
+        "reason": str(getattr(event, "reason", "")),
+        "confidence": float(getattr(event, "confidence", 0.0)),
+        "created_at": created_at.isoformat() if created_at is not None else None,
+    }
+
+
 def _serialize_learning_situation_summary(situation: Any) -> dict[str, Any]:
     """Serialize one recent learning-situation summary for /context display."""
     recorded_at = getattr(situation, "recorded_at", None)
@@ -158,24 +246,40 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
     }
 
     active_patterns = [
-        _serialize_pattern_summary(pattern)
-        for pattern in getattr(getattr(snapshot, "active_runtime_state", None), "active_patterns", ())
+        _serialize_pattern_summary(pattern) for pattern in getattr(getattr(snapshot, "active_runtime_state", None), "active_patterns", ())
     ]
     candidate_patterns = [
-        _serialize_pattern_summary(pattern)
-        for pattern in getattr(getattr(snapshot, "learned_state", None), "candidate_patterns", ())
+        _serialize_pattern_summary(pattern) for pattern in getattr(getattr(snapshot, "learned_state", None), "candidate_patterns", ())
     ]
     confirmed_patterns = [
-        _serialize_pattern_summary(pattern)
-        for pattern in getattr(getattr(snapshot, "learned_state", None), "confirmed_patterns", ())
+        _serialize_pattern_summary(pattern) for pattern in getattr(getattr(snapshot, "learned_state", None), "confirmed_patterns", ())
     ]
-    recent_update_events = [
-        _serialize_update_event_summary(event)
-        for event in getattr(getattr(snapshot, "learned_state", None), "recent_update_events", ())
+    learned_state = getattr(snapshot, "learned_state", None)
+
+    recent_update_events = [_serialize_update_event_summary(event) for event in getattr(learned_state, "recent_update_events", ())]
+
+    value_ledger_entries = [_serialize_value_ledger_entry_summary(entry) for entry in getattr(learned_state, "value_ledger_entries", ())]
+
+    raw_value_ledger_summary = getattr(learned_state, "value_ledger_summary", None)
+    if isinstance(raw_value_ledger_summary, dict):
+        value_ledger_summary = {
+            "total": int(raw_value_ledger_summary.get("total", 0)),
+            "counts_by_status": dict(raw_value_ledger_summary.get("counts_by_status", {})),
+            "counts_by_registry": dict(raw_value_ledger_summary.get("counts_by_registry", {})),
+        }
+    else:
+        value_ledger_summary = {
+            "total": 0,
+            "counts_by_status": {},
+            "counts_by_registry": {},
+        }
+
+    recent_ledger_update_events = [
+        _serialize_ledger_update_event_summary(event) for event in getattr(learned_state, "recent_ledger_update_events", ())
     ]
+
     recent_interventions = [
-        _serialize_learning_situation_summary(situation)
-        for situation in getattr(getattr(snapshot, "learned_state", None), "recent_interventions", ())
+        _serialize_learning_situation_summary(situation) for situation in getattr(learned_state, "recent_interventions", ())
     ]
     active_domains = [_serialize_active_domain(domain) for domain in getattr(snapshot, "active_domains", ())]
     active_arcs = [_serialize_active_arc(arc) for arc in getattr(snapshot, "active_arcs", ())]
@@ -215,11 +319,53 @@ async def _get_support_state_display(alfred: Alfred) -> dict[str, Any]:
             "candidate_patterns": candidate_patterns,
             "confirmed_patterns": confirmed_patterns,
             "recent_update_events": recent_update_events,
+            "value_ledger_entries": value_ledger_entries,
+            "value_ledger_summary": value_ledger_summary,
+            "recent_ledger_update_events": recent_ledger_update_events,
             "recent_interventions": recent_interventions,
         },
         "active_domains": active_domains,
         "active_arcs": active_arcs,
     }
+
+
+def _build_context_status(
+    context_files: dict[str, Any],
+    disabled_sections: list[str],
+) -> ContextStatus:
+    """Build the shared blocked/conflicted context status snapshot."""
+    conflicted_context_files = [
+        ContextConflictStatus(
+            id=_context_file_identifier(file),
+            name=_context_file_identifier(file),
+            label=_context_file_name(file),
+            reason=getattr(file, "blocked_reason", None) or "Blocked context file",
+        )
+        for file in context_files.values()
+        if getattr(file, "is_blocked", lambda: False)()
+    ]
+    if conflicted_context_files:
+        logger.debug("context_status: found %d conflicted context files", len(conflicted_context_files))
+
+    warnings: list[str] = []
+    if disabled_sections:
+        warnings.append(f"Disabled sections: {', '.join(disabled_sections)}")
+
+    return ContextStatus(
+        blocked_context_files=[file.label for file in conflicted_context_files],
+        conflicted_context_files=conflicted_context_files,
+        disabled_sections=list(disabled_sections),
+        warnings=warnings,
+    )
+
+
+async def get_context_status(alfred: Alfred) -> ContextStatus:
+    """Get the lightweight context-health snapshot used by Web UI status updates."""
+    logger.debug("get_context_status: gathering current context health")
+    disabled_sections = alfred.context_loader.get_disabled_sections()
+    context_files = await alfred.context_loader.load_all()
+    logger.debug("get_context_status: loaded %d context files", len(context_files))
+    return _build_context_status(context_files, disabled_sections)
 
 
 async def get_context_display(alfred: Alfred, session_id: str | None = None) -> dict[str, Any]:
@@ -247,23 +393,10 @@ async def get_context_display(alfred: Alfred, session_id: str | None = None) -> 
     context_files = await alfred.context_loader.load_all()
     logger.debug("get_context_display: loaded %d context files", len(context_files))
 
-    conflicted_context_files = [
-        {
-            "id": _context_file_identifier(file),
-            "name": _context_file_identifier(file),
-            "label": _context_file_name(file),
-            "reason": getattr(file, "blocked_reason", None) or "Blocked context file",
-        }
-        for file in context_files.values()
-        if getattr(file, "is_blocked", lambda: False)()
-    ]
-    if conflicted_context_files:
-        logger.debug("get_context_display: found %d conflicted context files", len(conflicted_context_files))
-
-    blocked_context_files = [file["label"] for file in conflicted_context_files]
-    warnings: list[str] = []
-    if disabled_sections:
-        warnings.append(f"Disabled sections: {', '.join(disabled_sections)}")
+    context_status = _build_context_status(context_files, disabled_sections)
+    blocked_context_files = list(context_status.blocked_context_files)
+    conflicted_context_files = [item.to_payload() for item in context_status.conflicted_context_files]
+    warnings = list(context_status.warnings)
 
     system_sections = []
     total_system_tokens = 0
