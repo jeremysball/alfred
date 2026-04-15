@@ -1,11 +1,11 @@
 # PRD: Semantic Relational-State Adjudication for Live Turns
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
-**GitHub Issue**: [#194](https://github.com/jeremysball/alfred/issues/194)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-09  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#192 Relational Projection Work on the Semantic Runtime Engine](./192-relational-runtime-semantics-and-stance-adjudication.md)
+**GitHub Issue**: [#194](https://github.com/jeremysball/alfred/issues/194)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-09
 **Author**: Agent
 
 ---
@@ -59,7 +59,7 @@ This PRD applies the shared **candidate adjudication** primitive to the live rel
 ## 3. Non-Goals
 
 - Persisting live-state outputs directly as durable truth.
-- Replacing the shared learning model from PRD #183.
+- Defining or replacing the generalized durable evidence/update model in this PRD.
 - Letting the model invent arbitrary emotional or diagnostic narratives.
 - Owning final stance selection. That belongs to PRD #195.
 - Creating an unbounded psychological profile of the user.
@@ -165,8 +165,8 @@ Important rule:
 
 If repeated turns or observations show a durable pattern, that should be learned through:
 - observation extraction
-- attempts and cases
-- the shared learning model in PRD #183
+- deterministic evidence/update accumulation
+- whatever generalized durable-state path the shared substrate ultimately defines
 
 ### 4.7 Make the output useful to stance adjudication
 
@@ -268,7 +268,7 @@ docs/how-alfred-helps.md
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | The ontology becomes too sprawling or therapist-like | High | keep the field set small and explicitly non-diagnostic |
-| The runtime starts treating live state as durable truth | High | keep persistence out of scope and route durable learning through PRD #183 |
+| The runtime starts treating live state as durable truth | High | keep persistence out of scope and route durable state through deterministic substrate-managed update paths |
 | The adjudicator overreads weak evidence | High | allow neutral outputs and bounded confidence |
 | The seam duplicates support need or subject adjudication badly | Medium | keep the scope relational and focused on the live stance conditions |
 
@@ -289,9 +289,8 @@ Validation should focus on:
 
 ## 11. Related PRDs
 
-- PRD #183: Support Learning V2 - Case-Based Adaptation and Full Inspection
-- PRD #185: Shared Semantic Adjudication Contract and Symbolic Runtime Inputs
-- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #185: Generalized Semantic Runtime Substrate Contract and Ontology Projection Envelope
+- PRD #192: Relational Projection Work on the Semantic Runtime Engine
 - PRD #195: Semantic Relational Stance Adjudication
 
 ---

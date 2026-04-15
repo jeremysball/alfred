@@ -1,11 +1,11 @@
 # PRD: Semantic Subject Adjudication for Support Runtime
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#184 Semantic Adjudication Runtime for Support Routing and Learning](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)  
-**GitHub Issue**: [#188](https://github.com/jeremysball/alfred/issues/188)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-07  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#184 Support Projection Work on the Semantic Runtime Engine](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)
+**GitHub Issue**: [#188](https://github.com/jeremysball/alfred/issues/188)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-07
 **Author**: Agent
 
 ---

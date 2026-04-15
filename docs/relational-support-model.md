@@ -1,13 +1,30 @@
 # Relational Support Model
 
-**Status:** Active architecture. This document describes the support model formalized by completed PRD #179 and shipped child PRDs #167, #168, and #169.
+**Status:** Active projection architecture. This document describes the current support and relational product projections that sit on top of Alfred's shared semantic runtime substrate.
+
+## Relationship to the architecture doc
+
+This file is downstream of:
+- [docs/architecture/semantic-runtime-engine.md](architecture/semantic-runtime-engine.md)
+
+That architecture doc owns:
+- the generalized semantic substrate
+- the projection contract
+- the shared runtime abstractions
+- the deterministic/model responsibility split
+
+This document owns:
+- support and relational product semantics
+- current projection boundaries
+- product-facing runtime loops and user experience expectations
+
+It is **not** the shared substrate contract.
 
 ## Overview
 
 Alfred is being formalized as a **relational support system for orientation, continuity, calibration, and action**.
 
 The aim is not a diagnosis-specific helper or a pile of adjacent support features.
-
 The aim is one system that can:
 - re-orient the user when they are foggy
 - recover continuity across days and weeks of work
@@ -16,15 +33,16 @@ The aim is one system that can:
 - surface honest reflection
 - hold up an evidence-backed mirror
 
-The model is intentionally relational:
-- Alfred should feel like a companion
-- friend, peer, mentor, coach, and analyst are part of the product language
-- those are not separate hard-coded personas
-- they are derived stance summaries produced by one runtime system
+This model sits on one shared semantic substrate with multiple projections.
+Today the most important projections are:
+- **support**
+- **relational**
+
+Future projections should remain possible.
 
 ## Product thesis
 
-Alfred should help through one shared support loop:
+Alfred should help through one shared product loop:
 1. understand what kind of moment this is
 2. load what matters operationally
 3. recover recent continuity when needed
@@ -36,12 +54,32 @@ Alfred should help through one shared support loop:
 9. learn from it
 10. surface important changes back to the user when appropriate
 
+## Why projections matter
+
+The architecture is shared, but the ontologies are not.
+
+### Support projection
+The support projection owns questions like:
+- what kind of help is needed right now?
+- what subject or thread is active?
+- what operational continuity should be loaded?
+- what support preference or pattern should affect the move?
+
+### Relational projection
+The relational projection owns questions like:
+- how should Alfred show up in this moment?
+- what stance constraints or shifts are appropriate?
+- did the user express a relational preference or boundary?
+- does the current turn require relational explanation or repair-sensitive acknowledgment?
+
+Important rule:
+- support and relational are **projections of the substrate**, not separate runtime engines
+
 ## Core jobs vs interaction contexts
 
 These are not the same thing.
 
 ### Core jobs
-
 The user-facing jobs Alfred must be able to do are:
 - **orient**
 - **resume**
@@ -51,7 +89,6 @@ The user-facing jobs Alfred must be able to do are:
 - **calibrate**
 
 ### V1 interaction contexts
-
 The current v1 interaction taxonomy remains:
 - `plan`
 - `execute`
@@ -64,9 +101,9 @@ Those contexts are implementation steering, not the whole product promise.
 
 Important point:
 - `orient`, `resume`, and `calibrate` cut across several contexts
-- they should remain first-class product requirements even if they do not yet appear as separate runtime labels
+- they should remain first-class product requirements even when they do not appear as separate runtime labels
 
-## Seven core primitives
+## Projection-owned primitives
 
 ### 1. Operational state
 Durable support state such as:
@@ -89,10 +126,13 @@ How help should be shaped for this user, context, and project.
 The support moves Alfred can make.
 
 ### 6. Evidence and outcomes
-The durable record of what Alfred tried and what happened.
+The domain-facing record of what Alfred tried, what happened, and what later mattered.
 
 ### 7. Review and control
 The user-facing inspection, explanation, and correction layer.
+
+These are product primitives for the current projections.
+They are not the generic semantic substrate.
 
 ## Session search is a first-class capability
 
@@ -107,10 +147,10 @@ Alfred needs searchable session history for:
 - evidence-backed review
 - avoiding pointless recap requests when the record already exists
 
-Structured support memory does not replace session search.
+Structured projection state does not replace session search.
 It sits on top of it.
 
-Transcript sessions should remain the raw archive for provenance, replay, and recall. Active continuity should live in life domains, operational arcs, arc-linked work state, and fresh situation snapshots.
+Transcript sessions should remain the raw archive for provenance, replay, and recall. Active continuity should live in operational state, projection state, and fresh situation snapshots.
 
 ## Curated memory stays separate and supplemental
 
@@ -131,8 +171,8 @@ Relevant curated memories may be auto-injected into runtime context.
 `search_memories` should remain available for targeted lookup, inspection, or narrower retrieval when the default injected context is not enough.
 
 Boundary rule:
-- structured support memory owns active operational continuity
-- support learning owns adaptive support and relational policy
+- structured projection state owns active domain continuity
+- semantic-runtime learning owns adaptive policy and evidence updates
 - curated memory supplements both, but does not silently replace either one
 
 ## Relational stance model
@@ -190,23 +230,22 @@ The runtime should not ask the model to invent what dimensions mean.
 
 Instead:
 - the product defines behavioral semantics for each dimension
-- runtime state selects effective values
+- projected state selects effective values
 - a behavior compiler turns those values into a compact response contract
 - the model composes natural language inside that contract
 
 That means the model infers phrasing, not product semantics.
 The prompt contract should steer behavior without forcing stock wording or exposing internal policy labels by default.
 
-## Semantic runtime engine
+## Semantic runtime usage inside these projections
 
-The semantic layer should be understood through one shared runtime engine with three abstractions:
+The support and relational projections both reuse the shared substrate abstractions from the architecture doc:
 
 1. **candidate adjudication**
 2. **grounded observation extraction**
 3. **deterministic activation and surfacing policy**
 
 These are runtime mechanics, not product ontologies.
-Support and relational features should reuse them instead of building separate semantic subsystems.
 
 ### Candidate adjudication
 Use this when the runtime needs a bounded choice or ranking among candidates.
@@ -240,37 +279,26 @@ It decides:
 Important split:
 - the model may judge or extract
 - the runtime validates, activates, persists, and explains
-- the user-facing control surfaces still outrank inference
+- user-facing control surfaces still outrank inference
 
-See [docs/architecture/semantic-runtime-engine.md](architecture/semantic-runtime-engine.md) for the boundary doc.
+See [docs/architecture/semantic-runtime-engine.md](architecture/semantic-runtime-engine.md) for the shared boundary doc.
 
-## Learning model
+## Learning and evidence model
 
-The shipped learning foundation now operates on:
-- **`SupportAttempt`**
-- **`OutcomeObservation`**
-- **`LearningCase`**
+This product model needs a generalized evidence and adaptive-state story, but it should not hard-code one support-specific artifact model as the architecture.
 
-That is the shared deterministic learning boundary for both support and relational runtime work.
+Rules:
+- the substrate should support grounded observations, bounded state updates, and inspectable evidence
+- projections may need different durable record shapes over time
+- no current projection-specific schema should be treated as universal architecture by default
 
-### Why this unit matters
-A single conversation can move through multiple contexts:
-- execution
-- decision support
-- identity reflection
-- direction reflection
+### Current implementation note
 
-One session blob is too coarse for reliable learning.
-The runtime needs smaller units that preserve what Alfred tried, what evidence appeared, and what later seemed to help.
-
-### Attempt / observation / case role
-- `SupportAttempt` records what Alfred tried in context
-- `OutcomeObservation` records grounded evidence after or around that attempt
-- `LearningCase` is the derived unit used for later learning, inspection, and adaptive updates
-
-### Episode role
-`SupportEpisode` should remain a derived synthesis/report boundary.
-It can summarize several cases or attempts later for review, reflection, and correction surfaces without becoming the main learning primitive again.
+The repo currently ships support-domain learning and inspection behavior through PRD #183.
+That work is real and important, but it should be interpreted as:
+- current support-domain implementation
+- migration constraint
+- not the general substrate design
 
 ## Learning classes
 
@@ -285,7 +313,7 @@ These classes should not share the same promotion rules.
 
 No silent collapse rule:
 - curated memories should not automatically become support-profile values
-- support observations should not automatically become curated memories
+- projection observations should not automatically become curated memories
 - learned patterns should not silently rewrite explicit durable truth
 
 ## Calibration model
@@ -313,7 +341,7 @@ The goal is disciplined honesty.
 
 ## Reflection model
 
-Reflection is the user-facing meaning-making layer. It is not the same thing as learning.
+Reflection is the user-facing meaning-making layer. It is not the same thing as the shared substrate.
 
 ### Reflection surfaces
 1. **Inline reflection** — surfaced during live conversation when highly relevant
@@ -348,13 +376,13 @@ Reviews stay bounded to 1-3 cards. Each card should include evidence plus an act
 
 The target ladder is:
 1. raw evidence
-2. typed learning-situation evidence
-3. candidate pattern
-4. confirmed structured support memory
+2. typed projected observations and validated runtime signals
+3. candidate pattern or candidate state update
+4. confirmed projection state or durable domain memory
 5. explicit durable user truth in `USER.md`
 
 Key rule:
-- learning may silently improve scoped support behavior
+- learning may silently improve scoped runtime behavior
 - learning may not silently redefine the user's identity
 
 That means identity and direction themes stay candidate-first until the user confirms them.
@@ -367,9 +395,9 @@ That means identity and direction themes stay candidate-first until the user con
 | `AGENTS.md` | execution rules, tooling posture, safety/permission rules for work |
 | `SOUL.md` | Alfred's identity, voice, and relational posture |
 | `USER.md` | explicit user-provided or user-confirmed durable truths |
-| Structured support memory | life domains, operational arcs, arc-linked work state, typed episodes, evidence refs, derived situations, support values, interventions, patterns |
-| Session archive | raw transcript provenance, recall, and calibration evidence |
-| Runtime self-model | Alfred's current interface/runtime state |
+| projection state stores | operational continuity, projection values, patterns, evidence, inspection payloads |
+| session archive | raw transcript provenance, recall, and calibration evidence |
+| runtime self-model | Alfred's current interface/runtime state |
 
 ## Relational contract
 
@@ -392,28 +420,26 @@ The target runtime loop is:
 1. infer context
 2. load operational state and recover recent continuity when needed
 3. assemble deterministic runtime facts and candidate sets
-4. run **candidate adjudication** when the turn needs bounded selection or ranking
-5. run **grounded observation extraction** when the turn may contain learnable signals
-6. validate and apply **deterministic activation and surfacing policy**
-7. load effective relational values and effective support values
-8. derive stance summary and compile behavior contract
-9. choose interventions
-10. decide whether any loaded pattern or stance explanation should stay silent, get a compact mention, or get a slightly richer explanation
-11. respond or act
-12. record attempts, observations, and cases through the shared learning model
-13. calibrate against the record when relevant
-14. surface review, inspection, or correction when appropriate
+4. activate the relevant projection or projections for the turn
+5. run **candidate adjudication** when the turn needs bounded selection or ranking
+6. run **grounded observation extraction** when the turn may contain learnable signals
+7. validate and apply **deterministic activation and surfacing policy**
+8. load effective relational values and effective support values
+9. derive stance summary and compile behavior contract
+10. choose interventions
+11. decide whether any loaded pattern or stance explanation should stay silent, get a compact mention, or get a richer explanation
+12. respond or act
+13. record evidence, state updates, and traces through deterministic runtime code
+14. calibrate against the record when relevant
+15. surface review, inspection, or correction when appropriate
 
 ## PRD map
 
 - **PRD #179** — umbrella model and ownership map
-- **PRD #167** — operational support memory and episode evidence foundation
-- **PRD #168** — relational/support registries, behavior compiler, bounded adaptation
-- **PRD #169** — reflection surfaces, review cards, correction controls
-- **PRD #183** — shared `SupportAttempt` -> `OutcomeObservation` -> `LearningCase` foundation and ledger semantics
-- **PRD #184** — support-domain applications of the semantic runtime engine
-- **PRD #185** — shared semantic runtime contract for candidate adjudication and grounded observation extraction
-- **PRD #192** — relational-domain applications of the semantic runtime engine
+- **PRD #183** — current shipped support-domain learning and inspection implementation
+- **PRD #184** — support projection work on the semantic runtime engine
+- **PRD #185** — generic semantic-runtime substrate contract and projection envelope
+- **PRD #192** — relational projection work on the semantic runtime engine
 - **PRD #147** — self-model and personality foundation already completed
 
 ## Current implementation note
@@ -422,17 +448,17 @@ Alfred already has important foundations:
 - always-loaded markdown context files
 - persistent memories
 - searchable session archive
-- typed episodes and evidence refs
+- typed support and operational memory
 - life domains, operational arcs, and arc-linked work state
-- derived `ArcSituation` and `GlobalSituation` snapshots
+- derived situation snapshots
 - operational-first support-context helpers for resume, orient, and active-work retrieval
 - self-model and personality work
 
 What is still being formalized here is the next layer:
-- the shared semantic runtime engine
-- support and relational ontologies that plug into that engine
+- the generalized semantic runtime substrate
+- support and relational projections that plug into that substrate
 - behavior compilation
 - bounded calibration surfaces
 - review and correction surfaces
 
-That is the architecture this document is meant to make explicit.
+That is the architecture this document is meant to make explicit at the product/projection level.

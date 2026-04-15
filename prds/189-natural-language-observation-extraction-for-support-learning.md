@@ -1,12 +1,12 @@
 # PRD: Natural-Language Observation Extraction for Support Learning
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#184 Semantic Adjudication Runtime for Support Routing and Learning](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)  
-**Related PRDs**: [#183 Support Learning V2 - Case-Based Adaptation and Full Inspection](./183-support-learning-v2-case-based-adaptation-and-full-inspection.md), [#196 Natural-Language Relational Preference and Boundary Extraction](./196-natural-language-relational-preference-and-boundary-extraction.md)  
-**GitHub Issue**: [#189](https://github.com/jeremysball/alfred/issues/189)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-07  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#184 Support Projection Work on the Semantic Runtime Engine](./184-semantic-adjudication-runtime-for-support-routing-and-learning.md)
+**Related PRDs**: [#183 Support Learning V2 - Case-Based Adaptation and Full Inspection](./183-support-learning-v2-case-based-adaptation-and-full-inspection.md), [#196 Natural-Language Relational Preference and Boundary Extraction](./196-natural-language-relational-preference-and-boundary-extraction.md)
+**GitHub Issue**: [#189](https://github.com/jeremysball/alfred/issues/189)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-07
 **Author**: Agent
 
 ---
@@ -17,7 +17,7 @@ Alfred still lacks a principled support-domain path for extracting grounded obse
 
 Today, the system has:
 - explicit structured correction flows in `/support`
-- deterministic and operational evidence in the shared PRD #183 learning foundation
+- deterministic and operational evidence in current support-domain implementation paths
 - no strong general path for extracting grounded support observations from ordinary natural language
 
 That creates five problems:
@@ -33,9 +33,9 @@ That creates five problems:
    - Support-domain observation extraction should not become its own architecture.
    - It should be one application of the shared semantic runtime engine.
 
-4. **The current learning model needs richer evidence inputs**
-   - PRD #183 already moves Alfred toward attempt, observation, and case-based learning.
-   - That learning model needs a grounded conversational evidence source.
+4. **The current support projection needs richer evidence inputs**
+   - the current repo already persists support-domain adaptive artifacts and inspection data
+   - that implementation needs a grounded conversational evidence source without becoming the architecture
 
 5. **Without deterministic safeguards, extraction would be too risky**
    - Alfred should not silently promote ungrounded claims about the user.
@@ -48,8 +48,9 @@ That creates five problems:
 1. Apply the shared grounded observation-extraction primitive to support-domain observations.
 2. Keep the support observation ontology small, typed, and inspectable.
 3. Require quote grounding and deterministic validation.
-4. Feed grounded support observations into the shared attempt / observation / case model from PRD #183.
-5. Preserve explicit `/support` correction commands as a distinct direct-control path.
+4. Feed grounded support observations into the generalized semantic-runtime evidence path, with explicit compatibility for current support-domain implementation seams where needed.
+5. Treat language-level helpfulness, misunderstanding, and progress/friction cues as **semantic outcome signals** extracted through this observation lane, not as direct durable outcomes.
+6. Preserve explicit `/support` correction commands as a distinct direct-control path.
 
 ---
 
@@ -60,7 +61,7 @@ That creates five problems:
 - Using phrase families or lexical parsing as the main extraction method.
 - Replacing structured operational evidence such as blocker or task changes.
 - Flattening relational-specific observations into vague generic labels when PRD #196 needs sharper typed semantics.
-- Building the full case-based promotion engine here; that remains in PRD #183.
+- Building the full deterministic promotion or durable-state-update engine here; that remains outside this extractor PRD.
 
 ---
 
@@ -125,7 +126,7 @@ It does not decide:
 - whether a case is promotable
 - whether an observation should immediately change runtime behavior
 
-Those decisions stay in deterministic learning and activation logic under PRD #183 and the consuming runtime seams.
+Those decisions stay in deterministic activation and durable-state logic outside the extractor itself, using the shared substrate contract and any current support-domain compatibility seams required by the repo.
 
 ### 4.5 Preserve structured operational evidence as a separate lane
 
@@ -137,9 +138,17 @@ Operational changes such as:
 
 should still come from structured state and event logic, not NLP extraction.
 
-The learning model should combine:
-- conversational observations from this PRD
-- structured operational evidence from PRD #183
+Language-level outcome cues such as:
+- "this helped"
+- "no, that's not it"
+- "I get it now"
+- "this is making it murkier"
+
+may be extracted here as **semantic outcome signals** when they are quote-grounded and schema-valid.
+
+The runtime should combine:
+- conversational observations from this PRD, including semantic outcome signals expressed in language
+- structured operational evidence from deterministic support-domain state changes
 
 ### 4.6 Preserve explicit user control
 
@@ -156,7 +165,7 @@ That includes:
 - the shared support observation schema discipline
 - quote grounding
 - deterministic validation
-- handoff into the learning pipeline from PRD #183
+- handoff into deterministic runtime evidence/update paths, including current support-domain compatibility seams where necessary
 
 PRD #196 owns the relational-specific observation vocabulary and its relational runtime meaning.
 
@@ -187,7 +196,8 @@ And Alfred should be able to extract grounded support observations without relyi
 - [ ] The extractor uses a closed support observation ontology.
 - [ ] Quote grounding and deterministic validation reject malformed output.
 - [ ] Explicit `/support` actions remain distinct direct-control paths.
-- [ ] The learning pipeline can consume extracted observations without letting the extractor own promotion decisions.
+- [ ] Deterministic runtime evidence/update paths can consume extracted observations without letting the extractor own promotion decisions.
+- [ ] Structured operational outcomes remain deterministic while language-level outcome signals are extracted as grounded observations.
 - [ ] The boundary between broad support extraction and relational-specific extraction stays explicit and compatible with PRD #196.
 
 ---
@@ -204,10 +214,10 @@ Run the bounded extractor on relevant turns and validate the outputs.
 
 Validation: valid observations are accepted and malformed ones are dropped.
 
-### Milestone 3: Connect extracted observations to the learning pipeline
-Make extracted observations available to the shared attempt / observation / case model or its interim handoff boundary.
+### Milestone 3: Connect extracted observations to deterministic evidence/update paths
+Make extracted observations available to the generalized semantic-runtime evidence/update path or any explicit temporary compatibility boundary required by the current repo.
 
-Validation: observations can be persisted or handed off without bypassing deterministic learning rules.
+Validation: observations can be persisted or handed off without bypassing deterministic activation or durable-state rules.
 
 ### Milestone 4: Align docs and inspection text
 Update docs and support-inspection language so the extraction path is described truthfully.

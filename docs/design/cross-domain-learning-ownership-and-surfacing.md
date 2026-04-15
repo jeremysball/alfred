@@ -13,7 +13,7 @@ We want Alfred to learn across domains (operational support, relational support,
 
 The core move is:
 
-1. **Shared learning substrate** (grounded evidence → attempts/observations → cases)
+1. **Shared semantic substrate** (grounded evidence → bounded observations/traces → deterministic state updates)
 2. **Separate domain symbolic worlds** (operational model vs relational model: different objects, validators, promotion rules)
 3. **A coordination layer** for:
    - cross-domain identity linking
@@ -68,11 +68,15 @@ Invariants:
 - evidence must have real session/message refs (no fabricated placeholders)
 - quotes must be exact substrings of source messages
 
-### 2.2 Attempts → observations → cases
-We want one shared lifecycle (as in PRD #183):
-- `SupportAttempt`: what Alfred tried
-- `OutcomeObservation`: what happened after
-- `LearningCase`: the join of attempt + observations + operational transitions
+### 2.2 Grounded observations and deterministic state updates
+We want one shared lifecycle at the substrate level:
+- **interaction/runtime traces**: what happened in context
+- **grounded observations**: what signal or evidence was extracted or observed
+- **deterministic state updates**: validated changes or learned-state candidates produced by code-owned policy
+
+Current repo note:
+- PRD #183 ships one support-domain implementation of this lifecycle
+- those support-specific records are migration constraints, not the generalized architecture
 
 Invariants:
 - extractors emit observations; **they do not promote** values/patterns directly
@@ -297,7 +301,9 @@ Undo:
 This doc is intended to align and de-conflict these PRDs (not replace them):
 
 Shared substrate:
-- PRD #183 (attempt → observation → case)
+- Architecture doc: `docs/architecture/semantic-runtime-engine.md`
+- PRD #185 (generic substrate contract)
+- PRD #183 (current support-domain implementation constraint, not the shared architecture)
 
 Operational symbolic world + surfacing:
 - PRD #190 (pattern surfacing adjudication)

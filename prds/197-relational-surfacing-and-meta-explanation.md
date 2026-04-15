@@ -1,11 +1,11 @@
 # PRD: Relational Surfacing and Meta-Explanation
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
-**GitHub Issue**: [#197](https://github.com/jeremysball/alfred/issues/197)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-09  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#192 Relational Projection Work on the Semantic Runtime Engine](./192-relational-runtime-semantics-and-stance-adjudication.md)
+**GitHub Issue**: [#197](https://github.com/jeremysball/alfred/issues/197)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-09
 **Author**: Agent
 
 ---
@@ -276,9 +276,9 @@ Validation should focus on:
 
 ## 11. Related PRDs
 
-- PRD #185: Shared Semantic Adjudication Contract and Symbolic Runtime Inputs
+- PRD #185: Generalized Semantic Runtime Substrate Contract and Ontology Projection Envelope
 - PRD #190: Semantic Pattern Surfacing and Reflection Guidance
-- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #192: Relational Projection Work on the Semantic Runtime Engine
 - PRD #195: Semantic Relational Stance Adjudication
 - PRD #196: Natural-Language Relational Preference and Boundary Extraction
 

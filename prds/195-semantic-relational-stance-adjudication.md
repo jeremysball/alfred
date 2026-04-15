@@ -1,11 +1,11 @@
 # PRD: Semantic Relational Stance Adjudication
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
-**GitHub Issue**: [#195](https://github.com/jeremysball/alfred/issues/195)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-09  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#192 Relational Projection Work on the Semantic Runtime Engine](./192-relational-runtime-semantics-and-stance-adjudication.md)
+**GitHub Issue**: [#195](https://github.com/jeremysball/alfred/issues/195)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-09
 **Author**: Agent
 
 ---
@@ -55,7 +55,7 @@ This PRD applies the shared **candidate adjudication** primitive to bounded stan
 3. Prefer small validated deltas over unconstrained full rewrites.
 4. Keep scope resolution, persistence, and activation deterministic.
 5. Make the per-turn stance seam inspectable and fallback-safe.
-6. Preserve one shared learning path with PRD #183.
+6. Keep per-turn stance adjustment compatible with generalized deterministic evidence/update paths rather than hard-coding it to today's support-domain implementation.
 
 ---
 
@@ -75,7 +75,7 @@ This PRD applies the shared **candidate adjudication** primitive to bounded stan
 
 Before any per-turn adjudication, runtime should load the deterministic relational baseline from:
 - active relational values by scope precedence
-- active relational patterns allowed by the shared ledger rules in PRD #183
+- active relational patterns or projected state made available through deterministic runtime loading
 - support need and response-mode baseline policy
 - validated runtime constraints from the compiler contract in PRD #193
 
@@ -140,8 +140,8 @@ Important rule:
 
 Instead:
 - runtime may use the delta for this turn
-- the attempt and later observations may show whether the shift helped
-- repeated successful shifts may later influence active state through PRD #183
+- later evidence may show whether the shift helped
+- repeated successful shifts may later influence active state through generalized deterministic update paths
 
 This keeps the learning boundary clean.
 
@@ -162,7 +162,7 @@ Once output is validated, code should:
 - apply the deltas in a stable order
 - produce the effective relational values for the turn
 - feed the result into the compiler from PRD #193
-- record the effective values in the attempt record from PRD #183
+- record the effective values in whatever deterministic turn trace or projected-state record the runtime uses at that point in the migration
 
 The LLM does not own:
 - scope precedence
@@ -215,7 +215,7 @@ Representative experiences:
 - [ ] Per-turn stance adjustment happens through bounded deltas, not full rewrites.
 - [ ] Output is validated strictly and falls back safely to baseline.
 - [ ] Effective turn-level stance can differ from active learned state without mutating it directly.
-- [ ] Attempts record the effective relational values that were actually used.
+- [ ] Deterministic turn traces or projected-state records capture the effective relational values that were actually used.
 
 ---
 
@@ -231,10 +231,10 @@ Run the stance adjudicator after baseline loading and live relational-state asse
 
 Validation: runtime can produce validated effective relational values per turn.
 
-### Milestone 3: Connect the effective values to the compiler and attempt record
+### Milestone 3: Connect the effective values to the compiler and deterministic turn tracing
 Feed accepted adjustments into the compiled relational contract and store what was actually used.
 
-Validation: compiler and attempt recording reflect turn-level effective values, not only baseline state.
+Validation: compiler and deterministic turn tracing reflect turn-level effective values, not only baseline state.
 
 ### Milestone 4: Add targeted tests and observability
 Cover no-change, valid adjustment, over-selection, invalid dimension, invalid value, and fallback cases.
@@ -269,7 +269,7 @@ docs/how-alfred-helps.md
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | The adjudicator becomes too freeform and rewrites everything | High | use bounded deltas with strict max counts and fallback to baseline |
-| The runtime confuses per-turn stance shifts with learned preference | High | keep persistence and activation in PRD #183 only |
+| The runtime confuses per-turn stance shifts with learned preference | High | keep persistence and durable activation outside this PRD and behind deterministic substrate-managed update paths |
 | Even bounded deltas feel random to users | Medium | make baseline loading deterministic and keep observability explicit |
 | Large shifts are sometimes needed but blocked | Medium | start with bounded deltas, then relax carefully only if evidence shows the cap is too strict |
 
@@ -284,16 +284,15 @@ Validation should focus on:
 - bounded-delta validation and fallback
 - separation between runtime adjustment and durable learning
 - compiler integration
-- attempt recording of effective values
+- deterministic turn-trace recording of effective values
 
 ---
 
 ## 11. Related PRDs
 
-- PRD #183: Support Learning V2 - Case-Based Adaptation and Full Inspection
 - PRD #193: Product-Owned Relational Semantics and Compiler Contract
 - PRD #194: Semantic Relational-State Adjudication for Live Turns
-- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #192: Relational Projection Work on the Semantic Runtime Engine
 - PRD #197: Relational Surfacing and Meta-Explanation
 
 ---

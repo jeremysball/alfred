@@ -1,11 +1,11 @@
 # PRD: Natural-Language Relational Preference and Boundary Extraction
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
-**GitHub Issue**: [#196](https://github.com/jeremysball/alfred/issues/196)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-09  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#192 Relational Projection Work on the Semantic Runtime Engine](./192-relational-runtime-semantics-and-stance-adjudication.md)
+**GitHub Issue**: [#196](https://github.com/jeremysball/alfred/issues/196)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-09
 **Author**: Agent
 
 ---
@@ -37,9 +37,9 @@ That creates five problems:
 4. **Prompt-only interpretation is too mushy**
    - If Alfred only “kind of gets the vibe,” the runtime will drift instead of learning grounded, corrigible preferences.
 
-5. **These signals should feed the shared learning model without bypassing it**
-   - Relational extraction should create grounded observations.
-   - It should not become a hidden direct-promotion engine.
+5. **These signals should feed deterministic runtime evidence/update paths without bypassing them**
+   - relational extraction should create grounded observations
+   - it should not become a hidden direct-promotion engine
 
 ---
 
@@ -48,8 +48,9 @@ That creates five problems:
 1. Apply the shared grounded observation-extraction primitive to relational observations from ordinary language.
 2. Keep the relational observation ontology small, typed, and inspectable.
 3. Require quote grounding and deterministic validation.
-4. Feed validated relational observations into the shared learning model from PRD #183.
-5. Preserve explicit support-control commands as stronger direct-control paths.
+4. Feed validated relational observations into the generalized semantic-runtime evidence/update path, with explicit compatibility for current repo seams where needed.
+5. Treat language-level stance feedback, rupture, repair, and relational friction/helpfulness cues as semantic outcome signals extracted through this observation lane, not as direct durable outcomes.
+6. Preserve explicit support-control commands as stronger direct-control paths.
 
 ---
 
@@ -153,17 +154,19 @@ Required safeguards:
 - confidence must be numeric and bounded if present
 - invalid observations are discarded
 
-### 4.5 Preserve the shared learning boundary
+### 4.5 Preserve the deterministic evidence/update boundary
 
 The extractor only emits grounded observations.
+That includes relationally meaningful **semantic outcome signals** expressed in language, such as stance feedback, rupture, repair, or "that helped / that landed wrong" style signals.
 
 It does **not** decide:
 - whether a relational value becomes active
 - whether a pattern is confirmed
 - whether a case is promotable
 - whether a stance boundary outranks an existing value
+- whether a semantic outcome signal counts as a final durable outcome
 
-Those decisions remain in deterministic learning and status logic under PRD #183.
+Those decisions remain in deterministic activation, durable-state, and inspection logic outside the extractor itself, using the shared substrate contract and any explicit compatibility seams the current repo still needs.
 
 ### 4.6 Keep explicit support controls stronger
 
@@ -215,7 +218,8 @@ And Alfred should be able to turn those into grounded relational observations ra
 - [ ] The relational observation ontology remains small and typed.
 - [ ] Quote grounding and deterministic validation reject malformed output.
 - [ ] Explicit support-control actions remain stronger than extracted observations.
-- [ ] Extracted observations feed the shared learning path without becoming a hidden promotion engine.
+- [ ] Extracted observations feed deterministic runtime evidence/update paths without becoming a hidden promotion engine.
+- [ ] Language-level relational outcome signals stay grounded observations until deterministic policy interprets them.
 
 ---
 
@@ -231,10 +235,10 @@ Run the bounded extractor on relevant turns and validate outputs.
 
 Validation: valid observations are accepted and malformed ones are dropped.
 
-### Milestone 3: Connect observations to the shared learning model
-Feed relational observations into attempts, observations, cases, or the interim handoff boundary without bypassing deterministic learning rules.
+### Milestone 3: Connect observations to deterministic evidence/update paths
+Feed relational observations into the generalized semantic-runtime evidence/update path or any explicit temporary compatibility boundary required by the current repo, without bypassing deterministic runtime rules.
 
-Validation: relational observations can influence later learning and inspection safely.
+Validation: relational observations can influence later state and inspection safely.
 
 ### Milestone 4: Add targeted tests and inspection support
 Cover preference, boundary, feedback, rupture, and invalid-output cases.
@@ -285,15 +289,14 @@ Validation should focus on:
 - target validation
 - zero-observation safety
 - separation between extraction and promotion
-- inspection traceability through the shared learning model
+- inspection traceability through deterministic runtime evidence/update paths
 
 ---
 
 ## 11. Related PRDs
 
-- PRD #183: Support Learning V2 - Case-Based Adaptation and Full Inspection
 - PRD #189: Natural-Language Observation Extraction for Support Learning
-- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #192: Relational Projection Work on the Semantic Runtime Engine
 - PRD #197: Relational Surfacing and Meta-Explanation
 
 ---
@@ -304,5 +307,5 @@ Validation should focus on:
 |------|----------|-----------|
 | 2026-04-09 | Create a dedicated relational observation extraction PRD instead of folding everything into the generic support extractor | Relational preferences and boundaries are high-impact enough to deserve an explicit ontology |
 | 2026-04-09 | Keep the relational observation ontology small and typed | The runtime needs reliable, inspectable signals rather than broad interpretive freedom |
-| 2026-04-09 | Extracted relational observations feed the shared learning model but do not promote directly | The learning and status boundary should remain deterministic |
+| 2026-04-09 | Extracted relational observations feed deterministic runtime evidence/update paths but do not promote directly | Activation and durable-state boundaries should remain deterministic |
 | 2026-04-09 | Explicit support-control actions remain stronger than extracted observations | Users need a direct correction and override path that outranks inference |

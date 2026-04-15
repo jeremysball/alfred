@@ -258,42 +258,47 @@ flowchart LR
     feedback[User corrections / feedback / support controls<br>Current foundation]
     transitions[Operational transitions<br>Current foundation]
 
-    subgraph substrate[Shared evidence substrate]
-        attempt[SupportAttempt<br>Current foundation]
-        observation[OutcomeObservation<br>Planned richer extraction]
-        lcase[LearningCase<br>Planned case-based core]
+    subgraph substrate[Generalized semantic substrate]
+        traces[Interaction / runtime traces<br>Current + planned generalization]
+        observations[Grounded observations<br>Planned generalized substrate]
+        updates[Deterministic state updates / learned-state candidates<br>Planned generalized substrate]
     end
 
-    subgraph models[Symbolic models]
-        operational[Operational symbolic world<br>Current foundation + planned richer patterns]
-        relational[Relational symbolic world<br>Current foundation + planned richer stance semantics]
+    subgraph models[Projected ontologies]
+        operational[Operational projection<br>Current foundation + planned richer patterns]
+        relational[Relational projection<br>Current foundation + planned richer stance semantics]
+        future[Future projections<br>Open-ended]
         handles[Cross-domain handles / ownership / dedupe<br>Planned]
     end
 
     subgraph outputs[User-visible and runtime outputs]
-        values[Scoped support/relational values<br>Current]
+        values[Scoped projection values / projected state<br>Current]
         review[Review cards / inspection / correction<br>Current foundation + planned expansion]
         runtime[Effective runtime contract<br>Current]
     end
 
-    transcript --> attempt
-    toolprov --> attempt
-    feedback --> observation
-    transitions --> observation
-    attempt --> lcase
-    observation --> lcase
+    transcript --> traces
+    toolprov --> traces
+    feedback --> observations
+    transitions --> observations
+    traces --> updates
+    observations --> updates
 
-    lcase --> operational
-    lcase --> relational
+    updates --> operational
+    updates --> relational
+    updates --> future
     operational -. planned shared identity layer .-> handles
     relational -. planned shared identity layer .-> handles
+    future -. planned shared identity layer .-> handles
 
     operational --> values
     relational --> values
+    future --> values
     values --> runtime
     handles --> review
     operational --> review
     relational --> review
+    future --> review
 ```
 
 ## 7. Current storage architecture

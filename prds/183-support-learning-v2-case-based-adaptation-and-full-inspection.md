@@ -1,13 +1,16 @@
 # PRD: Support Learning V2 Foundation - Case-Based Adaptation and `/context` Ledger Inspection
 
-**GitHub Issue**: [#183](https://github.com/jeremysball/alfred/issues/183)  
-**Priority**: High  
-**Status**: Complete (rescoped foundation slice)  
-**Created**: 2026-04-07  
-**Completed**: 2026-04-10  
+**Architecture Context**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**GitHub Issue**: [#183](https://github.com/jeremysball/alfred/issues/183)
+**Priority**: High
+**Status**: Complete (rescoped foundation slice)
+**Created**: 2026-04-07
+**Completed**: 2026-04-10
 **Author**: Agent
 
 > Completion note: On 2026-04-10 this PRD was rescoped to match the shipped foundation slice. Broader scope generalization, demotion/retirement, pattern-ledger inference, semantic observation extraction, and full `/support` ledger inspection were explicitly moved to follow-on PRDs rather than left as silent incomplete scope.
+>
+> Architecture note: This PRD describes a shipped **support-domain implementation slice**. Its `SupportAttempt` / `OutcomeObservation` / `LearningCase` artifacts are current support-specific implementation details, not the generalized semantic-runtime substrate architecture.
 
 ---
 
@@ -412,9 +415,10 @@ Representative dimensions:
 Relational values may also auto-activate when evidence is strong enough.
 
 Boundary note:
-- this PRD owns the shared ledger, status, promotion, activation, and inspection rules for relational values
+- this PRD owns the **current shipped support-domain implementation** for ledger/status/promotion/activation/inspection behavior that presently touches some relational values
+- it does **not** define the generalized semantic-runtime substrate
 - it does **not** own the product meaning of relational dimensions or how they compile into live stance behavior
-- PRD #192 owns the relational runtime architecture, and PRD #193 owns the product semantics and compiler contract for dimensions such as `candor`, `challenge`, and `warmth`
+- PRD #192 owns the relational projection architecture, and PRD #193 owns the product semantics and compiler contract for dimensions such as `candor`, `challenge`, and `warmth`
 - the list below is illustrative and should stay generic unless a child relational PRD explicitly owns the behavioral meaning
 
 Representative dimensions:
@@ -646,13 +650,13 @@ This PRD is successful when:
 
 ## 8. Milestones
 
-- [x] **Milestone 1: V2 learning schema and storage contract landed**  
+- [x] **Milestone 1: V2 learning schema and storage contract landed**
       Add the new attempt, observation, case, value-status, pattern-status, and update-event structures with explicit persistence invariants.
 
-- [x] **Milestone 2: Reply-time runtime writes `SupportAttempt` records with real refs**  
+- [x] **Milestone 2: Reply-time runtime writes `SupportAttempt` records with real refs**
       Alfred persists what it tried using real session and message references and never falls back to fake runtime ids.
 
-- [x] **Milestone 3: Outcome observation pipeline captures operational evidence**  
+- [x] **Milestone 3: Outcome observation pipeline captures operational evidence**
       Alfred records post-reply outcome observations from work-state transitions.
 
       Note: conversational / semantic observation extraction (explicit feedback, next-turn signals, etc.) is out-of-scope for PRD #183 and owned by **PRD #189**.
@@ -660,7 +664,7 @@ This PRD is successful when:
       Sub-milestones:
       - [x] **Milestone 3A:** Deterministic `work_state_transition` observations from public SQLite work-state seams, linked to the latest matching `SupportAttempt` by `active_arc_id`.
 
-- [x] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**  
+- [x] **Milestone 4: Case finalization and scoring replace turn-centric promotion logic**
       Alfred finalizes and scores `LearningCase` records from stored attempts plus observations, and the runtime uses those cases as the primary learning unit.
 
       Sub-milestones:
@@ -671,14 +675,14 @@ This PRD is successful when:
             - [x] **Milestone 4B.2:** Remove or fully retire turn-centric bounded adaptation (`LearningSituation`) so case-derived learning is the primary driver.
             - [x] **Milestone 4B.3:** Apply v2 case-learning automatically from operational observations (work-state transitions).
 
-- [x] **Milestone 5: Exact-scope value-ledger adaptation ships for support and relational values**  
+- [x] **Milestone 5: Exact-scope value-ledger adaptation ships for support and relational values**
       Arc- and context-scoped learning uses lower deterministic thresholds, contradiction tracking, and explicit auto-activation rules.
 
       Sub-milestones:
       - [x] **Milestone 5A:** Case-based v2 value-ledger promotion (support + relational), exact-scope only (`arc` / `context`), persisting below-threshold evidence as `shadow` and promoting to `active_auto` when thresholds are met.
       - [x] **Milestone 5B:** Broader scope generalization, demotion/retirement, and pattern-ledger inference explicitly deferred to follow-on PRDs rather than blocking the foundation cut.
 
-- [x] **Milestone 6: `/context` inspection surfaces ship across TUI and Web UI**  
+- [x] **Milestone 6: `/context` inspection surfaces ship across TUI and Web UI**
       Users can inspect active values, v2 ledger entries, summaries, and recent update events through shared `/context` learned-state payloads.
 
       Sub-milestones:
@@ -690,7 +694,7 @@ This PRD is successful when:
             - [x] **Milestone 6A.2c (Web UI):** `context-viewer` renders the v2 value ledger and is covered by a Playwright browser test.
       - [x] **Milestone 6B:** Full `/support` inspection parity is explicitly deferred out of this PRD's completion slice.
 
-- [x] **Milestone 7: Legacy turn-centric learning path is removed and shipped docs are aligned**  
+- [x] **Milestone 7: Legacy turn-centric learning path is removed and shipped docs are aligned**
       Dead v1 bounded-adaptation runtime paths are retired, and docs, tests, and payload contracts describe the shipped v2 foundation slice.
 
 ---
@@ -787,7 +791,7 @@ Additional required verification for this PRD:
 - PRD #179: Relational Support Operating Model
 - PRD #189: Natural-Language Observation Extraction for Support Learning
 - PRD #190: Semantic Pattern Surfacing and Reflection Guidance
-- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #192: Relational Projection Work on the Semantic Runtime Engine
 - PRD #193: Product-Owned Relational Semantics and Compiler Contract
 - PRD #194: Semantic Relational-State Adjudication for Live Turns
 - PRD #195: Semantic Relational Stance Adjudication
@@ -805,7 +809,7 @@ Additional required verification for this PRD:
 | 2026-04-07 | Alfred should learn from blockers, tasks, decisions, open loops, and arc transitions directly | Operational state should be first-class learning evidence, not only background context |
 | 2026-04-07 | Alfred should be less conservative about what it learns and when it activates it | The user prefers a more adaptive and somewhat overzealous system that can be inspected and corrected later |
 | 2026-04-07 | Both support values and relational values may auto-activate when evidence is strong enough | The user explicitly prefers a less conservative adaptation model, including relational stance changes |
-| 2026-04-09 | PRD #183 owns relational value ledger and activation semantics, not relational dimension meaning or live stance behavior | This keeps the shared learning architecture in #183 while deferring relational runtime semantics to PRDs #192 and #193 |
+| 2026-04-09 | PRD #183 owns current shipped support-domain ledger and activation behavior touching relational values, not relational dimension meaning or generalized substrate design | This keeps current implementation reality in #183 while deferring relational projection semantics to PRDs #192 and #193 and preserving room for a generalized substrate later |
 | 2026-04-09 | Work-state transition observations should trigger case finalization + v2 ledger updates in the same SQLite transaction | This makes the v2 learning pipeline run end-to-end deterministically from operational evidence without cross-connection visibility bugs |
 | 2026-04-07 | Visibility and correction are the main safety boundary for aggressive learning | The user wants Alfred to learn more, provided the system can be interrogated and changed |
 | 2026-04-07 | `/context` should show effective runtime state, while `/support` must be able to show all values and traces | Compact active-state inspection and full-ledger inspection serve different jobs |

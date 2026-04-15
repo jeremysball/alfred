@@ -1,17 +1,20 @@
-# PRD: Relational Runtime Semantics and Stance Adjudication
+# PRD: Relational Projection Work on the Semantic Runtime Engine
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**GitHub Issue**: [#192](https://github.com/jeremysball/alfred/issues/192)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-09  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Shared Contract PRD**: [#185 Generalized Semantic Runtime Substrate Contract and Ontology Projection Envelope](./185-shared-semantic-adjudication-contract-and-symbolic-runtime-inputs.md)
+**GitHub Issue**: [#192](https://github.com/jeremysball/alfred/issues/192)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-09
 **Author**: Agent
+
+> This PRD is a projection-planning doc downstream of the architecture doc. It does not own the shared substrate design.
 
 ---
 
 ## 1. Problem Statement
 
-Alfred's recent support-runtime PRDs sharpen the architecture for support routing, case-based learning, and inspection. The relational layer still lags behind that design quality.
+Alfred's recent support-runtime work sharpened the architecture for bounded semantic judgment, but the relational projection still lags behind that design quality.
 
 Today, important relational behavior still depends too much on:
 - prompt voice and template prose
@@ -23,57 +26,56 @@ Today, important relational behavior still depends too much on:
 That creates six problems:
 
 1. **Relational semantics are still too implicit**
-   - Alfred has relational dimensions such as `candor`, `companionship`, and `authority`.
-   - The product does not yet define those dimensions crisply enough as runtime behavior.
+   - Alfred has relational dimensions such as `candor`, `companionship`, and `authority`
+   - the product does not yet define those dimensions crisply enough as runtime behavior
 
-2. **The live relational moment lacks a bounded semantic seam**
-   - The runtime needs to judge things like fragility, invitation for directness, steadiness needs, rupture risk, and openness to challenge.
-   - Thin transient flags and hand-written adjustments are not enough for that job.
+2. **The live relational moment lacks bounded semantic seams**
+   - the runtime needs to judge fragility, invitation for directness, steadiness needs, rupture risk, and openness to challenge
+   - thin transient flags and hand-written adjustments are not enough for that job
 
-3. **Stance selection is still too default-driven**
-   - Alfred is meant to shift gracefully among friend, peer, mentor, coach, and analyst positions without becoming crude persona modes.
-   - Right now, stance selection still depends too heavily on defaults, scoped values, and pattern overrides rather than bounded semantic judgment.
+3. **Relational work can drift into shared-architecture language**
+   - relational semantics are an important projection, not a second engine
+   - this PRD should describe relational projection behavior, not redefine the substrate
 
-4. **Relational learning signals are underpowered**
-   - Users express relational preferences and boundaries in ordinary language.
-   - Alfred still lacks a dedicated, grounded path for extracting those signals as first-class relational observations.
+4. **Prompt-only relational interpretation is too mushy**
+   - without bounded projection seams, relational behavior drifts into vibe rather than inspectable runtime logic
 
-5. **Relational explanation is underdesigned**
-   - Alfred needs a principled answer to questions like “why are you being more direct right now?”
-   - The runtime does not yet have a bounded seam for deciding when to keep a stance shift implicit and when to explain it.
+5. **Current support-domain implementation details are the wrong shared foundation**
+   - the repo currently ships support-domain learning and inspection behavior through PRD #183
+   - relational work should respect that current reality without treating support-specific nouns as universal architecture
 
-6. **The relational layer should reuse the shared semantic engine, not invent another one**
-   - The relational work should be a domain ontology plugged into the same engine as support semantics.
-   - It should not become a second parallel semantic runtime.
+6. **The relational layer should reuse the generalized substrate, not invent another one**
+   - relational work should plug into the same substrate as support and future projections
+   - it should not become a second semantic runtime
 
 ---
 
 ## 2. Goals
 
-1. Frame the relational layer as relational-domain applications of the shared semantic runtime engine.
-2. Keep one shared learning, ledger, and inspection model with PRD #183 rather than creating a second relational learning system.
-3. Use bounded candidate adjudication where the job is relational selection, ranking, or delta choice.
-4. Use grounded observation extraction where the job is relational preference, boundary, feedback, or rupture extraction.
-5. Define product-owned relational semantics that cash out into concrete compiler behavior.
-6. Keep embeddings focused on retrieval, shortlist generation, and similar-case recall rather than final relational judgment.
-7. Keep docs, prompts, inspection text, and runtime behavior aligned.
+1. Frame the relational layer as a relational projection on the shared semantic runtime engine.
+2. Use bounded candidate adjudication where the job is relational selection, ranking, or delta choice.
+3. Use grounded observation extraction where the job is relational preference, boundary, feedback, or rupture extraction.
+4. Define product-owned relational semantics that cash out into concrete compiler behavior.
+5. Keep embeddings focused on retrieval, shortlist generation, and similar-case recall rather than final relational judgment.
+6. Keep docs, prompts, inspection text, and runtime behavior aligned.
+7. Keep the relational projection compatible with the current repo without hard-coding itself to today's support-shaped implementation artifacts.
 
 ---
 
 ## 3. Non-Goals
 
 - Creating separate hard-coded personas for friend, peer, mentor, coach, or analyst.
-- Building a separate relational learning ledger outside PRD #183.
+- Building a second semantic engine for relational behavior.
 - Letting the LLM write directly to persistence or status transitions.
 - Turning Alfred into an unbounded therapy-theater runtime.
-- Replacing support-domain PRDs with relational work.
-- Preserving current heuristic seams long-term when a bounded adjudicated seam supersedes them.
+- Treating current support-domain implementation artifacts as the target cross-domain substrate.
+- Preserving current heuristic seams long-term when bounded adjudicated seams supersede them.
 
 ---
 
 ## 4. Proposed Solution
 
-### 4.1 Treat the relational layer as a domain plugged into the shared engine
+### 4.1 Treat the relational layer as one projection plugged into the shared engine
 
 The relational layer should reuse the same three abstractions described in `docs/architecture/semantic-runtime-engine.md`:
 
@@ -81,10 +83,10 @@ The relational layer should reuse the same three abstractions described in `docs
 2. **grounded observation extraction**
 3. **deterministic activation and surfacing policy**
 
-This parent PRD mainly owns the first and second abstractions for relational-domain seams.
-The third abstraction remains code-owned and shared with PRD #183 and the consuming runtime seams.
+This PRD owns the relational projection's use of those abstractions.
+It does **not** own the shared substrate contract.
 
-### 4.2 Use the same responsibility split as the support-domain work
+### 4.2 Use the same responsibility split as the support projection work
 
 Adopt this split for relational-runtime interpretation work:
 
@@ -111,13 +113,12 @@ Adopt this split for relational-runtime interpretation work:
   - compiler execution
   - validation and fallback
   - persistence
-  - status mutation
   - inspection payloads
   - explanation thresholds
 
 ### 4.3 Child PRD map
 
-This parent PRD governs the following relational-domain applications of the shared engine:
+This PRD governs the following relational projection work:
 
 - **PRD #193 — Product-Owned Relational Semantics and Compiler Contract**
   - define what each relational dimension means behaviorally
@@ -135,18 +136,17 @@ This parent PRD governs the following relational-domain applications of the shar
 - **PRD #197 — Relational Surfacing and Meta-Explanation**
   - use candidate adjudication to decide when Alfred should keep the stance implicit, give a compact explanation, or explain a larger shift
 
-Relationship to existing PRDs:
-- **PRD #183** owns the shared learning, case, ledger, and inspection model
-- **PRD #184** owns support-domain applications of the same engine
-- **PRD #185** owns the shared envelope, validation, fallback, and observability model
-- **this PRD** owns the relational-domain semantic applications of that engine
+Boundary rule:
+- the architecture doc owns the shared engine design
+- PRD #185 owns the shared substrate contract
+- this PRD owns relational projection behavior and implementation planning
 
-### 4.4 Keep one shared runtime loop
+### 4.4 Keep one relational runtime loop on top of the substrate
 
 The target runtime loop for relational behavior should be:
 
-1. resolve support need, response mode, and subjects through the support-domain path
-2. load active relational values and active relational patterns through the shared ledger rules from PRD #183
+1. resolve support-side context needed for the turn
+2. load active relational state and relevant projection evidence
 3. build a deterministic relational baseline for the turn
 4. run candidate adjudication when the live relational moment or stance delta needs bounded judgment
 5. run grounded observation extraction when the turn contains relational learning signals
@@ -154,8 +154,8 @@ The target runtime loop for relational behavior should be:
 7. compile the effective relational contract
 8. decide whether the stance should stay implicit or get a compact or richer explanation
 9. respond naturally inside that contract
-10. record attempts, observations, and cases through the shared PRD #183 model
-11. expose active state through `/context` and full ledger / traces through `/support`
+10. persist deterministic traces, evidence, and state updates through runtime code
+11. expose effective state through `/context` and deeper traces through inspection surfaces
 
 ### 4.5 Keep stance selection bounded
 
@@ -165,7 +165,7 @@ Preferred architecture:
 - deterministic code loads the active baseline
 - candidate adjudication may apply **small validated changes** when the moment warrants it
 - code validates those changes and compiles the final contract
-- learning later decides whether repeated successful shifts become active state through PRD #183
+- later adaptive behavior should flow through the generalized substrate rather than through hidden prompt improvisation
 
 This preserves:
 - coherence
@@ -184,22 +184,17 @@ But the system must still support explanation when:
 - a major relational shift materially affects trust
 - a correction or boundary needs explicit acknowledgment
 
-### 4.7 Inspection model
+### 4.7 Keep the current support-domain implementation in its place
 
-Relational work must preserve the split established in PRD #183:
+The repo currently ships support-domain learning and inspection behavior through PRD #183.
+That is a current implementation constraint, not the generalized substrate design.
 
-- **`/context`** shows effective runtime state
-  - active relational values
-  - active source and scope
-  - current effective stance summary or contract summary
-  - recent automatic changes when relevant
+Relational work should therefore:
+- stay compatible with current repo realities where needed
+- avoid treating support-specific record names as universal architecture
+- leave room for generalized substrate records later
 
-- **`/support`** shows the full ledger and trace model
-  - active, shadow, confirmed, rejected, retired values
-  - active, candidate, confirmed, rejected, retired patterns
-  - cases, observations, update events, and provenance
-
-This parent PRD should not introduce a second relational inspection truth.
+If temporary adapters or compatibility layers are needed, they should be explicit.
 
 ---
 
@@ -225,24 +220,23 @@ Representative experiences:
 
 ## 6. Success Criteria
 
-- [ ] Alfred's relational runtime is described as one coherent domain plugged into the shared semantic runtime engine.
+- [ ] Alfred's relational runtime is described as one projection plugged into the shared semantic runtime engine.
 - [ ] Product-owned relational semantics and compiler behavior are specified clearly enough that raw values no longer stand in for behavior.
 - [ ] The live relational moment is handled through bounded candidate adjudication rather than only through fixed transient flags.
 - [ ] Stance selection is based on bounded deltas against a deterministic baseline rather than unconstrained rewrites.
 - [ ] Relational preferences and boundaries can be extracted from ordinary language with grounding and validation.
 - [ ] Alfred can decide when to keep stance implicit and when to explain it through a bounded surfacing seam.
 - [ ] Embeddings remain focused on retrieval and shortlist roles.
-- [ ] PRD #183 remains the single ledger and inspection model for both support and relational learning.
-- [ ] Docs and managed prompts can describe the shipped relational runtime truthfully.
+- [ ] This PRD does not treat support-domain implementation artifacts as the shared architecture.
 
 ---
 
 ## 7. Milestones
 
-### Milestone 1: Align the relational parent with the shared engine
-Document the relational-domain boundary against the shared semantic runtime engine and the shared PRD #183 learning boundary.
+### Milestone 1: Align the relational projection with the shared engine
+Document the relational projection against the architecture doc and shared substrate contract.
 
-Validation: the relational work has one parent model and does not invent a parallel semantic or learning architecture.
+Validation: relational child PRDs inherit one architecture and do not invent a parallel semantic system.
 
 ### Milestone 2: Define product-owned semantics and compiler behavior
 Ship the semantics and compiler contract in PRD #193.
@@ -257,17 +251,12 @@ Validation: Alfred can assess the live relational moment and apply bounded stanc
 ### Milestone 4: Add grounded relational observation extraction
 Ship PRD #196.
 
-Validation: ordinary language can produce relational observations without bypassing deterministic learning rules.
+Validation: ordinary language can produce relational observations without bypassing deterministic runtime rules.
 
-### Milestone 5: Add bounded relational surfacing and explanation
+### Milestone 5: Add relational surfacing and explanation behavior
 Ship PRD #197.
 
-Validation: Alfred can usually keep relational machinery implicit while still explaining stance shifts when appropriate.
-
-### Milestone 6: Align docs, prompts, and inspection surfaces
-Update docs, templates, and inspection payloads so they describe the same runtime.
-
-Validation: docs, prompts, and shipped behavior agree.
+Validation: Alfred can keep stance implicit by default and explain it when trust or user request requires it.
 
 ---
 
@@ -283,17 +272,10 @@ prds/197-relational-surfacing-and-meta-explanation.md
 docs/architecture/semantic-runtime-engine.md
 docs/ARCHITECTURE.md
 docs/relational-support-model.md
-docs/how-alfred-helps.md
-docs/self-model.md
-templates/SYSTEM.md
-templates/prompts/voice.md
 src/alfred/support_policy.py
 src/alfred/support_reflection.py
-src/alfred/memory/support_learning.py
-src/alfred/context_display.py
-src/alfred/interfaces/pypitui/commands/show_context.py
-src/alfred/interfaces/webui/server.py
-src/alfred/interfaces/webui/static/js/components/context-viewer.js
+tests/test_support_policy.py
+tests/test_support_reflection.py
 ```
 
 ---
@@ -302,60 +284,15 @@ src/alfred/interfaces/webui/static/js/components/context-viewer.js
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| The relational layer creates a second semantic or learning system parallel to PRD #183 and PRD #185 | High | keep #183 as the single ledger/status model and #185 as the shared semantic contract |
+| The relational layer creates a second semantic system parallel to the shared substrate | High | keep the engine contract in the architecture doc and PRD #185 |
 | Relational adjudication becomes vague or therapist-like | High | keep the ontology small, outputs closed, and fallbacks explicit |
-| Stance shifts become too freeform and hard to trust | High | use deterministic baselines plus bounded deltas rather than unconstrained rewrites |
-| Meta-explanation becomes over-narration | Medium | keep implicit behavior as the default and make explanation bounded |
-| Prompt docs outrun runtime reality again | High | require docs and prompt alignment as part of completion |
-| Relational extraction duplicates PRD #189 badly | Medium | keep #196 tightly scoped to relational observations while reusing the shared extraction primitive |
+| Prompt vibe keeps overpowering structured relational semantics | High | define compiler behavior and bounded seams explicitly in the child PRDs |
+| Current support-domain implementation details leak upward into relational architecture | Medium | treat them as compatibility constraints, not target design |
 
 ---
 
-## 10. Validation Strategy
+## 10. Open Questions
 
-This PRD is architecture-first and documentation-first.
-
-Validation for the planning pass should focus on:
-- alignment with PRDs #179, #183, #184, and #185
-- clear separation between relational-domain semantics and shared runtime mechanics
-- explicit reuse of the support-runtime taste for bounded adjudication, fallback, and observability
-- clear child-PRD ownership boundaries without overlap-heavy duplication
-
-Implementation work from this parent PRD will likely touch Python and documentation, and may later affect JavaScript inspection surfaces.
-
-Required validation for implementation should therefore include the relevant workflows for touched files.
-
-### Python workflow
-```bash
-uv run ruff check src/
-uv run mypy --strict src/
-uv run pytest <targeted tests for touched support-policy, reflection, learning, and inspection surfaces>
-```
-
-### JavaScript workflow
-```bash
-npm run js:check
-```
-
----
-
-## 11. Related PRDs
-
-- PRD #179: Relational Support Operating Model
-- PRD #183: Support Learning V2 - Case-Based Adaptation and Full Inspection
-- PRD #184: Semantic Adjudication Runtime for Support Routing and Learning
-- PRD #185: Shared Semantic Adjudication Contract and Symbolic Runtime Inputs
-- PRD #189: Natural-Language Observation Extraction for Support Learning
-
----
-
-## 12. Decisions
-
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-04-09 | Frame the relational layer as relational-domain applications of the shared semantic runtime engine | The relational layer needs the same architectural compression and clarity as the support-domain work |
-| 2026-04-09 | Keep one shared learning, ledger, and inspection model with PRD #183 | The relational layer should not create a parallel persistence and status architecture |
-| 2026-04-09 | Use bounded candidate adjudication and grounded observation extraction for relational seams | These are pragmatic semantic jobs, not good fits for raw heuristics or prompt vibes |
-| 2026-04-09 | Keep embeddings focused on retrieval and shortlist roles | The support-domain PRDs already establish this split, and the relational layer should follow it |
-| 2026-04-09 | Prefer bounded stance deltas against a deterministic baseline over full per-turn relational rewrites | This preserves coherence, inspectability, and cleaner learning provenance |
-| 2026-04-09 | Keep relational machinery implicit by default and explain it only when useful or necessary | Alfred should feel natural rather than mechanically narrated |
+1. Which relational moments actually need separate live-state adjudication versus deterministic rules?
+2. How should mixed support+relational turns compose multiple projection seams without bloating prompts?
+3. What compatibility layer, if any, is needed while the repo still uses support-domain implementation records from PRD #183?

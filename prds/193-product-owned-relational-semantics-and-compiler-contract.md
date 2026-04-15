@@ -1,11 +1,11 @@
 # PRD: Product-Owned Relational Semantics and Compiler Contract
 
-**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)  
-**Parent PRD**: [#192 Relational Runtime Semantics and Stance Adjudication](./192-relational-runtime-semantics-and-stance-adjudication.md)  
-**GitHub Issue**: [#193](https://github.com/jeremysball/alfred/issues/193)  
-**Priority**: High  
-**Status**: Draft  
-**Created**: 2026-04-09  
+**Architecture Doc**: [docs/architecture/semantic-runtime-engine.md](../docs/architecture/semantic-runtime-engine.md)
+**Parent PRD**: [#192 Relational Projection Work on the Semantic Runtime Engine](./192-relational-runtime-semantics-and-stance-adjudication.md)
+**GitHub Issue**: [#193](https://github.com/jeremysball/alfred/issues/193)
+**Priority**: High
+**Status**: Draft
+**Created**: 2026-04-09
 **Author**: Agent
 
 ---
@@ -61,7 +61,7 @@ This PRD defines the product-owned semantics and compiler contract consumed by t
 
 - Replacing the relational registry with a smaller one by default.
 - Owning live stance selection or model-facing semantic primitives. Those belong to PRDs #194 and #195 through the shared engine.
-- Owning learning, activation, or status transitions. Those remain in PRD #183.
+- Owning generalized evidence/update, activation, or status-transition mechanics. Those remain outside this compiler PRD and should follow the shared substrate architecture.
 - Letting the model invent new meanings for relational dimensions at runtime.
 - Turning the compiler into a stock phrase generator.
 
@@ -342,7 +342,7 @@ templates/prompts/voice.md
 This PRD is architecture-first and documentation-first.
 
 Validation for the planning pass should focus on:
-- alignment with PRDs #179, #183, and #192
+- alignment with PRDs #179, #185, and #192
 - a concrete enough semantics catalog that later implementation can test real behavior
 - a compiler contract that is richer than the current raw-value surface
 - a clear derivation path from values to stance blend summaries
@@ -354,8 +354,7 @@ Implementation work will likely use the Python workflow and docs-only validation
 ## 11. Related PRDs
 
 - PRD #179: Relational Support Operating Model
-- PRD #183: Support Learning V2 - Case-Based Adaptation and Full Inspection
-- PRD #192: Relational Runtime Semantics and Stance Adjudication
+- PRD #192: Relational Projection Work on the Semantic Runtime Engine
 - PRD #195: Semantic Relational Stance Adjudication
 - PRD #197: Relational Surfacing and Meta-Explanation
 
